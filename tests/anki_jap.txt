@@ -1,0 +1,33 @@
+#separator:tab
+#html:true
+#notetype column:1 
+#tags column:9
+Vocabulaire_japonais	おきる	Se lever (forme neutre)		起きる		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	ねる	Se coucher (forme neutre)		寝る		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	はじまる	Commencer (intransitif) (forme neutre)		始まる		Verbe. Forme dictionnaire.	Le sujet est la chose qui commence.	Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	おわる	Terminer (intransitif) (forme neutre)		終わる		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	あく	S'ouvrir, ouvrir (intransitif) (forme neutre)		開く		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	しまる	Se fermer, fermer (intransitif) (forme neutre)		閉まる		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	やすむ	Se reposer (forme neutre)		休む		Verbe. Forme dictionnaire.	Attention : « いえでやすむ » = Je me repose à la maison.	Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	あそぶ	Jouer, s'amuser (forme neutre)		遊ぶ		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	はたらく	Travailler (forme neutre)		働く		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	でかける	Sortir (en ville, etc.) (forme neutre)		出かける		Verbe. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	みる	Regarder, voir (forme neutre)		見る		Verbe transitif. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	かく	Écrire (forme neutre)		書く		Verbe transitif. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	きく	Écouter (forme neutre)		聞く		Verbe transitif. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	よむ	Lire (forme neutre)		読む		Verbe transitif. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	つくる	Faire, fabriquer (forme neutre)		作る		Verbe transitif. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	はいる	Entrer (dans ...) (forme neutre)		入る		Verbe de mouvement. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	でる	Sortir (de ...) (forme neutre)		出る		Verbe de mouvement. Forme dictionnaire.	Particule を marque le point de départ.	Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	のる	Monter (dans ...) (forme neutre)		乗る		Verbe de transport. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	おりる	Descendre (de ...) (forme neutre)		降りる		Verbe de transport. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	しごとをする	Travailler (Faire un travail) (forme neutre)		仕事をする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	べんきょうをする	Étudier (forme neutre)		勉強をする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	しゅくだいをする	Faire ses devoirs (forme neutre)		しゅくだいをする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	かいものをする	Faire des courses (forme neutre)		かいものをする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	スポーツをする	Faire du sport (forme neutre)		スポーツをする		Katakana + faire. Forme dictionnaire.	Autre terme : 運動 (うんどう) をする.	Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	せんたくをする	Faire la lessive (forme neutre)		せんたくをする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	そうじをする	Faire le ménage, nettoyer (forme neutre)		そうじをする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	りょうりをする	Faire la cuisine (forme neutre)		りょうりをする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	まちあわせをする	Se donner rendez-vous (forme neutre)		まちあわせをする		Nom + faire. Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre
+Vocabulaire_japonais	さんぽする	Se promener (à pied) (forme neutre)		さんぽする		Nom verbal (する directement collé). Forme dictionnaire.		Manuel::Lecon5::Verbes::Neutre

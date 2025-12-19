@@ -1,0 +1,24 @@
+# pyproject.toml
+[project]
+name = "ankiforge"
+version = "0.1.0"
+description = "Générateur de cartes Anki assisté par IA"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyside6>=6.6.0",
+    "peewee>=3.17.0",
+    "jinja2>=3.1.0",
+    "genanki>=0.13.0",
+    "python-dotenv>=1.0.0",
+    "openai>=1.0.0",
+    "pymupdf",
+    # Ajouts futurs : "pymupdf", "python-pptx", "trafilatura"
+    "zstandard>=0.25.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+]
+
+#[build-system]
+#requires = ["hatchling"]
+#build-backend = "hatchling.build"
