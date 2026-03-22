@@ -1,10 +1,20 @@
 # src/database/models.py
-import uuid
 import datetime
+import os
+import uuid
+
 from peewee import *
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Base de données SQLite (fichier local)
-db = SqliteDatabase('ankiforge.db')
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+# 3. On définit le chemin final de la base de données
+DB_PATH = os.path.join(DATA_DIR, 'ankiforge.db')
+
+# Base de données SQLite connectée au bon endroit
+db = SqliteDatabase(DB_PATH)
 
 
 class BaseModel(Model):
@@ -65,6 +75,7 @@ class PromptModel(BaseModel):
     description = TextField(null=True)
     is_active = BooleanField(default=True)
 
+
 class AgentModel(BaseModel):
     """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur)."""
     name = CharField(unique=True)
@@ -96,6 +107,7 @@ class PipelineStepModel(BaseModel):
         indexes = (
             (('pipeline', 'step_order'), True),
         )
+
 
 def init_db():
     db.connect()

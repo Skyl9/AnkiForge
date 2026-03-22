@@ -1,4 +1,48 @@
-/.idea/
-.iml
-.xml
-.Ds_store
+# --- Fichiers de données et bases de données ---
+data/
+*.db
+*.sqlite
+*.sqlite3
+identifier.sqlite
+
+# --- Fichiers Anki ---
+*.apkg
+*.colpkg
+*.anki2
+*.anki21b
+
+# --- Environnement Python & Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# --- Outils de Build et de Packaging ---
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- IDE (PyCharm, VSCode, etc.) ---
+.idea/
+.vscode/
+*.swp
+
+# --- Fichiers système ---
+.DS_Store
+Thumbs.db
+
+# --- Fichiers spécifiques au projet ---
+*.gaphor
