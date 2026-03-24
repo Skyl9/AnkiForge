@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxL
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
                                QAbstractItemView, QComboBox, QScrollArea, QTextEdit)
 
-from src.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel
+from src.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel
 from src.services.cards.export_manager import ExportManager
 from src.services.cards.store_manager import StoreManager
 from src.utils.anki_renderer import render_anki_card
@@ -209,64 +209,85 @@ class EditionTab(QWidget):
             if child.widget():
                 child.widget().deleteLater()
 
-        mode = self.view_mode_cb.currentText()
-        selected_deck = DeckModel.get_by_id(self.current_deck_id)
-        matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+        # 🛡️ Ajout d'un bouclier Try/Except pour attraper les crashs silencieux
+        try:
+            mode = self.view_mode_cb.currentText()
+            selected_deck = DeckModel.get_by_id(self.current_deck_id)
+            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
 
-        if mode == "Vue : Cartes (Métadonnées)":
-            self.data_table.setColumnCount(4)
-            self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Type"])
+            if mode == "Vue : Cartes (Métadonnées)":
+                # La vue Cartes n'a besoin que de 4 colonnes, on les définit proprement
+                self.data_table.setColumnCount(4)
+                self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Template"])
 
-            cards = (
-                CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
-                .join(NoteModel)
-                .join(NoteTypeModel)
-                .switch(CardModel)
-                .join(DeckModel)
-                .where(CardModel.deck.in_(matching_decks))
-            )
+                cards = (
+                    CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
+                    .join(NoteModel)
+                    .join(NoteTypeModel)
+                    .switch(CardModel)
+                    .join(DeckModel)
+                    .where(CardModel.deck.in_(matching_decks))
+                )
 
-            for row_index, card in enumerate(cards):
-                self.data_table.insertRow(row_index)
-                cid = str(card.anki_id) if card.anki_id else f"Local-{card.id}"
-                note_type = card.note.note_type.name if card.note.note_type else "Inconnu"
-                deck_name = card.deck.name if card.deck else "Inconnu"
-                template = f"Carte n°{card.template_index + 1}"
+                for row_index, card in enumerate(cards):
+                    self.data_table.insertRow(row_index)
+                    cid = str(card.anki_id) if card.anki_id else f"Local-{card.id}"
+                    note_type = card.note.note_type.name if card.note.note_type else "Inconnu"
+                    deck_name = card.deck.name if card.deck else "Inconnu"
+                    template = f"Carte n°{card.template_index + 1}"
 
-                self.data_table.setItem(row_index, 0, QTableWidgetItem(cid))
-                self.data_table.setItem(row_index, 1, QTableWidgetItem(note_type))
-                self.data_table.setItem(row_index, 2, QTableWidgetItem(deck_name))
-                self.data_table.setItem(row_index, 3, QTableWidgetItem(template))
-                self.data_table.item(row_index, 0).setData(Qt.UserRole, card.note.id)
+                    self.data_table.setItem(row_index, 0, QTableWidgetItem(cid))
+                    self.data_table.setItem(row_index, 1, QTableWidgetItem(note_type))
+                    self.data_table.setItem(row_index, 2, QTableWidgetItem(deck_name))
+                    self.data_table.setItem(row_index, 3, QTableWidgetItem(template))
+                    self.data_table.item(row_index, 0).setData(Qt.UserRole, card.note.id)
 
-        else:
-            self.data_table.setColumnCount(4)
-            self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags"])
+            else:
+                # La vue Notes a bien nos 5 colonnes avec la Version !
+                self.data_table.setColumnCount(5)
+                self.data_table.setHorizontalHeaderLabels(
+                    ["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
 
-            notes = (
-                NoteModel.select(NoteModel, NoteTypeModel)
-                .join(NoteTypeModel)
-                .join(CardModel, on=(CardModel.note_id == NoteModel.id))
-                .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
-                .where(DeckModel.id.in_(matching_decks))
-                .distinct()
-            )
+                notes = (
+                    NoteModel.select(NoteModel, NoteTypeModel)
+                    .join(NoteTypeModel)
+                    .switch(NoteModel)  # 🆕 Répare le bug de jointure SQL
+                    .join(CardModel, on=(CardModel.note_id == NoteModel.id))
+                    .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
+                    .where(DeckModel.id.in_(matching_decks))
+                    .distinct()
+                )
 
-            for row_index, note in enumerate(notes):
-                self.data_table.insertRow(row_index)
-                content_dict = json.loads(note.content) if note.content else {}
-                values = list(content_dict.values())
-                recto = strip_html(values[0]) if len(values) > 0 else ""
-                verso = strip_html(values[1]) if len(values) > 1 else ""
+                for row_index, note in enumerate(notes):
+                    self.data_table.insertRow(row_index)
 
-                nt_name = note.note_type.name if note.note_type else "Inconnu"
-                tags_list = json.loads(note.tags) if note.tags else []
+                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
+                    content_dict = json.loads(active_version.content) if active_version else {}
 
-                self.data_table.setItem(row_index, 0, QTableWidgetItem(recto))
-                self.data_table.setItem(row_index, 1, QTableWidgetItem(verso))
-                self.data_table.setItem(row_index, 2, QTableWidgetItem(nt_name))
-                self.data_table.setItem(row_index, 3, QTableWidgetItem(", ".join(tags_list)))
-                self.data_table.item(row_index, 0).setData(Qt.UserRole, note.id)
+                    values = list(content_dict.values())
+                    recto = strip_html(values[0]) if len(values) > 0 else ""
+                    verso = strip_html(values[1]) if len(values) > 1 else ""
+
+                    nt_name = note.note_type.name if note.note_type else "Inconnu"
+                    tags_list = json.loads(note.tags) if note.tags else []
+
+                    self.data_table.setItem(row_index, 0, QTableWidgetItem(recto))
+                    self.data_table.setItem(row_index, 1, QTableWidgetItem(verso))
+                    self.data_table.setItem(row_index, 2, QTableWidgetItem(nt_name))
+                    self.data_table.setItem(row_index, 3, QTableWidgetItem(", ".join(tags_list)))
+
+                    v_num = active_version.version_number if active_version else 1
+                    item_version = QTableWidgetItem(f"v{v_num}")
+                    item_version.setTextAlignment(Qt.AlignCenter)
+                    self.data_table.setItem(row_index, 4, item_version)
+
+                    self.data_table.item(row_index, 0).setData(Qt.UserRole, note.id)
+
+        except Exception as e:
+            # S'il y a un plantage, on aura enfin une alerte claire !
+            QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
+            import traceback
+            print(traceback.format_exc())
 
     def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
@@ -288,7 +309,8 @@ class EditionTab(QWidget):
             self.current_note = NoteModel.get_by_id(note_id)
             self.btn_save_edits.setEnabled(True)
 
-            content_dict = json.loads(self.current_note.content) if self.current_note.content else {}
+            active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
+            content_dict = json.loads(active_version.content) if active_version else {}
 
             lbl_title = QLabel(f"<h3 style='margin:0;'>Édition (Modèle : {self.current_note.note_type.name})</h3>")
             self.details_layout.addWidget(lbl_title)
@@ -321,13 +343,15 @@ class EditionTab(QWidget):
             return
 
         try:
-            content_dict = json.loads(self.current_note.content) if self.current_note.content else {}
-
+            active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
+            content_dict = json.loads(active_version.content) if active_version else {}
             for field_name, editor in self.field_editors.items():
                 content_dict[field_name] = editor.toPlainText()
 
-            self.current_note.content = json.dumps(content_dict, ensure_ascii=False)
-            self.current_note.save()
+                # ✅ ON CRÉE LA NOUVELLE VERSION (Commit) :
+            from src.database.models import db  # Assure-toi que db est bien importé en haut
+            with db.atomic():
+                new_version = self.current_note.add_version(content_dict, source="manual")
 
             mode = self.view_mode_cb.currentText()
             if mode == "Vue : Notes (Texte)":
@@ -340,6 +364,9 @@ class EditionTab(QWidget):
                     self.data_table.setItem(row, 0, QTableWidgetItem(recto))
                     self.data_table.setItem(row, 1, QTableWidgetItem(verso))
 
+                    item_version = QTableWidgetItem(f"v{new_version.version_number}")
+                    item_version.setTextAlignment(Qt.AlignCenter)
+                    self.data_table.setItem(row, 4, item_version)
             QMessageBox.information(self, "Succès", "La note a été mise à jour en base de données !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")

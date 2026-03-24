@@ -41,24 +41,48 @@ class NoteTypeModel(BaseModel):
 
 
 class NoteModel(BaseModel):
-    """La donnée textuelle brute (Ce que l'IA va modifier)."""
-    anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (nid)
-    guid = CharField(unique=True, index=True, default=lambda: str(uuid.uuid4()))
-
+    """Le conteneur physique de la note. Il ne change jamais."""
+    anki_id = BigIntegerField(unique=True, null=True)
+    guid = CharField(unique=True)
     note_type = ForeignKeyField(NoteTypeModel, backref='notes')
+    tags = TextField(null=True)
+    status = CharField(default="new")
 
-    # JSON propre: {"Front": "Question...", "Back": "Réponse..."}
-    content = TextField()
-    tags = TextField(null=True)  # JSON: ["Maths", "Important"]
+    def add_version(self, new_content_dict: dict, source: str = "manual") -> 'NoteVersionModel':
+        """
+        Crée une nouvelle version de la note (comme un git commit).
+        Désactive l'ancienne version active.
+        """
+        import json
 
-    # Metadata pour tes objectifs IA
-    source_reference = CharField(null=True)
-    status = CharField(default='pending')
-    ai_feedback = TextField(null=True)
+        # 1. Trouver la version actuellement active
+        current_active = NoteVersionModel.get_or_none(note=self, is_active=True)
+        new_version_num = 1
 
+        if current_active:
+            new_version_num = current_active.version_number + 1
+            current_active.is_active = False
+            current_active.save()
+
+        # 2. Créer la nouvelle version
+        new_version = NoteVersionModel.create(
+            note=self,
+            version_number=new_version_num,
+            content=json.dumps(new_content_dict, ensure_ascii=False),
+            source=source,
+            is_active=True
+        )
+        return new_version
+
+
+class NoteVersionModel(BaseModel):
+    """L'historique des contenus de la note (Le fameux système de version)."""
+    note = ForeignKeyField(NoteModel, backref='versions', on_delete='CASCADE')
+    version_number = IntegerField(default=1)
+    content = TextField() # Le JSON contenant "Recto" et "Verso"
     created_at = DateTimeField(default=datetime.datetime.now)
-    updated_at = DateTimeField(default=datetime.datetime.now)
-
+    source = CharField(default="ai") # Peut être 'ai', 'manual', ou 'import'
+    is_active = BooleanField(default=True) # Permet de savoir quelle version exporter
 
 class CardModel(BaseModel):
     """La carte physique générée par la Note et rangée dans un Deck"""
@@ -113,7 +137,7 @@ def init_db():
     db.connect()
     # Ajout des nouvelles tables à l'initialisation
     db.create_tables([
-        DeckModel, NoteTypeModel, NoteModel, CardModel,
+        DeckModel, NoteTypeModel, NoteModel, CardModel,NoteVersionModel,
         AgentModel, PipelineModel, PipelineStepModel  # <-- NOUVEAU
     ])
     if AgentModel.select().count() == 0:

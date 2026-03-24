@@ -6,10 +6,12 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QPushButton, QComboBox, QTableWidget,
-                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView)
+                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QFileDialog)
 from jinja2 import Template
 
-from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel
+from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel, \
+    NoteVersionModel
+from src.services.parsing.document_parser import DocumentParser
 from src.utils.anki_renderer import render_anki_card
 
 
@@ -17,6 +19,7 @@ class GenerationThread(QThread):
     finished = Signal(list)
     error = Signal(str)
     progress = Signal(str)
+    log = Signal(str)
 
     def __init__(self, ai_provider: Any, text_source: str, note_type: NoteTypeModel, pipeline_id: int) -> None:
         super().__init__()
@@ -61,11 +64,16 @@ class GenerationThread(QThread):
                     first_field=first_field,
                     second_field=second_field
                 )
+                self.log.emit(f"--- 🤖 DÉBUT ÉTAPE {i} : {agent.name.upper()} ---\n")
+                self.log.emit(f"🔵 PROMPT SYSTÈME :\n{system_prompt}\n")
+                self.log.emit(f"🟢 ENTRÉE UTILISATEUR :\n{current_input}\n")
 
                 raw_response = self.ai_provider.generate(
                     system_prompt=system_prompt,
                     user_prompt=current_input
                 )
+
+                self.log.emit(f"🟠 RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")
 
                 cleaned_output = self._clean_json(raw_response)
                 current_input = f"Voici les données à traiter (provenant de l'étape précédente) :\n{cleaned_output}"
@@ -115,9 +123,19 @@ class CreationTab(QWidget):
         source_widget = QWidget()
         source_layout = QVBoxLayout(source_widget)
         source_layout.setContentsMargins(0, 0, 0, 0)
-        source_layout.addWidget(QLabel("<b>📝 Texte Source (Cours, Article, etc.) :</b>"))
+
+        # 🆕 AJOUT DU BOUTON IMPORT
+        import_layout = QHBoxLayout()
+        import_layout.addWidget(QLabel("<b>📝 Texte Source (Cours, Article, etc.) :</b>"))
+        self.btn_import_doc = QPushButton("📄 Importer un document (PDF, TXT)")
+        self.btn_import_doc.clicked.connect(self.import_document)
+        import_layout.addStretch()
+        import_layout.addWidget(self.btn_import_doc)
+        source_layout.addLayout(import_layout)
+
         self.source_text = QTextEdit()
         source_layout.addWidget(self.source_text)
+
 
         self.btn_generate = QPushButton("✨ Générer les Cartes")
         self.btn_generate.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
@@ -148,6 +166,7 @@ class CreationTab(QWidget):
         self.btn_save.setEnabled(False)
         table_layout.addWidget(self.btn_save)
 
+        right_tabs = QTabWidget()
         # Preview Web
         preview_container = QWidget()
         preview_layout = QVBoxLayout(preview_container)
@@ -168,8 +187,16 @@ class CreationTab(QWidget):
         self.web_view = QWebEngineView()
         preview_layout.addWidget(self.web_view)
 
+        right_tabs.addTab(preview_container, "👁️ Aperçu de la Carte")
+
+        # 2ème Onglet : Console IA
+        self.console_log = QTextEdit()
+        self.console_log.setReadOnly(True)
+        self.console_log.setStyleSheet("background-color: #1e1e1e; color: #00FF00; font-family: monospace;")
+        right_tabs.addTab(self.console_log, "🕵️ Console IA (Logs)")
+
         bottom_splitter.addWidget(table_container)
-        bottom_splitter.addWidget(preview_container)
+        bottom_splitter.addWidget(right_tabs)
         bottom_splitter.setSizes([450, 350])
 
         main_splitter.addWidget(source_widget)
@@ -178,6 +205,7 @@ class CreationTab(QWidget):
 
         layout.addWidget(main_splitter)
         self.refresh_selectors()
+
 
     def refresh_selectors(self) -> None:
         self.deck_selector.clear()
@@ -192,6 +220,31 @@ class CreationTab(QWidget):
         for pipe in PipelineModel.select().order_by(PipelineModel.name):
             self.pipeline_selector.addItem(pipe.name, userData=pipe.id)
 
+    def import_document(self) -> None:
+        """Ouvre un dialogue pour sélectionner un fichier et l'extrait dans la zone de texte."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Ouvrir un cours",
+            "",
+            "Documents Supportés (*.pdf *.txt *.md)"  # Tu pourras ajouter *.docx *.pptx plus tard
+        )
+
+        if file_path:
+            try:
+                self.btn_import_doc.setEnabled(False)
+                self.btn_import_doc.setText("⏳ Extraction...")
+
+                parser = DocumentParser()
+                extracted_text = parser.parse_document(file_path)
+
+                # On ajoute le texte dans l'éditeur
+                self.source_text.setPlainText(extracted_text)
+
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur de Lecture", f"Impossible de lire le document :\n{e}")
+            finally:
+                self.btn_import_doc.setEnabled(True)
+                self.btn_import_doc.setText("📄 Importer un document (PDF, TXT)")
     def on_model_changed(self) -> None:
         model_id = self.model_selector.currentData()
         if not model_id:
@@ -233,13 +286,18 @@ class CreationTab(QWidget):
         self.btn_generate.setEnabled(False)
         self.results_table.setRowCount(0)
         self.web_view.setHtml("")
+        self.console_log.clear()
 
         self.thread = GenerationThread(self.ai_provider, text, note_type, pipeline_id)
         self.thread.progress.connect(self.update_progress)
+        self.thread.log.connect(self.append_log)  # 🆕 On connecte le signal à notre console
         self.thread.finished.connect(self.on_generation_success)
         self.thread.error.connect(self.on_generation_error)
         self.thread.start()
 
+    def append_log(self, text: str) -> None:
+        """Ajoute le texte reçu depuis le thread dans la console IA."""
+        self.console_log.append(text)
     def update_progress(self, message: str) -> None:
         self.btn_generate.setText(message)
 
@@ -333,22 +391,32 @@ class CreationTab(QWidget):
         try:
             with db.atomic():
                 for note_data in self.generated_notes:
+                    # 1. Création du conteneur (Nouveau GUID)
                     note = NoteModel.create(
                         guid=str(uuid.uuid4())[:10],
                         note_type=note_type,
-                        content=json.dumps(note_data, ensure_ascii=False),
                         tags=json.dumps(["AnkiForge_AI"]),
                         status="new"
                     )
+
+                    # 2. Création du contenu (Version 1)
+                    NoteVersionModel.create(
+                        note=note,
+                        version_number=1,
+                        content=json.dumps(note_data, ensure_ascii=False),
+                        source="ai",
+                        is_active=True
+                    )
+
+                    # 3. Création des cartes associées
                     for idx, tmpl in enumerate(templates):
                         CardModel.create(note=note, deck=deck, template_index=idx)
 
-            QMessageBox.information(self, "Succès", f"{len(self.generated_notes)} notes créées dans '{deck.name}' !")
+            QMessageBox.information(self, "Succès", f"{len(self.generated_notes)} nouvelles notes (v1) créées !")
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
             self.web_view.setHtml("")
             self.btn_save.setEnabled(False)
-            self.source_text.clear()
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur Base de Données", f"Impossible de sauvegarder : {e}")

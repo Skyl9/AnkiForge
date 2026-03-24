@@ -1,10 +1,11 @@
+import json
 from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QLineEdit, QTextEdit, QPushButton, QListWidget,
                                QSplitter, QMessageBox, QGroupBox, QComboBox,
-                               QAbstractItemView, QListWidgetItem)
+                               QAbstractItemView, QListWidgetItem, QFileDialog)
 
 from src.database.models import db, AgentModel, PipelineModel, PipelineStepModel
 
@@ -80,6 +81,20 @@ class AgentsTab(QWidget):
         pipe_header.addWidget(self.btn_new_pipeline)
         pipelines_layout.addLayout(pipe_header)
 
+        # BOUTONS IMPORT / EXPORT
+        export_import_layout = QHBoxLayout()
+
+        self.btn_import_pipe = QPushButton("📂 Importer un Pipeline (.json)")
+        self.btn_import_pipe.clicked.connect(self.import_pipeline)
+
+        self.btn_export_pipe = QPushButton("📦 Exporter ce Pipeline")
+        self.btn_export_pipe.clicked.connect(self.export_pipeline)
+
+        export_import_layout.addWidget(self.btn_import_pipe)
+        export_import_layout.addWidget(self.btn_export_pipe)
+        pipelines_layout.addLayout(export_import_layout)
+
+        #
         chain_group = QGroupBox("Chaîne d'exécution (Ordre des Agents)")
         chain_layout = QVBoxLayout(chain_group)
 
@@ -123,6 +138,97 @@ class AgentsTab(QWidget):
         layout.addWidget(main_splitter)
         self.refresh_ui()
 
+    def export_pipeline(self) -> None:
+        """Exporte le pipeline sélectionné et tous ses agents dans un fichier JSON."""
+        pipe_id = self.pipeline_selector.currentData()
+        if not pipe_id:
+            QMessageBox.warning(self, "Erreur", "Aucun pipeline sélectionné.")
+            return
+
+        pipeline = PipelineModel.get_by_id(pipe_id)
+
+        # On construit le dictionnaire de données
+        export_data = {
+            "name": pipeline.name,
+            "description": pipeline.description,
+            "steps": []
+        }
+
+        for step in pipeline.steps.order_by(PipelineStepModel.step_order):
+            export_data["steps"].append({
+                "order": step.step_order,
+                "agent_name": step.agent.name,
+                "agent_desc": step.agent.description,
+                "agent_prompt": step.agent.system_prompt
+            })
+
+        # Ouverture de la boîte de dialogue de sauvegarde
+        path, _ = QFileDialog.getSaveFileName(self, "Exporter le Pipeline", f"{pipeline.name.replace(' ', '_')}.json",
+                                              "Fichiers JSON (*.json)")
+
+        if path:
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(export_data, f, ensure_ascii=False, indent=4)
+                QMessageBox.information(self, "Succès", "Le Pipeline a été exporté avec succès !")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible d'exporter le fichier : {e}")
+
+    def import_pipeline(self) -> None:
+        """Importe un pipeline depuis un fichier JSON et le sauvegarde en base de données."""
+        path, _ = QFileDialog.getOpenFileName(self, "Importer un Pipeline", "", "Fichiers JSON (*.json)")
+
+        if not path:
+            return
+
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            with db.atomic():  # Transaction sécurisée
+                # 1. Gestion des doublons de nom de pipeline
+                base_name = data.get("name", "Pipeline Importé")
+                name = base_name
+                counter = 1
+                while PipelineModel.get_or_none(PipelineModel.name == name):
+                    name = f"{base_name} ({counter})"
+                    counter += 1
+
+                new_pipe = PipelineModel.create(name=name, description=data.get("description", ""))
+
+                # 2. Création ou récupération des agents
+                for step_data in data.get("steps", []):
+                    agent_name = step_data.get("agent_name", "Agent Inconnu")
+
+                    # On vérifie si un agent avec le même nom existe déjà
+                    agent = AgentModel.get_or_none(AgentModel.name == agent_name)
+
+                    if not agent:
+                        # S'il n'existe pas, on le crée !
+                        agent = AgentModel.create(
+                            name=agent_name,
+                            description=step_data.get("agent_desc", ""),
+                            system_prompt=step_data.get("agent_prompt", "")
+                        )
+
+                    # 3. On lie l'agent au nouveau pipeline
+                    PipelineStepModel.create(
+                        pipeline=new_pipe,
+                        agent=agent,
+                        step_order=step_data.get("order", 1)
+                    )
+
+            self.refresh_ui()
+
+            # On sélectionne automatiquement le pipeline fraîchement importé
+            idx = self.pipeline_selector.findData(new_pipe.id)
+            if idx >= 0:
+                self.pipeline_selector.setCurrentIndex(idx)
+
+            QMessageBox.information(self, "Succès", f"Le Pipeline '{name}' a été importé avec succès !")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur d'import", f"Le fichier est invalide ou corrompu :\n{e}")
     def refresh_ui(self) -> None:
         self.agents_list.clear()
         self.available_agents_cb.clear()

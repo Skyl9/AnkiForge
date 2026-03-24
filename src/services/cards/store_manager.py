@@ -14,7 +14,7 @@ from pathlib import Path
 
 from peewee import DoesNotExist
 
-from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel
+from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel
 
 
 # Ajuste l'import selon ton architecture réelle
@@ -158,17 +158,27 @@ class StoreManager:
                     )
 
                     # 4. Création de la Note (Le contenu textuel JSON)
-                    content_json = json.dumps(dict(zip(field_names, content_values)))
+                    content_dict = dict(zip(field_names, content_values))
 
-                    note_obj, _ = NoteModel.get_or_create(
+                    note_obj, created = NoteModel.get_or_create(
                         guid=guid,
                         defaults={
                             'note_type': notetype_obj,  # On passe l'objet Peewee !
-                            'content': content_json,
                             'status': 'imported'
                         }
                     )
-
+                    if created:
+                        # Nouvelle carte : on crée la v1
+                        NoteVersionModel.create(
+                            note=note_obj,
+                            version_number=1,
+                            content=json.dumps(content_dict, ensure_ascii=False),
+                            source="import",
+                            is_active=True
+                        )
+                    else:
+                        # La carte existe déjà (le GUID correspond) : on utilise notre méthode pour faire une v2 !
+                        note_obj.add_version(content_dict, source="import")
                     # 5. Création de la Carte Physique (Le lien final !)
                     CardModel.get_or_create(
                         note=note_obj,
@@ -338,16 +348,28 @@ class StoreManager:
                         content_dict = dict(zip(field_names, field_values))
                         tags = tags_raw.strip().split(" ") if tags_raw.strip() else []
 
-                        NoteModel.get_or_create(
+                        note_obj, created = NoteModel.get_or_create(
                             anki_id=nid,
                             defaults={
                                 'guid': guid,
                                 'note_type': note_type,
-                                'content': json.dumps(content_dict),
                                 'tags': json.dumps(tags),
                                 'status': 'imported'
                             }
                         )
+
+                        if created:
+                            # Nouvelle note depuis l'apkg
+                            NoteVersionModel.create(
+                                note=note_obj,
+                                version_number=1,
+                                content=json.dumps(content_dict, ensure_ascii=False),
+                                source="import",
+                                is_active=True
+                            )
+                        else:
+                            # Mise à jour d'une note existante via l'import de l'apkg
+                            note_obj.add_version(content_dict, source="import")
 
                     # ---------------------------------------------------------
                     # 4. LA POSITION DANS LES PAQUETS (Cards)
