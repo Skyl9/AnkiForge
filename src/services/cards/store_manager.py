@@ -315,41 +315,6 @@ class StoreManager:
                                     'css_style': css_style
                                 }
                             )
-                            # 3. Extraction des Templates HTML (Recto/Verso)
-                            tmpls = []
-                            try:
-                                cursor.execute("SELECT name, config FROM templates WHERE ntid=? ORDER BY ord", (mid,))
-                                for t_row in cursor.fetchall():
-                                    t_name, t_config = t_row
-                                    qfmt, afmt = "", ""
-
-                                    if t_config:
-                                        raw_t = t_config.decode('utf-8', errors='replace')
-                                        t_parts = re.split(r'[\x00-\x08\x0b-\x0c\x0e-\x1f]+', raw_t)
-
-                                        # Un template valide contient obligatoirement des accolades d'Anki "{{...}}"
-                                        valid_html = [p.strip() for p in t_parts if "{{" in p and "}}" in p]
-
-                                        # Le premier bloc est généralement le Recto, le 2ème le Verso
-                                        if len(valid_html) > 0:
-                                            qfmt = valid_html[0]
-                                        if len(valid_html) > 1:
-                                            afmt = valid_html[1]
-
-                                    tmpls.append({"name": t_name, "qfmt": qfmt, "afmt": afmt})
-                            except sqlite3.OperationalError:
-                                pass
-
-                            # Sauvegarde en BDD
-                            NoteTypeModel.get_or_create(
-                                anki_id=mid,
-                                defaults={
-                                    'name': name,
-                                    'fields_schema': json.dumps(field_names),
-                                    'templates': json.dumps(tmpls, ensure_ascii=False),
-                                    'css_style': css_style
-                                }
-                            )
                     # ---------------------------------------------------------
                     # 3. LE TEXTE DES CARTES (Notes)
                     # ---------------------------------------------------------

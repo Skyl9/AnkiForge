@@ -3,6 +3,7 @@ import re
 
 def render_anki_card(raw_html: str, css: str, fields_dict: dict, is_recto: bool = True, front_html: str = "") -> str:
     """Moteur de rendu natif Anki (Conditionnels, Champs, MathJax)."""
+
     # 0. SÉCURITÉ : On s'assure que tout est bien au format "string" (Texte)
     safe_fields = {}
     for k, v in fields_dict.items():
@@ -16,10 +17,11 @@ def render_anki_card(raw_html: str, css: str, fields_dict: dict, is_recto: bool 
     def is_empty(html_str):
         clean_text = re.sub(r'<[^>]+>', '', str(html_str)).replace('&nbsp;', '').strip()
         return len(clean_text) == 0
+
     html = raw_html
 
     # 2. Gestion des blocs conditionnels {{#Champ}} et {{^Champ}}
-    for field, val in fields_dict.items():
+    for field, val in safe_fields.items():
         empty = is_empty(val)
 
         # Bloc positif {{#Champ}}...{{/Champ}} : S'affiche SI le champ N'EST PAS vide
@@ -31,7 +33,7 @@ def render_anki_card(raw_html: str, css: str, fields_dict: dict, is_recto: bool 
         html = re.sub(neg_pattern, "" if not empty else r"\1", html, flags=re.DOTALL)
 
     # 3. Remplacement standard {{Champ}}
-    for field, val in fields_dict.items():
+    for field, val in safe_fields.items():
         html = html.replace(f"{{{{{field}}}}}", val)
         # Support du {{type:Champ}}
         html = html.replace(f"{{{{type:{field}}}}}",

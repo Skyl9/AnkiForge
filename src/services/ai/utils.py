@@ -1,22 +1,28 @@
-# src/services/ai/utils.py
 import json
 import re
-
 
 def parse_ai_json_response(response_text: str):
     """
     Nettoie et convertit la réponse de l'IA en objet Python (dict ou list).
-    Gère les cas où l'IA met des ```json autour.
+    Extrait intelligemment le bloc JSON même s'il y a du texte autour.
     """
     try:
-        # 1. Nettoyage des balises Markdown code block
-        cleaned_text = re.sub(r"```json\s*", "", response_text)
-        cleaned_text = re.sub(r"```\s*$", "", cleaned_text)
-        cleaned_text = cleaned_text.strip()
+        # On génère les 3 backticks dynamiquement en Python pour ne pas
+        # faire planter les parseurs Markdown des interfaces web !
+        backticks = "`" * 3
+        pattern = backticks + r"(?:json)?(.*?)" + backticks
 
-        # 2. Parsing
+        match = re.search(pattern, response_text, re.DOTALL)
+
+        if match:
+            # S'il y a un bloc de code détecté, on ne garde que son contenu
+            cleaned_text = match.group(1).strip()
+        else:
+            # Sinon, on suppose que l'IA a renvoyé du JSON brut
+            cleaned_text = response_text.strip()
+
         return json.loads(cleaned_text)
+
     except json.JSONDecodeError:
-        # Fallback : on retourne une structure d'erreur pour l'afficher dans l'UI
         print(f"Erreur de parsing JSON. Texte reçu : {response_text}")
         return []

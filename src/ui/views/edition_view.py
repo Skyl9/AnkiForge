@@ -1,19 +1,22 @@
 import json
 import re
+from typing import Optional, Dict
+
 from PySide6.QtCore import Qt
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
-                               QHeaderView, QAbstractItemView, QComboBox, QScrollArea, QTextEdit)
+                               QAbstractItemView, QComboBox, QScrollArea, QTextEdit)
 
 from src.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel
-from src.services.cards.store_manager import StoreManager
 from src.services.cards.export_manager import ExportManager
+from src.services.cards.store_manager import StoreManager
 from src.utils.anki_renderer import render_anki_card
 
 
-def strip_html(text):
+def strip_html(text: Optional[str]) -> str:
+    """Retire toutes les balises HTML d'une chaîne pour l'affichage brut."""
     if not text:
         return ""
     clean = re.compile('<.*?>')
@@ -21,12 +24,12 @@ def strip_html(text):
 
 
 class EditionTab(QWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.store = StoreManager()
-        self.current_deck_id = None
-        self.current_note = None
-        self.field_editors = {}
+        self.current_deck_id: Optional[int] = None
+        self.current_note: Optional[NoteModel] = None
+        self.field_editors: Dict[str, QTextEdit] = {}
 
         layout = QVBoxLayout(self)
 
@@ -69,10 +72,9 @@ class EditionTab(QWidget):
         toolbar_layout.addStretch()
         right_layout.addLayout(toolbar_layout)
 
-        # SPLITTER HAUT / BAS
         right_splitter = QSplitter(Qt.Vertical)
 
-        # Le Tableau (Haut)
+        # Le Tableau
         self.data_table = QTableWidget()
         self.data_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.data_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -80,15 +82,13 @@ class EditionTab(QWidget):
         self.data_table.horizontalHeader().setStretchLastSection(True)
         self.data_table.itemSelectionChanged.connect(self.on_row_selected)
 
-        # --- LA ZONE DU BAS (SPLITTER GAUCHE / DROITE) ---
         bottom_splitter = QSplitter(Qt.Horizontal)
 
-        # A. L'Éditeur de champs (Gauche)
+        # A. L'Éditeur de champs
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
 
-        # NOUVEAU BOUTON DE SAUVEGARDE
         self.btn_save_edits = QPushButton("💾 Sauvegarder les modifications")
         self.btn_save_edits.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 6px;")
         self.btn_save_edits.clicked.connect(self.save_note_edits)
@@ -104,7 +104,7 @@ class EditionTab(QWidget):
 
         left_layout.addWidget(self.details_scroll)
 
-        # B. L'Aperçu WebEngine (Droite)
+        # B. L'Aperçu WebEngine
         self.preview_panel = QWidget()
         preview_layout = QVBoxLayout(self.preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -141,7 +141,7 @@ class EditionTab(QWidget):
         layout.addWidget(main_splitter)
         self.refresh_deck_tree()
 
-    def load_cards(self):
+    def load_cards(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Ouvrir document", "", "Documents Anki (*.colpkg *.txt *.apkg)")
         if path:
             self.btn_load_col.setEnabled(False)
@@ -154,8 +154,10 @@ class EditionTab(QWidget):
             finally:
                 self.btn_load_col.setEnabled(True)
 
-    def export_selected_deck(self):
-        if not self.current_deck_id: return
+    def export_selected_deck(self) -> None:
+        if not self.current_deck_id:
+            return
+
         deck = DeckModel.get_by_id(self.current_deck_id)
         default_name = f"{deck.name.replace('::', '_')}.apkg"
 
@@ -168,7 +170,7 @@ class EditionTab(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Erreur lors de l'exportation :\n{e}")
 
-    def refresh_deck_tree(self):
+    def refresh_deck_tree(self) -> None:
         self.deck_tree.clear()
         try:
             decks = DeckModel.select().order_by(DeckModel.name)
@@ -189,13 +191,14 @@ class EditionTab(QWidget):
         except Exception:
             pass
 
-    def on_deck_selected(self, item, column):
+    def on_deck_selected(self, item: QTreeWidgetItem, column: int) -> None:
         self.current_deck_id = item.data(0, Qt.UserRole)
         self.btn_export.setEnabled(True)
         self.refresh_table()
 
-    def refresh_table(self):
-        if not self.current_deck_id: return
+    def refresh_table(self) -> None:
+        if not self.current_deck_id:
+            return
 
         self.data_table.setRowCount(0)
         self.btn_save_edits.setEnabled(False)
@@ -203,7 +206,8 @@ class EditionTab(QWidget):
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget(): child.widget().deleteLater()
+            if child.widget():
+                child.widget().deleteLater()
 
         mode = self.view_mode_cb.currentText()
         selected_deck = DeckModel.get_by_id(self.current_deck_id)
@@ -213,9 +217,14 @@ class EditionTab(QWidget):
             self.data_table.setColumnCount(4)
             self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Type"])
 
-            cards = (CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
-                     .join(NoteModel).join(NoteTypeModel).switch(CardModel).join(DeckModel)
-                     .where(CardModel.deck.in_(matching_decks)))
+            cards = (
+                CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
+                .join(NoteModel)
+                .join(NoteTypeModel)
+                .switch(CardModel)
+                .join(DeckModel)
+                .where(CardModel.deck.in_(matching_decks))
+            )
 
             for row_index, card in enumerate(cards):
                 self.data_table.insertRow(row_index)
@@ -234,12 +243,14 @@ class EditionTab(QWidget):
             self.data_table.setColumnCount(4)
             self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags"])
 
-            notes = (NoteModel.select(NoteModel, NoteTypeModel)
-                     .join(NoteTypeModel)
-                     .join(CardModel, on=(CardModel.note_id == NoteModel.id))
-                     .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
-                     .where(DeckModel.id.in_(matching_decks))
-                     .distinct())
+            notes = (
+                NoteModel.select(NoteModel, NoteTypeModel)
+                .join(NoteTypeModel)
+                .join(CardModel, on=(CardModel.note_id == NoteModel.id))
+                .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
+                .where(DeckModel.id.in_(matching_decks))
+                .distinct()
+            )
 
             for row_index, note in enumerate(notes):
                 self.data_table.insertRow(row_index)
@@ -257,15 +268,17 @@ class EditionTab(QWidget):
                 self.data_table.setItem(row_index, 3, QTableWidgetItem(", ".join(tags_list)))
                 self.data_table.item(row_index, 0).setData(Qt.UserRole, note.id)
 
-    def on_row_selected(self):
+    def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
-        if not selected_items: return
+        if not selected_items:
+            return
 
         note_id = selected_items[0].data(Qt.UserRole)
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget(): child.widget().deleteLater()
+            if child.widget():
+                child.widget().deleteLater()
 
         self.field_editors.clear()
         self.preview_card_selector.blockSignals(True)
@@ -273,7 +286,7 @@ class EditionTab(QWidget):
 
         try:
             self.current_note = NoteModel.get_by_id(note_id)
-            self.btn_save_edits.setEnabled(True)  # On active le bouton de sauvegarde !
+            self.btn_save_edits.setEnabled(True)
 
             content_dict = json.loads(self.current_note.content) if self.current_note.content else {}
 
@@ -283,7 +296,6 @@ class EditionTab(QWidget):
             for field_name, field_value in content_dict.items():
                 lbl = QLabel(f"<b>{field_name}</b>")
                 text_edit = QTextEdit()
-                # CORRECTION : On utilise setPlainText pour garder le HTML brut (ex: <b>texte</b>)
                 text_edit.setPlainText(field_value)
                 text_edit.setMinimumHeight(60)
                 text_edit.textChanged.connect(self.update_preview)
@@ -303,21 +315,20 @@ class EditionTab(QWidget):
         except Exception as e:
             self.details_layout.addWidget(QLabel(f"Erreur : {e}"))
 
-    def save_note_edits(self):
+    def save_note_edits(self) -> None:
         """Met à jour le JSON de la note dans la base de données Peewee"""
-        if not self.current_note: return
+        if not self.current_note:
+            return
 
         try:
             content_dict = json.loads(self.current_note.content) if self.current_note.content else {}
 
-            # On récupère le texte brut pour ne pas polluer la BDD avec les balises de Qt
             for field_name, editor in self.field_editors.items():
                 content_dict[field_name] = editor.toPlainText()
 
             self.current_note.content = json.dumps(content_dict, ensure_ascii=False)
             self.current_note.save()
 
-            # Mise à jour visuelle du tableau si on est en "Vue : Notes"
             mode = self.view_mode_cb.currentText()
             if mode == "Vue : Notes (Texte)":
                 selected_items = self.data_table.selectedItems()
@@ -333,17 +344,18 @@ class EditionTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
 
-    def update_preview(self):
-        if not self.current_note or self.preview_card_selector.count() == 0: return
+    def update_preview(self) -> None:
+        if not self.current_note or self.preview_card_selector.count() == 0:
+            return
 
         templates = json.loads(self.current_note.note_type.templates)
         selected_tmpl_idx = self.preview_card_selector.currentIndex()
-        if selected_tmpl_idx < 0: return
+        if selected_tmpl_idx < 0:
+            return
 
         tmpl = templates[selected_tmpl_idx]
         is_recto = self.preview_side_selector.currentIndex() == 0
 
-        # CORRECTION : toPlainText() au lieu de toHtml()
         current_fields = {name: editor.toPlainText() for name, editor in self.field_editors.items()}
 
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")

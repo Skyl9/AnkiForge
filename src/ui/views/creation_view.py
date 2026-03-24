@@ -1,22 +1,24 @@
 import json
 import uuid
-from jinja2 import Template
+from typing import Any, List, Dict
+
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QPushButton, QComboBox, QTableWidget,
                                QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView)
-from PySide6.QtWebEngineWidgets import QWebEngineView
+from jinja2 import Template
 
-from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel,PipelineStepModel
+from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel
 from src.utils.anki_renderer import render_anki_card
 
-class GenerationThread(QThread):
-    # Signaux pour communiquer avec l'interface graphique
-    finished = Signal(list)  # Renvoie la liste des dictionnaires (les notes)
-    error = Signal(str)  # En cas de crash
-    progress = Signal(str)  # Pour dire "Génération en cours..."
 
-    def __init__(self, ai_provider, text_source: str, note_type: NoteTypeModel, pipeline_id: int):
+class GenerationThread(QThread):
+    finished = Signal(list)
+    error = Signal(str)
+    progress = Signal(str)
+
+    def __init__(self, ai_provider: Any, text_source: str, note_type: NoteTypeModel, pipeline_id: int) -> None:
         super().__init__()
         self.ai_provider = ai_provider
         self.text_source = text_source
@@ -32,34 +34,27 @@ class GenerationThread(QThread):
             clean = clean[3:-3].strip()
         return clean
 
-    def run(self):
+    def run(self) -> None:
         try:
-            # 1. Chargement du Pipeline
             pipeline = PipelineModel.get_by_id(self.pipeline_id)
             steps = list(pipeline.steps.order_by(PipelineStepModel.step_order))
 
             if not steps:
                 raise ValueError(f"Le pipeline '{pipeline.name}' ne contient aucun agent !")
 
-            # 2. Préparation des variables pour Jinja2
             fields = json.loads(self.note_type.fields_schema) if self.note_type.fields_schema else ["Front", "Back"]
             fields_str = '", "'.join(fields)
             first_field = fields[0] if len(fields) > 0 else 'Field1'
             second_field = fields[1] if len(fields) > 1 else 'Field2'
 
-            # Le premier input est le texte brut de l'utilisateur
             current_input = f"TEXTE SOURCE :\n{self.text_source}"
             total_steps = len(steps)
             cleaned_output = ""
 
-            # ==========================================
-            # 🔄 LA BOUCLE MULTI-AGENTS
-            # ==========================================
             for i, step in enumerate(steps, 1):
                 agent = step.agent
                 self.progress.emit(f"Étape {i}/{total_steps} : {agent.name}...")
 
-                # Compilation du prompt de la BDD avec Jinja2
                 jinja_template = Template(agent.system_prompt)
                 system_prompt = jinja_template.render(
                     fields_str=fields_str,
@@ -67,21 +62,14 @@ class GenerationThread(QThread):
                     second_field=second_field
                 )
 
-                # Appel à l'IA
                 raw_response = self.ai_provider.generate(
                     system_prompt=system_prompt,
                     user_prompt=current_input
                 )
 
-                # On nettoie pour que le JSON soit parfait
                 cleaned_output = self._clean_json(raw_response)
-
-                # 🧠 MAGIE : La sortie de cet agent devient l'entrée du suivant !
                 current_input = f"Voici les données à traiter (provenant de l'étape précédente) :\n{cleaned_output}"
 
-            # ==========================================
-            # 🏁 PARSING FINAL (Après le dernier agent)
-            # ==========================================
             data = json.loads(cleaned_output)
             if "notes" not in data:
                 raise ValueError("Le JSON final ne contient pas la clé 'notes'.")
@@ -94,17 +82,17 @@ class GenerationThread(QThread):
         except Exception as e:
             self.error.emit(f"Erreur lors du pipeline IA : {str(e)}")
 
+
 class CreationTab(QWidget):
-    def __init__(self, ai_provider, prompt_manager=None):
+    # ATTENTION: Retrait du prompt_manager qui était mort !
+    def __init__(self, ai_provider: Any) -> None:
         super().__init__()
         self.ai_provider = ai_provider
-        self.generated_notes = []
+        self.generated_notes: List[Dict[str, str]] = []
 
         layout = QVBoxLayout(self)
 
-        # --- 1. PARAMÈTRES (En Haut) ---
         params_layout = QHBoxLayout()
-
         params_layout.addWidget(QLabel("<b>📂 Paquet :</b>"))
         self.deck_selector = QComboBox()
         params_layout.addWidget(self.deck_selector)
@@ -114,7 +102,6 @@ class CreationTab(QWidget):
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
         params_layout.addWidget(self.model_selector)
 
-        # --- NOUVEAU : SÉLECTEUR DE PIPELINE ---
         params_layout.addWidget(QLabel("   <b>🧠 Pipeline IA :</b>"))
         self.pipeline_selector = QComboBox()
         params_layout.addWidget(self.pipeline_selector)
@@ -122,10 +109,9 @@ class CreationTab(QWidget):
         params_layout.addStretch()
         layout.addLayout(params_layout)
 
-        # --- 2. SPLITTER HAUT/BAS ---
         main_splitter = QSplitter(Qt.Vertical)
 
-        # A. Zone de texte Source
+        # Zone source
         source_widget = QWidget()
         source_layout = QVBoxLayout(source_widget)
         source_layout.setContentsMargins(0, 0, 0, 0)
@@ -134,15 +120,13 @@ class CreationTab(QWidget):
         source_layout.addWidget(self.source_text)
 
         self.btn_generate = QPushButton("✨ Générer les Cartes")
-        self.btn_generate.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        self.btn_generate.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
         self.btn_generate.clicked.connect(self.start_generation)
         source_layout.addWidget(self.btn_generate)
 
-        # B. Zone des Résultats (Bas)
+        # Zone résultat
         bottom_splitter = QSplitter(Qt.Horizontal)
 
-        # B1. Tableau
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
@@ -154,10 +138,8 @@ class CreationTab(QWidget):
         self.results_table.setAlternatingRowColors(True)
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.results_table.setSelectionMode(QAbstractItemView.SingleSelection)
-
         self.results_table.itemChanged.connect(self.on_table_item_changed)
         self.results_table.itemSelectionChanged.connect(self.update_preview)
-
         table_layout.addWidget(self.results_table)
 
         self.btn_save = QPushButton("💾 Sauvegarder dans la base de données")
@@ -166,7 +148,7 @@ class CreationTab(QWidget):
         self.btn_save.setEnabled(False)
         table_layout.addWidget(self.btn_save)
 
-        # B2. Preview Web
+        # Preview Web
         preview_container = QWidget()
         preview_layout = QVBoxLayout(preview_container)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -197,7 +179,7 @@ class CreationTab(QWidget):
         layout.addWidget(main_splitter)
         self.refresh_selectors()
 
-    def refresh_selectors(self):
+    def refresh_selectors(self) -> None:
         self.deck_selector.clear()
         for deck in DeckModel.select().order_by(DeckModel.name):
             self.deck_selector.addItem(deck.name, userData=deck.id)
@@ -206,14 +188,14 @@ class CreationTab(QWidget):
         for nt in NoteTypeModel.select().order_by(NoteTypeModel.name):
             self.model_selector.addItem(nt.name, userData=nt.id)
 
-        # Chargement des Pipelines
         self.pipeline_selector.clear()
         for pipe in PipelineModel.select().order_by(PipelineModel.name):
             self.pipeline_selector.addItem(pipe.name, userData=pipe.id)
 
-    def on_model_changed(self):
+    def on_model_changed(self) -> None:
         model_id = self.model_selector.currentData()
-        if not model_id: return
+        if not model_id:
+            return
 
         note_type = NoteTypeModel.get_by_id(model_id)
         fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
@@ -233,7 +215,7 @@ class CreationTab(QWidget):
         self.preview_card_selector.blockSignals(False)
         self.update_preview()
 
-    def start_generation(self):
+    def start_generation(self) -> None:
         text = self.source_text.toPlainText()
         model_id = self.model_selector.currentData()
         pipeline_id = self.pipeline_selector.currentData()
@@ -252,18 +234,16 @@ class CreationTab(QWidget):
         self.results_table.setRowCount(0)
         self.web_view.setHtml("")
 
-        # Lancement avec l'ID du pipeline
         self.thread = GenerationThread(self.ai_provider, text, note_type, pipeline_id)
         self.thread.progress.connect(self.update_progress)
         self.thread.finished.connect(self.on_generation_success)
         self.thread.error.connect(self.on_generation_error)
         self.thread.start()
 
-    def update_progress(self, message):
-        """Affiche l'étape en cours sur le bouton"""
+    def update_progress(self, message: str) -> None:
         self.btn_generate.setText(message)
 
-    def on_generation_success(self, generated_notes):
+    def on_generation_success(self, generated_notes: List[Dict[str, str]]) -> None:
         self.generated_notes = generated_notes
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText("✨ Regénérer les Cartes")
@@ -290,12 +270,12 @@ class CreationTab(QWidget):
         if len(generated_notes) > 0:
             self.results_table.selectRow(0)
 
-    def on_generation_error(self, error_msg):
+    def on_generation_error(self, error_msg: str) -> None:
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText("✨ Générer les Cartes")
         QMessageBox.critical(self, "Erreur IA", error_msg)
 
-    def on_table_item_changed(self, item):
+    def on_table_item_changed(self, item: QTableWidgetItem) -> None:
         row = item.row()
         col = item.column()
         field_name = self.results_table.horizontalHeaderItem(col).text()
@@ -306,7 +286,7 @@ class CreationTab(QWidget):
             if selected_items and selected_items[0].row() == row:
                 self.update_preview()
 
-    def update_preview(self):
+    def update_preview(self) -> None:
         selected_items = self.results_table.selectedItems()
         if not selected_items or not self.generated_notes:
             self.web_view.setHtml("")
@@ -340,8 +320,9 @@ class CreationTab(QWidget):
         )
         self.web_view.setHtml(final_html)
 
-    def save_to_database(self):
-        if not self.generated_notes: return
+    def save_to_database(self) -> None:
+        if not self.generated_notes:
+            return
 
         deck_id = self.deck_selector.currentData()
         model_id = self.model_selector.currentData()
@@ -362,8 +343,7 @@ class CreationTab(QWidget):
                     for idx, tmpl in enumerate(templates):
                         CardModel.create(note=note, deck=deck, template_index=idx)
 
-            QMessageBox.information(self, "Succès",
-                                    f"{len(self.generated_notes)} notes créées dans '{deck.name}' !")
+            QMessageBox.information(self, "Succès", f"{len(self.generated_notes)} notes créées dans '{deck.name}' !")
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
             self.web_view.setHtml("")
@@ -372,4 +352,3 @@ class CreationTab(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur Base de Données", f"Impossible de sauvegarder : {e}")
-

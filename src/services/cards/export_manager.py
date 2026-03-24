@@ -1,10 +1,16 @@
 # src/services/cards/export_manager.py
+import hashlib
 import json
 import genanki
 from src.database.models import DeckModel, CardModel
 
 
 class ExportManager:
+    @staticmethod
+    def generate_stable_id(text: str) -> int:
+        """Génère un entier unique et constant basé sur une chaîne de caractères."""
+        return int(hashlib.md5(text.encode('utf-8')).hexdigest()[:15], 16) % (10 ** 10)
+
     def export_deck(self, deck_id: int, output_path: str):
         """
         Exporte un paquet (et toutes ses notes) depuis la base Peewee vers un fichier .apkg
@@ -12,7 +18,7 @@ class ExportManager:
         deck_model = DeckModel.get_by_id(deck_id)
 
         # Genanki exige un ID entier unique. On utilise un hash du nom pour avoir un ID constant.
-        genanki_deck_id = abs(hash(deck_model.name)) % (10 ** 10)
+        genanki_deck_id = self.generate_stable_id(deck_model.name)
 
         genanki_deck = genanki.Deck(
             deck_id=genanki_deck_id,
