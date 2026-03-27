@@ -50,14 +50,25 @@ def render_anki_card(raw_html: str, css: str, fields_dict: dict, is_recto: bool 
 
     # 5. Injection de MathJax pour LaTeX
     mathjax_script = r"""
-    <script>
-    MathJax = {
-      tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
-      svg: { fontCache: 'global' }
-    };
-    </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    """
+        <script>
+            window.MathJax = {
+                tex: {
+                    inlineMath: [['\\(', '\\)']],
+                    displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                    processEnvironments: true 
+                },
+                options: {
+                    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+                },
+                chtml: {
+                    scale: 1.0 
+                }
+            };
+        </script>
+        <script type="text/javascript" id="MathJax-script" async
+                src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+        </script>
+        """
 
     # 6. Assemblage final
     final_html = f"""

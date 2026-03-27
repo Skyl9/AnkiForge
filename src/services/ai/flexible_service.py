@@ -1,7 +1,10 @@
 # src/services/ai/flexible_service.py
 import os
+
+from dotenv import load_dotenv
 from openai import OpenAI
-from src.services.ai.base import LLMProvider
+from src.services.ai.base import LLMProvider, MockProvider
+
 
 class OpenAICompatibleProvider(LLMProvider):
     """
@@ -42,6 +45,20 @@ class OllamaProvider(OpenAICompatibleProvider):
             api_key="ollama" # Pas de clé requise en local
         )
 
+    @staticmethod
+    def get_available_models() -> list[str]:
+        """Récupère dynamiquement la liste des modèles locaux installés sur Ollama."""
+        import requests
+        try:
+            # Appel à l'API locale d'Ollama (timeout court pour ne pas bloquer l'UI si Ollama est éteint)
+            response = requests.get("http://localhost:11434/api/tags", timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                return [model.get("name") for model in data.get("models", [])]
+            return []
+        except requests.RequestException:
+            return []
+
 
 class GroqProvider(OpenAICompatibleProvider):
     """Fournisseur Cloud ultra-rapide."""
@@ -67,3 +84,54 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             model_name="google/gemini-2.5-flash:free",
             api_key=key
         )
+
+
+class GeminiProvider(OpenAICompatibleProvider):
+    """Fournisseur Cloud officiel de Google (Gemini)."""
+
+    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash"):
+        if not api_key:
+            raise ValueError("Clé API Gemini manquante.")
+        # Google propose désormais une URL compatible avec le SDK OpenAI !
+        super().__init__(
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            model_name=model_name,
+            api_key=api_key
+        )
+
+
+class AIManager:
+    """Gestionnaire dynamique qui charge la bonne IA selon le fichier .env."""
+
+    def __init__(self):
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.env_path = os.path.join(BASE_DIR, ".env")
+        # Créer le fichier .env s'il n'existe pas
+        if not os.path.exists(self.env_path):
+            with open(self.env_path, 'w') as f:
+                f.write("AI_PROVIDER=Ollama\nAI_MODEL=mistral-nemo\n")
+
+        load_dotenv(self.env_path)
+        self.provider = MockProvider()  # Fallback de sécurité
+        self.reload_provider()
+
+    def reload_provider(self):
+        """Recharge l'IA en fonction des paramètres actuels du .env."""
+        load_dotenv(self.env_path, override=True)  # Force le rafraichissement
+
+        provider_name = os.getenv("AI_PROVIDER", "Ollama")
+        model_name = os.getenv("AI_MODEL", "qwen2.5:7b")
+
+        try:
+            if provider_name == "Ollama":
+                self.provider = OllamaProvider(model_name=model_name)
+            elif provider_name == "Gemini":
+                self.provider = GeminiProvider(api_key=os.getenv("GEMINI_API_KEY", ""), model_name=model_name)
+            elif provider_name == "Groq":
+                self.provider = GroqProvider(api_key=os.getenv("GROQ_API_KEY", ""), model_name=model_name)
+            else:
+                self.provider = MockProvider()
+            print(f"✅ IA connectée : {provider_name} ({model_name})")
+        except Exception as e:
+            print(f"⚠️ Erreur IA, passage en mode Mock : {e}")
+            self.provider = MockProvider()

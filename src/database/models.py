@@ -14,8 +14,12 @@ if not os.path.exists(DATA_DIR):
 DB_PATH = os.path.join(DATA_DIR, 'ankiforge.db')
 
 # Base de données SQLite connectée au bon endroit
-db = SqliteDatabase(DB_PATH)
-
+db = SqliteDatabase(DB_PATH, pragmas={
+    'journal_mode': 'wal',  # Permet la lecture et l'écriture simultanées !
+    'cache_size': -1024 * 64,  # Alloue 64MB de RAM pour accélérer les requêtes
+    'foreign_keys': 1, # Force le respect des clés étrangères (sécurité des suppressions en cascade)
+    'synchronous': 1 # Équilibre parfait entre sécurité en cas de crash et vitesse d'écriture
+})
 
 class BaseModel(Model):
     class Meta:
@@ -132,13 +136,25 @@ class PipelineStepModel(BaseModel):
             (('pipeline', 'step_order'), True),
         )
 
+class FolderModel(BaseModel):
+    """Stocke les dossiers de la bibliothèque."""
+    name = CharField(unique=True)
+
+class DocumentModel(BaseModel):
+    """Stocke les cours après extraction par Marker."""
+    title = CharField(unique=True)
+    content = TextField()
+    created_at = DateTimeField(default=datetime.datetime.now)
+    # 🆕 Clé étrangère vers le dossier. null=True permet d'avoir des docs "non rangés".
+    # on_delete='CASCADE' supprime les documents si on supprime le dossier.
+    folder = ForeignKeyField(FolderModel, backref='documents', null=True, on_delete='CASCADE')
 
 def init_db():
     db.connect()
     # Ajout des nouvelles tables à l'initialisation
     db.create_tables([
         DeckModel, NoteTypeModel, NoteModel, CardModel,NoteVersionModel,
-        AgentModel, PipelineModel, PipelineStepModel  # <-- NOUVEAU
+        AgentModel, PipelineModel, PipelineStepModel,DocumentModel,FolderModel
     ])
     if AgentModel.select().count() == 0:
         print("🌱 Création des Agents IA par défaut...")

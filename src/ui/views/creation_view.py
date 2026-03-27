@@ -1,8 +1,10 @@
 import json
+import os
 import uuid
 from typing import Any, List, Dict
 
-from PySide6.QtCore import Qt, QThread, Signal
+
+from PySide6.QtCore import Qt, QThread, Signal, QUrl
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QPushButton, QComboBox, QTableWidget,
@@ -10,7 +12,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from jinja2 import Template
 
 from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel, \
-    NoteVersionModel
+    NoteVersionModel, DocumentModel
 from src.services.parsing.document_parser import DocumentParser
 from src.utils.anki_renderer import render_anki_card
 
@@ -93,9 +95,9 @@ class GenerationThread(QThread):
 
 class CreationTab(QWidget):
     # ATTENTION: Retrait du prompt_manager qui était mort !
-    def __init__(self, ai_provider: Any) -> None:
+    def __init__(self, ai_manager: Any) -> None:
         super().__init__()
-        self.ai_provider = ai_provider
+        self.ai_manager = ai_manager
         self.generated_notes: List[Dict[str, str]] = []
 
         layout = QVBoxLayout(self)
@@ -120,23 +122,37 @@ class CreationTab(QWidget):
         main_splitter = QSplitter(Qt.Vertical)
 
         # Zone source
+
+        # --- Section 1 : Source (Le cours) ---
         source_widget = QWidget()
+
+        # --- Section 1 : Source (Le cours) ---
         source_layout = QVBoxLayout(source_widget)
-        source_layout.setContentsMargins(0, 0, 0, 0)
 
-        # 🆕 AJOUT DU BOUTON IMPORT
-        import_layout = QHBoxLayout()
-        import_layout.addWidget(QLabel("<b>📝 Texte Source (Cours, Article, etc.) :</b>"))
-        self.btn_import_doc = QPushButton("📄 Importer un document (PDF, TXT)")
-        self.btn_import_doc.clicked.connect(self.import_document)
-        import_layout.addStretch()
-        import_layout.addWidget(self.btn_import_doc)
-        source_layout.addLayout(import_layout)
+        # 1. Sélection du document
+        source_header = QHBoxLayout()
+        source_header.addWidget(QLabel("<b>📄 1. Choisir un cours :</b>"))
+        self.doc_selector = QComboBox()
+        self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
+        source_header.addWidget(self.doc_selector, stretch=1)
 
+        self.btn_refresh_docs = QPushButton("🔄")
+        self.btn_refresh_docs.clicked.connect(self.load_documents)
+        source_header.addWidget(self.btn_refresh_docs)
+        source_layout.addLayout(source_header)
+
+        # 2. NOUVEAU : Sélection de la section
+        section_header = QHBoxLayout()
+        section_header.addWidget(QLabel("<b>🔖 2. Choisir une partie :</b>"))
+        self.section_selector = QComboBox()
+        self.section_selector.currentIndexChanged.connect(self.on_section_changed)
+        section_header.addWidget(self.section_selector, stretch=1)
+        source_layout.addLayout(section_header)
+
+        # 3. La zone de texte
         self.source_text = QTextEdit()
+        self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
         source_layout.addWidget(self.source_text)
-
-
         self.btn_generate = QPushButton("✨ Générer les Cartes")
         self.btn_generate.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
         self.btn_generate.clicked.connect(self.start_generation)
@@ -192,7 +208,8 @@ class CreationTab(QWidget):
         # 2ème Onglet : Console IA
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
-        self.console_log.setStyleSheet("background-color: #1e1e1e; color: #00FF00; font-family: monospace;")
+        self.console_log.setStyleSheet(
+            "background-color: #1e1e1e; color: #00FF00; font-family: 'Consolas', 'Courier New', Courier, monospace;")
         right_tabs.addTab(self.console_log, "🕵️ Console IA (Logs)")
 
         bottom_splitter.addWidget(table_container)
@@ -206,7 +223,6 @@ class CreationTab(QWidget):
         layout.addWidget(main_splitter)
         self.refresh_selectors()
 
-
     def refresh_selectors(self) -> None:
         self.deck_selector.clear()
         for deck in DeckModel.select().order_by(DeckModel.name):
@@ -219,6 +235,59 @@ class CreationTab(QWidget):
         self.pipeline_selector.clear()
         for pipe in PipelineModel.select().order_by(PipelineModel.name):
             self.pipeline_selector.addItem(pipe.name, userData=pipe.id)
+
+    def _parse_markdown_sections(self, text: str) -> list[tuple[str, str]]:
+        """Découpe un texte Markdown en sections basées sur les titres (#)."""
+        sections = []
+        current_title = ""
+        current_content = []
+
+        for line in text.split('\n'):
+            if line.startswith('#'):
+                # Si on a déjà accumulé une section, on la sauvegarde
+                if current_title or current_content:
+                    # On évite de sauvegarder des sections vides
+                    if ''.join(current_content).strip():
+                        sections.append(
+                            (current_title if current_title else "Introduction", '\n'.join(current_content)))
+
+                # On prépare le nouveau titre
+                clean_title = line.replace('#', '').strip()
+                if len(clean_title) > 50:  # On tronque si c'est trop long pour le menu
+                    clean_title = clean_title[:47] + "..."
+                current_title = clean_title
+                current_content = [line]
+            else:
+                current_content.append(line)
+
+        # Ne pas oublier la toute dernière section du document
+        if current_content and ''.join(current_content).strip():
+            sections.append((current_title if current_title else "Texte", '\n'.join(current_content)))
+
+        return sections
+
+    def load_documents(self) -> None:
+        """Charge la liste des documents depuis la base de données."""
+        self.doc_selector.blockSignals(True)
+        self.doc_selector.clear()
+        self.doc_selector.addItem("-- Sélectionner un document --", None)
+
+        # On récupère tous les documents triés par date
+        for doc in DocumentModel.select().order_by(DocumentModel.created_at.desc()):
+            # On affiche le titre, on cache l'ID dans la "data" de l'item
+            self.doc_selector.addItem(doc.title, doc.id)
+
+        self.doc_selector.blockSignals(False)
+
+    def on_document_changed(self, index: int) -> None:
+        """Affiche le Markdown du document sélectionné."""
+        doc_id = self.doc_selector.itemData(index)
+        if doc_id:
+            # Rechargement instantané depuis SQLite !
+            doc = DocumentModel.get_by_id(doc_id)
+            self.source_text.setPlainText(doc.content)
+        else:
+            self.source_text.clear()
 
     def import_document(self) -> None:
         """Ouvre un dialogue pour sélectionner un fichier et l'extrait dans la zone de texte."""
@@ -245,6 +314,52 @@ class CreationTab(QWidget):
             finally:
                 self.btn_import_doc.setEnabled(True)
                 self.btn_import_doc.setText("📄 Importer un document (PDF, TXT)")
+
+    def load_documents(self) -> None:
+        """Charge la liste des documents depuis la base de données."""
+        self.doc_selector.blockSignals(True)
+        self.doc_selector.clear()
+        self.doc_selector.addItem("-- Sélectionner un document --", None)
+
+        for doc in DocumentModel.select().order_by(DocumentModel.created_at.desc()):
+            self.doc_selector.addItem(doc.title, doc.id)
+
+        self.doc_selector.blockSignals(False)
+
+    def on_document_changed(self, index: int) -> None:
+        """Charge le document et le découpe en sections."""
+        doc_id = self.doc_selector.itemData(index)
+
+        self.section_selector.blockSignals(True)
+        self.section_selector.clear()
+
+        if doc_id:
+            doc = DocumentModel.get_by_id(doc_id)
+            full_text = doc.content
+
+            # On découpe le texte avec notre nouveau parseur !
+            sections = self._parse_markdown_sections(full_text)
+
+            # On ajoute toujours l'option de tout envoyer (pour les petits cours)
+            self.section_selector.addItem("📑 Tout le document", full_text)
+
+            # On ajoute chaque sous-partie trouvée
+            for title, content in sections:
+                self.section_selector.addItem(f"🔹 {title}", content)
+
+            self.source_text.setPlainText(full_text)
+        else:
+            self.source_text.clear()
+
+        self.section_selector.blockSignals(False)
+
+    def on_section_changed(self, index: int) -> None:
+        """Met à jour la zone de texte avec la section choisie."""
+        if index >= 0:
+            # On récupère le texte caché dans la 'data' de l'item du combobox
+            content = self.section_selector.itemData(index)
+            self.source_text.setPlainText(content)
+
     def on_model_changed(self) -> None:
         model_id = self.model_selector.currentData()
         if not model_id:
@@ -288,7 +403,7 @@ class CreationTab(QWidget):
         self.web_view.setHtml("")
         self.console_log.clear()
 
-        self.thread = GenerationThread(self.ai_provider, text, note_type, pipeline_id)
+        self.thread = GenerationThread(self.ai_manager.provider, text, note_type, pipeline_id)
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)  # 🆕 On connecte le signal à notre console
         self.thread.finished.connect(self.on_generation_success)
@@ -298,6 +413,7 @@ class CreationTab(QWidget):
     def append_log(self, text: str) -> None:
         """Ajoute le texte reçu depuis le thread dans la console IA."""
         self.console_log.append(text)
+
     def update_progress(self, message: str) -> None:
         self.btn_generate.setText(message)
 
@@ -377,6 +493,19 @@ class CreationTab(QWidget):
             front_html=tmpl.get("qfmt", "")
         )
         self.web_view.setHtml(final_html)
+
+        # --- NOUVEAU : Configuration du Base URL pour les médias locaux ---
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        media_dir = os.path.join(BASE_DIR, 'data', 'media')
+
+        # On s'assure que le chemin se termine par un slash pour que Chromium comprenne que c'est un dossier
+        if not media_dir.endswith(os.sep):
+            media_dir += os.sep
+
+        base_url = QUrl.fromLocalFile(media_dir)
+
+        # On injecte le HTML en lui disant "Si tu vois une image, cherche-la dans base_url"
+        self.web_view.setHtml(final_html, base_url)
 
     def save_to_database(self) -> None:
         if not self.generated_notes:

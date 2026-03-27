@@ -1,6 +1,9 @@
 # src/services/parsing/document_parser.py
 import os
-import fitz  # PyMuPDF
+import subprocess
+import tempfile
+
+from src.services.cards.media_manager import MediaManager
 
 
 # import docx  (À décommenter plus tard quand tu feras le pip install python-docx)
@@ -8,6 +11,9 @@ import fitz  # PyMuPDF
 
 class DocumentParser:
     """Service en charge d'extraire le texte brut de divers formats de documents."""
+
+    def __init__(self):
+        self.media_manager = MediaManager()  # <-- INSTANCIATION
 
     def parse_document(self, file_path: str) -> str:
         """Détecte l'extension et utilise le bon parseur."""
@@ -17,7 +23,7 @@ class DocumentParser:
         ext = os.path.splitext(file_path)[1].lower()
 
         if ext == '.pdf':
-            return self._parse_pdf(file_path)
+            return self._parse_pdf_with_marker(file_path)
         elif ext in ['.txt', '.md']:
             return self._parse_text(file_path)
         # elif ext == '.docx':
@@ -27,22 +33,39 @@ class DocumentParser:
         else:
             raise ValueError(f"Format de fichier non supporté : {ext}")
 
-    def _parse_pdf(self, file_path: str) -> str:
-        """Extraction ultra-rapide du texte d'un PDF via PyMuPDF."""
-        text_content = []
+    def _parse_pdf_with_marker(self, file_path: str) -> str:
+        """Extraction Deep Learning via Marker pour un LaTeX parfait."""
         try:
-            doc = fitz.open(file_path)
-            for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                text = page.get_text()
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # subprocess.run bloque l'exécution ici jusqu'à la fin de Marker
+                process = subprocess.run(
+                    ["marker_single", file_path, "--output_dir", temp_dir],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
 
-                # Petit nettoyage pour éviter les sauts de ligne excessifs
-                cleaned_text = "\n".join([line.strip() for line in text.split('\n') if line.strip()])
+                pdf_name = os.path.splitext(os.path.basename(file_path))[0]
+                marker_output_folder = os.path.join(temp_dir, pdf_name)
+                md_file_path = os.path.join(marker_output_folder, f"{pdf_name}.md")
 
-                text_content.append(f"--- PAGE {page_num + 1} ---\n{cleaned_text}\n")
-            return "\n".join(text_content)
-        except Exception as e:
-            raise RuntimeError(f"Erreur lors de la lecture du PDF : {str(e)}")
+                if os.path.exists(md_file_path):
+                    with open(md_file_path, 'r', encoding='utf-8') as f:
+                        raw_markdown = f.read()
+
+                    # 👇 NOUVEAU : Traitement des images avant de renvoyer le texte 👇
+                    processed_markdown = self.media_manager.process_extracted_folder(
+                        source_folder=marker_output_folder,
+                        markdown_content=raw_markdown
+                    )
+                    return processed_markdown
+                else:
+                    raise FileNotFoundError(f"Marker n'a pas généré de Markdown. Logs:\n{process.stderr}")
+
+        except FileNotFoundError:
+            raise RuntimeError("Marker n'est pas installé. Lancez 'uv pip install marker-pdf'")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Le moteur Marker a planté :\n{e.stderr}")
 
     def _parse_text(self, file_path: str) -> str:
         """Lecture basique de fichiers texte."""
