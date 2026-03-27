@@ -1,11 +1,19 @@
 # src/services/cards/export_manager.py
 import hashlib
 import json
+import os
+import re
 import genanki
-from src.database.models import DeckModel, CardModel
+from src.database.models import DeckModel, CardModel, NoteVersionModel, DATA_DIR
 
 
 class ExportManager:
+    def __init__(self):
+        # On pointe vers notre dossier media local
+        self.media_dir = os.path.join(DATA_DIR, 'media')
+        if not os.path.exists(self.media_dir):
+            os.makedirs(self.media_dir)
+
     @staticmethod
     def generate_stable_id(text: str) -> int:
         """Génère un entier unique et constant basé sur une chaîne de caractères."""
@@ -13,7 +21,7 @@ class ExportManager:
 
     def export_deck(self, deck_id: int, output_path: str):
         """
-        Exporte un paquet (et toutes ses notes) depuis la base Peewee vers un fichier .apkg
+        Exporte un paquet, ses sous-paquets, et toutes les images associées vers un .apkg
         """
         deck_model = DeckModel.get_by_id(deck_id)
 
@@ -27,9 +35,11 @@ class ExportManager:
 
         genanki_models = {}
         processed_notes = set()
+        media_files_to_export = set()  # Utilisera un set pour éviter les doublons d'images
 
-        # On récupère toutes les cartes associées à ce paquet (et ses sous-paquets si on voulait)
-        cards = CardModel.select().where(CardModel.deck == deck_model)
+        # 1. On récupère le paquet ET tous ses sous-paquets (Ex: "Langues" + "Langues::Anglais")
+        matching_decks = DeckModel.select().where(DeckModel.name.startswith(deck_model.name))
+        cards = CardModel.select().where(CardModel.deck.in_(matching_decks))
 
         for card in cards:
             note = card.note
@@ -40,7 +50,7 @@ class ExportManager:
 
             nt = note.note_type
 
-            # 1. Traduction du NoteTypeModel vers genanki.Model
+            # 2. Traduction du NoteTypeModel vers genanki.Model
             if nt.id not in genanki_models:
                 fields_list = json.loads(nt.fields_schema) if nt.fields_schema else ["Front", "Back"]
                 templates_list = json.loads(nt.templates) if nt.templates else []
@@ -65,25 +75,41 @@ class ExportManager:
 
             g_model, fields_list = genanki_models[nt.id]
 
-            # 2. Construction des données de la Note
-            content_dict = json.loads(note.content) if note.content else {}
+            # 3. Construction des données de la Note (CORRECTION DU BUG ICI 👇)
+            active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
+            if not active_version:
+                continue  # Si la note n'a pas de version active, on l'ignore
 
-            # CRITIQUE : L'ordre des valeurs doit correspondre EXACTEMENT à l'ordre des champs du modèle
+            content_dict = json.loads(active_version.content)
+
+            # CRITIQUE : L'ordre des valeurs doit correspondre EXACTEMENT à l'ordre des champs
             field_values = []
             for field_name in fields_list:
-                field_values.append(str(content_dict.get(field_name, "")))
+                val = str(content_dict.get(field_name, ""))
+                field_values.append(val)
+
+                # 4. RÉCUPÉRATION DES MÉDIAS (Images)
+                # On cherche les balises <img src="nom_du_fichier.jpg">
+                img_matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', val)
+                for img_name in img_matches:
+                    img_path = os.path.join(self.media_dir, img_name)
+                    # Si l'image existe physiquement sur le disque, on l'ajoute au zip
+                    if os.path.exists(img_path):
+                        media_files_to_export.add(img_path)
 
             tags_list = json.loads(note.tags) if note.tags else []
 
-            # 3. Création de la genanki.Note
+            # 5. Création de la genanki.Note
             g_note = genanki.Note(
                 model=g_model,
                 fields=field_values,
-                guid=note.guid,  # On garde ton GUID pour qu'Anki puisse faire des mises à jour sans doublons !
+                guid=note.guid,  # Vital pour les futures mises à jour Anki
                 tags=tags_list
             )
 
             genanki_deck.add_note(g_note)
 
-        # 4. Écriture du fichier final
-        genanki.Package(genanki_deck).write_to_file(output_path)
+        # 6. Écriture du fichier final avec les médias
+        package = genanki.Package(genanki_deck)
+        package.media_files = list(media_files_to_export)
+        package.write_to_file(output_path)
