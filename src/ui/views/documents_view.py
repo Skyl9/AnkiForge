@@ -186,6 +186,13 @@ class DocumentsTab(QWidget):
         self.btn_save_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_save_doc)
 
+        # On remplace l'ancien bouton par celui-ci
+        self.btn_split_doc = QPushButton("✂️ Scinder aux balises [SPLIT]")
+        self.btn_split_doc.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.btn_split_doc.clicked.connect(self.split_document_multiple)
+        self.btn_split_doc.setEnabled(False)
+        editor_toolbar.addWidget(self.btn_split_doc)
+
         right_layout.addLayout(editor_toolbar)
 
         # 👇 NOUVEAU : Système d'onglets pour séparer Code et Rendu 👇
@@ -197,8 +204,8 @@ class DocumentsTab(QWidget):
             "background-color: #1E1E1E; color: #D4D4D4; font-family: 'Consolas', monospace; font-size: 14px;")
         self.highlighter = MarkdownHighlighter(self.preview_text.document())  # Coloration activée !
         self.preview_text.textChanged.connect(
-            lambda: self.btn_save_doc.setEnabled(self.current_doc_id_editing is not None))
-
+            lambda: self.btn_save_doc.setEnabled(self.current_doc_id_editing is not None)
+        )
         # Onglet 2 : Rendu Web
         self.render_view = QWebEngineView()
 
@@ -394,6 +401,7 @@ class DocumentsTab(QWidget):
 
             self.current_doc_id_editing = doc_id
             self.btn_save_doc.setEnabled(False)
+            self.btn_split_doc.setEnabled(True)
 
             # Forcer le rafraîchissement si on est déjà sur l'onglet "Aperçu"
             if self.editor_tabs.currentIndex() == 1:
@@ -404,6 +412,7 @@ class DocumentsTab(QWidget):
             self.render_view.setHtml("")
             self.current_doc_id_editing = None
             self.btn_save_doc.setEnabled(False)
+            self.btn_split_doc.setEnabled(False)
 
     # ==========================================
     # IMPORT (Marker)
@@ -438,3 +447,49 @@ class DocumentsTab(QWidget):
     def _on_parsing_error(self, error_msg: str) -> None:
         self.btn_import.setEnabled(True)
         QMessageBox.critical(self, "Erreur", error_msg)
+
+    def split_document_multiple(self) -> None:
+        """Découpe le document en N morceaux en cherchant le mot-clé [SPLIT]."""
+        if not self.current_doc_id_editing:
+            return
+
+        full_text = self.preview_text.toPlainText()
+
+        # On sépare le texte à chaque occurrence exacte de "[SPLIT]"
+        parts = full_text.split("[SPLIT]")
+
+        if len(parts) <= 1:
+            QMessageBox.information(
+                self,
+                "Astuce",
+                "Pour scinder le document en plusieurs parties, écrivez [SPLIT] dans le texte aux endroits où vous souhaitez couper."
+            )
+            return
+
+        try:
+            with db.atomic():
+                original_doc = DocumentModel.get_by_id(self.current_doc_id_editing)
+                base_title = original_doc.title
+
+                # 1. Le premier morceau écrase le document actuel (pour garder son ID)
+                original_doc.title = f"{base_title} (Partie 1)"
+                original_doc.content = parts[0].strip()
+                original_doc.save()
+
+                # 2. On crée dynamiquement tous les autres morceaux
+                for i in range(1, len(parts)):
+                    content_part = parts[i].strip()
+                    # On ignore les morceaux vides (si l'utilisateur a mis deux [SPLIT] de suite)
+                    if len(content_part) > 0:
+                        DocumentModel.create(
+                            title=f"{base_title} (Partie {i + 1})",
+                            content=content_part,
+                            folder=original_doc.folder
+                        )
+
+            self.load_tree()
+            self.preview_text.setPlainText(original_doc.content)
+            QMessageBox.information(self, "Succès 🎉", f"Le document a été découpé en {len(parts)} morceaux distincts !")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Impossible de scinder le document :\n{e}")
