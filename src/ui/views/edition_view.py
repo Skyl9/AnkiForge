@@ -255,10 +255,10 @@ class EditionTab(QWidget):
                     deck_name = card.deck.name if card.deck else "Inconnu"
                     template = f"Carte n°{card.template_index + 1}"
 
-                    self.data_table.setItem(row_index, 0, QTableWidgetItem(cid))
-                    self.data_table.setItem(row_index, 1, QTableWidgetItem(note_type))
-                    self.data_table.setItem(row_index, 2, QTableWidgetItem(deck_name))
-                    self.data_table.setItem(row_index, 3, QTableWidgetItem(template))
+                    self.data_table.setItem(row_index, 0, SortableTableItem(cid))
+                    self.data_table.setItem(row_index, 1, SortableTableItem(note_type))
+                    self.data_table.setItem(row_index, 2, SortableTableItem(deck_name))
+                    self.data_table.setItem(row_index, 3, SortableTableItem(template))
                     self.data_table.item(row_index, 0).setData(Qt.UserRole, card.note.id)
 
             else:
@@ -290,18 +290,18 @@ class EditionTab(QWidget):
                     nt_name = note.note_type.name if note.note_type else "Inconnu"
                     tags_list = json.loads(note.tags) if note.tags else []
 
-                    self.data_table.setItem(row_index, 0, QTableWidgetItem(recto))
-                    self.data_table.setItem(row_index, 1, QTableWidgetItem(verso))
-                    self.data_table.setItem(row_index, 2, QTableWidgetItem(nt_name))
-                    self.data_table.setItem(row_index, 3, QTableWidgetItem(", ".join(tags_list)))
+                    self.data_table.setItem(row_index, 0, SortableTableItem(recto))
+                    self.data_table.setItem(row_index, 1, SortableTableItem(verso))
+                    self.data_table.setItem(row_index, 2, SortableTableItem(nt_name))
+                    self.data_table.setItem(row_index, 3, SortableTableItem(", ".join(tags_list)))
 
                     v_num = active_version.version_number if active_version else 1
-                    item_version = QTableWidgetItem(f"v{v_num}")
+                    item_version = SortableTableItem(f"v{v_num}")
                     item_version.setTextAlignment(Qt.AlignCenter)
                     self.data_table.setItem(row_index, 4, item_version)
 
                     self.data_table.item(row_index, 0).setData(Qt.UserRole, note.id)
-
+            self.data_table.setSortingEnabled(True)
         except Exception as e:
             # S'il y a un plantage, on aura enfin une alerte claire !
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
