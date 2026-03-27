@@ -1,8 +1,9 @@
 import json
+import os
 import re
 from typing import Optional, Dict
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
@@ -415,4 +416,15 @@ class EditionTab(QWidget):
             front_html=tmpl.get("qfmt", "")
         )
 
-        self.web_view.setHtml(final_html)
+        # 👇 NOUVEAU : Configuration du Base URL pour les médias locaux 👇
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        media_dir = os.path.join(BASE_DIR, 'data', 'media')
+
+        # Sécurité : S'assure que le chemin se termine par un séparateur de dossier (/ ou \)
+        if not media_dir.endswith(os.sep):
+            media_dir += os.sep
+
+        base_url = QUrl.fromLocalFile(media_dir)
+
+        # On injecte le HTML en lui donnant le droit de lire dans le dossier media
+        self.web_view.setHtml(final_html, base_url)
