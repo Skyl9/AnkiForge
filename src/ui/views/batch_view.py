@@ -1,6 +1,6 @@
-# src/ui/views/batch_view.py
 import json
 import uuid
+import re
 from typing import Any, List, Dict
 
 from PySide6.QtCore import Qt, QThread, Signal
@@ -22,10 +22,10 @@ class BatchWorker(QThread):
     finished = Signal(int, int)  # (succès, erreurs)
     error = Signal(str)
 
-    def __init__(self, ai_provider: Any, tasks: List[Dict[str, int]]):
+    def __init__(self, ai_provider: Any, tasks: List[Dict[str, Any]]):
         super().__init__()
         self.ai_provider = ai_provider
-        self.tasks = tasks  # Liste de dicts: [{"doc_id": 1, "deck_id": 2, "model_id": 1, "pipeline_id": 1}, ...]
+        self.tasks = tasks
 
     def _clean_json(self, raw_text: str) -> str:
         clean = raw_text.strip()
@@ -35,30 +35,71 @@ class BatchWorker(QThread):
             clean = clean[3:-3].strip()
         return clean
 
-    def _chunk_text(self, text: str, max_chars: int = 6000) -> List[str]:
-        """Découpe un long texte en morceaux pour éviter l'overflow de l'IA (Chunking)."""
-        if len(text) <= max_chars:
+    def _chunk_text(self, text: str, strategy: str, max_chars: int = 6000, overlap: int = 1000) -> List[str]:
+        """Le moteur de découpage intelligent."""
+        if strategy == "Aucun (Document entier)" or len(text) <= max_chars:
             return [text]
 
         chunks = []
-        while len(text) > 0:
-            if len(text) <= max_chars:
-                chunks.append(text)
-                break
 
-            # On cherche le dernier double retour à la ligne avant la limite pour ne pas couper un paragraphe
-            split_idx = text.rfind("\n\n", 0, max_chars)
-            # Si pas de double retour, on cherche un point
-            if split_idx == -1:
-                split_idx = text.rfind(". ", 0, max_chars)
-            # Sinon on coupe brutalement
-            if split_idx == -1:
-                split_idx = max_chars
+        if strategy == "Sémantique (Titres)":
+            # On cherche les titres Markdown (# Titre ou ## Titre)
+            splits = [m.start() for m in re.finditer(r'(^|\n)(#{1,3})\s', text)]
 
-            chunks.append(text[:split_idx].strip())
-            text = text[split_idx:].strip()
+            # Si le document n'a pas de titres, on bascule sur le Classique
+            if not splits or len(splits) == 1:
+                return self._chunk_text(text, "Classique", max_chars)
 
-        return chunks
+            last_idx = 0
+            for i in range(1, len(splits)):
+                part = text[last_idx:splits[i]].strip()
+                if len(part) > 50:  # On ignore les morceaux vides
+                    chunks.append(part)
+                last_idx = splits[i]
+
+            last_part = text[last_idx:].strip()
+            if len(last_part) > 50:
+                chunks.append(last_part)
+
+            return chunks
+
+        elif strategy == "Chevauchement (Overlap)":
+            start = 0
+            while start < len(text):
+                end = start + max_chars
+                if end >= len(text):
+                    chunks.append(text[start:].strip())
+                    break
+
+                # On cherche une fin de phrase ou de paragraphe
+                split_idx = text.rfind("\n\n", start, end)
+                if split_idx == -1 or split_idx <= start + overlap:
+                    split_idx = text.rfind(". ", start, end)
+                if split_idx == -1 or split_idx <= start + overlap:
+                    split_idx = end
+
+                chunks.append(text[start:split_idx].strip())
+                # On recule pour créer le chevauchement !
+                start = split_idx - overlap
+                if start < 0: start = 0
+
+            return chunks
+
+        else:  # "Classique"
+            temp_text = text
+            while len(temp_text) > 0:
+                if len(temp_text) <= max_chars:
+                    chunks.append(temp_text)
+                    break
+
+                split_idx = temp_text.rfind("\n\n", 0, max_chars)
+                if split_idx == -1: split_idx = temp_text.rfind(". ", 0, max_chars)
+                if split_idx == -1: split_idx = max_chars
+
+                chunks.append(temp_text[:split_idx].strip())
+                temp_text = temp_text[split_idx:].strip()
+
+            return chunks
 
     def run(self) -> None:
         try:
@@ -68,12 +109,13 @@ class BatchWorker(QThread):
 
             self.progress_val.emit(0)
 
-            # Boucle Principale sur les tâches (documents)
             for task_idx, task in enumerate(self.tasks):
                 doc = DocumentModel.get_by_id(task["doc_id"])
                 deck = DeckModel.get_by_id(task["deck_id"])
                 note_type = NoteTypeModel.get_by_id(task["model_id"])
                 pipeline = PipelineModel.get_by_id(task["pipeline_id"])
+                chunk_strategy = task["chunk_strategy"]
+
                 steps = list(pipeline.steps.order_by(PipelineStepModel.step_order))
 
                 fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
@@ -83,21 +125,20 @@ class BatchWorker(QThread):
                 templates = json.loads(note_type.templates) if note_type.templates else []
 
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
-                self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n{'=' * 40}")
+                self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Stratégie : {chunk_strategy}\n{'=' * 40}")
 
                 # PARTITIONNEMENT DU DOCUMENT
-                chunks = self._chunk_text(doc.content, max_chars=6000)
-                self.log.emit(f"✂️ Document découpé en {len(chunks)} morceau(x) pour l'IA.")
+                chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=6000)
+                self.log.emit(f"✂️ Document découpé en {len(chunks)} morceau(x).")
 
                 doc_success_notes = 0
 
                 for chunk_idx, chunk_text in enumerate(chunks, 1):
-                    self.log.emit(f"\n--- Traitement du morceau {chunk_idx}/{len(chunks)} ---")
+                    self.log.emit(f"\n--- Morceau {chunk_idx}/{len(chunks)} ---")
                     current_input = f"TEXTE SOURCE :\n{chunk_text}"
                     cleaned_output = ""
                     chunk_failed = False
 
-                    # Exécution du Pipeline IA sur ce morceau
                     for step_idx, step in enumerate(steps, 1):
                         agent = step.agent
                         self.log.emit(f"🤖 Agent '{agent.name}' en action...")
@@ -118,9 +159,8 @@ class BatchWorker(QThread):
                             break
 
                     if chunk_failed:
-                        continue  # On passe au morceau suivant si celui-ci a planté
+                        continue
 
-                    # Sauvegarde Directe du morceau en BDD
                     try:
                         data = json.loads(cleaned_output)
                         notes_to_create = data.get("notes", [])
@@ -140,11 +180,10 @@ class BatchWorker(QThread):
                                         CardModel.create(note=note, deck=deck, template_index=idx)
 
                             doc_success_notes += len(notes_to_create)
-                            self.log.emit(f"✅ {len(notes_to_create)} cartes extraites du morceau {chunk_idx}.")
+                            self.log.emit(f"✅ {len(notes_to_create)} cartes extraites.")
                     except json.JSONDecodeError:
-                        self.log.emit(f"❌ ERREUR JSON : Format invalide sur le morceau {chunk_idx}.")
+                        self.log.emit(f"❌ ERREUR JSON : Format invalide.")
 
-                # Bilan du document
                 if doc_success_notes > 0:
                     success_count += 1
                     self.log.emit(f"🎉 BILAN : {doc_success_notes} cartes générées au total pour '{doc.title}'.")
@@ -152,7 +191,6 @@ class BatchWorker(QThread):
                     error_count += 1
                     self.log.emit(f"❌ ÉCHEC TOTAL : Aucune carte générée pour '{doc.title}'.")
 
-                # Mise à jour de la barre
                 progress_pct = int(((task_idx + 1) / total_tasks) * 100)
                 self.progress_val.emit(progress_pct)
 
@@ -163,15 +201,14 @@ class BatchWorker(QThread):
 
 
 class BatchTab(QWidget):
-    """Interface utilisateur pour le traitement par lots avec File d'attente (Queue)."""
-
     def __init__(self, ai_manager: Any) -> None:
         super().__init__()
         self.ai_manager = ai_manager
+        self.chunk_strategies = ["Sémantique (Titres)", "Chevauchement (Overlap)", "Classique",
+                                 "Aucun (Document entier)"]
 
         layout = QVBoxLayout(self)
 
-        # 1. En-tête
         header = QLabel(
             "<b>⚙️ Automatisation Avancée (Usine à cartes)</b><br>Gérez votre file d'attente et personnalisez le traitement pour chaque document.")
         header.setStyleSheet("font-size: 16px; margin-bottom: 10px;")
@@ -179,7 +216,7 @@ class BatchTab(QWidget):
 
         main_splitter = QSplitter(Qt.Horizontal)
 
-        # --- PANNEAU GAUCHE : SÉLECTION (Arbre) ---
+        # --- PANNEAU GAUCHE ---
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -196,35 +233,37 @@ class BatchTab(QWidget):
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         left_layout.addWidget(self.btn_add_to_queue)
 
-        # --- PANNEAU DROIT : FILE D'ATTENTE & CONSOLE ---
+        # --- PANNEAU DROIT ---
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Paramètres par défaut (pour remplir rapidement le tableau)
         default_params_layout = QHBoxLayout()
-        default_params_layout.addWidget(QLabel("<b>⚙️ Configuration par défaut :</b>"))
+        default_params_layout.addWidget(QLabel("<b>⚙️ Défaut :</b>"))
 
         self.default_deck = QComboBox()
         self.default_model = QComboBox()
         self.default_pipeline = QComboBox()
+        self.default_chunking = QComboBox()
+        self.default_chunking.addItems(self.chunk_strategies)
 
         default_params_layout.addWidget(self.default_deck)
         default_params_layout.addWidget(self.default_model)
         default_params_layout.addWidget(self.default_pipeline)
+        default_params_layout.addWidget(self.default_chunking)
         right_layout.addLayout(default_params_layout)
 
         right_layout.addWidget(QLabel("<b>📋 2. File d'attente :</b>"))
 
-        # LE TABLEAU DE LA FILE D'ATTENTE
+        # LE TABLEAU DE LA FILE D'ATTENTE (A grandi à 6 colonnes !)
         self.table_queue = QTableWidget()
-        self.table_queue.setColumnCount(5)
-        self.table_queue.setHorizontalHeaderLabels(["Document", "Paquet Cible", "Modèle Anki", "Pipeline IA", "Action"])
+        self.table_queue.setColumnCount(6)
+        self.table_queue.setHorizontalHeaderLabels(
+            ["Document", "Paquet", "Modèle", "Pipeline IA", "Découpage", "Action"])
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.NoEditTriggers)
         right_layout.addWidget(self.table_queue)
 
-        # Console de logs
         right_layout.addWidget(QLabel("<b>🕵️ Console de Suivi :</b>"))
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
@@ -232,7 +271,6 @@ class BatchTab(QWidget):
             "background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; padding: 5px;")
         right_layout.addWidget(self.console_log)
 
-        # Barre de progression et Bouton
         bottom_layout = QHBoxLayout()
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
@@ -248,24 +286,17 @@ class BatchTab(QWidget):
 
         right_layout.addLayout(bottom_layout)
 
-        # Ajout au splitter
         main_splitter.addWidget(left_panel)
         main_splitter.addWidget(right_panel)
-        main_splitter.setSizes([250, 850])
+        main_splitter.setSizes([250, 950])
 
         layout.addWidget(main_splitter)
 
         self.refresh_selectors()
         self.load_tree_source()
 
-    # ==========================================
-    # LOGIQUE INTERFACE
-    # ==========================================
-
     def load_tree_source(self) -> None:
-        """Charge l'arbre des documents comme dans le gestionnaire de fichiers."""
         self.tree_source.clear()
-
         folders = FolderModel.select().order_by(FolderModel.name)
         for folder in folders:
             folder_item = QTreeWidgetItem(self.tree_source, [f"📂 {folder.name}"])
@@ -285,7 +316,6 @@ class BatchTab(QWidget):
         self.tree_source.expandAll()
 
     def refresh_selectors(self) -> None:
-        """Charge les données dans les ComboBox par défaut."""
         self.default_deck.clear()
         for deck in DeckModel.select().order_by(DeckModel.name):
             self.default_deck.addItem(deck.name, userData=deck.id)
@@ -299,10 +329,8 @@ class BatchTab(QWidget):
             self.default_pipeline.addItem(pipe.name, userData=pipe.id)
 
     def add_selected_to_queue(self) -> None:
-        """Ajoute les documents sélectionnés (ou le contenu des dossiers) à la table."""
         selected_items = self.tree_source.selectedItems()
-        if not selected_items:
-            return
+        if not selected_items: return
 
         docs_to_add = []
         for item in selected_items:
@@ -312,10 +340,8 @@ class BatchTab(QWidget):
             if data.get("type") == "doc":
                 docs_to_add.append(data)
             elif data.get("type") == "folder" and data.get("id") is not None:
-                # On ajoute tous les documents de ce dossier
                 folder_docs = DocumentModel.select().where(DocumentModel.folder_id == data["id"])
-                for d in folder_docs:
-                    docs_to_add.append({"id": d.id, "title": d.title})
+                for d in folder_docs: docs_to_add.append({"id": d.id, "title": d.title})
 
         for doc_data in docs_to_add:
             self._add_row_to_queue(doc_data["id"], doc_data["title"])
@@ -323,48 +349,51 @@ class BatchTab(QWidget):
         self._check_ready_state()
 
     def _add_row_to_queue(self, doc_id: int, title: str) -> None:
-        """Ajoute une ligne dans le QTableWidget avec ses propres ComboBox."""
         row_idx = self.table_queue.rowCount()
         self.table_queue.insertRow(row_idx)
 
-        # 1. Colonne Document
+        # 1. Document
         item_doc = QTableWidgetItem(f"📄 {title}")
         item_doc.setData(Qt.UserRole, doc_id)
         self.table_queue.setItem(row_idx, 0, item_doc)
 
-        # 2. Colonne Paquet
+        # 2. Paquet
         cb_deck = QComboBox()
-        for i in range(self.default_deck.count()):
-            cb_deck.addItem(self.default_deck.itemText(i), self.default_deck.itemData(i))
-        cb_deck.setCurrentIndex(self.default_deck.currentIndex())  # Hérite du défaut
+        for i in range(self.default_deck.count()): cb_deck.addItem(self.default_deck.itemText(i),
+                                                                   self.default_deck.itemData(i))
+        cb_deck.setCurrentIndex(self.default_deck.currentIndex())
         self.table_queue.setCellWidget(row_idx, 1, cb_deck)
 
-        # 3. Colonne Modèle
+        # 3. Modèle
         cb_model = QComboBox()
-        for i in range(self.default_model.count()):
-            cb_model.addItem(self.default_model.itemText(i), self.default_model.itemData(i))
+        for i in range(self.default_model.count()): cb_model.addItem(self.default_model.itemText(i),
+                                                                     self.default_model.itemData(i))
         cb_model.setCurrentIndex(self.default_model.currentIndex())
         self.table_queue.setCellWidget(row_idx, 2, cb_model)
 
-        # 4. Colonne Pipeline
+        # 4. Pipeline
         cb_pipe = QComboBox()
-        for i in range(self.default_pipeline.count()):
-            cb_pipe.addItem(self.default_pipeline.itemText(i), self.default_pipeline.itemData(i))
+        for i in range(self.default_pipeline.count()): cb_pipe.addItem(self.default_pipeline.itemText(i),
+                                                                       self.default_pipeline.itemData(i))
         cb_pipe.setCurrentIndex(self.default_pipeline.currentIndex())
         self.table_queue.setCellWidget(row_idx, 3, cb_pipe)
 
-        # 5. Colonne Action (Supprimer)
+        # 5. Découpage
+        cb_chunk = QComboBox()
+        cb_chunk.addItems(self.chunk_strategies)
+        cb_chunk.setCurrentIndex(self.default_chunking.currentIndex())
+        self.table_queue.setCellWidget(row_idx, 4, cb_chunk)
+
+        # 6. Action
         btn_remove = QPushButton("❌")
         btn_remove.setStyleSheet("color: red; font-weight: bold;")
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
-        self.table_queue.setCellWidget(row_idx, 4, btn_remove)
+        self.table_queue.setCellWidget(row_idx, 5, btn_remove)
 
     def _remove_row(self, row_idx: int) -> None:
-        """Supprime une ligne et met à jour les connexions des boutons suivants."""
         self.table_queue.removeRow(row_idx)
-        # Il faut recâbler les boutons ❌ en dessous pour qu'ils suppriment la bonne ligne
         for r in range(row_idx, self.table_queue.rowCount()):
-            btn = self.table_queue.cellWidget(r, 4)
+            btn = self.table_queue.cellWidget(r, 5)
             btn.clicked.disconnect()
             btn.clicked.connect(lambda _, current_r=r: self._remove_row(current_r))
         self._check_ready_state()
@@ -379,21 +408,16 @@ class BatchTab(QWidget):
         scrollbar = self.console_log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    # ==========================================
-    # LOGIQUE D'EXÉCUTION
-    # ==========================================
-
     def start_batch(self) -> None:
-        if self.table_queue.rowCount() == 0:
-            return
+        if self.table_queue.rowCount() == 0: return
 
-        # 1. On lit le tableau pour construire la liste des tâches
         tasks = []
         for row in range(self.table_queue.rowCount()):
             doc_id = self.table_queue.item(row, 0).data(Qt.UserRole)
             deck_id = self.table_queue.cellWidget(row, 1).currentData()
             model_id = self.table_queue.cellWidget(row, 2).currentData()
             pipe_id = self.table_queue.cellWidget(row, 3).currentData()
+            chunk_strategy = self.table_queue.cellWidget(row, 4).currentText()
 
             if not deck_id or not model_id or not pipe_id:
                 QMessageBox.warning(self, "Erreur", f"Configuration incomplète à la ligne {row + 1}.")
@@ -401,10 +425,10 @@ class BatchTab(QWidget):
 
             tasks.append({
                 "doc_id": doc_id, "deck_id": deck_id,
-                "model_id": model_id, "pipeline_id": pipe_id
+                "model_id": model_id, "pipeline_id": pipe_id,
+                "chunk_strategy": chunk_strategy
             })
 
-        # 2. Verrouillage de l'UI
         self.btn_start.setEnabled(False)
         self.btn_add_to_queue.setEnabled(False)
         self.table_queue.setEnabled(False)
@@ -413,7 +437,6 @@ class BatchTab(QWidget):
 
         self.append_log(f"🚀 Lancement de l'Usine : {len(tasks)} document(s) à traiter.")
 
-        # 3. Lancement du Thread
         self.worker = BatchWorker(ai_provider=self.ai_manager.provider, tasks=tasks)
         self.worker.progress_val.connect(self.progress_bar.setValue)
         self.worker.progress_text.connect(self.lbl_status.setText)
@@ -426,7 +449,6 @@ class BatchTab(QWidget):
     def on_batch_finished(self, success_count: int, error_count: int) -> None:
         self._unlock_ui()
         self.lbl_status.setText("Terminé.")
-
         msg = f"Traitement de la file d'attente terminé.\n\n✅ Documents réussis : {success_count}\n❌ Documents échoués : {error_count}"
         self.append_log(f"\n{'=' * 40}\n{msg}")
         QMessageBox.information(self, "Bilan de l'Usine", msg)
