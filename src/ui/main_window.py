@@ -29,6 +29,23 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.stats_tabs, "📊 Statistiques")
         self.tabs.addTab(DocumentsTab(),"Onglet des documents")
         self.tabs.addTab(SettingsTab(self.ai_manager), "⚙️ Paramètres IA")
-
+        self.tabs.currentChanged.connect(self.on_tab_changed)
         self.tabs.addTab(self.batch_tab, "🚀 Automatisation")
         self.setCentralWidget(self.tabs)
+
+    def on_tab_changed(self, index: int) -> None:
+        """Rafraîchit les données de l'onglet actif quand on clique dessus."""
+        current_widget = self.tabs.widget(index)
+
+        # On vérifie si l'onglet a une fonction de rafraîchissement
+        if hasattr(current_widget, "refresh_selectors"):
+            current_widget.refresh_selectors()
+
+        if hasattr(current_widget, "load_documents"):
+            current_widget.load_documents()
+
+        if hasattr(current_widget, "load_tree_source"):
+            current_widget.load_tree_source()
+
+        if hasattr(current_widget, "refresh_deck_tree"):
+            current_widget.refresh_deck_tree()
