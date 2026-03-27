@@ -23,6 +23,21 @@ def strip_html(text: Optional[str]) -> str:
     return re.sub(clean, '', text).replace('&nbsp;', ' ').replace('\n', ' ').strip()
 
 
+class SortableTableItem(QTableWidgetItem):
+    """Un élément de tableau qui sait trier les nombres (et les 'vX') intelligemment."""
+
+    def __lt__(self, other) -> bool:
+        # On nettoie le texte (ex: on transforme "v10" en "10")
+        text_self = self.text().lower().replace('v', '').strip()
+        text_other = other.text().lower().replace('v', '').strip()
+
+        try:
+            # On essaie de comparer mathématiquement (10 > 2)
+            return float(text_self) < float(text_other)
+        except ValueError:
+            # Si c'est du vrai texte (ex: "Maths" vs "Physique"), on fait un tri alphabétique
+            return self.text().lower() < other.text().lower()
+
 class EditionTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
@@ -81,6 +96,9 @@ class EditionTab(QWidget):
         self.data_table.setAlternatingRowColors(True)
         self.data_table.horizontalHeader().setStretchLastSection(True)
         self.data_table.itemSelectionChanged.connect(self.on_row_selected)
+
+        self.data_table.setSortingEnabled(True)
+
 
         bottom_splitter = QSplitter(Qt.Horizontal)
 
@@ -200,6 +218,7 @@ class EditionTab(QWidget):
         if not self.current_deck_id:
             return
 
+        self.data_table.setSortingEnabled(False)
         self.data_table.setRowCount(0)
         self.btn_save_edits.setEnabled(False)
         self.current_note = None
