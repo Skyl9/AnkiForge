@@ -288,6 +288,12 @@ class EditionTab(QWidget):
                     recto = strip_html(values[0]) if len(values) > 0 else ""
                     verso = strip_html(values[1]) if len(values) > 1 else ""
 
+                    if not recto.strip():
+                        item_recto = SortableTableItem("⚠️ CARTE INVALIDE (Recto vide)")
+                        item_recto.setForeground(Qt.red)
+                    else:
+                        item_recto = SortableTableItem(recto)
+
                     nt_name = note.note_type.name if note.note_type else "Inconnu"
                     tags_list = json.loads(note.tags) if note.tags else []
 
