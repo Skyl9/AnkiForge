@@ -170,7 +170,7 @@ class BatchWorker(QThread):
                                 for note_data in notes_to_create:
                                     note = NoteModel.create(
                                         guid=str(uuid.uuid4())[:10], note_type=note_type,
-                                        tags=json.dumps(["AnkiForge_Batch"]), status="new"
+                                        tags=json.dumps(["AnkiForge_Batch"]), status="pending"
                                     )
                                     NoteVersionModel.create(
                                         note=note, version_number=1, content=json.dumps(note_data, ensure_ascii=False),

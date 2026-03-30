@@ -3,7 +3,9 @@ import os
 import re
 from typing import Optional, Dict
 
-from PySide6.QtCore import Qt, QUrl
+import qtawesome as qta
+from PySide6.QtCore import Qt, QUrl, Slot
+from PySide6.QtGui import QKeySequence, QShortcut, QColor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
@@ -69,7 +71,7 @@ class EditionTab(QWidget):
         layout.addLayout(header_layout)
 
         # --- 2. LAYOUT PRINCIPAL ---
-        main_splitter = QSplitter(Qt.Horizontal)
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.deck_tree = QTreeWidget()
         self.deck_tree.setHeaderHidden(True)
         self.deck_tree.itemClicked.connect(self.on_deck_selected)
@@ -82,18 +84,32 @@ class EditionTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.addWidget(QLabel("Mode d'affichage :"))
         self.view_mode_cb = QComboBox()
-        self.view_mode_cb.addItems(["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)"])
+        self.view_mode_cb.addItems(["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)","Vue : Quarantaine (À valider)"])
         self.view_mode_cb.currentIndexChanged.connect(self.refresh_table)
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
+
+        self.btn_approve = QPushButton("✅ Approuver la sélection")
+        self.btn_approve.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.btn_approve.clicked.connect(self.approve_selected_notes)
+        self.btn_approve.setVisible(False)
+
+        self.btn_reject = QPushButton("🗑️ Rejeter la sélection")
+        self.btn_reject.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
+        self.btn_reject.clicked.connect(self.reject_selected_notes)
+        self.btn_reject.setVisible(False)
+
+        toolbar_layout.addWidget(self.btn_approve)
+        toolbar_layout.addWidget(self.btn_reject)
+
         right_layout.addLayout(toolbar_layout)
 
-        right_splitter = QSplitter(Qt.Vertical)
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
 
         # Le Tableau
         self.data_table = QTableWidget()
-        self.data_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.data_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.data_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.data_table.setAlternatingRowColors(True)
         self.data_table.horizontalHeader().setStretchLastSection(True)
         self.data_table.itemSelectionChanged.connect(self.on_row_selected)
@@ -118,7 +134,7 @@ class EditionTab(QWidget):
         self.details_scroll.setWidgetResizable(True)
         self.details_widget = QWidget()
         self.details_layout = QVBoxLayout(self.details_widget)
-        self.details_layout.setAlignment(Qt.AlignTop)
+        self.details_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.details_scroll.setWidget(self.details_widget)
 
         left_layout.addWidget(self.details_scroll)
@@ -160,6 +176,7 @@ class EditionTab(QWidget):
         layout.addWidget(main_splitter)
         self.refresh_deck_tree()
 
+    @Slot()
     def load_cards(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Ouvrir document", "", "Documents Anki (*.colpkg *.txt *.apkg)")
         if path:
@@ -173,6 +190,7 @@ class EditionTab(QWidget):
             finally:
                 self.btn_load_col.setEnabled(True)
 
+    @Slot()
     def export_selected_deck(self) -> None:
         if not self.current_deck_id:
             return
@@ -204,14 +222,15 @@ class EditionTab(QWidget):
                     parent_item = tree_nodes.get(parent_name, self.deck_tree)
                     item = QTreeWidgetItem(parent_item, [f"📂 {display_name}"])
 
-                item.setData(0, Qt.UserRole, deck.id)
+                item.setData(0, Qt.ItemDataRole.UserRole, deck.id)
                 tree_nodes[deck.name] = item
             self.deck_tree.expandAll()
         except Exception:
             pass
 
+    @Slot(QTreeWidgetItem, int)
     def on_deck_selected(self, item: QTreeWidgetItem, column: int) -> None:
-        self.current_deck_id = item.data(0, Qt.UserRole)
+        self.current_deck_id = item.data(0, Qt.ItemDataRole.UserRole)
         self.btn_export.setEnabled(True)
         self.refresh_table()
 
@@ -224,25 +243,36 @@ class EditionTab(QWidget):
         self.btn_save_edits.setEnabled(False)
         self.current_note = None
 
+        mode = self.view_mode_cb.currentText()
+        is_quarantine = (mode == "Vue : Quarantaine (À valider)")
+
+        self.btn_approve.setVisible(is_quarantine)
+        self.btn_reject.setVisible(is_quarantine)
+
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
 
-        # 🛡️ Ajout d'un bouclier Try/Except pour attraper les crashs silencieux
         try:
-            mode = self.view_mode_cb.currentText()
             selected_deck = DeckModel.get_by_id(self.current_deck_id)
             matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
 
+            # 👇 LA SÉCURITÉ ABSOLUE : Le filtre s'adapte dynamiquement 👇
+            if is_quarantine:
+                # En quarantaine, on NE veut QUE les brouillons IA ('pending')
+                status_condition = (NoteModel.status == "pending")
+            else:
+                # Dans les autres vues, on veut TOUT LE RESTE ('new', 'imported', 'review'...)
+                status_condition = (NoteModel.status != "pending")
+
             if mode == "Vue : Cartes (Métadonnées)":
-                # La vue Cartes n'a besoin que de 4 colonnes, on les définit proprement
                 self.data_table.setColumnCount(4)
                 self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Template"])
 
                 cards = (
                     CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
-                    .join(NoteModel)
+                    .join(NoteModel).where(status_condition)
                     .join(NoteTypeModel)
                     .switch(CardModel)
                     .join(DeckModel)
@@ -260,10 +290,9 @@ class EditionTab(QWidget):
                     self.data_table.setItem(row_index, 1, SortableTableItem(note_type))
                     self.data_table.setItem(row_index, 2, SortableTableItem(deck_name))
                     self.data_table.setItem(row_index, 3, SortableTableItem(template))
-                    self.data_table.item(row_index, 0).setData(Qt.UserRole, card.note.id)
+                    self.data_table.item(row_index, 0).setData(Qt.ItemDataRole.UserRole, card.note.id)
 
             else:
-                # La vue Notes a bien nos 5 colonnes avec la Version !
                 self.data_table.setColumnCount(5)
                 self.data_table.setHorizontalHeaderLabels(
                     ["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
@@ -271,10 +300,10 @@ class EditionTab(QWidget):
                 notes = (
                     NoteModel.select(NoteModel, NoteTypeModel)
                     .join(NoteTypeModel)
-                    .switch(NoteModel)  # 🆕 Répare le bug de jointure SQL
+                    .switch(NoteModel)
                     .join(CardModel, on=(CardModel.note_id == NoteModel.id))
                     .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
-                    .where(DeckModel.id.in_(matching_decks))
+                    .where(DeckModel.id.in_(matching_decks) & status_condition)
                     .distinct()
                 )
 
@@ -290,27 +319,27 @@ class EditionTab(QWidget):
 
                     if not recto.strip():
                         item_recto = SortableTableItem("⚠️ CARTE INVALIDE (Recto vide)")
-                        item_recto.setForeground(Qt.red)
+                        item_recto.setForeground(QColor("red"))
                     else:
                         item_recto = SortableTableItem(recto)
 
                     nt_name = note.note_type.name if note.note_type else "Inconnu"
                     tags_list = json.loads(note.tags) if note.tags else []
 
-                    self.data_table.setItem(row_index, 0, SortableTableItem(recto))
+                    self.data_table.setItem(row_index, 0, item_recto)
                     self.data_table.setItem(row_index, 1, SortableTableItem(verso))
                     self.data_table.setItem(row_index, 2, SortableTableItem(nt_name))
                     self.data_table.setItem(row_index, 3, SortableTableItem(", ".join(tags_list)))
 
                     v_num = active_version.version_number if active_version else 1
                     item_version = SortableTableItem(f"v{v_num}")
-                    item_version.setTextAlignment(Qt.AlignCenter)
+                    item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row_index, 4, item_version)
 
-                    self.data_table.item(row_index, 0).setData(Qt.UserRole, note.id)
+                    self.data_table.item(row_index, 0).setData(Qt.ItemDataRole.UserRole, note.id)
+
             self.data_table.setSortingEnabled(True)
         except Exception as e:
-            # S'il y a un plantage, on aura enfin une alerte claire !
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
             import traceback
             print(traceback.format_exc())
@@ -320,7 +349,11 @@ class EditionTab(QWidget):
         if not selected_items:
             return
 
-        note_id = selected_items[0].data(Qt.UserRole)
+        if self.view_mode_cb.currentText() == "Vue : Quarantaine (À valider)":
+            self.btn_approve.setEnabled(True)
+            self.btn_reject.setEnabled(True)
+
+        note_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
@@ -391,7 +424,7 @@ class EditionTab(QWidget):
                     self.data_table.setItem(row, 1, QTableWidgetItem(verso))
 
                     item_version = QTableWidgetItem(f"v{new_version.version_number}")
-                    item_version.setTextAlignment(Qt.AlignCenter)
+                    item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row, 4, item_version)
             QMessageBox.information(self, "Succès", "La note a été mise à jour en base de données !")
         except Exception as e:
@@ -434,3 +467,41 @@ class EditionTab(QWidget):
 
         # On injecte le HTML en lui donnant le droit de lire dans le dossier media
         self.web_view.setHtml(final_html, base_url)
+
+    def approve_selected_notes(self) -> None:
+        selected_rows = set(item.row() for item in self.data_table.selectedItems())
+        if not selected_rows: return
+
+        try:
+            from src.database.models import db
+            with db.atomic():
+                for row in selected_rows:
+                    note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+                    note = NoteModel.get_by_id(note_id)
+                    note.status = "new"
+                    note.save()
+
+            self.refresh_table()
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Impossible d'approuver :\n{e}")
+
+    def reject_selected_notes(self) -> None:
+        selected_rows = set(item.row() for item in self.data_table.selectedItems())
+        if not selected_rows: return
+
+        reply = QMessageBox.question(self, "Rejeter",
+                                     f"Voulez-vous vraiment supprimer définitivement ces {len(selected_rows)} cartes ?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                from src.database.models import db
+                with db.atomic():
+                    for row in selected_rows:
+                        note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+                        NoteModel.delete_by_id(note_id)  # CASCADE supprimera les cartes et versions
+
+                self.refresh_table()
+                self.web_view.setHtml("")
+                self.btn_save_edits.setEnabled(False)
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de rejeter :\n{e}")
