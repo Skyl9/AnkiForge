@@ -1,9 +1,10 @@
 import json
-import uuid
 import re
+import uuid
 from typing import Any, List, Dict
 
-from PySide6.QtCore import Qt, QThread, Signal
+import qtawesome as qta
+from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QPushButton, QComboBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QAbstractItemView, QProgressBar,
@@ -214,21 +215,22 @@ class BatchTab(QWidget):
         header.setStyleSheet("font-size: 16px; margin-bottom: 10px;")
         layout.addWidget(header)
 
-        main_splitter = QSplitter(Qt.Horizontal)
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # --- PANNEAU GAUCHE ---
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
 
-        left_layout.addWidget(QLabel("<b>📄 1. Source (Cours et Dossiers) :</b>"))
+        left_layout.addWidget(QLabel("<b>1. Source (Cours et Dossiers) :</b>"))
 
         self.tree_source = QTreeWidget()
         self.tree_source.setHeaderHidden(True)
-        self.tree_source.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        # Standard Qt6 : QAbstractItemView.SelectionMode
+        self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         left_layout.addWidget(self.tree_source)
 
-        self.btn_add_to_queue = QPushButton("➡️ Ajouter à la file d'attente")
+        self.btn_add_to_queue = QPushButton(qta.icon('fa5s.arrow-right', color='white'), " Ajouter à la file d'attente")
         self.btn_add_to_queue.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 8px;")
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         left_layout.addWidget(self.btn_add_to_queue)
@@ -239,7 +241,7 @@ class BatchTab(QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
 
         default_params_layout = QHBoxLayout()
-        default_params_layout.addWidget(QLabel("<b>⚙️ Défaut :</b>"))
+        default_params_layout.addWidget(QLabel("<b>Configuration par défaut :</b>"))
 
         self.default_deck = QComboBox()
         self.default_model = QComboBox()
@@ -253,18 +255,18 @@ class BatchTab(QWidget):
         default_params_layout.addWidget(self.default_chunking)
         right_layout.addLayout(default_params_layout)
 
-        right_layout.addWidget(QLabel("<b>📋 2. File d'attente :</b>"))
+        right_layout.addWidget(QLabel("<b>2. File d'attente :</b>"))
 
-        # LE TABLEAU DE LA FILE D'ATTENTE (A grandi à 6 colonnes !)
         self.table_queue = QTableWidget()
         self.table_queue.setColumnCount(6)
         self.table_queue.setHorizontalHeaderLabels(
             ["Document", "Paquet", "Modèle", "Pipeline IA", "Découpage", "Action"])
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table_queue.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Standard Qt6 : QAbstractItemView.EditTrigger
+        self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         right_layout.addWidget(self.table_queue)
 
-        right_layout.addWidget(QLabel("<b>🕵️ Console de Suivi :</b>"))
+        right_layout.addWidget(QLabel("<b>Console de Suivi :</b>"))
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
         self.console_log.setStyleSheet(
@@ -279,7 +281,7 @@ class BatchTab(QWidget):
         self.lbl_status = QLabel("Prêt.")
         bottom_layout.addWidget(self.lbl_status)
 
-        self.btn_start = QPushButton("🚀 Démarrer l'Usine")
+        self.btn_start = QPushButton(qta.icon('fa5s.rocket', color='white'), " Démarrer l'Usine")
         self.btn_start.setStyleSheet("background-color: #673AB7; color: white; font-weight: bold; padding: 12px;")
         self.btn_start.clicked.connect(self.start_batch)
         bottom_layout.addWidget(self.btn_start)
@@ -295,26 +297,32 @@ class BatchTab(QWidget):
         self.refresh_selectors()
         self.load_tree_source()
 
+    @Slot()
     def load_tree_source(self) -> None:
         self.tree_source.clear()
         folders = FolderModel.select().order_by(FolderModel.name)
         for folder in folders:
-            folder_item = QTreeWidgetItem(self.tree_source, [f"📂 {folder.name}"])
-            folder_item.setData(0, Qt.UserRole, {"type": "folder", "id": folder.id})
+            folder_item = QTreeWidgetItem(self.tree_source, [f" {folder.name}"])
+            folder_item.setIcon(0, qta.icon('fa5s.folder', color='#FFC107'))
+            folder_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
 
             docs = DocumentModel.select().where(DocumentModel.folder == folder).order_by(DocumentModel.title)
             for doc in docs:
-                doc_item = QTreeWidgetItem(folder_item, [f"📄 {doc.title}"])
-                doc_item.setData(0, Qt.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
+                doc_item = QTreeWidgetItem(folder_item, [f" {doc.title}"])
+                doc_item.setIcon(0, qta.icon('fa5s.file-alt', color='#90CAF9'))
+                doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
 
         orphan_docs = DocumentModel.select().where(DocumentModel.folder.is_null()).order_by(DocumentModel.title)
-        orphan_root = QTreeWidgetItem(self.tree_source, ["📂 Non classés"])
+        orphan_root = QTreeWidgetItem(self.tree_source, [" Non classés"])
+        orphan_root.setIcon(0, qta.icon('fa5s.box-open', color='#B0BEC5'))
         for doc in orphan_docs:
-            doc_item = QTreeWidgetItem(orphan_root, [f"📄 {doc.title}"])
-            doc_item.setData(0, Qt.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
+            doc_item = QTreeWidgetItem(orphan_root, [f" {doc.title}"])
+            doc_item.setIcon(0, qta.icon('fa5s.file-alt', color='#90CAF9'))
+            doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
 
         self.tree_source.expandAll()
 
+    @Slot()
     def refresh_selectors(self) -> None:
         self.default_deck.clear()
         for deck in DeckModel.select().order_by(DeckModel.name):
@@ -328,6 +336,7 @@ class BatchTab(QWidget):
         for pipe in PipelineModel.select().order_by(PipelineModel.name):
             self.default_pipeline.addItem(pipe.name, userData=pipe.id)
 
+    @Slot()
     def add_selected_to_queue(self) -> None:
         selected_items = self.tree_source.selectedItems()
         if not selected_items: return
@@ -384,11 +393,12 @@ class BatchTab(QWidget):
         cb_chunk.setCurrentIndex(self.default_chunking.currentIndex())
         self.table_queue.setCellWidget(row_idx, 4, cb_chunk)
 
-        # 6. Action
-        btn_remove = QPushButton("❌")
-        btn_remove.setStyleSheet("color: red; font-weight: bold;")
+        # 6. Action (dans _add_row_to_queue)
+        btn_remove = QPushButton(qta.icon('fa5s.times', color='red'), "")
+        btn_remove.setStyleSheet("font-weight: bold;")
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
         self.table_queue.setCellWidget(row_idx, 5, btn_remove)
+
 
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
@@ -402,12 +412,12 @@ class BatchTab(QWidget):
         count = self.table_queue.rowCount()
         self.btn_start.setEnabled(count > 0)
         self.lbl_status.setText(f"{count} document(s) dans la file d'attente.")
-
+    @Slot(str)
     def append_log(self, text: str) -> None:
         self.console_log.append(text)
         scrollbar = self.console_log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-
+    @Slot()
     def start_batch(self) -> None:
         if self.table_queue.rowCount() == 0: return
 
@@ -445,14 +455,14 @@ class BatchTab(QWidget):
         self.worker.error.connect(self.on_batch_error)
 
         self.worker.start()
-
+    @Slot(int,int)
     def on_batch_finished(self, success_count: int, error_count: int) -> None:
         self._unlock_ui()
         self.lbl_status.setText("Terminé.")
         msg = f"Traitement de la file d'attente terminé.\n\n✅ Documents réussis : {success_count}\n❌ Documents échoués : {error_count}"
         self.append_log(f"\n{'=' * 40}\n{msg}")
         QMessageBox.information(self, "Bilan de l'Usine", msg)
-
+    @Slot(str)
     def on_batch_error(self, error_msg: str) -> None:
         self._unlock_ui()
         self.lbl_status.setText("Erreur fatale.")

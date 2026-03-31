@@ -1,8 +1,9 @@
 # src/ui/views/stats_view.py
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
+import qtawesome as qta
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QFrame, QGridLayout, QTableWidget, QTableWidgetItem,
-                               QHeaderView, QPushButton)
+                               QHeaderView, QPushButton, QAbstractItemView)
 
 from src.database.models import DeckModel, NoteModel, CardModel, PipelineModel
 
@@ -17,10 +18,10 @@ class StatsTab(QWidget):
         # --- En-tête ---
         header_layout = QHBoxLayout()
         title = QLabel("<b>📊 Tableau de Bord AnkiForge</b>")
-        title.setStyleSheet("font-size: 24px;")
+        title = QLabel("<h2>Tableau de Bord AnkiForge</h2>")
         header_layout.addWidget(title)
 
-        self.btn_refresh = QPushButton("🔄 Rafraîchir les statistiques")
+        self.btn_refresh = QPushButton(qta.icon('fa5s.sync'), " Rafraîchir les statistiques")
         self.btn_refresh.setFixedWidth(200)
         self.btn_refresh.setStyleSheet("padding: 8px; font-weight: bold;")
         self.btn_refresh.clicked.connect(self.load_stats)
@@ -45,15 +46,15 @@ class StatsTab(QWidget):
         self.layout.addLayout(self.metrics_layout)
 
         # --- Section : Répartition par Paquet ---
-        self.layout.addWidget(QLabel("<b>📦 Répartition par Paquet :</b>"))
+        self.layout.addWidget(QLabel("<b>Répartition par Paquet :</b>"))
         self.deck_table = QTableWidget()
         self.deck_table.setColumnCount(2)
         self.deck_table.setHorizontalHeaderLabels(["Nom du Paquet", "Nombre de Cartes"])
         self.deck_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.deck_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        # Standard Qt6 : QAbstractItemView.EditTrigger
+        self.deck_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.deck_table.setAlternatingRowColors(True)
         self.layout.addWidget(self.deck_table)
-
         # Chargement initial des données
         self.load_stats()
 
@@ -82,7 +83,7 @@ class StatsTab(QWidget):
         vbox.addWidget(lbl_value)
 
         return card, lbl_value
-
+    @Slot()
     def load_stats(self) -> None:
         """Récupère les données depuis SQLite (Peewee) et met à jour l'UI."""
         # 1. Mise à jour des métriques globales

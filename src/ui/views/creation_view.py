@@ -3,7 +3,8 @@ import os
 import uuid
 from typing import Any, List, Dict
 
-from PySide6.QtCore import Qt, QThread, Signal, QUrl
+import qtawesome as qta
+from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QPushButton, QComboBox, QTableWidget,
@@ -96,28 +97,29 @@ class CreationTab(QWidget):
         layout = QVBoxLayout(self)
 
         # --- NOUVEAU : Bloc 1 - Paramètres IA et Destination ---
-        params_group = QGroupBox("⚙️ 1. Configuration de l'IA et Destination")
+        params_group = QGroupBox("1. Configuration de l'IA et Destination")
         params_layout = QHBoxLayout(params_group)
 
-        params_layout.addWidget(QLabel("<b>📂 Paquet :</b>"))
+        params_layout.addWidget(QLabel("<b>Paquet :</b>"))
         self.deck_selector = QComboBox()
         params_layout.addWidget(self.deck_selector)
 
-        params_layout.addWidget(QLabel("   <b>🎨 Modèle :</b>"))
+        params_layout.addWidget(QLabel("   <b>Modèle :</b>"))
         self.model_selector = QComboBox()
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
         params_layout.addWidget(self.model_selector)
 
-        params_layout.addWidget(QLabel("   <b>🧠 Pipeline IA :</b>"))
+        params_layout.addWidget(QLabel("   <b>Pipeline IA :</b>"))
         self.pipeline_selector = QComboBox()
         params_layout.addWidget(self.pipeline_selector)
 
         layout.addWidget(params_group)
 
-        main_splitter = QSplitter(Qt.Vertical)
+        # Standard Qt6 : Qt.Orientation.Vertical
+        main_splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # --- NOUVEAU : Bloc 2 - Source de données ---
-        source_group = QGroupBox("📄 2. Texte Source")
+        # --- Bloc 2 - Source de données ---
+        source_group = QGroupBox("2. Texte Source")
         source_layout = QVBoxLayout(source_group)
 
         source_header = QHBoxLayout()
@@ -126,11 +128,11 @@ class CreationTab(QWidget):
         self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
         source_header.addWidget(self.doc_selector, stretch=1)
 
-        self.btn_refresh_docs = QPushButton("🔄")
+        self.btn_refresh_docs = QPushButton(qta.icon('fa5s.sync'), "")
         self.btn_refresh_docs.clicked.connect(self.load_documents)
         source_header.addWidget(self.btn_refresh_docs)
 
-        source_header.addWidget(QLabel("<b>🔖 Partie :</b>"))
+        source_header.addWidget(QLabel("<b>Partie :</b>"))
         self.section_selector = QComboBox()
         self.section_selector.currentIndexChanged.connect(self.on_section_changed)
         source_header.addWidget(self.section_selector, stretch=1)
@@ -141,30 +143,33 @@ class CreationTab(QWidget):
         self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
         source_layout.addWidget(self.source_text)
 
-        self.btn_generate = QPushButton("✨ Générer les Cartes")
+        self.btn_generate = QPushButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
         self.btn_generate.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
         self.btn_generate.clicked.connect(self.start_generation)
         source_layout.addWidget(self.btn_generate)
 
         # --- Bloc 3 : Résultats ---
-        bottom_splitter = QSplitter(Qt.Horizontal)
+        # Standard Qt6 : Qt.Orientation.Horizontal
+        bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
-        table_layout.addWidget(QLabel("<b>✅ Aperçu (Double-cliquez pour éditer) :</b>"))
+        table_layout.addWidget(QLabel("<b>Aperçu (Double-cliquez pour éditer) :</b>"))
 
         self.results_table = QTableWidget()
         self.results_table.horizontalHeader().setStretchLastSection(True)
-        self.results_table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        # Standards Qt6
+        self.results_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed)
+        self.results_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results_table.setAlternatingRowColors(True)
-        self.results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.results_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.results_table.itemChanged.connect(self.on_table_item_changed)
         self.results_table.itemSelectionChanged.connect(self.update_preview)
         table_layout.addWidget(self.results_table)
 
-        self.btn_save = QPushButton("💾 Sauvegarder dans la base de données")
+        self.btn_save = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base de données")
         self.btn_save.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 8px;")
         self.btn_save.clicked.connect(self.save_to_database)
         self.btn_save.setEnabled(False)
@@ -190,12 +195,13 @@ class CreationTab(QWidget):
         self.web_view = QWebEngineView()
         preview_layout.addWidget(self.web_view)
 
-        right_tabs.addTab(preview_container, "👁️ Aperçu de la Carte")
+        # Icônes pour les onglets
+        right_tabs.addTab(preview_container, qta.icon('fa5s.eye'), " Aperçu de la Carte")
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
         self.console_log.setStyleSheet("background-color: #1e1e1e; color: #00FF00; font-family: 'Consolas', monospace;")
-        right_tabs.addTab(self.console_log, "🕵️ Console IA (Logs)")
+        right_tabs.addTab(self.console_log, qta.icon('fa5s.terminal'), " Console IA (Logs)")
 
         bottom_splitter.addWidget(table_container)
         bottom_splitter.addWidget(right_tabs)
@@ -210,6 +216,7 @@ class CreationTab(QWidget):
         self.refresh_selectors()
         self.load_documents()
 
+    @Slot()
     def refresh_selectors(self) -> None:
         """Met à jour les listes déroulantes IA et Modèles."""
         self.deck_selector.blockSignals(True)
@@ -242,6 +249,7 @@ class CreationTab(QWidget):
         self.model_selector.blockSignals(False)
         self.pipeline_selector.blockSignals(False)
 
+    @Slot()
     def load_documents(self) -> None:
         """Charge la liste des documents depuis la base de données."""
         self.doc_selector.blockSignals(True)
@@ -281,6 +289,7 @@ class CreationTab(QWidget):
 
         return sections
 
+    @Slot(int)
     def on_document_changed(self, index: int) -> None:
         doc_id = self.doc_selector.itemData(index)
         self.section_selector.blockSignals(True)
@@ -301,11 +310,12 @@ class CreationTab(QWidget):
 
         self.section_selector.blockSignals(False)
 
+    @Slot(int)
     def on_section_changed(self, index: int) -> None:
         if index >= 0:
             content = self.section_selector.itemData(index)
             self.source_text.setPlainText(content)
-
+    @Slot()
     def on_model_changed(self) -> None:
         model_id = self.model_selector.currentData()
         if not model_id: return
@@ -328,6 +338,7 @@ class CreationTab(QWidget):
         self.preview_card_selector.blockSignals(False)
         self.update_preview()
 
+    @Slot()
     def start_generation(self) -> None:
         text = self.source_text.toPlainText()
         model_id = self.model_selector.currentData()
@@ -354,12 +365,15 @@ class CreationTab(QWidget):
         self.thread.error.connect(self.on_generation_error)
         self.thread.start()
 
+    @Slot(str)
     def append_log(self, text: str) -> None:
         self.console_log.append(text)
 
+    @Slot(str)
     def update_progress(self, message: str) -> None:
         self.btn_generate.setText(message)
 
+    @Slot(list)
     def on_generation_success(self, generated_notes: List[Dict[str, str]]) -> None:
         self.generated_notes = generated_notes
         self.btn_generate.setEnabled(True)
@@ -387,11 +401,13 @@ class CreationTab(QWidget):
         if len(generated_notes) > 0:
             self.results_table.selectRow(0)
 
+    @Slot(str)
     def on_generation_error(self, error_msg: str) -> None:
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText("✨ Générer les Cartes")
         QMessageBox.critical(self, "Erreur IA", error_msg)
 
+    @Slot(QTableWidgetItem)
     def on_table_item_changed(self, item: QTableWidgetItem) -> None:
         row = item.row()
         col = item.column()
@@ -402,7 +418,7 @@ class CreationTab(QWidget):
             selected_items = self.results_table.selectedItems()
             if selected_items and selected_items[0].row() == row:
                 self.update_preview()
-
+    @Slot()
     def update_preview(self) -> None:
         selected_items = self.results_table.selectedItems()
         if not selected_items or not self.generated_notes:
@@ -437,7 +453,7 @@ class CreationTab(QWidget):
         base_url = QUrl.fromLocalFile(media_dir)
 
         self.web_view.setHtml(final_html, base_url)
-
+    @Slot()
     def save_to_database(self) -> None:
         if not self.generated_notes: return
 

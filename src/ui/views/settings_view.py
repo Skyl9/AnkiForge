@@ -3,7 +3,8 @@ import os
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
                                QPushButton, QComboBox, QMessageBox, QFormLayout, QGroupBox, QHBoxLayout)
 from dotenv import set_key
-
+import qtawesome as qta
+from PySide6.QtCore import Slot
 
 class SettingsTab(QWidget):
     def __init__(self, ai_manager) -> None:
@@ -12,8 +13,8 @@ class SettingsTab(QWidget):
 
         layout = QVBoxLayout(self)
 
-        title = QLabel("<b>⚙️ Paramètres de l'Intelligence Artificielle</b>")
-        title.setStyleSheet("font-size: 20px; margin-bottom: 20px;")
+        title = QLabel("<h2>Paramètres de l'Intelligence Artificielle</h2>")
+        title.setStyleSheet("margin-bottom: 20px;")
         layout.addWidget(title)
 
         # Groupe de paramètres IA
@@ -32,7 +33,7 @@ class SettingsTab(QWidget):
         self.cb_model.setEditable(True)  # Permet à l'utilisateur de taper du texte libre
         self.cb_model.setCurrentText(os.getenv("AI_MODEL", "qwen2.5:7b"))
 
-        self.btn_refresh_models = QPushButton("🔄 Actualiser")
+        self.btn_refresh_models = QPushButton(qta.icon('fa5s.sync'), " Actualiser")
         self.btn_refresh_models.clicked.connect(self.refresh_models_list)
 
         model_layout = QHBoxLayout()
@@ -61,7 +62,7 @@ class SettingsTab(QWidget):
         layout.addWidget(ai_group)
 
         # Bouton de sauvegarde
-        self.btn_save = QPushButton("💾 Sauvegarder et Reconnecter l'IA")
+        self.btn_save = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder et Reconnecter l'IA")
         self.btn_save.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
         self.btn_save.clicked.connect(self.save_settings)
         layout.addWidget(self.btn_save)
@@ -69,7 +70,7 @@ class SettingsTab(QWidget):
         layout.addStretch()
 
         # 👇 NOUVELLES MÉTHODES À AJOUTER À LA CLASSE 👇
-
+    @Slot(str)
     def on_provider_changed(self, provider_name: str) -> None:
         """Adapte l'interface quand on change de fournisseur."""
         current_text = self.cb_model.currentText()
@@ -89,7 +90,7 @@ class SettingsTab(QWidget):
             # On remet le texte que l'utilisateur avait tapé, s'il y en avait un
             if current_text:
                 self.cb_model.setCurrentText(current_text)
-
+    @Slot()
     def refresh_models_list(self) -> None:
         """Va chercher les modèles Ollama en local."""
         if self.cb_provider.currentText() != "Ollama":
@@ -115,7 +116,7 @@ class SettingsTab(QWidget):
 
         self.btn_refresh_models.setText("🔄 Actualiser")
         self.btn_refresh_models.setEnabled(True)
-
+    @Slot()
     def save_settings(self) -> None:
         env_path = self.ai_manager.env_path
 
