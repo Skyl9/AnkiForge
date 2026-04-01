@@ -34,6 +34,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.env
+.coverage
+test.md
+GEMINI.md
+*.json
 
 # --- IDE (PyCharm, VSCode, etc.) ---
 .idea/
@@ -44,5 +49,7 @@ wheels/
 .DS_Store
 Thumbs.db
 
+
 # --- Fichiers spécifiques au projet ---
 *.gaphor
+*.jpeg
