@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from src.services.ai.base import LLMProvider, MockProvider
+from src.services.ai.gemini_service import GeminiService
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -86,20 +87,6 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         )
 
 
-class GeminiProvider(OpenAICompatibleProvider):
-    """Fournisseur Cloud officiel de Google (Gemini)."""
-
-    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash"):
-        if not api_key:
-            raise ValueError("Clé API Gemini manquante.")
-        # Google propose désormais une URL compatible avec le SDK OpenAI !
-        super().__init__(
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            model_name=model_name,
-            api_key=api_key
-        )
-
-
 class AIManager:
     """Gestionnaire dynamique qui charge la bonne IA selon le fichier .env."""
 
@@ -126,7 +113,7 @@ class AIManager:
             if provider_name == "Ollama":
                 self.provider = OllamaProvider(model_name=model_name)
             elif provider_name == "Gemini":
-                self.provider = GeminiProvider(api_key=os.getenv("GEMINI_API_KEY", ""), model_name=model_name)
+                self.provider = GeminiService(model_name=model_name)
             elif provider_name == "Groq":
                 self.provider = GroqProvider(api_key=os.getenv("GROQ_API_KEY", ""), model_name=model_name)
             else:
