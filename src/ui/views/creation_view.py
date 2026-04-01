@@ -18,6 +18,7 @@ from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardMod
 from src.services.parsing.document_parser import DocumentParser
 from src.ui.widgets.toast import show_toast
 from src.utils.anki_renderer import render_anki_card
+from src.utils.paths import get_app_data_dir
 
 
 class GenerationThread(QThread):
@@ -458,9 +459,12 @@ class CreationTab(QWidget):
             is_recto=is_recto, front_html=tmpl.get("qfmt", "")
         )
 
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        media_dir = os.path.join(BASE_DIR, 'data', 'media')
-        if not media_dir.endswith(os.sep): media_dir += os.sep
+        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
+        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
+
+        if not media_dir.endswith(os.sep):
+            media_dir += os.sep
+
         base_url = QUrl.fromLocalFile(media_dir)
 
         self.web_view.setHtml(final_html, base_url)

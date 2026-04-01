@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, Q
 from src.database.models import db, DocumentModel, FolderModel
 from src.services.parsing.document_parser import DocumentParser
 from src.ui.widgets.toast import show_toast
+from src.utils.paths import get_app_data_dir
 
 
 # ==========================================
@@ -298,11 +299,13 @@ class DocumentsTab(QWidget):
             """
 
         # Reste de la logique d'URL (identique à avant)
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        media_dir = os.path.join(BASE_DIR, 'data', 'media')
-        if not media_dir.endswith(os.sep): media_dir += os.sep
-        base_url = QUrl.fromLocalFile(media_dir)
+        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
+        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
 
+        if not media_dir.endswith(os.sep):
+            media_dir += os.sep
+
+        base_url = QUrl.fromLocalFile(media_dir)
         self.render_view.setHtml(final_html, base_url)
     @Slot()
     def load_tree(self) -> None:

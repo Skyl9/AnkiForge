@@ -17,6 +17,7 @@ from src.services.cards.export_manager import ExportManager
 from src.services.cards.store_manager import StoreManager
 from src.ui.widgets.toast import show_toast
 from src.utils.anki_renderer import render_anki_card
+from src.utils.paths import get_app_data_dir
 
 
 def strip_html(text: Optional[str]) -> str:
@@ -456,11 +457,9 @@ class EditionTab(QWidget):
             front_html=tmpl.get("qfmt", "")
         )
 
-        # 👇 NOUVEAU : Configuration du Base URL pour les médias locaux 👇
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        media_dir = os.path.join(BASE_DIR, 'data', 'media')
+        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
+        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
 
-        # Sécurité : S'assure que le chemin se termine par un séparateur de dossier (/ ou \)
         if not media_dir.endswith(os.sep):
             media_dir += os.sep
 

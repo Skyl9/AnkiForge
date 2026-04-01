@@ -18,7 +18,7 @@ __pycache__/
 venv/
 .venv/
 env/
-.env
+.ankiforge/.env
 
 # --- Outils de Build et de Packaging ---
 build/
@@ -34,7 +34,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.env
+.ankiforge/.env
 .coverage
 test.md
 GEMINI.md

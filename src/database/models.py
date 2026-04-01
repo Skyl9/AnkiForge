@@ -5,11 +5,12 @@ import uuid
 
 from peewee import *
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# Base de données SQLite (fichier local)
-DATA_DIR = os.path.join(BASE_DIR, 'data')
+from src.utils.paths import get_app_data_dir
+
+DATA_DIR = os.path.join(get_app_data_dir(), 'data')
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
+
 # 3. On définit le chemin final de la base de données
 DB_PATH = os.path.join(DATA_DIR, 'ankiforge.db')
 

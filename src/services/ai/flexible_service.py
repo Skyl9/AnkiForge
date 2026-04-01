@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from src.services.ai.base import LLMProvider, MockProvider
 from src.services.ai.gemini_service import GeminiService
+from src.utils.paths import get_app_data_dir
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -91,9 +92,7 @@ class AIManager:
     """Gestionnaire dynamique qui charge la bonne IA selon le fichier .env."""
 
     def __init__(self):
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.env_path = os.path.join(BASE_DIR, ".env")
-        # Créer le fichier .env s'il n'existe pas
+        self.env_path = os.path.join(get_app_data_dir(), ".env")        # Créer le fichier .env s'il n'existe pas
         if not os.path.exists(self.env_path):
             with open(self.env_path, 'w') as f:
                 f.write("AI_PROVIDER=Ollama\nAI_MODEL=mistral-nemo\n")
