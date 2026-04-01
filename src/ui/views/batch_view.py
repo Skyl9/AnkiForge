@@ -5,6 +5,7 @@ from typing import Any, List, Dict
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QPushButton, QComboBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QAbstractItemView, QProgressBar,
@@ -13,6 +14,7 @@ from jinja2 import Template
 
 from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel, \
     NoteVersionModel, DocumentModel, FolderModel
+from src.ui.widgets.toast import show_toast
 
 
 class BatchWorker(QThread):
@@ -297,6 +299,14 @@ class BatchTab(QWidget):
         self.refresh_selectors()
         self.load_tree_source()
 
+        # --- RACCOURCIS CLAVIER ---
+        # Ctrl+Enter pour démarrer le traitement par lots
+        self.shortcut_start = QShortcut(QKeySequence("Ctrl+Return"), self)
+        self.shortcut_start.activated.connect(self.start_batch)
+
+        # Suppr pour retirer l'élément sélectionné de la table (file d'attente)
+        self.shortcut_remove_queue = QShortcut(QKeySequence.StandardKey.Delete, self.table_queue)
+        self.shortcut_remove_queue.activated.connect(self._remove_selected_from_table)
     @Slot()
     def load_tree_source(self) -> None:
         self.tree_source.clear()
@@ -461,8 +471,7 @@ class BatchTab(QWidget):
         self.lbl_status.setText("Terminé.")
         msg = f"Traitement de la file d'attente terminé.\n\n✅ Documents réussis : {success_count}\n❌ Documents échoués : {error_count}"
         self.append_log(f"\n{'=' * 40}\n{msg}")
-        QMessageBox.information(self, "Bilan de l'Usine", msg)
-    @Slot(str)
+        show_toast(self, "Traitement par lots terminé !")    @Slot(str)
     def on_batch_error(self, error_msg: str) -> None:
         self._unlock_ui()
         self.lbl_status.setText("Erreur fatale.")
@@ -472,3 +481,10 @@ class BatchTab(QWidget):
         self.btn_start.setEnabled(True)
         self.btn_add_to_queue.setEnabled(True)
         self.table_queue.setEnabled(True)
+
+    @Slot()
+    def _remove_selected_from_table(self) -> None:
+        """Supprime la ligne actuellement sélectionnée dans la table de file d'attente."""
+        current_row = self.table_queue.currentRow()
+        if current_row != -1:
+            self._remove_row(current_row)

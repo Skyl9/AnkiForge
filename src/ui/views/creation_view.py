@@ -5,6 +5,7 @@ from typing import Any, List, Dict
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
+from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QPushButton, QComboBox, QTableWidget,
@@ -15,6 +16,7 @@ from jinja2 import Template
 from src.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel, \
     NoteVersionModel, DocumentModel
 from src.services.parsing.document_parser import DocumentParser
+from src.ui.widgets.toast import show_toast
 from src.utils.anki_renderer import render_anki_card
 
 
@@ -215,6 +217,15 @@ class CreationTab(QWidget):
 
         self.refresh_selectors()
         self.load_documents()
+
+        # --- RACCOURCIS CLAVIER ---
+        # Ctrl+Enter (ou Ctrl+Retour) pour lancer la génération
+        self.shortcut_generate = QShortcut(QKeySequence("Ctrl+Return"), self)
+        self.shortcut_generate.activated.connect(self.start_generation)
+
+        # Ctrl+S pour sauvegarder dans la base (une fois généré)
+        self.shortcut_save_db = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.shortcut_save_db.activated.connect(self.save_to_database)
 
     @Slot()
     def refresh_selectors(self) -> None:
@@ -477,7 +488,7 @@ class CreationTab(QWidget):
                     for idx, tmpl in enumerate(templates):
                         CardModel.create(note=note, deck=deck, template_index=idx)
 
-            QMessageBox.information(self, "Succès", f"{len(self.generated_notes)} nouvelles notes créées !")
+            show_toast(self, f"{len(self.generated_notes)} notes créées !")
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
             self.web_view.setHtml("")

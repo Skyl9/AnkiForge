@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, Q
 
 from src.database.models import db, DocumentModel, FolderModel
 from src.services.parsing.document_parser import DocumentParser
+from src.ui.widgets.toast import show_toast
 
 
 # ==========================================
@@ -461,10 +462,7 @@ class DocumentsTab(QWidget):
         parts = full_text.split("[SPLIT]")
 
         if len(parts) <= 1:
-            QMessageBox.information(
-                self, "Astuce",
-                "Pour scinder le document en plusieurs parties, écrivez [SPLIT] dans le texte aux endroits où vous souhaitez couper."
-            )
+            show_toast(self, "Document scindé avec succès !")
             return
 
         try:

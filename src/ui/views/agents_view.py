@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QAbstractItemView, QListWidgetItem, QFileDialog)
 
 from src.database.models import db, AgentModel, PipelineModel, PipelineStepModel
+from src.ui.widgets.toast import show_toast
 
 
 class AgentsTab(QWidget):
@@ -174,7 +175,7 @@ class AgentsTab(QWidget):
             try:
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(export_data, f, ensure_ascii=False, indent=4)
-                QMessageBox.information(self, "Succès", "Le Pipeline a été exporté avec succès !")
+                show_toast(self, "Le Pipeline a été exporté avec succès !")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Impossible d'exporter le fichier : {e}")
 
@@ -230,8 +231,7 @@ class AgentsTab(QWidget):
             if idx >= 0:
                 self.pipeline_selector.setCurrentIndex(idx)
 
-            QMessageBox.information(self, "Succès", f"Le Pipeline '{name}' a été importé avec succès !")
-
+            show_toast(self, f"Pipeline '{name}' importé !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur d'import", f"Le fichier est invalide ou corrompu :\n{e}")
 
@@ -287,7 +287,7 @@ class AgentsTab(QWidget):
             else:
                 AgentModel.create(name=name, description=desc, system_prompt=prompt)
 
-            QMessageBox.information(self, "Succès", "Agent sauvegardé avec succès.")
+            show_toast(self, "Agent sauvegardé !")
             self.refresh_ui()
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")

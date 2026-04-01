@@ -6,6 +6,9 @@ from dotenv import set_key
 import qtawesome as qta
 from PySide6.QtCore import Slot
 
+from src.ui.widgets.toast import show_toast
+
+
 class SettingsTab(QWidget):
     def __init__(self, ai_manager) -> None:
         super().__init__()
@@ -133,4 +136,4 @@ class SettingsTab(QWidget):
             QMessageBox.warning(self, "Erreur",
                                 "Connexion IA échouée. Passage en mode simulation.")
         else:
-            QMessageBox.information(self, "Succès", "Paramètres sauvegardés !")
+            show_toast(self, "Paramètres enregistrés !")

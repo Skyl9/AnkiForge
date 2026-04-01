@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxL
 from src.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel
 from src.services.cards.export_manager import ExportManager
 from src.services.cards.store_manager import StoreManager
+from src.ui.widgets.toast import show_toast
 from src.utils.anki_renderer import render_anki_card
 
 
@@ -183,7 +184,7 @@ class EditionTab(QWidget):
             self.btn_load_col.setEnabled(False)
             try:
                 self.store.store_collection(path)
-                QMessageBox.information(self, "Succès", "Fichier chargé !")
+                show_toast(self, "Paquet importé !")
                 self.refresh_deck_tree()
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Erreur : {str(e)}")
@@ -203,7 +204,7 @@ class EditionTab(QWidget):
             try:
                 exporter = ExportManager()
                 exporter.export_deck(self.current_deck_id, path)
-                QMessageBox.information(self, "Succès 🎉", f"Le paquet '{deck.name}' a été exporté avec succès !")
+                show_toast(self, "Exportation terminée !")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Erreur lors de l'exportation :\n{e}")
 
@@ -426,7 +427,7 @@ class EditionTab(QWidget):
                     item_version = QTableWidgetItem(f"v{new_version.version_number}")
                     item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row, 4, item_version)
-            QMessageBox.information(self, "Succès", "La note a été mise à jour en base de données !")
+            show_toast(self, "Note mise à jour !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
 
