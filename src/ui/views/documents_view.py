@@ -4,7 +4,7 @@ import re
 
 import markdown
 import qtawesome as qta
-from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
+from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot, QTimer
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor, QKeySequence, QShortcut
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
@@ -179,22 +179,38 @@ class DocumentsTab(QWidget):
 
         right_layout.addLayout(editor_toolbar)
 
-        self.editor_tabs = QTabWidget()
+        # 1. Le bouton "Insérer une coupure" dans la toolbar
+        self.btn_insert_split = QPushButton(qta.icon('fa5s.cut', color='#FF9800'), " Insérer Coupure (Ctrl+D)")
+        self.btn_insert_split.setStyleSheet("font-weight: bold; color: #FF9800;")
+        self.btn_insert_split.clicked.connect(self.insert_split_tag)
+        self.btn_insert_split.setEnabled(False)
+        editor_toolbar.insertWidget(2, self.btn_insert_split)  # Insère avant le bouton scinder
+
+        # 2. Le Splitter d'édition
+        self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self.preview_text = QTextEdit()
         self.preview_text.setStyleSheet(
             "background-color: #1E1E1E; color: #D4D4D4; font-family: 'Consolas', monospace; font-size: 14px;")
         self.highlighter = MarkdownHighlighter(self.preview_text.document())
-        self.preview_text.textChanged.connect(self._enable_save)
 
         self.render_view = QWebEngineView()
 
-        # Icônes vectorielles pour les onglets
-        self.editor_tabs.addTab(self.preview_text, qta.icon('fa5s.edit'), " Éditeur Markdown")
-        self.editor_tabs.addTab(self.render_view, qta.icon('fa5s.eye'), " Aperçu du Document")
-        self.editor_tabs.currentChanged.connect(self.on_tab_changed)
+        # On ajoute les deux vues côte à côte
+        self.editor_splitter.addWidget(self.preview_text)
+        self.editor_splitter.addWidget(self.render_view)
+        self.editor_splitter.setSizes([400, 400])
 
-        right_layout.addWidget(self.editor_tabs)
+        right_layout.addWidget(self.editor_splitter)
+
+        # 3. Le Timer pour l'aperçu en temps réel (Debouncing de 500ms)
+        self.render_timer = QTimer(self)
+        self.render_timer.setSingleShot(True)
+        self.render_timer.setInterval(500)
+        self.render_timer.timeout.connect(self.update_live_preview)
+
+        self.preview_text.textChanged.connect(self._on_text_changed)
+
         splitter.addWidget(right_panel)
         splitter.setSizes([250, 750])
 
@@ -219,42 +235,75 @@ class DocumentsTab(QWidget):
         self.shortcut_backspace = QShortcut(QKeySequence("Backspace"), self.tree)
         self.shortcut_backspace.activated.connect(self.delete_item)
 
+        # Insérer un tag [SPLIT] (Ctrl+D)
+        self.shortcut_insert_split = QShortcut(QKeySequence("Ctrl+D"), self)
+        self.shortcut_insert_split.activated.connect(self.insert_split_tag)
+
     @Slot()
     def _enable_save(self) -> None:
         if self.current_doc_id_editing:
             self.btn_save_doc.setEnabled(True)
 
-    @Slot(int)
-    def on_tab_changed(self, index: int) -> None:
-        if index == 1 and self.current_doc_id_editing:
-            raw_md = self.preview_text.toPlainText()
-            html_content = markdown.markdown(raw_md, extensions=['tables', 'fenced_code'])
+    @Slot()
+    def _on_text_changed(self) -> None:
+        """Déclenché à chaque frappe au clavier."""
+        self._enable_save()
+        self.render_timer.start()  # Relance le chrono de 500ms
 
-            final_html = f"""
+    @Slot()
+    def insert_split_tag(self) -> None:
+        """Insère la balise de découpage à l'emplacement du curseur."""
+        if not self.current_doc_id_editing: return
+
+        cursor = self.preview_text.textCursor()
+        cursor.insertText("\n\n[SPLIT]\n\n")
+        self.preview_text.setTextCursor(cursor)
+        self.preview_text.setFocus()
+
+    @Slot()
+    def update_live_preview(self) -> None:
+        """Met à jour le rendu HTML avec le style visuel de coupure."""
+        if not self.current_doc_id_editing: return
+
+        raw_md = self.preview_text.toPlainText()
+
+        # 👇 ASTUCE : On remplace le texte brut par une belle balise HTML avant de parser
+        visual_split_html = """
+            <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: #ff980015; border: 2px dashed #ff9800; border-radius: 8px;">
+                <span style="color: #ff9800; font-weight: bold; font-size: 16px;">✂️ --- POINT DE DÉCOUPAGE --- ✂️</span>
+                <br><span style="color: #888; font-size: 12px;">Le document sera scindé ici</span>
+            </div>
+            """
+        vis_md = raw_md.replace("[SPLIT]", f"\n\n{visual_split_html}\n\n")
+
+        html_content = markdown.markdown(vis_md, extensions=['tables', 'fenced_code'])
+
+        final_html = f"""
             <html><head><meta charset="utf-8">
-            <script>
-                window.MathJax = {{ tex: {{ inlineMath: [['$', '$'], ['\\\\(', '\\\\)']], displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']] }} }};
-            </script>
+            <script>window.MathJax = {{ tex: {{ inlineMath: [['$', '$'], ['\\\\(', '\\\\)']], displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']] }} }};</script>
             <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
             <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 20px; line-height: 1.6; color: #333; }}
-                h1, h2, h3 {{ color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-                img {{ max-width: 100%; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-                code {{ background-color: #f4f4f4; padding: 2px 4px; border-radius: 3px; font-family: monospace; }}
-                pre code {{ display: block; padding: 10px; overflow-x: auto; }}
+                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 20px; line-height: 1.6; color: #E0E0E0; background-color: #121212; }}
+                h1, h2, h3 {{ color: #90CAF9; border-bottom: 1px solid #333; padding-bottom: 5px; }}
+                img {{ max-width: 100%; border-radius: 5px; }}
+                code {{ background-color: #2D2D2D; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #CE9178; }}
+                pre code {{ display: block; padding: 10px; overflow-x: auto; background-color: #1E1E1E; border: 1px solid #333; }}
+                table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+                th, td {{ border: 1px solid #444; padding: 8px; text-align: left; }}
+                th {{ background-color: #2D2D2D; }}
             </style>
             </head><body>
             {html_content}
             </body></html>
             """
 
-            BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-            media_dir = os.path.join(BASE_DIR, 'data', 'media')
-            if not media_dir.endswith(os.sep): media_dir += os.sep
-            base_url = QUrl.fromLocalFile(media_dir)
+        # Reste de la logique d'URL (identique à avant)
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        media_dir = os.path.join(BASE_DIR, 'data', 'media')
+        if not media_dir.endswith(os.sep): media_dir += os.sep
+        base_url = QUrl.fromLocalFile(media_dir)
 
-            self.render_view.setHtml(final_html, base_url)
-
+        self.render_view.setHtml(final_html, base_url)
     @Slot()
     def load_tree(self) -> None:
         self.tree.clear()
@@ -390,6 +439,7 @@ class DocumentsTab(QWidget):
         self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
         self.btn_save_doc.setEnabled(False)
         self.btn_split_doc.setEnabled(False)
+        self.btn_insert_split.setEnabled(False)
         self.load_tree()
 
     @Slot(QTreeWidgetItem, int)
@@ -410,8 +460,10 @@ class DocumentsTab(QWidget):
             self.btn_save_doc.setEnabled(False)
             self.btn_split_doc.setEnabled(True)
 
-            if self.editor_tabs.currentIndex() == 1:
-                self.on_tab_changed(1)
+            # 👇 LIGNES MANQUANTES À AJOUTER 👇
+            self.btn_insert_split.setEnabled(True)  # Active le bouton Ciseaux
+            self.update_live_preview()  # Force le rendu immédiat
+
         else:
             self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
             self.preview_text.clear()
@@ -419,6 +471,7 @@ class DocumentsTab(QWidget):
             self.current_doc_id_editing = None
             self.btn_save_doc.setEnabled(False)
             self.btn_split_doc.setEnabled(False)
+            self.btn_insert_split.setEnabled(False)  # 👈 Désactiver ici aussi
 
     @Slot()
     def import_document(self) -> None:
@@ -462,7 +515,10 @@ class DocumentsTab(QWidget):
         parts = full_text.split("[SPLIT]")
 
         if len(parts) <= 1:
-            show_toast(self, "Document scindé avec succès !")
+            QMessageBox.information(
+                self, "Astuce",
+                "Pour scinder le document en plusieurs parties, cliquez sur 'Insérer Coupure' ou écrivez [SPLIT] dans le texte."
+            )
             return
 
         try:
@@ -485,7 +541,6 @@ class DocumentsTab(QWidget):
 
             self.load_tree()
             self.preview_text.setPlainText(original_doc.content)
-            QMessageBox.information(self, "Succès 🎉", f"Le document a été découpé en {len(parts)} morceaux distincts !")
-
+            show_toast(self, f"Document découpé en {len(parts)} parties !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de scinder le document :\n{e}")
