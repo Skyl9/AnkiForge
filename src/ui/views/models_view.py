@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
                                QTextEdit, QLabel, QSplitter, QGroupBox, QPushButton,
                                QComboBox, QListWidgetItem, QInputDialog, QMessageBox)
 
-from src.database.models import db, NoteTypeModel
+from src.database.models import db, NoteTypeModel, CardModel, NoteModel
+from src.ui.widgets.toast import show_toast
 from src.utils.anki_renderer import render_anki_card
 
 
@@ -127,10 +128,8 @@ class ModelsTab(QWidget):
         self.afmt_editor = QTextEdit()
         self.afmt_editor.setStyleSheet("font-family: monospace;")
 
-        self.qfmt_editor.textChanged.connect(self.update_preview)
-        self.qfmt_editor.textChanged.connect(self._enable_save)
-        self.afmt_editor.textChanged.connect(self.update_preview)
-        self.afmt_editor.textChanged.connect(self._enable_save)
+        self.qfmt_editor.textChanged.connect(self.sync_editor_to_template)
+        self.afmt_editor.textChanged.connect(self.sync_editor_to_template)
 
         editors_layout.addWidget(QLabel("<b>HTML du Recto :</b>"))
         editors_layout.addWidget(self.qfmt_editor)
@@ -256,11 +255,6 @@ class ModelsTab(QWidget):
                 fields_list = [f.strip() for f in raw_fields.split(",") if f.strip()]
                 note_type.fields_schema = json.dumps(fields_list, ensure_ascii=False)
 
-            idx = self.card_selector.currentIndex()
-            if 0 <= idx < len(self.current_templates):
-                self.current_templates[idx]["qfmt"] = self.qfmt_editor.toPlainText()
-                self.current_templates[idx]["afmt"] = self.afmt_editor.toPlainText()
-
             note_type.templates = json.dumps(self.current_templates, ensure_ascii=False)
 
             with db.atomic():
@@ -280,6 +274,69 @@ class ModelsTab(QWidget):
     def _reset_save_btn(self):
         self.btn_save_model.setText(" Sauvegarder")
         self.btn_save_model.setIcon(qta.icon('fa5s.save'))
+
+    @Slot()
+    def delete_card_template(self) -> None:
+        if not self.current_model_id or not self.current_templates: return
+        if len(self.current_templates) <= 1:
+            QMessageBox.warning(self, "Erreur", "Un modèle doit contenir au moins une carte !")
+            return
+
+        idx = self.card_selector.currentIndex()
+        card_name = self.current_templates[idx].get("name", "Cette carte")
+
+        # 1. On compte combien de vraies cartes physiques vont être affectées
+        cards_affected = (CardModel
+                          .select()
+                          .join(NoteModel)
+                          .where((NoteModel.note_type_id == self.current_model_id) &
+                                 (CardModel.template_index == idx))
+                          .count())
+
+        # 2. On prépare le message d'avertissement adaptatif
+        warn_text = f"Voulez-vous vraiment supprimer le modèle de carte '{card_name}' ?"
+        if cards_affected > 0:
+            warn_text += f"\n\n⚠️ ATTENTION : Cela supprimera DÉFINITIVEMENT {cards_affected} carte(s) existante(s) dans vos paquets !"
+
+        reply = QMessageBox.question(self, "Confirmation de suppression", warn_text,
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                with db.atomic():
+                    # 3. On fait le ménage dans la base de données physique
+                    if cards_affected > 0:
+                        # Sous-requête pour trouver les notes concernées
+                        notes_ids = NoteModel.select(NoteModel.id).where(
+                            NoteModel.note_type_id == self.current_model_id)
+
+                        # A. On supprime les cartes utilisant ce template
+                        CardModel.delete().where(
+                            (CardModel.note_id.in_(notes_ids)) & (CardModel.template_index == idx)
+                        ).execute()
+
+                        # B. On décale l'index des cartes suivantes (ex: la carte 3 devient la carte 2)
+                        CardModel.update(template_index=CardModel.template_index - 1).where(
+                            (CardModel.note_id.in_(notes_ids)) & (CardModel.template_index > idx)
+                        ).execute()
+
+                    # 4. On supprime le template du JSON et on sauvegarde
+                    self.current_templates.pop(idx)
+                    note_type = NoteTypeModel.get_by_id(self.current_model_id)
+                    note_type.templates = json.dumps(self.current_templates, ensure_ascii=False)
+                    note_type.save()
+
+                # 5. On rafraîchit l'interface UI
+                self.card_selector.blockSignals(True)
+                self.card_selector.removeItem(idx)
+                self.card_selector.blockSignals(False)
+                self.card_selector.setCurrentIndex(0)
+                self.on_card_template_selected(0)
+
+                show_toast(self, f"Modèle '{card_name}' supprimé !")
+
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur Base de donnée", f"Impossible de supprimer le modèle :\n{e}")
 
     @Slot()
     def refresh_models_list(self) -> None:
@@ -421,3 +478,27 @@ class ModelsTab(QWidget):
             self.current_templates[idx]["name"] = new_name.strip()
             self.card_selector.setItemText(idx, new_name.strip())
             self._enable_save()
+
+    @Slot()
+    def sync_editor_to_template(self) -> None:
+        """Met à jour le modèle en mémoire en temps réel quand on tape dans l'éditeur."""
+        if not self.current_templates or self.current_model_id is None:
+            return
+
+        idx = self.card_selector.currentIndex()
+        if 0 <= idx < len(self.current_templates):
+            qfmt_text = self.qfmt_editor.toPlainText()
+            afmt_text = self.afmt_editor.toPlainText()
+
+            # On vérifie si ça a vraiment changé pour ne déclencher l'aperçu que si nécessaire
+            changed = False
+            if self.current_templates[idx].get("qfmt") != qfmt_text:
+                self.current_templates[idx]["qfmt"] = qfmt_text
+                changed = True
+            if self.current_templates[idx].get("afmt") != afmt_text:
+                self.current_templates[idx]["afmt"] = afmt_text
+                changed = True
+
+            if changed:
+                self._enable_save()
+                self.update_preview()
