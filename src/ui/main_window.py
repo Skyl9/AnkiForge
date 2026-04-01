@@ -1,6 +1,7 @@
 # src/ui/main_window.py
 import qtawesome as qta
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, QSettings
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QMainWindow, QTabWidget
 
 from src.ui.views.agents_view import AgentsTab
@@ -18,6 +19,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("AnkiForge - AI Flashcard Generator")
         self.resize(1000, 700)
+        self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
 
         self.ai_manager = ai_manager
 
@@ -39,6 +41,7 @@ class MainWindow(QMainWindow):
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
         self.setCentralWidget(self.tabs)
+        self.read_settings()
 
     @Slot(int)
     def on_tab_changed(self, index: int) -> None:
@@ -57,3 +60,31 @@ class MainWindow(QMainWindow):
 
         if hasattr(current_widget, "refresh_deck_tree"):
             current_widget.refresh_deck_tree()
+
+# ==========================================
+    # 💾 GESTION DE L'ÉTAT (QSettings)
+    # ==========================================
+
+    def read_settings(self):
+        """Restaure la taille de la fenêtre et l'onglet actif."""
+        # Restaure la géométrie (Taille et position)
+        geometry = self.settings.value("geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+        else:
+            self.resize(1100, 800) # Taille par défaut si premier lancement
+
+        # Restaure l'onglet actif
+        last_tab = self.settings.value("last_tab_index", 0, type=int)
+        if last_tab < self.tabs.count():
+            self.tabs.setCurrentIndex(last_tab)
+
+    def write_settings(self):
+        """Enregistre la configuration actuelle."""
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("last_tab_index", self.tabs.currentIndex())
+
+    def closeEvent(self, event: QCloseEvent):
+        """Se déclenche à la fermeture de l'application."""
+        self.write_settings() # Sauvegarde avant de quitter
+        event.accept()
