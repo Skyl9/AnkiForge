@@ -1,9 +1,9 @@
 # tests/conftest.py
 import pytest
 from peewee import SqliteDatabase
-from src.database.models import (DeckModel, NoteTypeModel, NoteModel, CardModel,
-                                 NoteVersionModel, AgentModel, PipelineModel,
-                                 PipelineStepModel, FolderModel, DocumentModel)
+from src import (DeckModel, NoteTypeModel, NoteModel, CardModel,
+                 NoteVersionModel, AgentModel, PipelineModel,
+                 PipelineStepModel, FolderModel, DocumentModel)
 
 
 @pytest.fixture(autouse=True)
