@@ -20,7 +20,8 @@ dependencies = [
     "protobuf>=7.34.1",
     "qtawesome>=1.4.1",
     "markdown",
-    "google-genai"
+    "google-genai",
+    "platformdirs>=4.9.4",
 ]
 
 [project.gui-scripts]

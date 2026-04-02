@@ -2,21 +2,45 @@ import os
 import sys
 from pathlib import Path
 
+import platformdirs
 
-def get_app_data_dir() -> str:
+APP_NAME = "AnkiForge"
+
+def get_project_root() -> str:
     """
-    Retourne le chemin vers le dossier de données de l'application.
-    Crée un dossier caché ~/.ankiforge dans le répertoire utilisateur si en mode app.
+        Cherche dynamiquement la racine du projet en remontant l'arborescence
+        jusqu'à trouver 'pyproject.toml'.
+        """
+    current_path = Path(__file__).resolve().parent
+
+    # On remonte les dossiers un par un
+    for parent in [current_path, *current_path.parents]:
+        if (parent / "pyproject.toml").exists():
+            return parent
+
+    # Fallback si le fichier n'est pas trouvé (utile en cas de structure exotique)
+    raise RuntimeError("Impossible de trouver la racine du projet (pyproject.toml manquant).")
+
+
+def get_app_data_dir() -> Path:
+    """
+    Retourne le chemin vers le dossier de données de l'application selon l'environnement.
+
+    Returns:
+        Path: Objet Path représentant le dossier de données.
     """
     if getattr(sys, 'frozen', False):
-        # PROD MOD
-        app_dir = Path.home() / ".ankiforge"
+        # 📦 MODE PRODUCTION (App empaquetée via PyInstaller/cx_Freeze)
+        # Windows : C:\Users\<User>\AppData\Local\AnkiForge
+        # macOS   : ~/Library/Application Support/AnkiForge
+        # Linux   : ~/.local/share/AnkiForge
+        app_dir = platformdirs.user_data_path(appname=APP_NAME, appauthor=False)
     else:
-        #  DEV MODE
-        # On remonte à la racine du projet (src -> utils -> paths.py)
-        app_dir = Path(__file__).resolve().parent.parent.parent.parent / ".ankiforge"
+        # 🛠️ MODE DÉVELOPPEMENT
+        # Crée un dossier .ankiforge proprement à la racine du projet
+        app_dir = get_project_root() / ".ankiforge"
 
-        # S'assure que le dossier de base existe
+    # S'assure que le dossier existe avant de le renvoyer
     app_dir.mkdir(parents=True, exist_ok=True)
 
-    return str(app_dir)
+    return app_dir
