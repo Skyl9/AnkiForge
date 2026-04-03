@@ -63,26 +63,22 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
 
 
 def _get_mathjax_script() -> str:
-    """Retourne le script d'injection pour MathJax."""
+    """Retourne le script d'injection pour MathJax (Version SVG robuste)."""
     return r"""
     <script>
         window.MathJax = {
             tex: {
-                inlineMath: [['\\(', '\\)']],
-                displayMath: [['\\[', '\\]'], ['$$', '$$']],
-                processEnvironments: true 
+                // Utilisation de 4 antislashs en Python pour générer '\\(' en JS
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
             },
-            options: {
-                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-            },
-            chtml: {
-                scale: 1.0 
+            svg: { 
+                fontCache: 'global' 
             }
         };
     </script>
-    <script type="text/javascript" id="MathJax-script" async
-            src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
-    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
     """
 
 

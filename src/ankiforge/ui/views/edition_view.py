@@ -2,8 +2,9 @@ import json
 import re
 from typing import Optional, Dict
 
-from PySide6.QtCore import Qt, QUrl, Slot
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer
 from PySide6.QtGui import QColor
+from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
@@ -157,6 +158,13 @@ class EditionTab(QWidget):
         controls_layout.addWidget(self.preview_side_selector)
 
         self.web_view = QWebEngineView()
+
+        self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+
+        self.preview_timer = QTimer(self)
+        self.preview_timer.setSingleShot(True)
+        self.preview_timer.setInterval(500)  # Attend 500ms après la dernière frappe
+        self.preview_timer.timeout.connect(self.update_preview)
 
         preview_layout.addLayout(controls_layout)
         preview_layout.addWidget(self.web_view)
@@ -386,9 +394,12 @@ class EditionTab(QWidget):
             for field_name, field_value in content_dict.items():
                 lbl = QLabel(f"<b>{field_name}</b>")
                 text_edit = QTextEdit()
-                text_edit.setPlainText(field_value)
+
+                clean_value = field_value.replace('<br>', '\n') if field_value else ""
+                text_edit.setPlainText(clean_value)
                 text_edit.setMinimumHeight(60)
-                text_edit.textChanged.connect(self.update_preview)
+
+                text_edit.textChanged.connect(self._on_text_changed)
 
                 self.field_editors[field_name] = text_edit
                 self.details_layout.addWidget(lbl)
@@ -405,6 +416,11 @@ class EditionTab(QWidget):
         except Exception as e:
             self.details_layout.addWidget(QLabel(f"Erreur : {e}"))
 
+    @Slot()
+    def _on_text_changed(self) -> None:
+        """Relance le délai de 500ms à chaque frappe pour laisser MathJax respirer."""
+        self.preview_timer.start()
+
     def save_note_edits(self) -> None:
         """Met à jour le JSON de la note dans la base de données Peewee"""
         if not self.current_note:
@@ -414,7 +430,7 @@ class EditionTab(QWidget):
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
             content_dict = json.loads(active_version.content) if active_version else {}
             for field_name, editor in self.field_editors.items():
-                content_dict[field_name] = editor.toPlainText()
+                content_dict[field_name] = editor.toPlainText().replace('\n', '<br>')
 
             with db.atomic():
                 new_version = self.current_note.add_version(content_dict, source="manual")
@@ -449,7 +465,10 @@ class EditionTab(QWidget):
         tmpl = templates[selected_tmpl_idx]
         is_recto = self.preview_side_selector.currentIndex() == 0
 
-        current_fields = {name: editor.toPlainText() for name, editor in self.field_editors.items()}
+        current_fields = {
+            name: editor.toPlainText().replace('\n', '<br>')
+            for name, editor in self.field_editors.items()
+        }
 
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
         css = self.current_note.note_type.css_style
