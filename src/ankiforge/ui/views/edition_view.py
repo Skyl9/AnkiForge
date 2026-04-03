@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from typing import Optional, Dict
 
@@ -11,7 +10,7 @@ from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxL
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
                                QAbstractItemView, QComboBox, QScrollArea, QTextEdit)
 
-from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.ui.widgets.toast import show_toast
@@ -41,6 +40,7 @@ class SortableTableItem(QTableWidgetItem):
         except ValueError:
             # Si c'est du vrai texte (ex: "Maths" vs "Physique"), on fait un tri alphabétique
             return self.text().lower() < other.text().lower()
+
 
 class EditionTab(QWidget):
     def __init__(self) -> None:
@@ -85,7 +85,8 @@ class EditionTab(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.addWidget(QLabel("Mode d'affichage :"))
         self.view_mode_cb = QComboBox()
-        self.view_mode_cb.addItems(["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)","Vue : Quarantaine (À valider)"])
+        self.view_mode_cb.addItems(
+            ["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)", "Vue : Quarantaine (À valider)"])
         self.view_mode_cb.currentIndexChanged.connect(self.refresh_table)
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
@@ -116,7 +117,6 @@ class EditionTab(QWidget):
         self.data_table.itemSelectionChanged.connect(self.on_row_selected)
 
         self.data_table.setSortingEnabled(True)
-
 
         bottom_splitter = QSplitter(Qt.Horizontal)
 
@@ -176,6 +176,14 @@ class EditionTab(QWidget):
 
         layout.addWidget(main_splitter)
         self.refresh_deck_tree()
+
+    @Slot()
+    def refresh_data(self) -> None:
+        """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
+        self.refresh_deck_tree()
+        # On rafraîchit la table si un paquet est déjà sélectionné
+        if self.current_deck_id:
+            self.refresh_table()
 
     @Slot()
     def load_cards(self) -> None:
@@ -408,8 +416,6 @@ class EditionTab(QWidget):
             for field_name, editor in self.field_editors.items():
                 content_dict[field_name] = editor.toPlainText()
 
-                # ✅ ON CRÉE LA NOUVELLE VERSION (Commit) :
-            from src import db  # Assure-toi que db est bien importé en haut
             with db.atomic():
                 new_version = self.current_note.add_version(content_dict, source="manual")
 
@@ -456,13 +462,10 @@ class EditionTab(QWidget):
             front_html=tmpl.get("qfmt", "")
         )
 
-        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
-        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
+        media_dir = get_app_data_dir() / "media"
+        media_dir.mkdir(exist_ok=True)
 
-        if not media_dir.endswith(os.sep):
-            media_dir += os.sep
-
-        base_url = QUrl.fromLocalFile(media_dir)
+        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 
         # On injecte le HTML en lui donnant le droit de lire dans le dossier media
         self.web_view.setHtml(final_html, base_url)
@@ -472,7 +475,6 @@ class EditionTab(QWidget):
         if not selected_rows: return
 
         try:
-            from src import db
             with db.atomic():
                 for row in selected_rows:
                     note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)

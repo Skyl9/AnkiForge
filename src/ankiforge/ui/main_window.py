@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         iconColor = 'orange'
-        # Ajout des onglets avec les icônes vectorielles FontAwesome 5
+
         self.tabs.addTab(CreationTab(self.ai_manager), qta.icon('fa5s.magic', color=iconColor), "Création")
         self.tabs.addTab(EditionTab(), qta.icon('fa5s.layer-group', color=iconColor), "Édition / Analyse")
         self.tabs.addTab(ModelsTab(), qta.icon('fa5s.paint-brush', color=iconColor), "Modèles")
@@ -47,21 +47,11 @@ class MainWindow(QMainWindow):
     def on_tab_changed(self, index: int) -> None:
         """Rafraîchit les données de l'onglet actif quand on clique dessus."""
         current_widget = self.tabs.widget(index)
+        refresh_method = getattr(current_widget, "refresh_data", None)
+        if callable(refresh_method):
+            refresh_method()
 
-        # On vérifie si l'onglet a une fonction de rafraîchissement
-        if hasattr(current_widget, "refresh_selectors"):
-            current_widget.refresh_selectors()
-
-        if hasattr(current_widget, "load_documents"):
-            current_widget.load_documents()
-
-        if hasattr(current_widget, "load_tree_source"):
-            current_widget.load_tree_source()
-
-        if hasattr(current_widget, "refresh_deck_tree"):
-            current_widget.refresh_deck_tree()
-
-# ==========================================
+    # ==========================================
     # 💾 GESTION DE L'ÉTAT (QSettings)
     # ==========================================
 
@@ -72,7 +62,7 @@ class MainWindow(QMainWindow):
         if geometry:
             self.restoreGeometry(geometry)
         else:
-            self.resize(1100, 800) # Taille par défaut si premier lancement
+            self.resize(1100, 800)  # Taille par défaut si premier lancement
 
         # Restaure l'onglet actif
         last_tab = self.settings.value("last_tab_index", 0, type=int)
@@ -86,5 +76,5 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Se déclenche à la fermeture de l'application."""
-        self.write_settings() # Sauvegarde avant de quitter
+        self.write_settings()
         event.accept()

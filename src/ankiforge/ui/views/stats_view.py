@@ -1,9 +1,10 @@
 # src/ui/views/stats_view.py
-from PySide6.QtCore import Qt, Slot
 import qtawesome as qta
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QFrame, QGridLayout, QTableWidget, QTableWidgetItem,
                                QHeaderView, QPushButton, QAbstractItemView)
+from peewee import JOIN, fn
 
 from ankiforge.database.models import DeckModel, NoteModel, CardModel, PipelineModel
 
@@ -58,6 +59,11 @@ class StatsTab(QWidget):
         # Chargement initial des données
         self.load_stats()
 
+    @Slot()
+    def refresh_data(self) -> None:
+        """Contrat MainWindow : Met à jour les stats automatiquement à l'ouverture de l'onglet."""
+        self.load_stats()
+
     def _create_metric_card(self, title: str, initial_value: str):
         """Crée un petit widget stylisé pour afficher un gros chiffre."""
         card = QFrame()
@@ -83,30 +89,31 @@ class StatsTab(QWidget):
         vbox.addWidget(lbl_value)
 
         return card, lbl_value
+
     @Slot()
     def load_stats(self) -> None:
         """Récupère les données depuis SQLite (Peewee) et met à jour l'UI."""
         # 1. Mise à jour des métriques globales
-        total_notes = NoteModel.select().count()
-        total_cards = CardModel.select().count()
-        total_decks = DeckModel.select().count()
-        total_pipes = PipelineModel.select().count()
+        self.lbl_total_notes[1].setText(str(NoteModel.select().count()))
+        self.lbl_total_cards[1].setText(str(CardModel.select().count()))
+        self.lbl_total_decks[1].setText(str(DeckModel.select().count()))
+        self.lbl_total_pipelines[1].setText(str(PipelineModel.select().count()))
 
-        self.lbl_total_notes[1].setText(str(total_notes))
-        self.lbl_total_cards[1].setText(str(total_cards))
-        self.lbl_total_decks[1].setText(str(total_decks))
-        self.lbl_total_pipelines[1].setText(str(total_pipes))
+        # 2. Requête ultra-optimisée (1 seule requête SQL pour TOUS les paquets)
+        decks_with_counts = (DeckModel
+                             .select(DeckModel, fn.COUNT(CardModel.id).alias('card_count'))
+                             .join(CardModel, JOIN.LEFT_OUTER)
+                             .group_by(DeckModel)
+                             .order_by(DeckModel.name))
 
-        # 2. Mise à jour du tableau des paquets
-        decks = list(DeckModel.select())
-        self.deck_table.setRowCount(len(decks))
+        # On convertit en liste pour avoir la taille
+        decks_list = list(decks_with_counts)
+        self.deck_table.setRowCount(len(decks_list))
 
-        for row, deck in enumerate(decks):
-            # On compte le nombre de cartes associées à ce paquet
-            card_count = CardModel.select().where(CardModel.deck == deck).count()
-
+        for row, deck in enumerate(decks_list):
             self.deck_table.setItem(row, 0, QTableWidgetItem(deck.name))
 
-            item_count = QTableWidgetItem(str(card_count))
+            # La base de données a déjà calculé 'card_count' pour nous !
+            item_count = QTableWidgetItem(str(deck.card_count))
             item_count.setTextAlignment(Qt.AlignCenter)
             self.deck_table.setItem(row, 1, item_count)

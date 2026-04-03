@@ -74,7 +74,12 @@ class SettingsTab(QWidget):
 
         layout.addStretch()
 
-        # 👇 NOUVELLES MÉTHODES À AJOUTER À LA CLASSE 👇
+    @Slot()
+    def refresh_data(self) -> None:
+        """Contrat MainWindow : Rafraîchit les modèles si on revient sur l'onglet."""
+        if self.cb_provider.currentText() == "Ollama":
+            self.refresh_models_list()
+
     @Slot(str)
     def on_provider_changed(self, provider_name: str) -> None:
         """Adapte l'interface quand on change de fournisseur."""
@@ -120,15 +125,16 @@ class SettingsTab(QWidget):
 
         self.btn_refresh_models.setText("🔄 Actualiser")
         self.btn_refresh_models.setEnabled(True)
+
     @Slot()
     def save_settings(self) -> None:
-        env_path = self.ai_manager.env_path
+        # On force la conversion en string pour dotenv
+        env_path_str = str(self.ai_manager.env_path)
 
-        # ATTENTION: Remplacer self.le_model.text() par self.cb_model.currentText()
-        set_key(env_path, "AI_PROVIDER", self.cb_provider.currentText())
-        set_key(env_path, "AI_MODEL", self.cb_model.currentText().strip())
-        set_key(env_path, "GEMINI_API_KEY", self.le_gemini_key.text().strip())
-        set_key(env_path, "GROQ_API_KEY", self.le_groq_key.text().strip())
+        set_key(env_path_str, "AI_PROVIDER", self.cb_provider.currentText())
+        set_key(env_path_str, "AI_MODEL", self.cb_model.currentText().strip())
+        set_key(env_path_str, "GEMINI_API_KEY", self.le_gemini_key.text().strip())
+        set_key(env_path_str, "GROQ_API_KEY", self.le_groq_key.text().strip())
 
         self.ai_manager.reload_provider()
 

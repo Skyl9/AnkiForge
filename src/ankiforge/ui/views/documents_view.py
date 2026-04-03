@@ -1,5 +1,5 @@
 # src/ui/views/documents_view.py
-import os
+import pathlib
 import re
 
 import markdown
@@ -86,15 +86,15 @@ class ParserWorker(QThread):
     finished_signal = Signal(str, str)
     error_signal = Signal(str)
 
-    def __init__(self, file_path: str, parser: DocumentParser):
+    def __init__(self, file_path: str):
         super().__init__()
         self.file_path = file_path
-        self.parser = parser
 
     def run(self):
         try:
-            title = os.path.basename(self.file_path)
-            content = self.parser.parse_document(self.file_path)
+            parser = DocumentParser()
+            title = pathlib.Path(self.file_path).stem
+            content = parser.parse_document(self.file_path)
             self.finished_signal.emit(title, content)
         except Exception as e:
             self.error_signal.emit(str(e))
@@ -268,7 +268,6 @@ class DocumentsTab(QWidget):
 
         raw_md = self.preview_text.toPlainText()
 
-        # 👇 ASTUCE : On remplace le texte brut par une belle balise HTML avant de parser
         visual_split_html = """
             <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: #ff980015; border: 2px dashed #ff9800; border-radius: 8px;">
                 <span style="color: #ff9800; font-weight: bold; font-size: 16px;">✂️ --- POINT DE DÉCOUPAGE --- ✂️</span>
@@ -298,15 +297,17 @@ class DocumentsTab(QWidget):
             </body></html>
             """
 
-        # Reste de la logique d'URL (identique à avant)
-        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
-        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
+        media_dir = get_app_data_dir() / 'media'
+        media_dir.mkdir(exist_ok=True)
 
-        if not media_dir.endswith(os.sep):
-            media_dir += os.sep
-
-        base_url = QUrl.fromLocalFile(media_dir)
+        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
         self.render_view.setHtml(final_html, base_url)
+
+    @Slot()
+    def refresh_data(self) -> None:
+        """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
+        self.load_tree()
+
     @Slot()
     def load_tree(self) -> None:
         self.tree.clear()
@@ -463,7 +464,6 @@ class DocumentsTab(QWidget):
             self.btn_save_doc.setEnabled(False)
             self.btn_split_doc.setEnabled(True)
 
-            # 👇 LIGNES MANQUANTES À AJOUTER 👇
             self.btn_insert_split.setEnabled(True)  # Active le bouton Ciseaux
             self.update_live_preview()  # Force le rendu immédiat
 
@@ -492,7 +492,7 @@ class DocumentsTab(QWidget):
         self.preview_text.setPlainText(
             "🤖 Analyse du document en cours...\nLe moteur de Deep Learning (Marker) extrait les données... 🚀")
 
-        self.worker = ParserWorker(path, DocumentParser())
+        self.worker = ParserWorker(path)
         self.worker.finished_signal.connect(self._on_parsing_success)
         self.worker.error_signal.connect(self._on_parsing_error)
         self.worker.start()

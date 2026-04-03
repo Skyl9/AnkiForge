@@ -59,8 +59,13 @@ class AgentsTab(QWidget):
         self.btn_save_agent.clicked.connect(self.save_agent)
         self.btn_save_agent.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
 
+        self.btn_delete_agent = QPushButton(qta.icon('fa5s.trash', color='white'), " Supprimer l'Agent")
+        self.btn_delete_agent.clicked.connect(self.delete_agent)
+        self.btn_delete_agent.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
+
         btn_layout_agent.addWidget(self.btn_new_agent)
         btn_layout_agent.addWidget(self.btn_save_agent)
+        btn_layout_agent.addWidget(self.btn_delete_agent)
         form_layout.addLayout(btn_layout_agent)
 
         agents_layout.addWidget(form_group)
@@ -68,6 +73,7 @@ class AgentsTab(QWidget):
         # ==========================================
         # ⚙️ PARTIE DROITE : ASSEMBLEUR DE PIPELINES
         # ==========================================
+
         pipelines_widget = QWidget()
         pipelines_layout = QVBoxLayout(pipelines_widget)
         pipelines_layout.addWidget(QLabel("<h2>⚙️ Assembleur de Pipelines</h2>"))
@@ -142,6 +148,12 @@ class AgentsTab(QWidget):
 
         layout.addWidget(main_splitter)
         self.refresh_ui()
+
+    @Slot()
+    def refresh_data(self) -> None:
+        """Contrat MainWindow : Rafraîchit les agents et pipelines."""
+        self.refresh_ui()
+
     @Slot()
     def export_pipeline(self) -> None:
         """Exporte le pipeline sélectionné et tous ses agents dans un fichier JSON."""
@@ -252,6 +264,7 @@ class AgentsTab(QWidget):
 
         if self.pipeline_selector.count() > 0:
             self.load_selected_pipeline()
+
     @Slot()
     def clear_agent_form(self) -> None:
         self.agent_id = None
@@ -259,13 +272,18 @@ class AgentsTab(QWidget):
         self.agent_desc_input.clear()
         self.agent_prompt_input.clear()
         self.agents_list.clearSelection()
+
     @Slot(QListWidgetItem)
     def load_selected_agent(self, item: QListWidgetItem) -> None:
-        agent = AgentModel.get(AgentModel.name == item.text())
+        agent = AgentModel.get_or_none(AgentModel.name == item.text())
+        if not agent:
+            return
+
         self.agent_id = agent.id
         self.agent_name_input.setText(agent.name)
         self.agent_desc_input.setText(agent.description or "")
         self.agent_prompt_input.setPlainText(agent.system_prompt)
+
 
     @Slot()
     def save_agent(self) -> None:
@@ -291,6 +309,34 @@ class AgentsTab(QWidget):
             self.refresh_ui()
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
+
+    @Slot()
+    def delete_agent(self) -> None:
+        if not self.agent_id:
+            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un agent avant de le supprimer.")
+            return
+
+        name = self.agent_name_input.text().strip()
+
+        reply = QMessageBox.question(
+            self, "Confirmation",
+            f"Voulez-vous vraiment supprimer l'agent '{name}' ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                agent = AgentModel.get_by_id(self.agent_id)
+                agent.delete_instance(recursive=True)
+
+                show_toast(self, "Agent détruit avec succès")
+
+                self.clear_agent_form()
+                self.refresh_ui()
+
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer l'agent : {e}")
+
     @Slot()
     def create_new_pipeline(self) -> None:
         count = PipelineModel.select().count() + 1
@@ -298,6 +344,7 @@ class AgentsTab(QWidget):
         self.refresh_ui()
         idx = self.pipeline_selector.findData(pipe.id)
         self.pipeline_selector.setCurrentIndex(idx)
+
     @Slot()
     def load_selected_pipeline(self) -> None:
         self.steps_list.clear()
@@ -308,11 +355,13 @@ class AgentsTab(QWidget):
         pipeline = PipelineModel.get_by_id(pipe_id)
         for step in pipeline.steps.order_by(PipelineStepModel.step_order):
             self.steps_list.addItem(f"{step.agent.name}")
+
     @Slot()
     def add_agent_to_pipeline(self) -> None:
         agent_name = self.available_agents_cb.currentText()
         if agent_name:
             self.steps_list.addItem(agent_name)
+
     @Slot()
     def move_step_up(self) -> None:
         row = self.steps_list.currentRow()
@@ -320,6 +369,7 @@ class AgentsTab(QWidget):
             item = self.steps_list.takeItem(row)
             self.steps_list.insertItem(row - 1, item)
             self.steps_list.setCurrentRow(row - 1)
+
     @Slot()
     def move_step_down(self) -> None:
         row = self.steps_list.currentRow()
@@ -327,11 +377,13 @@ class AgentsTab(QWidget):
             item = self.steps_list.takeItem(row)
             self.steps_list.insertItem(row + 1, item)
             self.steps_list.setCurrentRow(row + 1)
+
     @Slot()
     def remove_step(self) -> None:
         row = self.steps_list.currentRow()
         if row != -1:
             self.steps_list.takeItem(row)
+
     @Slot()
     def save_pipeline_steps(self) -> None:
         pipe_id = self.pipeline_selector.currentData()

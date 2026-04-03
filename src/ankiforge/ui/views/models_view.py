@@ -1,10 +1,9 @@
 # src/ui/views/models_view.py
 import json
-import os
 from typing import Dict, List
 
 import qtawesome as qta
-from PySide6.QtCore import Qt, QUrl, Slot
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
                                QTextEdit, QLabel, QSplitter, QGroupBox, QPushButton,
@@ -158,6 +157,12 @@ class ModelsTab(QWidget):
         layout.addWidget(main_splitter)
         self.refresh_models_list()
 
+    @Slot()
+    def refresh_data(self) -> None:
+        """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
+        self.refresh_models_list()
+
+
     def _add_group(self, parent_layout: QVBoxLayout, title: str, widget: QWidget) -> None:
         group = QGroupBox(title)
         lyt = QVBoxLayout(group)
@@ -250,8 +255,16 @@ class ModelsTab(QWidget):
             note_type.css_style = self.css_editor.toPlainText()
 
             raw_fields = self.fields_view.toPlainText().strip()
+
             if raw_fields.startswith("["):
-                note_type.fields_schema = raw_fields
+                try:
+                    # On teste si c'est du vrai JSON
+                    parsed_json = json.loads(raw_fields)
+                    note_type.fields_schema = json.dumps(parsed_json, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    QMessageBox.warning(self, "Erreur de syntaxe",
+                                        "Le JSON des champs est invalide. Vérifiez vos crochets et guillemets.")
+                    return
             else:
                 fields_list = [f.strip() for f in raw_fields.split(",") if f.strip()]
                 note_type.fields_schema = json.dumps(fields_list, ensure_ascii=False)
@@ -265,12 +278,10 @@ class ModelsTab(QWidget):
             self.btn_save_model.setText(" Sauvegardé !")
             self.btn_save_model.setIcon(qta.icon('fa5s.check'))
 
-            from PySide6.QtCore import QTimer
             QTimer.singleShot(1500, self._reset_save_btn)
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur BDD", f"Impossible de sauvegarder : {e}")
-
     @Slot()
     def _reset_save_btn(self):
         self.btn_save_model.setText(" Sauvegarder")
@@ -416,13 +427,10 @@ class ModelsTab(QWidget):
             is_recto=is_recto, front_html=self.qfmt_editor.toPlainText()
         )
 
-        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
-        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
+        media_dir = get_app_data_dir() / 'media'
+        media_dir.mkdir(exist_ok=True)  # S'assure que le dossier existe
 
-        if not media_dir.endswith(os.sep):
-            media_dir += os.sep
-
-        base_url = QUrl.fromLocalFile(media_dir)
+        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 
         self.web_view.setHtml(final_html, base_url)
 
@@ -447,27 +455,6 @@ class ModelsTab(QWidget):
 
         self.on_card_template_selected(new_index)
         self._enable_save()
-
-    @Slot()
-    def delete_card_template(self) -> None:
-        if not self.current_model_id or not self.current_templates: return
-        if len(self.current_templates) <= 1:
-            QMessageBox.warning(self, "Erreur", "Un modèle doit contenir au moins une carte !")
-            return
-
-        idx = self.card_selector.currentIndex()
-        card_name = self.current_templates[idx].get("name", "Cette carte")
-        reply = QMessageBox.question(self, "Confirmation", f"Supprimer '{card_name}' ?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
-        if reply == QMessageBox.StandardButton.Yes:
-            self.current_templates.pop(idx)
-            self.card_selector.blockSignals(True)
-            self.card_selector.removeItem(idx)
-            self.card_selector.blockSignals(False)
-            self.card_selector.setCurrentIndex(0)
-            self.on_card_template_selected(0)
-            self._enable_save()
 
     @Slot()
     def rename_card_template(self) -> None:

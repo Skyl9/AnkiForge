@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView)
 from jinja2 import Template
 
-from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel, \
+from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
+    PipelineStepModel, \
     NoteVersionModel, DocumentModel, FolderModel
 from ankiforge.ui.widgets.toast import show_toast
 
@@ -307,6 +308,13 @@ class BatchTab(QWidget):
         # Suppr pour retirer l'élément sélectionné de la table (file d'attente)
         self.shortcut_remove_queue = QShortcut(QKeySequence.StandardKey.Delete, self.table_queue)
         self.shortcut_remove_queue.activated.connect(self._remove_selected_from_table)
+
+    @Slot()
+    def refresh_data(self) -> None:
+        """Contrat MainWindow : Rafraîchit les listes et les dossiers."""
+        self.refresh_selectors()
+        self.load_tree_source()
+
     @Slot()
     def load_tree_source(self) -> None:
         self.tree_source.clear()
@@ -409,7 +417,6 @@ class BatchTab(QWidget):
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
         self.table_queue.setCellWidget(row_idx, 5, btn_remove)
 
-
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
         for r in range(row_idx, self.table_queue.rowCount()):
@@ -422,11 +429,13 @@ class BatchTab(QWidget):
         count = self.table_queue.rowCount()
         self.btn_start.setEnabled(count > 0)
         self.lbl_status.setText(f"{count} document(s) dans la file d'attente.")
+
     @Slot(str)
     def append_log(self, text: str) -> None:
         self.console_log.append(text)
         scrollbar = self.console_log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
+
     @Slot()
     def start_batch(self) -> None:
         if self.table_queue.rowCount() == 0: return
@@ -465,13 +474,16 @@ class BatchTab(QWidget):
         self.worker.error.connect(self.on_batch_error)
 
         self.worker.start()
-    @Slot(int,int)
+
+    @Slot(int, int)
     def on_batch_finished(self, success_count: int, error_count: int) -> None:
         self._unlock_ui()
         self.lbl_status.setText("Terminé.")
         msg = f"Traitement de la file d'attente terminé.\n\n✅ Documents réussis : {success_count}\n❌ Documents échoués : {error_count}"
         self.append_log(f"\n{'=' * 40}\n{msg}")
-        show_toast(self, "Traitement par lots terminé !")    @Slot(str)
+        (show_toast(self, "Traitement par lots terminé !"))
+
+    @Slot(str)
     def on_batch_error(self, error_msg: str) -> None:
         self._unlock_ui()
         self.lbl_status.setText("Erreur fatale.")

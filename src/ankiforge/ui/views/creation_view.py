@@ -1,5 +1,4 @@
 import json
-import os
 import uuid
 from typing import Any, List, Dict
 
@@ -12,7 +11,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QGroupBox)
 from jinja2 import Template
 
-from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, PipelineStepModel, \
+from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
+    PipelineStepModel, \
     NoteVersionModel, DocumentModel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
@@ -25,13 +25,14 @@ class GenerationThread(QThread):
     progress = Signal(str)
     log = Signal(str)
 
-    def __init__(self, ai_provider: Any, text_source: str, note_type: NoteTypeModel, pipeline_id: int) -> None:
+    def __init__(self, ai_provider: Any, text_source: str, note_type_id: int, pipeline_id: int) -> None:
         super().__init__()
         self.ai_provider = ai_provider
         self.text_source = text_source
-        self.note_type = note_type
+        self.note_type_id = note_type_id
         self.pipeline_id = pipeline_id
 
+    @staticmethod
     def _clean_json(self, raw_text: str) -> str:
         clean = raw_text.strip()
         if clean.startswith("```json"):
@@ -43,13 +44,17 @@ class GenerationThread(QThread):
     def run(self) -> None:
         try:
             pipeline = PipelineModel.get_by_id(self.pipeline_id)
+            note_type = NoteTypeModel.get_by_id(self.note_type_id)
+
             steps = list(pipeline.steps.order_by(PipelineStepModel.step_order))
 
             if not steps:
                 raise ValueError(f"Le pipeline '{pipeline.name}' ne contient aucun agent !")
 
-            fields = json.loads(self.note_type.fields_schema) if self.note_type.fields_schema else ["Front", "Back"]
+            fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
             fields_str = '", "'.join(fields)
+
+
             first_field = fields[0] if len(fields) > 0 else 'Field1'
             second_field = fields[1] if len(fields) > 1 else 'Field2'
 
@@ -227,6 +232,12 @@ class CreationTab(QWidget):
         self.shortcut_save_db.activated.connect(self.save_to_database)
 
     @Slot()
+    def refresh_data(self) -> None:
+        """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
+        self.refresh_selectors()
+        self.load_documents()
+
+    @Slot()
     def refresh_selectors(self) -> None:
         """Met à jour les listes déroulantes IA et Modèles."""
         self.deck_selector.blockSignals(True)
@@ -325,6 +336,7 @@ class CreationTab(QWidget):
         if index >= 0:
             content = self.section_selector.itemData(index)
             self.source_text.setPlainText(content)
+
     @Slot()
     def on_model_changed(self) -> None:
         model_id = self.model_selector.currentData()
@@ -361,14 +373,13 @@ class CreationTab(QWidget):
             QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un Pipeline IA.")
             return
 
-        note_type = NoteTypeModel.get_by_id(model_id)
 
         self.btn_generate.setEnabled(False)
         self.results_table.setRowCount(0)
         self.web_view.setHtml("")
         self.console_log.clear()
 
-        self.thread = GenerationThread(self.ai_manager.provider, text, note_type, pipeline_id)
+        self.thread = GenerationThread(self.ai_manager.provider, text, model_id, pipeline_id)
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)
         self.thread.finished.connect(self.on_generation_success)
@@ -428,6 +439,7 @@ class CreationTab(QWidget):
             selected_items = self.results_table.selectedItems()
             if selected_items and selected_items[0].row() == row:
                 self.update_preview()
+
     @Slot()
     def update_preview(self) -> None:
         selected_items = self.results_table.selectedItems()
@@ -457,15 +469,13 @@ class CreationTab(QWidget):
             is_recto=is_recto, front_html=tmpl.get("qfmt", "")
         )
 
-        media_dir = os.path.join(get_app_data_dir(), 'data', 'media')
-        os.makedirs(media_dir, exist_ok=True)  # S'assure que le dossier existe
-
-        if not media_dir.endswith(os.sep):
-            media_dir += os.sep
+        media_dir = get_app_data_dir() / 'media'
+        media_dir.mkdir(exist_ok=True)  # S'assure que le dossier existe
 
         base_url = QUrl.fromLocalFile(media_dir)
 
         self.web_view.setHtml(final_html, base_url)
+
     @Slot()
     def save_to_database(self) -> None:
         if not self.generated_notes: return
