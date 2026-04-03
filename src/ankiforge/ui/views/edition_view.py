@@ -9,7 +9,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
-                               QAbstractItemView, QComboBox, QScrollArea, QTextEdit)
+                               QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
+                               QMenu, QInputDialog)
 
 from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.services.cards.export_manager import ExportManager
@@ -49,6 +50,7 @@ class EditionTab(QWidget):
         self.store = StoreManager()
         self.current_deck_id: Optional[int] = None
         self.current_note: Optional[NoteModel] = None
+        self.current_tag_filter: Optional[str] = None
         self.field_editors: Dict[str, QTextEdit] = {}
 
         layout = QVBoxLayout(self)
@@ -178,7 +180,29 @@ class EditionTab(QWidget):
         right_splitter.setSizes([300, 300])
 
         right_layout.addWidget(right_splitter)
-        main_splitter.addWidget(self.deck_tree)
+
+        # --- PANNEAU LATÉRAL GAUCHE (Paquets + Tags) ---
+
+        left_sidebar = QSplitter(Qt.Orientation.Vertical)
+        left_sidebar.addWidget(self.deck_tree)
+
+        tag_container = QWidget()
+        tag_layout = QVBoxLayout(tag_container)
+        tag_layout.setContentsMargins(0, 10, 0, 0)
+        tag_layout.addWidget(QLabel("<b>🏷️ Tags</b>"))
+
+        self.tag_list = QListWidget()
+        self.tag_list.itemClicked.connect(self.on_tag_selected)
+
+        # Activer le clic droit sur la liste de tags
+        self.tag_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tag_list.customContextMenuRequested.connect(self.show_tag_context_menu)
+
+        tag_layout.addWidget(self.tag_list)
+        left_sidebar.addWidget(tag_container)
+
+        main_splitter.addWidget(left_sidebar)  # 👈 On ajoute la sidebar complète au lieu du simple deck_tree
+
         main_splitter.addWidget(right_panel)
         main_splitter.setSizes([200, 800])
 
@@ -189,6 +213,7 @@ class EditionTab(QWidget):
     def refresh_data(self) -> None:
         """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
         self.refresh_deck_tree()
+        self.refresh_tags_list()
         # On rafraîchit la table si un paquet est déjà sélectionné
         if self.current_deck_id:
             self.refresh_table()
@@ -282,6 +307,9 @@ class EditionTab(QWidget):
             else:
                 # Dans les autres vues, on veut TOUT LE RESTE ('new', 'imported', 'review'...)
                 status_condition = (NoteModel.status != "pending")
+
+            if self.current_tag_filter:
+                status_condition = status_condition & (NoteModel.tags.contains(f'"{self.current_tag_filter}"'))
 
             if mode == "Vue : Cartes (Métadonnées)":
                 self.data_table.setColumnCount(4)
@@ -525,3 +553,109 @@ class EditionTab(QWidget):
                 self.btn_save_edits.setEnabled(False)
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Impossible de rejeter :\n{e}")
+
+    # ==========================================
+    # GESTIONNAIRE DE TAGS
+    # ==========================================
+
+    def refresh_tags_list(self) -> None:
+        """Récupère tous les tags uniques de la base de données et peuple la liste."""
+        self.tag_list.clear()
+
+        # Option pour annuler le filtre
+        all_item = QListWidgetItem("🏷️ Tous les tags")
+        all_item.setData(Qt.ItemDataRole.UserRole, None)
+        self.tag_list.addItem(all_item)
+
+        unique_tags = set()
+
+        # On lit toutes les notes qui ont des tags
+        notes_with_tags = NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False))
+        for note in notes_with_tags:
+            try:
+                tags = json.loads(note.tags)
+                unique_tags.update(tags)
+            except:
+                pass
+
+        # On les ajoute par ordre alphabétique
+        for tag in sorted(unique_tags):
+            item = QListWidgetItem(f"# {tag}")
+            item.setData(Qt.ItemDataRole.UserRole, tag)
+            self.tag_list.addItem(item)
+
+    @Slot(QListWidgetItem)
+    def on_tag_selected(self, item: QListWidgetItem) -> None:
+        """Applique le filtre et rafraîchit le tableau."""
+        self.current_tag_filter = item.data(Qt.ItemDataRole.UserRole)
+        self.refresh_table()
+
+    @Slot(int)
+    def show_tag_context_menu(self, pos) -> None:
+        """Affiche le menu contextuel (clic droit) pour renommer/supprimer un tag."""
+        item = self.tag_list.itemAt(pos)
+        if not item: return
+
+        tag_name = item.data(Qt.ItemDataRole.UserRole)
+        if not tag_name: return  # On ne peut pas modifier "Tous les tags"
+
+        menu = QMenu(self)
+        rename_action = menu.addAction("✏️ Renommer le tag")
+        delete_action = menu.addAction("🗑️ Supprimer le tag (Retirer de toutes les cartes)")
+
+        action = menu.exec(self.tag_list.mapToGlobal(pos))
+
+        if action == rename_action:
+            self.rename_tag(tag_name)
+        elif action == delete_action:
+            self.delete_tag(tag_name)
+
+    def rename_tag(self, old_tag: str) -> None:
+        new_tag, ok = QInputDialog.getText(self, "Renommer un Tag", f"Nouveau nom pour #{old_tag} :", text=old_tag)
+        if ok and new_tag.strip() and new_tag.strip() != old_tag:
+            new_tag = new_tag.strip()
+            try:
+                with db.atomic():
+                    # On trouve toutes les notes qui contiennent l'ancien tag
+                    notes_to_update = NoteModel.select().where(NoteModel.tags.contains(f'"{old_tag}"'))
+                    for note in notes_to_update:
+                        tags = json.loads(note.tags) if note.tags else []
+                        if old_tag in tags:
+                            # On remplace l'ancien par le nouveau
+                            tags = [new_tag if t == old_tag else t for t in tags]
+                            note.tags = json.dumps(tags, ensure_ascii=False)
+                            note.save()
+
+                show_toast(self, f"Tag #{old_tag} renommé en #{new_tag} !")
+
+                # Mise à jour de l'UI
+                if self.current_tag_filter == old_tag:
+                    self.current_tag_filter = new_tag
+                self.refresh_tags_list()
+                self.refresh_table()
+
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de renommer le tag : {e}")
+
+    def delete_tag(self, tag_to_delete: str) -> None:
+        reply = QMessageBox.question(self, "Confirmation",
+                                     f"Voulez-vous retirer le tag #{tag_to_delete} de toutes vos notes ?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                with db.atomic():
+                    notes_to_update = NoteModel.select().where(NoteModel.tags.contains(f'"{tag_to_delete}"'))
+                    for note in notes_to_update:
+                        tags = json.loads(note.tags) if note.tags else []
+                        if tag_to_delete in tags:
+                            tags.remove(tag_to_delete)
+                            note.tags = json.dumps(tags, ensure_ascii=False)
+                            note.save()
+
+                show_toast(self, f"Tag #{tag_to_delete} supprimé !")
+                if self.current_tag_filter == tag_to_delete:
+                    self.current_tag_filter = None
+                self.refresh_tags_list()
+                self.refresh_table()
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le tag : {e}")
