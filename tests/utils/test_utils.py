@@ -1,7 +1,5 @@
-# tests/test_utils.py
-
-from src import render_anki_card
-from src import MediaManager
+from ankiforge.services.cards.media_manager import MediaManager
+from ankiforge.utils.anki_renderer import render_anki_card
 
 
 # ==========================================

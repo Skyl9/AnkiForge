@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch
 from pathlib import Path
 
-from src import DocumentParser
+from ankiforge.services.parsing.document_parser import DocumentParser
 
 
 def test_parse_text_file(tmp_path):

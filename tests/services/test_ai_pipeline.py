@@ -1,6 +1,6 @@
 # tests/test_ai_pipeline.py
-from src import NoteTypeModel, AgentModel, PipelineModel, PipelineStepModel
-from src import GenerationThread
+from ankiforge.database.models import NoteTypeModel, AgentModel, PipelineModel, PipelineStepModel
+from ankiforge.ui.views.creation_view import GenerationThread
 
 
 # ==========================================

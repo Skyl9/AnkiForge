@@ -1,7 +1,7 @@
 # tests/test_batch_worker.py
-from src import (DeckModel, NoteTypeModel, PipelineModel,
+from ankiforge.database.models import (DeckModel, NoteTypeModel, PipelineModel,
                  AgentModel, PipelineStepModel, DocumentModel, FolderModel, NoteModel)
-from src import BatchWorker
+from ankiforge.ui.views.batch_view import BatchWorker
 
 
 # ==========================================

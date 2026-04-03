@@ -1,7 +1,7 @@
 # tests/conftest.py
 import pytest
 from peewee import SqliteDatabase
-from src import (DeckModel, NoteTypeModel, NoteModel, CardModel,
+from ankiforge.database.models import (DeckModel, NoteTypeModel, NoteModel, CardModel,
                  NoteVersionModel, AgentModel, PipelineModel,
                  PipelineStepModel, FolderModel, DocumentModel)
 

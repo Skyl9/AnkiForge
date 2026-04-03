@@ -4,8 +4,9 @@ import pytest
 import json
 from pathlib import Path
 
-from src import DeckModel, NoteTypeModel, NoteModel, CardModel
-from src import StoreManager
+from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, CardModel
+from ankiforge.services.cards.store_manager import StoreManager
+
 
 # Remplace 'src' par le bon chemin si ton architecture est différente
 

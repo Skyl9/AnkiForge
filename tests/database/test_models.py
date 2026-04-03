@@ -3,7 +3,7 @@ import json
 import pytest
 from peewee import IntegrityError
 
-from src import (NoteModel, NoteTypeModel, NoteVersionModel,
+from ankiforge.database.models import (NoteModel, NoteTypeModel, NoteVersionModel,
                  FolderModel, DocumentModel,
                  AgentModel, PipelineModel, PipelineStepModel)
 
