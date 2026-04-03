@@ -659,3 +659,31 @@ class EditionTab(QWidget):
                 self.refresh_table()
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le tag : {e}")
+
+    @Slot(int, int)
+    def jump_to_note(self, note_id: int, deck_id: int) -> None:
+        """Sélectionne le paquet, puis trouve et sélectionne la carte dans le tableau."""
+        if not deck_id: return
+
+        # 1. Sélectionner le paquet dans l'arbre de gauche
+        from PySide6.QtWidgets import QTreeWidgetItemIterator
+        iterator = QTreeWidgetItemIterator(self.deck_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.data(0, Qt.ItemDataRole.UserRole) == deck_id:
+                parent = item.parent()
+                while parent:
+                    parent.setExpanded(True)
+                    parent = parent.parent()
+                self.deck_tree.setCurrentItem(item)
+                self.on_deck_selected(item, 0)
+                break
+            iterator += 1
+
+        # 2. Sélectionner la note dans le tableau central
+        for row in range(self.data_table.rowCount()):
+            row_note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            if row_note_id == note_id:
+                self.data_table.selectRow(row)
+                self.data_table.scrollToItem(self.data_table.item(row, 0))
+                break

@@ -547,3 +547,19 @@ class DocumentsTab(QWidget):
             show_toast(self, f"Document découpé en {len(parts)} parties !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de scinder le document :\n{e}")
+
+    @Slot(int)
+    def jump_to_document(self, doc_id: int) -> None:
+        """Déplie l'arbre et sélectionne le document demandé."""
+        from PySide6.QtWidgets import QTreeWidgetItemIterator
+        iterator = QTreeWidgetItemIterator(self.tree)
+        while iterator.value():
+            item = iterator.value()
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data.get("type") == "doc" and data.get("id") == doc_id:
+                parent = item.parent()
+                if parent: parent.setExpanded(True)
+                self.tree.setCurrentItem(item)
+                self.on_item_selected(item, 0)
+                return
+            iterator += 1
