@@ -1,28 +1,24 @@
-# src/services/parsing/store_manager.py
 import csv
+import json
 import pathlib
-import zipfile
 import sqlite3
 import tempfile
-import json
 import uuid
-
-import zstandard as zstd
+import zipfile
 from pathlib import Path
 
+import zstandard as zstd
 from peewee import DoesNotExist
 
-from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel
+from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel, init_db
 
 
 # Ajuste l'import selon ton architecture réelle
 
 
-
 class StoreManager:
     def __init__(self):
         pass
-
 
     @staticmethod
     def extract_pb_string(data: bytes, target_field: int) -> str:
@@ -84,7 +80,6 @@ class StoreManager:
             "#deck column": "deck"
         }
 
-
         for key, value in mapping.items():
             if header_ligne.startswith(key):
                 # On récupère le chiffre, et on soustrait 1 immédiatement
@@ -92,7 +87,7 @@ class StoreManager:
                 header_dict[value] = col_index
 
     @staticmethod
-    def get_card_content(note_ligne: list[str], header_dict: dict)->list[str]:
+    def get_card_content(note_ligne: list[str], header_dict: dict) -> list[str]:
         """Renvoit le contenu de la carte sans les informations des colonnes de métadonnées"""
         meta_indices = header_dict.values()
         # On garde l'élément seulement si son index n'est pas celui d'une métadonnée
@@ -185,9 +180,6 @@ class StoreManager:
 
                 except Exception as e:
                     print(f"Erreur lors de l'insertion de la ligne {row}: {e}")
-
-
-
 
     def handle_apkg(self, apkg_path: Path):
         """
@@ -421,7 +413,6 @@ class StoreManager:
 
 if __name__ == "__main__":
     # N'oublie pas d'initialiser la base de données avant de tester !
-    from src import init_db
 
     init_db()
 

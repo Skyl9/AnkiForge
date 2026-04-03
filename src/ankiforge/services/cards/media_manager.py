@@ -1,14 +1,9 @@
-# src/services/cards/media_manager.py
-import os
-import shutil
 import hashlib
 import re
+import shutil
 from pathlib import Path
 
-# On récupère le chemin du dossier racine "data/"
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-MEDIA_DIR = os.path.join(DATA_DIR, 'media')
+from ankiforge.utils.paths import get_app_data_dir
 
 
 class MediaManager:
@@ -16,8 +11,9 @@ class MediaManager:
 
     def __init__(self):
         # On s'assure que le dossier "data/media" existe
-        if not os.path.exists(MEDIA_DIR):
-            os.makedirs(MEDIA_DIR)
+        self.base_dir = get_app_data_dir()
+        self.media_dir = self.base_dir / 'media'
+        self.media_dir.mkdir(parents=True, exist_ok=True)
 
     def _calculate_md5(self, file_path: str) -> str:
         """Calcule l'empreinte MD5 d'un fichier pour garantir un nom unique."""
@@ -51,10 +47,10 @@ class MediaManager:
                 new_filename = f"{file_hash}{file.suffix.lower()}"
 
                 # Chemin final dans data/media/
-                destination_path = os.path.join(MEDIA_DIR, new_filename)
+                destination_path = self.media_dir / new_filename
 
                 # Copie du fichier s'il n'existe pas déjà (évite les doublons parfaits)
-                if not os.path.exists(destination_path):
+                if not destination_path.exists():
                     shutil.copy2(str(file), destination_path)
 
                 # On enregistre la correspondance
