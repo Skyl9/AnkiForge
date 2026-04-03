@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 
@@ -6,7 +5,8 @@ import platformdirs
 
 APP_NAME = "AnkiForge"
 
-def get_project_root() -> str:
+
+def get_project_root() -> Path:
     """
         Cherche dynamiquement la racine du projet en remontant l'arborescence
         jusqu'à trouver 'pyproject.toml'.

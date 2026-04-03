@@ -1,6 +1,6 @@
 # src/ui/widgets/toast.py
 import qtawesome as qta
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QGraphicsOpacityEffect
 
 
@@ -59,12 +59,14 @@ class Toast(QWidget):
 
     def show_toast(self, duration=2500):
         self.adjustSize()
-        if self.parent():
-            # Centre le toast en bas de l'écran du parent
-            parent_rect = self.parent().rect()
-            x = parent_rect.width() // 2 - self.width() // 2
-            y = parent_rect.height() - self.height() - 40
-            self.move(x, y)
+        parent = self.parent()
+        if parent:
+            # 1. Calcul des coordonnées locales relatives à la fenêtre parente
+            local_x = parent.width() // 2 - self.width() // 2
+            local_y = parent.height() - self.height() - 40
+
+            global_pos = parent.mapToGlobal(QPoint(local_x, local_y))
+            self.move(global_pos)
 
         self.show()
         self.animation.setStartValue(0.0)
