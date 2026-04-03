@@ -1,6 +1,7 @@
 # src/services/ai/flexible_service.py
 import os
 
+import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -14,6 +15,7 @@ class OpenAICompatibleProvider(LLMProvider):
     Implémentation générique pour toutes les API compatibles avec le standard OpenAI
     (Ollama, Groq, OpenRouter, LMStudio, etc.)
     """
+
     def __init__(self, base_url: str, model_name: str, api_key: str = "dummy_key"):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model_name = model_name
@@ -35,23 +37,19 @@ class OpenAICompatibleProvider(LLMProvider):
             raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}")
 
 
-# =====================================================================
-# IMPLÉMENTATIONS SPÉCIFIQUES (Celles que tu utiliseras dans main.py)
-# =====================================================================
-
 class OllamaProvider(OpenAICompatibleProvider):
     """Fournisseur d'IA locale 100% gratuit via Ollama."""
+
     def __init__(self, model_name: str = "llama3"):
         super().__init__(
             base_url="http://localhost:11434/v1",
             model_name=model_name,
-            api_key="ollama" # Pas de clé requise en local
+            api_key="ollama"
         )
 
     @staticmethod
     def get_available_models() -> list[str]:
         """Récupère dynamiquement la liste des modèles locaux installés sur Ollama."""
-        import requests
         try:
             # Appel à l'API locale d'Ollama (timeout court pour ne pas bloquer l'UI si Ollama est éteint)
             response = requests.get("http://localhost:11434/api/tags", timeout=2)
@@ -65,26 +63,26 @@ class OllamaProvider(OpenAICompatibleProvider):
 
 class GroqProvider(OpenAICompatibleProvider):
     """Fournisseur Cloud ultra-rapide."""
-    def __init__(self, api_key: str = None):
+
+    def __init__(self, api_key: str = None, model_name: str = "llama3-8b-8192"):
         key = api_key or os.environ.get("GROQ_API_KEY")
         if not key:
             raise ValueError("Clé API GROQ_API_KEY manquante.")
         super().__init__(
             base_url="https://api.groq.com/openai/v1",
-            model_name="llama3-8b-8192",
+            model_name=model_name,
             api_key=key
         )
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
-    """Fournisseur Cloud agnostique (Accès à Gemini Flash gratuitement)."""
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, model_name: str = "google/gemini-2.5-flash:free"):
         key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ValueError("Clé API OPENROUTER_API_KEY manquante.")
         super().__init__(
             base_url="https://openrouter.ai/api/v1",
-            model_name="google/gemini-2.5-flash:free",
+            model_name=model_name,
             api_key=key
         )
 
@@ -93,18 +91,17 @@ class AIManager:
     """Gestionnaire dynamique qui charge la bonne IA selon le fichier .env."""
 
     def __init__(self):
-        self.env_path = os.path.join(get_app_data_dir(), ".env")        # Créer le fichier .env s'il n'existe pas
-        if not os.path.exists(self.env_path):
-            with open(self.env_path, 'w') as f:
-                f.write("AI_PROVIDER=Ollama\nAI_MODEL=mistral-nemo\n")
+        self.env_path = get_app_data_dir() / ".env"  # Créer le fichier .env s'il n'existe pas
+        if not self.env_path.exists():
+            self.env_path.write_text("AI_PROVIDER=Ollama\nAI_MODEL=llama3\n", encoding="utf-8")
 
-        load_dotenv(self.env_path)
+        load_dotenv(str(self.env_path))
         self.provider = MockProvider()  # Fallback de sécurité
         self.reload_provider()
 
     def reload_provider(self):
         """Recharge l'IA en fonction des paramètres actuels du .env."""
-        load_dotenv(self.env_path, override=True)  # Force le rafraichissement
+        load_dotenv(str(self.env_path), override=True)  # Force le rafraichissement
 
         provider_name = os.getenv("AI_PROVIDER", "Ollama")
         model_name = os.getenv("AI_MODEL", "qwen2.5:7b")

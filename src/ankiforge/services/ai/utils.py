@@ -23,6 +23,5 @@ def parse_ai_json_response(response_text: str):
 
         return json.loads(cleaned_text)
 
-    except json.JSONDecodeError:
-        print(f"Erreur de parsing JSON. Texte reçu : {response_text}")
-        return []
+    except json.JSONDecodeError as e:
+        raise ValueError(f"L'IA a généré un format invalide. Impossible de lire le JSON.\nDétail: {e}")
