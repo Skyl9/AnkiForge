@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxL
 from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
+from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -421,7 +422,7 @@ class EditionTab(QWidget):
 
             for field_name, field_value in content_dict.items():
                 lbl = QLabel(f"<b>{field_name}</b>")
-                text_edit = QTextEdit()
+                text_edit = DropImageTextEdit()  # <--- NOUVEAU
 
                 clean_value = field_value.replace('<br>', '\n') if field_value else ""
                 text_edit.setPlainText(clean_value)
@@ -542,7 +543,6 @@ class EditionTab(QWidget):
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                from src import db
                 with db.atomic():
                     for row in selected_rows:
                         note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
