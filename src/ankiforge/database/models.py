@@ -150,8 +150,20 @@ def init_db() -> None:
     # Ajout des nouvelles tables à l'initialisation
     db.create_tables([
         DeckModel, NoteTypeModel, NoteModel, CardModel,NoteVersionModel,
-        AgentModel, PipelineModel, PipelineStepModel,DocumentModel,FolderModel,PromptModel
+        AgentModel, PipelineModel, PipelineStepModel,DocumentModel,FolderModel,PromptModel,IgnoredDuplicateModel
     ])
+
+class IgnoredDuplicateModel(BaseModel):
+    """Table pour mémoriser les conflits de doublons ignorés par l'utilisateur."""
+    note_a = ForeignKeyField(NoteModel, on_delete='CASCADE')
+    note_b = ForeignKeyField(NoteModel, on_delete='CASCADE')
+
+    class Meta:
+        table_name = 'ignored_duplicates'
+        # On s'assure de ne pas sauvegarder 10 fois la même paire
+        indexes = (
+            (('note_a', 'note_b'), True),
+        )
 
 def seed_initial_data() -> None:
     """

@@ -1,7 +1,9 @@
+import difflib
 import json
 import re
 from typing import Optional, Dict
 
+import qtawesome
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer
 from PySide6.QtGui import QColor
 from PySide6.QtWebEngineCore import QWebEngineSettings
@@ -12,11 +14,14 @@ from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxL
                                QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
                                QMenu, QInputDialog)
 
-from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db
+from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
+    IgnoredDuplicateModel
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
+from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -105,6 +110,11 @@ class EditionTab(QWidget):
         self.btn_reject.clicked.connect(self.reject_selected_notes)
         self.btn_reject.setVisible(False)
 
+        self.btn_scan_dupes = QPushButton(qtawesome.icon('fa5s.search'), " Traquer les doublons")
+        self.btn_scan_dupes.setStyleSheet("background-color: #9C27B0; color: white; font-weight: bold;")
+        self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
+
+        toolbar_layout.addWidget(self.btn_scan_dupes)
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
 
@@ -129,11 +139,21 @@ class EditionTab(QWidget):
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
 
+        buttons_layout = QHBoxLayout()
+
         self.btn_save_edits = QPushButton("💾 Sauvegarder les modifications")
         self.btn_save_edits.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 6px;")
         self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.btn_save_edits.setEnabled(False)
-        left_layout.addWidget(self.btn_save_edits)
+
+        self.btn_history = QPushButton("🕒 Historique")
+        self.btn_history.setStyleSheet("background-color: #607D8B; color: white; font-weight: bold; padding: 6px;")
+        self.btn_history.clicked.connect(self.show_version_history)
+        self.btn_history.setEnabled(False)
+
+        buttons_layout.addWidget(self.btn_save_edits)
+        buttons_layout.addWidget(self.btn_history)
+        left_layout.addLayout(buttons_layout)
 
         self.details_scroll = QScrollArea()
         self.details_scroll.setWidgetResizable(True)
@@ -413,6 +433,7 @@ class EditionTab(QWidget):
         try:
             self.current_note = NoteModel.get_by_id(note_id)
             self.btn_save_edits.setEnabled(True)
+            self.btn_history.setEnabled(True)
 
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
             content_dict = json.loads(active_version.content) if active_version else {}
@@ -422,7 +443,7 @@ class EditionTab(QWidget):
 
             for field_name, field_value in content_dict.items():
                 lbl = QLabel(f"<b>{field_name}</b>")
-                text_edit = DropImageTextEdit()  # <--- NOUVEAU
+                text_edit = DropImageTextEdit()
 
                 clean_value = field_value.replace('<br>', '\n') if field_value else ""
                 text_edit.setPlainText(clean_value)
@@ -687,3 +708,107 @@ class EditionTab(QWidget):
                 self.data_table.selectRow(row)
                 self.data_table.scrollToItem(self.data_table.item(row, 0))
                 break
+
+    @Slot()
+    def scan_for_duplicates(self) -> None:
+        if not self.current_deck_id:
+            QMessageBox.warning(self, "Attention", "Veuillez d'abord sélectionner un paquet.")
+            return
+
+        self.btn_scan_dupes.setEnabled(False)
+        self.btn_scan_dupes.setText("⏳ Analyse en cours...")
+
+        try:
+            selected_deck = DeckModel.get_by_id(self.current_deck_id)
+            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+
+            # Récupère toutes les notes du paquet
+            all_notes = (
+                NoteModel.select(NoteModel, NoteTypeModel)
+                .join(NoteTypeModel)
+                .switch(NoteModel)
+                .join(CardModel, on=(CardModel.note_id == NoteModel.id))
+                .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
+                .where(DeckModel.id.in_(matching_decks))
+                .distinct()
+            )
+
+            # 1. Grouper par Modèle
+            notes_by_model = {}
+            for note in all_notes:
+                model_id = note.note_type.id if note.note_type else 0
+                if model_id not in notes_by_model:
+                    notes_by_model[model_id] = []
+                notes_by_model[model_id].append(note)
+
+            conflicts = []
+
+            # 2. Analyser chaque groupe
+            for model_id, notes in notes_by_model.items():
+                note_texts = []
+                for note in notes:
+                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
+                    if active_version:
+                        content = json.loads(active_version.content)
+                        values = list(content.values())
+                        if values:
+                            # On nettoie le texte pour la comparaison interne
+                            clean_text = strip_html(values[0]).lower()
+                            # Mais on garde la version brute pour l'affichage visuel
+                            raw_text = values[0]
+                            note_texts.append((note, clean_text, raw_text))
+
+                ignored_records = IgnoredDuplicateModel.select()
+                ignored_pairs = {(record.note_a_id, record.note_b_id) for record in ignored_records}
+
+                # 3. Comparaison croisée O(N^2)
+                matched_ids = set()  # Pour ne pas proposer 15 fois la même carte en conflit
+                for i, (note_a, clean_a, raw_a) in enumerate(note_texts):
+                    if note_a.id in matched_ids: continue
+
+                    for j in range(i + 1, len(note_texts)):
+                        note_b, clean_b, raw_b = note_texts[j]
+                        if note_b.id in matched_ids: continue
+
+                        id_1, id_2 = min(note_a.id, note_b.id), max(note_a.id, note_b.id)
+                        if (id_1, id_2) in ignored_pairs:
+                            continue
+
+                        if difflib.SequenceMatcher(None, clean_a, clean_b).ratio() > 0.85:
+                            # On met la carte la plus ancienne à gauche (Originale), la plus récente à droite
+                            if note_a.id < note_b.id:
+                                conflicts.append((note_a, raw_a, note_b, raw_b))
+                            else:
+                                conflicts.append((note_b, raw_b, note_a, raw_a))
+
+                            matched_ids.add(note_b.id)
+                            break  # On a trouvé son jumeau, on passe au note_a suivant
+
+            # 4. Lancer l'interface utilisateur si on a trouvé des conflits
+            if not conflicts:
+                show_toast(self, "Aucun doublon détecté dans ce paquet !")
+            else:
+                dialog = DuplicateResolverDialog(conflicts, self)
+                dialog.exec()
+                # On rafraîchit le tableau car des cartes ont potentiellement été supprimées
+                self.refresh_table()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de l'analyse : {e}")
+        finally:
+            self.btn_scan_dupes.setEnabled(True)
+            self.btn_scan_dupes.setText(" Traquer les doublons")
+            self.btn_scan_dupes.setIcon(qtawesome.icon('fa5s.search'))
+
+    @Slot()
+    def show_version_history(self) -> None:
+        if not self.current_note:
+            return
+
+        dialog = VersionHistoryDialog(self.current_note, self)
+        # Si la boîte de dialogue renvoie "accept" (l'utilisateur a restauré une version)
+        if dialog.exec():
+            # On recharge l'éditeur avec la nouvelle version restaurée
+            self.on_row_selected()
+            # On rafraîchit le numéro de version dans le tableau !
+            self.refresh_table()
