@@ -7,7 +7,7 @@ import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QComboBox, QSplitter, QTreeWidget,
+                               QComboBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QAbstractItemView, QProgressBar,
                                QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView)
 from jinja2 import Template
@@ -15,6 +15,7 @@ from jinja2 import Template
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, FolderModel
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -213,10 +214,11 @@ class BatchTab(QWidget):
 
         layout = QVBoxLayout(self)
 
-        header = QLabel(
-            "<b>⚙️ Automatisation Avancée (Usine à cartes)</b><br>Gérez votre file d'attente et personnalisez le traitement pour chaque document.")
-        header.setStyleSheet("font-size: 16px; margin-bottom: 10px;")
+        header = HeaderLabel("⚙️ Automatisation Avancée (Usine à cartes)")
+        subtitle = QLabel("Gérez votre file d'attente et personnalisez le traitement pour chaque document.")
+        subtitle.setStyleSheet("color: palette(placeholder-text); margin-bottom: 10px;")
         layout.addWidget(header)
+        layout.addWidget(subtitle)
 
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
@@ -233,8 +235,7 @@ class BatchTab(QWidget):
         self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         left_layout.addWidget(self.tree_source)
 
-        self.btn_add_to_queue = QPushButton(qta.icon('fa5s.arrow-right', color='white'), " Ajouter à la file d'attente")
-        self.btn_add_to_queue.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 8px;")
+        self.btn_add_to_queue = ActionButton(qta.icon('fa5s.arrow-right'), " Ajouter à la file d'attente")
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         left_layout.addWidget(self.btn_add_to_queue)
 
@@ -273,7 +274,8 @@ class BatchTab(QWidget):
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
         self.console_log.setStyleSheet(
-            "background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; padding: 5px;")
+            "background-color: palette(base); color: palette(text); font-family: 'Consolas', monospace; padding: 5px; border: 1px solid palette(alternate-base);"
+        )
         right_layout.addWidget(self.console_log)
 
         bottom_layout = QHBoxLayout()
@@ -284,8 +286,7 @@ class BatchTab(QWidget):
         self.lbl_status = QLabel("Prêt.")
         bottom_layout.addWidget(self.lbl_status)
 
-        self.btn_start = QPushButton(qta.icon('fa5s.rocket', color='white'), " Démarrer l'Usine")
-        self.btn_start.setStyleSheet("background-color: #673AB7; color: white; font-weight: bold; padding: 12px;")
+        self.btn_start = PrimaryButton(qta.icon('fa5s.rocket', color='white'), " Démarrer l'Usine")
         self.btn_start.clicked.connect(self.start_batch)
         bottom_layout.addWidget(self.btn_start)
 
@@ -411,9 +412,9 @@ class BatchTab(QWidget):
         cb_chunk.setCurrentIndex(self.default_chunking.currentIndex())
         self.table_queue.setCellWidget(row_idx, 4, cb_chunk)
 
-        # 6. Action (dans _add_row_to_queue)
-        btn_remove = QPushButton(qta.icon('fa5s.times', color='red'), "")
-        btn_remove.setStyleSheet("font-weight: bold;")
+        # 6. Action
+
+        btn_remove = DangerButton(qta.icon('fa5s.times', color='white'), "")
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
         self.table_queue.setCellWidget(row_idx, 5, btn_remove)
 

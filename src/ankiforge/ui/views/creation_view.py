@@ -7,13 +7,14 @@ from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QTextEdit, QPushButton, QComboBox, QTableWidget,
+                               QTextEdit, QComboBox, QTableWidget,
                                QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QGroupBox)
 from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel
+from ankiforge.ui.components.components import ActionButton, PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -53,7 +54,6 @@ class GenerationThread(QThread):
 
             fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
             fields_str = '", "'.join(fields)
-
 
             first_field = fields[0] if len(fields) > 0 else 'Field1'
             second_field = fields[1] if len(fields) > 1 else 'Field2'
@@ -134,7 +134,7 @@ class CreationTab(QWidget):
         self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
         source_header.addWidget(self.doc_selector, stretch=1)
 
-        self.btn_refresh_docs = QPushButton(qta.icon('fa5s.sync'), "")
+        self.btn_refresh_docs = ActionButton(qta.icon('fa5s.sync'), "")
         self.btn_refresh_docs.clicked.connect(self.load_documents)
         source_header.addWidget(self.btn_refresh_docs)
 
@@ -149,8 +149,7 @@ class CreationTab(QWidget):
         self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
         source_layout.addWidget(self.source_text)
 
-        self.btn_generate = QPushButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
-        self.btn_generate.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
         self.btn_generate.clicked.connect(self.start_generation)
         source_layout.addWidget(self.btn_generate)
 
@@ -175,8 +174,7 @@ class CreationTab(QWidget):
         self.results_table.itemSelectionChanged.connect(self.update_preview)
         table_layout.addWidget(self.results_table)
 
-        self.btn_save = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base de données")
-        self.btn_save.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 8px;")
+        self.btn_save = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base de données")
         self.btn_save.clicked.connect(self.save_to_database)
         self.btn_save.setEnabled(False)
         table_layout.addWidget(self.btn_save)
@@ -372,7 +370,6 @@ class CreationTab(QWidget):
         if not pipeline_id:
             QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un Pipeline IA.")
             return
-
 
         self.btn_generate.setEnabled(False)
         self.results_table.setRowCount(0)

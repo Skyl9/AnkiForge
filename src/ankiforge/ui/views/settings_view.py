@@ -8,6 +8,7 @@ from PySide6.QtCore import Slot
 
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.ai.flexible_service import OllamaProvider
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -18,8 +19,7 @@ class SettingsTab(QWidget):
 
         layout = QVBoxLayout(self)
 
-        title = QLabel("<h2>Paramètres de l'Intelligence Artificielle</h2>")
-        title.setStyleSheet("margin-bottom: 20px;")
+        title = HeaderLabel("Paramètres de l'Intelligence Artificielle")
         layout.addWidget(title)
 
         # Groupe de paramètres IA
@@ -29,16 +29,15 @@ class SettingsTab(QWidget):
         # Choix du service
         self.cb_provider = QComboBox()
         self.cb_provider.addItems(["Ollama", "Gemini", "Groq"])
-        current_provider = os.getenv("AI_PROVIDER", "Ollama")
-        self.cb_provider.setCurrentText(current_provider)
+        self.cb_provider.setCurrentText(os.getenv("AI_PROVIDER", "Ollama"))
         form_layout.addRow("Service IA :", self.cb_provider)
 
         # 👇 ZONE MODIFIÉE POUR LE MODÈLE 👇
         self.cb_model = QComboBox()
-        self.cb_model.setEditable(True)  # Permet à l'utilisateur de taper du texte libre
+        self.cb_model.setEditable(True)
         self.cb_model.setCurrentText(os.getenv("AI_MODEL", "qwen2.5:7b"))
 
-        self.btn_refresh_models = QPushButton(qta.icon('fa5s.sync'), " Actualiser")
+        self.btn_refresh_models = ActionButton(qta.icon('fa5s.sync'), " Actualiser")
         self.btn_refresh_models.clicked.connect(self.refresh_models_list)
 
         model_layout = QHBoxLayout()
@@ -46,10 +45,10 @@ class SettingsTab(QWidget):
         model_layout.addWidget(self.btn_refresh_models)
 
         form_layout.addRow("Nom du Modèle :", model_layout)
-
-        # Connexion pour changer les modèles dispo selon le provider
         self.cb_provider.currentTextChanged.connect(self.on_provider_changed)
-        # 👆 FIN DE LA ZONE MODIFIÉE 👆
+
+
+
         # Clé API Gemini
         self.le_gemini_key = QLineEdit()
         self.le_gemini_key.setText(os.getenv("GEMINI_API_KEY", ""))
@@ -67,8 +66,7 @@ class SettingsTab(QWidget):
         layout.addWidget(ai_group)
 
         # Bouton de sauvegarde
-        self.btn_save = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder et Reconnecter l'IA")
-        self.btn_save.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        self.btn_save = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder et Reconnecter l'IA")
         self.btn_save.clicked.connect(self.save_settings)
         layout.addWidget(self.btn_save)
 

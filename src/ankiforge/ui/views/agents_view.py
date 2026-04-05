@@ -4,11 +4,12 @@ from typing import Optional
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QTextEdit, QPushButton, QListWidget,
+                               QLineEdit, QTextEdit, QListWidget,
                                QSplitter, QMessageBox, QGroupBox, QComboBox,
                                QAbstractItemView, QListWidgetItem, QFileDialog)
 
 from ankiforge.database.models import PipelineModel, PipelineStepModel, db, AgentModel
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -25,7 +26,7 @@ class AgentsTab(QWidget):
         # ==========================================
         agents_widget = QWidget()
         agents_layout = QVBoxLayout(agents_widget)
-        agents_layout.addWidget(QLabel("<h2>🤖 Laboratoire des Agents</h2>"))
+        agents_layout.addWidget(HeaderLabel("🤖 Laboratoire des Agents"))
 
         self.agents_list = QListWidget()
         self.agents_list.itemClicked.connect(self.load_selected_agent)
@@ -52,16 +53,14 @@ class AgentsTab(QWidget):
         form_layout.addWidget(self.agent_prompt_input)
 
         btn_layout_agent = QHBoxLayout()
-        self.btn_new_agent = QPushButton(qta.icon('fa5s.plus'), " Nouvel Agent")
+        self.btn_new_agent = ActionButton(qta.icon('fa5s.plus'), " Nouvel Agent")
         self.btn_new_agent.clicked.connect(self.clear_agent_form)
 
-        self.btn_save_agent = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder l'Agent")
+        self.btn_save_agent = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder l'Agent")
         self.btn_save_agent.clicked.connect(self.save_agent)
-        self.btn_save_agent.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
 
-        self.btn_delete_agent = QPushButton(qta.icon('fa5s.trash', color='white'), " Supprimer l'Agent")
+        self.btn_delete_agent = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer l'Agent")
         self.btn_delete_agent.clicked.connect(self.delete_agent)
-        self.btn_delete_agent.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
 
         btn_layout_agent.addWidget(self.btn_new_agent)
         btn_layout_agent.addWidget(self.btn_save_agent)
@@ -76,7 +75,7 @@ class AgentsTab(QWidget):
 
         pipelines_widget = QWidget()
         pipelines_layout = QVBoxLayout(pipelines_widget)
-        pipelines_layout.addWidget(QLabel("<h2>⚙️ Assembleur de Pipelines</h2>"))
+        pipelines_layout.addWidget(HeaderLabel("⚙️ Assembleur de Pipelines"))
 
         pipe_header = QHBoxLayout()
         self.pipeline_selector = QComboBox()
@@ -85,18 +84,19 @@ class AgentsTab(QWidget):
         pipe_header.addWidget(QLabel("<b>Pipeline :</b>"))
         pipe_header.addWidget(self.pipeline_selector, stretch=1)
 
-        self.btn_new_pipeline = QPushButton(qta.icon('fa5s.plus'), " Nouveau")
+        self.btn_new_pipeline = ActionButton(qta.icon('fa5s.plus'), " Nouveau")
         self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
+
         pipe_header.addWidget(self.btn_new_pipeline)
         pipelines_layout.addLayout(pipe_header)
 
         # BOUTONS IMPORT / EXPORT
         export_import_layout = QHBoxLayout()
 
-        self.btn_import_pipe = QPushButton(qta.icon('fa5s.folder-open'), " Importer (.json)")
+        self.btn_import_pipe = ActionButton(qta.icon('fa5s.folder-open'), " Importer (.json)")
         self.btn_import_pipe.clicked.connect(self.import_pipeline)
 
-        self.btn_export_pipe = QPushButton(qta.icon('fa5s.file-export'), " Exporter")
+        self.btn_export_pipe = ActionButton(qta.icon('fa5s.file-export'), " Exporter")
         self.btn_export_pipe.clicked.connect(self.export_pipeline)
 
         export_import_layout.addWidget(self.btn_import_pipe)
@@ -108,8 +108,10 @@ class AgentsTab(QWidget):
 
         add_step_layout = QHBoxLayout()
         self.available_agents_cb = QComboBox()
-        self.btn_add_step = QPushButton(qta.icon('fa5s.arrow-down'), " Ajouter à la chaîne")
+
+        self.btn_add_step = ActionButton(qta.icon('fa5s.arrow-down'), " Ajouter à la chaîne")
         self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
+
         add_step_layout.addWidget(self.available_agents_cb, stretch=1)
         add_step_layout.addWidget(self.btn_add_step)
         chain_layout.addLayout(add_step_layout)
@@ -120,13 +122,13 @@ class AgentsTab(QWidget):
         chain_layout.addWidget(self.steps_list)
 
         step_ctrl_layout = QHBoxLayout()
-        self.btn_step_up = QPushButton(qta.icon('fa5s.arrow-up'), " Monter")
+        self.btn_step_up = ActionButton(qta.icon('fa5s.arrow-up'), " Monter")
         self.btn_step_up.clicked.connect(self.move_step_up)
 
-        self.btn_step_down = QPushButton(qta.icon('fa5s.arrow-down'), " Descendre")
+        self.btn_step_down = ActionButton(qta.icon('fa5s.arrow-down'), " Descendre")
         self.btn_step_down.clicked.connect(self.move_step_down)
 
-        self.btn_step_remove = QPushButton(qta.icon('fa5s.times', color='#F44336'), " Retirer")
+        self.btn_step_remove = DangerButton(qta.icon('fa5s.times', color='white'), " Retirer")
         self.btn_step_remove.clicked.connect(self.remove_step)
 
         step_ctrl_layout.addWidget(self.btn_step_up)
@@ -134,9 +136,7 @@ class AgentsTab(QWidget):
         step_ctrl_layout.addWidget(self.btn_step_remove)
         chain_layout.addLayout(step_ctrl_layout)
 
-        self.btn_save_pipeline = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder le Pipeline")
-        self.btn_save_pipeline.setStyleSheet(
-            "background-color: #2196F3; color: white; font-weight: bold; padding: 8px;")
+        self.btn_save_pipeline = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder le Pipeline")
         self.btn_save_pipeline.clicked.connect(self.save_pipeline_steps)
         chain_layout.addWidget(self.btn_save_pipeline)
 
@@ -283,7 +283,6 @@ class AgentsTab(QWidget):
         self.agent_name_input.setText(agent.name)
         self.agent_desc_input.setText(agent.description or "")
         self.agent_prompt_input.setPlainText(agent.system_prompt)
-
 
     @Slot()
     def save_agent(self) -> None:

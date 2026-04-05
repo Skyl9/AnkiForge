@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                QPushButton, QTextEdit, QProgressBar, QMessageBox)
 
 from ankiforge.database.models import db, NoteModel, IgnoredDuplicateModel
+from ankiforge.ui.components.components import PrimaryButton, ActionButton
 
 
 class DuplicateResolverDialog(QDialog):
@@ -45,8 +46,7 @@ class DuplicateResolverDialog(QDialog):
         self.text_left.setStyleSheet("font-size: 15px; padding: 10px;")
         left_layout.addWidget(self.text_left)
 
-        self.btn_keep_a = QPushButton(qta.icon('fa5s.arrow-left'), " Garder l'Originale (Supprime B)")
-        self.btn_keep_a.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 10px;")
+        self.btn_keep_a = PrimaryButton(qta.icon('fa5s.arrow-left', color='white'), " Garder l'Originale (Supprime B)")
         self.btn_keep_a.clicked.connect(self.keep_a)
         left_layout.addWidget(self.btn_keep_a)
 
@@ -60,9 +60,8 @@ class DuplicateResolverDialog(QDialog):
         self.text_right.setStyleSheet("font-size: 15px; padding: 10px;")
         right_layout.addWidget(self.text_right)
 
-        self.btn_keep_b = QPushButton(qta.icon('fa5s.arrow-right'), " Garder la Nouvelle (Supprime A)")
+        self.btn_keep_b = PrimaryButton(qta.icon('fa5s.arrow-right', color='white'), " Garder la Nouvelle (Supprime A)")
         self.btn_keep_b.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.btn_keep_b.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
         self.btn_keep_b.clicked.connect(self.keep_b)
         right_layout.addWidget(self.btn_keep_b)
 
@@ -70,8 +69,7 @@ class DuplicateResolverDialog(QDialog):
         layout.addLayout(compare_layout)
 
         # 3. Bouton Ignorer
-        self.btn_ignore = QPushButton("Ignorer le conflit (Garder les deux)")
-        self.btn_ignore.setStyleSheet("padding: 8px; font-weight: bold; color: #AAA;")
+        self.btn_ignore = ActionButton("Ignorer le conflit (Garder les deux)")
         self.btn_ignore.clicked.connect(self.ignore_conflict)
         layout.addWidget(self.btn_ignore)
 

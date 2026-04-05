@@ -1,0 +1,139 @@
+# src/ankiforge/ui/widgets/components.py
+from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout
+from PySide6.QtGui import QCursor
+from PySide6.QtCore import Qt
+
+
+class PrimaryButton(QPushButton):
+    """Bouton principal pour les actions positives (Sauvegarder, Exporter)."""
+
+    def __init__(self, icon_or_text, text=None, parent=None):
+        if text is not None:
+            super().__init__(icon_or_text, text, parent)
+        else:
+            super().__init__(icon_or_text, parent)
+
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        # Les couleurs sémantiques (Vert) restent codées en dur car elles sont universelles
+        self.setStyleSheet("""
+            PrimaryButton {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            PrimaryButton:hover { background-color: #45a049; }
+            PrimaryButton:pressed { background-color: #388E3C; }
+            PrimaryButton:disabled { background-color: palette(alternate-base); color: palette(placeholder-text); }
+        """)
+
+
+class DangerButton(QPushButton):
+    """Bouton pour les actions destructrices (Supprimer, Rejeter)."""
+
+    def __init__(self, icon_or_text, text=None, parent=None):
+        if text is not None:
+            super().__init__(icon_or_text, text, parent)
+        else:
+            super().__init__(icon_or_text, parent)
+
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        # Rouge universel
+        self.setStyleSheet("""
+            DangerButton {
+                background-color: #F44336;
+                color: white;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            DangerButton:hover { background-color: #E53935; }
+            DangerButton:pressed { background-color: #D32F2F; }
+            DangerButton:disabled { background-color: palette(alternate-base); color: palette(placeholder-text); }
+        """)
+
+
+class ActionButton(QPushButton):
+    """Bouton neutre pour les outils (Historique, Scan, etc.). S'adapte au thème !"""
+
+    def __init__(self, icon_or_text, text=None, parent=None):
+        if text is not None:
+            super().__init__(icon_or_text, text, parent)
+        else:
+            super().__init__(icon_or_text, parent)
+
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        # 👇 Utilise la palette pour s'adapter au mode clair/sombre
+        self.setStyleSheet("""
+            ActionButton {
+                background-color: palette(alternate-base);
+                color: palette(text);
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                border: 1px solid palette(window);
+            }
+            ActionButton:hover { 
+                background-color: palette(highlight); 
+                color: palette(highlighted-text); 
+            }
+            ActionButton:pressed { background-color: palette(base); }
+            ActionButton:disabled { 
+                background-color: palette(window); 
+                color: palette(placeholder-text); 
+            }
+        """)
+
+
+class RoundedPanel(QFrame):
+    """Un conteneur avec des bords arrondis pour regrouper visuellement des éléments."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # 👇 Utilise "base" (blanc en light, gris foncé en dark)
+        self.setStyleSheet("""
+            RoundedPanel {
+                background-color: palette(base);
+                border-radius: 8px;
+                border: 1px solid palette(alternate-base);
+            }
+        """)
+
+
+class HeaderLabel(QLabel):
+    """Titre standardisé pour les en-têtes d'onglets."""
+    def __init__(self, text: str, parent=None):
+        super().__init__(text, parent)
+        # Pas besoin de couleur ici, il hérite automatiquement du WindowText
+        self.setStyleSheet("""
+            font-size: 20px; 
+            font-weight: bold; 
+            margin-bottom: 15px;
+        """)
+
+
+class MetricCard(RoundedPanel):
+    """Carte de statistique prête à l'emploi (titre + grosse valeur)."""
+    def __init__(self, title: str, initial_value: str = "0", parent=None):
+        super().__init__(parent)
+        vbox = QVBoxLayout(self)
+        vbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.lbl_title = QLabel(title)
+        # 👇 Utilise placeholder-text pour avoir un effet grisé/atténué naturel
+        self.lbl_title.setStyleSheet("color: palette(placeholder-text); font-size: 14px;")
+        self.lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.lbl_value = QLabel(initial_value)
+        # On garde le vert Anki pour la valeur, car c'est la marque de fabrique
+        self.lbl_value.setStyleSheet("color: #4CAF50; font-size: 32px; font-weight: bold;")
+        self.lbl_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        vbox.addWidget(self.lbl_title)
+        vbox.addWidget(self.lbl_value)
+
+    def set_value(self, value: str) -> None:
+        """Met à jour le gros chiffre."""
+        self.lbl_value.setText(value)

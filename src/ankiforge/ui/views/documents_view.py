@@ -8,11 +8,12 @@ from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot, QTimer
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor, QKeySequence, QShortcut
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
-                               QTextEdit, QPushButton, QLabel, QSplitter,
+                               QTextEdit, QLabel, QSplitter,
                                QFileDialog, QMessageBox, QInputDialog, QAbstractItemView)
 
 from ankiforge.database.models import db, DocumentModel, FolderModel
 from ankiforge.services.parsing.document_parser import DocumentParser
+from ankiforge.ui.components.components import DangerButton, ActionButton, HeaderLabel, PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -109,18 +110,17 @@ class DocumentsTab(QWidget):
         self.layout = QVBoxLayout(self)
 
         header_layout = QHBoxLayout()
-        title = QLabel("<h2>Bibliothèque de Cours</h2>")
+        title = HeaderLabel("Bibliothèque de Cours")
         header_layout.addWidget(title)
         header_layout.addStretch()
 
-        self.btn_import = QPushButton(qta.icon('fa5s.file-import', color='white'), " Analyser un PDF/TXT (Marker)")
-        self.btn_import.setStyleSheet("background-color: #3F51B5; color: white; font-weight: bold; padding: 6px;")
+        # 👇 Bouton Action (Couleur d'icône automatique !)
+        self.btn_import = ActionButton(qta.icon('fa5s.file-import'), " Analyser un PDF/TXT (Marker)")
         self.btn_import.clicked.connect(self.import_document)
         header_layout.addWidget(self.btn_import)
 
         self.layout.addLayout(header_layout)
 
-        # Standard Qt6: Qt.Orientation.Horizontal
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         left_panel = QWidget()
@@ -128,13 +128,14 @@ class DocumentsTab(QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
 
         toolbar = QHBoxLayout()
-        self.btn_new_folder = QPushButton(qta.icon('fa5s.folder-plus'), " Dossier")
+        # 👇 Nettoyage des boutons de la toolbar
+        self.btn_new_folder = ActionButton(qta.icon('fa5s.folder-plus'), " Dossier")
         self.btn_new_folder.clicked.connect(self.create_folder)
 
-        self.btn_new_doc = QPushButton(qta.icon('fa5s.file-medical'), " Doc")
+        self.btn_new_doc = ActionButton(qta.icon('fa5s.file-medical'), " Doc")
         self.btn_new_doc.clicked.connect(self.create_manual_document)
 
-        self.btn_delete = QPushButton(qta.icon('fa5s.trash', color='#F44336'), "")
+        self.btn_delete = DangerButton(qta.icon('fa5s.trash', color='white'), "")
         self.btn_delete.setToolTip("Supprimer (Suppr)")
         self.btn_delete.clicked.connect(self.delete_item)
 
@@ -166,33 +167,35 @@ class DocumentsTab(QWidget):
         editor_toolbar.addWidget(self.lbl_doc_title)
         editor_toolbar.addStretch()
 
-        self.btn_save_doc = QPushButton(qta.icon('fa5s.save', color='white'), " Sauvegarder (Ctrl+S)")
-        self.btn_save_doc.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        # 👇 Boutons d'édition
+        self.btn_save_doc = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder (Ctrl+S)")
         self.btn_save_doc.clicked.connect(self.save_document_edits)
         self.btn_save_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_save_doc)
 
-        self.btn_split_doc = QPushButton(qta.icon('fa5s.cut', color='white'), " Scinder aux balises [SPLIT]")
-        self.btn_split_doc.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.btn_split_doc = ActionButton(qta.icon('fa5s.cut'), " Scinder aux balises [SPLIT]")
         self.btn_split_doc.clicked.connect(self.split_document_multiple)
         self.btn_split_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_split_doc)
 
         right_layout.addLayout(editor_toolbar)
 
-        # 1. Le bouton "Insérer une coupure" dans la toolbar
-        self.btn_insert_split = QPushButton(qta.icon('fa5s.cut', color='#FF9800'), " Insérer Coupure (Ctrl+D)")
-        self.btn_insert_split.setStyleSheet("font-weight: bold; color: #FF9800;")
+        self.btn_insert_split = ActionButton(qta.icon('fa5s.cut'), " Insérer Coupure (Ctrl+D)")
         self.btn_insert_split.clicked.connect(self.insert_split_tag)
         self.btn_insert_split.setEnabled(False)
-        editor_toolbar.insertWidget(2, self.btn_insert_split)  # Insère avant le bouton scinder
+        editor_toolbar.insertWidget(2, self.btn_insert_split)
 
-        # 2. Le Splitter d'édition
         self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self.preview_text = QTextEdit()
-        self.preview_text.setStyleSheet(
-            "background-color: #1E1E1E; color: #D4D4D4; font-family: 'Consolas', monospace; font-size: 14px;")
+        # 👇 L'éditeur s'adapte maintenant à la palette système !
+        self.preview_text.setStyleSheet("""
+                    background-color: palette(base); 
+                    color: palette(text); 
+                    font-family: 'Consolas', monospace; 
+                    font-size: 14px;
+                    border: 1px solid palette(alternate-base);
+                """)
         self.highlighter = MarkdownHighlighter(self.preview_text.document())
 
         self.render_view = QWebEngineView()

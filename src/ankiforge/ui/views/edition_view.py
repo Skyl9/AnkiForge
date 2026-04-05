@@ -18,6 +18,7 @@ from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeM
     IgnoredDuplicateModel
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.toast import show_toast
@@ -63,14 +64,12 @@ class EditionTab(QWidget):
 
         # --- 1. EN-TÊTE ---
         header_layout = QHBoxLayout()
-        titre = QLabel("Navigateur de Cartes & Notes")
-        titre.setStyleSheet("font-size: 20px; font-weight: bold;")
+        titre = HeaderLabel("Navigateur de Cartes & Notes")
 
-        self.btn_load_col = QPushButton("📂 Importer un paquet")
+        self.btn_load_col = ActionButton(qtawesome.icon('fa5s.folder-open', color='white'), " Importer un paquet")
         self.btn_load_col.clicked.connect(self.load_cards)
 
-        self.btn_export = QPushButton("📦 Exporter le paquet vers Anki")
-        self.btn_export.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.btn_export = PrimaryButton(qtawesome.icon('fa5s.box', color='white'), " Exporter le paquet vers Anki")
         self.btn_export.clicked.connect(self.export_selected_deck)
         self.btn_export.setEnabled(False)
 
@@ -100,18 +99,15 @@ class EditionTab(QWidget):
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
-        self.btn_approve = QPushButton("✅ Approuver la sélection")
-        self.btn_approve.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.btn_approve = PrimaryButton(qtawesome.icon('fa5s.check', color='white'), " Approuver la sélection")
         self.btn_approve.clicked.connect(self.approve_selected_notes)
         self.btn_approve.setVisible(False)
 
-        self.btn_reject = QPushButton("🗑️ Rejeter la sélection")
-        self.btn_reject.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
+        self.btn_reject = DangerButton(qtawesome.icon('fa5s.trash', color='white'), " Rejeter la sélection")
         self.btn_reject.clicked.connect(self.reject_selected_notes)
         self.btn_reject.setVisible(False)
 
-        self.btn_scan_dupes = QPushButton(qtawesome.icon('fa5s.search'), " Traquer les doublons")
-        self.btn_scan_dupes.setStyleSheet("background-color: #9C27B0; color: white; font-weight: bold;")
+        self.btn_scan_dupes = ActionButton(qtawesome.icon('fa5s.search', color='white'), " Traquer les doublons")
         self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
 
         toolbar_layout.addWidget(self.btn_scan_dupes)
@@ -141,13 +137,12 @@ class EditionTab(QWidget):
 
         buttons_layout = QHBoxLayout()
 
-        self.btn_save_edits = QPushButton("💾 Sauvegarder les modifications")
-        self.btn_save_edits.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 6px;")
+        self.btn_save_edits = PrimaryButton(qtawesome.icon('fa5s.save', color='white'),
+                                            " Sauvegarder les modifications")
         self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.btn_save_edits.setEnabled(False)
 
-        self.btn_history = QPushButton("🕒 Historique")
-        self.btn_history.setStyleSheet("background-color: #607D8B; color: white; font-weight: bold; padding: 6px;")
+        self.btn_history = ActionButton(qtawesome.icon('fa5s.history', color='white'), " Historique")
         self.btn_history.clicked.connect(self.show_version_history)
         self.btn_history.setEnabled(False)
 
@@ -438,7 +433,8 @@ class EditionTab(QWidget):
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
             content_dict = json.loads(active_version.content) if active_version else {}
 
-            lbl_title = QLabel(f"<h3 style='margin:0;'>Édition (Modèle : {self.current_note.note_type.name})</h3>")
+            lbl_title = QLabel(f"<b>Édition (Modèle : {self.current_note.note_type.name})</b>")
+            lbl_title.setStyleSheet("font-size: 16px; margin-bottom: 5px;")
             self.details_layout.addWidget(lbl_title)
 
             for field_name, field_value in content_dict.items():

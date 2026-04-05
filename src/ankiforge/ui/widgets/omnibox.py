@@ -1,5 +1,6 @@
 # src/ankiforge/ui/widgets/omnibox.py
 import json
+
 import qtawesome as qta
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -19,12 +20,12 @@ class Omnibox(QDialog):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
         self.setMinimumWidth(650)
         self.setStyleSheet("""
-            QDialog { background-color: #2D2D2D; border: 1px solid #555; border-radius: 8px; }
-            QLineEdit { padding: 15px; font-size: 18px; border: none; background-color: #1E1E1E; color: white; border-radius: 4px; }
-            QListWidget { border: none; background-color: #2D2D2D; color: #CCC; font-size: 15px; outline: none; }
-            QListWidget::item { padding: 12px; border-bottom: 1px solid #3a3a3a; }
-            QListWidget::item:selected { background-color: #3F51B5; color: white; border-radius: 4px; }
-        """)
+                    QDialog { background-color: palette(window); border: 1px solid palette(alternate-base); border-radius: 8px; }
+                    QLineEdit { padding: 15px; font-size: 18px; border: none; background-color: palette(base); color: palette(text); border-radius: 4px; }
+                    QListWidget { border: none; background-color: palette(window); color: palette(text); font-size: 15px; outline: none; }
+                    QListWidget::item { padding: 12px; border-bottom: 1px solid palette(alternate-base); }
+                    QListWidget::item:selected { background-color: palette(highlight); color: palette(highlighted-text); border-radius: 4px; }
+                """)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)

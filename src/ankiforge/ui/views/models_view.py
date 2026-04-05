@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
                                QComboBox, QListWidgetItem, QInputDialog, QMessageBox)
 
 from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -27,24 +28,20 @@ class ModelsTab(QWidget):
 
         # En-tête
         header_layout = QHBoxLayout()
-        header_layout.addWidget(QLabel("<h2>Édition des Modèles (Note Types)</h2>"))
-
+        header_layout.addWidget(HeaderLabel("Édition des Modèles (Note Types)"))
         # Boutons avec icônes
-        self.btn_new_model = QPushButton(qta.icon('fa5s.plus'), " Nouveau Modèle")
-        self.btn_new_model.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        self.btn_new_model = ActionButton(qta.icon('fa5s.plus', color='white'), " Nouveau Modèle")
         self.btn_new_model.clicked.connect(self.create_new_model)
 
-        self.btn_del_model = QPushButton(qta.icon('fa5s.trash'), " Supprimer")
-        self.btn_del_model.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
+        self.btn_del_model = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer")
         self.btn_del_model.clicked.connect(self.delete_current_model)
         self.btn_del_model.setEnabled(False)
 
-        self.btn_save_model = QPushButton(qta.icon('fa5s.save'), " Sauvegarder")
-        self.btn_save_model.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.btn_save_model = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder")
         self.btn_save_model.clicked.connect(self.save_current_model)
         self.btn_save_model.setEnabled(False)
 
-        self.btn_refresh = QPushButton(qta.icon('fa5s.sync'), " Rafraîchir")
+        self.btn_refresh = ActionButton(qta.icon('fa5s.sync', color='white'), " Rafraîchir")
         self.btn_refresh.clicked.connect(self.refresh_models_list)
 
         header_layout.addWidget(self.btn_new_model)
@@ -103,7 +100,6 @@ class ModelsTab(QWidget):
         self.btn_ren_card.clicked.connect(self.rename_card_template)
 
         self.btn_del_card = QPushButton(qta.icon('fa5s.trash'), "")
-        self.btn_del_card.setStyleSheet("color: #F44336;")
         self.btn_del_card.setToolTip("Supprimer cette carte")
         self.btn_del_card.clicked.connect(self.delete_card_template)
 
@@ -161,7 +157,6 @@ class ModelsTab(QWidget):
     def refresh_data(self) -> None:
         """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
         self.refresh_models_list()
-
 
     def _add_group(self, parent_layout: QVBoxLayout, title: str, widget: QWidget) -> None:
         group = QGroupBox(title)
@@ -282,6 +277,7 @@ class ModelsTab(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur BDD", f"Impossible de sauvegarder : {e}")
+
     @Slot()
     def _reset_save_btn(self):
         self.btn_save_model.setText(" Sauvegarder")

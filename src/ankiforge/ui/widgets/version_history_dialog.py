@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                QMessageBox, QSplitter, QWidget)
 
 from ankiforge.database.models import db, NoteModel, NoteVersionModel
+from ankiforge.ui.components.components import PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -23,8 +24,7 @@ class VersionHistoryDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # En-tête
-        header = QLabel(f"<b>Historique des modifications de la carte</b> (ID: {self.note.id})")
-        header.setStyleSheet("font-size: 16px;")
+        header = HeaderLabel(f"Historique des modifications de la carte (ID: {self.note.id})")
         layout.addWidget(header)
 
         # Zone principale (Splitter)
@@ -51,8 +51,7 @@ class VersionHistoryDialog(QDialog):
         self.text_diff.setReadOnly(True)
         right_panel.addWidget(self.text_diff)
 
-        self.btn_restore = QPushButton(qta.icon('fa5s.history', color='white'), " Restaurer cette version")
-        self.btn_restore.setStyleSheet("background-color: #FF9800; color: white; padding: 12px; font-size: 14px;")
+        self.btn_restore = PrimaryButton(qta.icon('fa5s.history', color='white'), " Restaurer cette version")
         self.btn_restore.clicked.connect(self.restore_selected_version)
         self.btn_restore.setEnabled(False)
         right_panel.addWidget(self.btn_restore)

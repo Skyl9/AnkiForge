@@ -19,9 +19,7 @@ class MainWindow(QMainWindow):
     def __init__(self, ai_manager):
         super().__init__()
         self.setWindowTitle("AnkiForge - AI Flashcard Generator")
-        self.resize(1000, 700)
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
-
         self.ai_manager = ai_manager
 
         # Initialisation des onglets
@@ -30,7 +28,7 @@ class MainWindow(QMainWindow):
         self.tab_edition = EditionTab()
         self.tab_documents = DocumentsTab()
         self.tabs = QTabWidget()
-        iconColor = 'orange'
+        iconColor = '#E0E0E0'
 
         self.tabs.addTab(CreationTab(self.ai_manager), qta.icon('fa5s.magic', color=iconColor), "Création")
         self.tabs.addTab(self.tab_edition, qta.icon('fa5s.layer-group', color=iconColor), "Édition / Analyse")
