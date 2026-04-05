@@ -22,6 +22,7 @@ dependencies = [
     "markdown",
     "google-genai",
     "platformdirs>=4.9.4",
+    "marker-pdf>=1.10.2",
 ]
 
 [project.gui-scripts]

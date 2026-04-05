@@ -1,6 +1,6 @@
-# src/services/parsing/document_parser.py
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -12,7 +12,7 @@ class DocumentParser:
     def __init__(self, media_manager: MediaManager | None = None):
         self.media_manager = media_manager or MediaManager()
 
-    def parse_document(self, file_path: str|Path) -> str:
+    def parse_document(self, file_path: str|Path,progress_callback=None) -> str:
         """Détecte l'extension et utilise le bon parseur."""
         file_path = Path(file_path)
         if not os.path.exists(file_path):
@@ -21,40 +21,64 @@ class DocumentParser:
         ext = file_path.suffix.lower()
 
         if ext == '.pdf':
-            return self._parse_pdf_with_marker(file_path)
+            return self._parse_pdf_with_marker(file_path, progress_callback)
         elif ext in ['.txt', '.md']:
+            if progress_callback: progress_callback("Lecture du fichier texte immédiate...")
             return self._parse_text(file_path)
         else:
             raise ValueError(f"Format de fichier non supporté : {ext}")
 
-    def _parse_pdf_with_marker(self, file_path: str|Path) -> str:
+    def _parse_pdf_with_marker(self, file_path: str|Path,progress_callback=None) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
         try:
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)
+                use_shell = sys.platform.startswith("win")
+                cmd = ["marker_single", str(file_path), "--output_dir", str(temp_dir)]
+
+                if progress_callback:
+                    progress_callback("Lancement du moteur de Deep Learning (Marker)...")
+                    progress_callback("Le chargement des modèles IA en RAM peut prendre quelques instants.\n")
+
                 # subprocess.run bloque l'exécution ici jusqu'à la fin de Marker
-                process = subprocess.run(
-                    ["marker_single", str(file_path), "--output_dir", str(temp_dir)],
-                    check=True,
-                    capture_output=True,
-                    text=True
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    shell=use_shell,
+                    encoding='utf-8',
+                    errors='replace'
                 )
+                # Lecture ligne par ligne et envoi à l'interface graphique
+                for line in iter(process.stdout.readline, ''):
+                    if line and progress_callback:
+                        progress_callback(line.strip())
+
+                process.wait()
+
+                if process.returncode != 0:
+                    raise RuntimeError(f"Marker a échoué avec le code erreur {process.returncode}.")
 
                 md_files = list(temp_dir.rglob("*.md"))
 
                 if not md_files:
-                    raise FileNotFoundError(f"Marker n'a pas généré de fichier .md. Logs:\n{process.stderr}")
+                    raise FileNotFoundError("Marker n'a pas généré de fichier .md. Consultez les logs.")
 
-                md_file_path = md_files[0]  # On prend le fichier trouvé
+                if progress_callback:
+                    progress_callback("\n📄 Extraction texte terminée. Traitement et copie des images...")
+
+                md_file_path = md_files[0]
                 marker_output_folder = md_file_path.parent
 
-                raw_markdown = md_file_path.read_text(encoding='utf-8')
+                raw_markdown = md_file_path.read_text(encoding='utf-8', errors='ignore')
 
                 processed_markdown = self.media_manager.process_extracted_folder(
                     source_folder=str(marker_output_folder),
                     markdown_content=raw_markdown
                 )
 
+                if progress_callback: progress_callback("✅ Terminé !")
                 return processed_markdown
 
         except FileNotFoundError:

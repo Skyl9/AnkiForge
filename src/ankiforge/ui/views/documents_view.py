@@ -86,6 +86,7 @@ class DraggableTreeWidget(QTreeWidget):
 class ParserWorker(QThread):
     finished_signal = Signal(str, str)
     error_signal = Signal(str)
+    log_signal = Signal(str)
 
     def __init__(self, file_path: str):
         super().__init__()
@@ -95,7 +96,7 @@ class ParserWorker(QThread):
         try:
             parser = DocumentParser()
             title = pathlib.Path(self.file_path).stem
-            content = parser.parse_document(self.file_path)
+            content = parser.parse_document(self.file_path,progress_callback=self.log_signal.emit)
             self.finished_signal.emit(title, content)
         except Exception as e:
             self.error_signal.emit(str(e))
@@ -492,10 +493,15 @@ class DocumentsTab(QWidget):
         if not path: return
 
         self.btn_import.setEnabled(False)
-        self.preview_text.setPlainText(
-            "🤖 Analyse du document en cours...\nLe moteur de Deep Learning (Marker) extrait les données... 🚀")
+        self.tree.setEnabled(False)
+
+        self.lbl_doc_title.setText("<b>⏳ Importation et Analyse en cours...</b>")
+        self.preview_text.blockSignals(True)
+        self.preview_text.setPlainText("🤖 Démarrage du script d'importation...\n")
+        self.preview_text.blockSignals(False)
 
         self.worker = ParserWorker(path)
+        self.worker.log_signal.connect(self._on_parsing_log)  # 👈 ON CONNECTE LA CONSOLE
         self.worker.finished_signal.connect(self._on_parsing_success)
         self.worker.error_signal.connect(self._on_parsing_error)
         self.worker.start()
@@ -505,11 +511,22 @@ class DocumentsTab(QWidget):
         folder = FolderModel.get_by_id(self.current_folder_id_for_import) if self.current_folder_id_for_import else None
         with db.atomic(): DocumentModel.create(title=title, content=content, folder=folder)
         self.btn_import.setEnabled(True)
+        self.tree.setEnabled(True)
         self.load_tree()
+
+    @Slot(str)
+    def _on_parsing_log(self, log_line: str) -> None:
+        """Affiche les logs de Marker en temps réel"""
+        self.preview_text.append(log_line)
+        # Scroll automatique vers le bas
+        scrollbar = self.preview_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     @Slot(str)
     def _on_parsing_error(self, error_msg: str) -> None:
         self.btn_import.setEnabled(True)
+        self.tree.setEnabled(True)
+        self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
         QMessageBox.critical(self, "Erreur", error_msg)
 
     @Slot()
