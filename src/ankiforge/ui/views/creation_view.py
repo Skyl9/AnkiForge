@@ -8,12 +8,13 @@ from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QComboBox, QTableWidget,
-                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QGroupBox)
+                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QGroupBox,
+                               QProgressBar)
 from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
-    NoteVersionModel, DocumentModel
+    NoteVersionModel, DocumentModel, LLMConfigModel
 from ankiforge.ui.components.components import ActionButton, PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
@@ -110,10 +111,15 @@ class CreationTab(QWidget):
         self.deck_selector = QComboBox()
         params_layout.addWidget(self.deck_selector)
 
-        params_layout.addWidget(QLabel("   <b>Modèle :</b>"))
+        params_layout.addWidget(QLabel("   <b>Modèle de carte :</b>"))
         self.model_selector = QComboBox()
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
         params_layout.addWidget(self.model_selector)
+
+        params_layout.addWidget(QLabel("   <b>Moteur IA :</b>"))
+        self.llm_selector = QComboBox()
+        self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
+        params_layout.addWidget(self.llm_selector)
 
         params_layout.addWidget(QLabel("   <b>Pipeline IA :</b>"))
         self.pipeline_selector = QComboBox()
@@ -147,7 +153,17 @@ class CreationTab(QWidget):
 
         self.source_text = QTextEdit()
         self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
+        self.source_text.textChanged.connect(self.update_token_estimate)  # 👈 Connexion au texte
         source_layout.addWidget(self.source_text)
+
+        token_layout = QHBoxLayout()
+        self.token_label = QLabel("<b>Tokens : 0 / ?</b>")
+        self.token_bar = QProgressBar()
+        self.token_bar.setTextVisible(False)
+        self.token_bar.setFixedHeight(8)
+        token_layout.addWidget(self.token_label)
+        token_layout.addWidget(self.token_bar, stretch=1)
+        source_layout.addLayout(token_layout)
 
         self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
         self.btn_generate.clicked.connect(self.start_generation)
@@ -241,11 +257,13 @@ class CreationTab(QWidget):
         self.deck_selector.blockSignals(True)
         self.model_selector.blockSignals(True)
         self.pipeline_selector.blockSignals(True)
+        self.llm_selector.blockSignals(True)
 
         # On sauvegarde la sélection actuelle pour la remettre après
         current_deck = self.deck_selector.currentData()
         current_model = self.model_selector.currentData()
         current_pipe = self.pipeline_selector.currentData()
+        current_llm = self.llm_selector.currentData()
 
         self.deck_selector.clear()
         for deck in DeckModel.select().order_by(DeckModel.name):
@@ -259,6 +277,12 @@ class CreationTab(QWidget):
         for pipe in PipelineModel.select().order_by(PipelineModel.name):
             self.pipeline_selector.addItem(pipe.name, userData=pipe.id)
 
+            self.llm_selector.clear()
+            for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
+                self.llm_selector.addItem(llm.display_name, userData=llm.id)
+            if current_llm: self.llm_selector.setCurrentIndex(self.llm_selector.findData(current_llm))
+            self.llm_selector.blockSignals(False)
+
         # On remet les sélections
         if current_deck: self.deck_selector.setCurrentIndex(self.deck_selector.findData(current_deck))
         if current_model: self.model_selector.setCurrentIndex(self.model_selector.findData(current_model))
@@ -267,6 +291,39 @@ class CreationTab(QWidget):
         self.deck_selector.blockSignals(False)
         self.model_selector.blockSignals(False)
         self.pipeline_selector.blockSignals(False)
+
+    @Slot()
+    def update_token_estimate(self) -> None:
+        text = self.source_text.toPlainText()
+        estimated_tokens = len(text) // 4
+
+        llm_id = self.llm_selector.currentData()
+        max_tokens = 8192
+        if llm_id:
+            try:
+                max_tokens = LLMConfigModel.get_by_id(llm_id).context_limit
+            except Exception:
+                pass
+
+        self.token_bar.setMaximum(max_tokens)
+        self.token_bar.setValue(min(estimated_tokens, max_tokens))
+        self.token_label.setText(f"<b>Tokens : ~{estimated_tokens:,} / {max_tokens:,}</b>".replace(',', ' '))
+
+        if estimated_tokens < (max_tokens * 0.5):
+            color = "#4CAF50"
+            self.btn_generate.setText(" Générer les Cartes")
+        elif estimated_tokens < (max_tokens * 0.8):
+            color = "#FF9800"
+            self.btn_generate.setText(" Générer les Cartes (Texte long)")
+        else:
+            color = "#F44336"
+            self.btn_generate.setText(" Générer (Risque de dépassement IA !)")
+
+        self.token_label.setStyleSheet(f"color: {color};")
+        self.token_bar.setStyleSheet(f"""
+                QProgressBar {{ border: 1px solid palette(alternate-base); border-radius: 4px; background-color: palette(base); }}
+                QProgressBar::chunk {{ background-color: {color}; border-radius: 4px; }}
+            """)
 
     @Slot()
     def load_documents(self) -> None:

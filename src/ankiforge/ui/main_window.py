@@ -9,6 +9,7 @@ from ankiforge.ui.views.batch_view import BatchTab
 from ankiforge.ui.views.creation_view import CreationTab
 from ankiforge.ui.views.documents_view import DocumentsTab
 from ankiforge.ui.views.edition_view import EditionTab
+from ankiforge.ui.views.llm_manager_view import LLMManagerTab
 from ankiforge.ui.views.models_view import ModelsTab
 from ankiforge.ui.views.settings_view import SettingsTab
 from ankiforge.ui.views.stats_view import StatsTab
@@ -28,6 +29,7 @@ class MainWindow(QMainWindow):
         self.tab_edition = EditionTab()
         self.tab_documents = DocumentsTab()
         self.tabs = QTabWidget()
+        self.llm_manager_tab = LLMManagerTab(self.ai_manager)
         iconColor = '#E0E0E0'
 
         self.tabs.addTab(CreationTab(self.ai_manager), qta.icon('fa5s.magic', color=iconColor), "Création")
@@ -38,6 +40,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab_documents, qta.icon('fa5s.folder-open', color=iconColor), "Documents")
         self.tabs.addTab(SettingsTab(self.ai_manager), qta.icon('fa5s.cog', color=iconColor), "Paramètres IA")
         self.tabs.addTab(self.batch_tab, qta.icon('fa5s.rocket', color=iconColor), "Automatisation")
+        self.tabs.addTab(self.llm_manager_tab, qta.icon('fa5s.robot'), " Moteurs IA")
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
         self.setCentralWidget(self.tabs)

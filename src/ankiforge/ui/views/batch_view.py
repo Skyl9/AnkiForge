@@ -14,7 +14,7 @@ from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
-    NoteVersionModel, DocumentModel, FolderModel
+    NoteVersionModel, DocumentModel, FolderModel, LLMConfigModel
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
 from ankiforge.ui.widgets.toast import show_toast
 
@@ -123,18 +123,23 @@ class BatchWorker(QThread):
 
                 steps = list(pipeline.steps.order_by(PipelineStepModel.step_order))
 
+                llm_config = LLMConfigModel.get_by_id(task["llm_id"])
+                max_tokens = llm_config.context_limit
+
                 fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
                 fields_str = '", "'.join(fields)
                 first_field = fields[0] if len(fields) > 0 else 'Field1'
                 second_field = fields[1] if len(fields) > 1 else 'Field2'
                 templates = json.loads(note_type.templates) if note_type.templates else []
 
-                self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
-                self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Stratégie : {chunk_strategy}\n{'=' * 40}")
+                optimal_max_chars = int((max_tokens * 0.5) * 4)
 
+                self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
+                self.log.emit(
+                    f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
                 # PARTITIONNEMENT DU DOCUMENT
-                chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=6000)
-                self.log.emit(f"✂️ Document découpé en {len(chunks)} morceau(x).")
+                chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
+                self.log.emit(f"✂️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
 
                 doc_success_notes = 0
 
@@ -249,6 +254,7 @@ class BatchTab(QWidget):
 
         self.default_deck = QComboBox()
         self.default_model = QComboBox()
+        self.default_llm = QComboBox()
         self.default_pipeline = QComboBox()
         self.default_chunking = QComboBox()
         self.default_chunking.addItems(self.chunk_strategies)
@@ -257,14 +263,15 @@ class BatchTab(QWidget):
         default_params_layout.addWidget(self.default_model)
         default_params_layout.addWidget(self.default_pipeline)
         default_params_layout.addWidget(self.default_chunking)
+        default_params_layout.addWidget(self.default_llm)
         right_layout.addLayout(default_params_layout)
 
         right_layout.addWidget(QLabel("<b>2. File d'attente :</b>"))
 
         self.table_queue = QTableWidget()
-        self.table_queue.setColumnCount(6)
+        self.table_queue.setColumnCount(7)
         self.table_queue.setHorizontalHeaderLabels(
-            ["Document", "Paquet", "Modèle", "Pipeline IA", "Découpage", "Action"])
+            ["Document", "Paquet", "Modèle", "Moteur IA" "Pipeline IA", "Découpage", "Action"])
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         # Standard Qt6 : QAbstractItemView.EditTrigger
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -355,6 +362,10 @@ class BatchTab(QWidget):
         for pipe in PipelineModel.select().order_by(PipelineModel.name):
             self.default_pipeline.addItem(pipe.name, userData=pipe.id)
 
+        self.default_llm.clear()
+        for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
+            self.default_llm.addItem(llm.display_name, userData=llm.id)
+
     @Slot()
     def add_selected_to_queue(self) -> None:
         selected_items = self.tree_source.selectedItems()
@@ -392,36 +403,43 @@ class BatchTab(QWidget):
         cb_deck.setCurrentIndex(self.default_deck.currentIndex())
         self.table_queue.setCellWidget(row_idx, 1, cb_deck)
 
-        # 3. Modèle
+        # 3. Modèle de carte
         cb_model = QComboBox()
         for i in range(self.default_model.count()): cb_model.addItem(self.default_model.itemText(i),
                                                                      self.default_model.itemData(i))
         cb_model.setCurrentIndex(self.default_model.currentIndex())
         self.table_queue.setCellWidget(row_idx, 2, cb_model)
 
-        # 4. Pipeline
+        # 4. Moteur IA (NOUVEAU)
+        cb_llm = QComboBox()
+        for i in range(self.default_llm.count()):
+            cb_llm.addItem(self.default_llm.itemText(i), self.default_llm.itemData(i))
+        cb_llm.setCurrentIndex(self.default_llm.currentIndex())
+        self.table_queue.setCellWidget(row_idx, 3, cb_llm)
+
+        # 5. Pipeline
         cb_pipe = QComboBox()
         for i in range(self.default_pipeline.count()): cb_pipe.addItem(self.default_pipeline.itemText(i),
                                                                        self.default_pipeline.itemData(i))
         cb_pipe.setCurrentIndex(self.default_pipeline.currentIndex())
-        self.table_queue.setCellWidget(row_idx, 3, cb_pipe)
+        self.table_queue.setCellWidget(row_idx, 4, cb_pipe)
 
-        # 5. Découpage
+        # 6. Découpage
         cb_chunk = QComboBox()
         cb_chunk.addItems(self.chunk_strategies)
         cb_chunk.setCurrentIndex(self.default_chunking.currentIndex())
-        self.table_queue.setCellWidget(row_idx, 4, cb_chunk)
+        self.table_queue.setCellWidget(row_idx, 5, cb_chunk)
 
-        # 6. Action
+        # 7. Action
 
         btn_remove = DangerButton(qta.icon('fa5s.times', color='white'), "")
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
-        self.table_queue.setCellWidget(row_idx, 5, btn_remove)
+        self.table_queue.setCellWidget(row_idx, 6, btn_remove)
 
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
         for r in range(row_idx, self.table_queue.rowCount()):
-            btn = self.table_queue.cellWidget(r, 5)
+            btn = self.table_queue.cellWidget(r, 6)
             btn.clicked.disconnect()
             btn.clicked.connect(lambda _, current_r=r: self._remove_row(current_r))
         self._check_ready_state()
@@ -446,6 +464,7 @@ class BatchTab(QWidget):
             doc_id = self.table_queue.item(row, 0).data(Qt.UserRole)
             deck_id = self.table_queue.cellWidget(row, 1).currentData()
             model_id = self.table_queue.cellWidget(row, 2).currentData()
+            llm_id = self.table_queue.cellWidget(row, 3).currentData()
             pipe_id = self.table_queue.cellWidget(row, 3).currentData()
             chunk_strategy = self.table_queue.cellWidget(row, 4).currentText()
 
@@ -455,8 +474,8 @@ class BatchTab(QWidget):
 
             tasks.append({
                 "doc_id": doc_id, "deck_id": deck_id,
-                "model_id": model_id, "pipeline_id": pipe_id,
-                "chunk_strategy": chunk_strategy
+                "model_id": model_id, "llm_id": llm_id,
+                "pipeline_id": pipe_id, "chunk_strategy": chunk_strategy
             })
 
         self.btn_start.setEnabled(False)

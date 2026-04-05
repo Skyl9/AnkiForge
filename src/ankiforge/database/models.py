@@ -1,7 +1,6 @@
 # src/database/models.py
 import datetime
 import json
-import os
 
 from peewee import *
 
@@ -13,9 +12,10 @@ DB_PATH = get_app_data_dir() / 'ankiforge.db'
 db = SqliteDatabase(DB_PATH, pragmas={
     'journal_mode': 'wal',  # Permet la lecture et l'écriture simultanées !
     'cache_size': -1024 * 64,  # Alloue 64MB de RAM pour accélérer les requêtes
-    'foreign_keys': 1, # Force le respect des clés étrangères (sécurité des suppressions en cascade)
-    'synchronous': 1 # Équilibre parfait entre sécurité en cas de crash et vitesse d'écriture
+    'foreign_keys': 1,  # Force le respect des clés étrangères (sécurité des suppressions en cascade)
+    'synchronous': 1  # Équilibre parfait entre sécurité en cas de crash et vitesse d'écriture
 })
+
 
 class BaseModel(Model):
     class Meta:
@@ -79,16 +79,17 @@ class NoteVersionModel(BaseModel):
     """L'historique des contenus de la note (Le fameux système de version)."""
     note = ForeignKeyField(NoteModel, backref='versions', on_delete='CASCADE')
     version_number = IntegerField(default=1)
-    content = TextField() # Le JSON contenant "Recto" et "Verso"
+    content = TextField()  # Le JSON contenant "Recto" et "Verso"
     created_at = DateTimeField(default=datetime.datetime.now)
-    source = CharField(default="ai") # Peut être 'ai', 'manual', ou 'import'
-    is_active = BooleanField(default=True) # Permet de savoir quelle version exporter
+    source = CharField(default="ai")  # Peut être 'ai', 'manual', ou 'import'
+    is_active = BooleanField(default=True)  # Permet de savoir quelle version exporter
+
 
 class CardModel(BaseModel):
     """La carte physique générée par la Note et rangée dans un Deck"""
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (cid)
-    note = ForeignKeyField(NoteModel, backref='cards',on_delete='CASCADE')
-    deck = ForeignKeyField(DeckModel, backref='cards',on_delete='CASCADE')
+    note = ForeignKeyField(NoteModel, backref='cards', on_delete='CASCADE')
+    deck = ForeignKeyField(DeckModel, backref='cards', on_delete='CASCADE')
     template_index = IntegerField(default=0)  # Index du template (Recto=0, Verso=1)
 
 
@@ -98,6 +99,19 @@ class PromptModel(BaseModel):
     content = TextField()
     description = TextField(null=True)
     is_active = BooleanField(default=True)
+
+
+class LLMConfigModel(BaseModel):
+    """Stocke les configurations physiques des modèles d'IA (Le 'Moteur')."""
+    display_name = CharField(unique=True)
+    provider = CharField()
+    model_id = CharField()
+    context_limit = IntegerField(default=8192)
+    temperature = FloatField(default=0.7)
+    api_key = CharField(null=True)
+
+    class Meta:
+        table_name = 'llm_configs'
 
 
 class AgentModel(BaseModel):
@@ -132,9 +146,11 @@ class PipelineStepModel(BaseModel):
             (('pipeline', 'step_order'), True),
         )
 
+
 class FolderModel(BaseModel):
     """Stocke les dossiers de la bibliothèque."""
     name = CharField(unique=True)
+
 
 class DocumentModel(BaseModel):
     """Stocke les cours après extraction par Marker."""
@@ -145,13 +161,17 @@ class DocumentModel(BaseModel):
     # on_delete='CASCADE' supprime les documents si on supprime le dossier.
     folder = ForeignKeyField(FolderModel, backref='documents', null=True, on_delete='CASCADE')
 
+
 def init_db() -> None:
     db.connect(reuse_if_open=True)
     # Ajout des nouvelles tables à l'initialisation
     db.create_tables([
-        DeckModel, NoteTypeModel, NoteModel, CardModel,NoteVersionModel,
-        AgentModel, PipelineModel, PipelineStepModel,DocumentModel,FolderModel,PromptModel,IgnoredDuplicateModel
+        DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel,
+        AgentModel, PipelineModel, PipelineStepModel,
+        DocumentModel, FolderModel, PromptModel, IgnoredDuplicateModel,
+        LLMConfigModel
     ])
+
 
 class IgnoredDuplicateModel(BaseModel):
     """Table pour mémoriser les conflits de doublons ignorés par l'utilisateur."""
@@ -165,6 +185,7 @@ class IgnoredDuplicateModel(BaseModel):
             (('note_a', 'note_b'), True),
         )
 
+
 def seed_initial_data() -> None:
     """
     Responsabilité UNIQUE : Peupler la base avec les données métier indispensables
@@ -173,7 +194,6 @@ def seed_initial_data() -> None:
     # Si des agents existent déjà, on ne fait rien
     if AgentModel.select().count() > 0:
         return
-
 
     # Agent 1 : Le Créateur
     extracteur = AgentModel.create(
@@ -197,3 +217,20 @@ def seed_initial_data() -> None:
 
     PipelineStepModel.create(pipeline=pipeline_complet, agent=extracteur, step_order=1)
     PipelineStepModel.create(pipeline=pipeline_complet, agent=controleur, step_order=2)
+    if LLMConfigModel.select().count() == 0:
+        LLMConfigModel.create(
+            display_name="GPT-4o (OpenAI)", provider="openai",
+            model_id="gpt-4o", context_limit=128000
+        )
+        LLMConfigModel.create(
+            display_name="GPT-4o Mini (OpenAI)", provider="openai",
+            model_id="gpt-4o-mini", context_limit=128000
+        )
+        LLMConfigModel.create(
+            display_name="Claude 3.5 Sonnet", provider="anthropic",
+            model_id="claude-3-5-sonnet-20240620", context_limit=200000
+        )
+        LLMConfigModel.create(
+            display_name="Mistral Local (Ollama)", provider="ollama",
+            model_id="mistral", context_limit=32768
+        )
