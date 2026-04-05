@@ -107,13 +107,36 @@ class DuplicateResolverDialog(QDialog):
         self.lbl_status.setText(f"Conflit {self.current_index + 1} sur {len(self.conflicts)}")
         self.progress_bar.setValue(self.current_index)
 
-        note_a, text_a, note_b, text_b = self.conflicts[self.current_index]
+        # On récupère maintenant les dictionnaires complets (content_a et content_b)
+        note_a, content_a, note_b, content_b = self.conflicts[self.current_index]
 
-        # On génère le surlignage Diff
-        html_a, html_b = self.generate_diff_html(text_a, text_b)
+        full_html_a = ""
+        full_html_b = ""
 
-        self.text_left.setHtml(f"<div style='font-family: sans-serif;'>{html_a}</div>")
-        self.text_right.setHtml(f"<div style='font-family: sans-serif;'>{html_b}</div>")
+        # On parcourt tous les champs (Front, Back, etc.)
+        for field_name in content_a.keys():
+            text_a = str(content_a.get(field_name, ""))
+            text_b = str(content_b.get(field_name, ""))
+
+            # En-tête visuel du champ
+            full_html_a += f"<h4 style='color: #2196F3; margin-bottom: 5px; margin-top: 15px;'>■ Champ : {field_name}</h4>"
+            full_html_b += f"<h4 style='color: #4CAF50; margin-bottom: 5px; margin-top: 15px;'>■ Champ : {field_name}</h4>"
+
+            if text_a == text_b:
+                # Si le texte est strictement identique, on l'affiche en gris clair pour ne pas polluer la vue
+                identical_html = f"<div style='color: #888888;'><i>(Identique)</i><br>{text_a.replace(chr(10), '<br>')}</div>"
+                full_html_a += identical_html
+                full_html_b += identical_html
+            else:
+                # S'il y a des différences, on lance l'algorithme de surlignage Rouge/Vert
+                html_a, html_b = self.generate_diff_html(text_a, text_b)
+                full_html_a += f"<div>{html_a}</div>"
+                full_html_b += f"<div>{html_b}</div>"
+
+        # Injection dans les zones de texte
+        self.text_left.setHtml(f"<div style='font-family: sans-serif;'>{full_html_a}</div>")
+        self.text_right.setHtml(f"<div style='font-family: sans-serif;'>{full_html_b}</div>")
+
 
     def _resolve(self, note_to_delete: NoteModel):
         try:

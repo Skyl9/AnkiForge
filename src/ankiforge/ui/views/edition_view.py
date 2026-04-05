@@ -24,6 +24,7 @@ from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
 from ankiforge.utils.anki_renderer import render_anki_card
+from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.paths import get_app_data_dir
 
 
@@ -771,44 +772,67 @@ class EditionTab(QWidget):
 
             # 2. Analyser chaque groupe
             for model_id, notes in notes_by_model.items():
-                note_texts = []
+                note_data_list = []
                 for note in notes:
                     active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
                     if active_version:
                         content = json.loads(active_version.content)
                         values = list(content.values())
                         if values:
-                            # On nettoie le texte pour la comparaison interne
-                            clean_text = strip_html(values[0]).lower()
-                            # Mais on garde la version brute pour l'affichage visuel
-                            raw_text = values[0]
-                            note_texts.append((note, clean_text, raw_text))
+                            all_text_combined = " ".join(str(v) for v in values)
+                            clean_text = strip_html(all_text_combined).lower()
+
+                            # ✨ NOUVEAU : Pré-calcul des métriques pour les heuristiques
+                            text_length = len(clean_text)
+                            # On crée un Set des mots de plus de 2 lettres (pour ignorer le, la, de, un...)
+                            word_set = set(w for w in clean_text.split() if len(w) > 2)
+
+                            note_data_list.append((note, clean_text, content, text_length, word_set))
 
                 ignored_records = IgnoredDuplicateModel.select()
                 ignored_pairs = {(record.note_a_id, record.note_b_id) for record in ignored_records}
 
-                # 3. Comparaison croisée O(N^2)
-                matched_ids = set()  # Pour ne pas proposer 15 fois la même carte en conflit
-                for i, (note_a, clean_a, raw_a) in enumerate(note_texts):
+                # 3. Comparaison croisée O(N^2) avec Heuristiques
+                matched_ids = set()
+                for i, (note_a, clean_a, content_a, len_a, words_a) in enumerate(note_data_list):
                     if note_a.id in matched_ids: continue
 
-                    for j in range(i + 1, len(note_texts)):
-                        note_b, clean_b, raw_b = note_texts[j]
+                    for j in range(i + 1, len(note_data_list)):
+                        note_b, clean_b, content_b, len_b, words_b = note_data_list[j]
                         if note_b.id in matched_ids: continue
 
+                        # HEURISTIQUE 1 : Le filtre absolu de longueur O(1)
+                        # Si le ratio mathématique maximal possible est sous 85%, on ignore
+                        if (len_a + len_b) > 0:
+                            max_possible_ratio = (2.0 * min(len_a, len_b)) / (len_a + len_b)
+                            if max_possible_ratio < 0.85:
+                                continue
+
+                        # HEURISTIQUE 2 : Le filtre sémantique (Intersection de Jaccard) O(N)
+                        # On vérifie si les cartes partagent un minimum de vocabulaire
+                        if words_a and words_b:
+                            intersection = len(words_a & words_b)
+                            union = len(words_a | words_b)
+                            jaccard_ratio = intersection / union if union > 0 else 0
+
+                            # S'ils partagent moins de 35% de leur vocabulaire, ils sont trop différents
+                            if jaccard_ratio < 0.35:
+                                continue
+
+                        # Si on est arrivé jusqu'ici, la comparaison est justifiée !
                         id_1, id_2 = min(note_a.id, note_b.id), max(note_a.id, note_b.id)
                         if (id_1, id_2) in ignored_pairs:
                             continue
 
-                        if difflib.SequenceMatcher(None, clean_a, clean_b).ratio() > 0.85:
-                            # On met la carte la plus ancienne à gauche (Originale), la plus récente à droite
+                        # LE MOTEUR C : On fait appel à la librairie rapide pour le verdict final
+                        if get_similarity(clean_a, clean_b) > 0.90:
                             if note_a.id < note_b.id:
-                                conflicts.append((note_a, raw_a, note_b, raw_b))
+                                conflicts.append((note_a, content_a, note_b, content_b))
                             else:
-                                conflicts.append((note_b, raw_b, note_a, raw_a))
+                                conflicts.append((note_b, content_b, note_a, content_a))
 
                             matched_ids.add(note_b.id)
-                            break  # On a trouvé son jumeau, on passe au note_a suivant
+                            break
 
             # 4. Lancer l'interface utilisateur si on a trouvé des conflits
             if not conflicts:

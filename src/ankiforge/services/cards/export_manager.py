@@ -8,6 +8,9 @@ import genanki
 from ankiforge.database.models import DeckModel, CardModel, NoteVersionModel, NoteModel, NoteTypeModel
 from ankiforge.utils.paths import get_app_data_dir
 
+# Suppression des avertissements de genanki notamment pour le mauvais parsing du latex reconnu comme balise html
+import warnings
+warnings.filterwarnings("ignore", module="genanki")
 
 class ExportManager:
     def __init__(self):
@@ -26,22 +29,29 @@ class ExportManager:
         """
         deck_model = DeckModel.get_by_id(deck_id)
 
-        # Genanki exige un ID entier unique. On utilise un hash du nom pour avoir un ID constant.
-        genanki_deck_id = self.generate_stable_id(deck_model.name)
-
-        genanki_deck = genanki.Deck(
-            deck_id=genanki_deck_id,
-            name=deck_model.name
-        )
-
+        # 1. Préparation : On va stocker PLUSIEURS paquets (pour respecter les sous-dossiers)
+        genanki_decks = {}
         genanki_models = {}
         processed_notes = set()
-        media_files_to_export = set()  # Utilisera un set pour éviter les doublons d'images
+        media_files_to_export = set()
 
-        # 1. On récupère le paquet ET tous ses sous-paquets (Ex: "Langues" + "Langues::Anglais")
         matching_decks = DeckModel.select().where(DeckModel.name.startswith(deck_model.name))
-        cards = CardModel.select(CardModel, NoteModel, NoteTypeModel).join(NoteModel).join(NoteTypeModel).where(
-            CardModel.deck.in_(matching_decks))
+
+        # 2. Création d'un genanki.Deck pour CHAQUE sous-paquet existant
+        for d in matching_decks:
+            # On privilégie le vrai anki_id s'il existe, sinon on génère un hash stable
+            did = d.anki_id if d.anki_id else self.generate_stable_id(d.name)
+            genanki_decks[d.id] = genanki.Deck(deck_id=did, name=d.name)
+
+        # 3. Récupération des cartes (avec Jointure sur le DeckModel pour savoir où les ranger)
+        cards = (
+            CardModel.select(CardModel, NoteModel, NoteTypeModel, DeckModel)
+            .join(NoteModel)
+            .join(NoteTypeModel)
+            .switch(CardModel)
+            .join(DeckModel)
+            .where(CardModel.deck.in_(matching_decks))
+        )
 
         for card in cards:
             note = card.note
@@ -51,12 +61,11 @@ class ExportManager:
 
             nt = note.note_type
 
-            # 2. Traduction du NoteTypeModel vers genanki.Model
+            # 4. Traduction du NoteTypeModel vers genanki.Model
             if nt.id not in genanki_models:
                 fields_list = json.loads(nt.fields_schema) if nt.fields_schema else ["Front", "Back"]
                 templates_list = json.loads(nt.templates) if nt.templates else []
 
-                # Formatage des templates pour genanki
                 g_templates = []
                 for i, t in enumerate(templates_list):
                     g_templates.append({
@@ -65,8 +74,11 @@ class ExportManager:
                         'afmt': t.get("afmt", "")
                     })
 
+                # On privilégie le vrai anki_id pour le Modèle aussi !
+                mid = nt.anki_id if nt.anki_id else self.generate_stable_id(nt.name)
+
                 g_model = genanki.Model(
-                    model_id=self.generate_stable_id(nt.name),
+                    model_id=mid,
                     name=nt.name,
                     fields=[{'name': f} for f in fields_list],
                     templates=g_templates,
@@ -76,41 +88,38 @@ class ExportManager:
 
             g_model, fields_list = genanki_models[nt.id]
 
-            # 3. Construction des données de la Note
+            # 5. Construction des données de la Note
             active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
             if not active_version:
-                continue  # Si la note n'a pas de version active, on l'ignore
+                continue
 
             content_dict = json.loads(active_version.content)
 
-            # CRITIQUE : L'ordre des valeurs doit correspondre EXACTEMENT à l'ordre des champs
             field_values = []
             for field_name in fields_list:
                 val = str(content_dict.get(field_name, ""))
                 field_values.append(val)
 
-                # 4. RÉCUPÉRATION DES MÉDIAS (Images)
-                # On cherche les balises <img src="nom_du_fichier.jpg">
+                # RÉCUPÉRATION DES MÉDIAS (Images)
                 img_matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', val)
                 for img_name in img_matches:
                     img_path = self.media_dir / img_name
-                    # Si l'image existe physiquement sur le disque, on l'ajoute au zip
                     if img_path.exists():
                         media_files_to_export.add(str(img_path))
 
             tags_list = json.loads(note.tags) if note.tags else []
 
-            # 5. Création de la genanki.Note
             g_note = genanki.Note(
                 model=g_model,
                 fields=field_values,
-                guid=note.guid,  # Vital pour les futures mises à jour Anki
+                guid=note.guid,
                 tags=tags_list
             )
 
-            genanki_deck.add_note(g_note)
+            # 👇 CORRECTION MAJEURE : On ajoute la carte dans son VRAI sous-paquet
+            genanki_decks[card.deck.id].add_note(g_note)
 
-        # 6. Écriture du fichier final avec les médias
-        package = genanki.Package(genanki_deck)
+        # 6. Écriture du fichier final (on passe la liste de tous les paquets/sous-paquets)
+        package = genanki.Package(list(genanki_decks.values()))
         package.media_files = list(media_files_to_export)
         package.write_to_file(str(output_path))

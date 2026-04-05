@@ -252,10 +252,14 @@ class StoreManager:
                             parent_name = full_name.rsplit("::", 1)[0]
                             parent_deck = DeckModel.get_or_none(DeckModel.name == parent_name)
 
-                        DeckModel.get_or_create(
-                            anki_id=did,
-                            defaults={'name': full_name, 'parent_deck': parent_deck}
+                        deck_obj, created = DeckModel.get_or_create(
+                            name=full_name,
+                            defaults={'anki_id': did, 'parent_deck': parent_deck}
                         )
+
+                        if not created and not deck_obj.anki_id:
+                            deck_obj.anki_id = did
+                            deck_obj.save()
 
                     # ---------------------------------------------------------
                     # 2. MODÈLES DE NOTES (NoteTypes Blindé)
@@ -268,15 +272,18 @@ class StoreManager:
                         models_json = json.loads(models_raw)
                         for mid_str, m_info in models_json.items():
                             field_names = [f["name"] for f in m_info.get("flds", [])]
-                            NoteTypeModel.get_or_create(
-                                anki_id=int(mid_str),
+                            nt_obj, created = NoteTypeModel.get_or_create(
+                                name=m_info.get("name", "Unknown"),
                                 defaults={
-                                    'name': m_info.get("name", "Unknown"),
+                                    'anki_id': int(mid_str),
                                     'fields_schema': json.dumps(field_names),
                                     'templates': json.dumps(m_info.get("tmpls", [])),
                                     'css_style': m_info.get("css", "")
                                 }
                             )
+                            if not created and not nt_obj.anki_id:
+                                nt_obj.anki_id = int(mid_str)
+                                nt_obj.save()
                     else:
                         cursor.execute("SELECT id, name, config FROM notetypes")
                         for row in cursor.fetchall():
@@ -306,15 +313,18 @@ class StoreManager:
                                 pass
 
                             # Sauvegarde en BDD
-                            NoteTypeModel.get_or_create(
-                                anki_id=mid,
+                            nt_obj, created = NoteTypeModel.get_or_create(
+                                name=name,
                                 defaults={
-                                    'name': name,
+                                    'anki_id': mid,
                                     'fields_schema': json.dumps(field_names),
                                     'templates': json.dumps(tmpls, ensure_ascii=False),
                                     'css_style': css_style
                                 }
                             )
+                            if not created and not nt_obj.anki_id:
+                                nt_obj.anki_id = mid
+                                nt_obj.save()
                     # ---------------------------------------------------------
                     # 3. LE TEXTE DES CARTES (Notes)
                     # ---------------------------------------------------------
@@ -339,14 +349,17 @@ class StoreManager:
                         tags = tags_raw.strip().split(" ") if tags_raw.strip() else []
 
                         note_obj, created = NoteModel.get_or_create(
-                            anki_id=nid,
+                            guid=guid,
                             defaults={
-                                'guid': guid,
+                                'anki_id': nid,
                                 'note_type': note_type,
                                 'tags': json.dumps(tags),
                                 'status': 'imported'
                             }
                         )
+                        if not created and not note_obj.anki_id:
+                            note_obj.anki_id = nid
+                            note_obj.save()
 
                         if created:
                             # Nouvelle note depuis l'apkg
@@ -372,14 +385,18 @@ class StoreManager:
                             note = NoteModel.get(NoteModel.anki_id == nid)
                             deck = DeckModel.get(DeckModel.anki_id == did)
 
-                            CardModel.get_or_create(
-                                anki_id=cid,
+                            card_obj, created = CardModel.get_or_create(
+                                note=note,
+                                template_index=template_ord,
                                 defaults={
-                                    'note': note,
-                                    'deck': deck,
-                                    'template_index': template_ord
+                                    'anki_id': cid,
+                                    'deck': deck
                                 }
                             )
+                            if not created and not card_obj.anki_id:
+                                card_obj.anki_id = cid
+                                card_obj.save()
+
                         except DoesNotExist:
                             continue
 

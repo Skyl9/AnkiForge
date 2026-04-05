@@ -34,7 +34,7 @@ class DeckModel(BaseModel):
 class NoteTypeModel(BaseModel):
     """Représente le TYPE de note (Basic, Cloze...)"""
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (mid)
-    name = CharField()
+    name = CharField(unique=True)
     fields_schema = TextField()  # JSON: Liste des noms des champs ["Front", "Back"]
     templates = TextField()  # JSON: Les formats HTML des différentes cartes
     css_style = TextField()  # Le CSS global du modèle
@@ -87,8 +87,8 @@ class NoteVersionModel(BaseModel):
 class CardModel(BaseModel):
     """La carte physique générée par la Note et rangée dans un Deck"""
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (cid)
-    note = ForeignKeyField(NoteModel, backref='cards')
-    deck = ForeignKeyField(DeckModel, backref='cards')
+    note = ForeignKeyField(NoteModel, backref='cards',on_delete='CASCADE')
+    deck = ForeignKeyField(DeckModel, backref='cards',on_delete='CASCADE')
     template_index = IntegerField(default=0)  # Index du template (Recto=0, Verso=1)
 
 
