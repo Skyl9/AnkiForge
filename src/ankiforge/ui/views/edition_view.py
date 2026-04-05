@@ -291,6 +291,7 @@ class EditionTab(QWidget):
         self.current_deck_id = item.data(0, Qt.ItemDataRole.UserRole)
         self.btn_export.setEnabled(True)
         self.refresh_table()
+        self.refresh_tags_list()
 
     def refresh_table(self) -> None:
         if not self.current_deck_id:
@@ -576,28 +577,57 @@ class EditionTab(QWidget):
     # ==========================================
 
     def refresh_tags_list(self) -> None:
-        """Récupère tous les tags uniques de la base de données et peuple la liste."""
+        """Récupère les tags uniques du paquet sélectionné ET du mode de vue actuel."""
         self.tag_list.clear()
 
-        # Option pour annuler le filtre
         all_item = QListWidgetItem("🏷️ Tous les tags")
         all_item.setData(Qt.ItemDataRole.UserRole, None)
         self.tag_list.addItem(all_item)
 
-        unique_tags = set()
+        tag_counts = {}
 
-        # On lit toutes les notes qui ont des tags
-        notes_with_tags = NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False))
+        mode = self.view_mode_cb.currentText()
+        is_quarantine = (mode == "Vue : Quarantaine (À valider)")
+        status_condition = (NoteModel.status == "pending") if is_quarantine else (NoteModel.status != "pending")
+
+        if self.current_deck_id:
+            try:
+                selected_deck = DeckModel.get_by_id(self.current_deck_id)
+                matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+
+                notes_with_tags = (
+                    # 👇 FIX 1 : On ajoute NoteModel.id pour que le distinct() compte bien CHAQUE note
+                    NoteModel.select(NoteModel.id, NoteModel.tags)
+                    # 👇 FIX 2 : On s'assure que le modèle (NoteType) existe toujours !
+                    .join(NoteTypeModel)
+                    .switch(NoteModel)
+                    .join(CardModel, on=(CardModel.note_id == NoteModel.id))
+                    .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
+                    .where(DeckModel.id.in_(matching_decks) & NoteModel.tags.is_null(False) & status_condition)
+                    .distinct()
+                )
+            except Exception:
+                notes_with_tags = []
+        else:
+            notes_with_tags = (
+                NoteModel.select(NoteModel.id, NoteModel.tags)
+                .join(NoteTypeModel)  # FIX 2 ici aussi
+                .where(NoteModel.tags.is_null(False) & status_condition)
+                .distinct()
+            )
+
         for note in notes_with_tags:
             try:
                 tags = json.loads(note.tags)
-                unique_tags.update(tags)
+                if isinstance(tags, list):
+                    for tag in set(tags):
+                        tag_counts[tag] = tag_counts.get(tag, 0) + 1
             except:
                 pass
 
-        # On les ajoute par ordre alphabétique
-        for tag in sorted(unique_tags):
-            item = QListWidgetItem(f"# {tag}")
+        for tag in sorted(tag_counts.keys()):
+            count = tag_counts[tag]
+            item = QListWidgetItem(f"# {tag} ({count})")
             item.setData(Qt.ItemDataRole.UserRole, tag)
             self.tag_list.addItem(item)
 
