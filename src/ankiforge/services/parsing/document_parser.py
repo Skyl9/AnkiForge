@@ -28,63 +28,66 @@ class DocumentParser:
         else:
             raise ValueError(f"Format de fichier non supporté : {ext}")
 
-    def _parse_pdf_with_marker(self, file_path: str|Path,progress_callback=None) -> str:
+    def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback=None) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
-        try:
-            with tempfile.TemporaryDirectory() as temp_dir_str:
-                temp_dir = Path(temp_dir_str)
-                use_shell = sys.platform.startswith("win")
-                cmd = ["marker_single", str(file_path), "--output_dir", str(temp_dir)]
+        # On a retiré le grand "try:" global
+        with tempfile.TemporaryDirectory() as temp_dir_str:
+            temp_dir = Path(temp_dir_str)
+            use_shell = sys.platform.startswith("win")
+            cmd = ["marker_single", str(file_path), "--output_dir", str(temp_dir)]
 
-                if progress_callback:
-                    progress_callback("Lancement du moteur de Deep Learning (Marker)...")
-                    progress_callback("Le chargement des modèles IA en RAM peut prendre quelques instants.\n")
+            if progress_callback:
+                progress_callback("Lancement du moteur de Deep Learning (Marker)...")
+                progress_callback("Le chargement des modèles IA en RAM peut prendre quelques instants.\n")
 
-                # subprocess.run bloque l'exécution ici jusqu'à la fin de Marker
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    shell=use_shell,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                # Lecture ligne par ligne et envoi à l'interface graphique
-                for line in iter(process.stdout.readline, ''):
-                    if line and progress_callback:
-                        progress_callback(line.strip())
+            # 👇 On limite le try/except EXCLUSIVEMENT au lancement du processus
+            try:
+                with subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        shell=use_shell,
+                        encoding='utf-8',
+                        errors='replace'
+                ) as process:
 
-                process.wait()
+                    for line in iter(process.stdout.readline, ''):
+                        if line and progress_callback:
+                            progress_callback(line.strip())
 
-                if process.returncode != 0:
-                    raise RuntimeError(f"Marker a échoué avec le code erreur {process.returncode}.")
+                    process.wait()
 
-                md_files = list(temp_dir.rglob("*.md"))
+                    if process.returncode != 0:
+                        raise RuntimeError(f"Marker a échoué avec le code erreur {process.returncode}.")
 
-                if not md_files:
-                    raise FileNotFoundError("Marker n'a pas généré de fichier .md. Consultez les logs.")
+            except FileNotFoundError:
+                # Cette exception ne s'activera QUE si "marker_single" n'existe pas sur le PC
+                raise RuntimeError("Marker n'est pas installé ou introuvable. Lancez 'uv pip install marker-pdf'")
 
-                if progress_callback:
-                    progress_callback("\n📄 Extraction texte terminée. Traitement et copie des images...")
+            # 👇 La suite du code n'est plus dans le try/except
+            md_files = list(temp_dir.rglob("*.md"))
 
-                md_file_path = md_files[0]
-                marker_output_folder = md_file_path.parent
+            if not md_files:
+                # Maintenant, cette erreur pourra remonter correctement jusqu'au test !
+                raise FileNotFoundError("Marker n'a pas généré de fichier .md. Consultez les logs.")
 
-                raw_markdown = md_file_path.read_text(encoding='utf-8', errors='ignore')
+            if progress_callback:
+                progress_callback("\n📄 Extraction texte terminée. Traitement et copie des images...")
 
-                processed_markdown = self.media_manager.process_extracted_folder(
-                    source_folder=str(marker_output_folder),
-                    markdown_content=raw_markdown
-                )
+            md_file_path = md_files[0]
+            marker_output_folder = md_file_path.parent
 
-                if progress_callback: progress_callback("✅ Terminé !")
-                return processed_markdown
+            raw_markdown = md_file_path.read_text(encoding='utf-8', errors='ignore')
 
-        except FileNotFoundError:
-            raise RuntimeError("Marker n'est pas installé ou introuvable. Lancez 'uv pip install marker-pdf'")
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Le moteur Marker a rencontré une erreur :\n{e.stderr}")
+            processed_markdown = self.media_manager.process_extracted_folder(
+                source_folder=str(marker_output_folder),
+                markdown_content=raw_markdown
+            )
+
+            if progress_callback: progress_callback("✅ Terminé !")
+            return processed_markdown
+
 
     def _parse_text(self, file_path: Path) -> str:
         """Lecture basique de fichiers texte."""
