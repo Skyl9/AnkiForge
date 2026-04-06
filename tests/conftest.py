@@ -3,7 +3,8 @@ import pytest
 from peewee import SqliteDatabase
 from ankiforge.database.models import (DeckModel, NoteTypeModel, NoteModel, CardModel,
                  NoteVersionModel, AgentModel, PipelineModel,
-                 PipelineStepModel, FolderModel, DocumentModel)
+                 PipelineStepModel, FolderModel, DocumentModel,
+                 IgnoredDuplicateModel, LLMConfigModel, PromptModel)
 
 
 @pytest.fixture(autouse=True)
@@ -14,7 +15,8 @@ def mock_db():
 
     # On liste TOUTES les tables de l'application
     models = [DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel,
-              AgentModel, PipelineModel, PipelineStepModel, FolderModel, DocumentModel]
+              AgentModel, PipelineModel, PipelineStepModel, FolderModel, DocumentModel,
+              IgnoredDuplicateModel, LLMConfigModel, PromptModel]
 
     # On force Peewee à utiliser cette fausse base plutôt que le fichier .db réel
     test_db.bind(models, bind_refs=False, bind_backrefs=False)
