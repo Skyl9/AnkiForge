@@ -639,10 +639,22 @@ class EditionTab(QWidget):
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
 
     def update_preview(self) -> None:
-        if not self.current_note or self.preview_card_selector.count() == 0:
+        if self.preview_card_selector.count() == 0:
             return
 
-        templates = json.loads(self.current_note.note_type.templates)
+        note_type = None
+        if self.is_creating:
+            if not hasattr(self, 'creation_model_cb'): return
+            model_id = self.creation_model_cb.currentData()
+            if not model_id: return
+            note_type = NoteTypeModel.get_by_id(model_id)
+        elif self.current_note:
+            note_type = self.current_note.note_type
+
+        if not note_type:
+            return
+
+        templates = json.loads(note_type.templates)
         selected_tmpl_idx = self.preview_card_selector.currentIndex()
         if selected_tmpl_idx < 0:
             return
@@ -656,7 +668,7 @@ class EditionTab(QWidget):
         }
 
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
-        css = self.current_note.note_type.css_style
+        css = note_type.css_style
 
         final_html = render_anki_card(
             raw_html=raw_html,
