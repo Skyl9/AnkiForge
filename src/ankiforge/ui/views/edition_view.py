@@ -608,6 +608,10 @@ class EditionTab(QWidget):
 
     def save_note_edits(self) -> None:
         """Met à jour le JSON de la note dans la base de données Peewee"""
+        if self.is_creating:
+            self._create_new_note()
+            return
+
         if not self.current_note:
             return
 
@@ -637,6 +641,65 @@ class EditionTab(QWidget):
             show_toast(self, "Note mise à jour !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
+
+    def _create_new_note(self) -> None:
+        try:
+            model_id = self.creation_model_cb.currentData()
+            note_type = NoteTypeModel.get_by_id(model_id)
+            
+            content_dict = {}
+            for field_name, editor in self.field_editors.items():
+                content_dict[field_name] = editor.toPlainText().replace('\n', '<br>')
+                
+            import uuid
+            
+            with db.atomic():
+                # 1. Créer la Note
+                new_note = NoteModel.create(
+                    guid=str(uuid.uuid4())[:10], # format basique
+                    note_type=note_type,
+                    tags="[]",
+                    status="new"
+                )
+                
+                # 2. Créer la version initiale
+                new_version = new_note.add_version(content_dict, source="manual")
+                
+                # 3. Créer la/les cartes
+                templates = json.loads(note_type.templates) if note_type.templates else []
+                deck = DeckModel.get_by_id(self.current_deck_id)
+                for i, tmpl in enumerate(templates):
+                    CardModel.create(
+                        note=new_note,
+                        deck=deck,
+                        template_index=i
+                    )
+            
+            show_toast(self, "✨ Nouvelle note créée !")
+            self._exit_creation_mode(refresh=True, select_note_id=new_note.id)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Impossible de créer la note : {e}")
+
+    def _exit_creation_mode(self, refresh: bool = False, select_note_id: int = None) -> None:
+        self.is_creating = False
+        self.btn_save_edits.setText(" Sauvegarder les modifications")
+        self.btn_history.setVisible(True)
+        
+        if refresh:
+            self.refresh_table()
+            
+        if select_note_id:
+            self.jump_to_note(select_note_id, self.current_deck_id)
+        else:
+            # Nettoyer l'interface si on annule simplement
+            while self.details_layout.count():
+                child = self.details_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+            self.field_editors.clear()
+            self.btn_save_edits.setEnabled(False)
+            self.btn_history.setEnabled(False)
 
     def update_preview(self) -> None:
         if self.preview_card_selector.count() == 0:
