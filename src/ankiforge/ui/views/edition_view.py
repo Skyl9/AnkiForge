@@ -515,6 +515,93 @@ class EditionTab(QWidget):
             self.details_layout.addWidget(QLabel(f"Erreur : {e}"))
 
     @Slot()
+    def enter_creation_mode(self) -> None:
+        if not self.current_deck_id:
+            return
+
+        # Annuler la sélection du tableau sans déclencher on_row_selected immédiatement pour éviter des conflits
+        self.data_table.blockSignals(True)
+        self.data_table.clearSelection()
+        self.data_table.blockSignals(False)
+
+        self.is_creating = True
+        self.current_note = None
+
+        self.btn_save_edits.setText(" ✨ Créer la note")
+        self.btn_save_edits.setEnabled(True)
+        self.btn_history.setVisible(False)
+
+        while self.details_layout.count():
+            child = self.details_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        self.field_editors.clear()
+
+        lbl_title = QLabel("<b>Création de Note</b>")
+        lbl_title.setStyleSheet("font-size: 16px; margin-bottom: 5px;")
+        self.details_layout.addWidget(lbl_title)
+
+        # Sélecteur de modèle
+        model_layout = QHBoxLayout()
+        model_layout.addWidget(QLabel("Modèle :"))
+        self.creation_model_cb = QComboBox()
+        models = NoteTypeModel.select()
+        for m in models:
+            self.creation_model_cb.addItem(m.name, m.id)
+        
+        self.creation_model_cb.currentIndexChanged.connect(self.render_creation_fields)
+        model_layout.addWidget(self.creation_model_cb)
+        model_layout.addStretch()
+        
+        # On encapsule dans un widget pour l'ajouter au QVBoxLayout
+        model_widget = QWidget()
+        model_widget.setLayout(model_layout)
+        self.details_layout.addWidget(model_widget)
+
+        # On appelle le rendu initial
+        self.render_creation_fields()
+
+    @Slot()
+    def render_creation_fields(self) -> None:
+        if not self.is_creating:
+            return
+            
+        model_id = self.creation_model_cb.currentData()
+        if not model_id:
+            return
+            
+        note_type = NoteTypeModel.get_by_id(model_id)
+        fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
+        
+        # On nettoie les anciens champs (tout sauf le titre et le combobox)
+        while self.details_layout.count() > 2:
+            child = self.details_layout.takeAt(2)
+            if child.widget():
+                child.widget().deleteLater()
+                
+        self.field_editors.clear()
+        
+        for field_name in fields:
+            lbl = QLabel(f"<b>{field_name}</b>")
+            text_edit = DropImageTextEdit()
+            text_edit.setMinimumHeight(60)
+            text_edit.textChanged.connect(self._on_text_changed)
+            
+            self.field_editors[field_name] = text_edit
+            self.details_layout.addWidget(lbl)
+            self.details_layout.addWidget(text_edit)
+            
+        # Mise à jour de l'aperçu pour la création (brouillon)
+        self.preview_card_selector.blockSignals(True)
+        self.preview_card_selector.clear()
+        templates = json.loads(note_type.templates) if note_type.templates else []
+        for tmpl in templates:
+            self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
+        self.preview_card_selector.blockSignals(False)
+        self.update_preview()
+
+    @Slot()
     def _on_text_changed(self) -> None:
         """Relance le délai de 500ms à chaque frappe pour laisser MathJax respirer."""
         self.preview_timer.start()
