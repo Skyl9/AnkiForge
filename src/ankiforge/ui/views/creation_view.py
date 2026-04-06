@@ -5,6 +5,7 @@ from typing import Any, List, Dict
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
 from PySide6.QtGui import QShortcut, QKeySequence
+from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QComboBox, QTableWidget,
@@ -15,6 +16,7 @@ from jinja2 import Template
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, LLMConfigModel
+from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import ActionButton, PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
@@ -35,7 +37,7 @@ class GenerationThread(QThread):
         self.pipeline_id = pipeline_id
 
     @staticmethod
-    def _clean_json(self, raw_text: str) -> str:
+    def _clean_json(raw_text: str) -> str:
         clean = raw_text.strip()
         if clean.startswith("```json"):
             clean = clean[7:-3].strip()
@@ -82,7 +84,8 @@ class GenerationThread(QThread):
                 cleaned_output = self._clean_json(raw_response)
                 current_input = f"Voici les données à traiter (provenant de l'étape précédente) :\n{cleaned_output}"
 
-            data = json.loads(cleaned_output)
+            data = parse_ai_json_response(raw_response)
+
             if "notes" not in data:
                 raise ValueError("Le JSON final ne contient pas la clé 'notes'.")
 
@@ -213,6 +216,8 @@ class CreationTab(QWidget):
         preview_layout.addLayout(controls_layout)
 
         self.web_view = QWebEngineView()
+        self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+
         preview_layout.addWidget(self.web_view)
 
         # Icônes pour les onglets
@@ -291,6 +296,8 @@ class CreationTab(QWidget):
         self.deck_selector.blockSignals(False)
         self.model_selector.blockSignals(False)
         self.pipeline_selector.blockSignals(False)
+
+        self.on_model_changed()
 
     @Slot()
     def update_token_estimate(self) -> None:

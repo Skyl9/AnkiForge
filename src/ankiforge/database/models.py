@@ -188,49 +188,97 @@ class IgnoredDuplicateModel(BaseModel):
 
 def seed_initial_data() -> None:
     """
-    Responsabilité UNIQUE : Peupler la base avec les données métier indispensables
-    au premier lancement de l'application.
+    Responsabilité UNIQUE : Peupler la base avec les données métier (Prompts d'excellence).
     """
-    # Si des agents existent déjà, on ne fait rien
     if AgentModel.select().count() > 0:
         return
 
-    # Agent 1 : Le Créateur
+    # ==========================================
+    # AGENT 1 : L'ARCHIVISTE PÉDAGOGUE (Extracteur)
+    # ==========================================
+    extracteur_prompt = """Tu es un expert en ingénierie de la connaissance (niveau Prépa/Ensimag).
+Ta mission est de convertir 100% de la substance du cours fourni en flashcards Anki optimales, en utilisant le LaTeX pour TOUTE notation.
+
+RÈGLES DE RÉDACTION DES QUESTIONS ({{ first_field }}) :
+1. STYLE NATUREL : Formulations directes ("Qu'est ce qu'une...", "Comment prouver que..."). ZÉRO méta-texte ("Définition de...").
+2. THÉORÈMES NOMMÉS : Si un théorème a un nom propre (ex: Schwarz), demande-le explicitement sans spoiler le résultat.
+3. MOTS-CLÉS EN GRAS : Identifie le concept mathématique central et mets-le en <b>gras</b>.
+4. CACHE DES HYPOTHÈSES : Ne donne JAMAIS les hypothèses restrictives (ex: "dérivée continue") dans la question. Elles vont dans la réponse.
+5. ANTI-SPOILER : La question ne doit jamais contenir la réponse ou divulguer la propriété ciblée.
+
+PHILOSOPHIE DU TOUT LATEX :
+Chaque variable, chiffre ou symbole mathématique DOIT être entouré de \\( ... \\) (inline) ou \\[ ... \\] (bloc). 
+ATTENTION AUX INTERVALLES : Écris \\( [0, 1] \\) et JAMAIS \\[0, 1\\].
+
+ATOMICITÉ :
+Scinde systématiquement Définition, Théorème et Démonstration en cartes distinctes.
+
+STRUCTURE REQUISE (JSON) :
+Génère un objet JSON contenant une liste "notes". 
+Chaque objet doit avoir les clés EXACTES : {{ fields_str }}.
+Toutes les remarques, exemples et pièges doivent être rédigés dans le {{ second_field }}.
+
+RÉPONDS UNIQUEMENT AVEC LE JSON VALIDE."""
+
     extracteur = AgentModel.create(
-        name="Extracteur de Connaissances",
-        description="Extrait le contenu brut du texte...",
-        system_prompt="Ton prompt ici..."
+        name="1. Archiviste Pédagogue",
+        description="Extrait le cours en respectant l'atomicité, la dissimulation des hypothèses et le tout-LaTeX.",
+        system_prompt=extracteur_prompt
     )
 
-    # Agent 2 : Le Contrôleur
+    # ==========================================
+    # AGENT 2 : LE CONTRÔLEUR QUALITÉ (Linter)
+    # ==========================================
+    controleur_prompt = """Tu es un Linter Technique intraitable, expert en Markdown, LaTeX (MathJax) et JSON.
+Ta mission est d'auditer et de corriger le JSON généré par l'agent précédent pour garantir un rendu parfait dans Anki.
+
+RÈGLES DE FORMATAGE STRICTES :
+1. LATEX & ESPACES : Tu dois IMPÉRATIVEMENT vérifier et ajouter un espace insécable `&nbsp;` juste avant chaque ouverture de balise LaTeX (`\\(` ou `\\[`). Vérifie que chaque balise est bien fermée.
+2. INTERVALLES : Ne confonds jamais un intervalle \\( [a, b] \\) avec une balise bloc.
+3. FORMAT MONOLIGNE : Remplace tous les retours à la ligne `\\n` par des balises `<br>`, sauf à l'intérieur des listes HTML.
+4. CODE : Entoure les termes informatiques de `<code>...</code>` et les blocs de `<pre><code>...</code></pre>`.
+5. LISTES : Transforme toutes les listes textuelles en listes HTML (`<ul><li>...</li></ul>` ou `<ol>`).
+
+DICTIONNAIRE SÉMANTIQUE (À injecter dans le {{ second_field }}) :
+Applique ces balises HTML autour des éléments correspondants dans la réponse :
+- Formule finale importante : <div class="important">...</div>
+- Remarque : <div class="remarque">...</div>
+- Exemple : <div class="exemple">...</div>
+- Erreur/Piège : <div class="danger">...</div>
+- Intuition : <div class="astuce">...</div>
+
+STRUCTURE REQUISE :
+Conserve le format JSON strict avec la clé "notes".
+Les clés autorisées sont EXACTEMENT : {{ fields_str }}.
+
+NE RENVOIE QUE LE JSON STRICTEMENT VALIDE. NE METS AUCUN TEXTE AVANT OU APRÈS, NI DE BLOC MARKDOWN ```json."""
+
     controleur = AgentModel.create(
-        name="Contrôleur Technique JSON/LaTeX",
-        description="Vérifie le formatage...",
-        system_prompt="Ton prompt strict ici..."
+        name="2. Linter & Contrôleur Qualité",
+        description="Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
+        system_prompt=controleur_prompt
     )
 
-    # Pipeline par défaut
+    # ==========================================
+    # CRÉATION DES PIPELINES
+    # ==========================================
     pipeline_complet = PipelineModel.create(
-        name="Génération Standard",
-        description="Extraction suivie d'un contrôle rigoureux."
+        name="Excellence Math/Info (Archiviste + Linter)",
+        description="Pipeline haute-fidélité pour les cours scientifiques. Extrait intelligemment puis formate le LaTeX, les balises CSS et le code."
     )
-
     PipelineStepModel.create(pipeline=pipeline_complet, agent=extracteur, step_order=1)
     PipelineStepModel.create(pipeline=pipeline_complet, agent=controleur, step_order=2)
+
+    pipeline_rapide = PipelineModel.create(
+        name="Extraction Simple (Brouillon)",
+        description="Utilise uniquement l'Archiviste. Rapide et économe, mais sans vérification du formatage HTML/LaTeX."
+    )
+    PipelineStepModel.create(pipeline=pipeline_rapide, agent=extracteur, step_order=1)
+
+    # ==========================================
+    # CRÉATION DES MOTEURS IA
+    # ==========================================
     if LLMConfigModel.select().count() == 0:
-        LLMConfigModel.create(
-            display_name="GPT-4o (OpenAI)", provider="openai",
-            model_id="gpt-4o", context_limit=128000
-        )
-        LLMConfigModel.create(
-            display_name="GPT-4o Mini (OpenAI)", provider="openai",
-            model_id="gpt-4o-mini", context_limit=128000
-        )
-        LLMConfigModel.create(
-            display_name="Claude 3.5 Sonnet", provider="anthropic",
-            model_id="claude-3-5-sonnet-20240620", context_limit=200000
-        )
-        LLMConfigModel.create(
-            display_name="Mistral Local (Ollama)", provider="ollama",
-            model_id="mistral", context_limit=32768
-        )
+        LLMConfigModel.create(display_name="GPT-4o (OpenAI)", provider="openai", model_id="gpt-4o", context_limit=128000)
+        LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet-20240620", context_limit=200000)
+        LLMConfigModel.create(display_name="Mistral Local (Ollama)", provider="ollama", model_id="mistral", context_limit=32768)

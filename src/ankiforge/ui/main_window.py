@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(AgentsTab(), qta.icon('fa5s.robot', color=iconColor), "Agents & Pipelines")
         self.tabs.addTab(self.stats_tabs, qta.icon('fa5s.chart-bar', color=iconColor), "Statistiques")
         self.tabs.addTab(self.tab_documents, qta.icon('fa5s.folder-open', color=iconColor), "Documents")
-        self.tabs.addTab(SettingsTab(self.ai_manager), qta.icon('fa5s.cog', color=iconColor), "Paramètres IA")
+        self.tabs.addTab(SettingsTab(), qta.icon('fa5s.cog', color=iconColor), "Paramètres IA")
         self.tabs.addTab(self.batch_tab, qta.icon('fa5s.rocket', color=iconColor), "Automatisation")
         self.tabs.addTab(self.llm_manager_tab, qta.icon('fa5s.robot'), " Moteurs IA")
 
