@@ -61,6 +61,7 @@ class EditionTab(QWidget):
         self.current_note: Optional[NoteModel] = None
         self.current_tag_filter: Optional[str] = None
         self.field_editors: Dict[str, QTextEdit] = {}
+        self.is_creating = False
 
         layout = QVBoxLayout(self)
 
@@ -109,9 +110,14 @@ class EditionTab(QWidget):
         self.btn_reject.clicked.connect(self.reject_selected_notes)
         self.btn_reject.setVisible(False)
 
+        self.btn_new_note = PrimaryButton(qtawesome.icon('fa5s.plus', color='white'), " Nouvelle Note")
+        self.btn_new_note.clicked.connect(self.enter_creation_mode)
+        self.btn_new_note.setEnabled(False)
+
         self.btn_scan_dupes = ActionButton(qtawesome.icon('fa5s.search', color='white'), " Traquer les doublons")
         self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
 
+        toolbar_layout.addWidget(self.btn_new_note)
         toolbar_layout.addWidget(self.btn_scan_dupes)
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
@@ -350,6 +356,7 @@ class EditionTab(QWidget):
 
         self.btn_approve.setVisible(is_quarantine)
         self.btn_reject.setVisible(is_quarantine)
+        self.btn_new_note.setEnabled(not is_quarantine and self.current_deck_id is not None)
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
