@@ -301,6 +301,16 @@ class EditionTab(QWidget):
 
     @Slot(QTreeWidgetItem, int)
     def on_deck_selected(self, item: QTreeWidgetItem, column: int) -> None:
+        if self.is_creating:
+            reply = QMessageBox.question(
+                self, "Création en cours",
+                "Changer de paquet annulera la création en cours. Continuer ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+            self._exit_creation_mode(refresh=False)
+
         self.current_deck_id = item.data(0, Qt.ItemDataRole.UserRole)
         self.btn_export.setEnabled(True)
         self.refresh_table()
@@ -461,6 +471,20 @@ class EditionTab(QWidget):
         selected_items = self.data_table.selectedItems()
         if not selected_items:
             return
+
+        if self.is_creating:
+            reply = QMessageBox.question(
+                self, "Création en cours",
+                "Vous avez une création de note en cours. Voulez-vous vraiment annuler et perdre vos saisies ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                self.data_table.blockSignals(True)
+                self.data_table.clearSelection()
+                self.data_table.blockSignals(False)
+                return
+            else:
+                self._exit_creation_mode(refresh=False)
 
         if self.view_mode_cb.currentText() == "Vue : Quarantaine (À valider)":
             self.btn_approve.setEnabled(True)
@@ -950,6 +974,10 @@ class EditionTab(QWidget):
 
     @Slot()
     def scan_for_duplicates(self) -> None:
+        if self.is_creating:
+            QMessageBox.warning(self, "Attention", "Veuillez terminer ou annuler la création en cours d'abord.")
+            return
+
         if not self.current_deck_id:
             QMessageBox.warning(self, "Attention", "Veuillez d'abord sélectionner un paquet.")
             return
