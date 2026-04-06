@@ -4,8 +4,8 @@ import re
 from typing import Optional, Dict
 
 import qtawesome
-from PySide6.QtCore import Qt, QUrl, Slot, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings
+from PySide6.QtGui import QColor, QAction
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
@@ -55,6 +55,7 @@ class SortableTableItem(QTableWidgetItem):
 class EditionTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
+        self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.store = StoreManager()
         self.current_deck_id: Optional[int] = None
         self.current_note: Optional[NoteModel] = None
@@ -125,6 +126,11 @@ class EditionTab(QWidget):
         self.data_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.data_table.setAlternatingRowColors(True)
         self.data_table.horizontalHeader().setStretchLastSection(True)
+        self.data_table.horizontalHeader().setSectionsMovable(True)
+        self.data_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.data_table.horizontalHeader().customContextMenuRequested.connect(self.show_header_menu)
+        self.data_table.horizontalHeader().sectionResized.connect(self.save_table_state)
+        self.data_table.horizontalHeader().sectionMoved.connect(self.save_table_state)
         self.data_table.itemSelectionChanged.connect(self.on_row_selected)
 
         self.data_table.setSortingEnabled(True)
@@ -294,6 +300,42 @@ class EditionTab(QWidget):
         self.refresh_table()
         self.refresh_tags_list()
 
+    def show_header_menu(self, pos) -> None:
+        menu = QMenu(self)
+        visible_count = sum(not self.data_table.isColumnHidden(i) for i in range(self.data_table.columnCount()))
+        for i in range(self.data_table.columnCount()):
+            action = QAction(self.data_table.horizontalHeaderItem(i).text(), self)
+            action.setCheckable(True)
+            is_visible = not self.data_table.isColumnHidden(i)
+            action.setChecked(is_visible)
+            if is_visible and visible_count <= 1:
+                action.setEnabled(False)
+            action.toggled.connect(lambda checked, col=i: self.toggle_column_visibility(col, checked))
+            menu.addAction(action)
+        menu.exec(self.data_table.horizontalHeader().mapToGlobal(pos))
+
+    def toggle_column_visibility(self, col: int, visible: bool) -> None:
+        self.data_table.setColumnHidden(col, not visible)
+        self.save_table_state()
+
+    def get_table_state_key(self) -> str:
+        mode = self.view_mode_cb.currentText()
+        if mode == "Vue : Cartes (Métadonnées)":
+            return "EditionView/TableState_Cards"
+        else:
+            return "EditionView/TableState_Notes"
+
+    def save_table_state(self, *args) -> None:
+        if self.data_table.columnCount() == 0:
+            return
+        state = self.data_table.horizontalHeader().saveState()
+        self.settings.setValue(self.get_table_state_key(), state)
+
+    def restore_table_state(self) -> None:
+        state = self.settings.value(self.get_table_state_key())
+        if state:
+            self.data_table.horizontalHeader().restoreState(state)
+
     def refresh_table(self) -> None:
         if not self.current_deck_id:
             return
@@ -402,6 +444,7 @@ class EditionTab(QWidget):
                     self.data_table.item(row_index, 0).setData(Qt.ItemDataRole.UserRole, note.id)
 
             self.data_table.setSortingEnabled(True)
+            self.restore_table_state()
         except Exception as e:
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
             import traceback

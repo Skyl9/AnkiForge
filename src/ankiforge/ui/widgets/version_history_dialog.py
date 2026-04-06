@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                QMessageBox, QSplitter, QWidget)
 
 from ankiforge.database.models import db, NoteModel, NoteVersionModel
-from ankiforge.ui.components.components import PrimaryButton
+from ankiforge.ui.components.components import PrimaryButton, HeaderLabel
 from ankiforge.ui.widgets.toast import show_toast
 
 
