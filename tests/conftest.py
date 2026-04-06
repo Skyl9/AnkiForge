@@ -1,4 +1,6 @@
 # tests/conftest.py
+import os
+
 import pytest
 from peewee import SqliteDatabase
 from ankiforge.database.models import (DeckModel, NoteTypeModel, NoteModel, CardModel,
@@ -6,6 +8,7 @@ from ankiforge.database.models import (DeckModel, NoteTypeModel, NoteModel, Card
                  PipelineStepModel, FolderModel, DocumentModel,
                  IgnoredDuplicateModel, LLMConfigModel, PromptModel)
 
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 @pytest.fixture(autouse=True)
 def mock_db():

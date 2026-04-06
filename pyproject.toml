@@ -23,6 +23,7 @@ dependencies = [
     "google-genai",
     "platformdirs>=4.9.4",
     "marker-pdf>=1.10.2",
+    "pytest-qt>=4.5.0",
 ]
 
 [project.gui-scripts]
