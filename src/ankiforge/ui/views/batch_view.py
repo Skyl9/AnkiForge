@@ -15,7 +15,7 @@ from jinja2 import Template
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, FolderModel, LLMConfigModel
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -218,6 +218,8 @@ class BatchTab(QWidget):
                                  "Aucun (Document entier)"]
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
 
         header = HeaderLabel("⚙️ Automatisation Avancée (Usine à cartes)")
         subtitle = QLabel("Gérez votre file d'attente et personnalisez le traitement pour chaque document.")
@@ -226,32 +228,49 @@ class BatchTab(QWidget):
         layout.addWidget(subtitle)
 
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.setHandleWidth(10)
 
-        # --- PANNEAU GAUCHE ---
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        # ==========================================
+        # PANNEAU GAUCHE : Source des documents
+        # ==========================================
+        source_panel = RoundedPanel()
+        source_layout = QVBoxLayout(source_panel)
+        source_layout.setContentsMargins(15, 15, 15, 15)
 
-        left_layout.addWidget(QLabel("<b>1. Source (Cours et Dossiers) :</b>"))
+        lbl_source = QLabel("1. SOURCE (COURS ET DOSSIERS)")
+        lbl_source.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        source_layout.addWidget(lbl_source)
 
         self.tree_source = QTreeWidget()
         self.tree_source.setHeaderHidden(True)
-        # Standard Qt6 : QAbstractItemView.SelectionMode
+        self.tree_source.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
         self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        left_layout.addWidget(self.tree_source)
+        source_layout.addWidget(self.tree_source)
 
         self.btn_add_to_queue = ActionButton('fa5s.arrow-right', " Ajouter à la file d'attente")
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
-        left_layout.addWidget(self.btn_add_to_queue)
+        source_layout.addWidget(self.btn_add_to_queue)
 
-        # --- PANNEAU DROIT ---
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        main_splitter.addWidget(source_panel)
+
+        # ==========================================
+        # PANNEAU DROIT : File d'attente et Console
+        # ==========================================
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.setHandleWidth(10)
+
+        # --- 2A. File d'attente et Configuration ---
+        queue_panel = RoundedPanel()
+        queue_layout = QVBoxLayout(queue_panel)
+        queue_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_config = QLabel("CONFIGURATION PAR DÉFAUT")
+        lbl_config.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        queue_layout.addWidget(lbl_config)
 
         default_params_layout = QHBoxLayout()
-        default_params_layout.addWidget(QLabel("<b>Configuration par défaut :</b>"))
-
         self.default_deck = QComboBox()
         self.default_model = QComboBox()
         self.default_llm = QComboBox()
@@ -261,46 +280,73 @@ class BatchTab(QWidget):
 
         default_params_layout.addWidget(self.default_deck)
         default_params_layout.addWidget(self.default_model)
+        default_params_layout.addWidget(self.default_llm)
         default_params_layout.addWidget(self.default_pipeline)
         default_params_layout.addWidget(self.default_chunking)
-        default_params_layout.addWidget(self.default_llm)
-        right_layout.addLayout(default_params_layout)
+        queue_layout.addLayout(default_params_layout)
 
-        right_layout.addWidget(QLabel("<b>2. File d'attente :</b>"))
+        lbl_queue = QLabel("2. FILE D'ATTENTE")
+        lbl_queue.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
+        queue_layout.addWidget(lbl_queue)
 
         self.table_queue = QTableWidget()
+        self.table_queue.setStyleSheet("QTableWidget { border: none; }")
         self.table_queue.setColumnCount(7)
+        # 🐛 CORRECTION DU BUG : Virgule manquante entre Moteur IA et Pipeline IA !
         self.table_queue.setHorizontalHeaderLabels(
-            ["Document", "Paquet", "Modèle", "Moteur IA" "Pipeline IA", "Découpage", "Action"])
-        self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        # Standard Qt6 : QAbstractItemView.EditTrigger
+            ["Document", "Paquet", "Modèle", "Moteur IA", "Pipeline IA", "Découpage", "Action"])
+        self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        right_layout.addWidget(self.table_queue)
+        self.table_queue.setAlternatingRowColors(True)
+        queue_layout.addWidget(self.table_queue)
 
-        right_layout.addWidget(QLabel("<b>Console de Suivi :</b>"))
+        right_splitter.addWidget(queue_panel)
+
+        # --- 2B. Console de suivi ---
+        console_panel = RoundedPanel()
+        console_layout = QVBoxLayout(console_panel)
+        console_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_console = QLabel("CONSOLE DE SUIVI")
+        lbl_console.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        console_layout.addWidget(lbl_console)
+
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
         self.console_log.setStyleSheet(
-            "background-color: palette(base); color: palette(text); font-family: 'Consolas', monospace; padding: 5px; border: 1px solid palette(alternate-base);"
-        )
-        right_layout.addWidget(self.console_log)
+            "background-color: transparent; color: palette(text); font-family: 'Consolas', monospace; border: none;")
+        console_layout.addWidget(self.console_log)
 
         bottom_layout = QHBoxLayout()
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
+        self.progress_bar.setFixedHeight(8)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar { border: none; background-color: palette(base); border-radius: 4px; }
+            QProgressBar::chunk { background-color: palette(highlight); border-radius: 4px; }
+        """)
         bottom_layout.addWidget(self.progress_bar)
 
         self.lbl_status = QLabel("Prêt.")
+        self.lbl_status.setStyleSheet(
+            "color: palette(placeholder-text); font-size: 12px; margin-left: 10px; margin-right: 10px;")
         bottom_layout.addWidget(self.lbl_status)
 
         self.btn_start = PrimaryButton(qta.icon('fa5s.rocket', color='white'), " Démarrer l'Usine")
         self.btn_start.clicked.connect(self.start_batch)
+        self.btn_start.setMinimumWidth(200)
         bottom_layout.addWidget(self.btn_start)
 
-        right_layout.addLayout(bottom_layout)
+        console_layout.addLayout(bottom_layout)
+        right_splitter.addWidget(console_panel)
 
-        main_splitter.addWidget(left_panel)
-        main_splitter.addWidget(right_panel)
+        right_splitter.setSizes([350, 300])
+
+        main_splitter.addWidget(source_panel)
+        main_splitter.addWidget(right_splitter)
         main_splitter.setSizes([250, 950])
 
         layout.addWidget(main_splitter)
@@ -309,11 +355,8 @@ class BatchTab(QWidget):
         self.load_tree_source()
 
         # --- RACCOURCIS CLAVIER ---
-        # Ctrl+Enter pour démarrer le traitement par lots
         self.shortcut_start = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut_start.activated.connect(self.start_batch)
-
-        # Suppr pour retirer l'élément sélectionné de la table (file d'attente)
         self.shortcut_remove_queue = QShortcut(QKeySequence.StandardKey.Delete, self.table_queue)
         self.shortcut_remove_queue.activated.connect(self._remove_selected_from_table)
 
@@ -464,9 +507,11 @@ class BatchTab(QWidget):
             doc_id = self.table_queue.item(row, 0).data(Qt.UserRole)
             deck_id = self.table_queue.cellWidget(row, 1).currentData()
             model_id = self.table_queue.cellWidget(row, 2).currentData()
+
+            # 🐛 CORRECTION DES BUGS D'INDEX ICI 👇
             llm_id = self.table_queue.cellWidget(row, 3).currentData()
-            pipe_id = self.table_queue.cellWidget(row, 3).currentData()
-            chunk_strategy = self.table_queue.cellWidget(row, 4).currentText()
+            pipe_id = self.table_queue.cellWidget(row, 4).currentData()
+            chunk_strategy = self.table_queue.cellWidget(row, 5).currentText()
 
             if not deck_id or not model_id or not pipe_id:
                 QMessageBox.warning(self, "Erreur", f"Configuration incomplète à la ligne {row + 1}.")

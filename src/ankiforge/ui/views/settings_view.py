@@ -1,10 +1,11 @@
 import qtawesome as qta
 from PySide6.QtCore import Slot, QSettings, Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QComboBox, QLineEdit, QFileDialog, QGroupBox, QFormLayout)
+                               QComboBox, QLineEdit, QFileDialog, QFormLayout)
 from pathlib import Path
 
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton
+# 👇 Ajout de RoundedPanel dans les imports
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import refresh_theme_live
 from ankiforge.ui.widgets.toast import show_toast
 
@@ -16,14 +17,26 @@ class SettingsTab(QWidget):
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
         title = HeaderLabel("Paramètres Généraux")
         layout.addWidget(title)
 
         # ==========================================
         # SECTION 1 : APPARENCE
         # ==========================================
-        appearance_group = QGroupBox("Apparence et Interface")
-        appearance_layout = QFormLayout(appearance_group)
+        app_panel = RoundedPanel()
+        app_layout = QVBoxLayout(app_panel)
+        app_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_app = QLabel("1. APPARENCE ET INTERFACE")
+        lbl_app.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
+        app_layout.addWidget(lbl_app)
+
+        form_app = QFormLayout()
+        form_app.setHorizontalSpacing(20)
 
         self.cb_theme = QComboBox()
         self.cb_theme.addItems(["Système (Par défaut)", "Sombre (Dark)", "Clair (Light)"])
@@ -32,14 +45,24 @@ class SettingsTab(QWidget):
         saved_theme = self.settings.value("ui/theme", "Système (Par défaut)")
         self.cb_theme.setCurrentText(saved_theme)
 
-        appearance_layout.addRow("Thème de l'application :", self.cb_theme)
-        layout.addWidget(appearance_group)
+        form_app.addRow(self._make_bold_label("Thème de l'application :"), self.cb_theme)
+        app_layout.addLayout(form_app)
+        layout.addWidget(app_panel)
 
         # ==========================================
         # SECTION 2 : EXPORTATION
         # ==========================================
-        export_group = QGroupBox("Exportation et Fichiers")
-        export_layout = QFormLayout(export_group)
+        exp_panel = RoundedPanel()
+        exp_layout = QVBoxLayout(exp_panel)
+        exp_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_exp = QLabel("2. EXPORTATION ET FICHIERS")
+        lbl_exp.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
+        exp_layout.addWidget(lbl_exp)
+
+        form_exp = QFormLayout()
+        form_exp.setHorizontalSpacing(20)
 
         path_layout = QHBoxLayout()
         self.le_export_path = QLineEdit()
@@ -56,28 +79,50 @@ class SettingsTab(QWidget):
         path_layout.addWidget(self.le_export_path)
         path_layout.addWidget(self.btn_browse)
 
-        export_layout.addRow("Dossier d'export par défaut :", path_layout)
-        layout.addWidget(export_group)
+        form_exp.addRow(self._make_bold_label("Dossier d'export par défaut :"), path_layout)
+        exp_layout.addLayout(form_exp)
+        layout.addWidget(exp_panel)
 
         # ==========================================
         # SECTION 3 : COMPORTEMENT
         # ==========================================
-        behavior_group = QGroupBox("Comportement")
-        behavior_layout = QFormLayout(behavior_group)
+        beh_panel = RoundedPanel()
+        beh_layout = QVBoxLayout(beh_panel)
+        beh_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_beh = QLabel("3. COMPORTEMENT")
+        lbl_beh.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
+        beh_layout.addWidget(lbl_beh)
+
+        form_beh = QFormLayout()
+        form_beh.setHorizontalSpacing(20)
 
         self.cb_auto_save = QComboBox()
         self.cb_auto_save.addItems(["Activé", "Désactivé"])
         self.cb_auto_save.setCurrentText(self.settings.value("behavior/auto_save", "Activé"))
-        behavior_layout.addRow("Sauvegarde automatique des notes :", self.cb_auto_save)
 
-        layout.addWidget(behavior_group)
+        form_beh.addRow(self._make_bold_label("Sauvegarde automatique des notes :"), self.cb_auto_save)
+        beh_layout.addLayout(form_beh)
+        layout.addWidget(beh_panel)
 
         layout.addStretch()
 
-        # Bouton de sauvegarde global
+        # Bouton de sauvegarde global (aligné à droite)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
         self.btn_save_all = PrimaryButton(qta.icon('fa5s.save', color='white'), " Enregistrer les préférences")
         self.btn_save_all.clicked.connect(self.save_all_settings)
-        layout.addWidget(self.btn_save_all, alignment=Qt.AlignmentFlag.AlignRight)
+        self.btn_save_all.setMinimumWidth(250)
+        btn_layout.addWidget(self.btn_save_all)
+
+        layout.addLayout(btn_layout)
+
+    def _make_bold_label(self, text: str) -> QLabel:
+        """Utilitaire pour formater les labels des formulaires."""
+        lbl = QLabel(text)
+        lbl.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
+        return lbl
 
     @Slot()
     def browse_export_path(self):
@@ -96,7 +141,7 @@ class SettingsTab(QWidget):
         self.settings.sync()
         refresh_theme_live()
 
-        show_toast(self, "Préférences enregistrées !")
+        show_toast(self, "Préférences enregistrées et appliquées !")
 
     @Slot()
     def refresh_data(self) -> None:

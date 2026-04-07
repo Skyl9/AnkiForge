@@ -1,15 +1,15 @@
 import os
 
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
-                               QComboBox, QMessageBox, QFormLayout, QGroupBox, QHBoxLayout,
-                               QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSpinBox, QSplitter)
-from dotenv import set_key
 import qtawesome as qta
 from PySide6.QtCore import Slot, Qt
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
+                               QComboBox, QMessageBox, QFormLayout, QHBoxLayout,
+                               QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSpinBox, QSplitter)
+from dotenv import set_key
 
 from ankiforge.database.models import db, LLMConfigModel
 from ankiforge.services.ai.flexible_service import OllamaProvider
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -20,77 +20,109 @@ class LLMManagerTab(QWidget):
         self.current_llm_id_editing = None
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
         title = HeaderLabel("Configuration de l'Intelligence Artificielle")
         layout.addWidget(title)
 
         main_splitter = QSplitter(Qt.Orientation.Vertical)
+        main_splitter.setHandleWidth(10)
 
         # ==========================================
-        # SECTION 1 : CLÉS API (Fichier .env)
+        # SECTION 1 : CLÉS API (En Carte)
         # ==========================================
-        api_group = QGroupBox("1. Clés d'authentification API")
-        api_layout = QFormLayout(api_group)
+        api_panel = RoundedPanel()
+        api_layout = QVBoxLayout(api_panel)
+        api_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_api = QLabel("1. CLÉS D'AUTHENTIFICATION API")
+        lbl_api.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
+        api_layout.addWidget(lbl_api)
+
+        form_api = QFormLayout()
+        form_api.setHorizontalSpacing(20)
 
         self.le_openai_key = QLineEdit(os.getenv("OPENAI_API_KEY", ""))
-        self.le_openai_key.setEchoMode(QLineEdit.Password)
+        self.le_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_openai_key.setPlaceholderText("sk-...")
-        # ActionButton automatically adapts icon color to text color in light/dark mode
-        api_layout.addRow("Clé OpenAI :", self.le_openai_key)
+        form_api.addRow(self._make_bold_label("Clé OpenAI :"), self.le_openai_key)
 
         self.le_anthropic_key = QLineEdit(os.getenv("ANTHROPIC_API_KEY", ""))
-        self.le_anthropic_key.setEchoMode(QLineEdit.Password)
+        self.le_anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_anthropic_key.setPlaceholderText("sk-ant-...")
-        api_layout.addRow(f"Clé Anthropic :", self.le_anthropic_key)
+        form_api.addRow(self._make_bold_label("Clé Anthropic :"), self.le_anthropic_key)
 
         self.le_gemini_key = QLineEdit(os.getenv("GEMINI_API_KEY", ""))
-        self.le_gemini_key.setEchoMode(QLineEdit.Password)
-        api_layout.addRow(f"Clé Gemini :", self.le_gemini_key)
+        self.le_gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
+        form_api.addRow(self._make_bold_label("Clé Gemini :"), self.le_gemini_key)
 
         self.le_groq_key = QLineEdit(os.getenv("GROQ_API_KEY", ""))
-        self.le_groq_key.setEchoMode(QLineEdit.Password)
-        api_layout.addRow(f"Clé Groq :", self.le_groq_key)
+        self.le_groq_key.setEchoMode(QLineEdit.EchoMode.Password)
+        form_api.addRow(self._make_bold_label("Clé Groq :"), self.le_groq_key)
 
+        api_layout.addLayout(form_api)
+
+        btn_api_layout = QHBoxLayout()
+        btn_api_layout.addStretch()
         self.btn_save_keys = PrimaryButton(qta.icon('fa5s.save', color='white'), " Mettre à jour les clés API")
         self.btn_save_keys.clicked.connect(self.save_api_keys)
+        btn_api_layout.addWidget(self.btn_save_keys)
+        api_layout.addLayout(btn_api_layout)
 
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_save_keys)
-        api_layout.addRow("", btn_layout)
-
-        main_splitter.addWidget(api_group)
+        main_splitter.addWidget(api_panel)
 
         # ==========================================
-        # SECTION 2 : MOTEURS IA (Base de données)
+        # SECTION 2 : CATALOGUE DES MODÈLES (Cartes séparées)
         # ==========================================
-        llm_group = QGroupBox("2. Catalogue des Modèles")
-        llm_layout = QVBoxLayout(llm_group)
-
         llm_splitter = QSplitter(Qt.Orientation.Horizontal)
+        llm_splitter.setHandleWidth(10)
 
         # --- Panneau Gauche : La Table ---
+        table_panel = RoundedPanel()
+        table_layout = QVBoxLayout(table_panel)
+        table_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_table = QLabel("2. CATALOGUE DES MODÈLES")
+        lbl_table.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        table_layout.addWidget(lbl_table)
+
         self.table_llms = QTableWidget()
+        self.table_llms.setStyleSheet("QTableWidget { border: none; }")
         self.table_llms.setColumnCount(4)
         self.table_llms.setHorizontalHeaderLabels(["Nom d'affichage", "Fournisseur", "Modèle", "Tokens Max"])
-        self.table_llms.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table_llms.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_llms.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table_llms.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table_llms.setAlternatingRowColors(True) # Added for better UX
+        self.table_llms.setAlternatingRowColors(True)
         self.table_llms.itemSelectionChanged.connect(self.on_table_selection_changed)
-        llm_splitter.addWidget(self.table_llms)
+        table_layout.addWidget(self.table_llms)
+
+        llm_splitter.addWidget(table_panel)
 
         # --- Panneau Droit : L'Éditeur ---
-        editor_widget = QWidget()
-        editor_layout = QFormLayout(editor_widget)
+        editor_panel = RoundedPanel()
+        editor_layout = QVBoxLayout(editor_panel)
+        editor_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_edit = QLabel("AJOUTER / MODIFIER UN MODÈLE")
+        lbl_edit.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
+        editor_layout.addWidget(lbl_edit)
+
+        form_editor = QFormLayout()
+        form_editor.setHorizontalSpacing(15)
 
         self.le_display_name = QLineEdit()
         self.le_display_name.setPlaceholderText("Ex: GPT-4o (Rapide)")
-        editor_layout.addRow("Nom d'affichage :", self.le_display_name)
+        form_editor.addRow(self._make_bold_label("Nom d'affichage :"), self.le_display_name)
 
         self.cb_provider = QComboBox()
         self.cb_provider.addItems(["openai", "anthropic", "ollama", "groq", "gemini"])
         self.cb_provider.currentTextChanged.connect(self.on_provider_changed)
-        editor_layout.addRow("Fournisseur :", self.cb_provider)
+        form_editor.addRow(self._make_bold_label("Fournisseur :"), self.cb_provider)
 
         model_id_layout = QHBoxLayout()
         self.cb_model_id = QComboBox()
@@ -104,37 +136,41 @@ class LLMManagerTab(QWidget):
 
         model_id_layout.addWidget(self.cb_model_id, stretch=1)
         model_id_layout.addWidget(self.btn_refresh_ollama)
-        editor_layout.addRow("ID du Modèle :", model_id_layout)
+        form_editor.addRow(self._make_bold_label("ID du Modèle :"), model_id_layout)
 
         self.spin_context = QSpinBox()
         self.spin_context.setRange(1000, 2000000)
         self.spin_context.setSingleStep(1000)
         self.spin_context.setValue(8192)
-        editor_layout.addRow("Limite de Tokens :", self.spin_context)
+        form_editor.addRow(self._make_bold_label("Limite de Tokens :"), self.spin_context)
 
+        editor_layout.addLayout(form_editor)
+        editor_layout.addStretch()
+
+        # Boutons d'action du modèle
         action_layout = QHBoxLayout()
-        self.btn_save_llm = PrimaryButton(qta.icon('fa5s.save', color='white'), " Ajouter")
-        self.btn_save_llm.clicked.connect(self.save_llm_config)
+        self.btn_clear_form = ActionButton('fa5s.plus', " Nouveau")
+        self.btn_clear_form.clicked.connect(self.clear_llm_form)
 
         self.btn_delete_llm = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer")
         self.btn_delete_llm.clicked.connect(self.delete_llm_config)
         self.btn_delete_llm.setEnabled(False)
 
-        self.btn_clear_form = ActionButton('fa5s.plus', " Nouveau")
-        self.btn_clear_form.clicked.connect(self.clear_llm_form)
+        self.btn_save_llm = PrimaryButton(qta.icon('fa5s.save', color='white'), " Ajouter")
+        self.btn_save_llm.clicked.connect(self.save_llm_config)
 
         action_layout.addWidget(self.btn_clear_form)
-        action_layout.addWidget(self.btn_save_llm)
+        action_layout.addStretch()
         action_layout.addWidget(self.btn_delete_llm)
-        editor_layout.addRow("", action_layout)
+        action_layout.addWidget(self.btn_save_llm)
 
-        llm_splitter.addWidget(editor_widget)
-        llm_splitter.setSizes([450, 350])
+        editor_layout.addLayout(action_layout)
+        llm_splitter.addWidget(editor_panel)
 
-        llm_layout.addWidget(llm_splitter)
-        main_splitter.addWidget(llm_group)
+        llm_splitter.setSizes([500, 300])
+        main_splitter.addWidget(llm_splitter)
 
-        main_splitter.setSizes([150, 650])
+        main_splitter.setSizes([200, 600])
         layout.addWidget(main_splitter)
 
         self.load_llms_table()
@@ -279,3 +315,9 @@ class LLMManagerTab(QWidget):
                 show_toast(self, "Moteur supprimé.")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur BDD", f"Impossible de supprimer : {e}")
+
+    def _make_bold_label(self, text: str) -> QLabel:
+        """Utilitaire pour formater les labels des formulaires."""
+        lbl = QLabel(text)
+        lbl.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
+        return lbl
