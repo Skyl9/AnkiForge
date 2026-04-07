@@ -7,7 +7,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from peewee import JOIN, fn
 
 from ankiforge.database.models import DeckModel, NoteModel, CardModel, PipelineModel
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, MetricCard
+# 👇 N'oublie pas d'importer RoundedPanel ici
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, MetricCard, RoundedPanel
 
 
 class StatsTab(QWidget):
@@ -26,13 +27,13 @@ class StatsTab(QWidget):
         self.btn_refresh.setFixedWidth(250)
         self.btn_refresh.clicked.connect(self.load_stats)
 
-
         header_layout.addStretch()
         header_layout.addWidget(self.btn_refresh)
         self.layout.addLayout(header_layout)
 
         # --- Section : Métriques Globales (Les grosses "Cartes") ---
         self.metrics_layout = QGridLayout()
+        self.metrics_layout.setSpacing(15)  # Aère un peu l'espace entre les 4 cartes
 
         self.card_total_notes = MetricCard("Total des Notes")
         self.card_total_cards = MetricCard("Total des Cartes")
@@ -46,19 +47,27 @@ class StatsTab(QWidget):
 
         self.layout.addLayout(self.metrics_layout)
 
-        # --- Section : Répartition par Paquet ---
-        lbl_subtitle = QLabel("Répartition par Paquet :")
-        lbl_subtitle.setStyleSheet("font-weight: bold; font-size: 15px;")
-        self.layout.addWidget(lbl_subtitle)
+        # --- Section : Répartition par Paquet (Encapsulé dans une Carte) ---
+        table_panel = RoundedPanel()
+        table_layout = QVBoxLayout(table_panel)
+        table_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_subtitle = QLabel("RÉPARTITION PAR PAQUET")
+        lbl_subtitle.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        table_layout.addWidget(lbl_subtitle)
 
         self.deck_table = QTableWidget()
+        self.deck_table.setStyleSheet("QTableWidget { border: none; }")  # Retire la vilaine bordure Qt
         self.deck_table.setColumnCount(2)
         self.deck_table.setHorizontalHeaderLabels(["Nom du Paquet", "Nombre de Cartes"])
-        self.deck_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        # Standard Qt6 : QAbstractItemView.EditTrigger
+        self.deck_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.deck_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.deck_table.setAlternatingRowColors(True)
-        self.layout.addWidget(self.deck_table)
+
+        table_layout.addWidget(self.deck_table)
+        self.layout.addWidget(table_panel)
+
         # Chargement initial des données
         self.load_stats()
 
@@ -70,13 +79,11 @@ class StatsTab(QWidget):
     @Slot()
     def load_stats(self) -> None:
         """Récupère les données depuis SQLite (Peewee) et met à jour l'UI."""
-        # 👇 Mise à jour via les méthodes propres du composant 👇
         self.card_total_notes.set_value(str(NoteModel.select().count()))
         self.card_total_cards.set_value(str(CardModel.select().count()))
         self.card_total_decks.set_value(str(DeckModel.select().count()))
         self.card_total_pipelines.set_value(str(PipelineModel.select().count()))
 
-        # Le reste de ta requête Peewee ultra-optimisée ne change pas !
         decks_with_counts = (DeckModel
                              .select(DeckModel, fn.COUNT(CardModel.id).alias('card_count'))
                              .join(CardModel, JOIN.LEFT_OUTER)
@@ -89,5 +96,5 @@ class StatsTab(QWidget):
         for row, deck in enumerate(decks_list):
             self.deck_table.setItem(row, 0, QTableWidgetItem(deck.name))
             item_count = QTableWidgetItem(str(deck.card_count))
-            item_count.setTextAlignment(Qt.AlignCenter)
+            item_count.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.deck_table.setItem(row, 1, item_count)

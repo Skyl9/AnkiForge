@@ -18,35 +18,8 @@ from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeM
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
-from ankiforge.ui.theme import get_icon_color, is_dark_mode
-from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
-from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
-from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
-from ankiforge.utils.anki_renderer import render_anki_card
-from ankiforge.utils.c_bridge import get_similarity
-from ankiforge.utils.paths import get_app_data_dir
-import json
-import re
-from typing import Optional, Dict
-
-import qtawesome
-from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings
-from PySide6.QtGui import QColor, QAction
-from PySide6.QtWebEngineCore import QWebEngineSettings
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
-                               QFileDialog, QMessageBox, QSplitter, QTreeWidget,
-                               QTreeWidgetItem, QTableWidget, QTableWidgetItem,
-                               QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
-                               QMenu, QInputDialog)
-
-from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
-    IgnoredDuplicateModel
-from ankiforge.services.cards.export_manager import ExportManager
-from ankiforge.services.cards.store_manager import StoreManager
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.theme import get_icon_color
+from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.toast import show_toast
