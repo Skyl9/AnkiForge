@@ -229,12 +229,6 @@ class ModelsTab(QWidget):
         """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
         self.refresh_models_list()
 
-    def _add_group(self, parent_layout: QVBoxLayout, title: str, widget: QWidget) -> None:
-        group = QGroupBox(title)
-        lyt = QVBoxLayout(group)
-        lyt.addWidget(widget)
-        parent_layout.addWidget(group)
-
     @Slot()
     def _enable_save(self) -> None:
         if self.current_model_id:
