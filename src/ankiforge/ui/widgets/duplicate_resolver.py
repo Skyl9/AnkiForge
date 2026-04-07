@@ -2,10 +2,11 @@ import difflib
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QTextEdit, QProgressBar, QMessageBox)
+                               QTextEdit, QProgressBar, QMessageBox, QWidget)
 
 from ankiforge.database.models import db, NoteModel, IgnoredDuplicateModel
-from ankiforge.ui.components.components import PrimaryButton, ActionButton
+from ankiforge.ui.components.components import PrimaryButton, ActionButton, RoundedPanel
+from ankiforge.ui.theme import is_dark_mode
 
 
 class DuplicateResolverDialog(QDialog):
@@ -16,48 +17,72 @@ class DuplicateResolverDialog(QDialog):
         self.resolved_count = 0
 
         self.setWindowTitle("Résolution des Doublons (Git Merge)")
-        self.setMinimumSize(900, 500)
+        self.setMinimumSize(1000, 600)
+        self.setStyleSheet("QDialog { background-color: palette(window); }")
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
 
         # 1. En-tête avec barre de progression
         header_layout = QHBoxLayout()
         self.lbl_status = QLabel()
-        self.lbl_status.setStyleSheet("font-size: 16px; font-weight: bold;")
+        self.lbl_status.setStyleSheet("font-size: 16px; font-weight: bold; color: palette(text);")
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximum(len(self.conflicts))
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(10)
+        self.progress_bar.setFixedHeight(8)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar { border: none; background-color: palette(base); border-radius: 4px; }
+            QProgressBar::chunk { background-color: palette(highlight); border-radius: 4px; }
+        """)
 
         header_layout.addWidget(self.lbl_status)
+        header_layout.addSpacing(20)
         header_layout.addWidget(self.progress_bar, stretch=1)
         layout.addLayout(header_layout)
 
         # 2. Zone de comparaison (Splitter horizontal)
         compare_layout = QHBoxLayout()
+        compare_layout.setSpacing(20)
 
-        # Panneau Gauche (Original)
-        left_layout = QVBoxLayout()
-        left_layout.addWidget(QLabel("<b>📄 Carte A (Ancienne/Originale)</b>"))
+        # --- Panneau Gauche (Original) ---
+        left_panel = RoundedPanel()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_left = QLabel("📄 CARTE A (ANCIENNE / ORIGINALE)")
+        lbl_left.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        left_layout.addWidget(lbl_left)
+
         self.text_left = QTextEdit()
         self.text_left.setReadOnly(True)
-        self.text_left.setStyleSheet("font-size: 15px; padding: 10px;")
+        # Transparent pour fusionner avec la carte
+        self.text_left.setStyleSheet("QTextEdit { border: none; background-color: transparent; font-size: 14px; }")
         left_layout.addWidget(self.text_left)
 
         self.btn_keep_a = PrimaryButton(qta.icon('fa5s.arrow-left', color='white'), " Garder l'Originale (Supprime B)")
         self.btn_keep_a.clicked.connect(self.keep_a)
         left_layout.addWidget(self.btn_keep_a)
 
-        compare_layout.addLayout(left_layout)
+        compare_layout.addWidget(left_panel)
 
-        # Panneau Droit (Nouvelle)
-        right_layout = QVBoxLayout()
-        right_layout.addWidget(QLabel("<b>✨ Carte B (Nouvelle)</b>"))
+        # --- Panneau Droit (Nouvelle) ---
+        right_panel = RoundedPanel()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_right = QLabel("✨ CARTE B (NOUVELLE)")
+        lbl_right.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        right_layout.addWidget(lbl_right)
+
         self.text_right = QTextEdit()
         self.text_right.setReadOnly(True)
-        self.text_right.setStyleSheet("font-size: 15px; padding: 10px;")
+        self.text_right.setStyleSheet("QTextEdit { border: none; background-color: transparent; font-size: 14px; }")
         right_layout.addWidget(self.text_right)
 
         self.btn_keep_b = PrimaryButton(qta.icon('fa5s.arrow-right', color='white'), " Garder la Nouvelle (Supprime A)")
@@ -65,20 +90,32 @@ class DuplicateResolverDialog(QDialog):
         self.btn_keep_b.clicked.connect(self.keep_b)
         right_layout.addWidget(self.btn_keep_b)
 
-        compare_layout.addLayout(right_layout)
+        compare_layout.addWidget(right_panel)
         layout.addLayout(compare_layout)
 
         # 3. Bouton Ignorer
-        self.btn_ignore = ActionButton("Ignorer le conflit (Garder les deux)")
+        btn_bottom_layout = QHBoxLayout()
+        btn_bottom_layout.addStretch()
+        self.btn_ignore = ActionButton('fa5s.forward', " Ignorer le conflit (Garder les deux)")
         self.btn_ignore.clicked.connect(self.ignore_conflict)
-        layout.addWidget(self.btn_ignore)
+        btn_bottom_layout.addWidget(self.btn_ignore)
+        btn_bottom_layout.addStretch()
+
+        layout.addLayout(btn_bottom_layout)
 
         self.load_current_conflict()
 
     def generate_diff_html(self, text_a: str, text_b: str):
-        """Génère un HTML coloré (Rouge/Vert) pour mettre en évidence les différences."""
+        """Génère un HTML coloré adapté au thème pour mettre en évidence les différences."""
         matcher = difflib.SequenceMatcher(None, text_a, text_b)
         html_a, html_b = "", ""
+
+        # Couleurs dynamiques selon le thème (Clair/Sombre)
+        dark = is_dark_mode()
+        del_bg = "rgba(244, 67, 54, 0.2)" if dark else "rgba(244, 67, 54, 0.15)"
+        del_color = "#ff8a80" if dark else "#d32f2f"
+        ins_bg = "rgba(76, 175, 80, 0.2)" if dark else "rgba(76, 175, 80, 0.15)"
+        ins_color = "#b9f6ca" if dark else "#2e7d32"
 
         for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
             part_a = text_a[a0:a1].replace('\n', '<br>')
@@ -88,12 +125,12 @@ class DuplicateResolverDialog(QDialog):
                 html_a += part_a
                 html_b += part_b
             elif opcode == 'replace':
-                html_a += f"<span style='background-color: #5c1b1b; color: #ffcccc;'>{part_a}</span>"
-                html_b += f"<span style='background-color: #1b5c20; color: #ccffcc;'>{part_b}</span>"
+                html_a += f"<span style='background-color: {del_bg}; color: {del_color}; text-decoration: line-through;'>{part_a}</span>"
+                html_b += f"<span style='background-color: {ins_bg}; color: {ins_color}; font-weight: bold;'>{part_b}</span>"
             elif opcode == 'delete':
-                html_a += f"<span style='background-color: #5c1b1b; color: #ffcccc;'>{part_a}</span>"
+                html_a += f"<span style='background-color: {del_bg}; color: {del_color}; text-decoration: line-through;'>{part_a}</span>"
             elif opcode == 'insert':
-                html_b += f"<span style='background-color: #1b5c20; color: #ccffcc;'>{part_b}</span>"
+                html_b += f"<span style='background-color: {ins_bg}; color: {ins_color}; font-weight: bold;'>{part_b}</span>"
 
         return html_a, html_b
 
@@ -107,36 +144,38 @@ class DuplicateResolverDialog(QDialog):
         self.lbl_status.setText(f"Conflit {self.current_index + 1} sur {len(self.conflicts)}")
         self.progress_bar.setValue(self.current_index)
 
-        # On récupère maintenant les dictionnaires complets (content_a et content_b)
+        # On récupère maintenant les dictionnaires complets
         note_a, content_a, note_b, content_b = self.conflicts[self.current_index]
 
         full_html_a = ""
         full_html_b = ""
 
-        # On parcourt tous les champs (Front, Back, etc.)
+        dark = is_dark_mode()
+        header_color_a = "#64B5F6" if dark else "#1976D2"
+        header_color_b = "#81C784" if dark else "#388E3C"
+        text_color = "#E0E0E0" if dark else "#333333"
+
         for field_name in content_a.keys():
             text_a = str(content_a.get(field_name, ""))
             text_b = str(content_b.get(field_name, ""))
 
             # En-tête visuel du champ
-            full_html_a += f"<h4 style='color: #2196F3; margin-bottom: 5px; margin-top: 15px;'>■ Champ : {field_name}</h4>"
-            full_html_b += f"<h4 style='color: #4CAF50; margin-bottom: 5px; margin-top: 15px;'>■ Champ : {field_name}</h4>"
+            full_html_a += f"<h4 style='color: {header_color_a}; margin-bottom: 5px; margin-top: 15px;'>■ Champ : {field_name}</h4>"
+            full_html_b += f"<h4 style='color: {header_color_b}; margin-bottom: 5px; margin-top: 15px;'>■ Champ : {field_name}</h4>"
 
             if text_a == text_b:
-                # Si le texte est strictement identique, on l'affiche en gris clair pour ne pas polluer la vue
-                identical_html = f"<div style='color: #888888;'><i>(Identique)</i><br>{text_a.replace(chr(10), '<br>')}</div>"
+                identical_html = f"<div style='color: gray;'><i>(Identique)</i><br>{text_a.replace(chr(10), '<br>')}</div>"
                 full_html_a += identical_html
                 full_html_b += identical_html
             else:
-                # S'il y a des différences, on lance l'algorithme de surlignage Rouge/Vert
                 html_a, html_b = self.generate_diff_html(text_a, text_b)
-                full_html_a += f"<div>{html_a}</div>"
-                full_html_b += f"<div>{html_b}</div>"
+                full_html_a += f"<div style='color: {text_color};'>{html_a}</div>"
+                full_html_b += f"<div style='color: {text_color};'>{html_b}</div>"
 
-        # Injection dans les zones de texte
-        self.text_left.setHtml(f"<div style='font-family: sans-serif;'>{full_html_a}</div>")
-        self.text_right.setHtml(f"<div style='font-family: sans-serif;'>{full_html_b}</div>")
-
+        # Injection dans les zones de texte (Police native lisible)
+        font_family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        self.text_left.setHtml(f"<div style='font-family: {font_family}; line-height: 1.5;'>{full_html_a}</div>")
+        self.text_right.setHtml(f"<div style='font-family: {font_family}; line-height: 1.5;'>{full_html_b}</div>")
 
     def _resolve(self, note_to_delete: NoteModel):
         try:
@@ -166,11 +205,11 @@ class DuplicateResolverDialog(QDialog):
 
         try:
             with db.atomic():
-                # On ordonne toujours (plus petit ID d'abord) pour que (A, B) soit pareil que (B, A)
+                # On ordonne toujours (plus petit ID d'abord)
                 id_1, id_2 = min(note_a.id, note_b.id), max(note_a.id, note_b.id)
                 IgnoredDuplicateModel.get_or_create(note_a_id=id_1, note_b_id=id_2)
         except Exception as e:
-            pass  # Si ça rate (ex: déjà ignoré), on continue sans planter
+            pass
 
         self.current_index += 1
         self.load_current_conflict()

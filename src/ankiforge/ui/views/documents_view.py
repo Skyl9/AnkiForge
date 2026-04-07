@@ -6,6 +6,7 @@ import markdown
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot, QTimer
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor, QKeySequence, QShortcut
+from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
                                QTextEdit, QLabel, QSplitter,
@@ -13,8 +14,10 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, Q
 
 from ankiforge.database.models import db, DocumentModel, FolderModel
 from ankiforge.services.parsing.document_parser import DocumentParser
-from ankiforge.ui.components.components import DangerButton, ActionButton, HeaderLabel, PrimaryButton
+from ankiforge.ui.components.components import DangerButton, ActionButton, HeaderLabel, PrimaryButton, RoundedPanel
+from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.anki_renderer import _get_mathjax_script
 from ankiforge.utils.paths import get_app_data_dir
 
 
@@ -109,13 +112,14 @@ class DocumentsTab(QWidget):
         self.current_doc_id_editing = None
 
         self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(20, 20, 20, 20)
+        self.layout.setSpacing(20)
 
         header_layout = QHBoxLayout()
         title = HeaderLabel("Bibliothèque de Cours")
         header_layout.addWidget(title)
         header_layout.addStretch()
 
-        # 👇 Bouton Action (Couleur d'icône automatique !)
         self.btn_import = ActionButton('fa5s.file-import', " Analyser un PDF/TXT (Marker)")
         self.btn_import.clicked.connect(self.import_document)
         header_layout.addWidget(self.btn_import)
@@ -123,13 +127,20 @@ class DocumentsTab(QWidget):
         self.layout.addLayout(header_layout)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setHandleWidth(10)
 
-        left_panel = QWidget()
+        # ==========================================
+        # PANNEAU GAUCHE : Explorateur
+        # ==========================================
+        left_panel = RoundedPanel()
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_explorateur = QLabel("EXPLORATEUR DE DOCUMENTS")
+        lbl_explorateur.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        left_layout.addWidget(lbl_explorateur)
 
         toolbar = QHBoxLayout()
-        # 👇 Nettoyage des boutons de la toolbar
         self.btn_new_folder = ActionButton('fa5s.folder-plus', " Dossier")
         self.btn_new_folder.clicked.connect(self.create_folder)
 
@@ -147,10 +158,10 @@ class DocumentsTab(QWidget):
 
         self.tree = DraggableTreeWidget()
         self.tree.setHeaderHidden(True)
+        self.tree.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
         self.tree.setDragEnabled(True)
         self.tree.setAcceptDrops(True)
         self.tree.setDropIndicatorShown(True)
-        # Standard Qt6: QAbstractItemView.DragDropMode
         self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
 
         self.tree.doc_moved.connect(self._on_document_moved)
@@ -159,56 +170,63 @@ class DocumentsTab(QWidget):
         left_layout.addWidget(self.tree)
         splitter.addWidget(left_panel)
 
-        right_panel = QWidget()
+        # ==========================================
+        # PANNEAU DROIT : Éditeur Markdown
+        # ==========================================
+        right_panel = RoundedPanel()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setContentsMargins(15, 15, 15, 15)
 
         editor_toolbar = QHBoxLayout()
-        self.lbl_doc_title = QLabel("<b>Aucun document sélectionné</b>")
+        self.lbl_doc_title = QLabel("AUCUN DOCUMENT SÉLECTIONNÉ")
+        self.lbl_doc_title.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
         editor_toolbar.addWidget(self.lbl_doc_title)
         editor_toolbar.addStretch()
 
-        # 👇 Boutons d'édition
-        self.btn_save_doc = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder (Ctrl+S)")
-        self.btn_save_doc.clicked.connect(self.save_document_edits)
-        self.btn_save_doc.setEnabled(False)
-        editor_toolbar.addWidget(self.btn_save_doc)
+        self.btn_insert_split = ActionButton('fa5s.cut', " Insérer Coupure (Ctrl+D)")
+        self.btn_insert_split.clicked.connect(self.insert_split_tag)
+        self.btn_insert_split.setEnabled(False)
+        editor_toolbar.addWidget(self.btn_insert_split)
 
         self.btn_split_doc = ActionButton('fa5s.cut', " Scinder aux balises [SPLIT]")
         self.btn_split_doc.clicked.connect(self.split_document_multiple)
         self.btn_split_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_split_doc)
 
+        self.btn_save_doc = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder (Ctrl+S)")
+        self.btn_save_doc.clicked.connect(self.save_document_edits)
+        self.btn_save_doc.setEnabled(False)
+        editor_toolbar.addWidget(self.btn_save_doc)
+
         right_layout.addLayout(editor_toolbar)
 
-        self.btn_insert_split = ActionButton('fa5s.cut', " Insérer Coupure (Ctrl+D)")
-        self.btn_insert_split.clicked.connect(self.insert_split_tag)
-        self.btn_insert_split.setEnabled(False)
-        editor_toolbar.insertWidget(2, self.btn_insert_split)
-
         self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.editor_splitter.setHandleWidth(10)
 
         self.preview_text = QTextEdit()
-        # 👇 L'éditeur s'adapte maintenant à la palette système !
+        # Disparition de la bordure rigide !
         self.preview_text.setStyleSheet("""
-                    background-color: palette(base); 
-                    color: palette(text); 
-                    font-family: 'Consolas', monospace; 
-                    font-size: 14px;
-                    border: 1px solid palette(alternate-base);
-                """)
+            QTextEdit {
+                background-color: transparent; 
+                color: palette(text); 
+                font-family: 'Consolas', monospace; 
+                font-size: 14px;
+                border: none;
+            }
+        """)
         self.highlighter = MarkdownHighlighter(self.preview_text.document())
 
         self.render_view = QWebEngineView()
+        self.render_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
 
-        # On ajoute les deux vues côte à côte
+        self.render_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+
         self.editor_splitter.addWidget(self.preview_text)
         self.editor_splitter.addWidget(self.render_view)
         self.editor_splitter.setSizes([400, 400])
 
         right_layout.addWidget(self.editor_splitter)
 
-        # 3. Le Timer pour l'aperçu en temps réel (Debouncing de 500ms)
         self.render_timer = QTimer(self)
         self.render_timer.setSingleShot(True)
         self.render_timer.setInterval(500)
@@ -220,10 +238,7 @@ class DocumentsTab(QWidget):
         splitter.setSizes([250, 750])
 
         self.layout.addWidget(splitter)
-
-        # 👇 NOUVEAU : LES RACCOURCIS CLAVIER 👇
         self.setup_shortcuts()
-
         self.load_tree()
 
     def setup_shortcuts(self) -> None:
@@ -273,33 +288,45 @@ class DocumentsTab(QWidget):
         raw_md = self.preview_text.toPlainText()
 
         visual_split_html = """
-            <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: #ff980015; border: 2px dashed #ff9800; border-radius: 8px;">
-                <span style="color: #ff9800; font-weight: bold; font-size: 16px;">✂️ --- POINT DE DÉCOUPAGE --- ✂️</span>
-                <br><span style="color: #888; font-size: 12px;">Le document sera scindé ici</span>
-            </div>
-            """
+                <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: rgba(255, 152, 0, 0.1); border: 2px dashed #ff9800; border-radius: 8px;">
+                    <span style="color: #ff9800; font-weight: bold; font-size: 16px;">✂️ --- POINT DE DÉCOUPAGE --- ✂️</span>
+                    <br><span style="color: #888; font-size: 12px;">Le document sera scindé ici</span>
+                </div>
+                """
         vis_md = raw_md.replace("[SPLIT]", f"\n\n{visual_split_html}\n\n")
 
         html_content = markdown.markdown(vis_md, extensions=['tables', 'fenced_code'])
 
+        # Palette dynamique
+        dark = is_dark_mode()
+        text_color = "#E0E0E0" if dark else "#333333"
+        header_color = "#90CAF9" if dark else "#1976D2"
+        code_bg = "#1E1E1E" if dark else "#F5F5F5"
+        code_border = "#333" if dark else "#DDD"
+        inline_code_color = "#CE9178" if dark else "#A31515"
+
         final_html = f"""
-            <html><head><meta charset="utf-8">
-            <script>window.MathJax = {{ tex: {{ inlineMath: [['$', '$'], ['\\\\(', '\\\\)']], displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']] }} }};</script>
-            <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 20px; line-height: 1.6; color: #E0E0E0; background-color: #121212; }}
-                h1, h2, h3 {{ color: #90CAF9; border-bottom: 1px solid #333; padding-bottom: 5px; }}
-                img {{ max-width: 100%; border-radius: 5px; }}
-                code {{ background-color: #2D2D2D; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #CE9178; }}
-                pre code {{ display: block; padding: 10px; overflow-x: auto; background-color: #1E1E1E; border: 1px solid #333; }}
-                table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
-                th, td {{ border: 1px solid #444; padding: 8px; text-align: left; }}
-                th {{ background-color: #2D2D2D; }}
-            </style>
-            </head><body>
-            {html_content}
-            </body></html>
-            """
+                <html><head><meta charset="utf-8">
+                {_get_mathjax_script()}
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 10px; line-height: 1.6; color: {text_color}; background-color: transparent; margin: 0; }}
+                    h1, h2, h3 {{ color: {header_color}; border-bottom: 1px solid {code_border}; padding-bottom: 5px; }}
+                    img {{ max-width: 100%; border-radius: 5px; }}
+                    code {{ background-color: {code_bg}; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: {inline_code_color}; }}
+                    pre code {{ display: block; padding: 10px; overflow-x: auto; background-color: {code_bg}; border: 1px solid {code_border}; color: {text_color}; }}
+                    table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+                    th, td {{ border: 1px solid {code_border}; padding: 8px; text-align: left; }}
+                    th {{ background-color: {code_bg}; }}
+
+                    ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
+                    ::-webkit-scrollbar-track {{ background: transparent; }}
+                    ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 5px; }}
+                    ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
+                </style>
+                </head><body>
+                {html_content}
+                </body></html>
+                """
 
         media_dir = get_app_data_dir() / 'media'
         media_dir.mkdir(exist_ok=True)
@@ -442,7 +469,7 @@ class DocumentsTab(QWidget):
 
     def _reset_editor_after_delete(self):
         self.preview_text.clear()
-        self.render_view.setHtml("")
+        self.render_view.setHtml("<html><body style='background: transparent;'></body></html>")
         self.current_doc_id_editing = None
         self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
         self.btn_save_doc.setEnabled(False)
@@ -474,11 +501,11 @@ class DocumentsTab(QWidget):
         else:
             self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
             self.preview_text.clear()
-            self.render_view.setHtml("")
+            self.render_view.setHtml("<html><body style='background: transparent;'></body></html>")
             self.current_doc_id_editing = None
             self.btn_save_doc.setEnabled(False)
             self.btn_split_doc.setEnabled(False)
-            self.btn_insert_split.setEnabled(False)  # 👈 Désactiver ici aussi
+            self.btn_insert_split.setEnabled(False)
 
     @Slot()
     def import_document(self) -> None:
