@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QAbstractItemView, QListWidgetItem, QFileDialog)
 
 from ankiforge.database.models import PipelineModel, PipelineStepModel, db, AgentModel
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -17,138 +17,184 @@ class AgentsTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
 
-        # Standard Qt6 : Qt.Orientation.Horizontal
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.setHandleWidth(10)
 
         # ==========================================
         # 🧪 PARTIE GAUCHE : LABORATOIRE DES AGENTS
         # ==========================================
-        agents_widget = QWidget()
-        agents_layout = QVBoxLayout(agents_widget)
-        agents_layout.addWidget(HeaderLabel("🤖 Laboratoire des Agents"))
+        agents_panel = RoundedPanel()
+        agents_layout = QVBoxLayout(agents_panel)
+        agents_layout.setContentsMargins(15, 15, 15, 15)
 
+        lbl_agents = QLabel("🤖 LABORATOIRE DES AGENTS")
+        lbl_agents.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        agents_layout.addWidget(lbl_agents)
+
+        agent_top_splitter = QSplitter(Qt.Orientation.Vertical)
+        agent_top_splitter.setHandleWidth(10)
+
+        # Liste des agents
         self.agents_list = QListWidget()
+        self.agents_list.setStyleSheet("QListWidget { border: none; background: transparent; }")
         self.agents_list.itemClicked.connect(self.load_selected_agent)
-        agents_layout.addWidget(self.agents_list)
+        agent_top_splitter.addWidget(self.agents_list)
 
+        # Formulaire d'édition
         self.agent_id: Optional[int] = None
 
-        form_group = QGroupBox("Édition de l'Agent")
-        form_layout = QVBoxLayout(form_group)
+        form_widget = QWidget()
+        form_layout = QVBoxLayout(form_widget)
+        form_layout.setContentsMargins(0, 10, 0, 0)
 
+        lbl_edit = QLabel("ÉDITION DE L'AGENT :")
+        lbl_edit.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
+        form_layout.addWidget(lbl_edit)
+
+        # Champs alignés plus proprement
+        name_desc_layout = QHBoxLayout()
+
+        name_layout = QVBoxLayout()
+        lbl_name = QLabel("Nom :")
+        lbl_name.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
         self.agent_name_input = QLineEdit()
-        self.agent_name_input.setPlaceholderText("Nom (ex: Agent Linteur)")
-        form_layout.addWidget(QLabel("<b>Nom :</b>"))
-        form_layout.addWidget(self.agent_name_input)
+        self.agent_name_input.setPlaceholderText("ex: Linteur Qualité")
+        name_layout.addWidget(lbl_name)
+        name_layout.addWidget(self.agent_name_input)
 
+        desc_layout = QVBoxLayout()
+        lbl_desc = QLabel("Description :")
+        lbl_desc.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
         self.agent_desc_input = QLineEdit()
-        self.agent_desc_input.setPlaceholderText("Description du rôle...")
-        form_layout.addWidget(QLabel("<b>Description :</b>"))
-        form_layout.addWidget(self.agent_desc_input)
+        self.agent_desc_input.setPlaceholderText("Rôle de cet agent...")
+        desc_layout.addWidget(lbl_desc)
+        desc_layout.addWidget(self.agent_desc_input)
+
+        name_desc_layout.addLayout(name_layout)
+        name_desc_layout.addLayout(desc_layout)
+        form_layout.addLayout(name_desc_layout)
+
+        lbl_prompt = QLabel("Prompt Système (Jinja2) :")
+        lbl_prompt.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px; margin-top: 10px;")
+        form_layout.addWidget(lbl_prompt)
 
         self.agent_prompt_input = QTextEdit()
-        self.agent_prompt_input.setPlaceholderText("Prompt Système Jinja2...")
-        form_layout.addWidget(QLabel("<b>Prompt Système (Jinja2) :</b>"))
+        self.agent_prompt_input.setPlaceholderText("Tu es un expert en... Tes variables sont {{Front}} et {{Back}}...")
+        self.agent_prompt_input.setStyleSheet("font-family: monospace;")
         form_layout.addWidget(self.agent_prompt_input)
 
         btn_layout_agent = QHBoxLayout()
         self.btn_new_agent = ActionButton('fa5s.plus', " Nouvel Agent")
         self.btn_new_agent.clicked.connect(self.clear_agent_form)
 
+        self.btn_delete_agent = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer")
+        self.btn_delete_agent.clicked.connect(self.delete_agent)
+
         self.btn_save_agent = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder l'Agent")
         self.btn_save_agent.clicked.connect(self.save_agent)
 
-        self.btn_delete_agent = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer l'Agent")
-        self.btn_delete_agent.clicked.connect(self.delete_agent)
-
         btn_layout_agent.addWidget(self.btn_new_agent)
-        btn_layout_agent.addWidget(self.btn_save_agent)
+        btn_layout_agent.addStretch()  # Pousse les boutons d'action à droite
         btn_layout_agent.addWidget(self.btn_delete_agent)
-        form_layout.addLayout(btn_layout_agent)
+        btn_layout_agent.addWidget(self.btn_save_agent)
 
-        agents_layout.addWidget(form_group)
+        form_layout.addLayout(btn_layout_agent)
+        agent_top_splitter.addWidget(form_widget)
+        agent_top_splitter.setSizes([200, 400])
+
+        agents_layout.addWidget(agent_top_splitter)
+        main_splitter.addWidget(agents_panel)
 
         # ==========================================
         # ⚙️ PARTIE DROITE : ASSEMBLEUR DE PIPELINES
         # ==========================================
+        pipelines_panel = RoundedPanel()
+        pipelines_layout = QVBoxLayout(pipelines_panel)
+        pipelines_layout.setContentsMargins(15, 15, 15, 15)
 
-        pipelines_widget = QWidget()
-        pipelines_layout = QVBoxLayout(pipelines_widget)
-        pipelines_layout.addWidget(HeaderLabel("⚙️ Assembleur de Pipelines"))
+        pipe_header_layout = QHBoxLayout()
+        lbl_pipelines = QLabel("⚙️ ASSEMBLEUR DE PIPELINES")
+        lbl_pipelines.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        pipe_header_layout.addWidget(lbl_pipelines)
+        pipe_header_layout.addStretch()
 
-        pipe_header = QHBoxLayout()
+        self.btn_import_pipe = ActionButton('fa5s.folder-open', " Importer (.json)")
+        self.btn_import_pipe.clicked.connect(self.import_pipeline)
+        self.btn_export_pipe = ActionButton('fa5s.file-export', " Exporter")
+        self.btn_export_pipe.clicked.connect(self.export_pipeline)
+
+        pipe_header_layout.addWidget(self.btn_import_pipe)
+        pipe_header_layout.addWidget(self.btn_export_pipe)
+        pipelines_layout.addLayout(pipe_header_layout)
+
+        # Sélection du Pipeline
+        pipe_select_layout = QHBoxLayout()
+        lbl_pipe_sel = QLabel("Pipeline Actif :")
+        lbl_pipe_sel.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
+
         self.pipeline_selector = QComboBox()
         self.pipeline_selector.currentIndexChanged.connect(self.load_selected_pipeline)
-
-        pipe_header.addWidget(QLabel("<b>Pipeline :</b>"))
-        pipe_header.addWidget(self.pipeline_selector, stretch=1)
 
         self.btn_new_pipeline = ActionButton('fa5s.plus', " Nouveau")
         self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
 
-        pipe_header.addWidget(self.btn_new_pipeline)
-        pipelines_layout.addLayout(pipe_header)
+        pipe_select_layout.addWidget(lbl_pipe_sel)
+        pipe_select_layout.addWidget(self.pipeline_selector, stretch=1)
+        pipe_select_layout.addWidget(self.btn_new_pipeline)
+        pipelines_layout.addLayout(pipe_select_layout)
 
-        # BOUTONS IMPORT / EXPORT
-        export_import_layout = QHBoxLayout()
-
-        self.btn_import_pipe = ActionButton('fa5s.folder-open', " Importer (.json)")
-        self.btn_import_pipe.clicked.connect(self.import_pipeline)
-
-        self.btn_export_pipe = ActionButton('fa5s.file-export', " Exporter")
-        self.btn_export_pipe.clicked.connect(self.export_pipeline)
-
-        export_import_layout.addWidget(self.btn_import_pipe)
-        export_import_layout.addWidget(self.btn_export_pipe)
-        pipelines_layout.addLayout(export_import_layout)
-
-        chain_group = QGroupBox("Chaîne d'exécution (Ordre des Agents)")
-        chain_layout = QVBoxLayout(chain_group)
+        lbl_chain = QLabel("CHAÎNE D'EXÉCUTION (ORDRE DES AGENTS) :")
+        lbl_chain.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 20px; margin-bottom: 5px;")
+        pipelines_layout.addWidget(lbl_chain)
 
         add_step_layout = QHBoxLayout()
         self.available_agents_cb = QComboBox()
-
         self.btn_add_step = ActionButton('fa5s.arrow-down', " Ajouter à la chaîne")
         self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
 
         add_step_layout.addWidget(self.available_agents_cb, stretch=1)
         add_step_layout.addWidget(self.btn_add_step)
-        chain_layout.addLayout(add_step_layout)
+        pipelines_layout.addLayout(add_step_layout)
 
         self.steps_list = QListWidget()
-        # Standard Qt6 : QAbstractItemView.SelectionMode
+        self.steps_list.setStyleSheet(
+            "QListWidget { border: none; background-color: palette(window); border-radius: 6px; }")
         self.steps_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        chain_layout.addWidget(self.steps_list)
+        pipelines_layout.addWidget(self.steps_list)
 
+        # Contrôles et Sauvegarde du pipeline
         step_ctrl_layout = QHBoxLayout()
-        self.btn_step_up = ActionButton('fa5s.arrow-up', " Monter")
+        self.btn_step_up = ActionButton('fa5s.arrow-up', "")
         self.btn_step_up.clicked.connect(self.move_step_up)
 
-        self.btn_step_down = ActionButton('fa5s.arrow-down', " Descendre")
+        self.btn_step_down = ActionButton('fa5s.arrow-down', "")
         self.btn_step_down.clicked.connect(self.move_step_down)
 
-        self.btn_step_remove = DangerButton(qta.icon('fa5s.times', color='white'), " Retirer")
+        self.btn_step_remove = DangerButton(qta.icon('fa5s.times', color='white'), " Retirer l'étape")
         self.btn_step_remove.clicked.connect(self.remove_step)
+
+        self.btn_save_pipeline = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder le Pipeline")
+        self.btn_save_pipeline.clicked.connect(self.save_pipeline_steps)
 
         step_ctrl_layout.addWidget(self.btn_step_up)
         step_ctrl_layout.addWidget(self.btn_step_down)
         step_ctrl_layout.addWidget(self.btn_step_remove)
-        chain_layout.addLayout(step_ctrl_layout)
+        step_ctrl_layout.addStretch()
+        step_ctrl_layout.addWidget(self.btn_save_pipeline)
 
-        self.btn_save_pipeline = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder le Pipeline")
-        self.btn_save_pipeline.clicked.connect(self.save_pipeline_steps)
-        chain_layout.addWidget(self.btn_save_pipeline)
+        pipelines_layout.addLayout(step_ctrl_layout)
+        main_splitter.addWidget(pipelines_panel)
 
-        pipelines_layout.addWidget(chain_group)
-
-        main_splitter.addWidget(agents_widget)
-        main_splitter.addWidget(pipelines_widget)
         main_splitter.setSizes([500, 500])
-
         layout.addWidget(main_splitter)
         self.refresh_ui()
-
     @Slot()
     def refresh_data(self) -> None:
         """Contrat MainWindow : Rafraîchit les agents et pipelines."""
