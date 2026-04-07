@@ -18,6 +18,7 @@ from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, C
     NoteVersionModel, DocumentModel, LLMConfigModel
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
+from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -584,7 +585,7 @@ class CreationTab(QWidget):
 
         final_html = render_anki_card(
             raw_html=raw_html, css=css, fields_dict=current_data,
-            is_recto=is_recto, front_html=tmpl.get("qfmt", "")
+            is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode()
         )
 
         media_dir = get_app_data_dir() / 'media'

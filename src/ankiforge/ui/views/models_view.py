@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
 
 from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
+from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -420,7 +421,8 @@ class ModelsTab(QWidget):
 
         final_html = render_anki_card(
             raw_html=raw_html, css=css, fields_dict=self.mock_dict,
-            is_recto=is_recto, front_html=self.qfmt_editor.toPlainText()
+            is_recto=is_recto, front_html=self.qfmt_editor.toPlainText(),
+            is_dark_mode=is_dark_mode()
         )
 
         media_dir = get_app_data_dir() / 'media'

@@ -1,4 +1,3 @@
-import difflib
 import json
 import re
 from typing import Optional, Dict
@@ -8,7 +7,7 @@ from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings
 from PySide6.QtGui import QColor, QAction
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import (QLabel, QPushButton, QWidget, QVBoxLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
                                QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
@@ -18,7 +17,36 @@ from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeM
     IgnoredDuplicateModel
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
+from ankiforge.ui.theme import get_icon_color, is_dark_mode
+from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
+from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
+from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
+from ankiforge.utils.anki_renderer import render_anki_card
+from ankiforge.utils.c_bridge import get_similarity
+from ankiforge.utils.paths import get_app_data_dir
+import json
+import re
+from typing import Optional, Dict
+
+import qtawesome
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings
+from PySide6.QtGui import QColor, QAction
+from PySide6.QtWebEngineCore import QWebEngineSettings
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
+                               QFileDialog, QMessageBox, QSplitter, QTreeWidget,
+                               QTreeWidgetItem, QTableWidget, QTableWidgetItem,
+                               QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
+                               QMenu, QInputDialog)
+
+from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
+    IgnoredDuplicateModel
+from ankiforge.services.cards.export_manager import ExportManager
+from ankiforge.services.cards.store_manager import StoreManager
+from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
+from ankiforge.ui.theme import get_icon_color
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.toast import show_toast
@@ -64,15 +92,18 @@ class EditionTab(QWidget):
         self.is_creating = False
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
 
         # --- 1. EN-TÊTE ---
         header_layout = QHBoxLayout()
         titre = HeaderLabel("Navigateur de Cartes & Notes")
 
-        self.btn_load_col = ActionButton('fa5s.folder-open',  " Importer un paquet")
+        icon_color = get_icon_color()
+        self.btn_load_col = ActionButton('fa5s.folder-open', " Importer un paquet")
         self.btn_load_col.clicked.connect(self.load_cards)
 
-        self.btn_export = PrimaryButton(qtawesome.icon('fa5s.box', color='white'), " Exporter le paquet vers Anki")
+        self.btn_export = PrimaryButton(qtawesome.icon('fa5s.box', color='white'), " Exporter vers Anki")
         self.btn_export.clicked.connect(self.export_selected_deck)
         self.btn_export.setEnabled(False)
 
@@ -84,17 +115,57 @@ class EditionTab(QWidget):
 
         # --- 2. LAYOUT PRINCIPAL ---
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.setHandleWidth(10)
+
+        # ==========================================
+        # PANNEAU GAUCHE : Explorateur (Paquets & Tags)
+        # ==========================================
+        nav_panel = RoundedPanel()
+        nav_layout = QVBoxLayout(nav_panel)
+        nav_layout.setContentsMargins(15, 15, 15, 15)
+        nav_layout.setSpacing(10)
+
+        lbl_nav = QLabel("EXPLORATEUR")
+        lbl_nav.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        nav_layout.addWidget(lbl_nav)
+
         self.deck_tree = QTreeWidget()
         self.deck_tree.setHeaderHidden(True)
+        self.deck_tree.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
         self.deck_tree.itemClicked.connect(self.on_deck_selected)
+        nav_layout.addWidget(self.deck_tree)
 
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        lbl_tags = QLabel("FILTRES (TAGS)")
+        lbl_tags.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 10px;")
+        nav_layout.addWidget(lbl_tags)
 
-        # Toolbar
+        self.tag_list = QListWidget()
+        self.tag_list.setStyleSheet("QListWidget { border: none; background: transparent; }")
+        self.tag_list.itemClicked.connect(self.on_tag_selected)
+        self.tag_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tag_list.customContextMenuRequested.connect(self.show_tag_context_menu)
+        nav_layout.addWidget(self.tag_list)
+
+        main_splitter.addWidget(nav_panel)
+
+        # ==========================================
+        # PANNEAU DROIT : Contenu Principal
+        # ==========================================
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.setHandleWidth(10)
+
+        # --- 2A. Le Tableau des données ---
+        table_panel = RoundedPanel()
+        table_layout = QVBoxLayout(table_panel)
+        table_layout.setContentsMargins(15, 15, 15, 15)
+
         toolbar_layout = QHBoxLayout()
-        toolbar_layout.addWidget(QLabel("Mode d'affichage :"))
+        lbl_mode = QLabel("MODE D'AFFICHAGE :")
+        lbl_mode.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
+        toolbar_layout.addWidget(lbl_mode)
         self.view_mode_cb = QComboBox()
         self.view_mode_cb.addItems(
             ["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)", "Vue : Quarantaine (À valider)"])
@@ -102,11 +173,11 @@ class EditionTab(QWidget):
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
-        self.btn_approve = PrimaryButton(qtawesome.icon('fa5s.check', color='white'), " Approuver la sélection")
+        self.btn_approve = PrimaryButton(qtawesome.icon('fa5s.check', color='white'), " Approuver")
         self.btn_approve.clicked.connect(self.approve_selected_notes)
         self.btn_approve.setVisible(False)
 
-        self.btn_reject = DangerButton(qtawesome.icon('fa5s.trash', color='white'), " Rejeter la sélection")
+        self.btn_reject = DangerButton(qtawesome.icon('fa5s.trash', color='white'), " Rejeter")
         self.btn_reject.clicked.connect(self.reject_selected_notes)
         self.btn_reject.setVisible(False)
 
@@ -122,12 +193,10 @@ class EditionTab(QWidget):
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
 
-        right_layout.addLayout(toolbar_layout)
+        table_layout.addLayout(toolbar_layout)
 
-        right_splitter = QSplitter(Qt.Orientation.Vertical)
-
-        # Le Tableau
         self.data_table = QTableWidget()
+        self.data_table.setStyleSheet("QTableWidget { border: none; }")
         self.data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.data_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.data_table.setAlternatingRowColors(True)
@@ -138,101 +207,97 @@ class EditionTab(QWidget):
         self.data_table.horizontalHeader().sectionResized.connect(self.save_table_state)
         self.data_table.horizontalHeader().sectionMoved.connect(self.save_table_state)
         self.data_table.itemSelectionChanged.connect(self.on_row_selected)
-
         self.data_table.setSortingEnabled(True)
 
-        bottom_splitter = QSplitter(Qt.Horizontal)
+        table_layout.addWidget(self.data_table)
+        right_splitter.addWidget(table_panel)
 
-        # A. L'Éditeur de champs
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        # --- 2B. Éditeur et Aperçu ---
+        bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
+        bottom_splitter.setHandleWidth(10)
 
-        buttons_layout = QHBoxLayout()
-
-        self.btn_save_edits = PrimaryButton(qtawesome.icon('fa5s.save', color='white'),
-                                            " Sauvegarder les modifications")
-        self.btn_save_edits.clicked.connect(self.save_note_edits)
-        self.btn_save_edits.setEnabled(False)
-
-        self.btn_history = ActionButton('fa5s.history', " Historique")
-        self.btn_history.clicked.connect(self.show_version_history)
-        self.btn_history.setEnabled(False)
-
-        buttons_layout.addWidget(self.btn_save_edits)
-        buttons_layout.addWidget(self.btn_history)
-        left_layout.addLayout(buttons_layout)
+        # L'Éditeur de champs (Gauche)
+        editor_panel = RoundedPanel()
+        editor_layout = QVBoxLayout(editor_panel)
+        editor_layout.setContentsMargins(15, 15, 15, 15)
 
         self.details_scroll = QScrollArea()
         self.details_scroll.setWidgetResizable(True)
+        self.details_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
         self.details_widget = QWidget()
+        self.details_widget.setStyleSheet("background: transparent;")
         self.details_layout = QVBoxLayout(self.details_widget)
         self.details_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.details_scroll.setWidget(self.details_widget)
 
-        left_layout.addWidget(self.details_scroll)
+        editor_layout.addWidget(self.details_scroll)
 
-        # B. L'Aperçu WebEngine
-        self.preview_panel = QWidget()
-        preview_layout = QVBoxLayout(self.preview_panel)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout = QHBoxLayout()
+        self.btn_history = ActionButton('fa5s.history', " Historique")
+        self.btn_history.clicked.connect(self.show_version_history)
+        self.btn_history.setEnabled(False)
+
+        self.btn_save_edits = PrimaryButton(qtawesome.icon('fa5s.save', color='white'), " Sauvegarder modifications")
+        self.btn_save_edits.clicked.connect(self.save_note_edits)
+        self.btn_save_edits.setEnabled(False)
+
+        buttons_layout.addWidget(self.btn_history)
+        buttons_layout.addStretch()  # Pousse le bouton sauvegarder tout à droite
+        buttons_layout.addWidget(self.btn_save_edits)
+
+        editor_layout.addLayout(buttons_layout)
+        bottom_splitter.addWidget(editor_panel)
+
+        # L'Aperçu WebEngine (Droite)
+        preview_panel = RoundedPanel()
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_layout.setContentsMargins(15, 15, 15, 15)  # Marge aérée
+
+        controls_layout = QHBoxLayout()
+
+        lbl_preview = QLabel("Prévisualisation :")
+        lbl_preview.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
+        controls_layout.addWidget(lbl_preview)
 
         self.preview_card_selector = QComboBox()
+        self.preview_card_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.preview_card_selector.setMinimumWidth(130)
         self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
 
         self.preview_side_selector = QComboBox()
-        self.preview_side_selector.addItems(["Afficher le Recto (Question)", "Afficher le Verso (Réponse)"])
+        self.preview_side_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.preview_side_selector.setMinimumWidth(130)
+        self.preview_side_selector.addItems(["Voir Recto", "Voir Verso"])
         self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
 
-        controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.preview_card_selector)
         controls_layout.addWidget(self.preview_side_selector)
+        controls_layout.addStretch()  # Pousse les menus vers la gauche
+
+        preview_layout.addLayout(controls_layout)
 
         self.web_view = QWebEngineView()
-
         self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+
+        # ✨ MAGIE : On demande à la page Web d'être transparente (Laisse passer le gris du RoundedPanel)
+        self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+
+        preview_layout.addWidget(self.web_view)
 
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
-        self.preview_timer.setInterval(500)  # Attend 500ms après la dernière frappe
+        self.preview_timer.setInterval(500)
         self.preview_timer.timeout.connect(self.update_preview)
 
-        preview_layout.addLayout(controls_layout)
-        preview_layout.addWidget(self.web_view)
-
-        bottom_splitter.addWidget(left_panel)
-        bottom_splitter.addWidget(self.preview_panel)
+        bottom_splitter.addWidget(preview_panel)
         bottom_splitter.setSizes([350, 450])
-
-        right_splitter.addWidget(self.data_table)
         right_splitter.addWidget(bottom_splitter)
         right_splitter.setSizes([300, 300])
 
-        right_layout.addWidget(right_splitter)
-
-        # --- PANNEAU LATÉRAL GAUCHE (Paquets + Tags) ---
-
-        left_sidebar = QSplitter(Qt.Orientation.Vertical)
-        left_sidebar.addWidget(self.deck_tree)
-
-        tag_container = QWidget()
-        tag_layout = QVBoxLayout(tag_container)
-        tag_layout.setContentsMargins(0, 10, 0, 0)
-        tag_layout.addWidget(QLabel("<b>🏷️ Tags</b>"))
-
-        self.tag_list = QListWidget()
-        self.tag_list.itemClicked.connect(self.on_tag_selected)
-
-        # Activer le clic droit sur la liste de tags
-        self.tag_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tag_list.customContextMenuRequested.connect(self.show_tag_context_menu)
-
-        tag_layout.addWidget(self.tag_list)
-        left_sidebar.addWidget(tag_container)
-
-        main_splitter.addWidget(left_sidebar)  # 👈 On ajoute la sidebar complète au lieu du simple deck_tree
-
-        main_splitter.addWidget(right_panel)
+        main_splitter.addWidget(nav_panel)
+        main_splitter.addWidget(right_splitter)
         main_splitter.setSizes([200, 800])
 
         layout.addWidget(main_splitter)
@@ -514,7 +579,16 @@ class EditionTab(QWidget):
             self.details_layout.addWidget(lbl_title)
 
             for field_name, field_value in content_dict.items():
-                lbl = QLabel(f"<b>{field_name}</b>")
+                lbl = QLabel(field_name)
+                lbl.setStyleSheet("""
+                                    font-weight: bold; 
+                                    color: palette(placeholder-text); 
+                                    font-size: 10px; 
+                                    text-transform: uppercase; 
+                                    letter-spacing: 1px; 
+                                    margin-top: 15px; /* Sépare du bloc précédent */
+                                    margin-bottom: 5px; /* Rapproche du champ de texte */
+                                """)
                 text_edit = DropImageTextEdit()
 
                 clean_value = field_value.replace('<br>', '\n') if field_value else ""
@@ -573,11 +647,11 @@ class EditionTab(QWidget):
         models = NoteTypeModel.select()
         for m in models:
             self.creation_model_cb.addItem(m.name, m.id)
-        
+
         self.creation_model_cb.currentIndexChanged.connect(self.render_creation_fields)
         model_layout.addWidget(self.creation_model_cb)
         model_layout.addStretch()
-        
+
         # On encapsule dans un widget pour l'ajouter au QVBoxLayout
         model_widget = QWidget()
         model_widget.setLayout(model_layout)
@@ -590,32 +664,32 @@ class EditionTab(QWidget):
     def render_creation_fields(self) -> None:
         if not self.is_creating:
             return
-            
+
         model_id = self.creation_model_cb.currentData()
         if not model_id:
             return
-            
+
         note_type = NoteTypeModel.get_by_id(model_id)
         fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
-        
+
         # On nettoie les anciens champs (tout sauf le titre et le combobox)
         while self.details_layout.count() > 2:
             child = self.details_layout.takeAt(2)
             if child.widget():
                 child.widget().deleteLater()
-                
+
         self.field_editors.clear()
-        
+
         for field_name in fields:
             lbl = QLabel(f"<b>{field_name}</b>")
             text_edit = DropImageTextEdit()
             text_edit.setMinimumHeight(60)
             text_edit.textChanged.connect(self._on_text_changed)
-            
+
             self.field_editors[field_name] = text_edit
             self.details_layout.addWidget(lbl)
             self.details_layout.addWidget(text_edit)
-            
+
         # Mise à jour de l'aperçu pour la création (brouillon)
         self.preview_card_selector.blockSignals(True)
         self.preview_card_selector.clear()
@@ -670,25 +744,25 @@ class EditionTab(QWidget):
         try:
             model_id = self.creation_model_cb.currentData()
             note_type = NoteTypeModel.get_by_id(model_id)
-            
+
             content_dict = {}
             for field_name, editor in self.field_editors.items():
                 content_dict[field_name] = editor.toPlainText().replace('\n', '<br>')
-                
+
             import uuid
-            
+
             with db.atomic():
                 # 1. Créer la Note
                 new_note = NoteModel.create(
-                    guid=str(uuid.uuid4())[:10], # format basique
+                    guid=str(uuid.uuid4())[:10],  # format basique
                     note_type=note_type,
                     tags="[]",
                     status="new"
                 )
-                
+
                 # 2. Créer la version initiale
                 new_version = new_note.add_version(content_dict, source="manual")
-                
+
                 # 3. Créer la/les cartes
                 templates = json.loads(note_type.templates) if note_type.templates else []
                 deck = DeckModel.get_by_id(self.current_deck_id)
@@ -698,10 +772,10 @@ class EditionTab(QWidget):
                         deck=deck,
                         template_index=i
                     )
-            
+
             show_toast(self, "✨ Nouvelle note créée !")
             self._exit_creation_mode(refresh=True, select_note_id=new_note.id)
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de créer la note : {e}")
 
@@ -709,10 +783,10 @@ class EditionTab(QWidget):
         self.is_creating = False
         self.btn_save_edits.setText(" Sauvegarder les modifications")
         self.btn_history.setVisible(True)
-        
+
         if refresh:
             self.refresh_table()
-            
+
         if select_note_id:
             self.jump_to_note(select_note_id, self.current_deck_id)
         else:
@@ -762,7 +836,8 @@ class EditionTab(QWidget):
             css=css,
             fields_dict=current_fields,
             is_recto=is_recto,
-            front_html=tmpl.get("qfmt", "")
+            front_html=tmpl.get("qfmt", ""),
+            is_dark_mode=is_dark_mode()
         )
 
         media_dir = get_app_data_dir() / "media"

@@ -87,7 +87,8 @@ def render_anki_card(
         css: str,
         fields_dict: AnkiFields,
         is_recto: bool = True,
-        front_html: str = ""
+        front_html: str = "",
+        is_dark_mode: bool = False
 ) -> str:
     """Moteur de rendu natif Anki (Conditionnels, Champs, MathJax)."""
 
@@ -102,23 +103,30 @@ def render_anki_card(
     # 3. Traitement spécifique du Verso
     if not is_recto:
         html = _process_front_side(html, front_html, safe_fields)
-
+    body_class = "nightMode" if is_dark_mode else ""
     # 4. Assemblage final avec le template de base
     final_html = f"""
-    <html>
-    <head>
-        <meta charset="utf-8">
-        {_get_mathjax_script()}
-        <style>
-            body {{ background-color: #ffffff; margin: 20px; }}
-            {css}
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            {html}
-        </div>
-    </body>
-    </html>
-    """
+            <html>
+            <head>
+                <meta charset="utf-8">
+                {_get_mathjax_script()}
+                <style>
+                    /* Fond transparent pour laisser l'app visible derrière la carte */
+                    body {{ background-color: transparent; margin: 0; padding: 15px; }}
+
+                    /* 👇 FORCER LA SCROLLBAR SOMBRE SUR CHROMIUM 👇 */
+                    ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
+                    ::-webkit-scrollbar-track {{ background: transparent; }}
+                    ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 5px; }}
+                    ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
+
+                    {css}
+                </style>
+            </head>
+            <body class="{body_class}"> <div class="card">
+                    {html}
+                </div>
+            </body>
+            </html>
+            """
     return final_html

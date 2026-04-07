@@ -19,7 +19,7 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
 
 /* --- Champs de saisie et Menus déroulants --- */
 QLineEdit, QTextEdit, QComboBox, QSpinBox {
-    background-color: palette(base);
+    background-color: palette(window);
     color: palette(text);
     border: 1px solid palette(alternate-base);
     border-radius: 6px;
@@ -78,7 +78,7 @@ def apply_dark_theme(app: QApplication) -> None:
 
     bg_color = QColor(18, 18, 18)
     surface_color = QColor(30, 30, 30)
-    alternate_base = QColor(45, 45, 45) # Contraste légèrement plus fort pour les bordures
+    alternate_base = QColor(36, 36, 36)
     text_primary = QColor(224, 224, 224)
     text_disabled = QColor(110, 110, 110)
     accent_color = QColor(63, 81, 181)
@@ -172,3 +172,14 @@ def get_icon_color() -> str:
         # Retourne la couleur hexadécimale (ex: '#e0e0e0' ou '#282828')
         return app.palette().color(QPalette.ColorRole.WindowText).name()
     return "#E0E0E0" # Fallback de sécurité
+
+def is_dark_mode() -> bool:
+    """Vérifie si l'application est actuellement en mode sombre."""
+    from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QPalette
+    app = QApplication.instance()
+    if not app:
+        return False
+    # On regarde la luminosité de la couleur de fond de la fenêtre
+    bg_color = app.palette().color(QPalette.ColorRole.Window)
+    return bg_color.lightness() < 128
