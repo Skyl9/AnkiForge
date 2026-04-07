@@ -24,6 +24,7 @@ dependencies = [
     "platformdirs>=4.9.4",
     "marker-pdf>=1.10.2",
     "pytest-qt>=4.5.0",
+
 ]
 
 [project.gui-scripts]
@@ -38,4 +39,5 @@ dev = [
     "mkdocs-material>=9.7.6",
     "mkdocstrings[python]>=1.0.3",
     "pyinstaller>=6.19.0",
+    "tiktoken>=0.12.0",
 ]
