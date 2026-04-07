@@ -30,7 +30,7 @@ class ModelsTab(QWidget):
         header_layout = QHBoxLayout()
         header_layout.addWidget(HeaderLabel("Édition des Modèles (Note Types)"))
         # Boutons avec icônes
-        self.btn_new_model = ActionButton(qta.icon('fa5s.plus', color='white'), " Nouveau Modèle")
+        self.btn_new_model = ActionButton('fa5s.plus', " Nouveau Modèle")
         self.btn_new_model.clicked.connect(self.create_new_model)
 
         self.btn_del_model = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer")
@@ -41,7 +41,7 @@ class ModelsTab(QWidget):
         self.btn_save_model.clicked.connect(self.save_current_model)
         self.btn_save_model.setEnabled(False)
 
-        self.btn_refresh = ActionButton(qta.icon('fa5s.sync', color='white'), " Rafraîchir")
+        self.btn_refresh = ActionButton('fa5s.sync', " Rafraîchir")
         self.btn_refresh.clicked.connect(self.refresh_models_list)
 
         header_layout.addWidget(self.btn_new_model)

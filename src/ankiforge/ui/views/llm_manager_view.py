@@ -97,7 +97,7 @@ class LLMManagerTab(QWidget):
         self.cb_model_id.setEditable(True)
         self.cb_model_id.setPlaceholderText("Ex: gpt-4o")
 
-        self.btn_refresh_ollama = ActionButton(qta.icon('fa5s.sync'), "")
+        self.btn_refresh_ollama = ActionButton('fa5s.sync', "")
         self.btn_refresh_ollama.setToolTip("Rafraîchir les modèles locaux")
         self.btn_refresh_ollama.clicked.connect(self.refresh_ollama_models)
         self.btn_refresh_ollama.hide()
@@ -120,7 +120,7 @@ class LLMManagerTab(QWidget):
         self.btn_delete_llm.clicked.connect(self.delete_llm_config)
         self.btn_delete_llm.setEnabled(False)
 
-        self.btn_clear_form = ActionButton(qta.icon('fa5s.plus'), " Nouveau")
+        self.btn_clear_form = ActionButton('fa5s.plus', " Nouveau")
         self.btn_clear_form.clicked.connect(self.clear_llm_form)
 
         action_layout.addWidget(self.btn_clear_form)

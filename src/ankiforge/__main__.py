@@ -1,6 +1,7 @@
 import os
 import sys
 
+from PySide6.QtCore import QCoreApplication
 from dotenv import load_dotenv
 
 from ankiforge.database.models import init_db, seed_initial_data
@@ -17,6 +18,9 @@ from PySide6.QtWidgets import QApplication
 
 
 def main():
+    QCoreApplication.setOrganizationName("AnkiForgeOrg")
+    QCoreApplication.setApplicationName("AnkiForge")
+
     load_dotenv()
     init_db()
     seed_initial_data()

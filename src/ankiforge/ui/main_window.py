@@ -1,9 +1,9 @@
-# src/ui/main_window.py
 import qtawesome as qta
-from PySide6.QtCore import Slot, QSettings
+from PySide6.QtCore import Slot, QSettings, Qt, QSize, QEvent
 from PySide6.QtGui import QCloseEvent, QShortcut, QKeySequence
-from PySide6.QtWidgets import QMainWindow, QTabWidget
+from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QListWidget, QStackedWidget, QListWidgetItem
 
+from ankiforge.ui.theme import get_icon_color
 from ankiforge.ui.views.agents_view import AgentsTab
 from ankiforge.ui.views.batch_view import BatchTab
 from ankiforge.ui.views.creation_view import CreationTab
@@ -23,84 +23,136 @@ class MainWindow(QMainWindow):
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.ai_manager = ai_manager
 
-        # Initialisation des onglets
+        # --- Layout Principal (Sidebar + Stack) ---
+        main_widget = QWidget()
+        main_layout = QHBoxLayout(main_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # 1. La Barre Latérale (Sidebar) dynamique avec la palette
+        self.sidebar = QListWidget()
+        self.sidebar.setFixedWidth(220)
+        self.sidebar.setIconSize(QSize(20, 20))
+        self.sidebar.setStyleSheet("""
+            QListWidget {
+                background-color: palette(alternate-base);
+                border: none;
+                border-right: 1px solid palette(window);
+                padding-top: 10px;
+                outline: none;
+            }
+            QListWidget::item {
+                padding: 10px 15px;
+                margin: 2px 10px;
+                border-radius: 6px;
+                color: palette(text);
+            }
+            QListWidget::item:selected {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QListWidget::item:hover:!selected {
+                background-color: palette(base);
+            }
+        """)
+
+        # 2. Le conteneur des vues (Stack)
+        self.stack = QStackedWidget()
+
+        main_layout.addWidget(self.sidebar)
+        main_layout.addWidget(self.stack)
+        self.setCentralWidget(main_widget)
+
+        # --- Initialisation des vues ---
         self.stats_tabs = StatsTab()
         self.batch_tab = BatchTab(self.ai_manager)
         self.tab_edition = EditionTab()
         self.tab_documents = DocumentsTab()
-        self.tabs = QTabWidget()
         self.llm_manager_tab = LLMManagerTab(self.ai_manager)
-        iconColor = '#E0E0E0'
+        iconColor = get_icon_color()
 
-        self.tabs.addTab(CreationTab(self.ai_manager), qta.icon('fa5s.magic', color=iconColor), "Création")
-        self.tabs.addTab(self.tab_edition, qta.icon('fa5s.layer-group', color=iconColor), "Édition / Analyse")
-        self.tabs.addTab(ModelsTab(), qta.icon('fa5s.paint-brush', color=iconColor), "Modèles")
-        self.tabs.addTab(AgentsTab(), qta.icon('fa5s.robot', color=iconColor), "Agents & Pipelines")
-        self.tabs.addTab(self.stats_tabs, qta.icon('fa5s.chart-bar', color=iconColor), "Statistiques")
-        self.tabs.addTab(self.tab_documents, qta.icon('fa5s.folder-open', color=iconColor), "Documents")
-        self.tabs.addTab(SettingsTab(), qta.icon('fa5s.cog', color=iconColor), "Paramètres IA")
-        self.tabs.addTab(self.batch_tab, qta.icon('fa5s.rocket', color=iconColor), "Automatisation")
-        self.tabs.addTab(self.llm_manager_tab, qta.icon('fa5s.robot'), " Moteurs IA")
+        # --- Ajout dynamique des éléments ---
+        self.add_view(CreationTab(self.ai_manager), "fa5s.magic", "Création")
+        self.add_view(self.tab_edition, "fa5s.layer-group", "Édition / Analyse" )
+        self.add_view(ModelsTab(), "fa5s.paint-brush", "Modèles" )
+        self.add_view(AgentsTab(), "fa5s.robot", "Agents & Pipelines" )
+        self.add_view(self.stats_tabs, "fa5s.chart-bar", "Statistiques" )
+        self.add_view(self.tab_documents, "fa5s.folder-open", "Documents")
+        self.add_view(SettingsTab(), "fa5s.cog", "Paramètres IA")
+        self.add_view(self.batch_tab, "fa5s.rocket", "Automatisation")
+        self.add_view(self.llm_manager_tab, "fa5s.robot", "Moteurs IA")
 
-        self.tabs.currentChanged.connect(self.on_tab_changed)
-        self.setCentralWidget(self.tabs)
+        # Connexion du signal de changement de vue
+        self.sidebar.currentRowChanged.connect(self.on_sidebar_changed)
+
         self.read_settings()
 
         # --- OMNIBOX (RECHERCHE GLOBALE) ---
         self.omnibox = Omnibox(self)
         self.omnibox.result_selected.connect(self.handle_omnibox_result)
-
-        # Le raccourci magique Ctrl+K (Cmd+K sur Mac)
         self.shortcut_search = QShortcut(QKeySequence("Ctrl+K"), self)
         self.shortcut_search.activated.connect(lambda: self.omnibox.exec_centered(self))
 
+    def add_view(self, widget: QWidget, icon_name: str, title: str):
+        self.stack.addWidget(widget)
+        item = QListWidgetItem(qta.icon(icon_name, color=get_icon_color()), f"  {title}")
+
+        # On cache le nom de l'icône dans la donnée de l'item (UserRole + 1 pour ne pas écraser d'autres datas)
+        item.setData(Qt.ItemDataRole.UserRole + 1, icon_name)
+
+        self.sidebar.addItem(item)
 
     @Slot(int)
-    def on_tab_changed(self, index: int) -> None:
-        """Rafraîchit les données de l'onglet actif quand on clique dessus."""
-        current_widget = self.tabs.widget(index)
+    def on_sidebar_changed(self, index: int) -> None:
+        """Change la vue active et rafraîchit les données."""
+        self.stack.setCurrentIndex(index)
+        current_widget = self.stack.widget(index)
         refresh_method = getattr(current_widget, "refresh_data", None)
         if callable(refresh_method):
             refresh_method()
 
-    # ==========================================
-    # 💾 GESTION DE L'ÉTAT (QSettings)
-    # ==========================================
-
     def read_settings(self):
-        """Restaure la taille de la fenêtre et l'onglet actif."""
-        # Restaure la géométrie (Taille et position)
         geometry = self.settings.value("geometry")
         if geometry:
             self.restoreGeometry(geometry)
         else:
-            self.resize(1100, 800)  # Taille par défaut si premier lancement
+            self.resize(1100, 800)
 
-        # Restaure l'onglet actif
         last_tab = self.settings.value("last_tab_index", 0, type=int)
-        if last_tab < self.tabs.count():
-            self.tabs.setCurrentIndex(last_tab)
+        if last_tab < self.sidebar.count():
+            self.sidebar.setCurrentRow(last_tab)
 
     def write_settings(self):
-        """Enregistre la configuration actuelle."""
         self.settings.setValue("geometry", self.saveGeometry())
-        self.settings.setValue("last_tab_index", self.tabs.currentIndex())
+        self.settings.setValue("last_tab_index", self.sidebar.currentRow())
 
     def closeEvent(self, event: QCloseEvent):
-        """Se déclenche à la fermeture de l'application."""
         self.write_settings()
         event.accept()
 
     @Slot(str, int, object)
     def handle_omnibox_result(self, result_type: str, item_id: int, extra_data: object):
-        """Reçoit l'ordre de l'Omnibox et change d'onglet."""
         if result_type == "doc":
-            # On suppose que ton onglet Documents est à l'index 3 (à adapter selon ton code)
-            self.tabs.setCurrentWidget(self.tab_documents)
+            index = self.stack.indexOf(self.tab_documents)
+            self.sidebar.setCurrentRow(index)
             self.tab_documents.jump_to_document(item_id)
-
         elif result_type == "note":
-            # On suppose que ton onglet Édition est à l'index 1 (à adapter)
-            self.tabs.setCurrentWidget(self.tab_edition)
-            self.tab_edition.view_mode_cb.setCurrentText("Vue : Notes (Texte)")  # Force la bonne vue
+            index = self.stack.indexOf(self.tab_edition)
+            self.sidebar.setCurrentRow(index)
+            self.tab_edition.view_mode_cb.setCurrentText("Vue : Notes (Texte)")
             self.tab_edition.jump_to_note(item_id, extra_data)
+
+    def changeEvent(self, event):
+        """Intercepte le changement de thème global pour rafraîchir la sidebar."""
+        if event.type() == QEvent.Type.PaletteChange:
+            from ankiforge.ui.theme import get_icon_color
+            color = get_icon_color()
+
+            # On boucle sur tous les onglets pour redessiner leur icône
+            for i in range(self.sidebar.count()):
+                item = self.sidebar.item(i)
+                icon_name = item.data(Qt.ItemDataRole.UserRole + 1)
+                if icon_name:
+                    item.setIcon(qta.icon(icon_name, color=color))
+
+        super().changeEvent(event)

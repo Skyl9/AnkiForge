@@ -1,7 +1,10 @@
 # src/ankiforge/ui/widgets/components.py
+import qtawesome
 from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout
 from PySide6.QtGui import QCursor
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent
+
+from ankiforge.ui.theme import get_icon_color
 
 
 class PrimaryButton(QPushButton):
@@ -58,14 +61,20 @@ class DangerButton(QPushButton):
 class ActionButton(QPushButton):
     """Bouton neutre pour les outils (Historique, Scan, etc.). S'adapte au thème !"""
 
-    def __init__(self, icon_or_text, text=None, parent=None):
-        if text is not None:
-            super().__init__(icon_or_text, text, parent)
+    def __init__(self, icon_name: str, text=None, parent=None):
+        self.icon_name = icon_name  # On mémorise l'icône demandée
+
+        # On génère l'icône avec la couleur actuelle
+        icon = qtawesome.icon(self.icon_name, color=get_icon_color()) if self.icon_name else None
+
+        if text is not None and icon:
+            super().__init__(icon, text, parent)
+        elif icon:
+            super().__init__(icon, parent)
         else:
-            super().__init__(icon_or_text, parent)
+            super().__init__(text, parent)
 
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        # 👇 Utilise la palette pour s'adapter au mode clair/sombre
         self.setStyleSheet("""
             ActionButton {
                 background-color: palette(alternate-base);
@@ -81,10 +90,16 @@ class ActionButton(QPushButton):
             }
             ActionButton:pressed { background-color: palette(base); }
             ActionButton:disabled { 
-                background-color: palette(window); 
+                background-color: palette(window);
                 color: palette(placeholder-text); 
             }
         """)
+
+    def changeEvent(self, event):
+        """Écoute les changements système. Si le thème change, on redessine l'icône !"""
+        if event.type() == QEvent.Type.PaletteChange and self.icon_name:
+            self.setIcon(qtawesome.icon(self.icon_name, color=get_icon_color()))
+        super().changeEvent(event)
 
 
 class RoundedPanel(QFrame):

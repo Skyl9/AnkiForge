@@ -240,7 +240,7 @@ class BatchTab(QWidget):
         self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         left_layout.addWidget(self.tree_source)
 
-        self.btn_add_to_queue = ActionButton(qta.icon('fa5s.arrow-right'), " Ajouter à la file d'attente")
+        self.btn_add_to_queue = ActionButton('fa5s.arrow-right', " Ajouter à la file d'attente")
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         left_layout.addWidget(self.btn_add_to_queue)
 

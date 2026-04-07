@@ -69,7 +69,7 @@ class EditionTab(QWidget):
         header_layout = QHBoxLayout()
         titre = HeaderLabel("Navigateur de Cartes & Notes")
 
-        self.btn_load_col = ActionButton(qtawesome.icon('fa5s.folder-open', color='white'), " Importer un paquet")
+        self.btn_load_col = ActionButton('fa5s.folder-open',  " Importer un paquet")
         self.btn_load_col.clicked.connect(self.load_cards)
 
         self.btn_export = PrimaryButton(qtawesome.icon('fa5s.box', color='white'), " Exporter le paquet vers Anki")
@@ -114,7 +114,7 @@ class EditionTab(QWidget):
         self.btn_new_note.clicked.connect(self.enter_creation_mode)
         self.btn_new_note.setEnabled(False)
 
-        self.btn_scan_dupes = ActionButton(qtawesome.icon('fa5s.search', color='white'), " Traquer les doublons")
+        self.btn_scan_dupes = ActionButton('fa5s.search', " Traquer les doublons")
         self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
 
         toolbar_layout.addWidget(self.btn_new_note)
@@ -155,7 +155,7 @@ class EditionTab(QWidget):
         self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.btn_save_edits.setEnabled(False)
 
-        self.btn_history = ActionButton(qtawesome.icon('fa5s.history', color='white'), " Historique")
+        self.btn_history = ActionButton('fa5s.history', " Historique")
         self.btn_history.clicked.connect(self.show_version_history)
         self.btn_history.setEnabled(False)
 

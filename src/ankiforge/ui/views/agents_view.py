@@ -53,7 +53,7 @@ class AgentsTab(QWidget):
         form_layout.addWidget(self.agent_prompt_input)
 
         btn_layout_agent = QHBoxLayout()
-        self.btn_new_agent = ActionButton(qta.icon('fa5s.plus'), " Nouvel Agent")
+        self.btn_new_agent = ActionButton('fa5s.plus', " Nouvel Agent")
         self.btn_new_agent.clicked.connect(self.clear_agent_form)
 
         self.btn_save_agent = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder l'Agent")
@@ -84,7 +84,7 @@ class AgentsTab(QWidget):
         pipe_header.addWidget(QLabel("<b>Pipeline :</b>"))
         pipe_header.addWidget(self.pipeline_selector, stretch=1)
 
-        self.btn_new_pipeline = ActionButton(qta.icon('fa5s.plus'), " Nouveau")
+        self.btn_new_pipeline = ActionButton('fa5s.plus', " Nouveau")
         self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
 
         pipe_header.addWidget(self.btn_new_pipeline)
@@ -93,10 +93,10 @@ class AgentsTab(QWidget):
         # BOUTONS IMPORT / EXPORT
         export_import_layout = QHBoxLayout()
 
-        self.btn_import_pipe = ActionButton(qta.icon('fa5s.folder-open'), " Importer (.json)")
+        self.btn_import_pipe = ActionButton('fa5s.folder-open', " Importer (.json)")
         self.btn_import_pipe.clicked.connect(self.import_pipeline)
 
-        self.btn_export_pipe = ActionButton(qta.icon('fa5s.file-export'), " Exporter")
+        self.btn_export_pipe = ActionButton('fa5s.file-export', " Exporter")
         self.btn_export_pipe.clicked.connect(self.export_pipeline)
 
         export_import_layout.addWidget(self.btn_import_pipe)
@@ -109,7 +109,7 @@ class AgentsTab(QWidget):
         add_step_layout = QHBoxLayout()
         self.available_agents_cb = QComboBox()
 
-        self.btn_add_step = ActionButton(qta.icon('fa5s.arrow-down'), " Ajouter à la chaîne")
+        self.btn_add_step = ActionButton('fa5s.arrow-down', " Ajouter à la chaîne")
         self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
 
         add_step_layout.addWidget(self.available_agents_cb, stretch=1)
@@ -122,10 +122,10 @@ class AgentsTab(QWidget):
         chain_layout.addWidget(self.steps_list)
 
         step_ctrl_layout = QHBoxLayout()
-        self.btn_step_up = ActionButton(qta.icon('fa5s.arrow-up'), " Monter")
+        self.btn_step_up = ActionButton('fa5s.arrow-up', " Monter")
         self.btn_step_up.clicked.connect(self.move_step_up)
 
-        self.btn_step_down = ActionButton(qta.icon('fa5s.arrow-down'), " Descendre")
+        self.btn_step_down = ActionButton('fa5s.arrow-down', " Descendre")
         self.btn_step_down.clicked.connect(self.move_step_down)
 
         self.btn_step_remove = DangerButton(qta.icon('fa5s.times', color='white'), " Retirer")

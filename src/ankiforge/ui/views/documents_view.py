@@ -116,7 +116,7 @@ class DocumentsTab(QWidget):
         header_layout.addStretch()
 
         # 👇 Bouton Action (Couleur d'icône automatique !)
-        self.btn_import = ActionButton(qta.icon('fa5s.file-import'), " Analyser un PDF/TXT (Marker)")
+        self.btn_import = ActionButton('fa5s.file-import', " Analyser un PDF/TXT (Marker)")
         self.btn_import.clicked.connect(self.import_document)
         header_layout.addWidget(self.btn_import)
 
@@ -130,10 +130,10 @@ class DocumentsTab(QWidget):
 
         toolbar = QHBoxLayout()
         # 👇 Nettoyage des boutons de la toolbar
-        self.btn_new_folder = ActionButton(qta.icon('fa5s.folder-plus'), " Dossier")
+        self.btn_new_folder = ActionButton('fa5s.folder-plus', " Dossier")
         self.btn_new_folder.clicked.connect(self.create_folder)
 
-        self.btn_new_doc = ActionButton(qta.icon('fa5s.file-medical'), " Doc")
+        self.btn_new_doc = ActionButton('fa5s.file-medical', " Doc")
         self.btn_new_doc.clicked.connect(self.create_manual_document)
 
         self.btn_delete = DangerButton(qta.icon('fa5s.trash', color='white'), "")
@@ -174,14 +174,14 @@ class DocumentsTab(QWidget):
         self.btn_save_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_save_doc)
 
-        self.btn_split_doc = ActionButton(qta.icon('fa5s.cut'), " Scinder aux balises [SPLIT]")
+        self.btn_split_doc = ActionButton('fa5s.cut', " Scinder aux balises [SPLIT]")
         self.btn_split_doc.clicked.connect(self.split_document_multiple)
         self.btn_split_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_split_doc)
 
         right_layout.addLayout(editor_toolbar)
 
-        self.btn_insert_split = ActionButton(qta.icon('fa5s.cut'), " Insérer Coupure (Ctrl+D)")
+        self.btn_insert_split = ActionButton('fa5s.cut', " Insérer Coupure (Ctrl+D)")
         self.btn_insert_split.clicked.connect(self.insert_split_tag)
         self.btn_insert_split.setEnabled(False)
         editor_toolbar.insertWidget(2, self.btn_insert_split)

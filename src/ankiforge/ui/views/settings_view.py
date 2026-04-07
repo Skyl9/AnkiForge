@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from pathlib import Path
 
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton
+from ankiforge.ui.theme import refresh_theme_live
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -49,7 +50,7 @@ class SettingsTab(QWidget):
         saved_path = self.settings.value("export/default_directory", default_path)
         self.le_export_path.setText(saved_path)
 
-        self.btn_browse = ActionButton(qta.icon('fa5s.folder-open'), "")
+        self.btn_browse = ActionButton('fa5s.folder-open', "")
         self.btn_browse.clicked.connect(self.browse_export_path)
 
         path_layout.addWidget(self.le_export_path)
@@ -92,11 +93,10 @@ class SettingsTab(QWidget):
         self.settings.setValue("ui/theme", self.cb_theme.currentText())
         self.settings.setValue("export/default_directory", self.le_export_path.text())
         self.settings.setValue("behavior/auto_save", self.cb_auto_save.currentText())
+        self.settings.sync()
+        refresh_theme_live()
 
         show_toast(self, "Préférences enregistrées !")
-
-        # Optionnel : Si tu veux appliquer le thème immédiatement,
-        # il faudra émettre un signal vers la MainWindow ici.
 
     @Slot()
     def refresh_data(self) -> None:

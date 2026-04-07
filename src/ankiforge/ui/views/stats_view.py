@@ -22,7 +22,7 @@ class StatsTab(QWidget):
         title = HeaderLabel("Tableau de Bord AnkiForge")
         header_layout.addWidget(title)
 
-        self.btn_refresh = ActionButton(qta.icon('fa5s.sync', color='white'), " Rafraîchir les statistiques")
+        self.btn_refresh = ActionButton('fa5s.sync', " Rafraîchir les statistiques")
         self.btn_refresh.setFixedWidth(250)
         self.btn_refresh.clicked.connect(self.load_stats)
 

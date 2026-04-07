@@ -9,15 +9,15 @@ from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QComboBox, QTableWidget,
-                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QGroupBox,
-                               QProgressBar)
+                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QProgressBar,
+                               QGridLayout)
 from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, LLMConfigModel
 from ankiforge.services.ai.utils import parse_ai_json_response
-from ankiforge.ui.components.components import ActionButton, PrimaryButton
+from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -105,49 +105,75 @@ class CreationTab(QWidget):
         self.generated_notes: List[Dict[str, str]] = []
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)  # Plus d'espace entre les grandes zones
 
-        # --- NOUVEAU : Bloc 1 - Paramètres IA et Destination ---
-        params_group = QGroupBox("1. Configuration de l'IA et Destination")
-        params_layout = QHBoxLayout(params_group)
+        # ==========================================
+        # BLOC 1 : CONFIGURATION IA (En Carte)
+        # ==========================================
+        params_panel = RoundedPanel()
+        params_layout = QVBoxLayout(params_panel)
+        params_layout.setContentsMargins(20, 20, 20, 20)
 
-        params_layout.addWidget(QLabel("<b>Paquet :</b>"))
+        # Titre de section moderne (Petites majuscules grisées)
+        lbl_title_1 = QLabel("1. CONFIGURATION DE L'IA ET DESTINATION")
+        lbl_title_1.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        params_layout.addWidget(lbl_title_1)
+
+        params_grid = QGridLayout()
+        params_grid.setContentsMargins(0, 10, 0, 0)
+        params_grid.setSpacing(15)
+
+        # On retire les <b> pour ne pas attirer l'oeil sur les labels
+        params_grid.addWidget(QLabel("Paquet :"), 0, 0)
         self.deck_selector = QComboBox()
-        params_layout.addWidget(self.deck_selector)
+        params_grid.addWidget(self.deck_selector, 0, 1)
 
-        params_layout.addWidget(QLabel("   <b>Modèle de carte :</b>"))
+        params_grid.addWidget(QLabel("Modèle de carte :"), 0, 2)
         self.model_selector = QComboBox()
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
-        params_layout.addWidget(self.model_selector)
+        params_grid.addWidget(self.model_selector, 0, 3)
 
-        params_layout.addWidget(QLabel("   <b>Moteur IA :</b>"))
+        params_grid.addWidget(QLabel("Moteur IA :"), 1, 0)
         self.llm_selector = QComboBox()
         self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
-        params_layout.addWidget(self.llm_selector)
+        params_grid.addWidget(self.llm_selector, 1, 1)
 
-        params_layout.addWidget(QLabel("   <b>Pipeline IA :</b>"))
+        params_grid.addWidget(QLabel("Pipeline IA :"), 1, 2)
         self.pipeline_selector = QComboBox()
-        params_layout.addWidget(self.pipeline_selector)
+        params_grid.addWidget(self.pipeline_selector, 1, 3)
 
-        layout.addWidget(params_group)
+        params_layout.addLayout(params_grid)
+        layout.addWidget(params_panel)
 
-        # Standard Qt6 : Qt.Orientation.Vertical
         main_splitter = QSplitter(Qt.Orientation.Vertical)
+        main_splitter.setHandleWidth(10)  # Rend le séparateur un peu plus facile à attraper
 
-        # --- Bloc 2 - Source de données ---
-        source_group = QGroupBox("2. Texte Source")
-        source_layout = QVBoxLayout(source_group)
+        # ==========================================
+        # BLOC 2 : TEXTE SOURCE (En Carte)
+        # ==========================================
+        source_panel = RoundedPanel()
+        source_layout = QVBoxLayout(source_panel)
+        source_layout.setContentsMargins(20, 20, 20, 20)
+        source_layout.setSpacing(15)
+
+        lbl_title_2 = QLabel("2. TEXTE SOURCE")
+        lbl_title_2.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        source_layout.addWidget(lbl_title_2)
 
         source_header = QHBoxLayout()
-        source_header.addWidget(QLabel("<b>Choisir un cours :</b>"))
+        source_header.addWidget(QLabel("Choisir un cours :"))
         self.doc_selector = QComboBox()
         self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
         source_header.addWidget(self.doc_selector, stretch=1)
 
-        self.btn_refresh_docs = ActionButton(qta.icon('fa5s.sync'), "")
+        self.btn_refresh_docs = ActionButton('fa5s.sync', "")
         self.btn_refresh_docs.clicked.connect(self.load_documents)
         source_header.addWidget(self.btn_refresh_docs)
 
-        source_header.addWidget(QLabel("<b>Partie :</b>"))
+        source_header.addWidget(QLabel("Partie :"))
         self.section_selector = QComboBox()
         self.section_selector.currentIndexChanged.connect(self.on_section_changed)
         source_header.addWidget(self.section_selector, stretch=1)
@@ -156,34 +182,50 @@ class CreationTab(QWidget):
 
         self.source_text = QTextEdit()
         self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
-        self.source_text.textChanged.connect(self.update_token_estimate)  # 👈 Connexion au texte
+        self.source_text.textChanged.connect(self.update_token_estimate)
         source_layout.addWidget(self.source_text)
 
-        token_layout = QHBoxLayout()
-        self.token_label = QLabel("<b>Tokens : 0 / ?</b>")
+        # Ligne du bas de la source : Tokens à gauche, Bouton à droite
+        bottom_source_layout = QHBoxLayout()
+
+        token_layout = QVBoxLayout()
+        self.token_label = QLabel("Tokens : 0 / ?")
+        self.token_label.setStyleSheet("color: palette(placeholder-text); font-size: 12px;")
         self.token_bar = QProgressBar()
         self.token_bar.setTextVisible(False)
-        self.token_bar.setFixedHeight(8)
+        self.token_bar.setFixedHeight(6)
+        self.token_bar.setFixedWidth(200)
         token_layout.addWidget(self.token_label)
-        token_layout.addWidget(self.token_bar, stretch=1)
-        source_layout.addLayout(token_layout)
+        token_layout.addWidget(self.token_bar)
+
+        bottom_source_layout.addLayout(token_layout)
+        bottom_source_layout.addStretch()
 
         self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
-        self.btn_generate.clicked.connect(self.start_generation)
-        source_layout.addWidget(self.btn_generate)
+        self.btn_generate.setMinimumWidth(250)
+        bottom_source_layout.addWidget(self.btn_generate)
 
-        # --- Bloc 3 : Résultats ---
-        # Standard Qt6 : Qt.Orientation.Horizontal
+        source_layout.addLayout(bottom_source_layout)
+        main_splitter.addWidget(source_panel)
+
+        # ==========================================
+        # BLOC 3 : RÉSULTATS (En Cartes scindées)
+        # ==========================================
         bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
+        bottom_splitter.setHandleWidth(10)
 
-        table_container = QWidget()
-        table_layout = QVBoxLayout(table_container)
-        table_layout.setContentsMargins(0, 0, 0, 0)
-        table_layout.addWidget(QLabel("<b>Aperçu (Double-cliquez pour éditer) :</b>"))
+        # 3A. Panneau de gauche : Le Tableau
+        table_panel = RoundedPanel()
+        table_layout = QVBoxLayout(table_panel)
+        table_layout.setContentsMargins(20, 20, 20, 20)
+
+        lbl_title_3 = QLabel("RÉSULTATS (DOUBLE-CLIQUEZ POUR ÉDITER)")
+        lbl_title_3.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        table_layout.addWidget(lbl_title_3)
 
         self.results_table = QTableWidget()
         self.results_table.horizontalHeader().setStretchLastSection(True)
-        # Standards Qt6
         self.results_table.setEditTriggers(
             QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed)
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -191,17 +233,36 @@ class CreationTab(QWidget):
         self.results_table.setAlternatingRowColors(True)
         self.results_table.itemChanged.connect(self.on_table_item_changed)
         self.results_table.itemSelectionChanged.connect(self.update_preview)
+        # On retire la bordure native du tableau car le RoundedPanel s'en charge
+        self.results_table.setStyleSheet("QTableWidget { border: none; }")
         table_layout.addWidget(self.results_table)
 
-        self.btn_save = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base de données")
+        btn_save_layout = QHBoxLayout()
+        btn_save_layout.addStretch()
+        self.btn_save = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base")
         self.btn_save.clicked.connect(self.save_to_database)
         self.btn_save.setEnabled(False)
-        table_layout.addWidget(self.btn_save)
+        self.btn_save.setMinimumWidth(250)
+        btn_save_layout.addWidget(self.btn_save)
+        table_layout.addLayout(btn_save_layout)
+
+        # 3B. Panneau de droite : Aperçu & Logs
+        right_panel = RoundedPanel()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(10, 10, 10, 10)  # Marges réduites pour laisser la place aux onglets
 
         right_tabs = QTabWidget()
+        # Style pour intégrer parfaitement les onglets dans la carte
+        right_tabs.setStyleSheet("""
+            QTabWidget::pane { border: none; border-top: 1px solid palette(alternate-base); }
+            QTabBar::tab { background: transparent; color: palette(text); padding: 8px 15px; margin-right: 2px; border-radius: 4px; }
+            QTabBar::tab:selected { background: palette(alternate-base); font-weight: bold; }
+            QTabBar::tab:hover:!selected { background: palette(window); }
+        """)
+
         preview_container = QWidget()
         preview_layout = QVBoxLayout(preview_container)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setContentsMargins(5, 15, 5, 5)
 
         controls_layout = QHBoxLayout()
         self.preview_card_selector = QComboBox()
@@ -217,22 +278,22 @@ class CreationTab(QWidget):
 
         self.web_view = QWebEngineView()
         self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-
         preview_layout.addWidget(self.web_view)
 
-        # Icônes pour les onglets
-        right_tabs.addTab(preview_container, qta.icon('fa5s.eye'), " Aperçu de la Carte")
+        right_tabs.addTab(preview_container, qta.icon('fa5s.eye'), " Aperçu")
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
-        self.console_log.setStyleSheet("background-color: #1e1e1e; color: #00FF00; font-family: 'Consolas', monospace;")
-        right_tabs.addTab(self.console_log, qta.icon('fa5s.terminal'), " Console IA (Logs)")
+        self.console_log.setStyleSheet(
+            "background-color: palette(base); color: palette(text); font-family: 'Consolas', monospace; border: none; margin-top: 10px;")
+        right_tabs.addTab(self.console_log, qta.icon('fa5s.terminal'), " Console IA")
 
-        bottom_splitter.addWidget(table_container)
-        bottom_splitter.addWidget(right_tabs)
-        bottom_splitter.setSizes([450, 350])
+        right_layout.addWidget(right_tabs)
 
-        main_splitter.addWidget(source_group)
+        bottom_splitter.addWidget(table_panel)
+        bottom_splitter.addWidget(right_panel)
+        bottom_splitter.setSizes([500, 300])
+
         main_splitter.addWidget(bottom_splitter)
         main_splitter.setSizes([200, 500])
 
@@ -241,12 +302,8 @@ class CreationTab(QWidget):
         self.refresh_selectors()
         self.load_documents()
 
-        # --- RACCOURCIS CLAVIER ---
-        # Ctrl+Enter (ou Ctrl+Retour) pour lancer la génération
         self.shortcut_generate = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut_generate.activated.connect(self.start_generation)
-
-        # Ctrl+S pour sauvegarder dans la base (une fois généré)
         self.shortcut_save_db = QShortcut(QKeySequence("Ctrl+S"), self)
         self.shortcut_save_db.activated.connect(self.save_to_database)
 
