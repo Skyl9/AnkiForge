@@ -1,16 +1,16 @@
 import json
 import uuid
-from typing import Any, List, Dict
+from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
-from PySide6.QtGui import QShortcut, QKeySequence
+from PySide6.QtGui import QShortcut, QKeySequence, QFont
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QComboBox, QTableWidget,
                                QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QProgressBar,
-                               QGridLayout)
+                               QGridLayout, QFrame)
 from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
@@ -103,18 +103,28 @@ class CreationTab(QWidget):
     def __init__(self, ai_manager: Any) -> None:
         super().__init__()
         self.ai_manager = ai_manager
-        self.generated_notes: List[Dict[str, str]] = []
+        self.generated_notes: list[dict[str, str]] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)  # Plus d'espace entre les grandes zones
+        layout.setSpacing(20)
+
+        main_splitter = QSplitter(Qt.Orientation.Vertical)
+        main_splitter.setHandleWidth(8)
 
         # ==========================================
-        # BLOC 1 : CONFIGURATION IA (En Carte)
+        # BLOC HAUT : CONFIGURATION & SOURCE
         # ==========================================
+
+        top_container = QWidget()
+        top_layout = QVBoxLayout(top_container)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(15)
+
+        # 1. PARAMÈTRES (Plus aérés)
         params_panel = RoundedPanel()
         params_layout = QVBoxLayout(params_panel)
-        params_layout.setContentsMargins(20, 20, 20, 20)
+        params_layout.setContentsMargins(20, 15, 20, 20)
 
         # Titre de section moderne (Petites majuscules grisées)
         lbl_title_1 = QLabel("1. CONFIGURATION DE L'IA ET DESTINATION")
@@ -123,40 +133,52 @@ class CreationTab(QWidget):
         params_layout.addWidget(lbl_title_1)
 
         params_grid = QGridLayout()
-        params_grid.setContentsMargins(0, 10, 0, 0)
-        params_grid.setSpacing(15)
+        params_grid.setHorizontalSpacing(30)
+        params_grid.setVerticalSpacing(10)
 
-        # On retire les <b> pour ne pas attirer l'oeil sur les labels
-        params_grid.addWidget(QLabel("Paquet :"), 0, 0)
+        lbl_style = "color: palette(placeholder-text); font-size: 12px; font-weight: 500;"
+
+        l_deck = QLabel("Paquet de destination :")
+        l_deck.setStyleSheet(lbl_style)
+        params_grid.addWidget(l_deck, 0, 0)
         self.deck_selector = QComboBox()
-        params_grid.addWidget(self.deck_selector, 0, 1)
+        self.deck_selector.setMinimumHeight(32)
+        params_grid.addWidget(self.deck_selector, 1, 0)
 
-        params_grid.addWidget(QLabel("Modèle de carte :"), 0, 2)
+        l_model = QLabel("Modèle de note (Anki) :")
+        l_model.setStyleSheet(lbl_style)
+        params_grid.addWidget(l_model, 0, 1)
         self.model_selector = QComboBox()
+        self.model_selector.setMinimumHeight(32)
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
-        params_grid.addWidget(self.model_selector, 0, 3)
+        params_grid.addWidget(self.model_selector, 1, 1)
 
-        params_grid.addWidget(QLabel("Moteur IA :"), 1, 0)
+        l_llm = QLabel("Moteur IA :")
+        l_llm.setStyleSheet(lbl_style)
+        params_grid.addWidget(l_llm, 2, 0)
         self.llm_selector = QComboBox()
+        self.llm_selector.setMinimumHeight(32)
         self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
-        params_grid.addWidget(self.llm_selector, 1, 1)
+        params_grid.addWidget(self.llm_selector, 3, 0)
 
-        params_grid.addWidget(QLabel("Pipeline IA :"), 1, 2)
+        l_pipe = QLabel("Pipeline de génération :")
+        l_pipe.setStyleSheet(lbl_style)
+        params_grid.addWidget(l_pipe, 2, 1)
         self.pipeline_selector = QComboBox()
-        params_grid.addWidget(self.pipeline_selector, 1, 3)
+        self.pipeline_selector.setMinimumHeight(32)
+        params_grid.addWidget(self.pipeline_selector, 3, 1)
 
         params_layout.addLayout(params_grid)
         layout.addWidget(params_panel)
 
-        main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_splitter.setHandleWidth(10)  # Rend le séparateur un peu plus facile à attraper
 
         # ==========================================
         # BLOC 2 : TEXTE SOURCE (En Carte)
         # ==========================================
         source_panel = RoundedPanel()
         source_layout = QVBoxLayout(source_panel)
-        source_layout.setContentsMargins(20, 20, 20, 20)
+        source_layout.setContentsMargins(20, 15, 20, 15)
+
         source_layout.setSpacing(15)
 
         lbl_title_2 = QLabel("2. TEXTE SOURCE")
@@ -202,6 +224,10 @@ class CreationTab(QWidget):
         bottom_source_layout.addLayout(token_layout)
         bottom_source_layout.addStretch()
 
+        self.lbl_progress = QLabel("")
+        self.lbl_progress.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 12px; margin-right: 15px;")
+        bottom_source_layout.addWidget(self.lbl_progress)
+
         self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
         self.btn_generate.setMinimumWidth(250)
         bottom_source_layout.addWidget(self.btn_generate)
@@ -235,7 +261,7 @@ class CreationTab(QWidget):
         self.results_table.itemChanged.connect(self.on_table_item_changed)
         self.results_table.itemSelectionChanged.connect(self.update_preview)
         # On retire la bordure native du tableau car le RoundedPanel s'en charge
-        self.results_table.setStyleSheet("QTableWidget { border: none; }")
+        self.results_table.setFrameShape(QFrame.Shape.NoFrame)
         table_layout.addWidget(self.results_table)
 
         btn_save_layout = QHBoxLayout()
@@ -285,8 +311,10 @@ class CreationTab(QWidget):
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
-        self.console_log.setStyleSheet(
-            "background-color: palette(base); color: palette(text); font-family: 'Consolas', monospace; border: none; margin-top: 10px;")
+        self.console_log.setFrameShape(QFrame.Shape.NoFrame)
+        font = QFont("Consolas")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.console_log.setFont(font)
         right_tabs.addTab(self.console_log, qta.icon('fa5s.terminal'), " Console IA")
 
         right_layout.addWidget(right_tabs)
@@ -487,10 +515,10 @@ class CreationTab(QWidget):
         pipeline_id = self.pipeline_selector.currentData()
 
         if not text.strip():
-            QMessageBox.warning(self, "Erreur", "Veuillez entrer du texte source.")
+            show_toast(self, "Veuillez entrer du texte source.", is_error=True)
             return
         if not pipeline_id:
-            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un Pipeline IA.")
+            show_toast(self, "Veuillez sélectionner un Pipeline IA.", is_error=True)
             return
 
         self.btn_generate.setEnabled(False)
@@ -514,7 +542,7 @@ class CreationTab(QWidget):
         self.btn_generate.setText(message)
 
     @Slot(list)
-    def on_generation_success(self, generated_notes: List[Dict[str, str]]) -> None:
+    def on_generation_success(self, generated_notes: list[dict[str, str]]) -> None:
         self.generated_notes = generated_notes
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText("✨ Regénérer les Cartes")
@@ -563,7 +591,17 @@ class CreationTab(QWidget):
     def update_preview(self) -> None:
         selected_items = self.results_table.selectedItems()
         if not selected_items or not self.generated_notes:
-            self.web_view.setHtml("")
+            text_color = "#8C8C8C" if is_dark_mode() else "#6E6E6E"
+            placeholder = f"""
+                <div style='display: flex; height: 100vh; align-items: center; justify-content: center; 
+                            color: {text_color}; font-family: sans-serif; text-align: center;'>
+                    Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.
+                </div>
+                """
+            self.web_view.setHtml(placeholder)
+            self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+            self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+
             return
 
         row = selected_items[0].row()
@@ -594,6 +632,9 @@ class CreationTab(QWidget):
         base_url = QUrl.fromLocalFile(media_dir)
 
         self.web_view.setHtml(final_html, base_url)
+        self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+
 
     @Slot()
     def save_to_database(self) -> None:

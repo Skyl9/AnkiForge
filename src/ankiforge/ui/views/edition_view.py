@@ -254,7 +254,6 @@ class EditionTab(QWidget):
         self.web_view = QWebEngineView()
         self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
 
-        # ✨ MAGIE : On demande à la page Web d'être transparente (Laisse passer le gris du RoundedPanel)
         self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
 
         preview_layout.addWidget(self.web_view)

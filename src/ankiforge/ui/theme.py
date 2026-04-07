@@ -51,6 +51,12 @@ QTableWidget::item:selected, QTreeWidget::item:selected {
     background-color: palette(highlight);
     color: palette(highlighted-text);
 }
+QTabWidget::pane { border: none; border-top: 1px solid palette(alternate-base); }
+QTabBar::tab { background: transparent; color: palette(text); padding: 8px 15px; margin-right: 2px; border-radius: 4px; }
+QTabBar::tab:selected { background: palette(alternate-base); font-weight: bold; }
+QTabBar::tab:hover:!selected { background: palette(window); }
+
+
 QHeaderView::section {
     background-color: palette(alternate-base);
     color: palette(text);
