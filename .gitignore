@@ -21,7 +21,7 @@ venv/
 .venv/
 env/
 .ankiforge/.env
-
+superpowers/
 # --- Outils de Build et de Packaging ---
 build/
 develop-eggs/

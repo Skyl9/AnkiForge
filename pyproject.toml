@@ -35,5 +35,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "mkdocs-material>=9.7.6",
+    "mkdocstrings[python]>=1.0.3",
     "pyinstaller>=6.19.0",
 ]
