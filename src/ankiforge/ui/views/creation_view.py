@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from typing import Any
 
@@ -14,8 +15,11 @@ from jinja2 import Template
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, LLMConfigModel
+from ankiforge.services.ai.base import MockProvider
+from ankiforge.services.ai.flexible_service import OllamaProvider, GroqProvider, OpenAICompatibleProvider
+from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import parse_ai_json_response
-from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel, DangerButton
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
@@ -28,6 +32,7 @@ class GenerationThread(QThread):
     error = Signal(str)
     progress = Signal(str)
     log = Signal(str)
+    cancelled = Signal()
 
     def __init__(self, ai_provider: Any, text_source: str, note_type_id: int, pipeline_id: int) -> None:
         super().__init__()
@@ -35,6 +40,10 @@ class GenerationThread(QThread):
         self.text_source = text_source
         self.note_type_id = note_type_id
         self.pipeline_id = pipeline_id
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
 
     @staticmethod
     def _clean_json(raw_text: str) -> str:
@@ -66,6 +75,10 @@ class GenerationThread(QThread):
             cleaned_output = ""
 
             for i, step in enumerate(steps, 1):
+                if self._is_cancelled:
+                    self.log.emit("\n Génération annulée par l'utilisateur.")
+                    self.cancelled.emit()
+                    return
                 agent = step.agent
                 self.progress.emit(f"Étape {i}/{total_steps} : {agent.name}...")
 
@@ -235,7 +248,13 @@ class CreationTab(QWidget):
         bottom_source_layout.addWidget(self.lbl_progress)
 
         self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
+        self.btn_generate.clicked.connect(self.start_generation)
         bottom_source_layout.addWidget(self.btn_generate)
+
+        self.btn_cancel = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler")
+        self.btn_cancel.clicked.connect(self.cancel_generation)
+        self.btn_cancel.hide()
+        bottom_source_layout.addWidget(self.btn_cancel)
 
         source_layout.addLayout(bottom_source_layout)
         source_panel.setMinimumWidth(200)
@@ -518,6 +537,7 @@ class CreationTab(QWidget):
         text = self.source_text.toPlainText()
         model_id = self.model_selector.currentData()
         pipeline_id = self.pipeline_selector.currentData()
+        llm_id = self.llm_selector.currentData()
 
         if not text.strip():
             show_toast(self, "Veuillez entrer du texte source.", is_error=True)
@@ -525,18 +545,50 @@ class CreationTab(QWidget):
         if not pipeline_id:
             show_toast(self, "Veuillez sélectionner un Pipeline IA.", is_error=True)
             return
+        if not llm_id:
+            show_toast(self, "Veuillez sélectionner un moteur IA.", is_error=True)
+            return
+
+        llm_config = LLMConfigModel.get_by_id(llm_id)
+        p_name = llm_config.provider.lower()
+        if p_name == "ollama":
+            active_provider = OllamaProvider(model_name=llm_config.model_id)
+        elif p_name == "gemini":
+            active_provider = GeminiService(model_name=llm_config.model_id)
+        elif p_name == "groq":
+            active_provider = GroqProvider(model_name=llm_config.model_id)
+        elif p_name == "openai":
+            active_provider = OpenAICompatibleProvider(base_url="https://api.openai.com/v1",
+                                                       model_name=llm_config.model_id,
+                                                       api_key=os.environ.get("OPENAI_API_KEY", ""))
+        else:
+            # Sécurité si un fournisseur (comme Anthropic brut) n'est pas encore implémenté
+            active_provider = MockProvider()
+
+        self.btn_generate.hide()
+        self.btn_cancel.show()
+        self.btn_cancel.setEnabled(True)
 
         self.btn_generate.setEnabled(False)
         self.results_table.setRowCount(0)
-        self.web_view.setHtml("")
+        self.web_view.clear_memory()
         self.console_log.clear()
 
-        self.thread = GenerationThread(self.ai_manager.provider, text, model_id, pipeline_id)
+        self.thread = GenerationThread(active_provider, text, model_id, pipeline_id)
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)
         self.thread.finished.connect(self.on_generation_success)
         self.thread.error.connect(self.on_generation_error)
+        self.thread.cancelled.connect(self.on_generation_cancelled)
         self.thread.start()
+
+    @Slot()
+    def cancel_generation(self) -> None:
+        if hasattr(self, 'thread') and self.thread.isRunning():
+            self.thread.cancel()
+            self.btn_cancel.setEnabled(False)
+            self.btn_cancel.setText(" Arrêt en cours...")
+            self.append_log("\n⏳ Demande d'arrêt de l'IA...")
 
     @Slot(str)
     def append_log(self, text: str) -> None:
@@ -551,6 +603,12 @@ class CreationTab(QWidget):
         self.generated_notes = generated_notes
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText("✨ Regénérer les Cartes")
+        self.btn_save.setEnabled(True)
+
+        self.btn_cancel.hide()
+        self.btn_generate.show()
+        self.btn_generate.setEnabled(True)
+        self.btn_generate.setText("Regénérer les Cartes")
         self.btn_save.setEnabled(True)
 
         model_id = self.model_selector.currentData()
@@ -576,6 +634,9 @@ class CreationTab(QWidget):
 
     @Slot(str)
     def on_generation_error(self, error_msg: str) -> None:
+        self.btn_cancel.hide()
+        self.btn_generate.show()
+
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText("✨ Générer les Cartes")
         QMessageBox.critical(self, "Erreur IA", error_msg)
@@ -665,8 +726,17 @@ class CreationTab(QWidget):
             show_toast(self, f"{len(self.generated_notes)} notes créées !")
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
-            self.web_view.setHtml("")
+            self.web_view.clear_memory()
             self.btn_save.setEnabled(False)
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur Base de donnée", f"Impossible de sauvegarder : {e}")
+
+    @Slot()
+    def on_generation_cancelled(self) -> None:
+        self.btn_cancel.hide()
+        self.btn_cancel.setText(" Annuler")
+        self.btn_generate.show()
+        self.btn_generate.setEnabled(True)
+        self.btn_generate.setText(" Générer les Cartes")
+        show_toast(self, "Génération annulée.", is_error=True)

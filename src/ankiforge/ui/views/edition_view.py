@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Optional
+from typing import Optional, Any
 
 import qtawesome
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QThread, Signal
@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
 
 from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
     IgnoredDuplicateModel
+from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
@@ -72,6 +73,97 @@ class ImportThread(QThread):
         except Exception as e:
             self.error_signal.emit(str(e))
 
+
+class BatchEditThread(QThread):
+    progress = Signal(str)
+    finished_signal = Signal(int)  # Nombre de cartes modifiées
+    error_signal = Signal(str)
+    cancelled = Signal()
+
+    def __init__(self, ai_provider: Any, note_ids: list[int], user_prompt: str, chunk_size: int):
+        super().__init__()
+        self.ai_provider = ai_provider
+        self.note_ids = note_ids
+        self.user_prompt = user_prompt
+        self.chunk_size = chunk_size
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
+    def run(self):
+        try:
+            total_processed = 0
+
+            system_contract = (
+                "Tu es un assistant de traitement de base de données.\n"
+                "Voici ton instruction principale :\n"
+                f"--- {self.user_prompt} ---\n\n"
+                "RÈGLE ABSOLUE : Tu vas recevoir un tableau JSON d'objets.\n"
+                "Tu dois renvoyer EXACTEMENT la même structure (un tableau JSON).\n"
+                "Chaque objet possède une clé 'note_id' que tu DOIS impérativement conserver intacte.\n"
+                "Ne rajoute AUCUN texte autour de ta réponse, uniquement du JSON valide."
+            )
+
+            for i in range(0, len(self.note_ids), self.chunk_size):
+                if self._is_cancelled:
+                    self.cancelled.emit()
+                    return
+
+                chunk_ids = self.note_ids[i:i + self.chunk_size]
+                self.progress.emit(
+                    f"Traitement du lot {i // self.chunk_size + 1} (Cartes {i + 1} à {min(i + self.chunk_size, len(self.note_ids))})...")
+
+                payload = []
+                for nid in chunk_ids:
+                    note = NoteModel.get_by_id(nid)
+                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
+                    if active_version:
+                        content = json.loads(active_version.content)
+                        content["note_id"] = note.id
+                        payload.append(content)
+
+                if not payload:
+                    continue
+
+                input_json = json.dumps(payload, ensure_ascii=False, indent=2)
+                raw_response = self.ai_provider.generate(system_prompt=system_contract, user_prompt=input_json)
+
+                try:
+                    modified_notes = parse_ai_json_response(raw_response)
+                    if not isinstance(modified_notes, list):
+                        raise ValueError("L'IA n'a pas renvoyé un tableau (list) JSON.")
+
+                    with db.atomic():
+                        for modified_note in modified_notes:
+                            note_id = modified_note.pop("note_id", None)
+                            if not note_id:
+                                continue
+
+                            db_note = NoteModel.get_by_id(note_id)
+                            active_version = NoteVersionModel.get_or_none(note=db_note, is_active=True)
+
+                            if active_version:
+                                old_content = json.loads(active_version.content)
+                                if old_content == modified_note:
+                                    continue  # On ignore si l'IA n'a rien changé !
+
+                            db_note.add_version(modified_note, source="ai_batch")
+                            db_note.status = "pending"
+                            db_note.save()
+                            total_processed += 1
+
+                except Exception as e:
+                    self.error_signal.emit(
+                        f"Erreur de parsing sur un lot : {e}\nRéponse brute : {raw_response[:100]}...")
+                    return
+
+            if not self._is_cancelled:
+                self.finished_signal.emit(total_processed)
+
+        except Exception as e:
+            self.error_signal.emit(f"Erreur critique du Batch Edit : {e}")
+
 class EditionTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
@@ -98,6 +190,8 @@ class EditionTab(QWidget):
         self.btn_export = PrimaryButton(qtawesome.icon('fa5s.box', color='white'), " Exporter vers Anki")
         self.btn_export.clicked.connect(self.export_selected_deck)
         self.btn_export.setEnabled(False)
+
+
 
         header_layout.addWidget(titre)
         header_layout.addStretch()
@@ -194,7 +288,14 @@ class EditionTab(QWidget):
         self.btn_scan_dupes = ActionButton('fa5s.search', " Traquer les doublons")
         self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
 
+        self.btn_batch_ai = ActionButton('fa5s.magic', " Modification IA")
+        self.btn_batch_ai.clicked.connect(self.open_batch_edit_dialog)
+        self.btn_batch_ai.setEnabled(False)  # On le grise tant qu'aucune ligne n'est sélectionnée
+
+
+
         toolbar_layout.addWidget(self.btn_new_note)
+        toolbar_layout.addWidget(self.btn_batch_ai)
         toolbar_layout.addWidget(self.btn_scan_dupes)
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
@@ -559,6 +660,7 @@ class EditionTab(QWidget):
 
     def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
+        self.btn_batch_ai.setEnabled(bool(selected_items))
         if not selected_items:
             return
 
@@ -1202,3 +1304,99 @@ class EditionTab(QWidget):
             self.on_row_selected()
             # On rafraîchit le numéro de version dans le tableau !
             self.refresh_table()
+
+    @Slot()
+    def open_batch_edit_dialog(self) -> None:
+        # N'oublie pas d'importer ta nouvelle boîte de dialogue en haut du fichier !
+        from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
+
+        selected_items = self.data_table.selectedItems()
+        if not selected_items: return
+
+        # On récupère les IDs uniques des notes sélectionnées
+        selected_rows = set(item.row() for item in selected_items)
+        note_ids = []
+        for row in selected_rows:
+            note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            note_ids.append(note_id)
+
+        dialog = BatchEditDialog(self)
+        if dialog.exec():
+            data = dialog.get_data()
+            llm_id = data["llm_id"]
+            prompt = data["prompt"]
+            chunk_size = data["chunk_size"]
+
+            if not prompt or not llm_id:
+                show_toast(self, "Configuration IA incomplète.", is_error=True)
+                return
+
+            # Instanciation dynamique du Moteur IA
+            from ankiforge.database.models import LLMConfigModel
+            import os
+
+            llm_config = LLMConfigModel.get_by_id(llm_id)
+            p_name = llm_config.provider.lower()
+
+            if p_name == "ollama":
+                from ankiforge.services.ai.flexible_service import OllamaProvider
+                active_provider = OllamaProvider(model_name=llm_config.model_id)
+            elif p_name == "gemini":
+                from ankiforge.services.ai.gemini_service import GeminiService
+                active_provider = GeminiService(model_name=llm_config.model_id)
+            elif p_name == "groq":
+                from ankiforge.services.ai.flexible_service import GroqProvider
+                active_provider = GroqProvider(model_name=llm_config.model_id)
+            elif p_name == "openai":
+                from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
+                active_provider = OpenAICompatibleProvider(base_url="https://api.openai.com/v1",
+                                                           model_name=llm_config.model_id,
+                                                           api_key=os.environ.get("OPENAI_API_KEY", ""))
+            else:
+                from ankiforge.services.ai.base import MockProvider
+                active_provider = MockProvider()
+
+            # Préparation de l'interface de chargement (QProgressDialog gère le bouton "Annuler" nativement)
+            from PySide6.QtWidgets import QProgressDialog
+            self.progress_dialog = QProgressDialog("Préparation de l'IA...", "Annuler", 0, 0, self)
+            self.progress_dialog.setWindowTitle("Modification par lot en cours")
+            self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self.progress_dialog.setMinimumDuration(0)
+
+            # Lancement du Thread
+            self.batch_thread = BatchEditThread(active_provider, note_ids, prompt, chunk_size)
+            self.batch_thread.progress.connect(self.progress_dialog.setLabelText)
+            self.batch_thread.finished_signal.connect(self._on_batch_edit_success)
+            self.batch_thread.error_signal.connect(self._on_batch_edit_error)
+            self.batch_thread.cancelled.connect(self._on_batch_edit_cancelled)
+
+            # Si l'utilisateur clique sur Annuler, on coupe le thread !
+            self.progress_dialog.canceled.connect(self.batch_thread.cancel)
+
+            self.batch_thread.start()
+            self.progress_dialog.show()
+
+    @Slot(int)
+    def _on_batch_edit_success(self, processed_count: int):
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+
+        if processed_count > 0:
+            show_toast(self, f"{processed_count} carte(s) modifiée(s) et placée(s) en Quarantaine !")
+        else:
+            show_toast(self, "L'IA a estimé qu'aucune modification n'était nécessaire sur ces cartes.")
+
+        self.refresh_table()  # Fera disparaître les cartes modifiées vers la vue Quarantaine !
+
+    @Slot(str)
+    def _on_batch_edit_error(self, error_msg: str):
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+        QMessageBox.critical(self, "Erreur IA", f"Erreur lors de la modification : {error_msg}")
+
+    @Slot()
+    def _on_batch_edit_cancelled(self):
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+        show_toast(self, "Modification par lot annulée.", is_error=True)
+        self.refresh_table()

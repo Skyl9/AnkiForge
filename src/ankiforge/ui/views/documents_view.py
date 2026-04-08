@@ -89,17 +89,30 @@ class ParserWorker(QThread):
     finished_signal = Signal(str, str)
     error_signal = Signal(str)
     log_signal = Signal(str)
+    cancelled_signal = Signal()
 
     def __init__(self, file_path: str):
         super().__init__()
         self.file_path = file_path
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
+    def is_cancelled(self) -> bool:
+        return self._is_cancelled
+
 
     def run(self):
         try:
             parser = DocumentParser()
             title = pathlib.Path(self.file_path).stem
-            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit)
-            self.finished_signal.emit(title, content)
+            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit,check_cancel=self.is_cancelled)
+            if not self._is_cancelled:
+                self.finished_signal.emit(title, content)
+        except InterruptedError as e:
+            self.log_signal.emit(f"\n {str(e)}")
+            self.cancelled_signal.emit()
         except Exception as e:
             self.error_signal.emit(str(e))
 
@@ -122,6 +135,11 @@ class DocumentsTab(QWidget):
         self.btn_import = ActionButton('fa5s.file-import', " Analyser un PDF/TXT (Marker)")
         self.btn_import.clicked.connect(self.import_document)
         header_layout.addWidget(self.btn_import)
+
+        self.btn_cancel_import = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler l'analyse")
+        self.btn_cancel_import.clicked.connect(self.cancel_import)
+        self.btn_cancel_import.hide()
+        header_layout.addWidget(self.btn_cancel_import)
 
         self.layout.addLayout(header_layout)
 
@@ -515,7 +533,9 @@ class DocumentsTab(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, "Importer un cours", "", "Documents (*.pdf *.txt *.md)")
         if not path: return
 
-        self.btn_import.setEnabled(False)
+        self.btn_import.hide()
+        self.btn_cancel_import.show()
+        self.btn_cancel_import.setEnabled(True)
         self.tree.setEnabled(False)
 
         self.lbl_doc_title.setText("<b>⏳ Importation et Analyse en cours...</b>")
@@ -524,13 +544,35 @@ class DocumentsTab(QWidget):
         self.preview_text.blockSignals(False)
 
         self.worker = ParserWorker(path)
-        self.worker.log_signal.connect(self._on_parsing_log)  # 👈 ON CONNECTE LA CONSOLE
+        self.worker.log_signal.connect(self._on_parsing_log)
         self.worker.finished_signal.connect(self._on_parsing_success)
         self.worker.error_signal.connect(self._on_parsing_error)
+        self.worker.cancelled_signal.connect(self._on_parsing_cancelled)
         self.worker.start()
+
+    @Slot()
+    def cancel_import(self):
+        if hasattr(self, 'worker') and self.worker.isRunning():
+            self.worker.cancel()
+            self.btn_cancel_import.setEnabled(False)
+            self.btn_cancel_import.setText(" Arrêt de l'IA...")
+
+    @Slot()
+    def _on_parsing_cancelled(self):
+        self._reset_import_ui()
+        self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
+        show_toast(self, "Analyse interrompue.", is_error=True)
+
+    def _reset_import_ui(self):
+        self.btn_cancel_import.hide()
+        self.btn_cancel_import.setText(" Annuler l'analyse")
+        self.btn_import.show()
+        self.btn_import.setEnabled(True)
+        self.tree.setEnabled(True)
 
     @Slot(str, str)
     def _on_parsing_success(self, title: str, content: str) -> None:
+        self._reset_import_ui()
         folder = FolderModel.get_by_id(self.current_folder_id_for_import) if self.current_folder_id_for_import else None
         with db.atomic(): DocumentModel.create(title=title, content=content, folder=folder)
         self.btn_import.setEnabled(True)
@@ -547,6 +589,7 @@ class DocumentsTab(QWidget):
 
     @Slot(str)
     def _on_parsing_error(self, error_msg: str) -> None:
+        self._reset_import_ui()
         self.btn_import.setEnabled(True)
         self.tree.setEnabled(True)
         self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")

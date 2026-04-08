@@ -27,11 +27,17 @@ class BatchWorker(QThread):
     log = Signal(str)
     finished = Signal(int, int)  # (succès, erreurs)
     error = Signal(str)
+    cancelled = Signal()
 
     def __init__(self, ai_provider: Any, tasks: list[dict[str, Any]]):
         super().__init__()
         self.ai_provider = ai_provider
         self.tasks = tasks
+        self._is_cancelled = False
+
+    def cancel(self) -> None:
+        """Lève le drapeau d'annulation"""
+        self._is_cancelled = True
 
     def _clean_json(self, raw_text: str) -> str:
         clean = raw_text.strip()
@@ -116,6 +122,12 @@ class BatchWorker(QThread):
             self.progress_val.emit(0)
 
             for task_idx, task in enumerate(self.tasks):
+                if self._is_cancelled:
+                    self.log.emit("Opération annulée par l'utilisateur")
+                    self.cancelled.emit()
+                    return
+
+
                 doc = DocumentModel.get_by_id(task["doc_id"])
                 deck = DeckModel.get_by_id(task["deck_id"])
                 note_type = NoteTypeModel.get_by_id(task["model_id"])
@@ -126,6 +138,22 @@ class BatchWorker(QThread):
 
                 llm_config = LLMConfigModel.get_by_id(task["llm_id"])
                 max_tokens = llm_config.context_limit
+
+                p_name = llm_config.provider.lower()
+                if p_name == "ollama":
+                    active_provider = OllamaProvider(model_name=llm_config.model_id)
+                elif p_name == "gemini":
+                    active_provider = GeminiService(model_name=llm_config.model_id)
+                elif p_name == "groq":
+                    active_provider = GroqProvider(model_name=llm_config.model_id)
+                elif p_name == "openai":
+                    active_provider = OpenAICompatibleProvider(
+                        base_url="https://api.openai.com/v1",
+                        model_name=llm_config.model_id,
+                        api_key=os.environ.get("OPENAI_API_KEY", "")
+                    )
+                else:
+                    active_provider = MockProvider()
 
                 fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
                 fields_str = '", "'.join(fields)
@@ -142,15 +170,25 @@ class BatchWorker(QThread):
                 chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 self.log.emit(f"✂️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
 
+                chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 doc_success_notes = 0
 
                 for chunk_idx, chunk_text in enumerate(chunks, 1):
+                    if self._is_cancelled:
+                        self.log.emit("Opération annulée par l'utilisateur")
+                        self.cancelled.emit()
+                        return
+
                     self.log.emit(f"\n--- Morceau {chunk_idx}/{len(chunks)} ---")
                     current_input = f"TEXTE SOURCE :\n{chunk_text}"
                     cleaned_output = ""
                     chunk_failed = False
 
                     for step_idx, step in enumerate(steps, 1):
+                        if self._is_cancelled:
+                            self.log.emit("Opération annulée par l'utilisateur")
+                            self.cancelled.emit()
+                            return
                         agent = step.agent
                         self.log.emit(f"🤖 Agent '{agent.name}' en action...")
 
@@ -160,7 +198,7 @@ class BatchWorker(QThread):
                         )
 
                         try:
-                            raw_response = self.ai_provider.generate(system_prompt=system_prompt,
+                            raw_response = active_provider.generate(system_prompt=system_prompt,
                                                                      user_prompt=current_input)
                             cleaned_output = self._clean_json(raw_response)
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"
@@ -376,6 +414,12 @@ class BatchTab(QWidget):
         self.btn_start.setMinimumWidth(200)
         bottom_layout.addWidget(self.btn_start)
 
+        self.btn_cancel = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler le traitement")
+        self.btn_cancel.clicked.connect(self.cancel_batch)
+        self.btn_cancel.setMinimumWidth(200)
+        self.btn_cancel.hide()
+        bottom_layout.addWidget(self.btn_cancel)
+
         console_layout.addLayout(bottom_layout)
         right_splitter.addWidget(console_panel)
 
@@ -564,7 +608,10 @@ class BatchTab(QWidget):
                 "pipeline_id": pipe_id, "chunk_strategy": chunk_strategy
             })
 
-        self.btn_start.setEnabled(False)
+        self.btn_start.hide()
+        self.btn_cancel.show()
+        self.btn_cancel.setEnabled(True)
+
         self.btn_add_to_queue.setEnabled(False)
         self.table_queue.setEnabled(False)
         self.console_log.clear()
@@ -578,8 +625,19 @@ class BatchTab(QWidget):
         self.worker.log.connect(self.append_log)
         self.worker.finished.connect(self.on_batch_finished)
         self.worker.error.connect(self.on_batch_error)
+        self.worker.cancelled.connect(self.on_batch_cancelled)
 
         self.worker.start()
+
+    @Slot()
+    def cancel_batch(self) -> None:
+        """Demande l'arrêt propre du worker."""
+        if hasattr(self, 'worker') and self.worker.isRunning():
+            self.worker.cancel()
+            self.btn_cancel.setEnabled(False)
+            self.btn_cancel.setText(" Arrêt en cours...")
+            self.lbl_status.setText("Annulation demandée, attente de l'arrêt...")
+            self.append_log("⏳ Demande d'arrêt envoyée. Attente de la fin du cycle en cours...")
 
     @Slot(int, int)
     def on_batch_finished(self, success_count: int, error_count: int) -> None:
@@ -595,7 +653,18 @@ class BatchTab(QWidget):
         self.lbl_status.setText("Erreur fatale.")
         QMessageBox.critical(self, "Erreur Fatale", error_msg)
 
+    @Slot()
+    def on_batch_cancelled(self) -> None:
+        """Gère l'interface une fois le worker effectivement arrêté."""
+        self._unlock_ui()
+        self.lbl_status.setText("Traitement annulé.")
+        show_toast(self, "L'opération a été annulée proprement.", is_error=True)
+
     def _unlock_ui(self) -> None:
+        """Restaure l'interface."""
+        self.btn_cancel.hide()
+        self.btn_cancel.setText(" Annuler le traitement")
+        self.btn_start.show()
         self.btn_start.setEnabled(True)
         self.btn_add_to_queue.setEnabled(True)
         self.table_queue.setEnabled(True)

@@ -12,7 +12,7 @@ class DocumentParser:
     def __init__(self, media_manager: MediaManager | None = None):
         self.media_manager = media_manager or MediaManager()
 
-    def parse_document(self, file_path: str|Path,progress_callback=None) -> str:
+    def parse_document(self, file_path: str|Path,progress_callback=None,check_cancel=None) -> str:
         """Détecte l'extension et utilise le bon parseur."""
         file_path = Path(file_path)
         if not os.path.exists(file_path):
@@ -21,14 +21,14 @@ class DocumentParser:
         ext = file_path.suffix.lower()
 
         if ext == '.pdf':
-            return self._parse_pdf_with_marker(file_path, progress_callback)
+            return self._parse_pdf_with_marker(file_path, progress_callback,check_cancel)
         elif ext in ['.txt', '.md']:
             if progress_callback: progress_callback("Lecture du fichier texte immédiate...")
             return self._parse_text(file_path)
         else:
             raise ValueError(f"Format de fichier non supporté : {ext}")
 
-    def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback=None) -> str:
+    def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback=None,check_cancel=None) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
         # On a retiré le grand "try:" global
         with tempfile.TemporaryDirectory() as temp_dir_str:
@@ -53,10 +53,19 @@ class DocumentParser:
                 ) as process:
 
                     for line in iter(process.stdout.readline, ''):
+                        if check_cancel and check_cancel():
+                            process.terminate()
+                            try:
+                                process.wait(timeout=2)
+                            except subprocess.TimeoutExpired:
+                                process.kill()
+                            raise InterruptedError("Extraction annulée par l'utilisateur.")
                         if line and progress_callback:
                             progress_callback(line.strip())
 
                     process.wait()
+                    if check_cancel and check_cancel():
+                        raise InterruptedError("Extraction annulée par l'utilisateur.")
 
                     if process.returncode != 0:
                         raise RuntimeError(f"Marker a échoué avec le code erreur {process.returncode}.")
