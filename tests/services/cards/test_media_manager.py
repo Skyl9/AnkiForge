@@ -55,3 +55,35 @@ def test_process_extracted_folder_missing_dir(media_manager):
     raw_markdown = "Texte normal."
     result = media_manager.process_extracted_folder("dossier_fantome", raw_markdown)
     assert result == raw_markdown
+
+
+def test_clean_orphaned_media(media_manager, tmp_path):
+    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel, DeckModel
+    import json
+
+    # 1. Création de fausses images sur le disque
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(exist_ok=True)
+
+    used_img = media_dir / "used.png"
+    orphan_img = media_dir / "orphan.png"
+    used_img.write_text("fake image")
+    orphan_img.write_text("fake image")
+
+    # 2. Création d'une note en base qui utilise UNIQUEMENT used.png
+    nt = NoteTypeModel.create(name="Test", fields_schema='["Front"]', templates='[]', css_style="")
+    note = NoteModel.create(guid="123", note_type=nt)
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps({"Front": "Voici une image : <img src='used.png'>"}),
+        is_active=True
+    )
+
+    # 3. Exécution du Garbage Collector
+    deleted = media_manager.clean_orphaned_media()
+
+    # 4. Vérification
+    assert deleted == 1
+    assert used_img.exists() is True
+    assert orphan_img.exists() is False

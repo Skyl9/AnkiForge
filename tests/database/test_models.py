@@ -220,3 +220,26 @@ def test_pipeline_step_unique_constraint():
     # 3. VÉRIFICATION - Tenter d'assigner le contrôleur à l'étape 1 doit faire crasher la base
     with pytest.raises(IntegrityError):
         PipelineStepModel.create(pipeline=pipeline, agent=agent_control, step_order=1)
+
+
+def test_purge_old_versions():
+    # 1. Préparation
+    note_type = NoteTypeModel.create(name="Basic", fields_schema='[]', templates='[]', css_style='')
+    note = NoteModel.create(guid="purge_test", note_type=note_type)
+
+    # Création de 8 versions
+    for i in range(1, 9):
+        note.add_version({"Test": f"Version {i}"})
+
+    assert note.versions.count() == 8
+
+    # 2. Action (On ne garde que les 3 dernières)
+    deleted = NoteModel.purge_old_versions(keep_last=3)
+
+    # 3. Vérification
+    assert deleted == 5
+    assert note.versions.count() == 3
+
+    # On vérifie que ce sont bien les versions 6, 7 et 8 qui ont survécu
+    remaining_versions = [v.version_number for v in note.versions.order_by(NoteVersionModel.version_number)]
+    assert remaining_versions == [6, 7, 8]

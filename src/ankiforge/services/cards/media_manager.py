@@ -76,3 +76,33 @@ class MediaManager:
             modified_markdown = modified_markdown.replace(old_name, new_name)
 
         return modified_markdown
+
+    def clean_orphaned_media(self) -> int:
+        """
+        Détecte et supprime physiquement les images du dossier media
+        qui ne sont plus référencées par aucune note dans la base de données.
+        Retourne le nombre de fichiers supprimés.
+        """
+        from ankiforge.database.models import NoteVersionModel
+
+        # 1. Lister tous les médias réellement utilisés en base
+        used_media = set()
+
+        # On itère sur toutes les versions de notes (actives et inactives)
+        for version in NoteVersionModel.select(NoteVersionModel.content):
+            # La même regex que tu utilises dans ton ExportManager
+            matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', version.content)
+            used_media.update(matches)
+
+        # 2. Comparer avec les fichiers physiques et supprimer les orphelins
+        deleted_count = 0
+        if self.media_dir.exists():
+            for file_path in self.media_dir.iterdir():
+                if file_path.is_file() and file_path.name not in used_media:
+                    try:
+                        file_path.unlink()  # Supprime le fichier du disque
+                        deleted_count += 1
+                    except OSError:
+                        pass  # Fichier verrouillé par le système, on l'ignorera pour cette fois
+
+        return deleted_count

@@ -1,9 +1,11 @@
 import qtawesome as qta
 from PySide6.QtCore import Slot, QSettings, Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QComboBox, QLineEdit, QFileDialog, QFormLayout)
+                               QComboBox, QLineEdit, QFileDialog, QFormLayout, QSpinBox, QMessageBox)
 from pathlib import Path
 
+from ankiforge.database.models import NoteModel
+from ankiforge.services.cards.media_manager import MediaManager
 # 👇 Ajout de RoundedPanel dans les imports
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import refresh_theme_live
@@ -106,6 +108,57 @@ class SettingsTab(QWidget):
         beh_layout.addLayout(form_beh)
         layout.addWidget(beh_panel)
 
+        # ==========================================
+        # SECTION 4 : MAINTENANCE ET NETTOYAGE
+        # ==========================================
+        maint_panel = RoundedPanel()
+        maint_layout = QVBoxLayout(maint_panel)
+        maint_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_maint = QLabel("4. MAINTENANCE ET NETTOYAGE")
+        lbl_maint.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;"
+        )
+        maint_layout.addWidget(lbl_maint)
+
+        # --- Sous-section : Médias ---
+        media_layout = QHBoxLayout()
+        self.btn_clean_media = ActionButton('fa5s.broom', " Nettoyer les images orphelines")
+        self.btn_clean_media.clicked.connect(self.clean_orphaned_media)
+
+        lbl_media_desc = QLabel("Libère de l'espace disque en supprimant les images non utilisées.")
+        lbl_media_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
+
+        media_layout.addWidget(self.btn_clean_media)
+        media_layout.addWidget(lbl_media_desc)
+        media_layout.addStretch()
+        maint_layout.addLayout(media_layout)
+
+        # --- Sous-section : Historique des notes ---
+        hist_layout = QHBoxLayout()
+
+        self.spin_keep_versions = QSpinBox()
+        self.spin_keep_versions.setRange(1, 50)
+        # On charge la préférence utilisateur ou on garde 5 par défaut
+        self.spin_keep_versions.setValue(self.settings.value("maintenance/keep_versions", 5, type=int))
+        self.spin_keep_versions.setPrefix("Garder ")
+        self.spin_keep_versions.setSuffix(" versions")
+
+        self.btn_purge_hist = ActionButton('fa5s.history', " Purger l'historique")
+        self.btn_purge_hist.clicked.connect(self.purge_history)
+
+        lbl_hist_desc = QLabel("Allège la base de données en supprimant les anciennes sauvegardes.")
+        lbl_hist_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
+
+        hist_layout.addWidget(self.spin_keep_versions)
+        hist_layout.addWidget(self.btn_purge_hist)
+        hist_layout.addWidget(lbl_hist_desc)
+        hist_layout.addStretch()
+        maint_layout.addLayout(hist_layout)
+        layout.addWidget(maint_panel)
+
+
+
         layout.addStretch()
 
         # Bouton de sauvegarde global (aligné à droite)
@@ -147,3 +200,55 @@ class SettingsTab(QWidget):
     def refresh_data(self) -> None:
         """Contrat MainWindow."""
         pass
+
+    @Slot()
+    def save_all_settings(self):
+        """Sauvegarde toutes les options dans QSettings."""
+        self.settings.setValue("ui/theme", self.cb_theme.currentText())
+        self.settings.setValue("export/default_directory", self.le_export_path.text())
+        self.settings.setValue("behavior/auto_save", self.cb_auto_save.currentText())
+        # 👇 NOUVELLE LIGNE 👇
+        self.settings.setValue("maintenance/keep_versions", self.spin_keep_versions.value())
+
+        self.settings.sync()
+        refresh_theme_live()
+
+        show_toast(self, "Préférences enregistrées et appliquées !")
+
+    @Slot()
+    def clean_orphaned_media(self) -> None:
+        """Déclenche le nettoyage des images orphelines avec confirmation."""
+        reply = QMessageBox.question(
+            self, "Nettoyage des médias",
+            "Voulez-vous rechercher et supprimer définitivement du disque les images qui ne sont plus associées à aucune note ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            manager = MediaManager()
+            deleted_count = manager.clean_orphaned_media()
+            if deleted_count > 0:
+                show_toast(self, f"Nettoyage terminé : {deleted_count} fichier(s) supprimé(s) !")
+            else:
+                show_toast(self, "Votre dossier média est déjà parfaitement propre.")
+
+    @Slot()
+    def purge_history(self) -> None:
+        """Déclenche la purge de l'historique des notes avec confirmation."""
+        keep_last = self.spin_keep_versions.value()
+
+        reply = QMessageBox.question(
+            self, "Purge de l'historique",
+            f"Voulez-vous vraiment supprimer définitivement les anciennes versions de vos notes pour n'en garder que {keep_last} par note ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # On enregistre la valeur choisie par sécurité
+            self.settings.setValue("maintenance/keep_versions", keep_last)
+
+            deleted_count = NoteModel.purge_old_versions(keep_last=keep_last)
+            if deleted_count > 0:
+                show_toast(self, f"Purge terminée : {deleted_count} ancienne(s) version(s) supprimée(s) !")
+            else:
+                show_toast(self, "Aucune version obsolète à purger.")

@@ -74,6 +74,30 @@ class NoteModel(BaseModel):
         )
         return new_version
 
+    @classmethod
+    def purge_old_versions(cls, keep_last: int = 15) -> int:
+        """
+        Nettoie la base de données en ne conservant que les N dernières versions
+        pour chaque note. Retourne le nombre de versions supprimées.
+        """
+        deleted_count = 0
+
+        with db.atomic():
+            for note in cls.select():
+                # On récupère les versions de la plus récente à la plus ancienne
+                versions = list(note.versions.order_by(NoteVersionModel.version_number.desc()))
+
+                # S'il y a plus de versions que la limite autorisée
+                if len(versions) > keep_last:
+                    versions_to_delete = versions[keep_last:]
+                    ids_to_delete = [v.id for v in versions_to_delete]
+
+                    # On supprime en bloc pour optimiser les performances SQLite
+                    NoteVersionModel.delete().where(NoteVersionModel.id.in_(ids_to_delete)).execute()
+                    deleted_count += len(ids_to_delete)
+
+        return deleted_count
+
 
 class NoteVersionModel(BaseModel):
     """L'historique des contenus de la note (Le fameux système de version)."""
