@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 import qtawesome
-from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QThread, Signal
 from PySide6.QtGui import QColor, QAction
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
                                QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
-                               QMenu, QInputDialog, QFrame)
+                               QMenu, QInputDialog, QFrame, QProgressDialog)
 
 from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
     IgnoredDuplicateModel
@@ -52,6 +52,24 @@ class SortableTableItem(QTableWidgetItem):
             # Si c'est du vrai texte (ex: "Maths" vs "Physique"), on fait un tri alphabétique
             return self.text().lower() < other.text().lower()
 
+class ImportThread(QThread):
+    """Gère l'importation lourde d'un paquet Anki en arrière-plan."""
+    progress = Signal(str)
+    finished_signal = Signal()
+    error_signal = Signal(str)
+
+    def __init__(self, store_manager, path: str):
+        super().__init__()
+        self.store_manager = store_manager
+        self.path = path
+
+    def run(self):
+        try:
+            # On passe le signal .emit() comme fonction de callback !
+            self.store_manager.store_collection(self.path, progress_callback=self.progress.emit)
+            self.finished_signal.emit()
+        except Exception as e:
+            self.error_signal.emit(str(e))
 
 class EditionTab(QWidget):
     def __init__(self) -> None:
@@ -303,14 +321,36 @@ class EditionTab(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, "Ouvrir document", "", "Documents Anki (*.colpkg *.txt *.apkg)")
         if path:
             self.btn_load_col.setEnabled(False)
-            try:
-                self.store.store_collection(path)
-                show_toast(self, "Paquet importé !")
-                self.refresh_deck_tree()
-            except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Erreur : {str(e)}")
-            finally:
-                self.btn_load_col.setEnabled(True)
+            # Création d'une boîte de dialogue pour afficher les logs en direct
+            self.progress_dialog = QProgressDialog("Préparation de l'importation...", None, 0, 0, self)
+            self.progress_dialog.setWindowTitle("Importation en cours")
+            self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self.progress_dialog.setMinimumDuration(0)  # Affichage immédiat
+            self.progress_dialog.show()
+
+            # Lancement du travail en arrière-plan
+            self.import_thread = ImportThread(self.store, path)
+            self.import_thread.progress.connect(self.progress_dialog.setLabelText)
+            self.import_thread.finished_signal.connect(self._on_import_success)
+            self.import_thread.error_signal.connect(self._on_import_error)
+            self.import_thread.start()
+
+    @Slot()
+    def _on_import_success(self) -> None:
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+
+        show_toast(self, "Paquet importé avec succès !")
+        self.refresh_deck_tree()
+        self.btn_load_col.setEnabled(True)
+
+    @Slot(str)
+    def _on_import_error(self, error_msg: str) -> None:
+        if hasattr(self, 'progress_dialog'):
+            self.progress_dialog.close()
+
+        QMessageBox.critical(self, "Erreur d'importation", f"Erreur : {error_msg}")
+        self.btn_load_col.setEnabled(True)
 
     @Slot()
     def export_selected_deck(self) -> None:

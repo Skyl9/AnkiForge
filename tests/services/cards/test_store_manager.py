@@ -74,6 +74,8 @@ def test_handle_apkg_mocked(mock_zip, mock_sqlite, tmp_path):
     fake_apkg = tmp_path / "fake.apkg"
     fake_apkg.touch()  # On crée physiquement le fichier sur le disque pour passer le premier check
 
+    mock_progress_callback = MagicMock()
+
     # On force StoreManager à utiliser notre tmp_path quand il crée son dossier temporaire d'extraction
     with patch('ankiforge.services.cards.store_manager.tempfile.TemporaryDirectory') as mock_temp:
         mock_temp.return_value.__enter__.return_value = str(tmp_path)
@@ -82,9 +84,16 @@ def test_handle_apkg_mocked(mock_zip, mock_sqlite, tmp_path):
         (tmp_path / "collection.anki2").touch()
 
         # Et on lance la machine !
-        manager.store_collection(str(fake_apkg))
+        manager.store_collection(str(fake_apkg), progress_callback=mock_progress_callback)
 
     # 4. Vérifications PEEWEE
     assert DeckModel.get(DeckModel.name == "Mon Paquet") is not None
     assert NoteTypeModel.get(NoteTypeModel.name == "Basic") is not None
     assert CardModel.select().count() == 1
+
+    assert mock_progress_callback.call_count > 0, "Le callback de progression n'a jamais été appelé !"
+
+    # On peut même vérifier que certains messages clés ont bien été envoyés à l'UI :
+    mock_progress_callback.assert_any_call("Format SQLite natif détecté.")
+    mock_progress_callback.assert_any_call("Injection des données dans Ankiforge...")
+    mock_progress_callback.assert_any_call("L'importation totale dans Ankiforge est terminée !")

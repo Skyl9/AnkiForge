@@ -13,9 +13,6 @@ from peewee import DoesNotExist
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel, init_db
 
 
-# Ajuste l'import selon ton architecture réelle
-
-
 class StoreManager:
     def __init__(self):
         pass
@@ -97,10 +94,14 @@ class StoreManager:
         ]
         return content_only
 
-    def handle_txt(self, txt_path: str | Path):
+    def handle_txt(self, txt_path: str | Path,progress_callback=None):
         """Parse un export Anki au format texte tabulé."""
         cards = []
         header_dict = {}
+
+        if progress_callback:
+            progress_callback(f"Nombre de cartes lues : {len(cards)}")
+            progress_callback("Début insertion dans la base de donnée")
 
         with open(txt_path, "r", encoding="utf-8") as file:
             reader = csv.reader(file, delimiter='\t')
@@ -178,14 +179,20 @@ class StoreManager:
                         deck=deck_obj
                     )
 
-                except Exception as e:
-                    print(f"Erreur lors de l'insertion de la ligne {row}: {e}")
 
-    def handle_apkg(self, apkg_path: Path):
+                except Exception as e:
+
+                    if progress_callback:
+                        progress_callback(f"Erreur lors de l'insertion de la ligne {row}: {e}")
+
+
+    def handle_apkg(self, apkg_path: Path,progress_callback=None):
         """
         Extrait un fichier .apkg ou .colpkg et l'injecte dans la base Peewee.
         """
-        print(f"Extraction de l'archive : {apkg_path.name}...")
+        if progress_callback:
+            progress_callback(f"Extraction de l'archive : {apkg_path.name}...")
+
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -202,20 +209,21 @@ class StoreManager:
             sqlite_db_path = temp_path / "uncompressed_anki.db"
 
             if anki21b_path.exists():
-                print("Décompression Zstandard en cours...")
+                if progress_callback: progress_callback("Décompression Zstandard en cours...")
                 with open(anki21b_path, 'rb') as compressed_file:
                     dctx = zstd.ZstdDecompressor()
                     with open(sqlite_db_path, 'wb') as uncompressed_file:
                         dctx.copy_stream(compressed_file, uncompressed_file)
             elif anki2_path.exists():
-                print("Format SQLite natif détecté.")
+                if progress_callback: progress_callback("Format SQLite natif détecté.")
                 sqlite_db_path = anki2_path
             else:
                 raise FileNotFoundError("Aucune base de données Anki trouvée.")
 
             # --- EXTRACTION SQL -> PEEWEE ---
-            print("Injection des données dans Ankiforge...")
-            conn = sqlite3.connect(sqlite_db_path)
+            if progress_callback:
+                progress_callback("Injection des données dans Ankiforge...")
+                conn = sqlite3.connect(sqlite_db_path)
             cursor = conn.cursor()
 
             try:
@@ -405,9 +413,10 @@ class StoreManager:
             finally:
                 conn.close()
 
-        print("L'importation totale dans Ankiforge est terminée !")
+        if progress_callback:
+            progress_callback("L'importation totale dans Ankiforge est terminée !")
 
-    def store_collection(self, collection_path: str):
+    def store_collection(self, collection_path: str,progress_callback=None):
         path_obj = pathlib.Path(collection_path)
 
         if not path_obj.exists():
@@ -418,11 +427,12 @@ class StoreManager:
         match extension:
             # On gère apkg et colpkg avec la même fonction !
             case ".apkg" | ".colpkg":
-                print(f"Lancement de l'extraction pour archive ({extension})")
-                self.handle_apkg(apkg_path=path_obj)
+                if progress_callback: progress_callback(f"Lancement de l'extraction pour archive ({extension})")
+                self.handle_apkg(apkg_path=path_obj, progress_callback=progress_callback)
             case ".txt":
-                print("Lancement du parser Texte (.txt)")
-                self.handle_txt(txt_path=path_obj)
+                if progress_callback:
+                    progress_callback("Lancement du parser Texte (.txt)")
+                self.handle_txt(txt_path=path_obj, progress_callback=progress_callback)
             case _:
                 # Remplacement du return par un raise
                 raise ValueError(f"Type de fichier non supporté : {extension}")
