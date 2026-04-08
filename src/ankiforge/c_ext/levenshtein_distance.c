@@ -3,21 +3,26 @@
 
 #define MIN3(a, b, c) ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
-
 #if defined(_WIN32) || defined(_WIN64)
     __declspec(dllexport) double calculate_similarity(const char *s1, const char *s2)
 #else
     double calculate_similarity(const char *s1, const char *s2)
 #endif
 {
+    // SÉCURITÉ 1 : Protection contre les pointeurs nuls venant de Python
+    if (!s1 || !s2) return 0.0;
+
     int len1 = strlen(s1);
     int len2 = strlen(s2);
 
     if (len1 == 0 && len2 == 0) return 1.0;
     if (len1 == 0 || len2 == 0) return 0.0;
 
-    // Allocation d'une colonne (optimisation mémoire par rapport à une matrice complète)
     int *column = (int *)malloc((len1 + 1) * sizeof(int));
+
+    // SÉCURITÉ 2 : Protection contre l'échec d'allocation mémoire
+    if (!column) return 0.0;
+
     for (int i = 0; i <= len1; i++) {
         column[i] = i;
     }
