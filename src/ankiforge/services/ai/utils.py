@@ -24,7 +24,7 @@ def parse_ai_json_response(response_text: str):
             else:
                 # Si vraiment on ne trouve rien, on tente le tout pour le tout
                 cleaned_text = response_text.strip()
-
+        cleaned_text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', cleaned_text)
         return json.loads(cleaned_text)
 
     except json.JSONDecodeError as e:

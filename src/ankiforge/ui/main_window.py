@@ -4,6 +4,7 @@ from PySide6.QtGui import QCloseEvent, QShortcut, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QListWidget, QStackedWidget, QListWidgetItem
 
 from ankiforge.ui.theme import get_icon_color
+from ankiforge.ui.views.ab_test_view import ABTestTab
 from ankiforge.ui.views.agents_view import AgentsTab
 from ankiforge.ui.views.batch_view import BatchTab
 from ankiforge.ui.views.creation_view import CreationTab
@@ -69,18 +70,20 @@ class MainWindow(QMainWindow):
         self.tab_edition = EditionTab()
         self.tab_documents = DocumentsTab()
         self.llm_manager_tab = LLMManagerTab(self.ai_manager)
-        iconColor = get_icon_color()
+        self.ab_test_tab = ABTestTab()
 
         # --- Ajout dynamique des éléments ---
         self.add_view(CreationTab(self.ai_manager), "fa5s.magic", "Création")
-        self.add_view(self.tab_edition, "fa5s.layer-group", "Édition / Analyse" )
-        self.add_view(ModelsTab(), "fa5s.paint-brush", "Modèles" )
-        self.add_view(AgentsTab(), "fa5s.robot", "Agents & Pipelines" )
-        self.add_view(self.stats_tabs, "fa5s.chart-bar", "Statistiques" )
+        self.add_view(self.tab_edition, "fa5s.layer-group", "Édition / Analyse")
+        self.add_view(ModelsTab(), "fa5s.paint-brush", "Modèles")
+        self.add_view(AgentsTab(), "fa5s.robot", "Agents & Pipelines")
+        self.add_view(self.stats_tabs, "fa5s.chart-bar", "Statistiques")
         self.add_view(self.tab_documents, "fa5s.folder-open", "Documents")
-        self.add_view(SettingsTab(), "fa5s.cog", "Paramètres IA")
+
         self.add_view(self.batch_tab, "fa5s.rocket", "Automatisation")
         self.add_view(self.llm_manager_tab, "fa5s.robot", "Moteurs IA")
+        self.add_view(self.ab_test_tab, "fa5s.flask", "Tests A/B")
+        self.add_view(SettingsTab(), "fa5s.cog", "Paramètres IA")
 
         # Connexion du signal de changement de vue
         self.sidebar.currentRowChanged.connect(self.on_sidebar_changed)
