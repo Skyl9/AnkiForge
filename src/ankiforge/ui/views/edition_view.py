@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Optional, Dict
+from typing import Optional
 
 import qtawesome
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings
@@ -61,7 +61,7 @@ class EditionTab(QWidget):
         self.current_deck_id: Optional[int] = None
         self.current_note: Optional[NoteModel] = None
         self.current_tag_filter: Optional[str] = None
-        self.field_editors: Dict[str, QTextEdit] = {}
+        self.field_editors: dict[str, QTextEdit] = {}
         self.is_creating = False
 
         layout = QVBoxLayout(self)
@@ -105,7 +105,8 @@ class EditionTab(QWidget):
 
         self.deck_tree = QTreeWidget()
         self.deck_tree.setHeaderHidden(True)
-        self.deck_tree.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
+        self.deck_tree.setFrameShape(QFrame.Shape.NoFrame)
+        self.deck_tree.setStyleSheet("background: transparent;")
         self.deck_tree.itemClicked.connect(self.on_deck_selected)
         nav_layout.addWidget(self.deck_tree)
 
@@ -127,7 +128,8 @@ class EditionTab(QWidget):
         nav_layout.addWidget(lbl_tags)
 
         self.tag_list = QListWidget()
-        self.tag_list.setStyleSheet("QListWidget { border: none; background: transparent; }")
+        self.tag_list.setFrameShape(QFrame.Shape.NoFrame)
+        self.tag_list.setStyleSheet("background: transparent;")
         self.tag_list.itemClicked.connect(self.on_tag_selected)
         self.tag_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tag_list.customContextMenuRequested.connect(self.show_tag_context_menu)
@@ -181,7 +183,7 @@ class EditionTab(QWidget):
         table_layout.addLayout(toolbar_layout)
 
         self.data_table = QTableWidget()
-        self.data_table.setStyleSheet("QTableWidget { border: none; }")
+        self.data_table.setFrameShape(QFrame.Shape.NoFrame)
         self.data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.data_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.data_table.setAlternatingRowColors(True)

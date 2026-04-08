@@ -58,7 +58,7 @@ class StatsTab(QWidget):
         table_layout.addWidget(lbl_subtitle)
 
         self.deck_table = QTableWidget()
-        self.deck_table.setStyleSheet("QTableWidget { border: none; }")  # Retire la vilaine bordure Qt
+        self.deck_table.setFrameShape(QFrame.Shape.NoFrame)
         self.deck_table.setColumnCount(2)
         self.deck_table.setHorizontalHeaderLabels(["Nom du Paquet", "Nombre de Cartes"])
         self.deck_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)

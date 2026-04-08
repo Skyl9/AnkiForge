@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem
 from unittest.mock import patch, MagicMock
 
+from ankiforge.database.models import DocumentModel
 # Ajuste le chemin d'import selon la structure exacte de ton projet
 from ankiforge.ui.widgets.omnibox import Omnibox
 
@@ -65,34 +66,23 @@ def test_omnibox_keyboard_navigation_and_signal(omnibox, qtbot):
     assert omnibox.isVisible() == False
 
 
-@patch('ankiforge.ui.widgets.omnibox.NoteModel')
-@patch('ankiforge.ui.widgets.omnibox.DocumentModel')
-def test_omnibox_perform_search_with_mocked_db(mock_doc_model, mock_note_model, omnibox):
+
+def test_omnibox_perform_search_with_mocked_db(omnibox,qtbot):
     """Vérifie que perform_search formate bien les résultats venus de la base de données."""
 
-    # --- 1. MOCK DES RÉSULTATS PEEWEE ---
-    # Création d'un faux Document renvoyé par la base
-    fake_doc = MagicMock()
-    fake_doc.id = 99
-    fake_doc.title = "Cours de Python Avancé"
-
-    # On simule la chaîne Peewee : DocumentModel.select().where().limit()
-    mock_doc_model.select.return_value.where.return_value.limit.return_value = [fake_doc]
-
-    # On simule un retour vide pour les notes (pour garder le test simple)
-    mock_note_model.select.return_value.join.return_value.where.return_value.limit.return_value = []
+    # --- 1. PRÉPARATION EN BASE EN MÉMOIRE ---
+    # On crée un vrai document dans la base éphémère de pytest
+    doc = DocumentModel.create(title="Cours de Python Avancé", content="Contenu factice")
 
     # --- 2. ACTION ---
     omnibox.search_bar.setText("python")
-    omnibox.perform_search()  # On appelle directement la fonction (sans attendre le timer)
+    omnibox.perform_search()
 
     # --- 3. VÉRIFICATION DE L'UI ---
     assert omnibox.results_list.count() == 1
-
     item = omnibox.results_list.item(0)
     assert "Cours de Python Avancé" in item.text()
 
-    # On vérifie que la payload (UserRole) a bien été attachée à l'item
     data = item.data(Qt.ItemDataRole.UserRole)
     assert data["type"] == "doc"
-    assert data["id"] == 99
+    assert data["id"] == doc.id

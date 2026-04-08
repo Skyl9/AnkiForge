@@ -1,6 +1,5 @@
 # src/ui/views/models_view.py
 import json
-from typing import Dict, List
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer
@@ -8,7 +7,7 @@ from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
                                QTextEdit, QLabel, QSplitter, QGroupBox, QPushButton,
-                               QComboBox, QListWidgetItem, QInputDialog, QMessageBox)
+                               QComboBox, QListWidgetItem, QInputDialog, QMessageBox, QFrame)
 
 from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
@@ -22,8 +21,8 @@ class ModelsTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.current_model_id = None
-        self.current_templates: List[Dict[str, str]] = []
-        self.mock_dict: Dict[str, str] = {}
+        self.current_templates: list[dict[str, str]] = []
+        self.mock_dict: dict[str, str] = {}
         self.current_css: str = ""
 
         layout = QVBoxLayout(self)
@@ -63,7 +62,8 @@ class ModelsTab(QWidget):
         list_layout.addWidget(lbl_list)
 
         self.models_list = QListWidget()
-        self.models_list.setStyleSheet("QListWidget { border: none; background: transparent; }")
+        self.models_list.setFrameShape(QFrame.Shape.NoFrame)
+        self.models_list.setStyleSheet("background: transparent;")
         self.models_list.itemClicked.connect(self.on_model_selected)
         list_layout.addWidget(self.models_list)
 
