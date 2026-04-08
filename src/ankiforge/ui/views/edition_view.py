@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QMessageBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QTableWidget, QTableWidgetItem,
                                QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
-                               QMenu, QInputDialog)
+                               QMenu, QInputDialog, QFrame)
 
 from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
     IgnoredDuplicateModel
@@ -108,6 +108,18 @@ class EditionTab(QWidget):
         self.deck_tree.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
         self.deck_tree.itemClicked.connect(self.on_deck_selected)
         nav_layout.addWidget(self.deck_tree)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        # On utilise ta palette pour que ça s'adapte au mode sombre/clair automatiquement
+        separator.setStyleSheet("""
+            background-color: palette(alternate-base); 
+            max-height: 1px; 
+            border: none; 
+            margin-top: 8px; 
+            margin-bottom: 8px;
+        """)
+        nav_layout.addWidget(separator)
 
         lbl_tags = QLabel("FILTRES (TAGS)")
         lbl_tags.setStyleSheet(

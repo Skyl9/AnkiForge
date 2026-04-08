@@ -78,6 +78,7 @@ class LLMManagerTab(QWidget):
         # ==========================================
         llm_splitter = QSplitter(Qt.Orientation.Horizontal)
         llm_splitter.setHandleWidth(10)
+        llm_splitter.setChildrenCollapsible(False)
 
         # --- Panneau Gauche : La Table ---
         table_panel = RoundedPanel()
@@ -100,6 +101,8 @@ class LLMManagerTab(QWidget):
         self.table_llms.itemSelectionChanged.connect(self.on_table_selection_changed)
         table_layout.addWidget(self.table_llms)
 
+        table_panel.setMinimumWidth(150)
+
         llm_splitter.addWidget(table_panel)
 
         # --- Panneau Droit : L'Éditeur ---
@@ -117,15 +120,20 @@ class LLMManagerTab(QWidget):
 
         self.le_display_name = QLineEdit()
         self.le_display_name.setPlaceholderText("Ex: GPT-4o (Rapide)")
+        self.le_display_name.setMinimumWidth(80)
+
         form_editor.addRow(self._make_bold_label("Nom d'affichage :"), self.le_display_name)
 
         self.cb_provider = QComboBox()
+        self.cb_provider.setMinimumWidth(80)
+
         self.cb_provider.addItems(["openai", "anthropic", "ollama", "groq", "gemini"])
         self.cb_provider.currentTextChanged.connect(self.on_provider_changed)
         form_editor.addRow(self._make_bold_label("Fournisseur :"), self.cb_provider)
 
         model_id_layout = QHBoxLayout()
         self.cb_model_id = QComboBox()
+        self.cb_model_id.setMinimumWidth(80)
         self.cb_model_id.setEditable(True)
         self.cb_model_id.setPlaceholderText("Ex: gpt-4o")
 
@@ -165,6 +173,7 @@ class LLMManagerTab(QWidget):
         action_layout.addWidget(self.btn_save_llm)
 
         editor_layout.addLayout(action_layout)
+        editor_panel.setMinimumWidth(200)
         llm_splitter.addWidget(editor_panel)
 
         llm_splitter.setSizes([500, 300])

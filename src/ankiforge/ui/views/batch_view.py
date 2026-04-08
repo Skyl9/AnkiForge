@@ -229,6 +229,7 @@ class BatchTab(QWidget):
 
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.setHandleWidth(10)
+        main_splitter.setChildrenCollapsible(False)
 
         # ==========================================
         # PANNEAU GAUCHE : Source des documents
@@ -272,10 +273,19 @@ class BatchTab(QWidget):
 
         default_params_layout = QHBoxLayout()
         self.default_deck = QComboBox()
+        self.default_deck.setMinimumWidth(80)
+
         self.default_model = QComboBox()
+        self.default_model.setMinimumWidth(80)
+
         self.default_llm = QComboBox()
+        self.default_llm.setMinimumWidth(80)
+
         self.default_pipeline = QComboBox()
+        self.default_pipeline.setMinimumWidth(80)
+
         self.default_chunking = QComboBox()
+        self.default_chunking.setMinimumWidth(80)
         self.default_chunking.addItems(self.chunk_strategies)
 
         default_params_layout.addWidget(self.default_deck)
@@ -344,6 +354,9 @@ class BatchTab(QWidget):
         right_splitter.addWidget(console_panel)
 
         right_splitter.setSizes([350, 300])
+
+        source_panel.setMinimumWidth(150)
+        right_splitter.setMinimumWidth(300)
 
         main_splitter.addWidget(source_panel)
         main_splitter.addWidget(right_splitter)

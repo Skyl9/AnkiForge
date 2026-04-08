@@ -10,7 +10,7 @@ from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
                                QTextEdit, QLabel, QSplitter,
-                               QFileDialog, QMessageBox, QInputDialog, QAbstractItemView)
+                               QFileDialog, QMessageBox, QInputDialog, QAbstractItemView, QFrame)
 
 from ankiforge.database.models import db, DocumentModel, FolderModel
 from ankiforge.services.parsing.document_parser import DocumentParser
@@ -158,7 +158,8 @@ class DocumentsTab(QWidget):
 
         self.tree = DraggableTreeWidget()
         self.tree.setHeaderHidden(True)
-        self.tree.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
+        self.tree.setFrameShape(QFrame.Shape.NoFrame)
+        self.tree.viewport().setAutoFillBackground(False)
         self.tree.setDragEnabled(True)
         self.tree.setAcceptDrops(True)
         self.tree.setDropIndicatorShown(True)
@@ -204,16 +205,11 @@ class DocumentsTab(QWidget):
         self.editor_splitter.setHandleWidth(10)
 
         self.preview_text = QTextEdit()
-        # Disparition de la bordure rigide !
-        self.preview_text.setStyleSheet("""
-            QTextEdit {
-                background-color: transparent; 
-                color: palette(text); 
-                font-family: 'Consolas', monospace; 
-                font-size: 14px;
-                border: none;
-            }
-        """)
+        self.preview_text.setFrameShape(QFrame.Shape.NoFrame)
+        self.preview_text.viewport().setAutoFillBackground(False)
+        font = QFont("Consolas", 11)  # 11pt équivaut environ à 14px
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.preview_text.setFont(font)
         self.highlighter = MarkdownHighlighter(self.preview_text.document())
 
         self.render_view = QWebEngineView()
@@ -565,10 +561,7 @@ class DocumentsTab(QWidget):
         parts = full_text.split("[SPLIT]")
 
         if len(parts) <= 1:
-            QMessageBox.information(
-                self, "Astuce",
-                "Pour scinder le document en plusieurs parties, cliquez sur 'Insérer Coupure' ou écrivez [SPLIT] dans le texte."
-            )
+            show_toast(self, "Astuce : Insérez [SPLIT] dans le texte pour scinder le document.")
             return
 
         try:
@@ -593,8 +586,7 @@ class DocumentsTab(QWidget):
             self.preview_text.setPlainText(original_doc.content)
             show_toast(self, f"Document découpé en {len(parts)} parties !")
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible de scinder le document :\n{e}")
-
+            show_toast(self, f"Échec de la sauvegarde : {str(e)}", is_error=True)
     @Slot(int)
     def jump_to_document(self, doc_id: int) -> None:
         """Déplie l'arbre et sélectionne le document demandé."""

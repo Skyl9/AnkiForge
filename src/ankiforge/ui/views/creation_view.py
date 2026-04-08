@@ -111,6 +111,7 @@ class CreationTab(QWidget):
 
         main_splitter = QSplitter(Qt.Orientation.Vertical)
         main_splitter.setHandleWidth(8)
+        main_splitter.setChildrenCollapsible(False)
 
         # ==========================================
         # BLOC HAUT : CONFIGURATION & SOURCE
@@ -143,6 +144,7 @@ class CreationTab(QWidget):
         params_grid.addWidget(l_deck, 0, 0)
         self.deck_selector = QComboBox()
         self.deck_selector.setMinimumHeight(32)
+        self.deck_selector.setMinimumWidth(100)
         params_grid.addWidget(self.deck_selector, 1, 0)
 
         l_model = QLabel("Modèle de note (Anki) :")
@@ -150,6 +152,7 @@ class CreationTab(QWidget):
         params_grid.addWidget(l_model, 0, 1)
         self.model_selector = QComboBox()
         self.model_selector.setMinimumHeight(32)
+        self.model_selector.setMinimumWidth(100)
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
         params_grid.addWidget(self.model_selector, 1, 1)
 
@@ -158,6 +161,7 @@ class CreationTab(QWidget):
         params_grid.addWidget(l_llm, 2, 0)
         self.llm_selector = QComboBox()
         self.llm_selector.setMinimumHeight(32)
+        self.llm_selector.setMinimumWidth(100)
         self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
         params_grid.addWidget(self.llm_selector, 3, 0)
 
@@ -166,6 +170,7 @@ class CreationTab(QWidget):
         params_grid.addWidget(l_pipe, 2, 1)
         self.pipeline_selector = QComboBox()
         self.pipeline_selector.setMinimumHeight(32)
+        self.pipeline_selector.setMinimumWidth(100)
         params_grid.addWidget(self.pipeline_selector, 3, 1)
 
         params_layout.addLayout(params_grid)
@@ -189,6 +194,7 @@ class CreationTab(QWidget):
         source_header = QHBoxLayout()
         source_header.addWidget(QLabel("Choisir un cours :"))
         self.doc_selector = QComboBox()
+        self.doc_selector.setMinimumWidth(100)
         self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
         source_header.addWidget(self.doc_selector, stretch=1)
 
@@ -198,6 +204,7 @@ class CreationTab(QWidget):
 
         source_header.addWidget(QLabel("Partie :"))
         self.section_selector = QComboBox()
+        self.section_selector.setMinimumWidth(100)
         self.section_selector.currentIndexChanged.connect(self.on_section_changed)
         source_header.addWidget(self.section_selector, stretch=1)
 
@@ -218,6 +225,7 @@ class CreationTab(QWidget):
         self.token_bar.setTextVisible(False)
         self.token_bar.setFixedHeight(6)
         self.token_bar.setFixedWidth(200)
+        self.token_bar.setMinimumWidth(50)
         token_layout.addWidget(self.token_label)
         token_layout.addWidget(self.token_bar)
 
@@ -229,10 +237,10 @@ class CreationTab(QWidget):
         bottom_source_layout.addWidget(self.lbl_progress)
 
         self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
-        self.btn_generate.setMinimumWidth(250)
         bottom_source_layout.addWidget(self.btn_generate)
 
         source_layout.addLayout(bottom_source_layout)
+        source_panel.setMinimumWidth(200)
         main_splitter.addWidget(source_panel)
 
         # ==========================================
@@ -240,6 +248,7 @@ class CreationTab(QWidget):
         # ==========================================
         bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
         bottom_splitter.setHandleWidth(10)
+        bottom_splitter.setChildrenCollapsible(False)
 
         # 3A. Panneau de gauche : Le Tableau
         table_panel = RoundedPanel()
@@ -269,7 +278,6 @@ class CreationTab(QWidget):
         self.btn_save = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base")
         self.btn_save.clicked.connect(self.save_to_database)
         self.btn_save.setEnabled(False)
-        self.btn_save.setMinimumWidth(250)
         btn_save_layout.addWidget(self.btn_save)
         table_layout.addLayout(btn_save_layout)
 
