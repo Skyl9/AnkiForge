@@ -4,9 +4,10 @@ import qtawesome as qta
 from PySide6.QtCore import Slot, Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
                                QComboBox, QMessageBox, QFormLayout, QHBoxLayout,
-                               QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSpinBox, QSplitter)
+                               QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSpinBox,
+                               QSplitter,QFrame,QGraphicsDropShadowEffect,QSizePolicy)
 from dotenv import set_key
-
+from PySide6.QtGui import QColor
 from ankiforge.database.models import db, LLMConfigModel
 from ankiforge.services.ai.flexible_service import OllamaProvider
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
@@ -33,12 +34,19 @@ class LLMManagerTab(QWidget):
         # SECTION 1 : CLÉS API (En Carte)
         # ==========================================
         api_panel = RoundedPanel()
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QColor(0, 0, 0, 150))
+        shadow.setOffset(0, 4)
+        api_panel.setGraphicsEffect(shadow)
+
         api_layout = QVBoxLayout(api_panel)
         api_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_api = QLabel("1. CLÉS D'AUTHENTIFICATION API")
         lbl_api.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px")
+        lbl_api.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         api_layout.addWidget(lbl_api)
 
         form_api = QFormLayout()
@@ -47,19 +55,23 @@ class LLMManagerTab(QWidget):
         self.le_openai_key = QLineEdit(os.getenv("OPENAI_API_KEY", ""))
         self.le_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_openai_key.setPlaceholderText("sk-...")
+        self.le_openai_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé OpenAI :"), self.le_openai_key)
 
         self.le_anthropic_key = QLineEdit(os.getenv("ANTHROPIC_API_KEY", ""))
         self.le_anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_anthropic_key.setPlaceholderText("sk-ant-...")
+        self.le_anthropic_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé Anthropic :"), self.le_anthropic_key)
 
         self.le_gemini_key = QLineEdit(os.getenv("GEMINI_API_KEY", ""))
         self.le_gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.le_gemini_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé Gemini :"), self.le_gemini_key)
 
         self.le_groq_key = QLineEdit(os.getenv("GROQ_API_KEY", ""))
         self.le_groq_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.le_groq_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé Groq :"), self.le_groq_key)
 
         api_layout.addLayout(form_api)
@@ -69,6 +81,7 @@ class LLMManagerTab(QWidget):
         self.btn_save_keys = PrimaryButton(qta.icon('fa5s.save', color='white'), " Mettre à jour les clés API")
         self.btn_save_keys.clicked.connect(self.save_api_keys)
         btn_api_layout.addWidget(self.btn_save_keys)
+        btn_api_layout.addStretch()
         api_layout.addLayout(btn_api_layout)
 
         main_splitter.addWidget(api_panel)
@@ -91,7 +104,7 @@ class LLMManagerTab(QWidget):
         table_layout.addWidget(lbl_table)
 
         self.table_llms = QTableWidget()
-        self.table_llms.setStyleSheet("QTableWidget { border: none; }")
+        self.table_llms.setFrameShape(QFrame.Shape.NoFrame)
         self.table_llms.setColumnCount(4)
         self.table_llms.setHorizontalHeaderLabels(["Nom d'affichage", "Fournisseur", "Modèle", "Tokens Max"])
         self.table_llms.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -110,10 +123,10 @@ class LLMManagerTab(QWidget):
         editor_layout = QVBoxLayout(editor_panel)
         editor_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_edit = QLabel("AJOUTER / MODIFIER UN MODÈLE")
-        lbl_edit.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
-        editor_layout.addWidget(lbl_edit)
+        self.lbl_edit = QLabel("AJOUTER / MODIFIER UN MODÈLE")
+        self.lbl_edit.setStyleSheet(
+            "font-weight: bold; color: palette(highlight); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
+        editor_layout.addWidget(self.lbl_edit)
 
         form_editor = QFormLayout()
         form_editor.setHorizontalSpacing(15)
@@ -227,6 +240,9 @@ class LLMManagerTab(QWidget):
         llm = LLMConfigModel.get_by_id(llm_id)
 
         self.current_llm_id_editing = llm.id
+        self.lbl_edit.setText(f"✏️ MODIFIER LE MODÈLE : {llm.display_name.upper()}")
+        self.lbl_edit.setStyleSheet(
+            "font-weight: bold; color: #FF9800; font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
         self.le_display_name.setText(llm.display_name)
         self.cb_provider.setCurrentText(llm.provider)
         self.cb_model_id.setCurrentText(llm.model_id)
@@ -239,6 +255,9 @@ class LLMManagerTab(QWidget):
     def clear_llm_form(self) -> None:
         self.table_llms.clearSelection()
         self.current_llm_id_editing = None
+        self.lbl_edit.setText("AJOUTER UN NOUVEAU MODÈLE")
+        self.lbl_edit.setStyleSheet(
+            "font-weight: bold; color: palette(highlight); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
         self.le_display_name.clear()
         self.cb_model_id.clear()
         self.spin_context.setValue(8192)
@@ -279,7 +298,7 @@ class LLMManagerTab(QWidget):
         context = self.spin_context.value()
 
         if not name or not model_id:
-            QMessageBox.warning(self, "Erreur", "Le nom d'affichage et l'ID du modèle sont obligatoires.")
+            show_toast(self, "Le nom d'affichage et l'ID du modèle sont obligatoires.", is_error=True)
             return
 
         try:
@@ -304,9 +323,9 @@ class LLMManagerTab(QWidget):
 
         except Exception as e:
             if "UNIQUE constraint" in str(e):
-                QMessageBox.critical(self, "Erreur", "Ce nom d'affichage existe déjà. Veuillez en choisir un autre.")
+                show_toast(self, "Ce nom d'affichage existe déjà.", is_error=True)
             else:
-                QMessageBox.critical(self, "Erreur BDD", str(e))
+                show_toast(self, f"Erreur BDD : {str(e)}", is_error=True)
 
     @Slot()
     def delete_llm_config(self) -> None:

@@ -1,15 +1,15 @@
 import json
 import re
 import uuid
-from typing import Any, List, Dict
+from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtGui import QShortcut, QKeySequence
+from PySide6.QtGui import QShortcut, QKeySequence, QFont
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QComboBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QAbstractItemView, QProgressBar,
-                               QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView)
+                               QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QGridLayout,QSizePolicy)
 from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
@@ -27,7 +27,7 @@ class BatchWorker(QThread):
     finished = Signal(int, int)  # (succès, erreurs)
     error = Signal(str)
 
-    def __init__(self, ai_provider: Any, tasks: List[Dict[str, Any]]):
+    def __init__(self, ai_provider: Any, tasks: list[dict[str, Any]]):
         super().__init__()
         self.ai_provider = ai_provider
         self.tasks = tasks
@@ -40,7 +40,7 @@ class BatchWorker(QThread):
             clean = clean[3:-3].strip()
         return clean
 
-    def _chunk_text(self, text: str, strategy: str, max_chars: int = 6000, overlap: int = 1000) -> List[str]:
+    def _chunk_text(self, text: str, strategy: str, max_chars: int = 6000, overlap: int = 1000) -> list[str]:
         """Le moteur de découpage intelligent."""
         if strategy == "Aucun (Document entier)" or len(text) <= max_chars:
             return [text]
@@ -221,11 +221,21 @@ class BatchTab(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
 
-        header = HeaderLabel("⚙️ Automatisation Avancée (Usine à cartes)")
+        titles_layout = QVBoxLayout()
+        titles_layout.setSpacing(2)
+
+        header = QLabel("⚙️ Automatisation Avancée (Usine à cartes)")
+        header.setStyleSheet("font-size: 15px; font-weight: bold; color: palette(text);")
+        header.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
         subtitle = QLabel("Gérez votre file d'attente et personnalisez le traitement pour chaque document.")
-        subtitle.setStyleSheet("color: palette(placeholder-text); margin-bottom: 10px;")
-        layout.addWidget(header)
-        layout.addWidget(subtitle)
+        subtitle.setStyleSheet("color: palette(placeholder-text); font-size: 11px;")
+        subtitle.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
+        titles_layout.addWidget(header)
+        titles_layout.addWidget(subtitle)
+
+        layout.addLayout(titles_layout)
 
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.setHandleWidth(10)
@@ -245,7 +255,8 @@ class BatchTab(QWidget):
 
         self.tree_source = QTreeWidget()
         self.tree_source.setHeaderHidden(True)
-        self.tree_source.setStyleSheet("QTreeWidget { border: none; background: transparent; }")
+        self.tree_source.setFrameShape(QFrame.Shape.NoFrame)
+        self.tree_source.viewport().setAutoFillBackground(False)
         self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         source_layout.addWidget(self.tree_source)
 
@@ -271,29 +282,33 @@ class BatchTab(QWidget):
             "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         queue_layout.addWidget(lbl_config)
 
-        default_params_layout = QHBoxLayout()
+        default_params_layout = QGridLayout()
+
         self.default_deck = QComboBox()
         self.default_deck.setMinimumWidth(80)
-
         self.default_model = QComboBox()
         self.default_model.setMinimumWidth(80)
-
         self.default_llm = QComboBox()
         self.default_llm.setMinimumWidth(80)
-
         self.default_pipeline = QComboBox()
         self.default_pipeline.setMinimumWidth(80)
-
         self.default_chunking = QComboBox()
         self.default_chunking.setMinimumWidth(80)
         self.default_chunking.addItems(self.chunk_strategies)
 
-        default_params_layout.addWidget(self.default_deck)
-        default_params_layout.addWidget(self.default_model)
-        default_params_layout.addWidget(self.default_llm)
-        default_params_layout.addWidget(self.default_pipeline)
-        default_params_layout.addWidget(self.default_chunking)
-        queue_layout.addLayout(default_params_layout)
+        # Ajout des labels en ligne 0
+        default_params_layout.addWidget(QLabel("Paquet :"), 0, 0)
+        default_params_layout.addWidget(QLabel("Modèle :"), 0, 1)
+        default_params_layout.addWidget(QLabel("Moteur :"), 0, 2)
+        default_params_layout.addWidget(QLabel("Pipeline :"), 0, 3)
+        default_params_layout.addWidget(QLabel("Découpage :"), 0, 4)
+
+        # Ajout des champs en ligne 1
+        default_params_layout.addWidget(self.default_deck, 1, 0)
+        default_params_layout.addWidget(self.default_model, 1, 1)
+        default_params_layout.addWidget(self.default_llm, 1, 2)
+        default_params_layout.addWidget(self.default_pipeline, 1, 3)
+        default_params_layout.addWidget(self.default_chunking, 1, 4)
 
         lbl_queue = QLabel("2. FILE D'ATTENTE")
         lbl_queue.setStyleSheet(
@@ -301,7 +316,7 @@ class BatchTab(QWidget):
         queue_layout.addWidget(lbl_queue)
 
         self.table_queue = QTableWidget()
-        self.table_queue.setStyleSheet("QTableWidget { border: none; }")
+        self.table_queue.setFrameShape(QFrame.Shape.NoFrame)
         self.table_queue.setColumnCount(7)
         # 🐛 CORRECTION DU BUG : Virgule manquante entre Moteur IA et Pipeline IA !
         self.table_queue.setHorizontalHeaderLabels(
@@ -309,6 +324,13 @@ class BatchTab(QWidget):
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
+
+        self.lbl_empty_queue = QLabel("La file d'attente est vide. Sélectionnez des documents à gauche pour commencer.")
+        self.lbl_empty_queue.setStyleSheet("color: palette(placeholder-text); font-style: italic;")
+        self.lbl_empty_queue.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        queue_layout.addWidget(self.lbl_empty_queue)
+
+
         queue_layout.addWidget(self.table_queue)
 
         right_splitter.addWidget(queue_panel)
@@ -325,15 +347,19 @@ class BatchTab(QWidget):
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
-        self.console_log.setStyleSheet(
-            "background-color: transparent; color: palette(text); font-family: 'Consolas', monospace; border: none;")
+        self.console_log.setFrameShape(QFrame.Shape.NoFrame)
+        self.console_log.viewport().setAutoFillBackground(False)
+        font = QFont("Consolas")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self.console_log.setFont(font)
         console_layout.addWidget(self.console_log)
 
         bottom_layout = QHBoxLayout()
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
-        self.progress_bar.setFixedHeight(8)
-        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(14)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.progress_bar.setStyleSheet("""
             QProgressBar { border: none; background-color: palette(base); border-radius: 4px; }
             QProgressBar::chunk { background-color: palette(highlight); border-radius: 4px; }
@@ -504,6 +530,8 @@ class BatchTab(QWidget):
         count = self.table_queue.rowCount()
         self.btn_start.setEnabled(count > 0)
         self.lbl_status.setText(f"{count} document(s) dans la file d'attente.")
+        self.lbl_empty_queue.setVisible(count == 0)  # 👈 Ajout
+        self.table_queue.setVisible(count > 0)
 
     @Slot(str)
     def append_log(self, text: str) -> None:
@@ -527,7 +555,7 @@ class BatchTab(QWidget):
             chunk_strategy = self.table_queue.cellWidget(row, 5).currentText()
 
             if not deck_id or not model_id or not pipe_id:
-                QMessageBox.warning(self, "Erreur", f"Configuration incomplète à la ligne {row + 1}.")
+                show_toast(self, f"Configuration incomplète à la ligne {row + 1}.", is_error=True)
                 return
 
             tasks.append({

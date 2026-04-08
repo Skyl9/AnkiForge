@@ -82,12 +82,15 @@ def apply_dark_theme(app: QApplication) -> None:
     app.setStyle("Fusion")
     palette = QPalette()
 
-    bg_color = QColor(18, 18, 18)
-    surface_color = QColor(30, 30, 30)
-    alternate_base = QColor(36, 36, 36)
+    bg_color = QColor("#121212")  # Fond profond
+    surface_color = QColor("#1E1E1E")  # Surface/Panneaux
+    alternate_base = QColor("#252526")  # Pour le "tiroir" d'édition
     text_primary = QColor(224, 224, 224)
     text_disabled = QColor(110, 110, 110)
-    accent_color = QColor(63, 81, 181)
+    accent_color = QColor("#7E57C2")  # Violet accentué
+    success_color = QColor("#238636")  # Vert GitHub
+    text_secondary = QColor("#8B949E")
+
 
     palette.setColor(QPalette.ColorRole.Window, bg_color)
     palette.setColor(QPalette.ColorRole.Base, surface_color)
