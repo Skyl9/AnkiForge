@@ -3,9 +3,9 @@ import json
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QShortcut, QColor
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLineEdit, QListWidget,
-                               QListWidgetItem)
+                               QListWidgetItem, QGraphicsDropShadowEffect)
 
 from ankiforge.database.models import DocumentModel, NoteModel, NoteVersionModel
 
@@ -28,7 +28,16 @@ class Omnibox(QDialog):
                 """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(15, 15, 15, 15)  # Légèrement augmenté pour laisser respirer l'ombre
+
+        # Ajout de l'ombre portée pour détacher l'Omnibox du fond
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(25)
+        shadow.setColor(QColor(0, 0, 0, 80))  # Ombre noire avec 80 d'opacité
+        shadow.setOffset(0, 8)
+        self.setGraphicsEffect(shadow)
+
+
 
         # 1. La barre de recherche
         self.search_bar = QLineEdit()
