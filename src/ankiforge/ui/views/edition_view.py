@@ -22,6 +22,7 @@ from ankiforge.ui.theme import get_icon_color
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
+from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
 from ankiforge.utils.anki_renderer import render_anki_card
@@ -283,9 +284,7 @@ class EditionTab(QWidget):
 
         preview_layout.addLayout(controls_layout)
 
-        self.web_view = QWebEngineView()
-        self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-
+        self.web_view = SafeWebEngineView()
         self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
 
         preview_layout.addWidget(self.web_view)
@@ -872,7 +871,7 @@ class EditionTab(QWidget):
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 
         # On injecte le HTML en lui donnant le droit de lire dans le dossier media
-        self.web_view.setHtml(final_html, base_url)
+        self.web_view.setHtmlSafe(final_html, base_url)
 
     def approve_selected_notes(self) -> None:
         selected_rows = set(item.row() for item in self.data_table.selectedItems())

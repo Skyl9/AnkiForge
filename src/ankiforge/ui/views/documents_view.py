@@ -6,8 +6,6 @@ import markdown
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot, QTimer
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor, QKeySequence, QShortcut
-from PySide6.QtWebEngineCore import QWebEngineSettings
-from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
                                QTextEdit, QLabel, QSplitter,
                                QFileDialog, QMessageBox, QInputDialog, QAbstractItemView, QFrame)
@@ -16,6 +14,7 @@ from ankiforge.database.models import db, DocumentModel, FolderModel
 from ankiforge.services.parsing.document_parser import DocumentParser
 from ankiforge.ui.components.components import DangerButton, ActionButton, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import _get_mathjax_script
 from ankiforge.utils.paths import get_app_data_dir
@@ -99,7 +98,7 @@ class ParserWorker(QThread):
         try:
             parser = DocumentParser()
             title = pathlib.Path(self.file_path).stem
-            content = parser.parse_document(self.file_path,progress_callback=self.log_signal.emit)
+            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit)
             self.finished_signal.emit(title, content)
         except Exception as e:
             self.error_signal.emit(str(e))
@@ -137,7 +136,8 @@ class DocumentsTab(QWidget):
         left_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_explorateur = QLabel("EXPLORATEUR DE DOCUMENTS")
-        lbl_explorateur.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_explorateur.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         left_layout.addWidget(lbl_explorateur)
 
         toolbar = QHBoxLayout()
@@ -180,7 +180,8 @@ class DocumentsTab(QWidget):
 
         editor_toolbar = QHBoxLayout()
         self.lbl_doc_title = QLabel("AUCUN DOCUMENT SÉLECTIONNÉ")
-        self.lbl_doc_title.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
+        self.lbl_doc_title.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
         editor_toolbar.addWidget(self.lbl_doc_title)
         editor_toolbar.addStretch()
 
@@ -212,8 +213,7 @@ class DocumentsTab(QWidget):
         self.preview_text.setFont(font)
         self.highlighter = MarkdownHighlighter(self.preview_text.document())
 
-        self.render_view = QWebEngineView()
-        self.render_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        self.render_view = SafeWebEngineView()
 
         self.render_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
 
@@ -328,7 +328,7 @@ class DocumentsTab(QWidget):
         media_dir.mkdir(exist_ok=True)
 
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
-        self.render_view.setHtml(final_html, base_url)
+        self.render_view.setHtmlSafe(final_html, base_url)
 
     @Slot()
     def refresh_data(self) -> None:
@@ -587,6 +587,7 @@ class DocumentsTab(QWidget):
             show_toast(self, f"Document découpé en {len(parts)} parties !")
         except Exception as e:
             show_toast(self, f"Échec de la sauvegarde : {str(e)}", is_error=True)
+
     @Slot(int)
     def jump_to_document(self, doc_id: int) -> None:
         """Déplie l'arbre et sélectionne le document demandé."""

@@ -9,13 +9,14 @@ from PySide6.QtGui import QShortcut, QKeySequence, QFont
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QComboBox, QSplitter, QTreeWidget,
                                QTreeWidgetItem, QAbstractItemView, QProgressBar,
-                               QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QGridLayout,QSizePolicy)
+                               QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QGridLayout,
+                               QSizePolicy)
 from jinja2 import Template
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, FolderModel, LLMConfigModel
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -329,7 +330,6 @@ class BatchTab(QWidget):
         self.lbl_empty_queue.setStyleSheet("color: palette(placeholder-text); font-style: italic;")
         self.lbl_empty_queue.setAlignment(Qt.AlignmentFlag.AlignCenter)
         queue_layout.addWidget(self.lbl_empty_queue)
-
 
         queue_layout.addWidget(self.table_queue)
 

@@ -5,8 +5,6 @@ from typing import Any
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
 from PySide6.QtGui import QShortcut, QKeySequence, QFont
-from PySide6.QtWebEngineCore import QWebEngineSettings
-from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QTextEdit, QComboBox, QTableWidget,
                                QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QProgressBar,
@@ -19,6 +17,7 @@ from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, C
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
@@ -176,7 +175,6 @@ class CreationTab(QWidget):
         params_layout.addLayout(params_grid)
         layout.addWidget(params_panel)
 
-
         # ==========================================
         # BLOC 2 : TEXTE SOURCE (En Carte)
         # ==========================================
@@ -311,8 +309,7 @@ class CreationTab(QWidget):
         controls_layout.addWidget(self.preview_side_selector)
         preview_layout.addLayout(controls_layout)
 
-        self.web_view = QWebEngineView()
-        self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        self.web_view = SafeWebEngineView()
         preview_layout.addWidget(self.web_view)
 
         right_tabs.addTab(preview_container, qta.icon('fa5s.eye'), " Aperçu")
@@ -606,8 +603,7 @@ class CreationTab(QWidget):
                     Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.
                 </div>
                 """
-            self.web_view.setHtml(placeholder)
-            self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+            self.web_view.setHtmlSafe(placeholder)
             self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
 
             return
@@ -639,10 +635,8 @@ class CreationTab(QWidget):
 
         base_url = QUrl.fromLocalFile(media_dir)
 
-        self.web_view.setHtml(final_html, base_url)
-        self.web_view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        self.web_view.setHtmlSafe(final_html, base_url)
         self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
-
 
     @Slot()
     def save_to_database(self) -> None:
