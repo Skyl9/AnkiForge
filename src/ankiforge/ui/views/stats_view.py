@@ -3,12 +3,13 @@ import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QFrame, QGridLayout, QTableWidget, QTableWidgetItem,
-                               QHeaderView, QPushButton, QAbstractItemView)
+                               QHeaderView, QPushButton, QAbstractItemView, QSplitter)
 from peewee import JOIN, fn
 
 from ankiforge.database.models import DeckModel, NoteModel, CardModel, PipelineModel, TokenUsageModel
 # 👇 N'oublie pas d'importer RoundedPanel ici
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, MetricCard, RoundedPanel
+from ankiforge.ui.widgets.donut_chart import DonutChartWidget
 
 
 class StatsTab(QWidget):
@@ -53,7 +54,10 @@ class StatsTab(QWidget):
 
         self.layout.addLayout(self.metrics_layout)
 
-        # --- Section : Répartition par Paquet (Encapsulé dans une Carte) ---
+        bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
+        bottom_splitter.setHandleWidth(15)
+
+        # --- PANNEAU GAUCHE : Le Tableau ---
         table_panel = RoundedPanel()
         table_layout = QVBoxLayout(table_panel)
         table_layout.setContentsMargins(15, 15, 15, 15)
@@ -72,10 +76,29 @@ class StatsTab(QWidget):
         self.deck_table.setAlternatingRowColors(True)
 
         table_layout.addWidget(self.deck_table)
-        self.layout.addWidget(table_panel)
+        bottom_splitter.addWidget(table_panel)
+
+        # --- PANNEAU DROIT : Le Graphique Réutilisable ---
+        chart_panel = RoundedPanel()
+        chart_layout = QVBoxLayout(chart_panel)
+        chart_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_chart = QLabel("VUE GLOBALE")
+        lbl_chart.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        chart_layout.addWidget(lbl_chart)
+
+        self.deck_chart = DonutChartWidget(title_center="CARTES")
+        chart_layout.addWidget(self.deck_chart)
+        bottom_splitter.addWidget(chart_panel)
+
+        # Proportions 50/50
+        bottom_splitter.setSizes([500, 500])
+        self.layout.addWidget(bottom_splitter)
 
         # Chargement initial des données
         self.load_stats()
+
 
     @Slot()
     def refresh_data(self) -> None:
@@ -109,8 +132,15 @@ class StatsTab(QWidget):
         decks_list = list(decks_with_counts)
         self.deck_table.setRowCount(len(decks_list))
 
+        chart_data = {}
+
         for row, deck in enumerate(decks_list):
             self.deck_table.setItem(row, 0, QTableWidgetItem(deck.name))
             item_count = QTableWidgetItem(str(deck.card_count))
             item_count.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.deck_table.setItem(row, 1, item_count)
+            if deck.card_count > 0:
+                # Si le nom du paquet est trop long (ex: "S1::Maths::Algèbre"), on prend juste la fin
+                short_name = deck.name.split("::")[-1]
+                chart_data[short_name] = deck.card_count
+        self.deck_chart.update_data(chart_data)
