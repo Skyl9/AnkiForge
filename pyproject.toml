@@ -38,6 +38,7 @@ build-backend = "hatchling.build"
 dev = [
     "mkdocs-material>=9.7.6",
     "mkdocstrings[python]>=1.0.3",
+    "nuitka>=4.0.7",
     "pyinstaller>=6.19.0",
     "tiktoken>=0.12.0",
 ]

@@ -1,5 +1,5 @@
 import qtawesome as qta
-from PySide6.QtCore import Slot, QSettings, Qt, QSize, QEvent
+from PySide6.QtCore import Slot, QSettings, Qt, QSize, QEvent, QTimer
 from PySide6.QtGui import QCloseEvent, QShortcut, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QListWidget, QStackedWidget, QListWidgetItem
 
@@ -15,6 +15,7 @@ from ankiforge.ui.views.models_view import ModelsTab
 from ankiforge.ui.views.settings_view import SettingsTab
 from ankiforge.ui.views.stats_view import StatsTab
 from ankiforge.ui.widgets.omnibox import Omnibox
+from ankiforge.ui.widgets.tour_guide import TourBubble
 
 
 class MainWindow(QMainWindow):
@@ -71,9 +72,9 @@ class MainWindow(QMainWindow):
         self.tab_documents = DocumentsTab()
         self.llm_manager_tab = LLMManagerTab(self.ai_manager)
         self.ab_test_tab = ABTestTab()
-
+        self.creation_tab = CreationTab(self.ai_manager)
         # --- Ajout dynamique des éléments ---
-        self.add_view(CreationTab(self.ai_manager), "fa5s.magic", "Création")
+        self.add_view(self.creation_tab, "fa5s.magic", "Création")
         self.add_view(self.tab_edition, "fa5s.layer-group", "Édition / Analyse")
         self.add_view(ModelsTab(), "fa5s.paint-brush", "Modèles")
         self.add_view(AgentsTab(), "fa5s.robot", "Agents & Pipelines")
@@ -95,6 +96,9 @@ class MainWindow(QMainWindow):
         self.omnibox.result_selected.connect(self.handle_omnibox_result)
         self.shortcut_search = QShortcut(QKeySequence("Ctrl+K"), self)
         self.shortcut_search.activated.connect(lambda: self.omnibox.exec_centered(self))
+
+        self.tour_bubble = TourBubble(self)
+        self._setup_tour_scenario()
 
     def add_view(self, widget: QWidget, icon_name: str, title: str):
         self.stack.addWidget(widget)
@@ -159,3 +163,54 @@ class MainWindow(QMainWindow):
                     item.setIcon(qta.icon(icon_name, color=color))
 
         super().changeEvent(event)
+
+    def _setup_tour_scenario(self):
+        """Définit toutes les étapes du tutoriel."""
+        scenario = [
+            {
+                "title": "Bienvenue dans AnkiForge !",
+                "text": "L'Intelligence Artificielle au service de votre mémoire.<br><br>Ce court tutoriel interactif va vous guider à travers l'interface pour vous montrer comment forger vos premières flashcards en quelques clics.",
+                "target_widget": None,  # S'affiche au centre
+                "action": None  # Pas d'action spéciale
+            },
+            {
+                "title": "1. Le Moteur IA",
+                "text": "C'est ici que tout commence. Entrez votre clé API OpenAI, Gemini, ou utilisez Ollama en local. Sans ce moteur, la génération ne pourra pas démarrer.",
+                "target_widget": self.llm_manager_tab.le_openai_key,
+                "action": lambda: self.sidebar.setCurrentRow(7)
+            },
+            {
+                "title": "2. La Matière Première",
+                "text": "Importez vos cours en PDF ou tapez vos notes en Markdown ici. Le texte sera automatiquement sauvegardé et prêt à être analysé.",
+                "target_widget": self.tab_documents.btn_import,
+                "action": lambda: self.sidebar.setCurrentRow(5)
+            },
+            {
+                "title": "3. L'Usine à Cartes",
+                "text": "Sélectionnez le document importé, choisissez un Agent IA, et lancez la génération. L'IA va extraire les concepts clés et formater le code LaTeX.",
+                "target_widget": self.creation_tab.btn_generate,
+                "action": lambda: self.sidebar.setCurrentRow(0)
+            },
+            {
+                "title": "4. Le Contrôle Qualité",
+                "text": "Vos cartes atterrissent ici. Vous pouvez les éditer, comparer les différentes versions via l'historique, puis les exporter vers Anki.",
+                "target_widget": self.tab_edition.data_table,
+                "action": lambda: self.sidebar.setCurrentRow(1)
+            },
+            {
+                "title": "Vous êtes prêt",
+                "text": "N'oubliez pas l'onglet Automatisation pour traiter des dossiers entiers d'un seul coup et l'onglet Statistiques pour suivre vos coûts API.\n\nBonnes révisions !",
+                "target_widget": None,
+                "action": None
+            }
+        ]
+        self.tour_bubble.set_scenario(scenario)
+
+    def showEvent(self, event):
+        """Déclenche le tour au premier affichage."""
+        super().showEvent(event)
+
+        tour_done = self.settings.value("app/tour_completed", False, type=bool)
+        if not tour_done:
+            # On utilise un timer pour laisser la fenêtre apparaître avant de lancer la bulle
+            QTimer.singleShot(500, self.tour_bubble.start_tour)

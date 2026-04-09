@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import qtawesome as qta
-from PySide6.QtCore import Slot, QSettings, Qt
+from PySide6.QtCore import Slot, QSettings, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QComboBox, QLineEdit, QFileDialog, QFormLayout, QSpinBox, QMessageBox)
-from pathlib import Path
 
 from ankiforge.database.models import NoteModel
 from ankiforge.services.cards.media_manager import MediaManager
@@ -157,9 +159,34 @@ class SettingsTab(QWidget):
         maint_layout.addLayout(hist_layout)
         layout.addWidget(maint_panel)
 
-
-
         layout.addStretch()
+
+        # ==========================================
+        # SECTION 5 : AIDE ET DOCUMENTATION
+        # ==========================================
+        doc_panel = RoundedPanel()
+        doc_layout = QVBoxLayout(doc_panel)
+        doc_layout.setContentsMargins(15, 15, 15, 15)
+
+        lbl_doc = QLabel("5. AIDE ET DOCUMENTATION")
+        lbl_doc.setStyleSheet(
+            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;"
+        )
+        doc_layout.addWidget(lbl_doc)
+
+        help_layout = QHBoxLayout()
+        self.btn_open_doc = ActionButton('fa5s.book', " Ouvrir le guide d'utilisation")
+        self.btn_open_doc.clicked.connect(self.open_documentation)
+
+        lbl_doc_desc = QLabel("Consultez les tutoriels sur la création d'Agents et le formatage Markdown/LaTeX.")
+        lbl_doc_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
+
+        help_layout.addWidget(self.btn_open_doc)
+        help_layout.addWidget(lbl_doc_desc)
+        help_layout.addStretch()
+
+        doc_layout.addLayout(help_layout)
+        layout.addWidget(doc_panel)
 
         # Bouton de sauvegarde global (aligné à droite)
         btn_layout = QHBoxLayout()
@@ -252,3 +279,9 @@ class SettingsTab(QWidget):
                 show_toast(self, f"Purge terminée : {deleted_count} ancienne(s) version(s) supprimée(s) !")
             else:
                 show_toast(self, "Aucune version obsolète à purger.")
+
+    @Slot()
+    def open_documentation(self):
+        """Ouvre le lien vers la documentation dans le navigateur web par défaut."""
+        # Remplace par l'URL de ton dépôt GitHub ou ton site (ou un fichier local)
+        QDesktopServices.openUrl(QUrl("https://github.com/ton-profil/AnkiForge/wiki"))
