@@ -137,6 +137,18 @@ class LLMConfigModel(BaseModel):
     class Meta:
         table_name = 'llm_configs'
 
+class TokenUsageModel(BaseModel):
+    """Stocke l'historique de consommation pour calculer les coûts API."""
+    provider = CharField()       # ex: "openai", "gemini", "ollama"
+    model_id = CharField()       # ex: "gpt-4o", "gemini-2.0-flash"
+    prompt_tokens = IntegerField(default=0)
+    completion_tokens = IntegerField(default=0)
+    total_tokens = IntegerField(default=0)
+    estimated_cost_usd = FloatField(default=0.0) # On le calculera grossièrement
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'token_usage'
 
 class AgentModel(BaseModel):
     """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur)."""
@@ -194,7 +206,7 @@ def init_db() -> None:
         DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel,
         AgentModel, PipelineModel, PipelineStepModel,
         DocumentModel, FolderModel, PromptModel, IgnoredDuplicateModel,
-        LLMConfigModel
+        LLMConfigModel,TokenUsageModel
     ])
 
 

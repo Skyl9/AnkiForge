@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QHeaderView, QPushButton, QAbstractItemView)
 from peewee import JOIN, fn
 
-from ankiforge.database.models import DeckModel, NoteModel, CardModel, PipelineModel
+from ankiforge.database.models import DeckModel, NoteModel, CardModel, PipelineModel, TokenUsageModel
 # 👇 N'oublie pas d'importer RoundedPanel ici
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, MetricCard, RoundedPanel
 
@@ -40,10 +40,16 @@ class StatsTab(QWidget):
         self.card_total_decks = MetricCard("Paquets Actifs")
         self.card_total_pipelines = MetricCard("Pipelines IA")
 
+        self.card_total_tokens = MetricCard("Tokens Consommés")
+        self.card_total_cost = MetricCard("Coût IA Estimé (USD)")
+
         self.metrics_layout.addWidget(self.card_total_notes, 0, 0)
         self.metrics_layout.addWidget(self.card_total_cards, 0, 1)
         self.metrics_layout.addWidget(self.card_total_decks, 0, 2)
-        self.metrics_layout.addWidget(self.card_total_pipelines, 0, 3)
+        self.metrics_layout.addWidget(self.card_total_pipelines, 1, 0)
+
+        self.metrics_layout.addWidget(self.card_total_tokens, 1, 1)
+        self.metrics_layout.addWidget(self.card_total_cost, 1, 2)
 
         self.layout.addLayout(self.metrics_layout)
 
@@ -84,6 +90,16 @@ class StatsTab(QWidget):
         self.card_total_decks.set_value(str(DeckModel.select().count()))
         self.card_total_pipelines.set_value(str(PipelineModel.select().count()))
 
+        tokens_query = TokenUsageModel.select(
+            fn.SUM(TokenUsageModel.total_tokens).alias('sum_tokens'),
+            fn.SUM(TokenUsageModel.estimated_cost_usd).alias('sum_cost')
+        ).first()
+        total_tokens = tokens_query.sum_tokens if tokens_query.sum_tokens else 0
+        total_cost = tokens_query.sum_cost if tokens_query.sum_cost else 0.0
+
+        # Formatage lisible (espaces pour les milliers, et 3 décimales pour les micro-centimes)
+        self.card_total_tokens.set_value(f"{total_tokens:,}".replace(',', ' '))
+        self.card_total_cost.set_value(f"${total_cost:.4f}")
         decks_with_counts = (DeckModel
                              .select(DeckModel, fn.COUNT(CardModel.id).alias('card_count'))
                              .join(CardModel, JOIN.LEFT_OUTER)

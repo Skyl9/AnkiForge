@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 
 from ankiforge.services.ai.base import LLMProvider
+from ankiforge.services.ai.utils import log_token_usage
 
 
 class GeminiService(LLMProvider):
@@ -36,6 +37,11 @@ class GeminiService(LLMProvider):
                 contents=user_prompt,
                 config=config
             )
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                p_tokens = response.usage_metadata.prompt_token_count or 0
+                c_tokens = response.usage_metadata.candidates_token_count or 0
+                log_token_usage("gemini", self.model_name, p_tokens, c_tokens)
+
             return response.text
         except Exception as e:
             raise RuntimeError(f"Erreur Gemini ({self.model_name}) : {str(e)}")

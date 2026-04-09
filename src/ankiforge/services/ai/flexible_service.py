@@ -7,6 +7,7 @@ from openai import OpenAI
 
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
+from ankiforge.services.ai.utils import log_token_usage
 from ankiforge.utils.paths import get_app_data_dir
 
 
@@ -32,6 +33,19 @@ class OpenAICompatibleProvider(LLMProvider):
                 response_format=response_format,
                 temperature=0.2
             )
+            if hasattr(response, 'usage') and response.usage:
+                p_tokens = response.usage.prompt_tokens or 0
+                c_tokens = response.usage.completion_tokens or 0
+
+                # Petite astuce pour retrouver le nom du provider
+                provider_name = "openai"
+                if "groq" in str(self.client.base_url):
+                    provider_name = "groq"
+                elif "localhost" in str(self.client.base_url):
+                    provider_name = "ollama"
+
+                log_token_usage(provider_name, self.model_name, p_tokens, c_tokens)
+
             return response.choices[0].message.content
         except Exception as e:
             raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}")
