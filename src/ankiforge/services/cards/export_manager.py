@@ -5,7 +5,7 @@ from pathlib import Path
 
 import genanki
 
-from ankiforge.database.models import DeckModel, CardModel, NoteVersionModel, NoteModel, NoteTypeModel
+from ankiforge.database.models import DeckModel, CardModel, NoteVersionModel, NoteModel, NoteTypeModel, db
 from ankiforge.utils.paths import get_app_data_dir
 
 # Suppression des avertissements de genanki notamment pour le mauvais parsing du latex reconnu comme balise html
@@ -23,7 +23,7 @@ class ExportManager:
         """Génère un entier unique et constant basé sur une chaîne de caractères."""
         return int(hashlib.md5(text.encode('utf-8')).hexdigest()[:15], 16) % (10 ** 10)
 
-    def export_deck(self, deck_id: int, output_path: str|Path):
+    def export_deck(self, deck_id: int, output_path: str|Path,export_only_new: bool = True) -> None:
         """
         Exporte un paquet, ses sous-paquets, et toutes les images associées vers un .apkg
         """
@@ -35,6 +35,8 @@ class ExportManager:
         processed_notes = set()
         media_files_to_export = set()
 
+        notes_to_update_status = []
+
         matching_decks = DeckModel.select().where(DeckModel.name.startswith(deck_model.name))
 
         # 2. Création d'un genanki.Deck pour CHAQUE sous-paquet existant
@@ -43,6 +45,10 @@ class ExportManager:
             did = d.anki_id if d.anki_id else self.generate_stable_id(d.name)
             genanki_decks[d.id] = genanki.Deck(deck_id=did, name=d.name)
 
+        condition = CardModel.deck.in_(matching_decks)
+        if export_only_new:
+            condition = condition & (NoteModel.status == "new")
+
         # 3. Récupération des cartes (avec Jointure sur le DeckModel pour savoir où les ranger)
         cards = (
             CardModel.select(CardModel, NoteModel, NoteTypeModel, DeckModel)
@@ -50,7 +56,7 @@ class ExportManager:
             .join(NoteTypeModel)
             .switch(CardModel)
             .join(DeckModel)
-            .where(CardModel.deck.in_(matching_decks))
+            .where(condition)
         )
 
         for card in cards:
@@ -58,6 +64,8 @@ class ExportManager:
             if note.id in processed_notes:
                 continue
             processed_notes.add(note.id)
+
+            notes_to_update_status.append(note.id)
 
             nt = note.note_type
 
@@ -74,7 +82,6 @@ class ExportManager:
                         'afmt': t.get("afmt", "")
                     })
 
-                # On privilégie le vrai anki_id pour le Modèle aussi !
                 mid = nt.anki_id if nt.anki_id else self.generate_stable_id(nt.name)
 
                 g_model = genanki.Model(
@@ -116,10 +123,14 @@ class ExportManager:
                 tags=tags_list
             )
 
-            # 👇 CORRECTION MAJEURE : On ajoute la carte dans son VRAI sous-paquet
             genanki_decks[card.deck.id].add_note(g_note)
+        if not notes_to_update_status and export_only_new:
+            raise ValueError("Aucune NOUVELLE carte à exporter dans ce paquet.")
 
         # 6. Écriture du fichier final (on passe la liste de tous les paquets/sous-paquets)
         package = genanki.Package(list(genanki_decks.values()))
         package.media_files = list(media_files_to_export)
         package.write_to_file(str(output_path))
+        if export_only_new and notes_to_update_status:
+            with db.atomic():
+                NoteModel.update(status="exported").where(NoteModel.id.in_(notes_to_update_status)).execute()

@@ -458,6 +458,22 @@ class EditionTab(QWidget):
             return
 
         deck = DeckModel.get_by_id(self.current_deck_id)
+
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Exportation Intelligente")
+        msg_box.setText(f"Que souhaitez-vous exporter depuis le paquet '{deck.name}' ?")
+
+        btn_new = msg_box.addButton("🚀 Nouvelles cartes uniquement", QMessageBox.ButtonRole.AcceptRole)
+        btn_all = msg_box.addButton("📦 Tout le paquet (Écrase)", QMessageBox.ButtonRole.RejectRole)
+        btn_cancel = msg_box.addButton("Annuler", QMessageBox.ButtonRole.DestructiveRole)
+
+        msg_box.exec()
+
+        if msg_box.clickedButton() == btn_cancel:
+            return
+
+        export_only_new = (msg_box.clickedButton() == btn_new)
+
         default_name = f"{deck.name.replace('::', '_')}.apkg"
 
         path, _ = QFileDialog.getSaveFileName(self, "Exporter vers Anki", default_name, "Anki Deck (*.apkg)")
