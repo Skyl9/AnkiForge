@@ -12,7 +12,7 @@ marker_output_test/
 *.colpkg
 *.anki2
 *.anki21b
-
+dist_prod/
 # --- Environnement Python & Cache ---
 __pycache__/
 *.py[cod]
