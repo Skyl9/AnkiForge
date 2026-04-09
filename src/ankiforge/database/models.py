@@ -143,7 +143,8 @@ class AgentModel(BaseModel):
     name = CharField(unique=True)
     description = TextField(null=True)
     system_prompt = TextField()  # Stockera le contenu du prompt Jinja2
-
+    output_format = CharField(default="json")
+    created_at = DateTimeField(constraints=[SQL('DEFAULT CURRENT_TIMESTAMP')])
     class Meta:
         table_name = 'agents'
 

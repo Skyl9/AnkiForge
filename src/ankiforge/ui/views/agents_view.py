@@ -88,6 +88,15 @@ class AgentsTab(QWidget):
         self.agent_prompt_input.setStyleSheet("font-family: monospace;")
         form_layout.addWidget(self.agent_prompt_input)
 
+        lbl_format = QLabel("Format de réponse de l'IA :")
+        lbl_format.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px")
+        form_layout.addWidget(lbl_format)
+
+        self.cb_output_format = QComboBox()
+        self.cb_output_format.addItem(" JSON Strict (Agent final pour Anki)", userData="json")
+        self.cb_output_format.addItem(" Texte Libre / Markdown (Agent intermédiaire)", userData="text")
+        form_layout.addWidget(self.cb_output_format)
+
         btn_layout_agent = QHBoxLayout()
         self.btn_new_agent = ActionButton('fa5s.plus', " Nouvel Agent")
         self.btn_new_agent.clicked.connect(self.clear_agent_form)
@@ -317,6 +326,7 @@ class AgentsTab(QWidget):
         self.agent_name_input.clear()
         self.agent_desc_input.clear()
         self.agent_prompt_input.clear()
+        self.cb_output_format.setCurrentIndex(0)
         self.agents_list.clearSelection()
 
     @Slot(QListWidgetItem)
@@ -329,12 +339,16 @@ class AgentsTab(QWidget):
         self.agent_name_input.setText(agent.name)
         self.agent_desc_input.setText(agent.description or "")
         self.agent_prompt_input.setPlainText(agent.system_prompt)
+        idx = self.cb_output_format.findData(agent.output_format)
+        if idx >= 0:
+            self.cb_output_format.setCurrentIndex(idx)
 
     @Slot()
     def save_agent(self) -> None:
         name = self.agent_name_input.text().strip()
         desc = self.agent_desc_input.text().strip()
         prompt = self.agent_prompt_input.toPlainText().strip()
+        output_format = self.cb_output_format.currentData()
 
         if not name or not prompt:
             QMessageBox.warning(self, "Erreur", "Le nom et le prompt sont obligatoires.")
@@ -346,10 +360,10 @@ class AgentsTab(QWidget):
                 agent.name = name
                 agent.description = desc
                 agent.system_prompt = prompt
+                agent.output_format = output_format
                 agent.save()
             else:
-                AgentModel.create(name=name, description=desc, system_prompt=prompt)
-
+                AgentModel.create(name=name, description=desc, system_prompt=prompt, output_format=output_format)
             show_toast(self, "Agent sauvegardé !")
             self.refresh_ui()
         except Exception as e:
