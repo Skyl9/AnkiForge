@@ -241,6 +241,18 @@ def seed_initial_data() -> None:
     if AgentModel.select().count() > 0:
         return
 
+    if NoteTypeModel.select().where(NoteTypeModel.name == "Texte à trous (Cloze)").count() == 0:
+        NoteTypeModel.create(
+            name="Texte à trous (Cloze)",
+            fields_schema=json.dumps(["Texte", "Remarques extra"], ensure_ascii=False),
+            templates=json.dumps([{
+                "name": "Texte à trous",
+                "qfmt": "{{cloze:Texte}}",
+                "afmt": "{{cloze:Texte}}<br><br><hr id=answer><br>{{Remarques extra}}"
+            }], ensure_ascii=False),
+            css_style=".card { font-family: arial; font-size: 20px; text-align: center; color: palette(text); }\n.cloze { font-weight: bold; color: #2196f3; }"
+        )
+
     # ==========================================
     # AGENT 1 : L'ARCHIVISTE PÉDAGOGUE (Extracteur)
     # ==========================================

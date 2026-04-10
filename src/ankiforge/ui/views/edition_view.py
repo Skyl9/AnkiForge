@@ -26,7 +26,7 @@ from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
-from ankiforge.utils.anki_renderer import render_anki_card
+from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -677,15 +677,10 @@ class EditionTab(QWidget):
     def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
         self.btn_batch_ai.setEnabled(bool(selected_items))
-        if not selected_items:
-            return
+        if not selected_items: return
 
         if self.is_creating:
-            reply = QMessageBox.question(
-                self, "Création en cours",
-                "Vous avez une création de note en cours. Voulez-vous vraiment annuler et perdre vos saisies ?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
+            reply = QMessageBox.question(self, "Création en cours", "Vous avez une création de note en cours. Voulez-vous vraiment annuler ?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.No:
                 self.data_table.blockSignals(True)
                 self.data_table.clearSelection()
@@ -702,12 +697,9 @@ class EditionTab(QWidget):
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            if child.widget(): child.widget().deleteLater()
 
         self.field_editors.clear()
-        self.preview_card_selector.blockSignals(True)
-        self.preview_card_selector.clear()
 
         try:
             self.current_note = NoteModel.get_by_id(note_id)
@@ -723,35 +715,19 @@ class EditionTab(QWidget):
 
             for field_name, field_value in content_dict.items():
                 lbl = QLabel(field_name)
-                lbl.setStyleSheet("""
-                                    font-weight: bold; 
-                                    color: palette(placeholder-text); 
-                                    font-size: 10px; 
-                                    text-transform: uppercase; 
-                                    letter-spacing: 1px; 
-                                    margin-top: 15px; /* Sépare du bloc précédent */
-                                    margin-bottom: 5px; /* Rapproche du champ de texte */
-                                """)
+                lbl.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
                 text_edit = DropImageTextEdit()
 
                 clean_value = field_value.replace('<br>', '\n') if field_value else ""
                 text_edit.setPlainText(clean_value)
                 text_edit.setMinimumHeight(60)
-
                 text_edit.textChanged.connect(self._on_text_changed)
 
                 self.field_editors[field_name] = text_edit
                 self.details_layout.addWidget(lbl)
                 self.details_layout.addWidget(text_edit)
 
-            templates = json.loads(
-                self.current_note.note_type.templates) if self.current_note.note_type.templates else []
-            for tmpl in templates:
-                self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
-
-            self.preview_card_selector.blockSignals(False)
             self.update_preview()
-
         except Exception as e:
             self.details_layout.addWidget(QLabel(f"Erreur : {e}"))
 
@@ -847,14 +823,12 @@ class EditionTab(QWidget):
         """Relance le délai de 500ms à chaque frappe pour laisser MathJax respirer."""
         self.preview_timer.start()
 
+    @Slot()
     def save_note_edits(self) -> None:
-        """Met à jour le JSON de la note dans la base de données Peewee"""
         if self.is_creating:
             self._create_new_note()
             return
-
-        if not self.current_note:
-            return
+        if not self.current_note: return
 
         try:
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
@@ -864,6 +838,28 @@ class EditionTab(QWidget):
 
             with db.atomic():
                 new_version = self.current_note.add_version(content_dict, source="manual")
+
+                # ========================================================
+                # SYNCHRONISATION DYNAMIQUE DES CARTES CLOZE
+                # ========================================================
+                note_type = self.current_note.note_type
+                templates = json.loads(note_type.templates) if note_type.templates else []
+                is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+
+                if is_cloze:
+                    max_cloze = get_max_cloze_index(content_dict)
+                    target_num_cards = max(1, max_cloze)
+                    existing_cards = list(self.current_note.cards.order_by(CardModel.template_index))
+                    current_num_cards = len(existing_cards)
+
+                    if target_num_cards > current_num_cards:
+                        deck = existing_cards[0].deck if existing_cards else DeckModel.get_by_id(self.current_deck_id)
+                        for i in range(current_num_cards, target_num_cards):
+                            CardModel.create(note=self.current_note, deck=deck, template_index=i)
+                    elif target_num_cards < current_num_cards:
+                        for card in existing_cards[target_num_cards:]:
+                            card.delete_instance()
+                # ========================================================
 
             mode = self.view_mode_cb.currentText()
             if mode == "Vue : Notes (Texte)":
@@ -875,13 +871,16 @@ class EditionTab(QWidget):
                     verso = strip_html(values[1]) if len(values) > 1 else ""
                     self.data_table.setItem(row, 0, QTableWidgetItem(recto))
                     self.data_table.setItem(row, 1, QTableWidgetItem(verso))
-
                     item_version = QTableWidgetItem(f"v{new_version.version_number}")
                     item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row, 4, item_version)
+            else:
+                self.refresh_table()
+
             show_toast(self, "Note mise à jour !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
+
 
     def _create_new_note(self) -> None:
         try:
@@ -909,12 +908,16 @@ class EditionTab(QWidget):
                 # 3. Créer la/les cartes
                 templates = json.loads(note_type.templates) if note_type.templates else []
                 deck = DeckModel.get_by_id(self.current_deck_id)
-                for i, tmpl in enumerate(templates):
-                    CardModel.create(
-                        note=new_note,
-                        deck=deck,
-                        template_index=i
-                    )
+                is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+
+                if is_cloze:
+                    max_cloze = get_max_cloze_index(content_dict)
+                    num_cards = max(1, max_cloze)  # Au moins 1 carte même si l'utilisateur a oublié de mettre un trou
+                    for i in range(num_cards):
+                        CardModel.create(note=new_note, deck=deck, template_index=i)
+                else:
+                    for i, tmpl in enumerate(templates):
+                        CardModel.create(note=new_note, deck=deck, template_index=i)
 
             show_toast(self, "✨ Nouvelle note créée !")
             self._exit_creation_mode(refresh=True, select_note_id=new_note.id)
@@ -942,8 +945,9 @@ class EditionTab(QWidget):
             self.btn_save_edits.setEnabled(False)
             self.btn_history.setEnabled(False)
 
+    @Slot()
     def update_preview(self) -> None:
-        if self.preview_card_selector.count() == 0:
+        if not self.current_note and not self.is_creating:
             return
 
         note_type = None
@@ -955,40 +959,58 @@ class EditionTab(QWidget):
         elif self.current_note:
             note_type = self.current_note.note_type
 
-        if not note_type:
-            return
+        if not note_type: return
 
-        templates = json.loads(note_type.templates)
+        current_fields = {name: editor.toPlainText().replace('\n', '<br>') for name, editor in
+                          self.field_editors.items()}
+        templates = json.loads(note_type.templates) if note_type.templates else []
+        is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+
+        # ----------------------------------------------------
+        # GESTION DYNAMIQUE DE LA LISTE DÉROULANTE DE PREVIEW
+        # ----------------------------------------------------
+        current_selector_count = self.preview_card_selector.count()
+        if is_cloze:
+            max_cloze = get_max_cloze_index(current_fields)
+            num_cards = max(1, max_cloze)
+            if current_selector_count != num_cards:
+                self.preview_card_selector.blockSignals(True)
+                self.preview_card_selector.clear()
+                for i in range(num_cards):
+                    self.preview_card_selector.addItem(f"Trou {i + 1} (c{i + 1})")
+                self.preview_card_selector.blockSignals(False)
+        else:
+            if current_selector_count != len(templates):
+                self.preview_card_selector.blockSignals(True)
+                self.preview_card_selector.clear()
+                for tmpl in templates:
+                    self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
+                self.preview_card_selector.blockSignals(False)
+
         selected_tmpl_idx = self.preview_card_selector.currentIndex()
-        if selected_tmpl_idx < 0:
-            return
+        if selected_tmpl_idx < 0: selected_tmpl_idx = 0
 
-        tmpl = templates[selected_tmpl_idx]
+        if is_cloze:
+            tmpl = templates[0] if templates else {}
+            card_idx = selected_tmpl_idx  # c1, c2, etc.
+        else:
+            if selected_tmpl_idx >= len(templates): selected_tmpl_idx = 0
+            tmpl = templates[selected_tmpl_idx] if templates else {}
+            card_idx = selected_tmpl_idx
+
         is_recto = self.preview_side_selector.currentIndex() == 0
-
-        current_fields = {
-            name: editor.toPlainText().replace('\n', '<br>')
-            for name, editor in self.field_editors.items()
-        }
-
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
         css = note_type.css_style
 
         final_html = render_anki_card(
-            raw_html=raw_html,
-            css=css,
-            fields_dict=current_fields,
-            is_recto=is_recto,
-            front_html=tmpl.get("qfmt", ""),
-            is_dark_mode=is_dark_mode()
+            raw_html=raw_html, css=css, fields_dict=current_fields,
+            is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode(),
+            template_index=card_idx  # <-- On passe l'index à la machine de rendu !
         )
 
         media_dir = get_app_data_dir() / "media"
         media_dir.mkdir(exist_ok=True)
-
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
-
-        # On injecte le HTML en lui donnant le droit de lire dans le dossier media
         self.web_view.setHtmlSafe(final_html, base_url)
 
     def approve_selected_notes(self) -> None:

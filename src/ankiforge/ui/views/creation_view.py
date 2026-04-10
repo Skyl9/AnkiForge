@@ -23,7 +23,7 @@ from ankiforge.ui.components.components import ActionButton, PrimaryButton, Roun
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.anki_renderer import render_anki_card
+from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
 from ankiforge.utils.paths import get_app_data_dir
 
 
@@ -658,15 +658,9 @@ class CreationTab(QWidget):
         selected_items = self.results_table.selectedItems()
         if not selected_items or not self.generated_notes:
             text_color = "#8C8C8C" if is_dark_mode() else "#6E6E6E"
-            placeholder = f"""
-                <div style='display: flex; height: 100vh; align-items: center; justify-content: center; 
-                            color: {text_color}; font-family: sans-serif; text-align: center;'>
-                    Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.
-                </div>
-                """
+            placeholder = f"""<div style='display: flex; height: 100vh; align-items: center; justify-content: center; color: {text_color}; font-family: sans-serif; text-align: center;'>Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.</div>"""
             self.web_view.setHtmlSafe(placeholder)
             self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
-
             return
 
         row = selected_items[0].row()
@@ -677,10 +671,40 @@ class CreationTab(QWidget):
         note_type = NoteTypeModel.get_by_id(model_id)
 
         templates = json.loads(note_type.templates) if note_type.templates else []
-        selected_tmpl_idx = self.preview_card_selector.currentIndex()
-        if selected_tmpl_idx < 0 or selected_tmpl_idx >= len(templates): return
+        is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
-        tmpl = templates[selected_tmpl_idx]
+        # ----------------------------------------------------
+        # GESTION DYNAMIQUE DE LA LISTE DÉROULANTE DE PREVIEW
+        # ----------------------------------------------------
+        current_selector_count = self.preview_card_selector.count()
+        if is_cloze:
+            max_cloze = get_max_cloze_index(current_data)
+            num_cards = max(1, max_cloze)
+            if current_selector_count != num_cards:
+                self.preview_card_selector.blockSignals(True)
+                self.preview_card_selector.clear()
+                for i in range(num_cards):
+                    self.preview_card_selector.addItem(f"Trou {i + 1} (c{i + 1})")
+                self.preview_card_selector.blockSignals(False)
+        else:
+            if current_selector_count != len(templates):
+                self.preview_card_selector.blockSignals(True)
+                self.preview_card_selector.clear()
+                for tmpl in templates:
+                    self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
+                self.preview_card_selector.blockSignals(False)
+
+        selected_tmpl_idx = self.preview_card_selector.currentIndex()
+        if selected_tmpl_idx < 0: selected_tmpl_idx = 0
+
+        if is_cloze:
+            tmpl = templates[0] if templates else {}
+            card_idx = selected_tmpl_idx
+        else:
+            if selected_tmpl_idx >= len(templates): selected_tmpl_idx = 0
+            tmpl = templates[selected_tmpl_idx] if templates else {}
+            card_idx = selected_tmpl_idx
+
         is_recto = self.preview_side_selector.currentIndex() == 0
 
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
@@ -688,13 +712,13 @@ class CreationTab(QWidget):
 
         final_html = render_anki_card(
             raw_html=raw_html, css=css, fields_dict=current_data,
-            is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode()
+            is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode(),
+            template_index=card_idx
         )
 
         media_dir = get_app_data_dir() / 'media'
-        media_dir.mkdir(exist_ok=True)  # S'assure que le dossier existe
-
-        base_url = QUrl.fromLocalFile(media_dir)
+        media_dir.mkdir(exist_ok=True)
+        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 
         self.web_view.setHtmlSafe(final_html, base_url)
         self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
@@ -720,8 +744,19 @@ class CreationTab(QWidget):
                         note=note, version_number=1, content=json.dumps(note_data, ensure_ascii=False),
                         source="ai", is_active=True
                     )
-                    for idx, tmpl in enumerate(templates):
-                        CardModel.create(note=note, deck=deck, template_index=idx)
+                    is_cloze = any(
+                        "{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+
+                    if is_cloze:
+                        max_cloze = get_max_cloze_index(note_data)
+                        num_cards = max(1, max_cloze)
+                        for i in range(num_cards):
+                            CardModel.create(note=note, deck=deck, template_index=i)
+                    else:
+                        for idx, tmpl in enumerate(templates):
+                            CardModel.create(note=note, deck=deck, template_index=idx)
+
+
 
             show_toast(self, f"{len(self.generated_notes)} notes créées !")
             self.generated_notes.clear()

@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import uuid
 from typing import Any
@@ -16,8 +17,12 @@ from jinja2 import Template
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
     PipelineStepModel, \
     NoteVersionModel, DocumentModel, FolderModel, LLMConfigModel
+from ankiforge.services.ai.base import MockProvider
+from ankiforge.services.ai.flexible_service import GroqProvider, OllamaProvider, OpenAICompatibleProvider
+from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.anki_renderer import get_max_cloze_index
 
 
 class BatchWorker(QThread):
@@ -225,8 +230,18 @@ class BatchWorker(QThread):
                                         note=note, version_number=1, content=json.dumps(note_data, ensure_ascii=False),
                                         source="ai_batch", is_active=True
                                     )
-                                    for idx, tmpl in enumerate(templates):
-                                        CardModel.create(note=note, deck=deck, template_index=idx)
+                                    is_cloze = any(
+                                        "{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in
+                                        templates)
+
+                                    if is_cloze:
+                                        max_cloze = get_max_cloze_index(note_data)
+                                        num_cards = max(1, max_cloze)
+                                        for i in range(num_cards):
+                                            CardModel.create(note=note, deck=deck, template_index=i)
+                                    else:
+                                        for idx, tmpl in enumerate(templates):
+                                            CardModel.create(note=note, deck=deck, template_index=idx)
 
                             doc_success_notes += len(notes_to_create)
                             self.log.emit(f"✅ {len(notes_to_create)} cartes extraites.")
