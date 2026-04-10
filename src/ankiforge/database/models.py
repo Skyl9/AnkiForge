@@ -22,6 +22,14 @@ class BaseModel(Model):
         database = db
 
 
+class SchemaVersionModel(BaseModel):
+    """Stocke la version actuelle de la structure de la base de données."""
+    version = IntegerField(default=1)
+
+    class Meta:
+        table_name = 'schema_version'
+
+
 class DeckModel(BaseModel):
     """Représente un paquet Anki et sa hiérarchie (Subdecks)"""
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (did)
@@ -137,18 +145,20 @@ class LLMConfigModel(BaseModel):
     class Meta:
         table_name = 'llm_configs'
 
+
 class TokenUsageModel(BaseModel):
     """Stocke l'historique de consommation pour calculer les coûts API."""
-    provider = CharField()       # ex: "openai", "gemini", "ollama"
-    model_id = CharField()       # ex: "gpt-4o", "gemini-2.0-flash"
+    provider = CharField()  # ex: "openai", "gemini", "ollama"
+    model_id = CharField()  # ex: "gpt-4o", "gemini-2.0-flash"
     prompt_tokens = IntegerField(default=0)
     completion_tokens = IntegerField(default=0)
     total_tokens = IntegerField(default=0)
-    estimated_cost_usd = FloatField(default=0.0) # On le calculera grossièrement
+    estimated_cost_usd = FloatField(default=0.0)  # On le calculera grossièrement
     created_at = DateTimeField(default=datetime.datetime.now)
 
     class Meta:
         table_name = 'token_usage'
+
 
 class AgentModel(BaseModel):
     """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur)."""
@@ -157,6 +167,7 @@ class AgentModel(BaseModel):
     system_prompt = TextField()  # Stockera le contenu du prompt Jinja2
     output_format = CharField(default="json")
     created_at = DateTimeField(constraints=[SQL('DEFAULT CURRENT_TIMESTAMP')])
+
     class Meta:
         table_name = 'agents'
 
@@ -206,7 +217,7 @@ def init_db() -> None:
         DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel,
         AgentModel, PipelineModel, PipelineStepModel,
         DocumentModel, FolderModel, PromptModel, IgnoredDuplicateModel,
-        LLMConfigModel,TokenUsageModel
+        LLMConfigModel, TokenUsageModel, SchemaVersionModel
     ])
 
 
@@ -316,6 +327,9 @@ NE RENVOIE QUE LE JSON STRICTEMENT VALIDE. NE METS AUCUN TEXTE AVANT OU APRÈS, 
     # CRÉATION DES MOTEURS IA
     # ==========================================
     if LLMConfigModel.select().count() == 0:
-        LLMConfigModel.create(display_name="GPT-4o (OpenAI)", provider="openai", model_id="gpt-4o", context_limit=128000)
-        LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet-20240620", context_limit=200000)
-        LLMConfigModel.create(display_name="Mistral Local (Ollama)", provider="ollama", model_id="mistral", context_limit=32768)
+        LLMConfigModel.create(display_name="GPT-4o (OpenAI)", provider="openai", model_id="gpt-4o",
+                              context_limit=128000)
+        LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic",
+                              model_id="claude-3-5-sonnet-20240620", context_limit=200000)
+        LLMConfigModel.create(display_name="Mistral Local (Ollama)", provider="ollama", model_id="mistral",
+                              context_limit=32768)
