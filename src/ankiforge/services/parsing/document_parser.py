@@ -4,6 +4,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+import docx
+from pptx import Presentation
+
 from ankiforge.services.cards.media_manager import MediaManager
 
 class DocumentParser:
@@ -25,6 +28,12 @@ class DocumentParser:
         elif ext in ['.txt', '.md']:
             if progress_callback: progress_callback("Lecture du fichier texte immédiate...")
             return self._parse_text(file_path)
+        elif ext == '.docx':
+            if progress_callback: progress_callback("Analyse du document Word en cours...")
+            return self._parse_docx(file_path)
+        elif ext == '.pptx':
+            if progress_callback: progress_callback("Analyse de la présentation PowerPoint en cours...")
+            return self._parse_pptx(file_path)
         else:
             raise ValueError(f"Format de fichier non supporté : {ext}")
 
@@ -97,6 +106,55 @@ class DocumentParser:
             if progress_callback: progress_callback("✅ Terminé !")
             return processed_markdown
 
+    def _parse_docx(self, file_path: Path) -> str:
+        """Extrait le texte d'un Word en traduisant les styles de titre en Markdown."""
+        if docx is None:
+            raise RuntimeError("Le module python-docx n'est pas installé. Lancez 'uv add python-docx'")
+
+        doc = docx.Document(str(file_path))
+        full_text = []
+
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if text:
+                style_name = para.style.name.lower()
+                # Traduction sémantique pour aider le "Chunking" de l'IA
+                if 'heading 1' in style_name or 'titre 1' in style_name:
+                    full_text.append(f"# {text}")
+                elif 'heading 2' in style_name or 'titre 2' in style_name:
+                    full_text.append(f"## {text}")
+                elif 'heading 3' in style_name or 'titre 3' in style_name:
+                    full_text.append(f"### {text}")
+                else:
+                    full_text.append(text)
+
+        return "\n\n".join(full_text)
+
+    def _parse_pptx(self, file_path: Path) -> str:
+        """Extrait le texte d'un PowerPoint, diapositive par diapositive."""
+        if Presentation is None:
+            raise RuntimeError("Le module python-pptx n'est pas installé. Lancez 'uv add python-pptx'")
+
+        prs = Presentation(str(file_path))
+        full_text = []
+
+        for i, slide in enumerate(prs.slides):
+            slide_text = []
+            for shape in slide.shapes:
+                if hasattr(shape, "has_text_frame") and shape.has_text_frame:
+                    for paragraph in shape.text_frame.paragraphs:
+                        text = paragraph.text.strip()
+                        if text:
+                            slide_text.append(text)
+
+            if slide_text:
+                slide_content = "\n".join(slide_text)
+                # Force un titre Markdown pour chaque slide.
+                # Le Chunking "Sémantique" d'AnkiForge découpera donc la prez' slide par slide !
+                full_text.append(f"## Diapositive {i + 1}\n{slide_content}")
+
+        # Séparation forte entre les slides
+        return "\n\n[SPLIT]\n\n".join(full_text)
 
     def _parse_text(self, file_path: Path) -> str:
         """Lecture basique de fichiers texte."""
