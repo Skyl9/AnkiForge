@@ -1,7 +1,7 @@
-import pytest
-import sys
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from ankiforge.utils.paths import get_project_root, get_app_data_dir
 

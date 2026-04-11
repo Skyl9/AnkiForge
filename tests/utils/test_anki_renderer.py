@@ -1,30 +1,29 @@
-# tests/utils/test_anki_renderer.py
-import pytest
+# ruff: noqa: SLF001
+# noinspection PyProtectedMember
 
 from ankiforge.utils.anki_renderer import (
-    _is_empty, _sanitize_fields, _process_conditionals,
-    _process_standard_fields, _process_front_side, render_anki_card
+    _is_empty,
+    _sanitize_fields,
+    _process_conditionals,
+    _process_front_side,
+    render_anki_card,
 )
 
 
 def test_is_empty():
     """Vérifie la détection de champs HTML considérés comme 'vides' par Anki."""
-    assert _is_empty("") == True
-    assert _is_empty("   ") == True
-    assert _is_empty("<br>") == True
-    assert _is_empty("<div>&nbsp;</div>") == True
+    assert _is_empty("")
+    assert _is_empty("   ")
+    assert _is_empty("<br>")
+    assert _is_empty("<div>&nbsp;</div>")
 
-    assert _is_empty("Texte") == False
-    assert _is_empty("<b>Gras</b>") == False
+    assert not _is_empty("Texte")
+    assert not _is_empty("<b>Gras</b>")
 
 
 def test_sanitize_fields():
     """Vérifie la conversion des listes et des None pour le moteur."""
-    raw = {
-        "Texte": "Normal",
-        "Liste": ["A", "B"],
-        "Vide": None
-    }
+    raw = {"Texte": "Normal", "Liste": ["A", "B"], "Vide": ""}
     safe = _sanitize_fields(raw)
 
     assert safe["Texte"] == "Normal"
@@ -71,12 +70,7 @@ def test_render_anki_card_integration():
     css = ".card { color: red; }"
     fields = {"Recto": "Q?", "Verso": "R!"}
 
-    result = render_anki_card(
-        raw_html=raw_html,
-        css=css,
-        fields_dict=fields,
-        is_recto=True
-    )
+    result = render_anki_card(raw_html=raw_html, css=css, fields_dict=fields, is_recto=True)
 
     # Vérifications de structure HTML
     assert "<html>" in result

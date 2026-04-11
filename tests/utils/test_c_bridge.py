@@ -1,5 +1,4 @@
 # tests/utils/test_c_bridge.py
-import pytest
 from unittest.mock import patch, MagicMock
 
 # On importe le module complet pour pouvoir patcher ses variables globales
@@ -9,7 +8,7 @@ import ankiforge.utils.c_bridge as c_bridge
 def test_get_similarity_python_fallback():
     """Vérifie que si le C n'est pas là, difflib prend le relais correctement."""
     # On force la variable globale à False
-    with patch.object(c_bridge, 'C_MATCHER_LOADED', False):
+    with patch.object(c_bridge, "C_MATCHER_LOADED", False):
         score = c_bridge.get_similarity("chien", "chiens")
 
         # difflib donnera un score > 0 mais < 1
@@ -24,8 +23,7 @@ def test_get_similarity_c_extension():
     mock_lib.calculate_similarity.return_value = 0.95
 
     # On force le module à utiliser notre fausse librairie
-    with patch.object(c_bridge, 'C_MATCHER_LOADED', True), \
-            patch.object(c_bridge, '_matcher_lib', mock_lib):
+    with patch.object(c_bridge, "C_MATCHER_LOADED", True), patch.object(c_bridge, "_matcher_lib", mock_lib):
         score = c_bridge.get_similarity("test", "tests")
 
         # Le C exige des bytes, on vérifie que le bridge a bien fait la conversion .encode('utf-8')
