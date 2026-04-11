@@ -1,7 +1,6 @@
 import datetime
 import logging
 import shutil
-from pathlib import Path
 
 from ankiforge.database.models import DB_PATH
 from ankiforge.utils.paths import get_app_data_dir

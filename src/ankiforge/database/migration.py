@@ -1,7 +1,8 @@
 import logging
 
 from peewee import CharField, DateTimeField, SQL, OperationalError
-from playhouse.migrate import SqliteMigrator, migrate
+from peewee_migrate.cli import migrate
+from playhouse.migrate import SqliteMigrator
 
 from ankiforge.database.models import db, SchemaVersionModel
 
@@ -13,7 +14,7 @@ def run_migrations() -> None:
     db.create_tables([SchemaVersionModel], safe=True)
 
     # 2. Récupérer la version actuelle
-    version_record, _ = SchemaVersionModel.get_or_create(id=1, defaults={'version': 1})
+    version_record, _ = SchemaVersionModel.get_or_create(id=1, defaults={"version": 1})
     current_version = version_record.version
 
     migrator = SqliteMigrator(db)
@@ -25,17 +26,16 @@ def run_migrations() -> None:
         try:
             with db.atomic():
                 output_format_field = CharField(default="json")
-                created_at_field = DateTimeField(constraints=[SQL('DEFAULT CURRENT_TIMESTAMP')])
+                created_at_field = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
                 migrate(
-                    migrator.add_column('agents', 'output_format', output_format_field),
-                    migrator.add_column('agents', 'created_at', created_at_field)
+                    migrator.add_column("agents", "output_format", output_format_field),
+                    migrator.add_column("agents", "created_at", created_at_field),
                 )
 
             # Mise à jour de la version uniquement si la transaction réussit
             version_record.version = 2
             version_record.save()
-            current_version = 2
             logging.info("Migration v2 réussie.")
 
         except OperationalError as e:
@@ -43,7 +43,6 @@ def run_migrations() -> None:
             logging.warning(f"Migration v2 ignorée ou partiellement appliquée : {e}")
             version_record.version = 2
             version_record.save()
-            current_version = 2
 
     # --- MIGRATIONS FUTURES (V2 -> V3, etc.) ---
     # if current_version < 3:
