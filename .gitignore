@@ -36,14 +36,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.ankiforge/.env
 .coverage
 test.md
 GEMINI.md
 *.json
-marker_output_test/
 
-build/
 
 # --- IDE (PyCharm, VSCode, etc.) ---
 .idea/
