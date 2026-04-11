@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import json
 import os
 import uuid
@@ -6,21 +7,44 @@ from typing import Any
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot
 from PySide6.QtGui import QShortcut, QKeySequence, QFont
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QTextEdit, QComboBox, QTableWidget,
-                               QTableWidgetItem, QMessageBox, QSplitter, QAbstractItemView, QTabWidget, QProgressBar,
-                               QGridLayout, QFrame)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QTextEdit,
+    QComboBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QSplitter,
+    QAbstractItemView,
+    QTabWidget,
+    QProgressBar,
+    QGridLayout,
+    QFrame,
+)
 from jinja2 import Template
 
-from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
-    PipelineStepModel, \
-    NoteVersionModel, DocumentModel, LLMConfigModel
-from ankiforge.services.ai.base import MockProvider
+from ankiforge.database.models import (
+    db,
+    DeckModel,
+    NoteTypeModel,
+    NoteModel,
+    CardModel,
+    PipelineModel,
+    PipelineStepModel,
+    NoteVersionModel,
+    DocumentModel,
+    LLMConfigModel,
+)
+from ankiforge.services.ai.base import MockProvider, LLMProvider
 from ankiforge.services.ai.flexible_service import OllamaProvider, GroqProvider, OpenAICompatibleProvider
 from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel, DangerButton
 from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.widgets.cloze_gestion import get_preview_template, sync_preview_card_selector
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
@@ -55,6 +79,8 @@ class GenerationThread(QThread):
         return clean
 
     def run(self) -> None:
+        cleaned_output = ""
+        raw_response = ""
         try:
             pipeline = PipelineModel.get_by_id(self.pipeline_id)
             note_type = NoteTypeModel.get_by_id(self.note_type_id)
@@ -67,12 +93,11 @@ class GenerationThread(QThread):
             fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
             fields_str = '", "'.join(fields)
 
-            first_field = fields[0] if len(fields) > 0 else 'Field1'
-            second_field = fields[1] if len(fields) > 1 else 'Field2'
+            first_field = fields[0] if len(fields) > 0 else "Field1"
+            second_field = fields[1] if len(fields) > 1 else "Field2"
 
             current_input = f"TEXTE SOURCE :\n{self.text_source}"
             total_steps = len(steps)
-            cleaned_output = ""
 
             for i, step in enumerate(steps, 1):
                 if self._is_cancelled:
@@ -83,8 +108,7 @@ class GenerationThread(QThread):
                 self.progress.emit(f"Étape {i}/{total_steps} : {agent.name}...")
 
                 jinja_template = Template(agent.system_prompt)
-                system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field,
-                                                      second_field=second_field)
+                system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
 
                 self.log.emit(f"--- 🤖 DÉBUT ÉTAPE {i} : {agent.name.upper()} ---\n")
                 self.log.emit(f"🔵 PROMPT SYSTÈME :\n{system_prompt}\n")
@@ -105,8 +129,7 @@ class GenerationThread(QThread):
             self.finished.emit(data["notes"])
 
         except json.JSONDecodeError as e:
-            self.error.emit(
-                f"L'un des agents a brisé le format JSON.\nErreur : {e}\n\nDernière sortie:\n{cleaned_output[:200]}")
+            self.error.emit(f"L'un des agents a brisé le format JSON.\nErreur : {e}\n\nDernière sortie:\n{cleaned_output[:200]}")
         except Exception as e:
             self.error.emit(f"Erreur lors du pipeline IA : {str(e)}")
 
@@ -114,6 +137,7 @@ class GenerationThread(QThread):
 class CreationTab(QWidget):
     def __init__(self, ai_manager: Any) -> None:
         super().__init__()
+        self.thread: GenerationThread | None = None
         self.ai_manager = ai_manager
         self.generated_notes: list[dict[str, str]] = []
 
@@ -141,8 +165,7 @@ class CreationTab(QWidget):
 
         # Titre de section moderne (Petites majuscules grisées)
         lbl_title_1 = QLabel("1. CONFIGURATION DE L'IA ET DESTINATION")
-        lbl_title_1.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_title_1.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         params_layout.addWidget(lbl_title_1)
 
         params_grid = QGridLayout()
@@ -198,8 +221,7 @@ class CreationTab(QWidget):
         source_layout.setSpacing(15)
 
         lbl_title_2 = QLabel("2. TEXTE SOURCE")
-        lbl_title_2.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_title_2.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         source_layout.addWidget(lbl_title_2)
 
         source_header = QHBoxLayout()
@@ -209,7 +231,7 @@ class CreationTab(QWidget):
         self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
         source_header.addWidget(self.doc_selector, stretch=1)
 
-        self.btn_refresh_docs = ActionButton('fa5s.sync', "")
+        self.btn_refresh_docs = ActionButton("fa5s.sync", "")
         self.btn_refresh_docs.clicked.connect(self.load_documents)
         source_header.addWidget(self.btn_refresh_docs)
 
@@ -247,11 +269,11 @@ class CreationTab(QWidget):
         self.lbl_progress.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 12px; margin-right: 15px;")
         bottom_source_layout.addWidget(self.lbl_progress)
 
-        self.btn_generate = PrimaryButton(qta.icon('fa5s.magic', color='white'), " Générer les Cartes")
+        self.btn_generate = PrimaryButton(qta.icon("fa5s.magic", color="white"), " Générer les Cartes")
         self.btn_generate.clicked.connect(self.start_generation)
         bottom_source_layout.addWidget(self.btn_generate)
 
-        self.btn_cancel = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler")
+        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler")
         self.btn_cancel.clicked.connect(self.cancel_generation)
         self.btn_cancel.hide()
         bottom_source_layout.addWidget(self.btn_cancel)
@@ -273,14 +295,12 @@ class CreationTab(QWidget):
         table_layout.setContentsMargins(20, 20, 20, 20)
 
         lbl_title_3 = QLabel("RÉSULTATS (DOUBLE-CLIQUEZ POUR ÉDITER)")
-        lbl_title_3.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_title_3.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         table_layout.addWidget(lbl_title_3)
 
         self.results_table = QTableWidget()
         self.results_table.horizontalHeader().setStretchLastSection(True)
-        self.results_table.setEditTriggers(
-            QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed)
+        self.results_table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results_table.setAlternatingRowColors(True)
@@ -292,7 +312,7 @@ class CreationTab(QWidget):
 
         btn_save_layout = QHBoxLayout()
         btn_save_layout.addStretch()
-        self.btn_save = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder dans la base")
+        self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder dans la base")
         self.btn_save.clicked.connect(self.save_to_database)
         self.btn_save.setEnabled(False)
         btn_save_layout.addWidget(self.btn_save)
@@ -331,7 +351,7 @@ class CreationTab(QWidget):
         self.web_view = SafeWebEngineView()
         preview_layout.addWidget(self.web_view)
 
-        right_tabs.addTab(preview_container, qta.icon('fa5s.eye'), " Aperçu")
+        right_tabs.addTab(preview_container, qta.icon("fa5s.eye"), " Aperçu")
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
@@ -339,7 +359,7 @@ class CreationTab(QWidget):
         font = QFont("Consolas")
         font.setStyleHint(QFont.StyleHint.Monospace)
         self.console_log.setFont(font)
-        right_tabs.addTab(self.console_log, qta.icon('fa5s.terminal'), " Console IA")
+        right_tabs.addTab(self.console_log, qta.icon("fa5s.terminal"), " Console IA")
 
         right_layout.addWidget(right_tabs)
 
@@ -395,13 +415,17 @@ class CreationTab(QWidget):
             self.llm_selector.clear()
             for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
                 self.llm_selector.addItem(llm.display_name, userData=llm.id)
-            if current_llm: self.llm_selector.setCurrentIndex(self.llm_selector.findData(current_llm))
+            if current_llm:
+                self.llm_selector.setCurrentIndex(self.llm_selector.findData(current_llm))
             self.llm_selector.blockSignals(False)
 
         # On remet les sélections
-        if current_deck: self.deck_selector.setCurrentIndex(self.deck_selector.findData(current_deck))
-        if current_model: self.model_selector.setCurrentIndex(self.model_selector.findData(current_model))
-        if current_pipe: self.pipeline_selector.setCurrentIndex(self.pipeline_selector.findData(current_pipe))
+        if current_deck:
+            self.deck_selector.setCurrentIndex(self.deck_selector.findData(current_deck))
+        if current_model:
+            self.model_selector.setCurrentIndex(self.model_selector.findData(current_model))
+        if current_pipe:
+            self.pipeline_selector.setCurrentIndex(self.pipeline_selector.findData(current_pipe))
 
         self.deck_selector.blockSignals(False)
         self.model_selector.blockSignals(False)
@@ -419,12 +443,12 @@ class CreationTab(QWidget):
         if llm_id:
             try:
                 max_tokens = LLMConfigModel.get_by_id(llm_id).context_limit
-            except Exception:
+            except (ValueError, AttributeError):
                 pass
 
         self.token_bar.setMaximum(max_tokens)
         self.token_bar.setValue(min(estimated_tokens, max_tokens))
-        self.token_label.setText(f"<b>Tokens : ~{estimated_tokens:,} / {max_tokens:,}</b>".replace(',', ' '))
+        self.token_label.setText(f"<b>Tokens : ~{estimated_tokens:,} / {max_tokens:,}</b>".replace(",", " "))
 
         if estimated_tokens < (max_tokens * 0.5):
             color = "#4CAF50"
@@ -458,27 +482,28 @@ class CreationTab(QWidget):
         if self.doc_selector.count() > 1:
             self.doc_selector.setCurrentIndex(1)
 
-    def _parse_markdown_sections(self, text: str) -> list[tuple[str, str]]:
+    @staticmethod
+    def _parse_markdown_sections(text: str) -> list[tuple[str, str]]:
         sections = []
         current_title = ""
-        current_content = []
+        current_content: list[str] = []
 
-        for line in text.split('\n'):
-            if line.startswith('#'):
+        for line in text.split("\n"):
+            if line.startswith("#"):
                 if current_title or current_content:
-                    if ''.join(current_content).strip():
-                        sections.append(
-                            (current_title if current_title else "Introduction", '\n'.join(current_content)))
+                    if "".join(current_content).strip():
+                        sections.append((current_title if current_title else "Introduction", "\n".join(current_content)))
 
-                clean_title = line.replace('#', '').strip()
-                if len(clean_title) > 50: clean_title = clean_title[:47] + "..."
+                clean_title = line.replace("#", "").strip()
+                if len(clean_title) > 50:
+                    clean_title = clean_title[:47] + "..."
                 current_title = clean_title
                 current_content = [line]
             else:
                 current_content.append(line)
 
-        if current_content and ''.join(current_content).strip():
-            sections.append((current_title if current_title else "Texte", '\n'.join(current_content)))
+        if current_content and "".join(current_content).strip():
+            sections.append((current_title if current_title else "Texte", "\n".join(current_content)))
 
         return sections
 
@@ -512,7 +537,8 @@ class CreationTab(QWidget):
     @Slot()
     def on_model_changed(self) -> None:
         model_id = self.model_selector.currentData()
-        if not model_id: return
+        if not model_id:
+            return
 
         note_type = NoteTypeModel.get_by_id(model_id)
         fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
@@ -551,6 +577,7 @@ class CreationTab(QWidget):
 
         llm_config = LLMConfigModel.get_by_id(llm_id)
         p_name = llm_config.provider.lower()
+        active_provider: LLMProvider
         if p_name == "ollama":
             active_provider = OllamaProvider(model_name=llm_config.model_id)
         elif p_name == "gemini":
@@ -558,9 +585,11 @@ class CreationTab(QWidget):
         elif p_name == "groq":
             active_provider = GroqProvider(model_name=llm_config.model_id)
         elif p_name == "openai":
-            active_provider = OpenAICompatibleProvider(base_url="https://api.openai.com/v1",
-                                                       model_name=llm_config.model_id,
-                                                       api_key=os.environ.get("OPENAI_API_KEY", ""))
+            active_provider = OpenAICompatibleProvider(
+                base_url="https://api.openai.com/v1",
+                model_name=llm_config.model_id,
+                api_key=os.environ.get("OPENAI_API_KEY", ""),
+            )
         else:
             # Sécurité si un fournisseur (comme Anthropic brut) n'est pas encore implémenté
             active_provider = MockProvider()
@@ -584,7 +613,7 @@ class CreationTab(QWidget):
 
     @Slot()
     def cancel_generation(self) -> None:
-        if hasattr(self, 'thread') and self.thread.isRunning():
+        if self.thread is not None and self.thread.isRunning():
             self.thread.cancel()
             self.btn_cancel.setEnabled(False)
             self.btn_cancel.setText(" Arrêt en cours...")
@@ -645,7 +674,10 @@ class CreationTab(QWidget):
     def on_table_item_changed(self, item: QTableWidgetItem) -> None:
         row = item.row()
         col = item.column()
-        field_name = self.results_table.horizontalHeaderItem(col).text()
+        header_item = self.results_table.horizontalHeaderItem(col)
+        if header_item is None:
+            return
+        field_name = header_item.text()
 
         if 0 <= row < len(self.generated_notes):
             self.generated_notes[row][field_name] = item.text()
@@ -664,59 +696,44 @@ class CreationTab(QWidget):
             return
 
         row = selected_items[0].row()
-        if row >= len(self.generated_notes): return
+        if row >= len(self.generated_notes):
+            return
 
         current_data = self.generated_notes[row]
         model_id = self.model_selector.currentData()
         note_type = NoteTypeModel.get_by_id(model_id)
+        if note_type is None:
+            return
 
         templates = json.loads(note_type.templates) if note_type.templates else []
-        is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+        is_cloze, selected_tmpl_idx = sync_preview_card_selector(
+            selector=self.preview_card_selector,
+            templates=templates,
+            current_fields=current_data,
+        )
 
-        # ----------------------------------------------------
-        # GESTION DYNAMIQUE DE LA LISTE DÉROULANTE DE PREVIEW
-        # ----------------------------------------------------
-        current_selector_count = self.preview_card_selector.count()
-        if is_cloze:
-            max_cloze = get_max_cloze_index(current_data)
-            num_cards = max(1, max_cloze)
-            if current_selector_count != num_cards:
-                self.preview_card_selector.blockSignals(True)
-                self.preview_card_selector.clear()
-                for i in range(num_cards):
-                    self.preview_card_selector.addItem(f"Trou {i + 1} (c{i + 1})")
-                self.preview_card_selector.blockSignals(False)
-        else:
-            if current_selector_count != len(templates):
-                self.preview_card_selector.blockSignals(True)
-                self.preview_card_selector.clear()
-                for tmpl in templates:
-                    self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
-                self.preview_card_selector.blockSignals(False)
-
-        selected_tmpl_idx = self.preview_card_selector.currentIndex()
-        if selected_tmpl_idx < 0: selected_tmpl_idx = 0
-
-        if is_cloze:
-            tmpl = templates[0] if templates else {}
-            card_idx = selected_tmpl_idx
-        else:
-            if selected_tmpl_idx >= len(templates): selected_tmpl_idx = 0
-            tmpl = templates[selected_tmpl_idx] if templates else {}
-            card_idx = selected_tmpl_idx
+        tmpl, card_idx = get_preview_template(
+            templates=templates,
+            is_cloze=is_cloze,
+            selected_index=selected_tmpl_idx,
+        )
 
         is_recto = self.preview_side_selector.currentIndex() == 0
-
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
+
         css = note_type.css_style if note_type.css_style else ""
 
         final_html = render_anki_card(
-            raw_html=raw_html, css=css, fields_dict=current_data,
-            is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode(),
-            template_index=card_idx
+            raw_html=raw_html,
+            css=css,
+            fields_dict=current_data,
+            is_recto=is_recto,
+            front_html=tmpl.get("qfmt", ""),
+            is_dark_mode=is_dark_mode(),
+            template_index=card_idx,
         )
 
-        media_dir = get_app_data_dir() / 'media'
+        media_dir = get_app_data_dir() / "media"
         media_dir.mkdir(exist_ok=True)
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 
@@ -725,7 +742,8 @@ class CreationTab(QWidget):
 
     @Slot()
     def save_to_database(self) -> None:
-        if not self.generated_notes: return
+        if not self.generated_notes:
+            return
 
         deck_id = self.deck_selector.currentData()
         model_id = self.model_selector.currentData()
@@ -737,15 +755,19 @@ class CreationTab(QWidget):
             with db.atomic():
                 for note_data in self.generated_notes:
                     note = NoteModel.create(
-                        guid=str(uuid.uuid4())[:10], note_type=note_type,
-                        tags=json.dumps(["AnkiForge_AI"]), status="new"
+                        guid=str(uuid.uuid4())[:10],
+                        note_type=note_type,
+                        tags=json.dumps(["AnkiForge_AI"]),
+                        status="new",
                     )
                     NoteVersionModel.create(
-                        note=note, version_number=1, content=json.dumps(note_data, ensure_ascii=False),
-                        source="ai", is_active=True
+                        note=note,
+                        version_number=1,
+                        content=json.dumps(note_data, ensure_ascii=False),
+                        source="ai",
+                        is_active=True,
                     )
-                    is_cloze = any(
-                        "{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+                    is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
                     if is_cloze:
                         max_cloze = get_max_cloze_index(note_data)
@@ -753,10 +775,8 @@ class CreationTab(QWidget):
                         for i in range(num_cards):
                             CardModel.create(note=note, deck=deck, template_index=i)
                     else:
-                        for idx, tmpl in enumerate(templates):
+                        for idx, _ in enumerate(templates):
                             CardModel.create(note=note, deck=deck, template_index=idx)
-
-
 
             show_toast(self, f"{len(self.generated_notes)} notes créées !")
             self.generated_notes.clear()
