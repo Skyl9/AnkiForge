@@ -3,13 +3,24 @@ from typing import Optional
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QTextEdit, QListWidget,
-                               QSplitter, QMessageBox, QGroupBox, QComboBox,
-                               QAbstractItemView, QListWidgetItem, QFileDialog)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QTextEdit,
+    QListWidget,
+    QSplitter,
+    QMessageBox,
+    QComboBox,
+    QAbstractItemView,
+    QListWidgetItem,
+    QFileDialog,
+)
 
 from ankiforge.database.models import PipelineModel, PipelineStepModel, db, AgentModel
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -31,8 +42,7 @@ class AgentsTab(QWidget):
         agents_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_agents = QLabel("🤖 LABORATOIRE DES AGENTS")
-        lbl_agents.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_agents.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         agents_layout.addWidget(lbl_agents)
 
         agent_top_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -52,8 +62,7 @@ class AgentsTab(QWidget):
         form_layout.setContentsMargins(0, 10, 0, 0)
 
         lbl_edit = QLabel("ÉDITION DE L'AGENT :")
-        lbl_edit.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_edit.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
         form_layout.addWidget(lbl_edit)
 
         # Champs alignés plus proprement
@@ -98,13 +107,13 @@ class AgentsTab(QWidget):
         form_layout.addWidget(self.cb_output_format)
 
         btn_layout_agent = QHBoxLayout()
-        self.btn_new_agent = ActionButton('fa5s.plus', " Nouvel Agent")
+        self.btn_new_agent = ActionButton("fa5s.plus", " Nouvel Agent")
         self.btn_new_agent.clicked.connect(self.clear_agent_form)
 
-        self.btn_delete_agent = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer")
+        self.btn_delete_agent = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer")
         self.btn_delete_agent.clicked.connect(self.delete_agent)
 
-        self.btn_save_agent = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder l'Agent")
+        self.btn_save_agent = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder l'Agent")
         self.btn_save_agent.clicked.connect(self.save_agent)
 
         btn_layout_agent.addWidget(self.btn_new_agent)
@@ -128,14 +137,13 @@ class AgentsTab(QWidget):
 
         pipe_header_layout = QHBoxLayout()
         lbl_pipelines = QLabel("⚙️ ASSEMBLEUR DE PIPELINES")
-        lbl_pipelines.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_pipelines.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         pipe_header_layout.addWidget(lbl_pipelines)
         pipe_header_layout.addStretch()
 
-        self.btn_import_pipe = ActionButton('fa5s.folder-open', " Importer (.json)")
+        self.btn_import_pipe = ActionButton("fa5s.folder-open", " Importer (.json)")
         self.btn_import_pipe.clicked.connect(self.import_pipeline)
-        self.btn_export_pipe = ActionButton('fa5s.file-export', " Exporter")
+        self.btn_export_pipe = ActionButton("fa5s.file-export", " Exporter")
         self.btn_export_pipe.clicked.connect(self.export_pipeline)
 
         pipe_header_layout.addWidget(self.btn_import_pipe)
@@ -150,7 +158,7 @@ class AgentsTab(QWidget):
         self.pipeline_selector = QComboBox()
         self.pipeline_selector.currentIndexChanged.connect(self.load_selected_pipeline)
 
-        self.btn_new_pipeline = ActionButton('fa5s.plus', " Nouveau")
+        self.btn_new_pipeline = ActionButton("fa5s.plus", " Nouveau")
         self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
 
         pipe_select_layout.addWidget(lbl_pipe_sel)
@@ -159,13 +167,12 @@ class AgentsTab(QWidget):
         pipelines_layout.addLayout(pipe_select_layout)
 
         lbl_chain = QLabel("CHAÎNE D'EXÉCUTION (ORDRE DES AGENTS) :")
-        lbl_chain.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 20px; margin-bottom: 5px;")
+        lbl_chain.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 20px; margin-bottom: 5px;")
         pipelines_layout.addWidget(lbl_chain)
 
         add_step_layout = QHBoxLayout()
         self.available_agents_cb = QComboBox()
-        self.btn_add_step = ActionButton('fa5s.arrow-down', " Ajouter à la chaîne")
+        self.btn_add_step = ActionButton("fa5s.arrow-down", " Ajouter à la chaîne")
         self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
 
         add_step_layout.addWidget(self.available_agents_cb, stretch=1)
@@ -173,23 +180,22 @@ class AgentsTab(QWidget):
         pipelines_layout.addLayout(add_step_layout)
 
         self.steps_list = QListWidget()
-        self.steps_list.setStyleSheet(
-            "QListWidget { border: none; background-color: palette(window); border-radius: 6px; }")
+        self.steps_list.setStyleSheet("QListWidget { border: none; background-color: palette(window); border-radius: 6px; }")
         self.steps_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         pipelines_layout.addWidget(self.steps_list)
 
         # Contrôles et Sauvegarde du pipeline
         step_ctrl_layout = QHBoxLayout()
-        self.btn_step_up = ActionButton('fa5s.arrow-up', "")
+        self.btn_step_up = ActionButton("fa5s.arrow-up", "")
         self.btn_step_up.clicked.connect(self.move_step_up)
 
-        self.btn_step_down = ActionButton('fa5s.arrow-down', "")
+        self.btn_step_down = ActionButton("fa5s.arrow-down", "")
         self.btn_step_down.clicked.connect(self.move_step_down)
 
-        self.btn_step_remove = DangerButton(qta.icon('fa5s.times', color='white'), " Retirer l'étape")
+        self.btn_step_remove = DangerButton(qta.icon("fa5s.times", color="white"), " Retirer l'étape")
         self.btn_step_remove.clicked.connect(self.remove_step)
 
-        self.btn_save_pipeline = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder le Pipeline")
+        self.btn_save_pipeline = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder le Pipeline")
         self.btn_save_pipeline.clicked.connect(self.save_pipeline_steps)
 
         step_ctrl_layout.addWidget(self.btn_step_up)
@@ -204,6 +210,7 @@ class AgentsTab(QWidget):
         main_splitter.setSizes([500, 500])
         layout.addWidget(main_splitter)
         self.refresh_ui()
+
     @Slot()
     def refresh_data(self) -> None:
         """Contrat MainWindow : Rafraîchit les agents et pipelines."""
@@ -220,27 +227,24 @@ class AgentsTab(QWidget):
         pipeline = PipelineModel.get_by_id(pipe_id)
 
         # On construit le dictionnaire de données
-        export_data = {
-            "name": pipeline.name,
-            "description": pipeline.description,
-            "steps": []
-        }
+        export_data = {"name": pipeline.name, "description": pipeline.description, "steps": []}
 
         for step in pipeline.steps.order_by(PipelineStepModel.step_order):
-            export_data["steps"].append({
-                "order": step.step_order,
-                "agent_name": step.agent.name,
-                "agent_desc": step.agent.description,
-                "agent_prompt": step.agent.system_prompt
-            })
+            export_data["steps"].append(
+                {
+                    "order": step.step_order,
+                    "agent_name": step.agent.name,
+                    "agent_desc": step.agent.description,
+                    "agent_prompt": step.agent.system_prompt,
+                }
+            )
 
         # Ouverture de la boîte de dialogue de sauvegarde
-        path, _ = QFileDialog.getSaveFileName(self, "Exporter le Pipeline", f"{pipeline.name.replace(' ', '_')}.json",
-                                              "Fichiers JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(self, "Exporter le Pipeline", f"{pipeline.name.replace(' ', '_')}.json", "Fichiers JSON (*.json)")
 
         if path:
             try:
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(path, "w", encoding="utf-8") as f:
                     json.dump(export_data, f, ensure_ascii=False, indent=4)
                 show_toast(self, "Le Pipeline a été exporté avec succès !")
             except Exception as e:
@@ -255,7 +259,7 @@ class AgentsTab(QWidget):
             return
 
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             with db.atomic():  # Transaction sécurisée
@@ -281,15 +285,11 @@ class AgentsTab(QWidget):
                         agent = AgentModel.create(
                             name=agent_name,
                             description=step_data.get("agent_desc", ""),
-                            system_prompt=step_data.get("agent_prompt", "")
+                            system_prompt=step_data.get("agent_prompt", ""),
                         )
 
                     # 3. On lie l'agent au nouveau pipeline
-                    PipelineStepModel.create(
-                        pipeline=new_pipe,
-                        agent=agent,
-                        step_order=step_data.get("order", 1)
-                    )
+                    PipelineStepModel.create(pipeline=new_pipe, agent=agent, step_order=step_data.get("order", 1))
 
             self.refresh_ui()
 
@@ -378,9 +378,10 @@ class AgentsTab(QWidget):
         name = self.agent_name_input.text().strip()
 
         reply = QMessageBox.question(
-            self, "Confirmation",
+            self,
+            "Confirmation",
             f"Voulez-vous vraiment supprimer l'agent '{name}' ?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -457,11 +458,7 @@ class AgentsTab(QWidget):
                 for i in range(self.steps_list.count()):
                     agent_name = self.steps_list.item(i).text()
                     agent = AgentModel.get(AgentModel.name == agent_name)
-                    PipelineStepModel.create(
-                        pipeline=pipeline,
-                        agent=agent,
-                        step_order=i + 1
-                    )
+                    PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=i + 1)
             QMessageBox.information(self, "Succès", "L'ordre du pipeline a été mis à jour !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
