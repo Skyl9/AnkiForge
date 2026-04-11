@@ -40,9 +40,36 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.4",
     "mkdocs-material>=9.7.6",
     "mkdocstrings[python]>=1.0.3",
+    "mypy>=1.20.0",
     "nuitka>=4.0.7",
+    "pre-commit>=4.5.1",
     "pyinstaller>=6.19.0",
+    "ruff>=0.15.10",
     "tiktoken>=0.12.0",
 ]
+
+[tool.ruff]
+# On autorise des lignes plus longues (120 au lieu de 88) pour ne pas casser les prompts IA
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# E: Erreurs (PEP8), F: Fails (variables non utilisées, imports cassés), B: Bugbear (pièges courants)
+select = ["E", "F", "B"]
+ignore = []
+
+[tool.mypy]
+# Configuration Mypy souple pour commencer sans se dégoûter
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[tool.bandit]
+# On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données
+exclude_dirs = ["tests"]
+skips = ["B104"] # Exemple: ignorer l'avertissement "bind to all interfaces" si non pertinent
