@@ -1,3 +1,5 @@
+from typing import cast
+
 import qtawesome as qta
 from PySide6.QtCore import Slot, QSettings, Qt, QSize, QEvent, QTimer
 from PySide6.QtGui import QCloseEvent, QShortcut, QKeySequence
@@ -125,7 +127,7 @@ class MainWindow(QMainWindow):
         else:
             self.resize(1100, 800)
 
-        last_tab = self.settings.value("last_tab_index", 0, type=int)
+        last_tab: int = cast(int, self.settings.value("last_tab_index", 0, type=int))
         if last_tab < self.sidebar.count():
             self.sidebar.setCurrentRow(last_tab)
 
@@ -147,12 +149,13 @@ class MainWindow(QMainWindow):
             index = self.stack.indexOf(self.tab_edition)
             self.sidebar.setCurrentRow(index)
             self.tab_edition.view_mode_cb.setCurrentText("Vue : Notes (Texte)")
-            self.tab_edition.jump_to_note(item_id, extra_data)
+            self.tab_edition.jump_to_note(item_id, cast(int, extra_data))
 
     def changeEvent(self, event):
         """Intercepte le changement de thème global pour rafraîchir la sidebar."""
         if event.type() == QEvent.Type.PaletteChange:
             from ankiforge.ui.theme import get_icon_color
+
             color = get_icon_color()
 
             # On boucle sur tous les onglets pour redessiner leur icône
@@ -169,40 +172,42 @@ class MainWindow(QMainWindow):
         scenario = [
             {
                 "title": "Bienvenue dans AnkiForge !",
-                "text": "L'Intelligence Artificielle au service de votre mémoire.<br><br>Ce court tutoriel interactif va vous guider à travers l'interface pour vous montrer comment forger vos premières flashcards en quelques clics.",
+                "text": "L'Intelligence Artificielle au service de votre mémoire.<br><br>Ce court tutoriel interactif "
+                "va vous guider à travers l'interface pour vous montrer c"
+                "omment forger vos premières flashcards en quelques clics.",
                 "target_widget": None,  # S'affiche au centre
-                "action": None  # Pas d'action spéciale
+                "action": None,  # Pas d'action spéciale
             },
             {
                 "title": "1. Le Moteur IA",
-                "text": "C'est ici que tout commence. Entrez votre clé API OpenAI, Gemini, ou utilisez Ollama en local. Sans ce moteur, la génération ne pourra pas démarrer.",
+                "text": "C'est ici que tout commence. Entrez votre clé API OpenAI, Gemini, ou utilisez Ollama en local. " "Sans ce moteur, la génération ne pourra pas démarrer.",
                 "target_widget": self.llm_manager_tab.le_openai_key,
-                "action": lambda: self.sidebar.setCurrentRow(7)
+                "action": lambda: self.sidebar.setCurrentRow(7),
             },
             {
                 "title": "2. La Matière Première",
-                "text": "Importez vos cours en PDF ou tapez vos notes en Markdown ici. Le texte sera automatiquement sauvegardé et prêt à être analysé.",
+                "text": "Importez vos cours en PDF ou tapez vos notes en Markdown ici. " "Le texte sera automatiquement sauvegardé et prêt à être analysé.",
                 "target_widget": self.tab_documents.btn_import,
-                "action": lambda: self.sidebar.setCurrentRow(5)
+                "action": lambda: self.sidebar.setCurrentRow(5),
             },
             {
                 "title": "3. L'Usine à Cartes",
-                "text": "Sélectionnez le document importé, choisissez un Agent IA, et lancez la génération. L'IA va extraire les concepts clés et formater le code LaTeX.",
+                "text": "Sélectionnez le document importé, choisissez un Agent IA, et lancez la génération. " "L'IA va extraire les concepts clés et formater le code LaTeX.",
                 "target_widget": self.creation_tab.btn_generate,
-                "action": lambda: self.sidebar.setCurrentRow(0)
+                "action": lambda: self.sidebar.setCurrentRow(0),
             },
             {
                 "title": "4. Le Contrôle Qualité",
-                "text": "Vos cartes atterrissent ici. Vous pouvez les éditer, comparer les différentes versions via l'historique, puis les exporter vers Anki.",
+                "text": "Vos cartes atterrissent ici. Vous pouvez les éditer, " "comparer les différentes versions via l'historique, puis les exporter vers Anki.",
                 "target_widget": self.tab_edition.data_table,
-                "action": lambda: self.sidebar.setCurrentRow(1)
+                "action": lambda: self.sidebar.setCurrentRow(1),
             },
             {
                 "title": "Vous êtes prêt",
-                "text": "N'oubliez pas l'onglet Automatisation pour traiter des dossiers entiers d'un seul coup et l'onglet Statistiques pour suivre vos coûts API.\n\nBonnes révisions !",
+                "text": "N'oubliez pas l'onglet Automatisation pour traiter des dossiers entiers d'un seul coup " "et l'onglet Statistiques pour suivre vos coûts API.\n\nBonnes révisions !",
                 "target_widget": None,
-                "action": None
-            }
+                "action": None,
+            },
         ]
         self.tour_bubble.set_scenario(scenario)
 
