@@ -6,7 +6,7 @@ description = "Générateur de cartes Anki assisté par IA"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pyside6>=6.6.0",
+    "pyside6>=6.11.0",
     "peewee>=3.17.0",
     "jinja2>=3.1.0",
     "genanki>=0.13.0",
@@ -29,6 +29,8 @@ dependencies = [
     "trafilatura>=2.0.0",
     "beautifulsoup4>=4.14.3",
     "markdownify>=1.2.2",
+    "peewee-migrate>=1.15.0",
+    "zstd>=1.5.7.3",
 ]
 
 [project.gui-scripts]
@@ -49,11 +51,13 @@ dev = [
     "pyinstaller>=6.19.0",
     "ruff>=0.15.10",
     "tiktoken>=0.12.0",
+    "types-markdown>=3.10.2.20260408",
+    "types-peewee>=4.0.0.20260408",
 ]
 
 [tool.ruff]
 # On autorise des lignes plus longues (120 au lieu de 88) pour ne pas casser les prompts IA
-line-length = 120
+line-length = 200
 target-version = "py310"
 
 [tool.ruff.lint]
