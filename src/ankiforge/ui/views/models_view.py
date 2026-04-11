@@ -5,9 +5,20 @@ import qtawesome as qta
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget,
-                               QTextEdit, QLabel, QSplitter, QGroupBox, QPushButton,
-                               QComboBox, QListWidgetItem, QInputDialog, QMessageBox, QFrame)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QListWidget,
+    QTextEdit,
+    QLabel,
+    QSplitter,
+    QComboBox,
+    QListWidgetItem,
+    QInputDialog,
+    QMessageBox,
+    QFrame,
+)
 
 from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
@@ -22,7 +33,7 @@ class ModelsTab(QWidget):
         super().__init__()
         self.current_model_id = None
         self.current_templates: list[dict[str, str]] = []
-        self.mock_dict: dict[str, str] = {}
+        self.mock_dict: dict[str, str | list[str]] = {}
         self.current_css: str = ""
 
         layout = QVBoxLayout(self)
@@ -35,10 +46,10 @@ class ModelsTab(QWidget):
         header_layout.addStretch()  # Pousse les boutons à droite
 
         # Les actions globales du gestionnaire de modèles
-        self.btn_new_model = ActionButton('fa5s.plus', " Nouveau Modèle")
+        self.btn_new_model = ActionButton("fa5s.plus", " Nouveau Modèle")
         self.btn_new_model.clicked.connect(self.create_new_model)
 
-        self.btn_refresh = ActionButton('fa5s.sync', " Rafraîchir")
+        self.btn_refresh = ActionButton("fa5s.sync", " Rafraîchir")
         self.btn_refresh.clicked.connect(self.refresh_models_list)
 
         header_layout.addWidget(self.btn_new_model)
@@ -57,8 +68,7 @@ class ModelsTab(QWidget):
         list_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_list = QLabel("MODÈLES DISPONIBLES")
-        lbl_list.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_list.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         list_layout.addWidget(lbl_list)
 
         self.models_list = QListWidget()
@@ -85,13 +95,11 @@ class ModelsTab(QWidget):
         meta_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_meta = QLabel("CONFIGURATION GLOBALE")
-        lbl_meta.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_meta.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         meta_layout.addWidget(lbl_meta)
 
         lbl_fields = QLabel("CHAMPS DE DONNÉES (SÉPARÉS PAR DES VIRGULES) :")
-        lbl_fields.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 10px; margin-bottom: 5px;")
+        lbl_fields.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 10px; margin-bottom: 5px;")
         meta_layout.addWidget(lbl_fields)
         self.fields_view = QTextEdit()
         self.fields_view.setMaximumHeight(60)
@@ -99,8 +107,7 @@ class ModelsTab(QWidget):
         meta_layout.addWidget(self.fields_view)
 
         lbl_css = QLabel("STYLE GLOBAL (CSS) :")
-        lbl_css.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 10px; margin-bottom: 5px;")
+        lbl_css.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 10px; margin-bottom: 5px;")
         meta_layout.addWidget(lbl_css)
         self.css_editor = QTextEdit()
         self.css_editor.setStyleSheet("font-family: monospace;")
@@ -112,11 +119,11 @@ class ModelsTab(QWidget):
         meta_actions = QHBoxLayout()
         meta_actions.addStretch()
 
-        self.btn_del_model = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer le modèle")
+        self.btn_del_model = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer le modèle")
         self.btn_del_model.clicked.connect(self.delete_current_model)
         self.btn_del_model.setEnabled(False)
 
-        self.btn_save_model = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder le modèle")
+        self.btn_save_model = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder le modèle")
         self.btn_save_model.clicked.connect(self.save_current_model)
         self.btn_save_model.setEnabled(False)
 
@@ -133,8 +140,7 @@ class ModelsTab(QWidget):
 
         cards_toolbar = QHBoxLayout()
         lbl_card = QLabel("SÉLECTION DE LA CARTE :")
-        lbl_card.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
+        lbl_card.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         cards_toolbar.addWidget(lbl_card)
 
         self.card_selector = QComboBox()
@@ -144,15 +150,15 @@ class ModelsTab(QWidget):
         cards_toolbar.addWidget(self.card_selector)
 
         # On utilise ActionButton sans texte pour avoir des jolis boutons carrés thématiques
-        self.btn_add_card = ActionButton('fa5s.plus', "")
+        self.btn_add_card = ActionButton("fa5s.plus", "")
         self.btn_add_card.setToolTip("Ajouter une carte")
         self.btn_add_card.clicked.connect(self.add_new_card_template)
 
-        self.btn_ren_card = ActionButton('fa5s.pen', "")
+        self.btn_ren_card = ActionButton("fa5s.pen", "")
         self.btn_ren_card.setToolTip("Renommer cette carte")
         self.btn_ren_card.clicked.connect(self.rename_card_template)
 
-        self.btn_del_card = ActionButton('fa5s.trash', "")
+        self.btn_del_card = ActionButton("fa5s.trash", "")
         self.btn_del_card.setToolTip("Supprimer cette carte")
         self.btn_del_card.clicked.connect(self.delete_card_template)
 
@@ -163,8 +169,7 @@ class ModelsTab(QWidget):
         cards_toolbar.addStretch()
 
         lbl_side = QLabel("PRÉVISUALISATION :")
-        lbl_side.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
+        lbl_side.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         cards_toolbar.addWidget(lbl_side)
 
         self.side_selector = QComboBox()
@@ -184,8 +189,7 @@ class ModelsTab(QWidget):
         editors_layout.setContentsMargins(0, 10, 10, 0)
 
         lbl_qfmt = QLabel("HTML DU RECTO :")
-        lbl_qfmt.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_qfmt.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
         editors_layout.addWidget(lbl_qfmt)
         self.qfmt_editor = QTextEdit()
         self.qfmt_editor.setStyleSheet("font-family: monospace;")
@@ -193,8 +197,7 @@ class ModelsTab(QWidget):
         editors_layout.addWidget(self.qfmt_editor)
 
         lbl_afmt = QLabel("HTML DU VERSO :")
-        lbl_afmt.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
+        lbl_afmt.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
         editors_layout.addWidget(lbl_afmt)
         self.afmt_editor = QTextEdit()
         self.afmt_editor.setStyleSheet("font-family: monospace;")
@@ -249,9 +252,8 @@ class ModelsTab(QWidget):
         reply = QMessageBox.question(
             self,
             "Suppression Critique",
-            f"Voulez-vous vraiment supprimer le modèle '{model.name}' ?\n"
-            "ATTENTION : Cela supprimera ÉGALEMENT toutes les notes et cartes utilisant ce modèle !",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            f"Voulez-vous vraiment supprimer le modèle '{model.name}' ?\n" "ATTENTION : Cela supprimera ÉGALEMENT toutes les notes et cartes utilisant ce modèle !",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -275,23 +277,28 @@ class ModelsTab(QWidget):
     @Slot()
     def create_new_model(self) -> None:
         name, ok = QInputDialog.getText(self, "Nouveau Modèle", "Nom du modèle :")
-        if not ok or not name.strip(): return
+        if not ok or not name.strip():
+            return
 
         if NoteTypeModel.get_or_none(NoteTypeModel.name == name.strip()):
             QMessageBox.warning(self, "Erreur", "Un modèle porte déjà ce nom.")
             return
 
         fields_str, ok2 = QInputDialog.getText(self, "Champs de données", "Noms séparés par des virgules :")
-        if not ok2 or not fields_str.strip(): return
+        if not ok2 or not fields_str.strip():
+            return
 
         fields_list = [f.strip() for f in fields_str.split(",") if f.strip()]
-        if not fields_list: fields_list = ["Front", "Back"]
+        if not fields_list:
+            fields_list = ["Front", "Back"]
 
-        default_templates = [{
-            "name": "Carte 1",
-            "qfmt": f"{{{{{fields_list[0]}}}}}",
-            "afmt": f"{{{{FrontSide}}}}\n\n<hr id=answer>\n\n{{{{{fields_list[1] if len(fields_list) > 1 else fields_list[0]}}}}}"
-        }]
+        default_templates = [
+            {
+                "name": "Carte 1",
+                "qfmt": f"{{{{{fields_list[0]}}}}}",
+                "afmt": f"{{{{FrontSide}}}}\n\n<hr id=answer>\n\n{{{{{fields_list[1] if len(fields_list) > 1 else fields_list[0]}}}}}",
+            }
+        ]
         default_css = ".card { font-family: arial; font-size: 20px; text-align: center; color: white; background-color: #1e1e1e; }"
 
         try:
@@ -300,7 +307,7 @@ class ModelsTab(QWidget):
                     name=name.strip(),
                     fields_schema=json.dumps(fields_list, ensure_ascii=False),
                     templates=json.dumps(default_templates, ensure_ascii=False),
-                    css_style=default_css
+                    css_style=default_css,
                 )
             self.refresh_models_list()
         except Exception as e:
@@ -308,7 +315,8 @@ class ModelsTab(QWidget):
 
     @Slot()
     def save_current_model(self) -> None:
-        if not self.current_model_id: return
+        if not self.current_model_id:
+            return
 
         try:
             note_type = NoteTypeModel.get_by_id(self.current_model_id)
@@ -322,8 +330,11 @@ class ModelsTab(QWidget):
                     parsed_json = json.loads(raw_fields)
                     note_type.fields_schema = json.dumps(parsed_json, ensure_ascii=False)
                 except json.JSONDecodeError:
-                    QMessageBox.warning(self, "Erreur de syntaxe",
-                                        "Le JSON des champs est invalide. Vérifiez vos crochets et guillemets.")
+                    QMessageBox.warning(
+                        self,
+                        "Erreur de syntaxe",
+                        "Le JSON des champs est invalide. Vérifiez vos crochets et guillemets.",
+                    )
                     return
             else:
                 fields_list = [f.strip() for f in raw_fields.split(",") if f.strip()]
@@ -336,7 +347,7 @@ class ModelsTab(QWidget):
 
             self.btn_save_model.setEnabled(False)
             self.btn_save_model.setText(" Sauvegardé !")
-            self.btn_save_model.setIcon(qta.icon('fa5s.check'))
+            self.btn_save_model.setIcon(qta.icon("fa5s.check"))
 
             QTimer.singleShot(1500, self._reset_save_btn)
 
@@ -346,11 +357,12 @@ class ModelsTab(QWidget):
     @Slot()
     def _reset_save_btn(self):
         self.btn_save_model.setText(" Sauvegarder")
-        self.btn_save_model.setIcon(qta.icon('fa5s.save'))
+        self.btn_save_model.setIcon(qta.icon("fa5s.save"))
 
     @Slot()
     def delete_card_template(self) -> None:
-        if not self.current_model_id or not self.current_templates: return
+        if not self.current_model_id or not self.current_templates:
+            return
         if len(self.current_templates) <= 1:
             QMessageBox.warning(self, "Erreur", "Un modèle doit contenir au moins une carte !")
             return
@@ -359,20 +371,19 @@ class ModelsTab(QWidget):
         card_name = self.current_templates[idx].get("name", "Cette carte")
 
         # 1. On compte combien de vraies cartes physiques vont être affectées
-        cards_affected = (CardModel
-                          .select()
-                          .join(NoteModel)
-                          .where((NoteModel.note_type_id == self.current_model_id) &
-                                 (CardModel.template_index == idx))
-                          .count())
+        cards_affected = CardModel.select().join(NoteModel).where((NoteModel.note_type_id == self.current_model_id) & (CardModel.template_index == idx)).count()
 
         # 2. On prépare le message d'avertissement adaptatif
         warn_text = f"Voulez-vous vraiment supprimer le modèle de carte '{card_name}' ?"
         if cards_affected > 0:
             warn_text += f"\n\n⚠️ ATTENTION : Cela supprimera DÉFINITIVEMENT {cards_affected} carte(s) existante(s) dans vos paquets !"
 
-        reply = QMessageBox.question(self, "Confirmation de suppression", warn_text,
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            "Confirmation de suppression",
+            warn_text,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
@@ -380,18 +391,13 @@ class ModelsTab(QWidget):
                     # 3. On fait le ménage dans la base de données physique
                     if cards_affected > 0:
                         # Sous-requête pour trouver les notes concernées
-                        notes_ids = NoteModel.select(NoteModel.id).where(
-                            NoteModel.note_type_id == self.current_model_id)
+                        notes_ids = NoteModel.select(NoteModel.id).where(NoteModel.note_type_id == self.current_model_id)
 
                         # A. On supprime les cartes utilisant ce template
-                        CardModel.delete().where(
-                            (CardModel.note_id.in_(notes_ids)) & (CardModel.template_index == idx)
-                        ).execute()
+                        CardModel.delete().where((CardModel.note_id.in_(notes_ids)) & (CardModel.template_index == idx)).execute()
 
                         # B. On décale l'index des cartes suivantes (ex: la carte 3 devient la carte 2)
-                        CardModel.update(template_index=CardModel.template_index - 1).where(
-                            (CardModel.note_id.in_(notes_ids)) & (CardModel.template_index > idx)
-                        ).execute()
+                        CardModel.update(template_index=CardModel.template_index - 1).where((CardModel.note_id.in_(notes_ids)) & (CardModel.template_index > idx)).execute()
 
                     # 4. On supprime le template du JSON et on sauvegarde
                     self.current_templates.pop(idx)
@@ -484,12 +490,15 @@ class ModelsTab(QWidget):
         css = self.css_editor.toPlainText()
 
         final_html = render_anki_card(
-            raw_html=raw_html, css=css, fields_dict=self.mock_dict,
-            is_recto=is_recto, front_html=self.qfmt_editor.toPlainText(),
-            is_dark_mode=is_dark_mode()
+            raw_html=raw_html,
+            css=css,
+            fields_dict=self.mock_dict,
+            is_recto=is_recto,
+            front_html=self.qfmt_editor.toPlainText(),
+            is_dark_mode=is_dark_mode(),
         )
 
-        media_dir = get_app_data_dir() / 'media'
+        media_dir = get_app_data_dir() / "media"
         media_dir.mkdir(exist_ok=True)  # S'assure que le dossier existe
 
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
@@ -498,14 +507,16 @@ class ModelsTab(QWidget):
 
     @Slot()
     def add_new_card_template(self) -> None:
-        if not self.current_model_id: return
+        if not self.current_model_id:
+            return
         name, ok = QInputDialog.getText(self, "Nouvelle Carte", "Nom de la carte :")
-        if not ok or not name.strip(): return
+        if not ok or not name.strip():
+            return
 
         new_template = {
             "name": name.strip(),
             "qfmt": "Écrivez le HTML du Recto ici...",
-            "afmt": "{{FrontSide}}\n\n<hr id=answer>\n\nÉcrivez le HTML du Verso ici..."
+            "afmt": "{{FrontSide}}\n\n<hr id=answer>\n\nÉcrivez le HTML du Verso ici...",
         }
         self.current_templates.append(new_template)
 
@@ -520,9 +531,11 @@ class ModelsTab(QWidget):
 
     @Slot()
     def rename_card_template(self) -> None:
-        if not self.current_model_id or not self.current_templates: return
+        if not self.current_model_id or not self.current_templates:
+            return
         idx = self.card_selector.currentIndex()
-        if idx < 0: return
+        if idx < 0:
+            return
 
         current_name = self.current_templates[idx].get("name", f"Carte {idx + 1}")
         new_name, ok = QInputDialog.getText(self, "Renommer", "Nouveau nom :", text=current_name)
