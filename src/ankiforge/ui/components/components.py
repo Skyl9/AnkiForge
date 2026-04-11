@@ -1,7 +1,9 @@
 # src/ankiforge/ui/widgets/components.py
+from typing import cast
+
 import qtawesome
 from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtCore import Qt, QEvent
 
 from ankiforge.ui.theme import get_icon_color
@@ -61,19 +63,17 @@ class DangerButton(QPushButton):
 class ActionButton(QPushButton):
     """Bouton neutre pour les outils (Historique, Scan, etc.). S'adapte au thème !"""
 
-    def __init__(self, icon_name: str, text=None, parent=None):
+    def __init__(self, icon_name: str = "", text: str = "", parent=None):
         self.icon_name = icon_name  # On mémorise l'icône demandée
 
-        # On génère l'icône avec la couleur actuelle
-        icon = qtawesome.icon(self.icon_name, color=get_icon_color()) if self.icon_name else None
-
-        if text is not None and icon:
+        # 1. On utilise le bon constructeur Qt selon la présence d'une icône
+        if self.icon_name:
+            icon = cast(QIcon, qtawesome.icon(self.icon_name, color=get_icon_color()))
             super().__init__(icon, text, parent)
-        elif icon:
-            super().__init__(icon, parent)
         else:
             super().__init__(text, parent)
 
+        # 2. Styles
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setStyleSheet("""
             ActionButton {
@@ -98,7 +98,10 @@ class ActionButton(QPushButton):
     def changeEvent(self, event):
         """Écoute les changements système. Si le thème change, on redessine l'icône !"""
         if event.type() == QEvent.Type.PaletteChange and self.icon_name:
-            self.setIcon(qtawesome.icon(self.icon_name, color=get_icon_color()))
+            # ✨ CORRECTION : On caste également l'icône lors du rafraîchissement
+            new_icon = cast(QIcon, qtawesome.icon(self.icon_name, color=get_icon_color()))
+            self.setIcon(new_icon)
+
         super().changeEvent(event)
 
 
@@ -119,6 +122,7 @@ class RoundedPanel(QFrame):
 
 class HeaderLabel(QLabel):
     """Titre standardisé pour les en-têtes d'onglets."""
+
     def __init__(self, text: str, parent=None):
         super().__init__(text, parent)
         # Pas besoin de couleur ici, il hérite automatiquement du WindowText
@@ -131,6 +135,7 @@ class HeaderLabel(QLabel):
 
 class MetricCard(RoundedPanel):
     """Carte de statistique prête à l'emploi (titre + grosse valeur)."""
+
     def __init__(self, title: str, initial_value: str = "0", parent=None):
         super().__init__(parent)
         vbox = QVBoxLayout(self)
