@@ -1,11 +1,10 @@
-# src/ankiforge/ui/widgets/omnibox.py
 import json
+import re
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut, QColor
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLineEdit, QListWidget,
-                               QListWidgetItem, QGraphicsDropShadowEffect)
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QGraphicsDropShadowEffect
 
 from ankiforge.database.models import DocumentModel, NoteModel, NoteVersionModel
 
@@ -36,8 +35,6 @@ class Omnibox(QDialog):
         shadow.setColor(QColor(0, 0, 0, 80))  # Ombre noire avec 80 d'opacité
         shadow.setOffset(0, 8)
         self.setGraphicsEffect(shadow)
-
-
 
         # 1. La barre de recherche
         self.search_bar = QLineEdit()
@@ -82,36 +79,32 @@ class Omnibox(QDialog):
     def perform_search(self):
         query = self.search_bar.text().strip().lower()
         self.results_list.clear()
-        if len(query) < 2: return
+        if len(query) < 2:
+            return
 
         # A. Chercher dans les Documents (Titres ou Contenu)
-        docs = DocumentModel.select().where(
-            DocumentModel.title.contains(query) | DocumentModel.content.contains(query)
-        ).limit(5)
+        docs = DocumentModel.select().where(DocumentModel.title.contains(query) | DocumentModel.content.contains(query)).limit(5)
 
         for doc in docs:
-            item = QListWidgetItem(qta.icon('fa5s.file-alt', color='#90CAF9'), f" [Cours] {doc.title}")
+            item = QListWidgetItem(qta.icon("fa5s.file-alt", color="#90CAF9"), f" [Cours] {doc.title}")
             item.setData(Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "deck_id": None})
             self.results_list.addItem(item)
 
         # B. Chercher dans les Flashcards (Contenu JSON)
-        notes = NoteModel.select().join(NoteVersionModel).where(
-            (NoteVersionModel.is_active == True) & (NoteVersionModel.content.contains(query))
-        ).limit(10)
-
+        notes = NoteModel.select().join(NoteVersionModel).where(NoteVersionModel.is_active & NoteVersionModel.content.contains(query)).limit(10)
         for note in notes:
-            active_v = note.versions.where(NoteVersionModel.is_active == True).first()
+            active_v = note.versions.where(NoteVersionModel.is_active).first()
             content = json.loads(active_v.content) if active_v else {}
 
             # Créer un mini-aperçu propre (sans HTML)
             preview = " | ".join(str(v) for v in content.values() if isinstance(v, str))
-            import re
-            preview = re.sub(r'<[^>]+>', '', preview).replace('\n', ' ')[:70] + "..."
+
+            preview = re.sub(r"<[^>]+>", "", preview).replace("\n", " ")[:70] + "..."
 
             first_card = note.cards.first()
             deck_id = first_card.deck.id if first_card and first_card.deck else None
 
-            item = QListWidgetItem(qta.icon('fa5s.clone', color='#4CAF50'), f" [Carte] {preview}")
+            item = QListWidgetItem(qta.icon("fa5s.clone", color="#4CAF50"), f" [Carte] {preview}")
             item.setData(Qt.ItemDataRole.UserRole, {"type": "note", "id": note.id, "deck_id": deck_id})
             self.results_list.addItem(item)
 

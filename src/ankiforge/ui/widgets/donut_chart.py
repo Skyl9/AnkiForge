@@ -1,8 +1,8 @@
 # src/ankiforge/ui/widgets/donut_chart.py
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
-from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QPainter, QColor, QFont, QPen
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
 
 class DonutChartWidget(QWidget):
@@ -16,10 +16,7 @@ class DonutChartWidget(QWidget):
         self.total = 0
 
         # Palette de couleurs générique (Thème moderne)
-        self.theme_colors = [
-            "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0",
-            "#9966FF", "#FF9F40", "#E7E9ED", "#8D6E63"
-        ]
+        self.theme_colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#E7E9ED", "#8D6E63"]
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -66,7 +63,8 @@ class DonutChartWidget(QWidget):
 
         color_index = 0
         for label, value in data_dict.items():
-            if value <= 0: continue  # On ignore les parts vides
+            if value <= 0:
+                continue  # On ignore les parts vides
 
             slice_ = self.series.append(label, value)
             slice_.setBrush(QColor(self.theme_colors[color_index % len(self.theme_colors)]))
@@ -81,11 +79,7 @@ class DonutChartWidget(QWidget):
         super().resizeEvent(event)
         rect = self.chart_view.geometry()
         # Ajustement manuel pour compenser la légende en bas
-        self.center_label.setGeometry(
-            rect.width() // 2 - 100,
-            (rect.height() // 2 - 50) - 15,
-            200, 100
-        )
+        self.center_label.setGeometry(rect.width() // 2 - 100, (rect.height() // 2 - 50) - 15, 200, 100)
 
     @Slot(QPieSlice, bool)
     def on_slice_hovered(self, slice_, is_hovered):

@@ -1,4 +1,3 @@
-# src/ui/widgets/toast.py
 import qtawesome as qta
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QGraphicsOpacityEffect
@@ -35,7 +34,7 @@ class Toast(QWidget):
 
         # Icône
         icon_label = QLabel()
-        icon_label.setPixmap(qta.icon(icon_name, color='white').pixmap(20, 20))
+        icon_label.setPixmap(qta.icon(icon_name, color="white").pixmap(20, 20))
         bg_layout.addWidget(icon_label)
 
         # Texte

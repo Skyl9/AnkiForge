@@ -1,8 +1,8 @@
 import difflib
+
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                               QTextEdit, QProgressBar, QMessageBox, QWidget)
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QProgressBar, QMessageBox
 
 from ankiforge.database.models import db, NoteModel, IgnoredDuplicateModel
 from ankiforge.ui.components.components import PrimaryButton, ActionButton, RoundedPanel
@@ -54,8 +54,7 @@ class DuplicateResolverDialog(QDialog):
         left_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_left = QLabel("📄 CARTE A (ANCIENNE / ORIGINALE)")
-        lbl_left.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_left.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         left_layout.addWidget(lbl_left)
 
         self.text_left = QTextEdit()
@@ -64,7 +63,7 @@ class DuplicateResolverDialog(QDialog):
         self.text_left.setStyleSheet("QTextEdit { border: none; background-color: transparent; font-size: 14px; }")
         left_layout.addWidget(self.text_left)
 
-        self.btn_keep_a = PrimaryButton(qta.icon('fa5s.arrow-left', color='white'), " Garder l'Originale (Supprime B)")
+        self.btn_keep_a = PrimaryButton(qta.icon("fa5s.arrow-left", color="white"), " Garder l'Originale (Supprime B)")
         self.btn_keep_a.clicked.connect(self.keep_a)
         left_layout.addWidget(self.btn_keep_a)
 
@@ -76,8 +75,7 @@ class DuplicateResolverDialog(QDialog):
         right_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_right = QLabel("✨ CARTE B (NOUVELLE)")
-        lbl_right.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_right.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         right_layout.addWidget(lbl_right)
 
         self.text_right = QTextEdit()
@@ -85,7 +83,7 @@ class DuplicateResolverDialog(QDialog):
         self.text_right.setStyleSheet("QTextEdit { border: none; background-color: transparent; font-size: 14px; }")
         right_layout.addWidget(self.text_right)
 
-        self.btn_keep_b = PrimaryButton(qta.icon('fa5s.arrow-right', color='white'), " Garder la Nouvelle (Supprime A)")
+        self.btn_keep_b = PrimaryButton(qta.icon("fa5s.arrow-right", color="white"), " Garder la Nouvelle (Supprime A)")
         self.btn_keep_b.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.btn_keep_b.clicked.connect(self.keep_b)
         right_layout.addWidget(self.btn_keep_b)
@@ -96,7 +94,7 @@ class DuplicateResolverDialog(QDialog):
         # 3. Bouton Ignorer
         btn_bottom_layout = QHBoxLayout()
         btn_bottom_layout.addStretch()
-        self.btn_ignore = ActionButton('fa5s.forward', " Ignorer le conflit (Garder les deux)")
+        self.btn_ignore = ActionButton("fa5s.forward", " Ignorer le conflit (Garder les deux)")
         self.btn_ignore.clicked.connect(self.ignore_conflict)
         btn_bottom_layout.addWidget(self.btn_ignore)
         btn_bottom_layout.addStretch()
@@ -105,7 +103,8 @@ class DuplicateResolverDialog(QDialog):
 
         self.load_current_conflict()
 
-    def generate_diff_html(self, text_a: str, text_b: str):
+    @staticmethod
+    def generate_diff_html(text_a: str, text_b: str):
         """Génère un HTML coloré adapté au thème pour mettre en évidence les différences."""
         matcher = difflib.SequenceMatcher(None, text_a, text_b)
         html_a, html_b = "", ""
@@ -118,26 +117,25 @@ class DuplicateResolverDialog(QDialog):
         ins_color = "#b9f6ca" if dark else "#2e7d32"
 
         for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
-            part_a = text_a[a0:a1].replace('\n', '<br>')
-            part_b = text_b[b0:b1].replace('\n', '<br>')
+            part_a = text_a[a0:a1].replace("\n", "<br>")
+            part_b = text_b[b0:b1].replace("\n", "<br>")
 
-            if opcode == 'equal':
+            if opcode == "equal":
                 html_a += part_a
                 html_b += part_b
-            elif opcode == 'replace':
+            elif opcode == "replace":
                 html_a += f"<span style='background-color: {del_bg}; color: {del_color}; text-decoration: line-through;'>{part_a}</span>"
                 html_b += f"<span style='background-color: {ins_bg}; color: {ins_color}; font-weight: bold;'>{part_b}</span>"
-            elif opcode == 'delete':
+            elif opcode == "delete":
                 html_a += f"<span style='background-color: {del_bg}; color: {del_color}; text-decoration: line-through;'>{part_a}</span>"
-            elif opcode == 'insert':
+            elif opcode == "insert":
                 html_b += f"<span style='background-color: {ins_bg}; color: {ins_color}; font-weight: bold;'>{part_b}</span>"
 
         return html_a, html_b
 
     def load_current_conflict(self):
         if self.current_index >= len(self.conflicts):
-            QMessageBox.information(self, "Terminé",
-                                    f"Tous les conflits ont été traités ({self.resolved_count} résolus).")
+            QMessageBox.information(self, "Terminé", f"Tous les conflits ont été traités ({self.resolved_count} résolus).")
             self.accept()
             return
 
@@ -208,7 +206,7 @@ class DuplicateResolverDialog(QDialog):
                 # On ordonne toujours (plus petit ID d'abord)
                 id_1, id_2 = min(note_a.id, note_b.id), max(note_a.id, note_b.id)
                 IgnoredDuplicateModel.get_or_create(note_a_id=id_1, note_b_id=id_2)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError):
             pass
 
         self.current_index += 1

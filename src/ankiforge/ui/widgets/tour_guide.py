@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect, QApplication
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect, QApplication
 
 from ankiforge.ui.components.components import PrimaryButton, ActionButton
 
@@ -55,7 +55,7 @@ class TourBubble(QWidget):
         bg_layout.addWidget(self.lbl_text)
 
         btn_layout = QHBoxLayout()
-        self.btn_skip = ActionButton('fa5s.times', "Quitter le tour")
+        self.btn_skip = ActionButton("fa5s.times", "Quitter le tour")
         self.btn_skip.clicked.connect(self.end_tour)
 
         self.lbl_counter = QLabel("1/x")
@@ -78,7 +78,8 @@ class TourBubble(QWidget):
         self.current_step = 0
 
     def start_tour(self):
-        if not self.steps: return
+        if not self.steps:
+            return
         self.show()
         self.play_step()
 

@@ -29,7 +29,7 @@ class DropImageTextEdit(QTextEdit):
                     file_path = url.toLocalFile()
                     ext = os.path.splitext(file_path)[1].lower()
 
-                    if ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp']:
+                    if ext in [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]:
                         new_name = f"img_{uuid.uuid4().hex[:8]}{ext}"
                         dest_path = media_dir / new_name
                         shutil.copy2(file_path, dest_path)

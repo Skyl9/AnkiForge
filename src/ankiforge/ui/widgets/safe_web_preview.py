@@ -24,9 +24,10 @@ class SafeWebEngineView(QWebEngineView):
         # On autorise le chargement des images locales (dossier media)
         self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
 
-
-    def setHtmlSafe(self, html: str, base_url: QUrl = QUrl("")):
+    def setHtmlSafe(self, html: str, base_url: QUrl | None = None):
         """Remplace setHtml pour inclure une gestion agressive de la mémoire."""
+        if base_url is None:
+            base_url = QUrl("")
         self._load_count += 1
 
         # Tous les X chargements, on recrée complètement la page pour vider le cache MathJax/Chromium
