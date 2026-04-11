@@ -20,6 +20,7 @@ from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, C
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.ai.flexible_service import GroqProvider, OllamaProvider, OpenAICompatibleProvider
 from ankiforge.services.ai.gemini_service import GeminiService
+from ankiforge.services.ai.utils import PRICING_1M_USD
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
@@ -407,6 +408,21 @@ class BatchTab(QWidget):
         self.console_log.setFont(font)
         console_layout.addWidget(self.console_log)
 
+        self.lbl_estimate = QLabel("📊 Estimation : 0 tokens | 💰 Coût : Gratuit")
+        self.lbl_estimate.setStyleSheet(
+            "font-weight: bold; color: palette(highlight); font-size: 13px; margin-top: 10px; margin-bottom: 10px; padding: 10px; border: 1px dashed palette(highlight); border-radius: 6px;")
+        self.lbl_estimate.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        console_layout.addWidget(self.lbl_estimate)
+
+        self.lbl_disclaimer = QLabel(
+            "<i>* <b>Méthode de calcul</b> : 1 token ≈ 4 caractères. La génération génère environ 20% du volume lu. "
+            "Le découpage par 'Chevauchement' ajoute une majoration de 15%.<br>"
+            "⚠️ <b>Avertissement</b> : Ces valeurs sont purement estimatives. AnkiForge décline toute responsabilité quant aux coûts réels facturés par les fournisseurs d'API.</i>"
+        )
+        self.lbl_disclaimer.setStyleSheet("color: palette(placeholder-text); font-size: 10px;")
+        self.lbl_disclaimer.setWordWrap(True)
+        console_layout.addWidget(self.lbl_disclaimer)
+
         bottom_layout = QHBoxLayout()
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
@@ -577,6 +593,13 @@ class BatchTab(QWidget):
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
         self.table_queue.setCellWidget(row_idx, 6, btn_remove)
 
+        cb_llm.currentIndexChanged.connect(self._update_estimates)
+        cb_pipe.currentIndexChanged.connect(self._update_estimates)
+        cb_chunk.currentIndexChanged.connect(self._update_estimates)
+
+        cb_llm.currentIndexChanged.connect(self._update_estimates)
+        cb_pipe.currentIndexChanged.connect(self._update_estimates)
+
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
         for r in range(row_idx, self.table_queue.rowCount()):
@@ -589,8 +612,9 @@ class BatchTab(QWidget):
         count = self.table_queue.rowCount()
         self.btn_start.setEnabled(count > 0)
         self.lbl_status.setText(f"{count} document(s) dans la file d'attente.")
-        self.lbl_empty_queue.setVisible(count == 0)  # 👈 Ajout
+        self.lbl_empty_queue.setVisible(count == 0)
         self.table_queue.setVisible(count > 0)
+        self._update_estimates()
 
     @Slot(str)
     def append_log(self, text: str) -> None:
@@ -690,3 +714,65 @@ class BatchTab(QWidget):
         current_row = self.table_queue.currentRow()
         if current_row != -1:
             self._remove_row(current_row)
+
+    @Slot()
+    def _update_estimates(self) -> None:
+        """Calcule une estimation du nombre de tokens et du coût pour la file d'attente."""
+        total_tokens = 0
+        total_cost = 0.0
+
+        for row in range(self.table_queue.rowCount()):
+            try:
+                doc_id = self.table_queue.item(row, 0).data(Qt.UserRole)
+                llm_id = self.table_queue.cellWidget(row, 3).currentData()
+                pipe_id = self.table_queue.cellWidget(row, 4).currentData()
+                chunk_strategy = self.table_queue.cellWidget(row, 5).currentText()
+
+                if not doc_id or not llm_id or not pipe_id:
+                    continue
+
+                doc = DocumentModel.get_by_id(doc_id)
+                llm = LLMConfigModel.get_by_id(llm_id)
+                pipe = PipelineModel.get_by_id(pipe_id)
+
+                # Heuristique : 1 token = ~4 caractères
+                base_doc_tokens = len(doc.content) // 4
+
+                # Majoration dynamique selon la méthode de découpage
+                if chunk_strategy == "Chevauchement (Overlap)":
+                    base_doc_tokens = int(base_doc_tokens * 1.15)  # +15% car des phrases sont lues deux fois
+
+                # Le document est relu par CHAQUE agent du pipeline
+                step_count = max(1, pipe.steps.count())
+
+                # Tokens d'entrée (Le document + un peu de gras pour les instructions)
+                input_tokens = (base_doc_tokens + 500) * step_count
+
+                # Tokens de sortie estimés (On estime qu'un résumé/flashcard fait 20% de la taille d'origine)
+                output_tokens = (base_doc_tokens * 0.2) * step_count
+
+                total_tokens += int(input_tokens + output_tokens)
+
+                # Calcul financier
+                rates = PRICING_1M_USD.get(llm.model_id, (0.0, 0.0))
+                row_cost = (input_tokens / 1_000_000 * rates[0]) + (output_tokens / 1_000_000 * rates[1])
+                total_cost += row_cost
+
+            except Exception:
+                continue
+
+        # Mise à jour visuelle
+        if total_tokens == 0:
+            self.lbl_estimate.setText("📊 Estimation : 0 tokens | 💰 Coût : Gratuit")
+            self.lbl_estimate.setStyleSheet(
+                "font-weight: bold; color: palette(placeholder-text); font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed palette(alternate-base); border-radius: 6px;")
+        elif total_cost > 0.001:
+            self.lbl_estimate.setText(
+                f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût API : ~${total_cost:.3f}".replace(',', ' '))
+            self.lbl_estimate.setStyleSheet(
+                "font-weight: bold; color: #FF9800; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #FF9800; border-radius: 6px;")
+        else:
+            self.lbl_estimate.setText(
+                f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût : Gratuit (Local / Free API)".replace(',', ' '))
+            self.lbl_estimate.setStyleSheet(
+                "font-weight: bold; color: #4CAF50; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #4CAF50; border-radius: 6px;")
