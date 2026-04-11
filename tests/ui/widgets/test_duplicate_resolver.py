@@ -7,15 +7,11 @@ from PySide6.QtWidgets import QDialog
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, IgnoredDuplicateModel
 
+
 @pytest.fixture
 def mock_db_notes():
     deck = DeckModel.create(name="Deck de Conflits")
-    note_type = NoteTypeModel.create(
-        name="Basique",
-        fields_schema='["Recto", "Verso"]',
-        templates="[]",
-        css_style=""
-    )
+    note_type = NoteTypeModel.create(name="Basique", fields_schema='["Recto", "Verso"]', templates="[]", css_style="")
 
     note_a = NoteModel.create(guid="guid-A", deck=deck, note_type=note_type)
     note_b = NoteModel.create(guid="guid-B", deck=deck, note_type=note_type)
@@ -23,6 +19,7 @@ def mock_db_notes():
     note_d = NoteModel.create(guid="guid-D", deck=deck, note_type=note_type)
 
     return note_a, note_b, note_c, note_d
+
 
 @pytest.fixture
 def conflicts_data(mock_db_notes):
@@ -32,10 +29,8 @@ def conflicts_data(mock_db_notes):
     content_c = {"Recto": "Chat", "Verso": "Cat"}
     content_d = {"Recto": "Chat", "Verso": "Kitten"}
 
-    return [
-        (note_a, content_a, note_b, content_b),
-        (note_c, content_c, note_d, content_d)
-    ]
+    return [(note_a, content_a, note_b, content_b), (note_c, content_c, note_d, content_d)]
+
 
 @pytest.fixture
 def dialog(qtbot, conflicts_data):
@@ -43,13 +38,15 @@ def dialog(qtbot, conflicts_data):
     qtbot.addWidget(dialog)
     return dialog
 
+
 def test_generate_diff_html(dialog):
     html_a, html_b = dialog.generate_diff_html("Doggo", "Dog")
     assert "Dog" in html_a
-    assert "text-decoration: line-through" in html_a # Fix : on cherche le barré HTML, pas le #5c1b1b codé en dur
+    assert "text-decoration: line-through" in html_a  # Fix : on cherche le barré HTML, pas le #5c1b1b codé en dur
     assert ">go</span>" in html_a
     assert "Dog" in html_b
     assert "go" not in html_b
+
 
 def test_dialog_initialization_and_ui(dialog):
     assert dialog.current_index == 0
@@ -59,6 +56,7 @@ def test_dialog_initialization_and_ui(dialog):
     assert "Champ : Recto" in html_left
     assert "Identique" in html_left
 
+
 def test_keep_a_deletes_b(dialog, qtbot, mock_db_notes):
     note_a, note_b, note_c, note_d = mock_db_notes
     qtbot.mouseClick(dialog.btn_keep_a, Qt.MouseButton.LeftButton)
@@ -66,11 +64,13 @@ def test_keep_a_deletes_b(dialog, qtbot, mock_db_notes):
     assert NoteModel.get_or_none(id=note_b.id) is None
     assert dialog.current_index == 1
 
+
 def test_keep_b_deletes_a(dialog, qtbot, mock_db_notes):
     note_a, note_b, _, _ = mock_db_notes
     qtbot.mouseClick(dialog.btn_keep_b, Qt.MouseButton.LeftButton)
     assert NoteModel.get_or_none(id=note_a.id) is None
     assert NoteModel.get_or_none(id=note_b.id) is not None
+
 
 def test_ignore_conflict_saves_to_db(dialog, qtbot, mock_db_notes):
     note_a, note_b, _, _ = mock_db_notes
@@ -84,7 +84,8 @@ def test_ignore_conflict_saves_to_db(dialog, qtbot, mock_db_notes):
     assert ignored_entry.note_a.id == expected_id_1
     assert ignored_entry.note_b.id == expected_id_2
 
-@patch('ankiforge.ui.widgets.duplicate_resolver.QMessageBox.information')
+
+@patch("ankiforge.ui.widgets.duplicate_resolver.QMessageBox.information")
 def test_end_of_conflicts_closes_dialog(mock_info, dialog, qtbot):
     qtbot.mouseClick(dialog.btn_ignore, Qt.MouseButton.LeftButton)
     qtbot.mouseClick(dialog.btn_ignore, Qt.MouseButton.LeftButton)

@@ -14,7 +14,7 @@ def mock_media_dir(tmp_path):
     vers un dossier temporaire géré par pytest (tmp_path).
     Cela évite de créer de fausses images dans les vrais dossiers de l'utilisateur !
     """
-    with patch('ankiforge.ui.widgets.drop_image_text_edit.get_app_data_dir', return_value=tmp_path):
+    with patch("ankiforge.ui.widgets.drop_image_text_edit.get_app_data_dir", return_value=tmp_path):
         yield tmp_path
 
 
@@ -27,6 +27,7 @@ def editor(qtbot, mock_media_dir):
 
 
 # --- TESTS ---
+
 
 def test_insert_normal_text(editor):
     """Vérifie que coller du texte normal fonctionne toujours (le Fallback)."""

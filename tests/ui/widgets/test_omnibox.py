@@ -1,9 +1,11 @@
+from unittest.mock import patch
+
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem
-from unittest.mock import patch, MagicMock
 
 from ankiforge.database.models import DocumentModel
+
 # Ajuste le chemin d'import selon la structure exacte de ton projet
 from ankiforge.ui.widgets.omnibox import Omnibox
 
@@ -24,12 +26,12 @@ def test_omnibox_initialization(omnibox):
 
 def test_omnibox_typing_triggers_timer_not_search(omnibox, qtbot):
     """Vérifie la logique de 'debounce' : taper lance le timer, pas la recherche directe."""
-    with patch.object(omnibox, 'perform_search') as mock_search:
+    with patch.object(omnibox, "perform_search") as mock_search:
         # On simule la frappe du mot "test" au clavier
         qtbot.keyClicks(omnibox.search_bar, "test")
 
         # Le timer de 300ms doit avoir été armé
-        assert omnibox.search_timer.isActive() == True
+        assert omnibox.search_timer.isActive()
 
         # Mais la fonction de recherche ne doit pas encore avoir été appelée !
         mock_search.assert_not_called()
@@ -63,11 +65,10 @@ def test_omnibox_keyboard_navigation_and_signal(omnibox, qtbot):
 
     # 4. VÉRIFICATIONS : On vérifie les arguments du signal et la fermeture
     assert blocker.args == ["doc", 42, None]
-    assert omnibox.isVisible() == False
+    assert not omnibox.isVisible()
 
 
-
-def test_omnibox_perform_search_with_mocked_db(omnibox,qtbot):
+def test_omnibox_perform_search_with_mocked_db(omnibox, qtbot):
     """Vérifie que perform_search formate bien les résultats venus de la base de données."""
 
     # --- 1. PRÉPARATION EN BASE EN MÉMOIRE ---
