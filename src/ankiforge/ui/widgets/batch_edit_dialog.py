@@ -1,7 +1,5 @@
 import qtawesome as qta
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                               QComboBox, QTextEdit, QSpinBox, QMessageBox)
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QSpinBox
 
 from ankiforge.database.models import LLMConfigModel, AgentModel
 from ankiforge.ui.components.components import PrimaryButton, ActionButton
@@ -34,8 +32,7 @@ class BatchEditDialog(QDialog):
         layout.addWidget(self.cb_agent)
 
         self.text_prompt = QTextEdit()
-        self.text_prompt.setPlaceholderText(
-            "Ex: Traduis le champ 'Verso' en anglais et ajoute une astuce mnémotechnique...")
+        self.text_prompt.setPlaceholderText("Ex: Traduis le champ 'Verso' en anglais et ajoute une astuce mnémotechnique...")
         self.text_prompt.setMinimumHeight(100)
         layout.addWidget(self.text_prompt)
 
@@ -57,10 +54,10 @@ class BatchEditDialog(QDialog):
 
         # 4. Boutons
         btn_layout = QHBoxLayout()
-        self.btn_cancel = ActionButton('fa5s.times', "Annuler")
+        self.btn_cancel = ActionButton("fa5s.times", "Annuler")
         self.btn_cancel.clicked.connect(self.reject)
 
-        self.btn_start = PrimaryButton(qta.icon('fa5s.magic', color='white'), "Lancer le traitement")
+        self.btn_start = PrimaryButton(qta.icon("fa5s.magic", color="white"), "Lancer le traitement")
         self.btn_start.clicked.connect(self.accept)
 
         btn_layout.addStretch()
@@ -74,8 +71,7 @@ class BatchEditDialog(QDialog):
             agent = AgentModel.get_by_id(agent_id)
             self.text_prompt.setPlainText(agent.system_prompt)
             self.text_prompt.setReadOnly(True)
-            self.text_prompt.setStyleSheet(
-                "background-color: palette(alternate-base); color: palette(placeholder-text);")
+            self.text_prompt.setStyleSheet("background-color: palette(alternate-base); color: palette(placeholder-text);")
         else:
             self.text_prompt.clear()
             self.text_prompt.setReadOnly(False)
@@ -86,5 +82,5 @@ class BatchEditDialog(QDialog):
         return {
             "llm_id": self.cb_llm.currentData(),
             "prompt": self.text_prompt.toPlainText().strip(),
-            "chunk_size": self.spin_chunk.value()
+            "chunk_size": self.spin_chunk.value(),
         }
