@@ -1,5 +1,4 @@
 import csv
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, CardModel
@@ -11,7 +10,7 @@ def test_extract_pb_string():
     manager = StoreManager()
 
     # Octets représentant le tag (champ 1, type chaîne) et "Hello"
-    fake_pb_data = b'\x0a\x05Hello'
+    fake_pb_data = b"\x0a\x05Hello"
 
     result = manager.extract_pb_string(fake_pb_data, target_field=1)
     assert result == "Hello"
@@ -22,8 +21,8 @@ def test_handle_txt_import(tmp_path):
     manager = StoreManager()
 
     fake_txt = tmp_path / "test.txt"
-    with open(fake_txt, 'w', encoding='utf-8', newline='') as f:
-        writer = csv.writer(f, delimiter='\t')
+    with open(fake_txt, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, delimiter="\t")
         writer.writerow(["#separator:tab"])
         writer.writerow(["#html:true"])
         writer.writerow(["#tags column:5"])
@@ -44,8 +43,8 @@ def test_handle_txt_import(tmp_path):
     assert "Cat" in note.versions.first().content
 
 
-@patch('ankiforge.services.cards.store_manager.sqlite3.connect')
-@patch('zipfile.ZipFile')
+@patch("ankiforge.services.cards.store_manager.sqlite3.connect")
+@patch("zipfile.ZipFile")
 def test_handle_apkg_mocked(mock_zip, mock_sqlite, tmp_path):
     """Simule l'extraction d'un apkg en mockant les interactions SQL."""
     manager = StoreManager()
@@ -67,7 +66,7 @@ def test_handle_apkg_mocked(mock_zip, mock_sqlite, tmp_path):
     ]
     mock_cursor.fetchall.side_effect = [
         [(1, "guid1", 2, "Tag1", "Ceci est le recto")],  # notes
-        [(1, 1, 1, 0)]  # cards
+        [(1, 1, 1, 0)],  # cards
     ]
 
     # 3. Exécution avec de VRAIS faux fichiers
@@ -77,7 +76,7 @@ def test_handle_apkg_mocked(mock_zip, mock_sqlite, tmp_path):
     mock_progress_callback = MagicMock()
 
     # On force StoreManager à utiliser notre tmp_path quand il crée son dossier temporaire d'extraction
-    with patch('ankiforge.services.cards.store_manager.tempfile.TemporaryDirectory') as mock_temp:
+    with patch("ankiforge.services.cards.store_manager.tempfile.TemporaryDirectory") as mock_temp:
         mock_temp.return_value.__enter__.return_value = str(tmp_path)
 
         # On crée physiquement la fausse base extraite pour passer le second check "if anki2_path.exists():"

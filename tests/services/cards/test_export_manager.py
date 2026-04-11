@@ -1,6 +1,5 @@
 import json
 from unittest.mock import patch
-import pytest
 
 from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel
 from ankiforge.services.cards.export_manager import ExportManager
@@ -17,8 +16,8 @@ def test_generate_stable_id():
     assert isinstance(id1, int)
 
 
-@patch('genanki.Package.write_to_file')
-@patch('ankiforge.services.cards.export_manager.get_app_data_dir')
+@patch("genanki.Package.write_to_file")
+@patch("ankiforge.services.cards.export_manager.get_app_data_dir")
 def test_export_deck(mock_get_dir, mock_write, tmp_path):
     """Vérifie l'export global en créant de vraies fausses données dans la DB RAM."""
     mock_get_dir.return_value = tmp_path
@@ -32,21 +31,17 @@ def test_export_deck(mock_get_dir, mock_write, tmp_path):
         name="Basique",
         fields_schema='["Recto", "Verso"]',
         templates='[{"name": "Carte 1", "qfmt": "{{Recto}}", "afmt": "{{Verso}}"}]',
-        css_style=".card { color: red; }"
+        css_style=".card { color: red; }",
     )
 
     note = NoteModel.create(guid="12345", note_type=nt, tags='["Test"]')
-    NoteVersionModel.create(
-        note=note,
-        content=json.dumps({"Recto": "Hello", "Verso": "Bonjour <img src='test.png'>"}),
-        is_active=True
-    )
+    NoteVersionModel.create(note=note, content=json.dumps({"Recto": "Hello", "Verso": "Bonjour <img src='test.png'>"}), is_active=True)
     CardModel.create(note=note, deck=sub_deck)
 
     # On simule la présence d'une image
-    if not (tmp_path / 'media').exists():
-        (tmp_path / 'media').mkdir()
-    (tmp_path / 'media' / 'test.png').write_text("fake img")
+    if not (tmp_path / "media").exists():
+        (tmp_path / "media").mkdir()
+    (tmp_path / "media" / "test.png").write_text("fake img")
 
     # 2. Exécution de l'exportation
     export_path = tmp_path / "export.apkg"

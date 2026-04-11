@@ -9,7 +9,7 @@ from ankiforge.services.cards.media_manager import MediaManager
 @pytest.fixture
 def media_manager(tmp_path):
     """Fixture qui isole le dossier de données de l'application."""
-    with patch('ankiforge.services.cards.media_manager.get_app_data_dir') as mock_dir:
+    with patch("ankiforge.services.cards.media_manager.get_app_data_dir") as mock_dir:
         mock_dir.return_value = tmp_path
         yield MediaManager()
 
@@ -58,7 +58,7 @@ def test_process_extracted_folder_missing_dir(media_manager):
 
 
 def test_clean_orphaned_media(media_manager, tmp_path):
-    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel, DeckModel
+    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
     import json
 
     # 1. Création de fausses images sur le disque
@@ -71,13 +71,13 @@ def test_clean_orphaned_media(media_manager, tmp_path):
     orphan_img.write_text("fake image")
 
     # 2. Création d'une note en base qui utilise UNIQUEMENT used.png
-    nt = NoteTypeModel.create(name="Test", fields_schema='["Front"]', templates='[]', css_style="")
+    nt = NoteTypeModel.create(name="Test", fields_schema='["Front"]', templates="[]", css_style="")
     note = NoteModel.create(guid="123", note_type=nt)
     NoteVersionModel.create(
         note=note,
         version_number=1,
         content=json.dumps({"Front": "Voici une image : <img src='used.png'>"}),
-        is_active=True
+        is_active=True,
     )
 
     # 3. Exécution du Garbage Collector
