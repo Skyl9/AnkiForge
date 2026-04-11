@@ -1,26 +1,55 @@
 import json
+import os
 import re
-from typing import Optional, Any
+from typing import Optional, Any, cast
 
 import qtawesome
-from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QThread, Signal
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QThread, Signal, QPoint
 from PySide6.QtGui import QColor, QAction
-from PySide6.QtWebEngineCore import QWebEngineSettings
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import (QLabel, QWidget, QVBoxLayout, QHBoxLayout,
-                               QFileDialog, QMessageBox, QSplitter, QTreeWidget,
-                               QTreeWidgetItem, QTableWidget, QTableWidgetItem,
-                               QAbstractItemView, QComboBox, QScrollArea, QTextEdit, QListWidget, QListWidgetItem,
-                               QMenu, QInputDialog, QFrame, QProgressDialog)
+from PySide6.QtWidgets import (
+    QLabel,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFileDialog,
+    QMessageBox,
+    QSplitter,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QTableWidget,
+    QTableWidgetItem,
+    QAbstractItemView,
+    QComboBox,
+    QScrollArea,
+    QTextEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QInputDialog,
+    QFrame,
+    QProgressDialog,
+)
 
-from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteTypeModel, NoteVersionModel, db, \
-    IgnoredDuplicateModel
+from ankiforge.database.models import (
+    DeckModel,
+    CardModel,
+    NoteModel,
+    NoteTypeModel,
+    NoteVersionModel,
+    db,
+    IgnoredDuplicateModel,
+    LLMConfigModel,
+)
+from ankiforge.services.ai.base import MockProvider, LLMProvider
+from ankiforge.services.ai.flexible_service import OllamaProvider, GroqProvider, OpenAICompatibleProvider
+from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
-from ankiforge.ui.theme import get_icon_color
 from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
+from ankiforge.ui.widgets.cloze_gestion import is_template_cloze
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
@@ -35,8 +64,8 @@ def strip_html(text: Optional[str]) -> str:
     """Retire toutes les balises HTML d'une chaîne pour l'affichage brut."""
     if not text:
         return ""
-    clean = re.compile('<.*?>')
-    return re.sub(clean, '', text).replace('&nbsp;', ' ').replace('\n', ' ').strip()
+    clean = re.compile("<.*?>")
+    return re.sub(clean, "", text).replace("&nbsp;", " ").replace("\n", " ").strip()
 
 
 class SortableTableItem(QTableWidgetItem):
@@ -44,8 +73,8 @@ class SortableTableItem(QTableWidgetItem):
 
     def __lt__(self, other) -> bool:
         # On nettoie le texte (ex: on transforme "v10" en "10")
-        text_self = self.text().lower().replace('v', '').strip()
-        text_other = other.text().lower().replace('v', '').strip()
+        text_self = self.text().lower().replace("v", "").strip()
+        text_other = other.text().lower().replace("v", "").strip()
 
         try:
             # On essaie de comparer mathématiquement (10 > 2)
@@ -54,8 +83,10 @@ class SortableTableItem(QTableWidgetItem):
             # Si c'est du vrai texte (ex: "Maths" vs "Physique"), on fait un tri alphabétique
             return self.text().lower() < other.text().lower()
 
+
 class ImportThread(QThread):
     """Gère l'importation lourde d'un paquet Anki en arrière-plan."""
+
     progress = Signal(str)
     finished_signal = Signal()
     error_signal = Signal(str)
@@ -110,9 +141,8 @@ class BatchEditThread(QThread):
                     self.cancelled.emit()
                     return
 
-                chunk_ids = self.note_ids[i:i + self.chunk_size]
-                self.progress.emit(
-                    f"Traitement du lot {i // self.chunk_size + 1} (Cartes {i + 1} à {min(i + self.chunk_size, len(self.note_ids))})...")
+                chunk_ids = self.note_ids[i : i + self.chunk_size]
+                self.progress.emit(f"Traitement du lot {i // self.chunk_size + 1} (Cartes {i + 1} à {min(i + self.chunk_size, len(self.note_ids))})...")
 
                 payload = []
                 for nid in chunk_ids:
@@ -153,20 +183,24 @@ class BatchEditThread(QThread):
                             db_note.save()
                             total_processed += 1
 
-                except Exception as e:
-                    self.error_signal.emit(
-                        f"Erreur de parsing sur un lot : {e}\nRéponse brute : {raw_response[:100]}...")
+                except (ValueError, TypeError) as e:
+                    self.error_signal.emit(f"Erreur de parsing sur un lot : {e}\nRéponse brute : {raw_response[:100]}...")
                     return
 
             if not self._is_cancelled:
                 self.finished_signal.emit(total_processed)
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             self.error_signal.emit(f"Erreur critique du Batch Edit : {e}")
+
 
 class EditionTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
+        self.batch_thread: BatchEditThread | None = None
+        self.creation_model_cb: QComboBox | None = None
+        self.import_thread: ImportThread | None = None
+        self.progress_dialog: QProgressDialog | None = None
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.store = StoreManager()
         self.current_deck_id: Optional[int] = None
@@ -183,15 +217,12 @@ class EditionTab(QWidget):
         header_layout = QHBoxLayout()
         titre = HeaderLabel("Navigateur de Cartes & Notes")
 
-        icon_color = get_icon_color()
-        self.btn_load_col = ActionButton('fa5s.folder-open', " Importer un paquet")
+        self.btn_load_col = ActionButton("fa5s.folder-open", " Importer un paquet")
         self.btn_load_col.clicked.connect(self.load_cards)
 
-        self.btn_export = PrimaryButton(qtawesome.icon('fa5s.box', color='white'), " Exporter vers Anki")
+        self.btn_export = PrimaryButton(qtawesome.icon("fa5s.box", color="white"), " Exporter vers Anki")
         self.btn_export.clicked.connect(self.export_selected_deck)
         self.btn_export.setEnabled(False)
-
-
 
         header_layout.addWidget(titre)
         header_layout.addStretch()
@@ -212,8 +243,7 @@ class EditionTab(QWidget):
         nav_layout.setSpacing(10)
 
         lbl_nav = QLabel("EXPLORATEUR")
-        lbl_nav.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_nav.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         nav_layout.addWidget(lbl_nav)
 
         self.deck_tree = QTreeWidget()
@@ -236,8 +266,7 @@ class EditionTab(QWidget):
         nav_layout.addWidget(separator)
 
         lbl_tags = QLabel("FILTRES (TAGS)")
-        lbl_tags.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 10px;")
+        lbl_tags.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 10px;")
         nav_layout.addWidget(lbl_tags)
 
         self.tag_list = QListWidget()
@@ -263,36 +292,32 @@ class EditionTab(QWidget):
 
         toolbar_layout = QHBoxLayout()
         lbl_mode = QLabel("MODE D'AFFICHAGE :")
-        lbl_mode.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
+        lbl_mode.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         toolbar_layout.addWidget(lbl_mode)
         self.view_mode_cb = QComboBox()
-        self.view_mode_cb.addItems(
-            ["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)", "Vue : Quarantaine (À valider)"])
+        self.view_mode_cb.addItems(["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)", "Vue : Quarantaine (À valider)"])
         self.view_mode_cb.currentIndexChanged.connect(self.refresh_table)
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
-        self.btn_approve = PrimaryButton(qtawesome.icon('fa5s.check', color='white'), " Approuver")
+        self.btn_approve = PrimaryButton(qtawesome.icon("fa5s.check", color="white"), " Approuver")
         self.btn_approve.clicked.connect(self.approve_selected_notes)
         self.btn_approve.setVisible(False)
 
-        self.btn_reject = DangerButton(qtawesome.icon('fa5s.trash', color='white'), " Rejeter")
+        self.btn_reject = DangerButton(qtawesome.icon("fa5s.trash", color="white"), " Rejeter")
         self.btn_reject.clicked.connect(self.reject_selected_notes)
         self.btn_reject.setVisible(False)
 
-        self.btn_new_note = PrimaryButton(qtawesome.icon('fa5s.plus', color='white'), " Nouvelle Note")
+        self.btn_new_note = PrimaryButton(qtawesome.icon("fa5s.plus", color="white"), " Nouvelle Note")
         self.btn_new_note.clicked.connect(self.enter_creation_mode)
         self.btn_new_note.setEnabled(False)
 
-        self.btn_scan_dupes = ActionButton('fa5s.search', " Traquer les doublons")
+        self.btn_scan_dupes = ActionButton("fa5s.search", " Traquer les doublons")
         self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
 
-        self.btn_batch_ai = ActionButton('fa5s.magic', " Modification IA")
+        self.btn_batch_ai = ActionButton("fa5s.magic", " Modification IA")
         self.btn_batch_ai.clicked.connect(self.open_batch_edit_dialog)
         self.btn_batch_ai.setEnabled(False)  # On le grise tant qu'aucune ligne n'est sélectionnée
-
-
 
         toolbar_layout.addWidget(self.btn_new_note)
         toolbar_layout.addWidget(self.btn_batch_ai)
@@ -341,11 +366,11 @@ class EditionTab(QWidget):
         editor_layout.addWidget(self.details_scroll)
 
         buttons_layout = QHBoxLayout()
-        self.btn_history = ActionButton('fa5s.history', " Historique")
+        self.btn_history = ActionButton("fa5s.history", " Historique")
         self.btn_history.clicked.connect(self.show_version_history)
         self.btn_history.setEnabled(False)
 
-        self.btn_save_edits = PrimaryButton(qtawesome.icon('fa5s.save', color='white'), " Sauvegarder modifications")
+        self.btn_save_edits = PrimaryButton(qtawesome.icon("fa5s.save", color="white"), " Sauvegarder modifications")
         self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.btn_save_edits.setEnabled(False)
 
@@ -364,8 +389,7 @@ class EditionTab(QWidget):
         controls_layout = QHBoxLayout()
 
         lbl_preview = QLabel("Prévisualisation :")
-        lbl_preview.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
+        lbl_preview.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
         controls_layout.addWidget(lbl_preview)
 
         self.preview_card_selector = QComboBox()
@@ -422,7 +446,7 @@ class EditionTab(QWidget):
         if path:
             self.btn_load_col.setEnabled(False)
             # Création d'une boîte de dialogue pour afficher les logs en direct
-            self.progress_dialog = QProgressDialog("Préparation de l'importation...", None, 0, 0, self)
+            self.progress_dialog = QProgressDialog("Préparation de l'importation...", "", 0, 0, self)
             self.progress_dialog.setWindowTitle("Importation en cours")
             self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             self.progress_dialog.setMinimumDuration(0)  # Affichage immédiat
@@ -437,7 +461,7 @@ class EditionTab(QWidget):
 
     @Slot()
     def _on_import_success(self) -> None:
-        if hasattr(self, 'progress_dialog'):
+        if self.progress_dialog:
             self.progress_dialog.close()
 
         show_toast(self, "Paquet importé avec succès !")
@@ -446,7 +470,7 @@ class EditionTab(QWidget):
 
     @Slot(str)
     def _on_import_error(self, error_msg: str) -> None:
-        if hasattr(self, 'progress_dialog'):
+        if self.progress_dialog:
             self.progress_dialog.close()
 
         QMessageBox.critical(self, "Erreur d'importation", f"Erreur : {error_msg}")
@@ -464,7 +488,7 @@ class EditionTab(QWidget):
         msg_box.setText(f"Que souhaitez-vous exporter depuis le paquet '{deck.name}' ?")
 
         btn_new = msg_box.addButton("🚀 Nouvelles cartes uniquement", QMessageBox.ButtonRole.AcceptRole)
-        btn_all = msg_box.addButton("📦 Tout le paquet (Écrase)", QMessageBox.ButtonRole.RejectRole)
+        _ = msg_box.addButton("📦 Tout le paquet (Écrase)", QMessageBox.ButtonRole.RejectRole)
         btn_cancel = msg_box.addButton("Annuler", QMessageBox.ButtonRole.DestructiveRole)
 
         msg_box.exec()
@@ -472,15 +496,15 @@ class EditionTab(QWidget):
         if msg_box.clickedButton() == btn_cancel:
             return
 
-        export_only_new = (msg_box.clickedButton() == btn_new)
-
+        export_only_new = msg_box.clickedButton() == btn_new
         default_name = f"{deck.name.replace('::', '_')}.apkg"
 
         path, _ = QFileDialog.getSaveFileName(self, "Exporter vers Anki", default_name, "Anki Deck (*.apkg)")
         if path:
             try:
                 exporter = ExportManager()
-                exporter.export_deck(self.current_deck_id, path)
+                # ✅ CORRECTION : On utilise enfin la variable `export_only_new` !
+                exporter.export_deck(self.current_deck_id, path, export_only_new=export_only_new)
                 show_toast(self, "Exportation terminée !")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Erreur lors de l'exportation :\n{e}")
@@ -489,7 +513,7 @@ class EditionTab(QWidget):
         self.deck_tree.clear()
         try:
             decks = DeckModel.select().order_by(DeckModel.name)
-            tree_nodes = {}
+            tree_nodes: dict[str, QTreeWidgetItem] = {}
             for deck in decks:
                 parts = deck.name.split("::")
                 display_name = parts[-1]
@@ -503,16 +527,17 @@ class EditionTab(QWidget):
                 item.setData(0, Qt.ItemDataRole.UserRole, deck.id)
                 tree_nodes[deck.name] = item
             self.deck_tree.expandAll()
-        except Exception:
+        except (ValueError, AttributeError):
             pass
 
     @Slot(QTreeWidgetItem, int)
     def on_deck_selected(self, item: QTreeWidgetItem, column: int) -> None:
         if self.is_creating:
             reply = QMessageBox.question(
-                self, "Création en cours",
+                self,
+                "Création en cours",
                 "Changer de paquet annulera la création en cours. Continuer ?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
                 return
@@ -523,11 +548,14 @@ class EditionTab(QWidget):
         self.refresh_table()
         self.refresh_tags_list()
 
-    def show_header_menu(self, pos) -> None:
+    def show_header_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)
         visible_count = sum(not self.data_table.isColumnHidden(i) for i in range(self.data_table.columnCount()))
         for i in range(self.data_table.columnCount()):
-            action = QAction(self.data_table.horizontalHeaderItem(i).text(), self)
+            header_item = self.data_table.horizontalHeaderItem(i)
+            if header_item is None:
+                continue
+            action = QAction(header_item.text(), self)
             action.setCheckable(True)
             is_visible = not self.data_table.isColumnHidden(i)
             action.setChecked(is_visible)
@@ -569,7 +597,7 @@ class EditionTab(QWidget):
         self.current_note = None
 
         mode = self.view_mode_cb.currentText()
-        is_quarantine = (mode == "Vue : Quarantaine (À valider)")
+        is_quarantine = mode == "Vue : Quarantaine (À valider)"
 
         self.btn_approve.setVisible(is_quarantine)
         self.btn_reject.setVisible(is_quarantine)
@@ -577,8 +605,9 @@ class EditionTab(QWidget):
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            widget = child.widget()
+            if widget is not None:
+                widget.deleteLater()
 
         try:
             selected_deck = DeckModel.get_by_id(self.current_deck_id)
@@ -587,10 +616,10 @@ class EditionTab(QWidget):
             # 👇 LA SÉCURITÉ ABSOLUE : Le filtre s'adapte dynamiquement 👇
             if is_quarantine:
                 # En quarantaine, on NE veut QUE les brouillons IA ('pending')
-                status_condition = (NoteModel.status == "pending")
+                status_condition = NoteModel.status == "pending"
             else:
                 # Dans les autres vues, on veut TOUT LE RESTE ('new', 'imported', 'review'...)
-                status_condition = (NoteModel.status != "pending")
+                status_condition = NoteModel.status != "pending"
 
             if self.current_tag_filter:
                 status_condition = status_condition & (NoteModel.tags.contains(f'"{self.current_tag_filter}"'))
@@ -601,7 +630,8 @@ class EditionTab(QWidget):
 
                 cards = (
                     CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
-                    .join(NoteModel).where(status_condition)
+                    .join(NoteModel)
+                    .where(status_condition)
                     .join(NoteTypeModel)
                     .switch(CardModel)
                     .join(DeckModel)
@@ -611,7 +641,7 @@ class EditionTab(QWidget):
                 for row_index, card in enumerate(cards):
                     self.data_table.insertRow(row_index)
                     cid = str(card.anki_id) if card.anki_id else f"Local-{card.id}"
-                    note_type = card.note.note_type.name if card.note.note_type else "Inconnu"
+                    note_type = card.note.note_type.name if card.note and card.note.note_type else "Inconnu"
                     deck_name = card.deck.name if card.deck else "Inconnu"
                     template = f"Carte n°{card.template_index + 1}"
 
@@ -619,12 +649,13 @@ class EditionTab(QWidget):
                     self.data_table.setItem(row_index, 1, SortableTableItem(note_type))
                     self.data_table.setItem(row_index, 2, SortableTableItem(deck_name))
                     self.data_table.setItem(row_index, 3, SortableTableItem(template))
-                    self.data_table.item(row_index, 0).setData(Qt.ItemDataRole.UserRole, card.note.id)
+                    item = self.data_table.item(row_index, 0)
+                    if item is not None and card.note is not None:
+                        item.setData(Qt.ItemDataRole.UserRole, card.note.id)
 
             else:
                 self.data_table.setColumnCount(5)
-                self.data_table.setHorizontalHeaderLabels(
-                    ["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
+                self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
 
                 notes = (
                     NoteModel.select(NoteModel, NoteTypeModel)
@@ -653,9 +684,11 @@ class EditionTab(QWidget):
                         item_recto = SortableTableItem(recto)
 
                     nt_name = note.note_type.name if note.note_type else "Inconnu"
-                    tags_list = json.loads(note.tags) if note.tags else []
+                    tags_list = cast(list[str], json.loads(note.tags)) if note.tags else []
 
-                    self.data_table.setItem(row_index, 0, item_recto)
+                    item = self.data_table.item(row_index, 0)
+                    if item is not None:
+                        item.setData(Qt.ItemDataRole.UserRole, note.id)
                     self.data_table.setItem(row_index, 1, SortableTableItem(verso))
                     self.data_table.setItem(row_index, 2, SortableTableItem(nt_name))
                     self.data_table.setItem(row_index, 3, SortableTableItem(", ".join(tags_list)))
@@ -664,23 +697,31 @@ class EditionTab(QWidget):
                     item_version = SortableTableItem(f"v{v_num}")
                     item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row_index, 4, item_version)
-
-                    self.data_table.item(row_index, 0).setData(Qt.ItemDataRole.UserRole, note.id)
+                    item = self.data_table.item(row_index, 0)
+                    if item is not None:
+                        item.setData(Qt.ItemDataRole.UserRole, note.id)
 
             self.data_table.setSortingEnabled(True)
             self.restore_table_state()
         except Exception as e:
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
             import traceback
+
             print(traceback.format_exc())
 
     def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
         self.btn_batch_ai.setEnabled(bool(selected_items))
-        if not selected_items: return
+        if not selected_items:
+            return
 
         if self.is_creating:
-            reply = QMessageBox.question(self, "Création en cours", "Vous avez une création de note en cours. Voulez-vous vraiment annuler ?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = QMessageBox.question(
+                self,
+                "Création en cours",
+                "Vous avez une création de note en cours. Voulez-vous vraiment annuler ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
             if reply == QMessageBox.StandardButton.No:
                 self.data_table.blockSignals(True)
                 self.data_table.clearSelection()
@@ -694,15 +735,21 @@ class EditionTab(QWidget):
             self.btn_reject.setEnabled(True)
 
         note_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        if note_id is None:
+            return
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget(): child.widget().deleteLater()
+            widget = child.widget()
+            if widget is not None:
+                widget.deleteLater()
 
         self.field_editors.clear()
 
         try:
             self.current_note = NoteModel.get_by_id(note_id)
+            if self.current_note is None or self.current_note.note_type is None:
+                return
             self.btn_save_edits.setEnabled(True)
             self.btn_history.setEnabled(True)
 
@@ -718,7 +765,7 @@ class EditionTab(QWidget):
                 lbl.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
                 text_edit = DropImageTextEdit()
 
-                clean_value = field_value.replace('<br>', '\n') if field_value else ""
+                clean_value = field_value.replace("<br>", "\n") if field_value else ""
                 text_edit.setPlainText(clean_value)
                 text_edit.setMinimumHeight(60)
                 text_edit.textChanged.connect(self._on_text_changed)
@@ -750,8 +797,9 @@ class EditionTab(QWidget):
 
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            widget = child.widget()
+            if widget is not None:
+                widget.deleteLater()
 
         self.field_editors.clear()
 
@@ -767,6 +815,8 @@ class EditionTab(QWidget):
         for m in models:
             self.creation_model_cb.addItem(m.name, m.id)
 
+        if self.creation_model_cb is None:
+            return None
         self.creation_model_cb.currentIndexChanged.connect(self.render_creation_fields)
         model_layout.addWidget(self.creation_model_cb)
         model_layout.addStretch()
@@ -784,18 +834,24 @@ class EditionTab(QWidget):
         if not self.is_creating:
             return
 
+        if self.creation_model_cb is None:
+            return
         model_id = self.creation_model_cb.currentData()
         if not model_id:
             return
 
         note_type = NoteTypeModel.get_by_id(model_id)
         fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
-
-        # On nettoie les anciens champs (tout sauf le titre et le combobox)
+        if note_type is None:
+            return
+            # On nettoie les anciens champs (tout sauf le titre et le combobox)
         while self.details_layout.count() > 2:
             child = self.details_layout.takeAt(2)
-            if child.widget():
-                child.widget().deleteLater()
+            if not child:
+                continue
+            widget = child.widget()
+            if widget is not None:
+                widget.deleteLater()
 
         self.field_editors.clear()
 
@@ -828,13 +884,14 @@ class EditionTab(QWidget):
         if self.is_creating:
             self._create_new_note()
             return
-        if not self.current_note: return
+        if not self.current_note:
+            return
 
         try:
             active_version = NoteVersionModel.get_or_none(note=self.current_note, is_active=True)
             content_dict = json.loads(active_version.content) if active_version else {}
             for field_name, editor in self.field_editors.items():
-                content_dict[field_name] = editor.toPlainText().replace('\n', '<br>')
+                content_dict[field_name] = editor.toPlainText().replace("\n", "<br>")
 
             with db.atomic():
                 new_version = self.current_note.add_version(content_dict, source="manual")
@@ -843,6 +900,8 @@ class EditionTab(QWidget):
                 # SYNCHRONISATION DYNAMIQUE DES CARTES CLOZE
                 # ========================================================
                 note_type = self.current_note.note_type
+                if note_type is None:
+                    return
                 templates = json.loads(note_type.templates) if note_type.templates else []
                 is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
@@ -881,15 +940,17 @@ class EditionTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
 
-
     def _create_new_note(self) -> None:
         try:
+            if self.creation_model_cb is None:
+                return
             model_id = self.creation_model_cb.currentData()
             note_type = NoteTypeModel.get_by_id(model_id)
-
+            if note_type is None:
+                return
             content_dict = {}
             for field_name, editor in self.field_editors.items():
-                content_dict[field_name] = editor.toPlainText().replace('\n', '<br>')
+                content_dict[field_name] = editor.toPlainText().replace("\n", "<br>")
 
             import uuid
 
@@ -899,11 +960,11 @@ class EditionTab(QWidget):
                     guid=str(uuid.uuid4())[:10],  # format basique
                     note_type=note_type,
                     tags="[]",
-                    status="new"
+                    status="new",
                 )
 
                 # 2. Créer la version initiale
-                new_version = new_note.add_version(content_dict, source="manual")
+                new_note.add_version(content_dict, source="manual")
 
                 # 3. Créer la/les cartes
                 templates = json.loads(note_type.templates) if note_type.templates else []
@@ -916,7 +977,7 @@ class EditionTab(QWidget):
                     for i in range(num_cards):
                         CardModel.create(note=new_note, deck=deck, template_index=i)
                 else:
-                    for i, tmpl in enumerate(templates):
+                    for i, _ in enumerate(templates):
                         CardModel.create(note=new_note, deck=deck, template_index=i)
 
             show_toast(self, "✨ Nouvelle note créée !")
@@ -925,7 +986,7 @@ class EditionTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de créer la note : {e}")
 
-    def _exit_creation_mode(self, refresh: bool = False, select_note_id: int = None) -> None:
+    def _exit_creation_mode(self, refresh: bool = False, select_note_id: int | None = None) -> None:
         self.is_creating = False
         self.btn_save_edits.setText(" Sauvegarder les modifications")
         self.btn_history.setVisible(True)
@@ -933,14 +994,15 @@ class EditionTab(QWidget):
         if refresh:
             self.refresh_table()
 
-        if select_note_id:
+        if select_note_id and self.current_deck_id is not None:
             self.jump_to_note(select_note_id, self.current_deck_id)
         else:
             # Nettoyer l'interface si on annule simplement
             while self.details_layout.count():
                 child = self.details_layout.takeAt(0)
-                if child.widget():
-                    child.widget().deleteLater()
+                widget = child.widget()
+                if widget is not None:
+                    widget.deleteLater()
             self.field_editors.clear()
             self.btn_save_edits.setEnabled(False)
             self.btn_history.setEnabled(False)
@@ -952,19 +1014,23 @@ class EditionTab(QWidget):
 
         note_type = None
         if self.is_creating:
-            if not hasattr(self, 'creation_model_cb'): return
+            if not self.creation_model_cb:
+                return
             model_id = self.creation_model_cb.currentData()
-            if not model_id: return
+            if not model_id:
+                return
             note_type = NoteTypeModel.get_by_id(model_id)
         elif self.current_note:
             note_type = self.current_note.note_type
+        note_type = cast(NoteTypeModel, note_type)
 
-        if not note_type: return
+        if note_type is None:
+            return
 
-        current_fields = {name: editor.toPlainText().replace('\n', '<br>') for name, editor in
-                          self.field_editors.items()}
-        templates = json.loads(note_type.templates) if note_type.templates else []
-        is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+        current_fields = {name: editor.toPlainText().replace("\n", "<br>") for name, editor in self.field_editors.items()}
+        note_type_templates = note_type.templates
+        templates = cast(list[dict[str, Any]], json.loads(note_type_templates)) if note_type_templates else []
+        is_cloze = is_template_cloze(templates=templates)
 
         # ----------------------------------------------------
         # GESTION DYNAMIQUE DE LA LISTE DÉROULANTE DE PREVIEW
@@ -988,24 +1054,30 @@ class EditionTab(QWidget):
                 self.preview_card_selector.blockSignals(False)
 
         selected_tmpl_idx = self.preview_card_selector.currentIndex()
-        if selected_tmpl_idx < 0: selected_tmpl_idx = 0
+        if selected_tmpl_idx < 0:
+            selected_tmpl_idx = 0
 
         if is_cloze:
             tmpl = templates[0] if templates else {}
             card_idx = selected_tmpl_idx  # c1, c2, etc.
         else:
-            if selected_tmpl_idx >= len(templates): selected_tmpl_idx = 0
+            if selected_tmpl_idx >= len(templates):
+                selected_tmpl_idx = 0
             tmpl = templates[selected_tmpl_idx] if templates else {}
             card_idx = selected_tmpl_idx
 
         is_recto = self.preview_side_selector.currentIndex() == 0
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
-        css = note_type.css_style
+        css = getattr(note_type, "css_style", "") or ""
 
         final_html = render_anki_card(
-            raw_html=raw_html, css=css, fields_dict=current_fields,
-            is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode(),
-            template_index=card_idx  # <-- On passe l'index à la machine de rendu !
+            raw_html=raw_html,
+            css=css,
+            fields_dict=current_fields,
+            is_recto=is_recto,
+            front_html=tmpl.get("qfmt", ""),
+            is_dark_mode=is_dark_mode(),
+            template_index=int(card_idx),
         )
 
         media_dir = get_app_data_dir() / "media"
@@ -1015,13 +1087,21 @@ class EditionTab(QWidget):
 
     def approve_selected_notes(self) -> None:
         selected_rows = set(item.row() for item in self.data_table.selectedItems())
-        if not selected_rows: return
+        if not selected_rows:
+            return
 
         try:
             with db.atomic():
                 for row in selected_rows:
-                    note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+                    row_item = self.data_table.item(row, 0)
+                    if row_item is None:
+                        continue
+                    note_id = row_item.data(Qt.ItemDataRole.UserRole)
+                    if note_id is None:
+                        continue
                     note = NoteModel.get_by_id(note_id)
+                    if note is None:
+                        continue
                     note.status = "new"
                     note.save()
 
@@ -1031,17 +1111,25 @@ class EditionTab(QWidget):
 
     def reject_selected_notes(self) -> None:
         selected_rows = set(item.row() for item in self.data_table.selectedItems())
-        if not selected_rows: return
+        if not selected_rows:
+            return
 
-        reply = QMessageBox.question(self, "Rejeter",
-                                     f"Voulez-vous vraiment supprimer définitivement ces {len(selected_rows)} cartes ?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            "Rejeter",
+            f"Voulez-vous vraiment supprimer définitivement ces {len(selected_rows)} cartes ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 with db.atomic():
                     for row in selected_rows:
-                        note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-                        NoteModel.delete_by_id(note_id)  # CASCADE supprimera les cartes et versions
+                        row_item = self.data_table.item(row, 0)
+                        if row_item is None:
+                            continue
+                        note_id = row_item.data(Qt.ItemDataRole.UserRole)
+                        if note_id is not None:
+                            NoteModel.delete_by_id(note_id)  # CASCADE supprimera les cartes et versions
 
                 self.refresh_table()
                 self.web_view.setHtml("")
@@ -1061,10 +1149,10 @@ class EditionTab(QWidget):
         all_item.setData(Qt.ItemDataRole.UserRole, None)
         self.tag_list.addItem(all_item)
 
-        tag_counts = {}
+        tag_counts: dict[str, int] = {}
 
         mode = self.view_mode_cb.currentText()
-        is_quarantine = (mode == "Vue : Quarantaine (À valider)")
+        is_quarantine = mode == "Vue : Quarantaine (À valider)"
         status_condition = (NoteModel.status == "pending") if is_quarantine else (NoteModel.status != "pending")
 
         if self.current_deck_id:
@@ -1073,9 +1161,7 @@ class EditionTab(QWidget):
                 matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
 
                 notes_with_tags = (
-                    # 👇 FIX 1 : On ajoute NoteModel.id pour que le distinct() compte bien CHAQUE note
                     NoteModel.select(NoteModel.id, NoteModel.tags)
-                    # 👇 FIX 2 : On s'assure que le modèle (NoteType) existe toujours !
                     .join(NoteTypeModel)
                     .switch(NoteModel)
                     .join(CardModel, on=(CardModel.note_id == NoteModel.id))
@@ -1083,7 +1169,7 @@ class EditionTab(QWidget):
                     .where(DeckModel.id.in_(matching_decks) & NoteModel.tags.is_null(False) & status_condition)
                     .distinct()
                 )
-            except Exception:
+            except (ValueError, AttributeError, TypeError):
                 notes_with_tags = []
         else:
             notes_with_tags = (
@@ -1095,11 +1181,11 @@ class EditionTab(QWidget):
 
         for note in notes_with_tags:
             try:
-                tags = json.loads(note.tags)
+                tags = cast(list[str], json.loads(note.tags))
                 if isinstance(tags, list):
                     for tag in set(tags):
                         tag_counts[tag] = tag_counts.get(tag, 0) + 1
-            except:
+            except (ValueError, TypeError, json.JSONDecodeError):
                 pass
 
         for tag in sorted(tag_counts.keys()):
@@ -1115,13 +1201,15 @@ class EditionTab(QWidget):
         self.refresh_table()
 
     @Slot(int)
-    def show_tag_context_menu(self, pos) -> None:
+    def show_tag_context_menu(self, pos: QPoint) -> None:
         """Affiche le menu contextuel (clic droit) pour renommer/supprimer un tag."""
         item = self.tag_list.itemAt(pos)
-        if not item: return
+        if not item:
+            return
 
         tag_name = item.data(Qt.ItemDataRole.UserRole)
-        if not tag_name: return  # On ne peut pas modifier "Tous les tags"
+        if not tag_name:
+            return  # On ne peut pas modifier "Tous les tags"
 
         menu = QMenu(self)
         rename_action = menu.addAction("✏️ Renommer le tag")
@@ -1143,7 +1231,11 @@ class EditionTab(QWidget):
                     # On trouve toutes les notes qui contiennent l'ancien tag
                     notes_to_update = NoteModel.select().where(NoteModel.tags.contains(f'"{old_tag}"'))
                     for note in notes_to_update:
-                        tags = json.loads(note.tags) if note.tags else []
+                        raw_tags = note.tags
+                        if isinstance(raw_tags, (str, bytes, bytearray)) and raw_tags:
+                            tags = cast(list[str], json.loads(raw_tags))
+                        else:
+                            tags = []
                         if old_tag in tags:
                             # On remplace l'ancien par le nouveau
                             tags = [new_tag if t == old_tag else t for t in tags]
@@ -1162,15 +1254,22 @@ class EditionTab(QWidget):
                 QMessageBox.critical(self, "Erreur", f"Impossible de renommer le tag : {e}")
 
     def delete_tag(self, tag_to_delete: str) -> None:
-        reply = QMessageBox.question(self, "Confirmation",
-                                     f"Voulez-vous retirer le tag #{tag_to_delete} de toutes vos notes ?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            "Confirmation",
+            f"Voulez-vous retirer le tag #{tag_to_delete} de toutes vos notes ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 with db.atomic():
                     notes_to_update = NoteModel.select().where(NoteModel.tags.contains(f'"{tag_to_delete}"'))
                     for note in notes_to_update:
-                        tags = json.loads(note.tags) if note.tags else []
+                        raw_tags = note.tags
+                        if isinstance(raw_tags, (str, bytes, bytearray)) and raw_tags:
+                            tags = cast(list[str], json.loads(raw_tags))
+                        else:
+                            tags = []
                         if tag_to_delete in tags:
                             tags.remove(tag_to_delete)
                             note.tags = json.dumps(tags, ensure_ascii=False)
@@ -1187,10 +1286,12 @@ class EditionTab(QWidget):
     @Slot(int, int)
     def jump_to_note(self, note_id: int, deck_id: int) -> None:
         """Sélectionne le paquet, puis trouve et sélectionne la carte dans le tableau."""
-        if not deck_id: return
+        if not deck_id:
+            return
 
         # 1. Sélectionner le paquet dans l'arbre de gauche
         from PySide6.QtWidgets import QTreeWidgetItemIterator
+
         iterator = QTreeWidgetItemIterator(self.deck_tree)
         while iterator.value():
             item = iterator.value()
@@ -1206,10 +1307,13 @@ class EditionTab(QWidget):
 
         # 2. Sélectionner la note dans le tableau central
         for row in range(self.data_table.rowCount()):
-            row_note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            row_item = self.data_table.item(row, 0)
+            if row_item is None:
+                continue
+            row_note_id = row_item.data(Qt.ItemDataRole.UserRole)
             if row_note_id == note_id:
                 self.data_table.selectRow(row)
-                self.data_table.scrollToItem(self.data_table.item(row, 0))
+                self.data_table.scrollToItem(row_item)
                 break
 
     @Slot()
@@ -1241,7 +1345,7 @@ class EditionTab(QWidget):
             )
 
             # 1. Grouper par Modèle
-            notes_by_model = {}
+            notes_by_model: dict[int, list[NoteModel]] = {}
             for note in all_notes:
                 model_id = note.note_type.id if note.note_type else 0
                 if model_id not in notes_by_model:
@@ -1251,7 +1355,7 @@ class EditionTab(QWidget):
             conflicts = []
 
             # 2. Analyser chaque groupe
-            for model_id, notes in notes_by_model.items():
+            for _, notes in notes_by_model.items():
                 note_data_list = []
                 for note in notes:
                     active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
@@ -1275,16 +1379,18 @@ class EditionTab(QWidget):
                 # 3. Comparaison croisée O(N^2) avec Heuristiques
                 matched_ids = set()
                 for i, (note_a, clean_a, content_a, len_a, words_a) in enumerate(note_data_list):
-                    if note_a.id in matched_ids: continue
+                    if note_a.id in matched_ids:
+                        continue
 
                     for j in range(i + 1, len(note_data_list)):
                         note_b, clean_b, content_b, len_b, words_b = note_data_list[j]
-                        if note_b.id in matched_ids: continue
+                        if note_b.id in matched_ids:
+                            continue
 
                         # HEURISTIQUE 1 : Le filtre absolu de longueur O(1)
                         # Si le ratio mathématique maximal possible est sous 85%, on ignore
                         if (len_a + len_b) > 0:
-                            max_possible_ratio = (2.0 * min(len_a, len_b)) / (len_a + len_b)
+                            max_possible_ratio = (2.0 * min(int(len_a), int(len_b))) / (len_a + len_b)
                             if max_possible_ratio < 0.85:
                                 continue
 
@@ -1293,7 +1399,7 @@ class EditionTab(QWidget):
                         if words_a and words_b:
                             intersection = len(words_a & words_b)
                             union = len(words_a | words_b)
-                            jaccard_ratio = intersection / union if union > 0 else 0
+                            jaccard_ratio = float(intersection) / float(union) if union > 0 else 0.0
 
                             # S'ils partagent moins de 35% de leur vocabulaire, ils sont trop différents
                             if jaccard_ratio < 0.35:
@@ -1328,7 +1434,7 @@ class EditionTab(QWidget):
         finally:
             self.btn_scan_dupes.setEnabled(True)
             self.btn_scan_dupes.setText(" Traquer les doublons")
-            self.btn_scan_dupes.setIcon(qtawesome.icon('fa5s.search'))
+            self.btn_scan_dupes.setIcon(qtawesome.icon("fa5s.search"))
 
     @Slot()
     def show_version_history(self) -> None:
@@ -1346,17 +1452,21 @@ class EditionTab(QWidget):
     @Slot()
     def open_batch_edit_dialog(self) -> None:
         # N'oublie pas d'importer ta nouvelle boîte de dialogue en haut du fichier !
-        from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
 
         selected_items = self.data_table.selectedItems()
-        if not selected_items: return
+        if not selected_items:
+            return
 
         # On récupère les IDs uniques des notes sélectionnées
         selected_rows = set(item.row() for item in selected_items)
         note_ids = []
         for row in selected_rows:
-            note_id = self.data_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-            note_ids.append(note_id)
+            row_item = self.data_table.item(row, 0)
+            if row_item is None:
+                continue
+            note_id = row_item.data(Qt.ItemDataRole.UserRole)
+            if note_id is not None:
+                note_ids.append(note_id)
 
         dialog = BatchEditDialog(self)
         if dialog.exec():
@@ -1370,32 +1480,29 @@ class EditionTab(QWidget):
                 return
 
             # Instanciation dynamique du Moteur IA
-            from ankiforge.database.models import LLMConfigModel
-            import os
 
             llm_config = LLMConfigModel.get_by_id(llm_id)
+            if llm_config is None:
+                return
             p_name = llm_config.provider.lower()
-
+            active_provider: LLMProvider
             if p_name == "ollama":
-                from ankiforge.services.ai.flexible_service import OllamaProvider
                 active_provider = OllamaProvider(model_name=llm_config.model_id)
             elif p_name == "gemini":
-                from ankiforge.services.ai.gemini_service import GeminiService
                 active_provider = GeminiService(model_name=llm_config.model_id)
             elif p_name == "groq":
-                from ankiforge.services.ai.flexible_service import GroqProvider
                 active_provider = GroqProvider(model_name=llm_config.model_id)
             elif p_name == "openai":
-                from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
-                active_provider = OpenAICompatibleProvider(base_url="https://api.openai.com/v1",
-                                                           model_name=llm_config.model_id,
-                                                           api_key=os.environ.get("OPENAI_API_KEY", ""))
+                active_provider = OpenAICompatibleProvider(
+                    base_url="https://api.openai.com/v1",
+                    model_name=llm_config.model_id,
+                    api_key=os.environ.get("OPENAI_API_KEY", ""),
+                )
             else:
-                from ankiforge.services.ai.base import MockProvider
                 active_provider = MockProvider()
 
             # Préparation de l'interface de chargement (QProgressDialog gère le bouton "Annuler" nativement)
-            from PySide6.QtWidgets import QProgressDialog
+
             self.progress_dialog = QProgressDialog("Préparation de l'IA...", "Annuler", 0, 0, self)
             self.progress_dialog.setWindowTitle("Modification par lot en cours")
             self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -1416,7 +1523,7 @@ class EditionTab(QWidget):
 
     @Slot(int)
     def _on_batch_edit_success(self, processed_count: int):
-        if hasattr(self, 'progress_dialog'):
+        if self.progress_dialog:
             self.progress_dialog.close()
 
         if processed_count > 0:
@@ -1428,13 +1535,13 @@ class EditionTab(QWidget):
 
     @Slot(str)
     def _on_batch_edit_error(self, error_msg: str):
-        if hasattr(self, 'progress_dialog'):
+        if self.progress_dialog:
             self.progress_dialog.close()
         QMessageBox.critical(self, "Erreur IA", f"Erreur lors de la modification : {error_msg}")
 
     @Slot()
     def _on_batch_edit_cancelled(self):
-        if hasattr(self, 'progress_dialog'):
+        if self.progress_dialog:
             self.progress_dialog.close()
         show_toast(self, "Modification par lot annulée.", is_error=True)
         self.refresh_table()

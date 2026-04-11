@@ -1,10 +1,21 @@
+# ruff: noqa: E501
+
 import difflib
 import json
+
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QTextEdit, QListWidget, QListWidgetItem,
-                               QMessageBox, QSplitter, QWidget)
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QTextEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QSplitter,
+    QWidget,
+)
 
 from ankiforge.database.models import db, NoteModel, NoteVersionModel
 from ankiforge.ui.components.components import PrimaryButton, HeaderLabel
@@ -15,8 +26,8 @@ class VersionHistoryDialog(QDialog):
     def __init__(self, note: NoteModel, parent=None):
         super().__init__(parent)
         self.note = note
-        self.versions = []
-        self.active_version = None
+        self.versions: list[NoteVersionModel] = []
+        self.active_version: NoteVersionModel | None = None
 
         self.setWindowTitle("🕒 Machine à Remonter le Temps (Historique)")
         self.setMinimumSize(850, 500)
@@ -44,14 +55,17 @@ class VersionHistoryDialog(QDialog):
 
         # --- PANNEAU DROIT : Comparaison ---
         right_panel = QVBoxLayout()
-        right_panel.addWidget(QLabel(
-            "<b>Comparaison avec la version Actuelle :</b><br><span style='color:#ffcccc; font-size:12px;'>Rouge = Sera supprimé</span> | <span style='color:#ccffcc; font-size:12px;'>Vert = Sera restauré</span>"))
+        right_panel.addWidget(
+            QLabel(
+                "<b>Comparaison avec la version Actuelle :</b><br><span style='color:#ffcccc; font-size:12px;'>Rouge = Sera supprimé</span> | <span style='color:#ccffcc; font-size:12px;'>Vert = Sera restauré</span>"
+            )
+        )
 
         self.text_diff = QTextEdit()
         self.text_diff.setReadOnly(True)
         right_panel.addWidget(self.text_diff)
 
-        self.btn_restore = PrimaryButton(qta.icon('fa5s.history', color='white'), " Restaurer cette version")
+        self.btn_restore = PrimaryButton(qta.icon("fa5s.history", color="white"), " Restaurer cette version")
         self.btn_restore.clicked.connect(self.restore_selected_version)
         self.btn_restore.setEnabled(False)
         right_panel.addWidget(self.btn_restore)
@@ -70,8 +84,7 @@ class VersionHistoryDialog(QDialog):
         self.list_versions.clear()
 
         # On récupère toutes les versions, de la plus récente à la plus ancienne
-        query = NoteVersionModel.select().where(NoteVersionModel.note == self.note).order_by(
-            NoteVersionModel.version_number.desc())
+        query = NoteVersionModel.select().where(NoteVersionModel.note == self.note).order_by(NoteVersionModel.version_number.desc())
         self.versions = list(query)
 
         for v in self.versions:
@@ -88,34 +101,35 @@ class VersionHistoryDialog(QDialog):
 
             # Mettre l'icône selon la source
             if v.source == "ai":
-                item.setIcon(qta.icon('fa5s.robot', color='#4CAF50'))
+                item.setIcon(qta.icon("fa5s.robot", color="#4CAF50"))
             elif v.source == "manual":
-                item.setIcon(qta.icon('fa5s.user-edit', color='#2196F3'))
+                item.setIcon(qta.icon("fa5s.user-edit", color="#2196F3"))
             else:
-                item.setIcon(qta.icon('fa5s.save', color='#9E9E9E'))
+                item.setIcon(qta.icon("fa5s.save", color="#9E9E9E"))
 
             self.list_versions.addItem(item)
 
         if self.list_versions.count() > 0:
             self.list_versions.setCurrentRow(0)
 
-    def generate_diff_html(self, old_text: str, new_text: str) -> str:
+    @staticmethod
+    def generate_diff_html(old_text: str, new_text: str) -> str:
         """Génère le diff HTML. old_text = Active Version, new_text = Selected Version."""
         matcher = difflib.SequenceMatcher(None, old_text, new_text)
         html_result = ""
 
         for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
-            part_a = old_text[a0:a1].replace('\n', '<br>')
-            part_b = new_text[b0:b1].replace('\n', '<br>')
+            part_a = old_text[a0:a1].replace("\n", "<br>")
+            part_b = new_text[b0:b1].replace("\n", "<br>")
 
-            if opcode == 'equal':
+            if opcode == "equal":
                 html_result += part_a
-            elif opcode == 'replace':
+            elif opcode == "replace":
                 html_result += f"<span style='background-color: #5c1b1b; color: #ffcccc; text-decoration: line-through;'>{part_a}</span>"
                 html_result += f"<span style='background-color: #1b5c20; color: #ccffcc;'>{part_b}</span>"
-            elif opcode == 'delete':
+            elif opcode == "delete":
                 html_result += f"<span style='background-color: #5c1b1b; color: #ffcccc; text-decoration: line-through;'>{part_a}</span>"
-            elif opcode == 'insert':
+            elif opcode == "insert":
                 html_result += f"<span style='background-color: #1b5c20; color: #ccffcc;'>{part_b}</span>"
 
         return html_result
@@ -161,12 +175,16 @@ class VersionHistoryDialog(QDialog):
     @Slot()
     def restore_selected_version(self):
         items = self.list_versions.selectedItems()
-        if not items: return
+        if not items:
+            return
         selected_version = items[0].data(Qt.ItemDataRole.UserRole)
 
-        reply = QMessageBox.question(self, "Restaurer",
-                                     "Voulez-vous restaurer cette ancienne version ?\nCela créera une nouvelle sauvegarde (v_next) avec ce contenu.",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            "Restaurer",
+            "Voulez-vous restaurer cette ancienne version ?\nCela créera une nouvelle sauvegarde (v_next) avec ce contenu.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
