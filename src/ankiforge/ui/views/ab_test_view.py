@@ -1,19 +1,29 @@
-import os
 import json
+import os
 from typing import Any
+
 import qtawesome as qta
-from jinja2 import Template
 from PySide6.QtCore import Qt, QThread, Signal, Slot, QUrl
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QTextEdit, QComboBox, QSplitter, QFrame, QTabWidget)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QTextEdit,
+    QComboBox,
+    QSplitter,
+    QFrame,
+    QTabWidget,
+)
+from jinja2 import Template
 
 from ankiforge.database.models import LLMConfigModel, AgentModel, NoteTypeModel
+from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import PrimaryButton, RoundedPanel, DangerButton, HeaderLabel
+from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.utils.anki_renderer import render_anki_card
-from ankiforge.ui.theme import is_dark_mode
 from ankiforge.utils.paths import get_app_data_dir
 
 
@@ -72,6 +82,10 @@ class ABTestTab(QWidget):
         super().__init__()
 
         # Stockage des derniers résultats pour pouvoir changer de vue (Recto/Verso) sans relancer l'IA
+        self.thread: ABTestThread | None = None
+        self.agent_list: list[tuple[str, int]] = []
+        self.llm_list: list[tuple[str, int]] = []
+
         self.last_res_a = ""
         self.last_res_b = ""
 
@@ -151,14 +165,14 @@ class ABTestTab(QWidget):
 
             # Onglet 1 : Aperçu visuel
             web_view = SafeWebEngineView()
-            tabs.addTab(web_view, qta.icon('fa5s.eye'), "Rendu Carte")
+            tabs.addTab(web_view, qta.icon("fa5s.eye"), "Rendu Carte")
 
             # Onglet 2 : JSON Brut
             raw_text = QTextEdit()
             raw_text.setReadOnly(True)
             raw_text.setFrameShape(QFrame.Shape.NoFrame)
             raw_text.setStyleSheet("font-family: monospace; background-color: palette(base);")
-            tabs.addTab(raw_text, qta.icon('fa5s.code'), "JSON Brut")
+            tabs.addTab(raw_text, qta.icon("fa5s.code"), "JSON Brut")
 
             p_layout.addWidget(tabs)
             return panel, web_view, raw_text
@@ -180,10 +194,10 @@ class ABTestTab(QWidget):
         self.lbl_status = QLabel("Prêt.")
         self.lbl_status.setStyleSheet("color: palette(placeholder-text);")
 
-        self.btn_run = PrimaryButton(qta.icon('fa5s.play', color='white'), " Lancer la Comparaison")
+        self.btn_run = PrimaryButton(qta.icon("fa5s.play", color="white"), " Lancer la Comparaison")
         self.btn_run.clicked.connect(self.run_ab_test)
 
-        self.btn_cancel = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler")
+        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler")
         self.btn_cancel.clicked.connect(self.cancel_test)
         self.btn_cancel.hide()
 
@@ -197,8 +211,7 @@ class ABTestTab(QWidget):
 
     @Slot()
     def refresh_data(self) -> None:
-        self.llm_list = [(llm.display_name, llm.id) for llm in
-                         LLMConfigModel.select().order_by(LLMConfigModel.display_name)]
+        self.llm_list = [(llm.display_name, llm.id) for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name)]
         self.agent_list = [(agent.name, agent.id) for agent in AgentModel.select().order_by(AgentModel.name)]
 
         self.cb_model.blockSignals(True)
@@ -225,7 +238,8 @@ class ABTestTab(QWidget):
             self.lbl_global_config.setText("<b>Prompt :</b>")
             self.lbl_a_config.setText("<b>Moteur A :</b>")
             self.lbl_b_config.setText("<b>Moteur B :</b>")
-            for name, uid in self.agent_list: self.cb_global_config.addItem(name, userData=uid)
+            for name, uid in self.agent_list:
+                self.cb_global_config.addItem(name, userData=uid)
             for name, uid in self.llm_list:
                 self.cb_config_a.addItem(name, userData=uid)
                 self.cb_config_b.addItem(name, userData=uid)
@@ -233,7 +247,8 @@ class ABTestTab(QWidget):
             self.lbl_global_config.setText("<b>Moteur :</b>")
             self.lbl_a_config.setText("<b>Prompt A :</b>")
             self.lbl_b_config.setText("<b>Prompt B :</b>")
-            for name, uid in self.llm_list: self.cb_global_config.addItem(name, userData=uid)
+            for name, uid in self.llm_list:
+                self.cb_global_config.addItem(name, userData=uid)
             for name, uid in self.agent_list:
                 self.cb_config_a.addItem(name, userData=uid)
                 self.cb_config_b.addItem(name, userData=uid)
@@ -261,30 +276,42 @@ class ABTestTab(QWidget):
     @Slot()
     def _on_preview_changed(self):
         """Relance le rendu web des deux côtés quand on bascule Recto/Verso ou de Carte."""
-        if self.last_res_a: self._render_preview(self.last_res_a, self.web_a)
-        if self.last_res_b: self._render_preview(self.last_res_b, self.web_b)
+        if self.last_res_a:
+            self._render_preview(self.last_res_a, self.web_a)
+        if self.last_res_b:
+            self._render_preview(self.last_res_b, self.web_b)
 
-    def _instantiate_provider(self, llm_id: int) -> Any:
+    @staticmethod
+    def _instantiate_provider(llm_id: int) -> Any:
         llm_config = LLMConfigModel.get_by_id(llm_id)
         p_name = llm_config.provider.lower()
         if p_name == "ollama":
             from ankiforge.services.ai.flexible_service import OllamaProvider
+
             return OllamaProvider(model_name=llm_config.model_id)
         elif p_name == "gemini":
             from ankiforge.services.ai.gemini_service import GeminiService
+
             return GeminiService(model_name=llm_config.model_id)
         elif p_name == "groq":
             from ankiforge.services.ai.flexible_service import GroqProvider
+
             return GroqProvider(model_name=llm_config.model_id)
         elif p_name == "openai":
             from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
-            return OpenAICompatibleProvider(base_url="https://api.openai.com/v1", model_name=llm_config.model_id,
-                                            api_key=os.environ.get("OPENAI_API_KEY", ""))
+
+            return OpenAICompatibleProvider(
+                base_url="https://api.openai.com/v1",
+                model_name=llm_config.model_id,
+                api_key=os.environ.get("OPENAI_API_KEY", ""),
+            )
 
         from ankiforge.services.ai.base import MockProvider
+
         return MockProvider()
 
-    def _prepare_prompt(self, agent_id: int, note_type_id: int) -> str:
+    @staticmethod
+    def _prepare_prompt(agent_id: int, note_type_id: int) -> str:
         """Injecte dynamiquement les champs du modèle de note dans le prompt via Jinja2."""
         agent = AgentModel.get_by_id(agent_id)
         note_type = NoteTypeModel.get_by_id(note_type_id)
@@ -293,8 +320,8 @@ class ABTestTab(QWidget):
         jinja_template = Template(agent.system_prompt)
         return jinja_template.render(
             fields_str='", "'.join(fields),
-            first_field=fields[0] if len(fields) > 0 else 'Field1',
-            second_field=fields[1] if len(fields) > 1 else 'Field2'
+            first_field=fields[0] if len(fields) > 0 else "Field1",
+            second_field=fields[1] if len(fields) > 1 else "Field2",
         )
 
     def _render_preview(self, raw_json: str, web_view: SafeWebEngineView):
@@ -323,16 +350,21 @@ class ABTestTab(QWidget):
 
             # Formatage des listes potentielles
             for k, v in first_note_data.items():
-                if isinstance(v, list): first_note_data[k] = "<br>".join([str(i) for i in v])
+                if isinstance(v, list):
+                    first_note_data[k] = "<br>".join([str(i) for i in v])
 
             raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
 
             final_html = render_anki_card(
-                raw_html=raw_html, css=css, fields_dict=first_note_data,
-                is_recto=is_recto, front_html=tmpl.get("qfmt", ""), is_dark_mode=is_dark_mode()
+                raw_html=raw_html,
+                css=css,
+                fields_dict=first_note_data,
+                is_recto=is_recto,
+                front_html=tmpl.get("qfmt", ""),
+                is_dark_mode=is_dark_mode(),
             )
 
-            media_dir = get_app_data_dir() / 'media'
+            media_dir = get_app_data_dir() / "media"
             web_view.setHtmlSafe(final_html, QUrl.fromLocalFile(media_dir))
 
         except Exception as e:
@@ -406,7 +438,7 @@ class ABTestTab(QWidget):
 
     @Slot()
     def cancel_test(self) -> None:
-        if hasattr(self, 'thread') and self.thread.isRunning():
+        if self.thread is not None and self.thread.isRunning():
             self.thread.cancel()
             self.btn_cancel.setEnabled(False)
             self.lbl_status.setText("Arrêt en cours...")
