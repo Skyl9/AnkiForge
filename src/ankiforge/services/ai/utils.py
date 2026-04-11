@@ -28,7 +28,7 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         total_tokens=prompt_tokens + completion_tokens,
-        estimated_cost_usd=cost
+        estimated_cost_usd=cost,
     )
 
 
@@ -47,7 +47,7 @@ def parse_ai_json_response(response_text: str):
             cleaned_text = match.group(1).strip()
         else:
             # 2. FALLBACK ULTIME : L'IA a oublié les backticks
-            fallback_match = re.search(r"(\{.*\}|\[.*\])", response_text, re.DOTALL)
+            fallback_match = re.search(r"(\{.*}|\[.*])", response_text, re.DOTALL)
             if fallback_match:
                 cleaned_text = fallback_match.group(1).strip()
             else:
@@ -58,15 +58,15 @@ def parse_ai_json_response(response_text: str):
             char = m.group(1)
             # Si le backslash protège un caractère JSON valide (ex: \n, \", \\)
             if char in '"\\/bfnrtu':
-                return '\\' + char
+                return "\\" + char
             # Sinon, c'est du LaTeX rebelle (ex: \(, \[), on double le backslash !
             else:
-                return '\\\\' + char
+                return "\\\\" + char
 
         # On intercepte chaque backslash suivi d'un caractère et on le filtre
-        cleaned_text = re.sub(r'\\(.)', escape_latex, cleaned_text)
+        cleaned_text = re.sub(r"\\(.)", escape_latex, cleaned_text)
 
         return json.loads(cleaned_text)
 
     except json.JSONDecodeError as e:
-        raise ValueError(f"L'IA a généré un format invalide. Impossible de lire le JSON.\nDétail: {e}")
+        raise ValueError(f"L'IA a généré un format invalide. Impossible de lire le JSON.\nDétail: {e}") from e

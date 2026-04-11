@@ -1,5 +1,5 @@
-# src/services/ai/gemini_service.py
 import os
+
 from google import genai
 from google.genai import types
 
@@ -8,7 +8,7 @@ from ankiforge.services.ai.utils import log_token_usage
 
 
 class GeminiService(LLMProvider):
-    def __init__(self, api_key: str = None, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str | None = None, model_name: str = "gemini-2.0-flash"):
         """
         Initialise le client Gemini avec la clé API Studio.
         """
@@ -27,21 +27,17 @@ class GeminiService(LLMProvider):
         """
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            response_mime_type="application/json", # Force le JSON valide
-            temperature=0.2
+            response_mime_type="application/json",  # Force le JSON valide
+            temperature=0.2,
         )
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=user_prompt,
-                config=config
-            )
-            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            response = self.client.models.generate_content(model=self.model_name, contents=user_prompt, config=config)
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
                 p_tokens = response.usage_metadata.prompt_token_count or 0
                 c_tokens = response.usage_metadata.candidates_token_count or 0
                 log_token_usage("gemini", self.model_name, p_tokens, c_tokens)
 
-            return response.text
+            return response.text or ""
         except Exception as e:
-            raise RuntimeError(f"Erreur Gemini ({self.model_name}) : {str(e)}")
+            raise RuntimeError(f"Erreur Gemini ({self.model_name}) : {str(e)}") from e

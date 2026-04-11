@@ -1,9 +1,11 @@
 # src/services/ai/flexible_service.py
 import os
+from typing import cast
 
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
@@ -17,23 +19,26 @@ class OpenAICompatibleProvider(LLMProvider):
     (Ollama, Groq, OpenRouter, LMStudio, etc.)
     """
 
-    def __init__(self, base_url: str, model_name: str, api_key: str = "dummy_key"):
+    def __init__(self, base_url: str, model_name: str, api_key: str | None = "dummy_key"):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model_name = model_name
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
-        response_format = {"type": "json_object"}
+        messages = [
+            ChatCompletionSystemMessageParam(role="system", content=system_prompt),
+            ChatCompletionUserMessageParam(role="user", content=user_prompt),
+        ]
         try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format=response_format,
-                temperature=0.2
+            response = cast(
+                ChatCompletion,
+                self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    temperature=0.2,
+                ),
             )
-            if hasattr(response, 'usage') and response.usage:
+            if hasattr(response, "usage") and response.usage:
                 p_tokens = response.usage.prompt_tokens or 0
                 c_tokens = response.usage.completion_tokens or 0
 
@@ -46,20 +51,17 @@ class OpenAICompatibleProvider(LLMProvider):
 
                 log_token_usage(provider_name, self.model_name, p_tokens, c_tokens)
 
-            return response.choices[0].message.content
+            content = response.choices[0].message.content or ""
+            return content
         except Exception as e:
-            raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}")
+            raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}") from e
 
 
 class OllamaProvider(OpenAICompatibleProvider):
     """Fournisseur d'IA locale 100% gratuit via Ollama."""
 
     def __init__(self, model_name: str = "llama3"):
-        super().__init__(
-            base_url="http://localhost:11434/v1",
-            model_name=model_name,
-            api_key="ollama"
-        )
+        super().__init__(base_url="http://localhost:11434/v1", model_name=model_name, api_key="ollama")
 
     @staticmethod
     def get_available_models() -> list[str]:
@@ -78,27 +80,19 @@ class OllamaProvider(OpenAICompatibleProvider):
 class GroqProvider(OpenAICompatibleProvider):
     """Fournisseur Cloud ultra-rapide."""
 
-    def __init__(self, api_key: str = None, model_name: str = "llama3-8b-8192"):
+    def __init__(self, api_key: str | None = None, model_name: str = "llama3-8b-8192"):
         key = api_key or os.environ.get("GROQ_API_KEY")
         if not key:
             raise ValueError("Clé API GROQ_API_KEY manquante.")
-        super().__init__(
-            base_url="https://api.groq.com/openai/v1",
-            model_name=model_name,
-            api_key=key
-        )
+        super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key)
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
-    def __init__(self, api_key: str = None, model_name: str = "google/gemini-2.5-flash:free"):
+    def __init__(self, api_key: str | None = None, model_name: str = "google/gemini-2.5-flash:free"):
         key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ValueError("Clé API OPENROUTER_API_KEY manquante.")
-        super().__init__(
-            base_url="https://openrouter.ai/api/v1",
-            model_name=model_name,
-            api_key=key
-        )
+        super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key)
 
 
 class AIManager:
@@ -110,7 +104,7 @@ class AIManager:
             self.env_path.write_text("AI_PROVIDER=Ollama\nAI_MODEL=llama3\n", encoding="utf-8")
 
         load_dotenv(str(self.env_path))
-        self.provider = MockProvider()  # Fallback de sécurité
+        self.provider: LLMProvider = MockProvider()  # Fallback de sécurité
         self.reload_provider()
 
     def reload_provider(self):
