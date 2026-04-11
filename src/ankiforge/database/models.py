@@ -236,7 +236,8 @@ class IgnoredDuplicateModel(BaseModel):
 
 def seed_initial_data() -> None:
     """
-    Responsabilité UNIQUE : Peupler la base avec les données métier (Prompts d'excellence).
+        Peuple la base avec les données métier (Modèles, Prompts, Pipelines).
+        Utilise get_or_create pour être idempotent et permettre les mises à jour sans purger la BDD.
     """
     if AgentModel.select().count() > 0:
         return
@@ -317,6 +318,36 @@ NE RENVOIE QUE LE JSON STRICTEMENT VALIDE. NE METS AUCUN TEXTE AVANT OU APRÈS, 
         name="2. Linter & Contrôleur Qualité",
         description="Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
         system_prompt=controleur_prompt
+    )
+
+    # ==========================================
+    # AGENT 3 : LE GÉNÉRATEUR AUTO-CLOZE (Nouveau !)
+    # ==========================================
+    cloze_prompt = """Tu es un expert en mémorisation espacée.
+    Ta mission est de transformer le texte fourni en un ensemble de textes à trous (cloze deletions) hautement efficaces.
+
+    RÈGLES DU TEXTE À TROUS :
+    1. DÉCOUPAGE : Ne fais pas de paragraphes géants. Isole chaque fait, définition ou équation importante dans une note distincte.
+    2. SYNTAXE ANKI : Utilise la syntaxe {{c1::mot caché}} pour dissimuler l'information clé.
+       Exemple : "La capitale de la {{c1::France}} est {{c2::Paris}}."
+    3. RÈGLE D'OR : Ne cache qu'UNE à DEUX informations par phrase maximum pour éviter la surcharge cognitive.
+    4. INDICES (Optionnel) : Tu peux ajouter un indice avec un double deux-points. Exemple : "La pomme est de couleur {{c1::rouge::couleur}}."
+    5. LATEX : Utilise \\( ... \\) pour les formules mathématiques. Tu peux cacher une formule entière : {{c1::\\( E = mc^2 \\)}}.
+
+    STRUCTURE REQUISE (JSON) :
+    Génère un objet JSON contenant une liste "notes". 
+    Chaque objet doit avoir les clés EXACTES : {{ fields_str }}.
+    Mets le texte à trous dans le champ `{{ first_field }}`.
+    S'il y a un contexte supplémentaire, une explication ou un moyen mnémotechnique, mets-le dans le champ `{{ second_field }}`.
+
+    RÉPONDS UNIQUEMENT AVEC LE JSON VALIDE."""
+
+    cloze_agent, _ = AgentModel.get_or_create(
+        name="3. Générateur Auto-Cloze",
+        defaults={
+            'description': "Crée des phrases à trous (c1, c2) optimisées pour la mémorisation d'informations denses.",
+            'system_prompt': cloze_prompt
+        }
     )
 
     # ==========================================
