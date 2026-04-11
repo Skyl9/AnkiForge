@@ -12,12 +12,13 @@ class MediaManager:
     def __init__(self):
         # On s'assure que le dossier "data/media" existe
         self.base_dir = get_app_data_dir()
-        self.media_dir = self.base_dir / 'media'
+        self.media_dir = self.base_dir / "media"
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
-    def _calculate_md5(self, file_path: str) -> str:
+    @staticmethod
+    def _calculate_md5(file_path: str) -> str:
         """Calcule l'empreinte MD5 d'un fichier pour garantir un nom unique."""
-        hash_md5 = hashlib.md5()
+        hash_md5 = hashlib.md5(usedforsecurity=False)
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
@@ -40,8 +41,7 @@ class MediaManager:
 
         # 1. Traitement des fichiers images
         for file in source_path.iterdir():
-            if file.is_file() and file.suffix.lower() in ['.jpeg', '.jpg', '.png', '.webp', '.gif']:
-
+            if file.is_file() and file.suffix.lower() in [".jpeg", ".jpg", ".png", ".webp", ".gif"]:
                 # Calcul du nouveau nom (Hash + Extension)
                 file_hash = self._calculate_md5(str(file))
                 new_filename = f"{file_hash}{file.suffix.lower()}"
@@ -66,7 +66,7 @@ class MediaManager:
 
             # Recherche du pattern Markdown spécifique à cette image
             # Ex: ![N'importe quelle description](old_name)
-            pattern = r'!\[.*?\]\(' + re.escape(old_name) + r'\)'
+            pattern = r"!\[.*?\]\(" + str(re.escape(old_name)) + r"\)"
 
             # Remplacement dans le texte
             modified_markdown = re.sub(pattern, html_img_tag, modified_markdown)

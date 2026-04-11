@@ -10,20 +10,22 @@ from ankiforge.utils.paths import get_app_data_dir
 
 # Suppression des avertissements de genanki notamment pour le mauvais parsing du latex reconnu comme balise html
 import warnings
+
 warnings.filterwarnings("ignore", module="genanki")
+
 
 class ExportManager:
     def __init__(self):
         # On pointe vers notre dossier media local
-        self.media_dir = get_app_data_dir() / 'media'
+        self.media_dir = get_app_data_dir() / "media"
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def generate_stable_id(text: str) -> int:
         """Génère un entier unique et constant basé sur une chaîne de caractères."""
-        return int(hashlib.md5(text.encode('utf-8')).hexdigest()[:15], 16) % (10 ** 10)
+        return int(hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:15], 16) % (10**10)
 
-    def export_deck(self, deck_id: int, output_path: str|Path,export_only_new: bool = True) -> None:
+    def export_deck(self, deck_id: int, output_path: str | Path, export_only_new: bool = True) -> None:
         """
         Exporte un paquet, ses sous-paquets, et toutes les images associées vers un .apkg
         """
@@ -76,20 +78,22 @@ class ExportManager:
 
                 g_templates = []
                 for i, t in enumerate(templates_list):
-                    g_templates.append({
-                        'name': t.get("name", f"Template {i + 1}"),
-                        'qfmt': t.get("qfmt", ""),
-                        'afmt': t.get("afmt", "")
-                    })
+                    g_templates.append(
+                        {
+                            "name": t.get("name", f"Template {i + 1}"),
+                            "qfmt": t.get("qfmt", ""),
+                            "afmt": t.get("afmt", ""),
+                        }
+                    )
 
                 mid = nt.anki_id if nt.anki_id else self.generate_stable_id(nt.name)
 
                 g_model = genanki.Model(
                     model_id=mid,
                     name=nt.name,
-                    fields=[{'name': f} for f in fields_list],
+                    fields=[{"name": f} for f in fields_list],
                     templates=g_templates,
-                    css=nt.css_style or ""
+                    css=nt.css_style or "",
                 )
                 genanki_models[nt.id] = (g_model, fields_list)
 
@@ -116,12 +120,7 @@ class ExportManager:
 
             tags_list = json.loads(note.tags) if note.tags else []
 
-            g_note = genanki.Note(
-                model=g_model,
-                fields=field_values,
-                guid=note.guid,
-                tags=tags_list
-            )
+            g_note = genanki.Note(model=g_model, fields=field_values, guid=note.guid, tags=tags_list)
 
             genanki_decks[card.deck.id].add_note(g_note)
         if not notes_to_update_status and export_only_new:
