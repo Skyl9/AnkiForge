@@ -26,8 +26,10 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
     fake_app_dir.mkdir()
 
     # On détourne les variables globales pour pointer vers notre dossier temporaire
-    with patch("ankiforge.database.backup.DB_PATH", fake_db), \
-            patch("ankiforge.database.backup.get_app_data_dir", return_value=fake_app_dir):
+    with (
+        patch("ankiforge.database.backup.DB_PATH", fake_db),
+        patch("ankiforge.database.backup.get_app_data_dir", return_value=fake_app_dir),
+    ):
         # Création de 3 fausses anciennes sauvegardes avec des dates antérieures
         backup_dir = fake_app_dir / "backups"
         backup_dir.mkdir()
