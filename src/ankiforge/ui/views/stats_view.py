@@ -1,13 +1,20 @@
-# src/ui/views/stats_view.py
-import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QFrame, QGridLayout, QTableWidget, QTableWidgetItem,
-                               QHeaderView, QPushButton, QAbstractItemView, QSplitter)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QFrame,
+    QGridLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractItemView,
+    QSplitter,
+)
 from peewee import JOIN, fn
 
 from ankiforge.database.models import DeckModel, NoteModel, CardModel, PipelineModel, TokenUsageModel
-# 👇 N'oublie pas d'importer RoundedPanel ici
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, MetricCard, RoundedPanel
 from ankiforge.ui.widgets.donut_chart import DonutChartWidget
 
@@ -24,7 +31,7 @@ class StatsTab(QWidget):
         title = HeaderLabel("Tableau de Bord AnkiForge")
         header_layout.addWidget(title)
 
-        self.btn_refresh = ActionButton('fa5s.sync', " Rafraîchir les statistiques")
+        self.btn_refresh = ActionButton("fa5s.sync", " Rafraîchir les statistiques")
         self.btn_refresh.setFixedWidth(250)
         self.btn_refresh.clicked.connect(self.load_stats)
 
@@ -63,8 +70,7 @@ class StatsTab(QWidget):
         table_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_subtitle = QLabel("RÉPARTITION PAR PAQUET")
-        lbl_subtitle.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_subtitle.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         table_layout.addWidget(lbl_subtitle)
 
         self.deck_table = QTableWidget()
@@ -84,8 +90,7 @@ class StatsTab(QWidget):
         chart_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_chart = QLabel("VUE GLOBALE")
-        lbl_chart.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
+        lbl_chart.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         chart_layout.addWidget(lbl_chart)
 
         self.deck_chart = DonutChartWidget(title_center="CARTES")
@@ -98,7 +103,6 @@ class StatsTab(QWidget):
 
         # Chargement initial des données
         self.load_stats()
-
 
     @Slot()
     def refresh_data(self) -> None:
@@ -114,20 +118,16 @@ class StatsTab(QWidget):
         self.card_total_pipelines.set_value(str(PipelineModel.select().count()))
 
         tokens_query = TokenUsageModel.select(
-            fn.SUM(TokenUsageModel.total_tokens).alias('sum_tokens'),
-            fn.SUM(TokenUsageModel.estimated_cost_usd).alias('sum_cost')
+            fn.SUM(TokenUsageModel.total_tokens).alias("sum_tokens"),
+            fn.SUM(TokenUsageModel.estimated_cost_usd).alias("sum_cost"),
         ).first()
         total_tokens = tokens_query.sum_tokens if tokens_query.sum_tokens else 0
         total_cost = tokens_query.sum_cost if tokens_query.sum_cost else 0.0
 
         # Formatage lisible (espaces pour les milliers, et 3 décimales pour les micro-centimes)
-        self.card_total_tokens.set_value(f"{total_tokens:,}".replace(',', ' '))
+        self.card_total_tokens.set_value(f"{total_tokens:,}".replace(",", " "))
         self.card_total_cost.set_value(f"${total_cost:.4f}")
-        decks_with_counts = (DeckModel
-                             .select(DeckModel, fn.COUNT(CardModel.id).alias('card_count'))
-                             .join(CardModel, JOIN.LEFT_OUTER)
-                             .group_by(DeckModel)
-                             .order_by(DeckModel.name))
+        decks_with_counts = DeckModel.select(DeckModel, fn.COUNT(CardModel.id).alias("card_count")).join(CardModel, JOIN.LEFT_OUTER).group_by(DeckModel).order_by(DeckModel.name)
 
         decks_list = list(decks_with_counts)
         self.deck_table.setRowCount(len(decks_list))
