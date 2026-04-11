@@ -1,7 +1,8 @@
-# src/ankiforge/ui/theme.py
+from typing import cast
+
+from PySide6.QtCore import QSettings
 from PySide6.QtGui import QPalette, QColor, Qt
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QSettings
 
 GLOBAL_STYLESHEET = """
 /* --- Scrollbars Modernes (Fines et sans flèches) --- */
@@ -77,6 +78,7 @@ QGroupBox { border: none; margin-top: 1.5em; font-weight: bold; color: palette(p
 QGroupBox::title { subcontrol-origin: margin; left: 0px; padding: 0px; }
 """
 
+
 def apply_dark_theme(app: QApplication) -> None:
     """Applique une QPalette globale sombre."""
     app.setStyle("Fusion")
@@ -88,9 +90,8 @@ def apply_dark_theme(app: QApplication) -> None:
     text_primary = QColor(224, 224, 224)
     text_disabled = QColor(110, 110, 110)
     accent_color = QColor("#7E57C2")  # Violet accentué
-    success_color = QColor("#238636")  # Vert GitHub
-    text_secondary = QColor("#8B949E")
-
+    # success_color = QColor("#238636")  # Vert GitHub
+    # text_secondary = QColor("#8B949E")
 
     palette.setColor(QPalette.ColorRole.Window, bg_color)
     palette.setColor(QPalette.ColorRole.Base, surface_color)
@@ -117,9 +118,9 @@ def apply_light_theme(app: QApplication) -> None:
     palette = QPalette()
 
     # Adoucissement global du thème clair
-    bg_color = QColor(235, 235, 235)       # Fond légèrement plus sombre pour détacher les cartes
+    bg_color = QColor(235, 235, 235)  # Fond légèrement plus sombre pour détacher les cartes
     surface_color = QColor(252, 252, 252)  # Blanc "cassé" moins agressif
-    alternate_base = QColor(215, 215, 215) # Gris plus marqué pour bien délimiter les champs de saisie
+    alternate_base = QColor(215, 215, 215)  # Gris plus marqué pour bien délimiter les champs de saisie
     text_primary = QColor(40, 40, 40)
     text_disabled = QColor(140, 140, 140)
     accent_color = QColor(63, 81, 181)
@@ -168,26 +169,28 @@ def setup_dynamic_theme(app: QApplication) -> None:
 
     app.styleHints().colorSchemeChanged.connect(os_theme_changed)
 
+
 def refresh_theme_live() -> None:
     """Fonction utilitaire pour appliquer le thème instantanément sans redémarrer."""
-    app = QApplication.instance()
+    app = cast(QApplication, QApplication.instance())
     if app:
         setup_dynamic_theme(app)
+
 
 def get_icon_color() -> str:
     """Récupère la couleur du texte actif pour peindre les icônes dynamiquement."""
     app = QApplication.instance()
-    if app:
+    if isinstance(app, QApplication):
         # Retourne la couleur hexadécimale (ex: '#e0e0e0' ou '#282828')
         return app.palette().color(QPalette.ColorRole.WindowText).name()
-    return "#E0E0E0" # Fallback de sécurité
+    return "#E0E0E0"  # Fallback de sécurité
+
 
 def is_dark_mode() -> bool:
     """Vérifie si l'application est actuellement en mode sombre."""
-    from PySide6.QtWidgets import QApplication
-    from PySide6.QtGui import QPalette
+
     app = QApplication.instance()
-    if not app:
+    if not isinstance(app, QApplication):
         return False
     # On regarde la luminosité de la couleur de fond de la fenêtre
     bg_color = app.palette().color(QPalette.ColorRole.Window)
