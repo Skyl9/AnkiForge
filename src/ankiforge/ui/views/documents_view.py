@@ -7,9 +7,21 @@ import markdown
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot, QTimer
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor, QKeySequence, QShortcut
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
-                               QTextEdit, QLabel, QSplitter,
-                               QFileDialog, QMessageBox, QInputDialog, QAbstractItemView, QFrame)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QTextEdit,
+    QLabel,
+    QSplitter,
+    QFileDialog,
+    QMessageBox,
+    QInputDialog,
+    QAbstractItemView,
+    QFrame,
+)
 
 from ankiforge.database.models import db, DocumentModel, FolderModel
 from ankiforge.services.parsing.document_parser import DocumentParser
@@ -17,7 +29,7 @@ from ankiforge.ui.components.components import DangerButton, ActionButton, Heade
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.anki_renderer import _get_mathjax_script
+from ankiforge.utils.anki_renderer import get_mathjax_script
 from ankiforge.utils.paths import get_app_data_dir
 
 
@@ -103,7 +115,6 @@ class ParserWorker(QThread):
     def is_cancelled(self) -> bool:
         return self._is_cancelled
 
-
     def run(self):
         try:
             parser = DocumentParser()
@@ -117,7 +128,7 @@ class ParserWorker(QThread):
             else:
                 title = pathlib.Path(self.file_path).stem
             title = title[:50]
-            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit,check_cancel=self.is_cancelled)
+            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit, check_cancel=self.is_cancelled)
             if not self._is_cancelled:
                 self.finished_signal.emit(title, content)
         except InterruptedError as e:
@@ -130,6 +141,11 @@ class ParserWorker(QThread):
 class DocumentsTab(QWidget):
     def __init__(self) -> None:
         super().__init__()
+        self.worker: ParserWorker | None = None
+        self.shortcut_insert_split: QShortcut | None = None
+        self.shortcut_backspace: QShortcut | None = None
+        self.shortcut_delete: QShortcut | None = None
+        self.shortcut_save: QShortcut | None = None
         self.current_folder_id_for_import = None
         self.current_doc_id_editing = None
 
@@ -142,15 +158,15 @@ class DocumentsTab(QWidget):
         header_layout.addWidget(title)
         header_layout.addStretch()
 
-        self.btn_import = ActionButton('fa5s.file-import', " Analyser un PDF/TXT (Marker)")
+        self.btn_import = ActionButton("fa5s.file-import", " Analyser un PDF/TXT (Marker)")
         self.btn_import.clicked.connect(self.import_document)
         header_layout.addWidget(self.btn_import)
 
-        self.btn_import_web = ActionButton('fa5s.globe', " Depuis le Web (URL)")
+        self.btn_import_web = ActionButton("fa5s.globe", " Depuis le Web (URL)")
         self.btn_import_web.clicked.connect(self.import_web_url)
         header_layout.addWidget(self.btn_import_web)
 
-        self.btn_cancel_import = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler l'analyse")
+        self.btn_cancel_import = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler l'analyse")
         self.btn_cancel_import.clicked.connect(self.cancel_import)
         self.btn_cancel_import.hide()
         header_layout.addWidget(self.btn_cancel_import)
@@ -168,19 +184,17 @@ class DocumentsTab(QWidget):
         left_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_explorateur = QLabel("EXPLORATEUR DE DOCUMENTS")
-        lbl_explorateur.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_explorateur.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         left_layout.addWidget(lbl_explorateur)
 
         toolbar = QHBoxLayout()
-        self.btn_new_folder = ActionButton('fa5s.folder-plus', " Dossier")
+        self.btn_new_folder = ActionButton("fa5s.folder-plus", " Dossier")
         self.btn_new_folder.clicked.connect(self.create_folder)
 
-        self.btn_new_doc = ActionButton('fa5s.file-medical', " Doc")
+        self.btn_new_doc = ActionButton("fa5s.file-medical", " Doc")
         self.btn_new_doc.clicked.connect(self.create_manual_document)
 
-
-        self.btn_delete = DangerButton(qta.icon('fa5s.trash', color='white'), "")
+        self.btn_delete = DangerButton(qta.icon("fa5s.trash", color="white"), "")
         self.btn_delete.setToolTip("Supprimer (Suppr)")
         self.btn_delete.clicked.connect(self.delete_item)
 
@@ -213,22 +227,21 @@ class DocumentsTab(QWidget):
 
         editor_toolbar = QHBoxLayout()
         self.lbl_doc_title = QLabel("AUCUN DOCUMENT SÉLECTIONNÉ")
-        self.lbl_doc_title.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
+        self.lbl_doc_title.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
         editor_toolbar.addWidget(self.lbl_doc_title)
         editor_toolbar.addStretch()
 
-        self.btn_insert_split = ActionButton('fa5s.cut', " Insérer Coupure (Ctrl+D)")
+        self.btn_insert_split = ActionButton("fa5s.cut", " Insérer Coupure (Ctrl+D)")
         self.btn_insert_split.clicked.connect(self.insert_split_tag)
         self.btn_insert_split.setEnabled(False)
         editor_toolbar.addWidget(self.btn_insert_split)
 
-        self.btn_split_doc = ActionButton('fa5s.cut', " Scinder aux balises [SPLIT]")
+        self.btn_split_doc = ActionButton("fa5s.cut", " Scinder aux balises [SPLIT]")
         self.btn_split_doc.clicked.connect(self.split_document_multiple)
         self.btn_split_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_split_doc)
 
-        self.btn_save_doc = PrimaryButton(qta.icon('fa5s.save', color='white'), " Sauvegarder (Ctrl+S)")
+        self.btn_save_doc = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder (Ctrl+S)")
         self.btn_save_doc.clicked.connect(self.save_document_edits)
         self.btn_save_doc.setEnabled(False)
         editor_toolbar.addWidget(self.btn_save_doc)
@@ -302,7 +315,8 @@ class DocumentsTab(QWidget):
     @Slot()
     def insert_split_tag(self) -> None:
         """Insère la balise de découpage à l'emplacement du curseur."""
-        if not self.current_doc_id_editing: return
+        if not self.current_doc_id_editing:
+            return
 
         cursor = self.preview_text.textCursor()
         cursor.insertText("\n\n[SPLIT]\n\n")
@@ -312,7 +326,8 @@ class DocumentsTab(QWidget):
     @Slot()
     def update_live_preview(self) -> None:
         """Met à jour le rendu HTML avec le style visuel de coupure."""
-        if not self.current_doc_id_editing: return
+        if not self.current_doc_id_editing:
+            return
 
         raw_md = self.preview_text.toPlainText()
 
@@ -324,7 +339,7 @@ class DocumentsTab(QWidget):
                 """
         vis_md = raw_md.replace("[SPLIT]", f"\n\n{visual_split_html}\n\n")
 
-        html_content = markdown.markdown(vis_md, extensions=['tables', 'fenced_code'])
+        html_content = markdown.markdown(vis_md, extensions=["tables", "fenced_code"])
 
         # Palette dynamique
         dark = is_dark_mode()
@@ -336,7 +351,7 @@ class DocumentsTab(QWidget):
 
         final_html = f"""
                 <html><head><meta charset="utf-8">
-                {_get_mathjax_script()}
+                {get_mathjax_script()}
                 <style>
                     body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 10px; line-height: 1.6; color: {text_color}; background-color: transparent; margin: 0; }}
                     h1, h2, h3 {{ color: {header_color}; border-bottom: 1px solid {code_border}; padding-bottom: 5px; }}
@@ -357,7 +372,7 @@ class DocumentsTab(QWidget):
                 </body></html>
                 """
 
-        media_dir = get_app_data_dir() / 'media'
+        media_dir = get_app_data_dir() / "media"
         media_dir.mkdir(exist_ok=True)
 
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
@@ -375,7 +390,7 @@ class DocumentsTab(QWidget):
         folders = FolderModel.select().order_by(FolderModel.name)
         for folder in folders:
             folder_item = QTreeWidgetItem(self.tree, [f" {folder.name}"])
-            folder_item.setIcon(0, qta.icon('fa5s.folder', color='#FFC107'))
+            folder_item.setIcon(0, qta.icon("fa5s.folder", color="#FFC107"))
             folder_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
             # Standard Qt6 : Qt.ItemFlag
             folder_item.setFlags(folder_item.flags() | Qt.ItemFlag.ItemIsDropEnabled)
@@ -383,19 +398,19 @@ class DocumentsTab(QWidget):
             docs = DocumentModel.select().where(DocumentModel.folder == folder).order_by(DocumentModel.title)
             for doc in docs:
                 doc_item = QTreeWidgetItem(folder_item, [f" {doc.title}"])
-                doc_item.setIcon(0, qta.icon('fa5s.file-alt', color='#90CAF9'))
+                doc_item.setIcon(0, qta.icon("fa5s.file-alt", color="#90CAF9"))
                 doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
                 doc_item.setFlags((doc_item.flags() | Qt.ItemFlag.ItemIsDragEnabled) & ~Qt.ItemFlag.ItemIsDropEnabled)
 
         orphan_docs = DocumentModel.select().where(DocumentModel.folder.is_null()).order_by(DocumentModel.title)
         orphan_root = QTreeWidgetItem(self.tree, [" Non classés"])
-        orphan_root.setIcon(0, qta.icon('fa5s.box-open', color='#B0BEC5'))
+        orphan_root.setIcon(0, qta.icon("fa5s.box-open", color="#B0BEC5"))
         orphan_root.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": None})
         orphan_root.setFlags(orphan_root.flags() | Qt.ItemFlag.ItemIsDropEnabled)
 
         for doc in orphan_docs:
             doc_item = QTreeWidgetItem(orphan_root, [f" {doc.title}"])
-            doc_item.setIcon(0, qta.icon('fa5s.file-alt', color='#90CAF9'))
+            doc_item.setIcon(0, qta.icon("fa5s.file-alt", color="#90CAF9"))
             doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
             doc_item.setFlags((doc_item.flags() | Qt.ItemFlag.ItemIsDragEnabled) & ~Qt.ItemFlag.ItemIsDropEnabled)
 
@@ -424,7 +439,8 @@ class DocumentsTab(QWidget):
     @Slot()
     def create_manual_document(self) -> None:
         name, ok = QInputDialog.getText(self, "Nouveau Document", "Titre du document :")
-        if not ok or not name.strip(): return
+        if not ok or not name.strip():
+            return
 
         selected_items = self.tree.selectedItems()
         target_folder = None
@@ -439,7 +455,8 @@ class DocumentsTab(QWidget):
 
     @Slot()
     def save_document_edits(self) -> None:
-        if not self.current_doc_id_editing or not self.btn_save_doc.isEnabled(): return
+        if not self.current_doc_id_editing or not self.btn_save_doc.isEnabled():
+            return
         try:
             with db.atomic():
                 doc = DocumentModel.get_by_id(self.current_doc_id_editing)
@@ -447,9 +464,10 @@ class DocumentsTab(QWidget):
                 doc.save()
             self.btn_save_doc.setEnabled(False)
             self.btn_save_doc.setText(" Sauvegardé !")
-            self.btn_save_doc.setIcon(qta.icon('fa5s.check', color='white'))
+            self.btn_save_doc.setIcon(qta.icon("fa5s.check", color="white"))
 
             from PySide6.QtCore import QTimer
+
             QTimer.singleShot(1500, self._reset_save_btn)
         except Exception as e:
             QMessageBox.critical(self, "Erreur BDD", str(e))
@@ -457,14 +475,16 @@ class DocumentsTab(QWidget):
     @Slot()
     def _reset_save_btn(self):
         self.btn_save_doc.setText(" Sauvegarder (Ctrl+S)")
-        self.btn_save_doc.setIcon(qta.icon('fa5s.save', color='white'))
+        self.btn_save_doc.setIcon(qta.icon("fa5s.save", color="white"))
 
     @Slot()
     def delete_item(self) -> None:
         selected_items = self.tree.selectedItems()
-        if not selected_items: return
+        if not selected_items:
+            return
         data = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
-        if not data: return
+        if not data:
+            return
 
         item_type = data.get("type")
         item_id = data.get("id")
@@ -475,9 +495,12 @@ class DocumentsTab(QWidget):
                 return
             folder = FolderModel.get_by_id(item_id)
             # Standard Qt6 : QMessageBox.StandardButton
-            reply = QMessageBox.question(self, "Confirmation",
-                                         f"Supprimer le dossier '{folder.name}' et TOUS ses documents ?",
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = QMessageBox.question(
+                self,
+                "Confirmation",
+                f"Supprimer le dossier '{folder.name}' et TOUS ses documents ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 try:
                     with db.atomic():
@@ -489,8 +512,12 @@ class DocumentsTab(QWidget):
 
         elif item_type == "doc":
             doc = DocumentModel.get_by_id(item_id)
-            reply = QMessageBox.question(self, "Confirmation", f"Supprimer le document '{doc.title}' ?",
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = QMessageBox.question(
+                self,
+                "Confirmation",
+                f"Supprimer le document '{doc.title}' ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 with db.atomic():
                     doc.delete_instance()
@@ -509,7 +536,8 @@ class DocumentsTab(QWidget):
     @Slot(QTreeWidgetItem, int)
     def on_item_selected(self, item: QTreeWidgetItem, column: int) -> None:
         data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not data: return
+        if not data:
+            return
 
         if data.get("type") == "doc":
             doc_id = data.get("id")
@@ -546,7 +574,8 @@ class DocumentsTab(QWidget):
                 self.current_folder_id_for_import = data.get("id")
 
         path, _ = QFileDialog.getOpenFileName(self, "Importer un cours", "", "Documents (*.pdf *.txt *.md)")
-        if not path: return
+        if not path:
+            return
 
         self.btn_import.hide()
         self.btn_cancel_import.show()
@@ -567,7 +596,7 @@ class DocumentsTab(QWidget):
 
     @Slot()
     def cancel_import(self):
-        if hasattr(self, 'worker') and self.worker.isRunning():
+        if self.worker is not None and self.worker.isRunning():
             self.worker.cancel()
             self.btn_cancel_import.setEnabled(False)
             self.btn_cancel_import.setText(" Arrêt de l'IA...")
@@ -651,11 +680,7 @@ class DocumentsTab(QWidget):
                 for i in range(1, len(parts)):
                     content_part = parts[i].strip()
                     if len(content_part) > 0:
-                        DocumentModel.create(
-                            title=f"{base_title} (Partie {i + 1})",
-                            content=content_part,
-                            folder=original_doc.folder
-                        )
+                        DocumentModel.create(title=f"{base_title} (Partie {i + 1})", content=content_part, folder=original_doc.folder)
 
             self.load_tree()
             self.preview_text.setPlainText(original_doc.content)
@@ -667,13 +692,15 @@ class DocumentsTab(QWidget):
     def jump_to_document(self, doc_id: int) -> None:
         """Déplie l'arbre et sélectionne le document demandé."""
         from PySide6.QtWidgets import QTreeWidgetItemIterator
+
         iterator = QTreeWidgetItemIterator(self.tree)
         while iterator.value():
             item = iterator.value()
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if data and data.get("type") == "doc" and data.get("id") == doc_id:
                 parent = item.parent()
-                if parent: parent.setExpanded(True)
+                if parent:
+                    parent.setExpanded(True)
                 self.tree.setCurrentItem(item)
                 self.on_item_selected(item, 0)
                 return

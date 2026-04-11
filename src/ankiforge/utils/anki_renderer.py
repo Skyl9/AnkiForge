@@ -17,7 +17,7 @@ def get_max_cloze_index(fields_dict: dict) -> int:
 
 
 def _is_empty(html_str: str) -> bool:
-    clean_text = re.sub(r'<[^>]+>', '', str(html_str)).replace('&nbsp;', '').strip()
+    clean_text = re.sub(r"<[^>]+>", "", str(html_str)).replace("&nbsp;", "").strip()
     return len(clean_text) == 0
 
 
@@ -77,7 +77,7 @@ def _process_standard_fields(html: str, safe_fields: dict[str, str]) -> str:
         html = html.replace(f"{{{{{field}}}}}", val)
         html = html.replace(
             f"{{{{type:{field}}}}}",
-            f"<br><input type='text' placeholder='{field}' disabled style='width:100%; padding:5px;'><br>"
+            f"<br><input type='text' placeholder='{field}' disabled style='width:100%; padding:5px;'><br>",
         )
     return html
 
@@ -92,7 +92,7 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
     return html.replace("{{FrontSide}}", front_rendered)
 
 
-def _get_mathjax_script() -> str:
+def get_mathjax_script() -> str:
     return r"""
     <script>
         window.MathJax = {
@@ -109,8 +109,13 @@ def _get_mathjax_script() -> str:
 
 
 def render_anki_card(
-        raw_html: str, css: str, fields_dict: AnkiFields, is_recto: bool = True,
-        front_html: str = "", is_dark_mode: bool = False, template_index: int = 0
+    raw_html: str,
+    css: str,
+    fields_dict: AnkiFields,
+    is_recto: bool = True,
+    front_html: str = "",
+    is_dark_mode: bool = False,
+    template_index: int = 0,
 ) -> str:
     safe_fields = _sanitize_fields(fields_dict)
 
@@ -127,7 +132,7 @@ def render_anki_card(
             <html>
             <head>
                 <meta charset="utf-8">
-                {_get_mathjax_script()}
+                {get_mathjax_script()}
                 <style>
                     body {{ background-color: transparent; margin: 0; padding: 15px; }}
                     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
