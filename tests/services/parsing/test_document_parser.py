@@ -1,10 +1,8 @@
-import subprocess
-import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
 import docx
+import pytest
 from pptx import Presentation
 
 from ankiforge.services.parsing.document_parser import DocumentParser
@@ -48,16 +46,17 @@ def test_parse_text_file(tmp_path):
 # TESTS BUREAUTIQUE (DOCX / PPTX)
 # ==========================================
 
+
 def test_parse_docx_success(tmp_path):
     """Test 4: Vérifie l'extraction d'un Word et la traduction des styles en Markdown."""
     fake_docx_path = tmp_path / "test_cours.docx"
 
     # Création d'un vrai document Word en mémoire
     doc = docx.Document()
-    doc.add_heading('Le Théorème de Pythagore', level=1)
-    doc.add_paragraph('Voici le contenu du théorème.')
-    doc.add_heading('Démonstration', level=2)
-    doc.save(fake_docx_path)
+    doc.add_heading("Le Théorème de Pythagore", level=1)
+    doc.add_paragraph("Voici le contenu du théorème.")
+    doc.add_heading("Démonstration", level=2)
+    doc.save(str(fake_docx_path))
 
     parser = DocumentParser()
     result = parser.parse_document(str(fake_docx_path))
@@ -84,7 +83,7 @@ def test_parse_pptx_success(tmp_path):
     slide2 = prs.slides.add_slide(prs.slide_layouts[0])
     slide2.shapes.title.text = "Titre Slide 2"
 
-    prs.save(fake_pptx_path)
+    prs.save(str(fake_pptx_path))
 
     parser = DocumentParser()
     result = parser.parse_document(str(fake_pptx_path))
@@ -98,7 +97,7 @@ def test_parse_pptx_success(tmp_path):
     assert "Titre Slide 2" in result
 
 
-@patch('ankiforge.services.parsing.document_parser.docx', None)
+@patch("ankiforge.services.parsing.document_parser.docx", None)
 def test_parse_docx_missing_lib(tmp_path):
     """Test 6: Si l'import de python-docx échoue, on doit lever une erreur claire."""
     fake_docx = tmp_path / "test.docx"
@@ -115,8 +114,9 @@ def test_parse_docx_missing_lib(tmp_path):
 # TESTS MARKER (PDF)
 # ==========================================
 
-@patch('ankiforge.services.parsing.document_parser.MediaManager')
-@patch('subprocess.Popen')
+
+@patch("ankiforge.services.parsing.document_parser.MediaManager")
+@patch("subprocess.Popen")
 def test_parse_pdf_with_marker_success(mock_popen, MockMediaManager, tmp_path):
     """Test 7: Simule l'extraction d'un PDF avec Marker."""
     fake_pdf = tmp_path / "physique.pdf"
@@ -149,7 +149,7 @@ def test_parse_pdf_with_marker_success(mock_popen, MockMediaManager, tmp_path):
     mock_callback.assert_any_call("Loading AI...")
 
 
-@patch('subprocess.Popen')
+@patch("subprocess.Popen")
 def test_parse_pdf_marker_crash(mock_popen, tmp_path):
     """Test 8: Vérifie ce qui se passe si l'IA plante."""
     fake_pdf = tmp_path / "crash.pdf"
@@ -171,7 +171,7 @@ def test_parse_pdf_marker_crash(mock_popen, tmp_path):
     assert "Marker a échoué avec le code erreur 1" in str(exc_info.value)
 
 
-@patch('subprocess.Popen')
+@patch("subprocess.Popen")
 def test_parse_pdf_no_md_generated(mock_popen, tmp_path):
     """Test 9: L'IA dit qu'elle a fini, mais le .md n'est pas là !"""
     fake_pdf = tmp_path / "vide.pdf"
@@ -193,7 +193,7 @@ def test_parse_pdf_no_md_generated(mock_popen, tmp_path):
     assert "Marker n'a pas généré de fichier .md" in str(exc_info.value)
 
 
-@patch('subprocess.Popen')
+@patch("subprocess.Popen")
 def test_parse_pdf_marker_not_installed(mock_popen, tmp_path):
     """Test 10: Si Marker n'est pas sur le PC."""
     fake_pdf = tmp_path / "no_marker.pdf"
