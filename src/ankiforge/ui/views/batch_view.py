@@ -1,23 +1,50 @@
+# ruff: noqa: E501
 import json
 import os
 import re
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtGui import QShortcut, QKeySequence, QFont
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QComboBox, QSplitter, QTreeWidget,
-                               QTreeWidgetItem, QAbstractItemView, QProgressBar,
-                               QTextEdit, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QGridLayout,
-                               QSizePolicy)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QComboBox,
+    QSplitter,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QAbstractItemView,
+    QProgressBar,
+    QTextEdit,
+    QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QFrame,
+    QGridLayout,
+    QSizePolicy,
+    QPushButton,
+)
 from jinja2 import Template
 
-from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, PipelineModel, \
-    PipelineStepModel, \
-    NoteVersionModel, DocumentModel, FolderModel, LLMConfigModel
-from ankiforge.services.ai.base import MockProvider
+from ankiforge.database.models import (
+    db,
+    DeckModel,
+    NoteTypeModel,
+    NoteModel,
+    CardModel,
+    PipelineModel,
+    PipelineStepModel,
+    NoteVersionModel,
+    DocumentModel,
+    FolderModel,
+    LLMConfigModel,
+)
+from ankiforge.services.ai.base import MockProvider, LLMProvider
 from ankiforge.services.ai.flexible_service import GroqProvider, OllamaProvider, OpenAICompatibleProvider
 from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import PRICING_1M_USD
@@ -28,6 +55,7 @@ from ankiforge.utils.anki_renderer import get_max_cloze_index
 
 class BatchWorker(QThread):
     """Thread de traitement par lots. Découpe les documents et exécute l'IA."""
+
     progress_val = Signal(int)
     progress_text = Signal(str)
     log = Signal(str)
@@ -45,7 +73,8 @@ class BatchWorker(QThread):
         """Lève le drapeau d'annulation"""
         self._is_cancelled = True
 
-    def _clean_json(self, raw_text: str) -> str:
+    @staticmethod
+    def _clean_json(raw_text: str) -> str:
         clean = raw_text.strip()
         if clean.startswith("```json"):
             clean = clean[7:-3].strip()
@@ -62,7 +91,7 @@ class BatchWorker(QThread):
 
         if strategy == "Sémantique (Titres)":
             # On cherche les titres Markdown (# Titre ou ## Titre)
-            splits = [m.start() for m in re.finditer(r'(^|\n)(#{1,3})\s', text)]
+            splits = [m.start() for m in re.finditer(r"(^|\n)(#{1,3})\s", text)]
 
             # Si le document n'a pas de titres, on bascule sur le Classique
             if not splits or len(splits) == 1:
@@ -70,7 +99,7 @@ class BatchWorker(QThread):
 
             last_idx = 0
             for i in range(1, len(splits)):
-                part = text[last_idx:splits[i]].strip()
+                part = text[last_idx : splits[i]].strip()
                 if len(part) > 50:  # On ignore les morceaux vides
                     chunks.append(part)
                 last_idx = splits[i]
@@ -99,7 +128,8 @@ class BatchWorker(QThread):
                 chunks.append(text[start:split_idx].strip())
                 # On recule pour créer le chevauchement !
                 start = split_idx - overlap
-                if start < 0: start = 0
+                if start < 0:
+                    start = 0
 
             return chunks
 
@@ -111,8 +141,10 @@ class BatchWorker(QThread):
                     break
 
                 split_idx = temp_text.rfind("\n\n", 0, max_chars)
-                if split_idx == -1: split_idx = temp_text.rfind(". ", 0, max_chars)
-                if split_idx == -1: split_idx = max_chars
+                if split_idx == -1:
+                    split_idx = temp_text.rfind(". ", 0, max_chars)
+                if split_idx == -1:
+                    split_idx = max_chars
 
                 chunks.append(temp_text[:split_idx].strip())
                 temp_text = temp_text[split_idx:].strip()
@@ -133,7 +165,6 @@ class BatchWorker(QThread):
                     self.cancelled.emit()
                     return
 
-
                 doc = DocumentModel.get_by_id(task["doc_id"])
                 deck = DeckModel.get_by_id(task["deck_id"])
                 note_type = NoteTypeModel.get_by_id(task["model_id"])
@@ -144,7 +175,7 @@ class BatchWorker(QThread):
 
                 llm_config = LLMConfigModel.get_by_id(task["llm_id"])
                 max_tokens = llm_config.context_limit
-
+                active_provider: LLMProvider
                 p_name = llm_config.provider.lower()
                 if p_name == "ollama":
                     active_provider = OllamaProvider(model_name=llm_config.model_id)
@@ -156,22 +187,21 @@ class BatchWorker(QThread):
                     active_provider = OpenAICompatibleProvider(
                         base_url="https://api.openai.com/v1",
                         model_name=llm_config.model_id,
-                        api_key=os.environ.get("OPENAI_API_KEY", "")
+                        api_key=os.environ.get("OPENAI_API_KEY", ""),
                     )
                 else:
                     active_provider = MockProvider()
 
                 fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
                 fields_str = '", "'.join(fields)
-                first_field = fields[0] if len(fields) > 0 else 'Field1'
-                second_field = fields[1] if len(fields) > 1 else 'Field2'
+                first_field = fields[0] if len(fields) > 0 else "Field1"
+                second_field = fields[1] if len(fields) > 1 else "Field2"
                 templates = json.loads(note_type.templates) if note_type.templates else []
 
                 optimal_max_chars = int((max_tokens * 0.5) * 4)
 
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
-                self.log.emit(
-                    f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
+                self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
                 # PARTITIONNEMENT DU DOCUMENT
                 chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 self.log.emit(f"✂️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
@@ -190,7 +220,7 @@ class BatchWorker(QThread):
                     cleaned_output = ""
                     chunk_failed = False
 
-                    for step_idx, step in enumerate(steps, 1):
+                    for _, step in enumerate(steps, 1):
                         if self._is_cancelled:
                             self.log.emit("Opération annulée par l'utilisateur")
                             self.cancelled.emit()
@@ -199,13 +229,10 @@ class BatchWorker(QThread):
                         self.log.emit(f"🤖 Agent '{agent.name}' en action...")
 
                         jinja_template = Template(agent.system_prompt)
-                        system_prompt = jinja_template.render(
-                            fields_str=fields_str, first_field=first_field, second_field=second_field
-                        )
+                        system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
 
                         try:
-                            raw_response = active_provider.generate(system_prompt=system_prompt,
-                                                                     user_prompt=current_input)
+                            raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=current_input)
                             cleaned_output = self._clean_json(raw_response)
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"
                         except Exception as e:
@@ -224,16 +251,19 @@ class BatchWorker(QThread):
                             with db.atomic():
                                 for note_data in notes_to_create:
                                     note = NoteModel.create(
-                                        guid=str(uuid.uuid4())[:10], note_type=note_type,
-                                        tags=json.dumps(["AnkiForge_Batch"]), status="pending"
+                                        guid=str(uuid.uuid4())[:10],
+                                        note_type=note_type,
+                                        tags=json.dumps(["AnkiForge_Batch"]),
+                                        status="pending",
                                     )
                                     NoteVersionModel.create(
-                                        note=note, version_number=1, content=json.dumps(note_data, ensure_ascii=False),
-                                        source="ai_batch", is_active=True
+                                        note=note,
+                                        version_number=1,
+                                        content=json.dumps(note_data, ensure_ascii=False),
+                                        source="ai_batch",
+                                        is_active=True,
                                     )
-                                    is_cloze = any(
-                                        "{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in
-                                        templates)
+                                    is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
                                     if is_cloze:
                                         max_cloze = get_max_cloze_index(note_data)
@@ -241,13 +271,13 @@ class BatchWorker(QThread):
                                         for i in range(num_cards):
                                             CardModel.create(note=note, deck=deck, template_index=i)
                                     else:
-                                        for idx, tmpl in enumerate(templates):
+                                        for idx, _ in enumerate(templates):
                                             CardModel.create(note=note, deck=deck, template_index=idx)
 
                             doc_success_notes += len(notes_to_create)
                             self.log.emit(f"✅ {len(notes_to_create)} cartes extraites.")
                     except json.JSONDecodeError:
-                        self.log.emit(f"❌ ERREUR JSON : Format invalide.")
+                        self.log.emit("❌ ERREUR JSON : Format invalide.")
 
                 if doc_success_notes > 0:
                     success_count += 1
@@ -268,9 +298,14 @@ class BatchWorker(QThread):
 class BatchTab(QWidget):
     def __init__(self, ai_manager: Any) -> None:
         super().__init__()
+        self.worker: BatchWorker | None = None
         self.ai_manager = ai_manager
-        self.chunk_strategies = ["Sémantique (Titres)", "Chevauchement (Overlap)", "Classique",
-                                 "Aucun (Document entier)"]
+        self.chunk_strategies = [
+            "Sémantique (Titres)",
+            "Chevauchement (Overlap)",
+            "Classique",
+            "Aucun (Document entier)",
+        ]
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -304,8 +339,7 @@ class BatchTab(QWidget):
         source_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_source = QLabel("1. SOURCE (COURS ET DOSSIERS)")
-        lbl_source.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_source.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         source_layout.addWidget(lbl_source)
 
         self.tree_source = QTreeWidget()
@@ -315,7 +349,7 @@ class BatchTab(QWidget):
         self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         source_layout.addWidget(self.tree_source)
 
-        self.btn_add_to_queue = ActionButton('fa5s.arrow-right', " Ajouter à la file d'attente")
+        self.btn_add_to_queue = ActionButton("fa5s.arrow-right", " Ajouter à la file d'attente")
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         source_layout.addWidget(self.btn_add_to_queue)
 
@@ -333,8 +367,7 @@ class BatchTab(QWidget):
         queue_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_config = QLabel("CONFIGURATION PAR DÉFAUT")
-        lbl_config.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_config.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         queue_layout.addWidget(lbl_config)
 
         default_params_layout = QGridLayout()
@@ -366,16 +399,14 @@ class BatchTab(QWidget):
         default_params_layout.addWidget(self.default_chunking, 1, 4)
 
         lbl_queue = QLabel("2. FILE D'ATTENTE")
-        lbl_queue.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
+        lbl_queue.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
         queue_layout.addWidget(lbl_queue)
 
         self.table_queue = QTableWidget()
         self.table_queue.setFrameShape(QFrame.Shape.NoFrame)
         self.table_queue.setColumnCount(7)
         # 🐛 CORRECTION DU BUG : Virgule manquante entre Moteur IA et Pipeline IA !
-        self.table_queue.setHorizontalHeaderLabels(
-            ["Document", "Paquet", "Modèle", "Moteur IA", "Pipeline IA", "Découpage", "Action"])
+        self.table_queue.setHorizontalHeaderLabels(["Document", "Paquet", "Modèle", "Moteur IA", "Pipeline IA", "Découpage", "Action"])
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
@@ -395,8 +426,7 @@ class BatchTab(QWidget):
         console_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_console = QLabel("CONSOLE DE SUIVI")
-        lbl_console.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_console.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         console_layout.addWidget(lbl_console)
 
         self.console_log = QTextEdit()
@@ -410,7 +440,8 @@ class BatchTab(QWidget):
 
         self.lbl_estimate = QLabel("📊 Estimation : 0 tokens | 💰 Coût : Gratuit")
         self.lbl_estimate.setStyleSheet(
-            "font-weight: bold; color: palette(highlight); font-size: 13px; margin-top: 10px; margin-bottom: 10px; padding: 10px; border: 1px dashed palette(highlight); border-radius: 6px;")
+            "font-weight: bold; color: palette(highlight); font-size: 13px; margin-top: 10px; margin-bottom: 10px; padding: 10px; border: 1px dashed palette(highlight); border-radius: 6px;"
+        )
         self.lbl_estimate.setAlignment(Qt.AlignmentFlag.AlignCenter)
         console_layout.addWidget(self.lbl_estimate)
 
@@ -436,16 +467,15 @@ class BatchTab(QWidget):
         bottom_layout.addWidget(self.progress_bar)
 
         self.lbl_status = QLabel("Prêt.")
-        self.lbl_status.setStyleSheet(
-            "color: palette(placeholder-text); font-size: 12px; margin-left: 10px; margin-right: 10px;")
+        self.lbl_status.setStyleSheet("color: palette(placeholder-text); font-size: 12px; margin-left: 10px; margin-right: 10px;")
         bottom_layout.addWidget(self.lbl_status)
 
-        self.btn_start = PrimaryButton(qta.icon('fa5s.rocket', color='white'), " Démarrer l'Usine")
+        self.btn_start = PrimaryButton(qta.icon("fa5s.rocket", color="white"), " Démarrer l'Usine")
         self.btn_start.clicked.connect(self.start_batch)
         self.btn_start.setMinimumWidth(200)
         bottom_layout.addWidget(self.btn_start)
 
-        self.btn_cancel = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler le traitement")
+        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler le traitement")
         self.btn_cancel.clicked.connect(self.cancel_batch)
         self.btn_cancel.setMinimumWidth(200)
         self.btn_cancel.hide()
@@ -486,21 +516,21 @@ class BatchTab(QWidget):
         folders = FolderModel.select().order_by(FolderModel.name)
         for folder in folders:
             folder_item = QTreeWidgetItem(self.tree_source, [f" {folder.name}"])
-            folder_item.setIcon(0, qta.icon('fa5s.folder', color='#FFC107'))
+            folder_item.setIcon(0, qta.icon("fa5s.folder", color="#FFC107"))
             folder_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
 
             docs = DocumentModel.select().where(DocumentModel.folder == folder).order_by(DocumentModel.title)
             for doc in docs:
                 doc_item = QTreeWidgetItem(folder_item, [f" {doc.title}"])
-                doc_item.setIcon(0, qta.icon('fa5s.file-alt', color='#90CAF9'))
+                doc_item.setIcon(0, qta.icon("fa5s.file-alt", color="#90CAF9"))
                 doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
 
         orphan_docs = DocumentModel.select().where(DocumentModel.folder.is_null()).order_by(DocumentModel.title)
         orphan_root = QTreeWidgetItem(self.tree_source, [" Non classés"])
-        orphan_root.setIcon(0, qta.icon('fa5s.box-open', color='#B0BEC5'))
+        orphan_root.setIcon(0, qta.icon("fa5s.box-open", color="#B0BEC5"))
         for doc in orphan_docs:
             doc_item = QTreeWidgetItem(orphan_root, [f" {doc.title}"])
-            doc_item.setIcon(0, qta.icon('fa5s.file-alt', color='#90CAF9'))
+            doc_item.setIcon(0, qta.icon("fa5s.file-alt", color="#90CAF9"))
             doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
 
         self.tree_source.expandAll()
@@ -526,18 +556,21 @@ class BatchTab(QWidget):
     @Slot()
     def add_selected_to_queue(self) -> None:
         selected_items = self.tree_source.selectedItems()
-        if not selected_items: return
+        if not selected_items:
+            return
 
         docs_to_add = []
         for item in selected_items:
-            data = item.data(0, Qt.UserRole)
-            if not data: continue
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if not data:
+                continue
 
             if data.get("type") == "doc":
                 docs_to_add.append(data)
             elif data.get("type") == "folder" and data.get("id") is not None:
                 folder_docs = DocumentModel.select().where(DocumentModel.folder_id == data["id"])
-                for d in folder_docs: docs_to_add.append({"id": d.id, "title": d.title})
+                for d in folder_docs:
+                    docs_to_add.append({"id": d.id, "title": d.title})
 
         for doc_data in docs_to_add:
             self._add_row_to_queue(doc_data["id"], doc_data["title"])
@@ -550,20 +583,20 @@ class BatchTab(QWidget):
 
         # 1. Document
         item_doc = QTableWidgetItem(f"📄 {title}")
-        item_doc.setData(Qt.UserRole, doc_id)
+        item_doc.setData(Qt.ItemDataRole.UserRole, doc_id)
         self.table_queue.setItem(row_idx, 0, item_doc)
 
         # 2. Paquet
         cb_deck = QComboBox()
-        for i in range(self.default_deck.count()): cb_deck.addItem(self.default_deck.itemText(i),
-                                                                   self.default_deck.itemData(i))
+        for i in range(self.default_deck.count()):
+            cb_deck.addItem(self.default_deck.itemText(i), self.default_deck.itemData(i))
         cb_deck.setCurrentIndex(self.default_deck.currentIndex())
         self.table_queue.setCellWidget(row_idx, 1, cb_deck)
 
         # 3. Modèle de carte
         cb_model = QComboBox()
-        for i in range(self.default_model.count()): cb_model.addItem(self.default_model.itemText(i),
-                                                                     self.default_model.itemData(i))
+        for i in range(self.default_model.count()):
+            cb_model.addItem(self.default_model.itemText(i), self.default_model.itemData(i))
         cb_model.setCurrentIndex(self.default_model.currentIndex())
         self.table_queue.setCellWidget(row_idx, 2, cb_model)
 
@@ -576,8 +609,8 @@ class BatchTab(QWidget):
 
         # 5. Pipeline
         cb_pipe = QComboBox()
-        for i in range(self.default_pipeline.count()): cb_pipe.addItem(self.default_pipeline.itemText(i),
-                                                                       self.default_pipeline.itemData(i))
+        for i in range(self.default_pipeline.count()):
+            cb_pipe.addItem(self.default_pipeline.itemText(i), self.default_pipeline.itemData(i))
         cb_pipe.setCurrentIndex(self.default_pipeline.currentIndex())
         self.table_queue.setCellWidget(row_idx, 4, cb_pipe)
 
@@ -589,7 +622,7 @@ class BatchTab(QWidget):
 
         # 7. Action
 
-        btn_remove = DangerButton(qta.icon('fa5s.times', color='white'), "")
+        btn_remove = DangerButton(qta.icon("fa5s.times", color="white"), "")
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
         self.table_queue.setCellWidget(row_idx, 6, btn_remove)
 
@@ -603,7 +636,7 @@ class BatchTab(QWidget):
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
         for r in range(row_idx, self.table_queue.rowCount()):
-            btn = self.table_queue.cellWidget(r, 6)
+            btn = cast(QPushButton, self.table_queue.cellWidget(r, 6))
             btn.clicked.disconnect()
             btn.clicked.connect(lambda _, current_r=r: self._remove_row(current_r))
         self._check_ready_state()
@@ -624,28 +657,40 @@ class BatchTab(QWidget):
 
     @Slot()
     def start_batch(self) -> None:
-        if self.table_queue.rowCount() == 0: return
+        if self.table_queue.rowCount() == 0:
+            return
 
         tasks = []
         for row in range(self.table_queue.rowCount()):
-            doc_id = self.table_queue.item(row, 0).data(Qt.UserRole)
-            deck_id = self.table_queue.cellWidget(row, 1).currentData()
-            model_id = self.table_queue.cellWidget(row, 2).currentData()
+            item_doc = self.table_queue.item(row, 0)
+            doc_id = item_doc.data(Qt.ItemDataRole.UserRole) if item_doc is not None else None
 
-            # 🐛 CORRECTION DES BUGS D'INDEX ICI 👇
-            llm_id = self.table_queue.cellWidget(row, 3).currentData()
-            pipe_id = self.table_queue.cellWidget(row, 4).currentData()
-            chunk_strategy = self.table_queue.cellWidget(row, 5).currentText()
+            cb_deck = cast(QComboBox, self.table_queue.cellWidget(row, 1))
+            cb_model = cast(QComboBox, self.table_queue.cellWidget(row, 2))
+            cb_llm = cast(QComboBox, self.table_queue.cellWidget(row, 3))
+            cb_pipe = cast(QComboBox, self.table_queue.cellWidget(row, 4))
+            cb_chunk = cast(QComboBox, self.table_queue.cellWidget(row, 5))
+
+            deck_id = cb_deck.currentData()
+            model_id = cb_model.currentData()
+            llm_id = cb_llm.currentData()
+            pipe_id = cb_pipe.currentData()
+            chunk_strategy = cb_chunk.currentText()
 
             if not deck_id or not model_id or not pipe_id:
                 show_toast(self, f"Configuration incomplète à la ligne {row + 1}.", is_error=True)
                 return
 
-            tasks.append({
-                "doc_id": doc_id, "deck_id": deck_id,
-                "model_id": model_id, "llm_id": llm_id,
-                "pipeline_id": pipe_id, "chunk_strategy": chunk_strategy
-            })
+            tasks.append(
+                {
+                    "doc_id": doc_id,
+                    "deck_id": deck_id,
+                    "model_id": model_id,
+                    "llm_id": llm_id,
+                    "pipeline_id": pipe_id,
+                    "chunk_strategy": chunk_strategy,
+                }
+            )
 
         self.btn_start.hide()
         self.btn_cancel.show()
@@ -671,7 +716,7 @@ class BatchTab(QWidget):
     @Slot()
     def cancel_batch(self) -> None:
         """Demande l'arrêt propre du worker."""
-        if hasattr(self, 'worker') and self.worker.isRunning():
+        if self.worker is not None and self.worker.isRunning():
             self.worker.cancel()
             self.btn_cancel.setEnabled(False)
             self.btn_cancel.setText(" Arrêt en cours...")
@@ -723,10 +768,16 @@ class BatchTab(QWidget):
 
         for row in range(self.table_queue.rowCount()):
             try:
-                doc_id = self.table_queue.item(row, 0).data(Qt.UserRole)
-                llm_id = self.table_queue.cellWidget(row, 3).currentData()
-                pipe_id = self.table_queue.cellWidget(row, 4).currentData()
-                chunk_strategy = self.table_queue.cellWidget(row, 5).currentText()
+                item_doc = self.table_queue.item(row, 0)
+                doc_id = item_doc.data(Qt.ItemDataRole.UserRole) if item_doc is not None else None
+
+                cb_llm = cast(QComboBox, self.table_queue.cellWidget(row, 3))
+                cb_pipe = cast(QComboBox, self.table_queue.cellWidget(row, 4))
+                cb_chunk = cast(QComboBox, self.table_queue.cellWidget(row, 5))
+
+                llm_id = cb_llm.currentData()
+                pipe_id = cb_pipe.currentData()
+                chunk_strategy = cb_chunk.currentText()
 
                 if not doc_id or not llm_id or not pipe_id:
                     continue
@@ -757,22 +808,18 @@ class BatchTab(QWidget):
                 rates = PRICING_1M_USD.get(llm.model_id, (0.0, 0.0))
                 row_cost = (input_tokens / 1_000_000 * rates[0]) + (output_tokens / 1_000_000 * rates[1])
                 total_cost += row_cost
-
-            except Exception:
+            except (AttributeError, TypeError, ValueError):
                 continue
 
         # Mise à jour visuelle
         if total_tokens == 0:
             self.lbl_estimate.setText("📊 Estimation : 0 tokens | 💰 Coût : Gratuit")
             self.lbl_estimate.setStyleSheet(
-                "font-weight: bold; color: palette(placeholder-text); font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed palette(alternate-base); border-radius: 6px;")
+                "font-weight: bold; color: palette(placeholder-text); font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed palette(alternate-base); border-radius: 6px;"
+            )
         elif total_cost > 0.001:
-            self.lbl_estimate.setText(
-                f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût API : ~${total_cost:.3f}".replace(',', ' '))
-            self.lbl_estimate.setStyleSheet(
-                "font-weight: bold; color: #FF9800; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #FF9800; border-radius: 6px;")
+            self.lbl_estimate.setText(f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût API : ~${total_cost:.3f}".replace(",", " "))
+            self.lbl_estimate.setStyleSheet("font-weight: bold; color: #FF9800; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #FF9800; border-radius: 6px;")
         else:
-            self.lbl_estimate.setText(
-                f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût : Gratuit (Local / Free API)".replace(',', ' '))
-            self.lbl_estimate.setStyleSheet(
-                "font-weight: bold; color: #4CAF50; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #4CAF50; border-radius: 6px;")
+            self.lbl_estimate.setText(f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût : Gratuit (Local / Free API)".replace(",", " "))
+            self.lbl_estimate.setStyleSheet("font-weight: bold; color: #4CAF50; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #4CAF50; border-radius: 6px;")
