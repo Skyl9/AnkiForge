@@ -1,6 +1,7 @@
 # src/ui/views/documents_view.py
 import pathlib
 import re
+from urllib.parse import urlparse
 
 import markdown
 import qtawesome as qta
@@ -106,7 +107,16 @@ class ParserWorker(QThread):
     def run(self):
         try:
             parser = DocumentParser()
-            title = pathlib.Path(self.file_path).stem
+            if self.file_path.startswith("http"):
+                parsed_url = urlparse(self.file_path)
+                # On essaie de prendre le dernier mot de l'URL, sinon le nom de domaine
+                raw_title = parsed_url.path.strip("/").split("/")[-1]
+                if not raw_title:
+                    raw_title = parsed_url.netloc
+                title = f"Web - {raw_title}"
+            else:
+                title = pathlib.Path(self.file_path).stem
+            title = title[:50]
             content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit,check_cancel=self.is_cancelled)
             if not self._is_cancelled:
                 self.finished_signal.emit(title, content)
@@ -136,6 +146,10 @@ class DocumentsTab(QWidget):
         self.btn_import.clicked.connect(self.import_document)
         header_layout.addWidget(self.btn_import)
 
+        self.btn_import_web = ActionButton('fa5s.globe', " Depuis le Web (URL)")
+        self.btn_import_web.clicked.connect(self.import_web_url)
+        header_layout.addWidget(self.btn_import_web)
+
         self.btn_cancel_import = DangerButton(qta.icon('fa5s.stop', color='white'), " Annuler l'analyse")
         self.btn_cancel_import.clicked.connect(self.cancel_import)
         self.btn_cancel_import.hide()
@@ -164,6 +178,7 @@ class DocumentsTab(QWidget):
 
         self.btn_new_doc = ActionButton('fa5s.file-medical', " Doc")
         self.btn_new_doc.clicked.connect(self.create_manual_document)
+
 
         self.btn_delete = DangerButton(qta.icon('fa5s.trash', color='white'), "")
         self.btn_delete.setToolTip("Supprimer (Suppr)")
@@ -567,17 +582,34 @@ class DocumentsTab(QWidget):
         self.btn_cancel_import.hide()
         self.btn_cancel_import.setText(" Annuler l'analyse")
         self.btn_import.show()
+        self.btn_import_web.show()
+        self.btn_import_web.setEnabled(True)
         self.btn_import.setEnabled(True)
         self.tree.setEnabled(True)
 
     @Slot(str, str)
-    def _on_parsing_success(self, title: str, content: str) -> None:
+    def _on_parsing_success(self, base_title: str, content: str) -> None:
         self._reset_import_ui()
         folder = FolderModel.get_by_id(self.current_folder_id_for_import) if self.current_folder_id_for_import else None
-        with db.atomic(): DocumentModel.create(title=title, content=content, folder=folder)
-        self.btn_import.setEnabled(True)
-        self.tree.setEnabled(True)
-        self.load_tree()
+        title = base_title
+        counter = 1
+        while DocumentModel.get_or_none(DocumentModel.title == title):
+            title = f"{base_title} ({counter})"
+            counter += 1
+        try:
+            with db.atomic():
+                new_doc = DocumentModel.create(title=title, content=content, folder=folder)
+
+            self.btn_import.setEnabled(True)
+            self.tree.setEnabled(True)
+
+            # 👇 FEEDBACK : On prévient et on affiche immédiatement le résultat !
+            show_toast(self, f"✨ Document '{title}' importé avec succès !")
+            self.load_tree()
+            self.jump_to_document(new_doc.id)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur BDD", f"Impossible de sauvegarder le document :\n{e}")
 
     @Slot(str)
     def _on_parsing_log(self, log_line: str) -> None:
@@ -646,3 +678,40 @@ class DocumentsTab(QWidget):
                 self.on_item_selected(item, 0)
                 return
             iterator += 1
+
+    @Slot()
+    def import_web_url(self) -> None:
+        self.current_folder_id_for_import = None
+        selected_items = self.tree.selectedItems()
+        if selected_items:
+            data = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+            if data and data.get("type") == "folder":
+                self.current_folder_id_for_import = data.get("id")
+
+        # Demander l'URL à l'utilisateur
+        url, ok = QInputDialog.getText(self, "Import Web", "Entrez l'URL de l'article ou du cours :")
+        if not ok or not url.strip():
+            return
+
+        url = url.strip()
+        if not url.startswith("http"):
+            url = "https://" + url
+
+        self.btn_import.hide()
+        self.btn_import_web.hide()
+        self.btn_cancel_import.show()
+        self.btn_cancel_import.setEnabled(True)
+        self.tree.setEnabled(False)
+
+        self.lbl_doc_title.setText("<b>⏳ Aspiration de la page Web en cours...</b>")
+        self.preview_text.blockSignals(True)
+        self.preview_text.setPlainText(f"🤖 Connexion à {url}...\n")
+        self.preview_text.blockSignals(False)
+
+        # On utilise le même worker que pour les PDF !
+        self.worker = ParserWorker(url)
+        self.worker.log_signal.connect(self._on_parsing_log)
+        self.worker.finished_signal.connect(self._on_parsing_success)
+        self.worker.error_signal.connect(self._on_parsing_error)
+        self.worker.cancelled_signal.connect(self._on_parsing_cancelled)
+        self.worker.start()
