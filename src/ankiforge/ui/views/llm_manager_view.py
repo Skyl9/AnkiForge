@@ -2,12 +2,28 @@ import os
 
 import qtawesome as qta
 from PySide6.QtCore import Slot, Qt
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
-                               QComboBox, QMessageBox, QFormLayout, QHBoxLayout,
-                               QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSpinBox,
-                               QSplitter,QFrame,QGraphicsDropShadowEffect,QSizePolicy)
-from dotenv import set_key
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QComboBox,
+    QMessageBox,
+    QFormLayout,
+    QHBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QAbstractItemView,
+    QHeaderView,
+    QSpinBox,
+    QSplitter,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QSizePolicy,
+)
+from dotenv import set_key
+
 from ankiforge.database.models import db, LLMConfigModel
 from ankiforge.services.ai.flexible_service import OllamaProvider
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
@@ -44,8 +60,7 @@ class LLMManagerTab(QWidget):
         api_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_api = QLabel("1. CLÉS D'AUTHENTIFICATION API")
-        lbl_api.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px")
+        lbl_api.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px")
         lbl_api.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         api_layout.addWidget(lbl_api)
 
@@ -78,7 +93,7 @@ class LLMManagerTab(QWidget):
 
         btn_api_layout = QHBoxLayout()
         btn_api_layout.addStretch()
-        self.btn_save_keys = PrimaryButton(qta.icon('fa5s.save', color='white'), " Mettre à jour les clés API")
+        self.btn_save_keys = PrimaryButton(qta.icon("fa5s.save", color="white"), " Mettre à jour les clés API")
         self.btn_save_keys.clicked.connect(self.save_api_keys)
         btn_api_layout.addWidget(self.btn_save_keys)
         btn_api_layout.addStretch()
@@ -99,8 +114,7 @@ class LLMManagerTab(QWidget):
         table_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_table = QLabel("2. CATALOGUE DES MODÈLES")
-        lbl_table.setStyleSheet(
-            "font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
+        lbl_table.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         table_layout.addWidget(lbl_table)
 
         self.table_llms = QTableWidget()
@@ -124,8 +138,7 @@ class LLMManagerTab(QWidget):
         editor_layout.setContentsMargins(15, 15, 15, 15)
 
         self.lbl_edit = QLabel("AJOUTER / MODIFIER UN MODÈLE")
-        self.lbl_edit.setStyleSheet(
-            "font-weight: bold; color: palette(highlight); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
+        self.lbl_edit.setStyleSheet("font-weight: bold; color: palette(highlight); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
         editor_layout.addWidget(self.lbl_edit)
 
         form_editor = QFormLayout()
@@ -150,7 +163,7 @@ class LLMManagerTab(QWidget):
         self.cb_model_id.setEditable(True)
         self.cb_model_id.setPlaceholderText("Ex: gpt-4o")
 
-        self.btn_refresh_ollama = ActionButton('fa5s.sync', "")
+        self.btn_refresh_ollama = ActionButton("fa5s.sync", "")
         self.btn_refresh_ollama.setToolTip("Rafraîchir les modèles locaux")
         self.btn_refresh_ollama.clicked.connect(self.refresh_ollama_models)
         self.btn_refresh_ollama.hide()
@@ -170,14 +183,14 @@ class LLMManagerTab(QWidget):
 
         # Boutons d'action du modèle
         action_layout = QHBoxLayout()
-        self.btn_clear_form = ActionButton('fa5s.plus', " Nouveau")
+        self.btn_clear_form = ActionButton("fa5s.plus", " Nouveau")
         self.btn_clear_form.clicked.connect(self.clear_llm_form)
 
-        self.btn_delete_llm = DangerButton(qta.icon('fa5s.trash', color='white'), " Supprimer")
+        self.btn_delete_llm = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer")
         self.btn_delete_llm.clicked.connect(self.delete_llm_config)
         self.btn_delete_llm.setEnabled(False)
 
-        self.btn_save_llm = PrimaryButton(qta.icon('fa5s.save', color='white'), " Ajouter")
+        self.btn_save_llm = PrimaryButton(qta.icon("fa5s.save", color="white"), " Ajouter")
         self.btn_save_llm.clicked.connect(self.save_llm_config)
 
         action_layout.addWidget(self.btn_clear_form)
@@ -217,15 +230,14 @@ class LLMManagerTab(QWidget):
         self.table_llms.blockSignals(True)
         self.table_llms.setRowCount(0)
 
-        for row_idx, llm in enumerate(
-                LLMConfigModel.select().order_by(LLMConfigModel.provider, LLMConfigModel.display_name)):
+        for row_idx, llm in enumerate(LLMConfigModel.select().order_by(LLMConfigModel.provider, LLMConfigModel.display_name)):
             self.table_llms.insertRow(row_idx)
             item_name = QTableWidgetItem(llm.display_name)
-            item_name.setData(Qt.UserRole, llm.id)
+            item_name.setData(Qt.ItemDataRole.UserRole, llm.id)
             self.table_llms.setItem(row_idx, 0, item_name)
             self.table_llms.setItem(row_idx, 1, QTableWidgetItem(llm.provider))
             self.table_llms.setItem(row_idx, 2, QTableWidgetItem(llm.model_id))
-            self.table_llms.setItem(row_idx, 3, QTableWidgetItem(f"{llm.context_limit:,}".replace(',', ' ')))
+            self.table_llms.setItem(row_idx, 3, QTableWidgetItem(f"{llm.context_limit:,}".replace(",", " ")))
 
         self.table_llms.blockSignals(False)
 
@@ -236,13 +248,12 @@ class LLMManagerTab(QWidget):
             self.clear_llm_form()
             return
 
-        llm_id = selected_items[0].data(Qt.UserRole)
+        llm_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
         llm = LLMConfigModel.get_by_id(llm_id)
 
         self.current_llm_id_editing = llm.id
         self.lbl_edit.setText(f"✏️ MODIFIER LE MODÈLE : {llm.display_name.upper()}")
-        self.lbl_edit.setStyleSheet(
-            "font-weight: bold; color: #FF9800; font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
+        self.lbl_edit.setStyleSheet("font-weight: bold; color: #FF9800; font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
         self.le_display_name.setText(llm.display_name)
         self.cb_provider.setCurrentText(llm.provider)
         self.cb_model_id.setCurrentText(llm.model_id)
@@ -256,8 +267,7 @@ class LLMManagerTab(QWidget):
         self.table_llms.clearSelection()
         self.current_llm_id_editing = None
         self.lbl_edit.setText("AJOUTER UN NOUVEAU MODÈLE")
-        self.lbl_edit.setStyleSheet(
-            "font-weight: bold; color: palette(highlight); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
+        self.lbl_edit.setStyleSheet("font-weight: bold; color: palette(highlight); font-size: 11px; letter-spacing: 1px; margin-bottom: 15px;")
         self.le_display_name.clear()
         self.cb_model_id.clear()
         self.spin_context.setValue(8192)
@@ -312,10 +322,7 @@ class LLMManagerTab(QWidget):
                     llm.save()
                     show_toast(self, "Moteur mis à jour !")
                 else:
-                    LLMConfigModel.create(
-                        display_name=name, provider=provider,
-                        model_id=model_id, context_limit=context
-                    )
+                    LLMConfigModel.create(display_name=name, provider=provider, model_id=model_id, context_limit=context)
                     show_toast(self, "Nouveau moteur ajouté !")
 
             self.load_llms_table()
@@ -329,10 +336,15 @@ class LLMManagerTab(QWidget):
 
     @Slot()
     def delete_llm_config(self) -> None:
-        if not self.current_llm_id_editing: return
+        if not self.current_llm_id_editing:
+            return
 
-        reply = QMessageBox.question(self, "Confirmation", "Supprimer définitivement ce moteur IA de la base ?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            self,
+            "Confirmation",
+            "Supprimer définitivement ce moteur IA de la base ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
@@ -344,7 +356,8 @@ class LLMManagerTab(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Erreur BDD", f"Impossible de supprimer : {e}")
 
-    def _make_bold_label(self, text: str) -> QLabel:
+    @staticmethod
+    def _make_bold_label(text: str) -> QLabel:
         """Utilitaire pour formater les labels des formulaires."""
         lbl = QLabel(text)
         lbl.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
