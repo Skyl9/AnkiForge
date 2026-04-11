@@ -22,11 +22,13 @@ def test_parse_markdown_json_with_text():
     """Test 2: L'IA est bavarde et entoure le JSON de texte et de balises Markdown (très fréquent)."""
 
     raw_response = (
-            """Voici vos flashcards générées avec succès !\n\n"""
-            + MARKDOWN_CODE_BLOCK + """json\n"""
-            + """{\n    "notes": [\n        {"Recto": "M1", "Verso": "M2"}\n    ]\n}\n"""
-            + MARKDOWN_CODE_BLOCK + """\n\n"""
-                                    """N'hésitez pas si vous en voulez d'autres."""
+        """Voici vos flashcards générées avec succès !\n\n"""
+        + MARKDOWN_CODE_BLOCK
+        + """json\n"""
+        + """{\n    "notes": [\n        {"Recto": "M1", "Verso": "M2"}\n    ]\n}\n"""
+        + MARKDOWN_CODE_BLOCK
+        + """\n\n"""
+        """N'hésitez pas si vous en voulez d'autres."""
     )
 
     result = parse_ai_json_response(raw_response)
@@ -38,12 +40,7 @@ def test_parse_markdown_json_with_text():
 
 def test_parse_markdown_without_language_specifier():
     """Test 3: L'IA met la balise de code mais oublie de préciser le mot 'json'."""
-    raw_response = (
-            """\n"""
-            + MARKDOWN_CODE_BLOCK + """\n"""
-            + """{"notes": [{"Test": "OK"}]}\n"""
-            + MARKDOWN_CODE_BLOCK + """\n"""
-    )
+    raw_response = """\n""" + MARKDOWN_CODE_BLOCK + """\n""" + """{"notes": [{"Test": "OK"}]}\n""" + MARKDOWN_CODE_BLOCK + """\n"""
 
     result = parse_ai_json_response(raw_response)
 

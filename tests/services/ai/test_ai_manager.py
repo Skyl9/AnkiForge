@@ -1,8 +1,10 @@
 import os
-import pytest
 from unittest.mock import patch
-from ankiforge.services.ai.flexible_service import AIManager
+
+import pytest
+
 from ankiforge.services.ai.base import MockProvider
+from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.flexible_service import OllamaProvider
 
 
@@ -13,7 +15,7 @@ def clean_env():
         yield
 
 
-@patch('ankiforge.services.ai.flexible_service.get_app_data_dir')
+@patch("ankiforge.services.ai.flexible_service.get_app_data_dir")
 def test_ai_manager_init_creates_env(mock_get_dir, tmp_path, clean_env):
     """Vérifie la création automatique du .env au premier lancement."""
     mock_get_dir.return_value = tmp_path
@@ -26,7 +28,7 @@ def test_ai_manager_init_creates_env(mock_get_dir, tmp_path, clean_env):
     assert isinstance(manager.provider, OllamaProvider)
 
 
-@patch('ankiforge.services.ai.flexible_service.get_app_data_dir')
+@patch("ankiforge.services.ai.flexible_service.get_app_data_dir")
 def test_ai_manager_fallback(mock_get_dir, tmp_path, clean_env):
     """Vérifie le repli sur MockProvider en cas d'erreur de configuration."""
     mock_get_dir.return_value = tmp_path

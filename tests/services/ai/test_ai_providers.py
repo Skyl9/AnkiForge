@@ -1,9 +1,7 @@
-import os
-import pytest
 from unittest.mock import patch, MagicMock
 
 from ankiforge.services.ai.base import MockProvider
-from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider, OllamaProvider, GroqProvider
+from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider, OllamaProvider
 from ankiforge.services.ai.gemini_service import GeminiService
 
 
@@ -14,7 +12,7 @@ def test_mock_provider():
     assert '"notes":' in res
 
 
-@patch('ankiforge.services.ai.flexible_service.OpenAI')
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_success(mock_openai_class):
     """Vérifie la construction de la requête pour les API type OpenAI."""
     mock_client = MagicMock()
@@ -30,10 +28,10 @@ def test_openai_compatible_provider_success(mock_openai_class):
     assert res == '{"reponse": "ok"}'
     mock_client.chat.completions.create.assert_called_once()
     _, kwargs = mock_client.chat.completions.create.call_args
-    assert kwargs['response_format'] == {"type": "json_object"}
+    assert kwargs["response_format"] == {"type": "json_object"}
 
 
-@patch('ankiforge.services.ai.flexible_service.requests.get')
+@patch("ankiforge.services.ai.flexible_service.requests.get")
 def test_ollama_get_available_models(mock_get):
     """Teste la récupération des modèles Ollama locaux."""
     mock_response = MagicMock()
@@ -45,7 +43,7 @@ def test_ollama_get_available_models(mock_get):
     assert "llama3" in models
 
 
-@patch('ankiforge.services.ai.gemini_service.genai.Client')
+@patch("ankiforge.services.ai.gemini_service.genai.Client")
 def test_gemini_service_success(mock_genai_client):
     """Vérifie l'intégration du SDK Google Gemini."""
     mock_client_instance = MagicMock()
