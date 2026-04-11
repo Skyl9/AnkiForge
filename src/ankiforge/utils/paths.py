@@ -8,9 +8,9 @@ APP_NAME = "AnkiForge"
 
 def get_project_root() -> Path:
     """
-        Cherche dynamiquement la racine du projet en remontant l'arborescence
-        jusqu'à trouver 'pyproject.toml'.
-        """
+    Cherche dynamiquement la racine du projet en remontant l'arborescence
+    jusqu'à trouver 'pyproject.toml'.
+    """
     current_path = Path(__file__).resolve().parent
 
     # On remonte les dossiers un par un
@@ -29,7 +29,7 @@ def get_app_data_dir() -> Path:
     Returns:
         Path: Objet Path représentant le dossier de données.
     """
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # 📦 MODE PRODUCTION (App empaquetée via PyInstaller/cx_Freeze)
         # Windows : C:\Users\<User>\AppData\Local\AnkiForge
         # macOS   : ~/Library/Application Support/AnkiForge
