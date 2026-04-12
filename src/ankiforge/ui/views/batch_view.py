@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 import uuid
 from typing import Any, cast
 
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QSizePolicy,
     QPushButton,
+    QCheckBox,
 )
 from jinja2 import Template
 
@@ -52,6 +54,8 @@ from ankiforge.ui.components.components import ActionButton, PrimaryButton, Dang
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.chunker import smart_chunk_text
+from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.vision_utils import prepare_multimodal_payload, strip_image_tags, MD_IMAGE_REGEX, HTML_IMAGE_REGEX
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +109,8 @@ class BatchWorker(QThread):
                 note_type = NoteTypeModel.get_by_id(task["model_id"])
                 pipeline = PipelineModel.get_by_id(task["pipeline_id"])
                 chunk_strategy = task["chunk_strategy"]
+                use_vision = task.get("use_vision", False)
+                media_dir = get_app_data_dir() / "media"
 
                 steps = list(pipeline.steps.order_by(PipelineStepModel.step_order))
 
@@ -171,7 +177,14 @@ class BatchWorker(QThread):
                         system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
 
                         try:
-                            raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=current_input)
+                            # 👇 GESTION DE LA VISION
+                            if use_vision:
+                                payload = prepare_multimodal_payload(current_input, media_dir)
+                                raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=payload)
+                            else:
+                                clean_input = strip_image_tags(current_input)
+                                raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=clean_input)
+
                             cleaned_output = self._clean_json(raw_response)
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"
                         except Exception as e:
@@ -329,12 +342,16 @@ class BatchTab(QWidget):
         self.default_chunking.setMinimumWidth(80)
         self.default_chunking.addItems(self.chunk_strategies)
 
+        self.default_vision = QCheckBox("👁️ Vision")
+        self.default_vision.setChecked(False)
+
         # Ajout des labels en ligne 0
         default_params_layout.addWidget(QLabel("Paquet :"), 0, 0)
         default_params_layout.addWidget(QLabel("Modèle :"), 0, 1)
         default_params_layout.addWidget(QLabel("Moteur :"), 0, 2)
         default_params_layout.addWidget(QLabel("Pipeline :"), 0, 3)
         default_params_layout.addWidget(QLabel("Découpage :"), 0, 4)
+        default_params_layout.addWidget(QLabel("Option :"), 0, 5)
 
         # Ajout des champs en ligne 1
         default_params_layout.addWidget(self.default_deck, 1, 0)
@@ -342,6 +359,7 @@ class BatchTab(QWidget):
         default_params_layout.addWidget(self.default_llm, 1, 2)
         default_params_layout.addWidget(self.default_pipeline, 1, 3)
         default_params_layout.addWidget(self.default_chunking, 1, 4)
+        default_params_layout.addWidget(self.default_vision, 1, 5)
 
         lbl_queue = QLabel("2. FILE D'ATTENTE")
         lbl_queue.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
@@ -349,9 +367,8 @@ class BatchTab(QWidget):
 
         self.table_queue = QTableWidget()
         self.table_queue.setFrameShape(QFrame.Shape.NoFrame)
-        self.table_queue.setColumnCount(7)
-        # 🐛 CORRECTION DU BUG : Virgule manquante entre Moteur IA et Pipeline IA !
-        self.table_queue.setHorizontalHeaderLabels(["Document", "Paquet", "Modèle", "Moteur IA", "Pipeline IA", "Découpage", "Action"])
+        self.table_queue.setColumnCount(8)
+        self.table_queue.setHorizontalHeaderLabels(["Document", "Paquet", "Modèle", "Moteur IA", "Pipeline IA", "Découpage", "Vision", "Action"])
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
@@ -565,11 +582,16 @@ class BatchTab(QWidget):
         cb_chunk.setCurrentIndex(self.default_chunking.currentIndex())
         self.table_queue.setCellWidget(row_idx, 5, cb_chunk)
 
-        # 7. Action
+        # 7. Vision (NOUVEAU)
+        cb_vision = QCheckBox("Activer")
+        cb_vision.setChecked(self.default_vision.isChecked())
+        self.table_queue.setCellWidget(row_idx, 6, cb_vision)
+
+        # 8. Action
 
         btn_remove = DangerButton(qta.icon("fa5s.times", color="white"), "")
         btn_remove.clicked.connect(lambda _, r=row_idx: self._remove_row(r))
-        self.table_queue.setCellWidget(row_idx, 6, btn_remove)
+        self.table_queue.setCellWidget(row_idx, 7, btn_remove)
 
         cb_llm.currentIndexChanged.connect(self._update_estimates)
         cb_pipe.currentIndexChanged.connect(self._update_estimates)
@@ -577,11 +599,12 @@ class BatchTab(QWidget):
 
         cb_llm.currentIndexChanged.connect(self._update_estimates)
         cb_pipe.currentIndexChanged.connect(self._update_estimates)
+        cb_vision.stateChanged.connect(self._update_estimates)
 
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
         for r in range(row_idx, self.table_queue.rowCount()):
-            btn = cast(QPushButton, self.table_queue.cellWidget(r, 6))
+            btn = cast(QPushButton, self.table_queue.cellWidget(r, 7))
             btn.clicked.disconnect()
             btn.clicked.connect(lambda _, current_r=r: self._remove_row(current_r))
         self._check_ready_state()
@@ -615,7 +638,7 @@ class BatchTab(QWidget):
             cb_llm = cast(QComboBox, self.table_queue.cellWidget(row, 3))
             cb_pipe = cast(QComboBox, self.table_queue.cellWidget(row, 4))
             cb_chunk = cast(QComboBox, self.table_queue.cellWidget(row, 5))
-
+            cb_vision = cast(QCheckBox, self.table_queue.cellWidget(row, 6))
             deck_id = cb_deck.currentData()
             model_id = cb_model.currentData()
             llm_id = cb_llm.currentData()
@@ -627,16 +650,7 @@ class BatchTab(QWidget):
                 show_toast(self, f"Configuration incomplète à la ligne {row + 1}.", is_error=True)
                 return
 
-            tasks.append(
-                {
-                    "doc_id": doc_id,
-                    "deck_id": deck_id,
-                    "model_id": model_id,
-                    "llm_id": llm_id,
-                    "pipeline_id": pipe_id,
-                    "chunk_strategy": chunk_strategy,
-                }
-            )
+            tasks.append({"doc_id": doc_id, "deck_id": deck_id, "model_id": model_id, "llm_id": llm_id, "pipeline_id": pipe_id, "chunk_strategy": chunk_strategy, "use_vision": cb_vision.isChecked()})
 
         self.btn_start.hide()
         self.btn_cancel.show()
@@ -737,6 +751,13 @@ class BatchTab(QWidget):
 
                 # Heuristique : 1 token = ~4 caractères
                 base_doc_tokens = len(doc.content) // 4
+
+                # Majoration Vision
+                cb_vision = cast(QCheckBox, self.table_queue.cellWidget(row, 6))
+                if cb_vision.isChecked():
+                    img_count = len(re.findall(MD_IMAGE_REGEX, doc.content)) + len(re.findall(HTML_IMAGE_REGEX, doc.content))
+                    if img_count > 0:
+                        base_doc_tokens += img_count * 300  # +300 tokens par image
 
                 # Majoration dynamique selon la méthode de découpage
                 if chunk_strategy == "Chevauchement (Overlap)":
