@@ -40,12 +40,13 @@ wheels/
 test.md
 GEMINI.md
 *.json
-
+experiment/
 
 # --- IDE (PyCharm, VSCode, etc.) ---
 .idea/
 .vscode/
 *.swp
+.run/
 
 # --- Fichiers système ---
 .DS_Store
