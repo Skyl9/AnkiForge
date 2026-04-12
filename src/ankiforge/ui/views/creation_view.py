@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 import uuid
 from typing import Any
 
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QGridLayout,
     QFrame,
+    QCheckBox,
 )
 from jinja2 import Template
 
@@ -50,6 +52,7 @@ from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
 from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.vision_utils import MD_IMAGE_REGEX, HTML_IMAGE_REGEX, prepare_multimodal_payload, strip_image_tags
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +64,13 @@ class GenerationThread(QThread):
     log = Signal(str)
     cancelled = Signal()
 
-    def __init__(self, ai_provider: Any, text_source: str, note_type_id: int, pipeline_id: int) -> None:
+    def __init__(self, ai_provider: Any, text_source: str, note_type_id: int, pipeline_id: int, use_vision: bool) -> None:
         super().__init__()
         self.ai_provider = ai_provider
         self.text_source = text_source
         self.note_type_id = note_type_id
         self.pipeline_id = pipeline_id
+        self.use_vision = use_vision
         self._is_cancelled = False
 
     def cancel(self):
@@ -119,7 +123,13 @@ class GenerationThread(QThread):
                 self.log.emit(f"🔵 PROMPT SYSTÈME :\n{system_prompt}\n")
                 self.log.emit(f"🟢 ENTRÉE UTILISATEUR :\n{current_input}\n")
 
-                raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=current_input)
+                if self.use_vision:
+                    media_dir = get_app_data_dir() / "media"
+                    payload = prepare_multimodal_payload(current_input, media_dir)
+                    raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=payload)
+                else:
+                    clean_input = strip_image_tags(current_input)
+                    raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=clean_input)
 
                 logger.debug(f"Réponse brute de l'IA pour l'étape {i} : {raw_response[:100]}...")
                 self.log.emit(f"🟠 RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")
@@ -215,6 +225,12 @@ class CreationTab(QWidget):
         self.pipeline_selector.setMinimumHeight(32)
         self.pipeline_selector.setMinimumWidth(100)
         params_grid.addWidget(self.pipeline_selector, 3, 1)
+
+        self.cb_vision = QCheckBox("👁️ Activer l'analyse d'images (Vision) - ⚠️ Consomme plus de tokens")
+        self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 10px;")
+        self.cb_vision.setChecked(False)  # Désactivé par défaut pour l'économie
+        self.cb_vision.stateChanged.connect(self.update_token_estimate)
+        params_grid.addWidget(self.cb_vision, 4, 0, 1, 2)  # S'étend sur 2 colonnes
 
         params_layout.addLayout(params_grid)
         layout.addWidget(params_panel)
@@ -446,6 +462,11 @@ class CreationTab(QWidget):
         text = self.source_text.toPlainText()
         estimated_tokens = len(text) // 4
 
+        if self.cb_vision.isChecked():
+            img_count = len(re.findall(MD_IMAGE_REGEX, text)) + len(re.findall(HTML_IMAGE_REGEX, text))
+            if img_count > 0:
+                estimated_tokens += img_count * 300  # Majoration de 300 tokens par image
+
         llm_id = self.llm_selector.currentData()
         max_tokens = 8192
         if llm_id:
@@ -614,8 +635,8 @@ class CreationTab(QWidget):
         self.web_view.clear_memory()
         self.console_log.clear()
 
-        logger.info(f"Lancement de la génération IA (Pipeline: {pipeline_id}, LLM: {llm_config.display_name}).")
-        self.thread = GenerationThread(active_provider, text, model_id, pipeline_id)
+        logger.info(f"Lancement de la génération IA (Pipeline: {pipeline_id}, LLM: {llm_config.display_name}, Vision: {self.cb_vision.isChecked()}).")
+        self.thread = GenerationThread(active_provider, text, model_id, pipeline_id, use_vision=self.cb_vision.isChecked())
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)
         self.thread.finished.connect(self.on_generation_success)
