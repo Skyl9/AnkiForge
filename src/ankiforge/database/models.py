@@ -326,7 +326,7 @@ Toutes les remarques, exemples et pièges doivent être rédigés dans le {{ sec
 RÉPONDS UNIQUEMENT AVEC LE JSON VALIDE."""
 
     extracteur = AgentModel.create(
-        name="1. Archiviste Pédagogue",
+        name="Archiviste Pédagogue",
         description="Extrait le cours en respectant l'atomicité, la dissimulation des hypothèses et le tout-LaTeX.",
         system_prompt=extracteur_prompt,
     )
@@ -359,7 +359,7 @@ Les clés autorisées sont EXACTEMENT : {{ fields_str }}.
 NE RENVOIE QUE LE JSON STRICTEMENT VALIDE. NE METS AUCUN TEXTE AVANT OU APRÈS, NI DE BLOC MARKDOWN ```json."""
 
     controleur = AgentModel.create(
-        name="2. Linter & Contrôleur Qualité",
+        name="Linter & Contrôleur Qualité",
         description="Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
         system_prompt=controleur_prompt,
     )
@@ -387,7 +387,7 @@ NE RENVOIE QUE LE JSON STRICTEMENT VALIDE. NE METS AUCUN TEXTE AVANT OU APRÈS, 
     RÉPONDS UNIQUEMENT AVEC LE JSON VALIDE."""
 
     cloze_agent, _ = AgentModel.get_or_create(
-        name="3. Générateur Auto-Cloze",
+        name="Générateur Auto-Cloze",
         defaults={
             "description": "Crée des phrases à trous (c1, c2) optimisées pour la mémorisation d'informations denses.",
             "system_prompt": cloze_prompt,

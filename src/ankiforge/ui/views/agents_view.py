@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QListWidgetItem,
     QFileDialog,
+    QInputDialog,
 )
 
 from ankiforge.database.models import PipelineModel, PipelineStepModel, db, AgentModel
@@ -161,9 +162,19 @@ class AgentsTab(QWidget):
         self.btn_new_pipeline = ActionButton("fa5s.plus", " Nouveau")
         self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
 
+        self.btn_rename_pipeline = ActionButton("fa5s.pen", "")
+        self.btn_rename_pipeline.setToolTip("Renommer le Pipeline")
+        self.btn_rename_pipeline.clicked.connect(self.rename_pipeline)
+
+        self.btn_delete_pipeline = DangerButton(qta.icon("fa5s.trash", color="white"), "")
+        self.btn_delete_pipeline.setToolTip("Supprimer le Pipeline")
+        self.btn_delete_pipeline.clicked.connect(self.delete_pipeline)
+
         pipe_select_layout.addWidget(lbl_pipe_sel)
         pipe_select_layout.addWidget(self.pipeline_selector, stretch=1)
         pipe_select_layout.addWidget(self.btn_new_pipeline)
+        pipe_select_layout.addWidget(self.btn_rename_pipeline)
+        pipe_select_layout.addWidget(self.btn_delete_pipeline)
         pipelines_layout.addLayout(pipe_select_layout)
 
         lbl_chain = QLabel("CHAÎNE D'EXÉCUTION (ORDRE DES AGENTS) :")
@@ -414,13 +425,25 @@ class AgentsTab(QWidget):
 
         pipeline = PipelineModel.get_by_id(pipe_id)
         for step in pipeline.steps.order_by(PipelineStepModel.step_order):
-            self.steps_list.addItem(f"{step.agent.name}")
+            item = QListWidgetItem(f"{step.step_order}. {step.agent.name}")
+            item.setData(Qt.ItemDataRole.UserRole, step.agent.name)
+            self.steps_list.addItem(item)
 
     @Slot()
     def add_agent_to_pipeline(self) -> None:
         agent_name = self.available_agents_cb.currentText()
         if agent_name:
-            self.steps_list.addItem(agent_name)
+            next_num = self.steps_list.count() + 1
+            item = QListWidgetItem(f"{next_num}. {agent_name}")
+            item.setData(Qt.ItemDataRole.UserRole, agent_name)
+            self.steps_list.addItem(item)
+
+    def _recalculate_step_numbers(self):
+        """Recalcule visuellement tous les numéros après un mouvement."""
+        for i in range(self.steps_list.count()):
+            item = self.steps_list.item(i)
+            agent_name = item.data(Qt.ItemDataRole.UserRole)
+            item.setText(f"{i + 1}. {agent_name}")
 
     @Slot()
     def move_step_up(self) -> None:
@@ -429,6 +452,7 @@ class AgentsTab(QWidget):
             item = self.steps_list.takeItem(row)
             self.steps_list.insertItem(row - 1, item)
             self.steps_list.setCurrentRow(row - 1)
+            self._recalculate_step_numbers()
 
     @Slot()
     def move_step_down(self) -> None:
@@ -437,12 +461,14 @@ class AgentsTab(QWidget):
             item = self.steps_list.takeItem(row)
             self.steps_list.insertItem(row + 1, item)
             self.steps_list.setCurrentRow(row + 1)
+            self._recalculate_step_numbers()
 
     @Slot()
     def remove_step(self) -> None:
         row = self.steps_list.currentRow()
         if row != -1:
             self.steps_list.takeItem(row)
+            self._recalculate_step_numbers()
 
     @Slot()
     def save_pipeline_steps(self) -> None:
@@ -456,9 +482,60 @@ class AgentsTab(QWidget):
                 PipelineStepModel.delete().where(PipelineStepModel.pipeline == pipeline).execute()
 
                 for i in range(self.steps_list.count()):
-                    agent_name = self.steps_list.item(i).text()
+                    agent_name = self.steps_list.item(i).data(Qt.ItemDataRole.UserRole)
                     agent = AgentModel.get(AgentModel.name == agent_name)
                     PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=i + 1)
             QMessageBox.information(self, "Succès", "L'ordre du pipeline a été mis à jour !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
+
+    @Slot()
+    def rename_pipeline(self) -> None:
+        pipe_id = self.pipeline_selector.currentData()
+        if not pipe_id:
+            return
+
+        pipeline = PipelineModel.get_by_id(pipe_id)
+        new_name, ok = QInputDialog.getText(self, "Renommer Pipeline", "Nouveau nom :", text=pipeline.name)
+
+        if ok and new_name.strip() and new_name.strip() != pipeline.name:
+            try:
+                pipeline.name = new_name.strip()
+                pipeline.save()
+
+                # Mise à jour silencieuse de la combobox
+                idx = self.pipeline_selector.currentIndex()
+                self.pipeline_selector.setItemText(idx, pipeline.name)
+                show_toast(self, "Pipeline renommé avec succès !")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de renommer :\n{e}")
+
+    @Slot()
+    def delete_pipeline(self) -> None:
+        pipe_id = self.pipeline_selector.currentData()
+        if not pipe_id:
+            return
+
+        pipeline = PipelineModel.get_by_id(pipe_id)
+        reply = QMessageBox.question(
+            self,
+            "Supprimer le Pipeline",
+            f"Voulez-vous vraiment supprimer le pipeline '{pipeline.name}' ?\nCela n'effacera pas les agents, juste l'ordre d'exécution.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                # La suppression en cascade effacera les PipelineStepModel associés
+                pipeline.delete_instance(recursive=True)
+
+                # Retire de l'interface
+                idx = self.pipeline_selector.currentIndex()
+                self.pipeline_selector.removeItem(idx)
+
+                if self.pipeline_selector.count() == 0:
+                    self.steps_list.clear()
+
+                show_toast(self, "Pipeline supprimé !")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer :\n{e}")
