@@ -1,5 +1,6 @@
 # src/ui/views/models_view.py
 import json
+import logging
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer
@@ -26,6 +27,8 @@ from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 class ModelsTab(QWidget):
@@ -260,6 +263,7 @@ class ModelsTab(QWidget):
             try:
                 with db.atomic():
                     model.delete_instance(recursive=True)  # Supprime en cascade
+                logger.info(f"Modèle '{model.name}' supprimé avec succès.")
                 self.refresh_models_list()
 
                 # Réinitialisation de l'UI
@@ -272,6 +276,7 @@ class ModelsTab(QWidget):
                 self.btn_del_model.setEnabled(False)
 
             except Exception as e:
+                logger.exception(f"Impossible de supprimer le modèle '{model.name}' :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le modèle :\n{e}")
 
     @Slot()
@@ -309,8 +314,10 @@ class ModelsTab(QWidget):
                     templates=json.dumps(default_templates, ensure_ascii=False),
                     css_style=default_css,
                 )
+            logger.info(f"Nouveau modèle créé : {name.strip()}")
             self.refresh_models_list()
         except Exception as e:
+            logger.exception(f"Impossible de créer le modèle '{name.strip()}' :")
             QMessageBox.critical(self, "Erreur", f"Impossible de créer le modèle : {e}")
 
     @Slot()
@@ -345,6 +352,7 @@ class ModelsTab(QWidget):
             with db.atomic():
                 note_type.save()
 
+            logger.info(f"Modèle '{note_type.name}' sauvegardé.")
             self.btn_save_model.setEnabled(False)
             self.btn_save_model.setText(" Sauvegardé !")
             self.btn_save_model.setIcon(qta.icon("fa5s.check"))
@@ -352,6 +360,7 @@ class ModelsTab(QWidget):
             QTimer.singleShot(1500, self._reset_save_btn)
 
         except Exception as e:
+            logger.exception("Impossible de sauvegarder le modèle :")
             QMessageBox.critical(self, "Erreur BDD", f"Impossible de sauvegarder : {e}")
 
     @Slot()
@@ -412,9 +421,11 @@ class ModelsTab(QWidget):
                 self.card_selector.setCurrentIndex(0)
                 self.on_card_template_selected(0)
 
+                logger.info(f"Modèle de carte '{card_name}' supprimé avec succès.")
                 show_toast(self, f"Modèle '{card_name}' supprimé !")
 
             except Exception as e:
+                logger.exception(f"Impossible de supprimer le modèle de carte '{card_name}' :")
                 QMessageBox.critical(self, "Erreur Base de donnée", f"Impossible de supprimer le modèle :\n{e}")
 
     @Slot()
@@ -464,6 +475,7 @@ class ModelsTab(QWidget):
                 self.on_card_template_selected(0)
 
         except Exception as e:
+            logger.exception(f"Erreur lors de la sélection du modèle {model_id} :")
             self.qfmt_editor.setPlainText(f"Erreur : {e}")
 
     @Slot(int)

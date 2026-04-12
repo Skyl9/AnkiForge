@@ -1,3 +1,4 @@
+import logging
 import os
 
 from google import genai
@@ -5,6 +6,8 @@ from google.genai import types
 
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.utils import log_token_usage
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiService(LLMProvider):
@@ -40,4 +43,5 @@ class GeminiService(LLMProvider):
 
             return response.text or ""
         except Exception as e:
+            logger.exception(f"Erreur Gemini ({self.model_name}) :")
             raise RuntimeError(f"Erreur Gemini ({self.model_name}) : {str(e)}") from e

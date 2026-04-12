@@ -1,7 +1,10 @@
 import ctypes
+import logging
 import platform
 
 from ankiforge.utils.paths import get_project_root
+
+logger = logging.getLogger(__name__)
 
 base_dir = get_project_root()
 ext = "dll" if platform.system() == "Windows" else "so"
@@ -15,7 +18,7 @@ try:
 
     C_MATCHER_LOADED = True
 except Exception as e:
-    print(f"⚠️ Librairie C non trouvée, fallback sur Python. Erreur: {e}")
+    logger.warning(f"⚠️ Librairie C non trouvée, fallback sur Python. Erreur: {e}")
     C_MATCHER_LOADED = False
 
 

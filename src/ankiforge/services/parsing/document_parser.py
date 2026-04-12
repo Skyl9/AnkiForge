@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import subprocess  # nosec B404
@@ -16,6 +17,8 @@ from bs4 import BeautifulSoup
 from pptx import Presentation
 
 from ankiforge.services.cards.media_manager import MediaManager
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentParser:
@@ -132,8 +135,10 @@ class DocumentParser:
             return f"# {title}\n\n{markdown_text.strip()}"
 
         except urllib.error.URLError as e:
+            logger.exception("Impossible de joindre l'API Wikipédia :")
             raise RuntimeError(f"Impossible de joindre l'API Wikipédia : {e.reason}") from e
         except Exception as e:
+            logger.exception("Erreur lors du traitement Wikipédia :")
             raise ValueError(f"Erreur lors du traitement Wikipédia : {e}") from e
 
     def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback=None, check_cancel=None) -> str:

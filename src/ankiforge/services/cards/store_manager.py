@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 import pathlib
 import sqlite3
 import tempfile
@@ -11,6 +12,8 @@ import zstandard as zstd
 from peewee import DoesNotExist
 
 from ankiforge.database.models import db, DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel, init_db
+
+logger = logging.getLogger(__name__)
 
 
 class StoreManager:
@@ -113,8 +116,8 @@ class StoreManager:
                 else:
                     cards.append(row)
 
-        print(f"Nombre de cartes lues : {len(cards)}")
-        print("Début insertion dans la base de donnée")
+        logger.info(f"Nombre de cartes lues : {len(cards)}")
+        logger.info("Début insertion dans la base de donnée")
 
         with db.atomic():
             for row in cards:
@@ -167,6 +170,7 @@ class StoreManager:
                     CardModel.get_or_create(note=note_obj, deck=deck_obj)
 
                 except Exception as e:
+                    logger.exception(f"Erreur lors de l'insertion de la ligne {row}:")
                     if progress_callback:
                         progress_callback(f"Erreur lors de l'insertion de la ligne {row}: {e}")
 

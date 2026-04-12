@@ -1,4 +1,5 @@
 # src/ui/views/documents_view.py
+import logging
 import pathlib
 import re
 from urllib.parse import urlparse
@@ -31,6 +32,8 @@ from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_mathjax_script
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 # ==========================================
@@ -132,9 +135,11 @@ class ParserWorker(QThread):
             if not self._is_cancelled:
                 self.finished_signal.emit(title, content)
         except InterruptedError as e:
+            logger.info(f"Analyse annulée par l'utilisateur : {str(e)}")
             self.log_signal.emit(f"\n {str(e)}")
             self.cancelled_signal.emit()
         except Exception as e:
+            logger.exception("Erreur lors de l'analyse du document :")
             self.error_signal.emit(str(e))
 
 
@@ -424,7 +429,9 @@ class DocumentsTab(QWidget):
                 folder = FolderModel.get_by_id(new_folder_id) if new_folder_id else None
                 doc.folder = folder
                 doc.save()
+            logger.info(f"Document {doc_id} déplacé vers le dossier {new_folder_id}.")
         except Exception as e:
+            logger.exception(f"Impossible de déplacer le document {doc_id} :")
             QMessageBox.critical(self, "Erreur BDD", f"Impossible de déplacer le document :\n{e}")
             self.load_tree()
 
@@ -434,6 +441,7 @@ class DocumentsTab(QWidget):
         if ok and name.strip():
             with db.atomic():
                 FolderModel.create(name=name.strip())
+            logger.info(f"Dossier créé : {name.strip()}")
             self.load_tree()
 
     @Slot()
@@ -451,6 +459,7 @@ class DocumentsTab(QWidget):
 
         with db.atomic():
             DocumentModel.create(title=name.strip(), content="# Nouveau Cours\n\n...", folder=target_folder)
+        logger.info(f"Document manuel créé : {name.strip()}")
         self.load_tree()
 
     @Slot()
@@ -462,6 +471,7 @@ class DocumentsTab(QWidget):
                 doc = DocumentModel.get_by_id(self.current_doc_id_editing)
                 doc.content = self.preview_text.toPlainText()
                 doc.save()
+            logger.info(f"Modifications du document '{doc.title}' sauvegardées.")
             self.btn_save_doc.setEnabled(False)
             self.btn_save_doc.setText(" Sauvegardé !")
             self.btn_save_doc.setIcon(qta.icon("fa5s.check", color="white"))
@@ -470,6 +480,7 @@ class DocumentsTab(QWidget):
 
             QTimer.singleShot(1500, self._reset_save_btn)
         except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde du document :")
             QMessageBox.critical(self, "Erreur BDD", str(e))
 
     @Slot()
@@ -506,8 +517,10 @@ class DocumentsTab(QWidget):
                     with db.atomic():
                         DocumentModel.delete().where(DocumentModel.folder == folder).execute()
                         folder.delete_instance()
+                    logger.info(f"Dossier '{folder.name}' et son contenu supprimés.")
                     self._reset_editor_after_delete()
                 except Exception as e:
+                    logger.exception(f"Erreur lors de la suppression du dossier '{folder.name}' :")
                     QMessageBox.critical(self, "Erreur de suppression", f"Erreur :\n{e}")
 
         elif item_type == "doc":
@@ -521,6 +534,7 @@ class DocumentsTab(QWidget):
             if reply == QMessageBox.StandardButton.Yes:
                 with db.atomic():
                     doc.delete_instance()
+                logger.info(f"Document '{doc.title}' supprimé.")
                 self._reset_editor_after_delete()
 
     def _reset_editor_after_delete(self):
@@ -605,6 +619,7 @@ class DocumentsTab(QWidget):
     def _on_parsing_cancelled(self):
         self._reset_import_ui()
         self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
+        logger.info("Analyse interrompue par l'utilisateur.")
         show_toast(self, "Analyse interrompue.", is_error=True)
 
     def _reset_import_ui(self):
@@ -633,11 +648,13 @@ class DocumentsTab(QWidget):
             self.tree.setEnabled(True)
 
             # 👇 FEEDBACK : On prévient et on affiche immédiatement le résultat !
+            logger.info(f"Document '{title}' importé avec succès.")
             show_toast(self, f"✨ Document '{title}' importé avec succès !")
             self.load_tree()
             self.jump_to_document(new_doc.id)
 
         except Exception as e:
+            logger.exception(f"Impossible de sauvegarder le document '{title}' :")
             QMessageBox.critical(self, "Erreur BDD", f"Impossible de sauvegarder le document :\n{e}")
 
     @Slot(str)
@@ -665,6 +682,7 @@ class DocumentsTab(QWidget):
         parts = full_text.split("[SPLIT]")
 
         if len(parts) <= 1:
+            logger.info("Tentative de scission sans balise [SPLIT].")
             show_toast(self, "Astuce : Insérez [SPLIT] dans le texte pour scinder le document.")
             return
 
@@ -682,10 +700,12 @@ class DocumentsTab(QWidget):
                     if len(content_part) > 0:
                         DocumentModel.create(title=f"{base_title} (Partie {i + 1})", content=content_part, folder=original_doc.folder)
 
+            logger.info(f"Document '{base_title}' scindé en {len(parts)} parties.")
             self.load_tree()
             self.preview_text.setPlainText(original_doc.content)
             show_toast(self, f"Document découpé en {len(parts)} parties !")
         except Exception as e:
+            logger.exception(f"Échec de la scission du document '{base_title}' :")
             show_toast(self, f"Échec de la sauvegarde : {str(e)}", is_error=True)
 
     @Slot(int)

@@ -1,4 +1,5 @@
 # src/services/ai/flexible_service.py
+import logging
 import os
 from typing import cast
 
@@ -11,6 +12,8 @@ from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import log_token_usage
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -54,6 +57,7 @@ class OpenAICompatibleProvider(LLMProvider):
             content = response.choices[0].message.content or ""
             return content
         except Exception as e:
+            logger.exception(f"Erreur API ({self.model_name}) :")
             raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}") from e
 
 
@@ -123,7 +127,7 @@ class AIManager:
                 self.provider = GroqProvider(api_key=os.getenv("GROQ_API_KEY", ""), model_name=model_name)
             else:
                 self.provider = MockProvider()
-            print(f"✅ IA connectée : {provider_name} ({model_name})")
-        except Exception as e:
-            print(f"⚠️ Erreur IA, passage en mode Mock : {e}")
+            logger.info(f"✅ IA connectée : {provider_name} ({model_name})")
+        except Exception:
+            logger.exception("⚠️ Erreur IA, passage en mode Mock :")
             self.provider = MockProvider()

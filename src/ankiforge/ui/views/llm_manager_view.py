@@ -1,3 +1,4 @@
+import logging
 import os
 
 import qtawesome as qta
@@ -28,6 +29,8 @@ from ankiforge.database.models import db, LLMConfigModel
 from ankiforge.services.ai.flexible_service import OllamaProvider
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
+
+logger = logging.getLogger(__name__)
 
 
 class LLMManagerTab(QWidget):
@@ -224,6 +227,7 @@ class LLMManagerTab(QWidget):
         set_key(env_path_str, "GROQ_API_KEY", self.le_groq_key.text().strip())
 
         self.ai_manager.reload_provider()
+        logger.info("Clés API sauvegardées et rechargées.")
         show_toast(self, "Clés API sauvegardées et rechargées !")
 
     def load_llms_table(self) -> None:
@@ -308,6 +312,7 @@ class LLMManagerTab(QWidget):
         context = self.spin_context.value()
 
         if not name or not model_id:
+            logger.warning("Tentative de sauvegarde d'un modèle sans nom ou ID.")
             show_toast(self, "Le nom d'affichage et l'ID du modèle sont obligatoires.", is_error=True)
             return
 
@@ -320,15 +325,18 @@ class LLMManagerTab(QWidget):
                     llm.model_id = model_id
                     llm.context_limit = context
                     llm.save()
+                    logger.info(f"Moteur mis à jour : {name}")
                     show_toast(self, "Moteur mis à jour !")
                 else:
                     LLMConfigModel.create(display_name=name, provider=provider, model_id=model_id, context_limit=context)
+                    logger.info(f"Nouveau moteur ajouté : {name}")
                     show_toast(self, "Nouveau moteur ajouté !")
 
             self.load_llms_table()
             self.clear_llm_form()
 
         except Exception as e:
+            logger.exception(f"Erreur lors de la sauvegarde du moteur '{name}' :")
             if "UNIQUE constraint" in str(e):
                 show_toast(self, "Ce nom d'affichage existe déjà.", is_error=True)
             else:
@@ -352,8 +360,10 @@ class LLMManagerTab(QWidget):
                     LLMConfigModel.delete_by_id(self.current_llm_id_editing)
                 self.load_llms_table()
                 self.clear_llm_form()
+                logger.info("Moteur supprimé de la base.")
                 show_toast(self, "Moteur supprimé.")
             except Exception as e:
+                logger.exception("Impossible de supprimer le moteur :")
                 QMessageBox.critical(self, "Erreur BDD", f"Impossible de supprimer : {e}")
 
     @staticmethod

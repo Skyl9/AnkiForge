@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import cast
 
@@ -24,6 +25,8 @@ from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import refresh_theme_live
 from ankiforge.ui.widgets.toast import show_toast
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsTab(QWidget):
@@ -234,6 +237,7 @@ class SettingsTab(QWidget):
         self.settings.sync()
         refresh_theme_live()
 
+        logger.info("Préférences utilisateur enregistrées et appliquées.")
         show_toast(self, "Préférences enregistrées et appliquées !")
 
     @Slot()
@@ -250,8 +254,10 @@ class SettingsTab(QWidget):
             manager = MediaManager()
             deleted_count = manager.clean_orphaned_media()
             if deleted_count > 0:
+                logger.info(f"Nettoyage des médias terminé : {deleted_count} fichiers supprimés.")
                 show_toast(self, f"Nettoyage terminé : {deleted_count} fichier(s) supprimé(s) !")
             else:
+                logger.info("Nettoyage des médias : aucun fichier orphelin trouvé.")
                 show_toast(self, "Votre dossier média est déjà parfaitement propre.")
 
     @Slot()
@@ -272,8 +278,10 @@ class SettingsTab(QWidget):
 
             deleted_count = NoteModel.purge_old_versions(keep_last=keep_last)
             if deleted_count > 0:
+                logger.info(f"Purge de l'historique terminée : {deleted_count} anciennes versions supprimées.")
                 show_toast(self, f"Purge terminée : {deleted_count} ancienne(s) version(s) supprimée(s) !")
             else:
+                logger.info("Purge de l'historique : aucune version obsolète à purger.")
                 show_toast(self, "Aucune version obsolète à purger.")
 
     @Slot()

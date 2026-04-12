@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Any
 
@@ -25,6 +26,8 @@ from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 class ABTestThread(QThread):
@@ -74,6 +77,7 @@ class ABTestThread(QThread):
             self.finished_signal.emit()
 
         except Exception as e:
+            logger.exception("Erreur lors de l'exécution du test A/B :")
             self.error_signal.emit(str(e))
 
 
@@ -368,6 +372,7 @@ class ABTestTab(QWidget):
             web_view.setHtmlSafe(final_html, QUrl.fromLocalFile(media_dir))
 
         except Exception as e:
+            logger.exception("Erreur lors du rendu de la prévisualisation A/B :")
             err_html = f"""
             <div style='color: palette(text); font-family: sans-serif; padding: 20px; text-align: center;'>
                 <h3 style='color: #F44336;'>Erreur de rendu</h3>
@@ -384,6 +389,7 @@ class ABTestTab(QWidget):
         model_id = self.cb_model.currentData()
 
         if not source_text:
+            logger.info("Tentative de test A/B sans texte source.")
             show_toast(self, "Veuillez entrer du texte source.", is_error=True)
             return
 
@@ -399,8 +405,11 @@ class ABTestTab(QWidget):
                 prompt_a = self._prepare_prompt(self.cb_config_a.currentData(), model_id)
                 prompt_b = self._prepare_prompt(self.cb_config_b.currentData(), model_id)
         except Exception as e:
+            logger.exception("Configuration incomplète pour le test A/B :")
             show_toast(self, f"Configuration incomplète : {e}", is_error=True)
             return
+
+        logger.info(f"Lancement du test A/B en mode {mode}.")
 
         self.btn_run.hide()
         self.btn_cancel.show()
@@ -446,17 +455,20 @@ class ABTestTab(QWidget):
     @Slot()
     def _on_test_finished(self) -> None:
         self._reset_ui()
+        logger.info("Test A/B terminé avec succès.")
         self.lbl_status.setText("✅ Test terminé. Observez les différences !")
 
     @Slot(str)
     def _on_test_error(self, err: str) -> None:
         self._reset_ui()
+        logger.error(f"Erreur lors du test A/B : {err}")
         self.lbl_status.setText("❌ Erreur.")
         show_toast(self, f"Erreur IA : {err}", is_error=True)
 
     @Slot()
     def _on_test_cancelled(self) -> None:
         self._reset_ui()
+        logger.info("Test A/B annulé par l'utilisateur.")
         self.lbl_status.setText("🛑 Test annulé.")
 
     def _reset_ui(self) -> None:

@@ -1,5 +1,6 @@
 # ruff: noqa: E501
 import json
+import logging
 import os
 import re
 import uuid
@@ -51,6 +52,8 @@ from ankiforge.services.ai.utils import PRICING_1M_USD
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+
+logger = logging.getLogger(__name__)
 
 
 class BatchWorker(QThread):
@@ -161,6 +164,7 @@ class BatchWorker(QThread):
 
             for task_idx, task in enumerate(self.tasks):
                 if self._is_cancelled:
+                    logger.info("Traitement par lots annulé par l'utilisateur.")
                     self.log.emit("Opération annulée par l'utilisateur")
                     self.cancelled.emit()
                     return
@@ -200,10 +204,12 @@ class BatchWorker(QThread):
 
                 optimal_max_chars = int((max_tokens * 0.5) * 4)
 
+                logger.info(f"Traitement du document '{doc.title}' ({task_idx + 1}/{total_tasks}).")
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
                 self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
                 # PARTITIONNEMENT DU DOCUMENT
                 chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
+                logger.info(f"Document '{doc.title}' découpé en {len(chunks)} morceaux.")
                 self.log.emit(f"✂️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
 
                 chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
@@ -211,6 +217,7 @@ class BatchWorker(QThread):
 
                 for chunk_idx, chunk_text in enumerate(chunks, 1):
                     if self._is_cancelled:
+                        logger.info("Traitement par lots annulé par l'utilisateur pendant le découpage.")
                         self.log.emit("Opération annulée par l'utilisateur")
                         self.cancelled.emit()
                         return
@@ -222,10 +229,12 @@ class BatchWorker(QThread):
 
                     for _, step in enumerate(steps, 1):
                         if self._is_cancelled:
+                            logger.info("Traitement par lots annulé par l'utilisateur pendant le pipeline.")
                             self.log.emit("Opération annulée par l'utilisateur")
                             self.cancelled.emit()
                             return
                         agent = step.agent
+                        logger.info(f"Agent '{agent.name}' en action sur morceau {chunk_idx}/{len(chunks)} de '{doc.title}'.")
                         self.log.emit(f"🤖 Agent '{agent.name}' en action...")
 
                         jinja_template = Template(agent.system_prompt)
@@ -236,6 +245,7 @@ class BatchWorker(QThread):
                             cleaned_output = self._clean_json(raw_response)
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"
                         except Exception as e:
+                            logger.exception(f"Erreur IA sur le morceau {chunk_idx} du document '{doc.title}' :")
                             self.log.emit(f"❌ ERREUR IA sur le morceau {chunk_idx}: {str(e)}")
                             chunk_failed = True
                             break
@@ -275,15 +285,19 @@ class BatchWorker(QThread):
                                             CardModel.create(note=note, deck=deck, template_index=idx)
 
                             doc_success_notes += len(notes_to_create)
+                            logger.info(f"{len(notes_to_create)} notes créées pour le morceau {chunk_idx} de '{doc.title}'.")
                             self.log.emit(f"✅ {len(notes_to_create)} cartes extraites.")
                     except json.JSONDecodeError:
+                        logger.exception(f"Format JSON invalide pour le morceau {chunk_idx} de '{doc.title}'.")
                         self.log.emit("❌ ERREUR JSON : Format invalide.")
 
                 if doc_success_notes > 0:
                     success_count += 1
+                    logger.info(f"Bilan '{doc.title}' : {doc_success_notes} cartes générées.")
                     self.log.emit(f"🎉 BILAN : {doc_success_notes} cartes générées au total pour '{doc.title}'.")
                 else:
                     error_count += 1
+                    logger.warning(f"Échec total pour '{doc.title}'.")
                     self.log.emit(f"❌ ÉCHEC TOTAL : Aucune carte générée pour '{doc.title}'.")
 
                 progress_pct = int(((task_idx + 1) / total_tasks) * 100)
@@ -292,6 +306,7 @@ class BatchWorker(QThread):
             self.finished.emit(success_count, error_count)
 
         except Exception as e:
+            logger.exception("Erreur fatale lors du traitement par lots :")
             self.error.emit(f"Erreur fatale du BatchWorker : {str(e)}")
 
 
@@ -678,6 +693,7 @@ class BatchTab(QWidget):
             chunk_strategy = cb_chunk.currentText()
 
             if not deck_id or not model_id or not pipe_id:
+                logger.warning(f"Configuration incomplète à la ligne {row + 1} du tableau de batch.")
                 show_toast(self, f"Configuration incomplète à la ligne {row + 1}.", is_error=True)
                 return
 
@@ -701,6 +717,7 @@ class BatchTab(QWidget):
         self.console_log.clear()
         self.progress_bar.setValue(0)
 
+        logger.info(f"Lancement de l'usine à cartes : {len(tasks)} document(s) à traiter.")
         self.append_log(f"🚀 Lancement de l'Usine : {len(tasks)} document(s) à traiter.")
 
         self.worker = BatchWorker(ai_provider=self.ai_manager.provider, tasks=tasks)
@@ -720,6 +737,7 @@ class BatchTab(QWidget):
             self.worker.cancel()
             self.btn_cancel.setEnabled(False)
             self.btn_cancel.setText(" Arrêt en cours...")
+            logger.info("Demande d'annulation du traitement par lots reçue.")
             self.lbl_status.setText("Annulation demandée, attente de l'arrêt...")
             self.append_log("⏳ Demande d'arrêt envoyée. Attente de la fin du cycle en cours...")
 
@@ -741,6 +759,7 @@ class BatchTab(QWidget):
     def on_batch_cancelled(self) -> None:
         """Gère l'interface une fois le worker effectivement arrêté."""
         self._unlock_ui()
+        logger.info("Traitement par lots annulé proprement.")
         self.lbl_status.setText("Traitement annulé.")
         show_toast(self, "L'opération a été annulée proprement.", is_error=True)
 

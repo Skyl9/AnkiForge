@@ -1,5 +1,6 @@
 # ruff: noqa: E501
 import json
+import logging
 import os
 import uuid
 from typing import Any
@@ -49,6 +50,8 @@ from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 class GenerationThread(QThread):
@@ -101,6 +104,7 @@ class GenerationThread(QThread):
 
             for i, step in enumerate(steps, 1):
                 if self._is_cancelled:
+                    logger.info("Génération annulée par l'utilisateur pendant le pipeline.")
                     self.log.emit("\n Génération annulée par l'utilisateur.")
                     self.cancelled.emit()
                     return
@@ -110,12 +114,14 @@ class GenerationThread(QThread):
                 jinja_template = Template(agent.system_prompt)
                 system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
 
+                logger.info(f"Début étape {i}/{total_steps} : Agent '{agent.name}'")
                 self.log.emit(f"--- 🤖 DÉBUT ÉTAPE {i} : {agent.name.upper()} ---\n")
                 self.log.emit(f"🔵 PROMPT SYSTÈME :\n{system_prompt}\n")
                 self.log.emit(f"🟢 ENTRÉE UTILISATEUR :\n{current_input}\n")
 
                 raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=current_input)
 
+                logger.debug(f"Réponse brute de l'IA pour l'étape {i} : {raw_response[:100]}...")
                 self.log.emit(f"🟠 RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")
 
                 cleaned_output = self._clean_json(raw_response)
@@ -129,8 +135,10 @@ class GenerationThread(QThread):
             self.finished.emit(data["notes"])
 
         except json.JSONDecodeError as e:
+            logger.exception("Erreur de décodage JSON lors de la génération :")
             self.error.emit(f"L'un des agents a brisé le format JSON.\nErreur : {e}\n\nDernière sortie:\n{cleaned_output[:200]}")
         except Exception as e:
+            logger.exception("Erreur critique lors du pipeline de génération :")
             self.error.emit(f"Erreur lors du pipeline IA : {str(e)}")
 
 
@@ -566,12 +574,15 @@ class CreationTab(QWidget):
         llm_id = self.llm_selector.currentData()
 
         if not text.strip():
+            logger.warning("Tentative de génération sans texte source.")
             show_toast(self, "Veuillez entrer du texte source.", is_error=True)
             return
         if not pipeline_id:
+            logger.warning("Tentative de génération sans pipeline sélectionné.")
             show_toast(self, "Veuillez sélectionner un Pipeline IA.", is_error=True)
             return
         if not llm_id:
+            logger.warning("Tentative de génération sans moteur sélectionné.")
             show_toast(self, "Veuillez sélectionner un moteur IA.", is_error=True)
             return
 
@@ -603,6 +614,7 @@ class CreationTab(QWidget):
         self.web_view.clear_memory()
         self.console_log.clear()
 
+        logger.info(f"Lancement de la génération IA (Pipeline: {pipeline_id}, LLM: {llm_config.display_name}).")
         self.thread = GenerationThread(active_provider, text, model_id, pipeline_id)
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)
@@ -617,6 +629,7 @@ class CreationTab(QWidget):
             self.thread.cancel()
             self.btn_cancel.setEnabled(False)
             self.btn_cancel.setText(" Arrêt en cours...")
+            logger.info("Demande d'arrêt de la génération IA reçue.")
             self.append_log("\n⏳ Demande d'arrêt de l'IA...")
 
     @Slot(str)
@@ -778,6 +791,7 @@ class CreationTab(QWidget):
                         for idx, _ in enumerate(templates):
                             CardModel.create(note=note, deck=deck, template_index=idx)
 
+            logger.info(f"{len(self.generated_notes)} notes créées et sauvegardées en base.")
             show_toast(self, f"{len(self.generated_notes)} notes créées !")
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
@@ -785,6 +799,7 @@ class CreationTab(QWidget):
             self.btn_save.setEnabled(False)
 
         except Exception as e:
+            logger.exception("Impossible de sauvegarder les notes générées en base :")
             QMessageBox.critical(self, "Erreur Base de donnée", f"Impossible de sauvegarder : {e}")
 
     @Slot()
@@ -794,4 +809,5 @@ class CreationTab(QWidget):
         self.btn_generate.show()
         self.btn_generate.setEnabled(True)
         self.btn_generate.setText(" Générer les Cartes")
+        logger.info("Génération IA annulée par l'utilisateur.")
         show_toast(self, "Génération annulée.", is_error=True)

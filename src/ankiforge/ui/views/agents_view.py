@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Optional
 
 import qtawesome as qta
@@ -23,6 +24,8 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import PipelineModel, PipelineStepModel, db, AgentModel
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
+
+logger = logging.getLogger(__name__)
 
 
 class AgentsTab(QWidget):
@@ -257,8 +260,10 @@ class AgentsTab(QWidget):
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(export_data, f, ensure_ascii=False, indent=4)
+                logger.info(f"Pipeline '{pipeline.name}' exporté vers {path}")
                 show_toast(self, "Le Pipeline a été exporté avec succès !")
             except Exception as e:
+                logger.exception(f"Impossible d'exporter le pipeline '{pipeline.name}' :")
                 QMessageBox.critical(self, "Erreur", f"Impossible d'exporter le fichier : {e}")
 
     @Slot()
@@ -309,8 +314,10 @@ class AgentsTab(QWidget):
             if idx >= 0:
                 self.pipeline_selector.setCurrentIndex(idx)
 
+            logger.info(f"Pipeline '{name}' importé avec succès.")
             show_toast(self, f"Pipeline '{name}' importé !")
         except Exception as e:
+            logger.exception("Erreur lors de l'importation du pipeline :")
             QMessageBox.critical(self, "Erreur d'import", f"Le fichier est invalide ou corrompu :\n{e}")
 
     @Slot()
@@ -375,9 +382,11 @@ class AgentsTab(QWidget):
                 agent.save()
             else:
                 AgentModel.create(name=name, description=desc, system_prompt=prompt, output_format=output_format)
+            logger.info(f"Agent '{name}' sauvegardé.")
             show_toast(self, "Agent sauvegardé !")
             self.refresh_ui()
         except Exception as e:
+            logger.exception(f"Erreur lors de la sauvegarde de l'agent '{name}' :")
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
 
     @Slot()
@@ -400,12 +409,14 @@ class AgentsTab(QWidget):
                 agent = AgentModel.get_by_id(self.agent_id)
                 agent.delete_instance(recursive=True)
 
+                logger.info(f"Agent '{name}' supprimé avec succès.")
                 show_toast(self, "Agent détruit avec succès")
 
                 self.clear_agent_form()
                 self.refresh_ui()
 
             except Exception as e:
+                logger.exception(f"Impossible de supprimer l'agent '{name}' :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer l'agent : {e}")
 
     @Slot()
@@ -485,8 +496,10 @@ class AgentsTab(QWidget):
                     agent_name = self.steps_list.item(i).data(Qt.ItemDataRole.UserRole)
                     agent = AgentModel.get(AgentModel.name == agent_name)
                     PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=i + 1)
+            logger.info(f"Ordre du pipeline '{pipeline.name}' mis à jour.")
             QMessageBox.information(self, "Succès", "L'ordre du pipeline a été mis à jour !")
         except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde du pipeline :")
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
 
     @Slot()
@@ -506,8 +519,10 @@ class AgentsTab(QWidget):
                 # Mise à jour silencieuse de la combobox
                 idx = self.pipeline_selector.currentIndex()
                 self.pipeline_selector.setItemText(idx, pipeline.name)
+                logger.info(f"Pipeline '{pipeline.name}' renommé.")
                 show_toast(self, "Pipeline renommé avec succès !")
             except Exception as e:
+                logger.exception(f"Impossible de renommer le pipeline '{pipeline.name}' :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de renommer :\n{e}")
 
     @Slot()
@@ -536,6 +551,8 @@ class AgentsTab(QWidget):
                 if self.pipeline_selector.count() == 0:
                     self.steps_list.clear()
 
+                logger.info(f"Pipeline '{pipeline.name}' supprimé.")
                 show_toast(self, "Pipeline supprimé !")
             except Exception as e:
+                logger.exception(f"Impossible de supprimer le pipeline '{pipeline.name}' :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer :\n{e}")

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from typing import Optional, Any, cast
@@ -59,6 +60,8 @@ from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.paths import get_app_data_dir
 
+logger = logging.getLogger(__name__)
+
 
 def strip_html(text: Optional[str]) -> str:
     """Retire toutes les balises HTML d'une chaîne pour l'affichage brut."""
@@ -102,6 +105,7 @@ class ImportThread(QThread):
             self.store_manager.store_collection(self.path, progress_callback=self.progress.emit)
             self.finished_signal.emit()
         except Exception as e:
+            logger.exception("Erreur lors de l'importation d'un paquet Anki :")
             self.error_signal.emit(str(e))
 
 
@@ -138,6 +142,7 @@ class BatchEditThread(QThread):
 
             for i in range(0, len(self.note_ids), self.chunk_size):
                 if self._is_cancelled:
+                    logger.info("Traitement par lots AI annulé par l'utilisateur.")
                     self.cancelled.emit()
                     return
 
@@ -184,6 +189,7 @@ class BatchEditThread(QThread):
                             total_processed += 1
 
                 except (ValueError, TypeError) as e:
+                    logger.exception("Erreur de parsing lors du batch edit :")
                     self.error_signal.emit(f"Erreur de parsing sur un lot : {e}\nRéponse brute : {raw_response[:100]}...")
                     return
 
@@ -191,6 +197,7 @@ class BatchEditThread(QThread):
                 self.finished_signal.emit(total_processed)
 
         except (ValueError, TypeError, RuntimeError) as e:
+            logger.exception("Erreur critique lors du batch edit :")
             self.error_signal.emit(f"Erreur critique du Batch Edit : {e}")
 
 
@@ -464,6 +471,7 @@ class EditionTab(QWidget):
         if self.progress_dialog:
             self.progress_dialog.close()
 
+        logger.info("Paquet Anki importé avec succès.")
         show_toast(self, "Paquet importé avec succès !")
         self.refresh_deck_tree()
         self.btn_load_col.setEnabled(True)
@@ -473,6 +481,7 @@ class EditionTab(QWidget):
         if self.progress_dialog:
             self.progress_dialog.close()
 
+        logger.error(f"Erreur lors de l'importation : {error_msg}")
         QMessageBox.critical(self, "Erreur d'importation", f"Erreur : {error_msg}")
         self.btn_load_col.setEnabled(True)
 
@@ -505,8 +514,10 @@ class EditionTab(QWidget):
                 exporter = ExportManager()
                 # ✅ CORRECTION : On utilise enfin la variable `export_only_new` !
                 exporter.export_deck(self.current_deck_id, path, export_only_new=export_only_new)
+                logger.info(f"Paquet {self.current_deck_id} exporté vers {path}.")
                 show_toast(self, "Exportation terminée !")
             except Exception as e:
+                logger.exception(f"Erreur lors de l'exportation du paquet {self.current_deck_id} :")
                 QMessageBox.critical(self, "Erreur", f"Erreur lors de l'exportation :\n{e}")
 
     def refresh_deck_tree(self) -> None:
@@ -704,10 +715,8 @@ class EditionTab(QWidget):
             self.data_table.setSortingEnabled(True)
             self.restore_table_state()
         except Exception as e:
+            logger.exception("Erreur lors du rafraîchissement du tableau de données :")
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
-            import traceback
-
-            print(traceback.format_exc())
 
     def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
@@ -776,6 +785,7 @@ class EditionTab(QWidget):
 
             self.update_preview()
         except Exception as e:
+            logger.exception("Erreur lors de la sélection d'une ligne :")
             self.details_layout.addWidget(QLabel(f"Erreur : {e}"))
 
     @Slot()
@@ -936,8 +946,10 @@ class EditionTab(QWidget):
             else:
                 self.refresh_table()
 
+            logger.info(f"Note {self.current_note.id} mise à jour manuellement.")
             show_toast(self, "Note mise à jour !")
         except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde des modifications de la note :")
             QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
 
     def _create_new_note(self) -> None:
@@ -980,10 +992,12 @@ class EditionTab(QWidget):
                     for i, _ in enumerate(templates):
                         CardModel.create(note=new_note, deck=deck, template_index=i)
 
+            logger.info(f"Nouvelle note créée (ID: {new_note.id}).")
             show_toast(self, "✨ Nouvelle note créée !")
             self._exit_creation_mode(refresh=True, select_note_id=new_note.id)
 
         except Exception as e:
+            logger.exception("Erreur lors de la création d'une nouvelle note :")
             QMessageBox.critical(self, "Erreur", f"Impossible de créer la note : {e}")
 
     def _exit_creation_mode(self, refresh: bool = False, select_note_id: int | None = None) -> None:
@@ -1105,8 +1119,10 @@ class EditionTab(QWidget):
                     note.status = "new"
                     note.save()
 
+            logger.info(f"{len(selected_rows)} notes approuvées et sorties de quarantaine.")
             self.refresh_table()
         except Exception as e:
+            logger.exception("Erreur lors de l'approbation des notes :")
             QMessageBox.critical(self, "Erreur", f"Impossible d'approuver :\n{e}")
 
     def reject_selected_notes(self) -> None:
@@ -1131,10 +1147,12 @@ class EditionTab(QWidget):
                         if note_id is not None:
                             NoteModel.delete_by_id(note_id)  # CASCADE supprimera les cartes et versions
 
+                logger.info(f"{len(selected_rows)} notes rejetées et supprimées.")
                 self.refresh_table()
                 self.web_view.setHtml("")
                 self.btn_save_edits.setEnabled(False)
             except Exception as e:
+                logger.exception("Erreur lors du rejet des notes :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de rejeter :\n{e}")
 
     # ==========================================
@@ -1247,10 +1265,12 @@ class EditionTab(QWidget):
                 # Mise à jour de l'UI
                 if self.current_tag_filter == old_tag:
                     self.current_tag_filter = new_tag
+                logger.info(f"Tag #{old_tag} renommé en #{new_tag}.")
                 self.refresh_tags_list()
                 self.refresh_table()
 
             except Exception as e:
+                logger.exception(f"Erreur lors du renommage du tag #{old_tag} :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de renommer le tag : {e}")
 
     def delete_tag(self, tag_to_delete: str) -> None:
@@ -1275,12 +1295,14 @@ class EditionTab(QWidget):
                             note.tags = json.dumps(tags, ensure_ascii=False)
                             note.save()
 
+                logger.info(f"Tag #{tag_to_delete} supprimé de toutes les notes.")
                 show_toast(self, f"Tag #{tag_to_delete} supprimé !")
                 if self.current_tag_filter == tag_to_delete:
                     self.current_tag_filter = None
                 self.refresh_tags_list()
                 self.refresh_table()
             except Exception as e:
+                logger.exception(f"Erreur lors de la suppression du tag #{tag_to_delete} :")
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le tag : {e}")
 
     @Slot(int, int)
@@ -1422,14 +1444,17 @@ class EditionTab(QWidget):
 
             # 4. Lancer l'interface utilisateur si on a trouvé des conflits
             if not conflicts:
+                logger.info("Scan des doublons terminé : aucun doublon trouvé.")
                 show_toast(self, "Aucun doublon détecté dans ce paquet !")
             else:
+                logger.info(f"Scan des doublons terminé : {len(conflicts)} conflits trouvés.")
                 dialog = DuplicateResolverDialog(conflicts, self)
                 dialog.exec()
                 # On rafraîchit le tableau car des cartes ont potentiellement été supprimées
                 self.refresh_table()
 
         except Exception as e:
+            logger.exception("Erreur lors du scan des doublons :")
             QMessageBox.critical(self, "Erreur", f"Erreur lors de l'analyse : {e}")
         finally:
             self.btn_scan_dupes.setEnabled(True)
@@ -1509,6 +1534,7 @@ class EditionTab(QWidget):
             self.progress_dialog.setMinimumDuration(0)
 
             # Lancement du Thread
+            logger.info(f"Lancement du batch edit IA sur {len(note_ids)} notes.")
             self.batch_thread = BatchEditThread(active_provider, note_ids, prompt, chunk_size)
             self.batch_thread.progress.connect(self.progress_dialog.setLabelText)
             self.batch_thread.finished_signal.connect(self._on_batch_edit_success)
@@ -1527,8 +1553,10 @@ class EditionTab(QWidget):
             self.progress_dialog.close()
 
         if processed_count > 0:
+            logger.info(f"Batch edit terminé : {processed_count} notes modifiées.")
             show_toast(self, f"{processed_count} carte(s) modifiée(s) et placée(s) en Quarantaine !")
         else:
+            logger.info("Batch edit terminé : aucune note modifiée.")
             show_toast(self, "L'IA a estimé qu'aucune modification n'était nécessaire sur ces cartes.")
 
         self.refresh_table()  # Fera disparaître les cartes modifiées vers la vue Quarantaine !
@@ -1537,11 +1565,13 @@ class EditionTab(QWidget):
     def _on_batch_edit_error(self, error_msg: str):
         if self.progress_dialog:
             self.progress_dialog.close()
+        logger.error(f"Erreur lors du batch edit : {error_msg}")
         QMessageBox.critical(self, "Erreur IA", f"Erreur lors de la modification : {error_msg}")
 
     @Slot()
     def _on_batch_edit_cancelled(self):
         if self.progress_dialog:
             self.progress_dialog.close()
+        logger.info("Batch edit annulé par l'utilisateur.")
         show_toast(self, "Modification par lot annulée.", is_error=True)
         self.refresh_table()
