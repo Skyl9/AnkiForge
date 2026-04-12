@@ -697,9 +697,9 @@ class EditionTab(QWidget):
                     nt_name = note.note_type.name if note.note_type else "Inconnu"
                     tags_list = cast(list[str], json.loads(note.tags)) if note.tags else []
 
-                    item = self.data_table.item(row_index, 0)
-                    if item is not None:
-                        item.setData(Qt.ItemDataRole.UserRole, note.id)
+                    item_recto.setData(Qt.ItemDataRole.UserRole, note.id)
+                    self.data_table.setItem(row_index, 0, item_recto)
+
                     self.data_table.setItem(row_index, 1, SortableTableItem(verso))
                     self.data_table.setItem(row_index, 2, SortableTableItem(nt_name))
                     self.data_table.setItem(row_index, 3, SortableTableItem(", ".join(tags_list)))
@@ -708,6 +708,7 @@ class EditionTab(QWidget):
                     item_version = SortableTableItem(f"v{v_num}")
                     item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row_index, 4, item_version)
+
                     item = self.data_table.item(row_index, 0)
                     if item is not None:
                         item.setData(Qt.ItemDataRole.UserRole, note.id)

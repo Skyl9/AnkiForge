@@ -139,7 +139,7 @@ class BatchWorker(QThread):
                 second_field = fields[1] if len(fields) > 1 else "Field2"
                 templates = json.loads(note_type.templates) if note_type.templates else []
 
-                optimal_max_chars = int((max_tokens * 0.5) * 4)
+                optimal_max_chars = min(4000, int((max_tokens * 0.5) * 4))
 
                 logger.info(f"Traitement du document '{doc.title}' ({task_idx + 1}/{total_tasks}).")
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
@@ -203,6 +203,34 @@ class BatchWorker(QThread):
                         if notes_to_create:
                             with db.atomic():
                                 for note_data in notes_to_create:
+                                    # On force les clés du JSON à correspondre EXACTEMENT aux champs attendus
+                                    cleaned_note_data = {}
+                                    # 1. Dictionnaire en minuscules pour la recherche sémantique
+                                    lower_note_data = {str(k).lower().strip(): v for k, v in note_data.items()}
+                                    # 2. Liste brute des valeurs pour le Plan B (Ordre d'apparition)
+                                    raw_values = list(note_data.values())
+
+                                    for i, field in enumerate(fields):
+                                        field_lower = field.lower().strip()
+
+                                        # Plan A : L'IA a respecté le nom du champ
+                                        if field_lower in lower_note_data:
+                                            val = lower_note_data[field_lower]
+                                        # Plan B : L'IA a inventé des noms, on prend la valeur correspondant à l'index
+                                        elif i < len(raw_values):
+                                            val = raw_values[i]
+                                        # Plan C : Rien trouvé
+                                        else:
+                                            val = ""
+
+                                        # Formatage : Si l'IA a mis une liste de puces, on la convertit en sauts de ligne HTML
+                                        if isinstance(val, list):
+                                            val = "<br>".join([str(item) for item in val])
+                                        else:
+                                            val = str(val) if val is not None else ""
+
+                                        cleaned_note_data[field] = val
+
                                     note = NoteModel.create(
                                         guid=str(uuid.uuid4())[:10],
                                         note_type=note_type,
@@ -212,14 +240,15 @@ class BatchWorker(QThread):
                                     NoteVersionModel.create(
                                         note=note,
                                         version_number=1,
-                                        content=json.dumps(note_data, ensure_ascii=False),
+                                        content=json.dumps(cleaned_note_data, ensure_ascii=False),
+                                        # On sauve les données propres
                                         source="ai_batch",
                                         is_active=True,
                                     )
                                     is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
                                     if is_cloze:
-                                        max_cloze = get_max_cloze_index(note_data)
+                                        max_cloze = get_max_cloze_index(cleaned_note_data)  # Attention à bien utiliser cleaned_note_data ici aussi !
                                         num_cards = max(1, max_cloze)
                                         for i in range(num_cards):
                                             CardModel.create(note=note, deck=deck, template_index=i)
@@ -372,6 +401,10 @@ class BatchTab(QWidget):
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
+        self.table_queue.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table_queue.verticalHeader().setMinimumSectionSize(45)
+        self.table_queue.verticalHeader().setDefaultSectionSize(45)
+        self.table_queue.verticalHeader().setVisible(False)
 
         self.lbl_empty_queue = QLabel("La file d'attente est vide. Sélectionnez des documents à gauche pour commencer.")
         self.lbl_empty_queue.setStyleSheet("color: palette(placeholder-text); font-style: italic;")
@@ -600,6 +633,8 @@ class BatchTab(QWidget):
         cb_llm.currentIndexChanged.connect(self._update_estimates)
         cb_pipe.currentIndexChanged.connect(self._update_estimates)
         cb_vision.stateChanged.connect(self._update_estimates)
+
+        self.table_queue.resizeRowToContents(row_idx)
 
     def _remove_row(self, row_idx: int) -> None:
         self.table_queue.removeRow(row_idx)
