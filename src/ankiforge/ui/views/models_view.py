@@ -252,7 +252,7 @@ class ModelsTab(QWidget):
         reply = QMessageBox.question(
             self,
             "Suppression Critique",
-            f"Voulez-vous vraiment supprimer le modèle '{model.name}' ?\n" "ATTENTION : Cela supprimera ÉGALEMENT toutes les notes et cartes utilisant ce modèle !",
+            f"Voulez-vous vraiment supprimer le modèle '{model.name}' ?\nATTENTION : Cela supprimera ÉGALEMENT toutes les notes et cartes utilisant ce modèle !",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 

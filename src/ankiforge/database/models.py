@@ -414,15 +414,11 @@ NE RENVOIE QUE LE JSON STRICTEMENT VALIDE. NE METS AUCUN TEXTE AVANT OU APRÈS, 
     # CRÉATION DES MOTEURS IA
     # ==========================================
     if LLMConfigModel.select().count() == 0:
-        LLMConfigModel.create(
-            display_name="GPT-4o (OpenAI)", provider="openai", model_id="gpt-4o", context_limit=128000
-        )
+        LLMConfigModel.create(display_name="GPT-4o (OpenAI)", provider="openai", model_id="gpt-4o", context_limit=128000)
         LLMConfigModel.create(
             display_name="Claude 3.5 Sonnet",
             provider="anthropic",
             model_id="claude-3-5-sonnet-20240620",
             context_limit=200000,
         )
-        LLMConfigModel.create(
-            display_name="Mistral Local (Ollama)", provider="ollama", model_id="mistral", context_limit=32768
-        )
+        LLMConfigModel.create(display_name="Mistral Local (Ollama)", provider="ollama", model_id="mistral", context_limit=32768)

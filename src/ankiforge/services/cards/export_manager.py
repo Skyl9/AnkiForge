@@ -52,14 +52,7 @@ class ExportManager:
             condition = condition & (NoteModel.status == "new")
 
         # 3. Récupération des cartes (avec Jointure sur le DeckModel pour savoir où les ranger)
-        cards = (
-            CardModel.select(CardModel, NoteModel, NoteTypeModel, DeckModel)
-            .join(NoteModel)
-            .join(NoteTypeModel)
-            .switch(CardModel)
-            .join(DeckModel)
-            .where(condition)
-        )
+        cards = CardModel.select(CardModel, NoteModel, NoteTypeModel, DeckModel).join(NoteModel).join(NoteTypeModel).switch(CardModel).join(DeckModel).where(condition)
 
         for card in cards:
             note = card.note

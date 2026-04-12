@@ -120,21 +120,9 @@ class StoreManager:
             for row in cards:
                 try:
                     # 1. Extraction sécurisée des métadonnées (avec valeurs par défaut si absentes)
-                    deck_name = (
-                        row[header_dict["deck"]]
-                        if "deck" in header_dict and header_dict["deck"] < len(row)
-                        else "Default Deck"
-                    )
-                    notetype_name = (
-                        row[header_dict["notetype"]]
-                        if "notetype" in header_dict and header_dict["notetype"] < len(row)
-                        else "Basic"
-                    )
-                    guid = (
-                        row[header_dict["guid"]]
-                        if "guid" in header_dict and header_dict["guid"] < len(row)
-                        else str(uuid.uuid4())
-                    )
+                    deck_name = row[header_dict["deck"]] if "deck" in header_dict and header_dict["deck"] < len(row) else "Default Deck"
+                    notetype_name = row[header_dict["notetype"]] if "notetype" in header_dict and header_dict["notetype"] < len(row) else "Basic"
+                    guid = row[header_dict["guid"]] if "guid" in header_dict and header_dict["guid"] < len(row) else str(uuid.uuid4())
 
                     # 2. Gestion du Deck (avec hiérarchie ::)
                     parent_deck = None
@@ -256,9 +244,7 @@ class StoreManager:
                             parent_name = full_name.rsplit("::", 1)[0]
                             parent_deck = DeckModel.get_or_none(DeckModel.name == parent_name)
 
-                        deck_obj, created = DeckModel.get_or_create(
-                            name=full_name, defaults={"anki_id": did, "parent_deck": parent_deck}
-                        )
+                        deck_obj, created = DeckModel.get_or_create(name=full_name, defaults={"anki_id": did, "parent_deck": parent_deck})
 
                         if not created and not deck_obj.anki_id:
                             deck_obj.anki_id = did
@@ -388,9 +374,7 @@ class StoreManager:
                             note = NoteModel.get(NoteModel.anki_id == nid)
                             deck = DeckModel.get(DeckModel.anki_id == did)
 
-                            card_obj, created = CardModel.get_or_create(
-                                note=note, template_index=template_ord, defaults={"anki_id": cid, "deck": deck}
-                            )
+                            card_obj, created = CardModel.get_or_create(note=note, template_index=template_ord, defaults={"anki_id": cid, "deck": deck})
                             if not created and not card_obj.anki_id:
                                 card_obj.anki_id = cid
                                 card_obj.save()
