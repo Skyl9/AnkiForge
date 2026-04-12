@@ -2,7 +2,6 @@
 import json
 import logging
 import os
-import re
 import uuid
 from typing import Any, cast
 
@@ -52,6 +51,7 @@ from ankiforge.services.ai.utils import PRICING_1M_USD
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.chunker import smart_chunk_text
 
 logger = logging.getLogger(__name__)
 
@@ -84,75 +84,6 @@ class BatchWorker(QThread):
         elif clean.startswith("```"):
             clean = clean[3:-3].strip()
         return clean
-
-    def _chunk_text(self, text: str, strategy: str, max_chars: int = 6000, overlap: int = 1000) -> list[str]:
-        """Le moteur de découpage intelligent."""
-        if strategy == "Aucun (Document entier)" or len(text) <= max_chars:
-            return [text]
-
-        chunks = []
-
-        if strategy == "Sémantique (Titres)":
-            # On cherche les titres Markdown (# Titre ou ## Titre)
-            splits = [m.start() for m in re.finditer(r"(^|\n)(#{1,3})\s", text)]
-
-            # Si le document n'a pas de titres, on bascule sur le Classique
-            if not splits or len(splits) == 1:
-                return self._chunk_text(text, "Classique", max_chars)
-
-            last_idx = 0
-            for i in range(1, len(splits)):
-                part = text[last_idx : splits[i]].strip()
-                if len(part) > 50:  # On ignore les morceaux vides
-                    chunks.append(part)
-                last_idx = splits[i]
-
-            last_part = text[last_idx:].strip()
-            if len(last_part) > 50:
-                chunks.append(last_part)
-
-            return chunks
-
-        elif strategy == "Chevauchement (Overlap)":
-            start = 0
-            while start < len(text):
-                end = start + max_chars
-                if end >= len(text):
-                    chunks.append(text[start:].strip())
-                    break
-
-                # On cherche une fin de phrase ou de paragraphe
-                split_idx = text.rfind("\n\n", start, end)
-                if split_idx == -1 or split_idx <= start + overlap:
-                    split_idx = text.rfind(". ", start, end)
-                if split_idx == -1 or split_idx <= start + overlap:
-                    split_idx = end
-
-                chunks.append(text[start:split_idx].strip())
-                # On recule pour créer le chevauchement !
-                start = split_idx - overlap
-                if start < 0:
-                    start = 0
-
-            return chunks
-
-        else:  # "Classique"
-            temp_text = text
-            while len(temp_text) > 0:
-                if len(temp_text) <= max_chars:
-                    chunks.append(temp_text)
-                    break
-
-                split_idx = temp_text.rfind("\n\n", 0, max_chars)
-                if split_idx == -1:
-                    split_idx = temp_text.rfind(". ", 0, max_chars)
-                if split_idx == -1:
-                    split_idx = max_chars
-
-                chunks.append(temp_text[:split_idx].strip())
-                temp_text = temp_text[split_idx:].strip()
-
-            return chunks
 
     def run(self) -> None:
         try:
@@ -208,11 +139,10 @@ class BatchWorker(QThread):
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
                 self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
                 # PARTITIONNEMENT DU DOCUMENT
-                chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
+                chunks = smart_chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 logger.info(f"Document '{doc.title}' découpé en {len(chunks)} morceaux.")
                 self.log.emit(f"✂️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
 
-                chunks = self._chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 doc_success_notes = 0
 
                 for chunk_idx, chunk_text in enumerate(chunks, 1):
