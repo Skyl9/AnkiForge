@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # Regex pour trouver les images Markdown : ![alt](media/mon_image.jpg)
 MD_IMAGE_REGEX = re.compile(r"!\[.*?\]\((.*?)\)")
 # Regex pour trouver les images HTML : <img src="media/mon_image.jpg">
-HTML_IMAGE_REGEX = re.compile(r'<img[^>]+src=["\'](.*?)["\']', re.IGNORECASE)
+HTML_IMAGE_REGEX = re.compile(r'<img[^>]+src=["\'](.*?)["\'][^>]*>', re.IGNORECASE)
 
 
 def strip_image_tags(text: str) -> str:
