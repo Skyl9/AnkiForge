@@ -1,8 +1,7 @@
 import logging
 
 from peewee import CharField, DateTimeField, SQL, OperationalError
-from peewee_migrate.cli import migrate
-from playhouse.migrate import SqliteMigrator
+from playhouse.migrate import SqliteMigrator, migrate
 
 from ankiforge.database.models import db, SchemaVersionModel
 

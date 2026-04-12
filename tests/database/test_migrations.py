@@ -1,5 +1,5 @@
 from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import SchemaVersionModel
+from ankiforge.database.models import db, SchemaVersionModel
 
 
 def test_run_migrations_idempotency(mock_db):
@@ -7,23 +7,27 @@ def test_run_migrations_idempotency(mock_db):
     Vérifie que le script de migration crée la table de version,
     incrémente la version correctement, et ne plante pas s'il est lancé plusieurs fois.
     """
-    # La fixture mock_db a déjà créé le schéma complet en mémoire.
-    # Nous supprimons manuellement la table de version pour simuler
-    # un utilisateur migrant d'une version V1 sans système de suivi.
+    # 1. On supprime la table de version pour simuler un vieil utilisateur
     SchemaVersionModel.drop_table(safe=True)
 
-    # 1. Première exécution (Simulation d'une mise à jour)
+    # 2. Première exécution (La base possède déjà les colonnes via mock_db,
+    # donc cela va tester notre bloc 'except OperationalError' de sécurité)
     run_migrations()
 
-    # Vérifications : La table a été créée et la version est actée
+    # Vérifications de l'état
     assert SchemaVersionModel.table_exists(), "La table SchemaVersionModel n'a pas été créée."
+
     version_record = SchemaVersionModel.get_by_id(1)
     assert version_record.version == 2, "La version du schéma n'a pas été incrémentée à 2."
 
-    # 2. Deuxième exécution (Simulation des lancements quotidiens de l'application)
-    # L'appel suivant doit s'exécuter silencieusement sans exception (Idempotence)
+    # ✨ NOUVEAU : On vérifie directement dans le moteur SQLite que les colonnes sont bien là
+    columns = [col.name for col in db.get_columns("agents")]
+    assert "output_format" in columns, "La colonne output_format est manquante dans la table agents."
+    assert "created_at" in columns, "La colonne created_at est manquante dans la table agents."
+
+    # 3. Deuxième exécution (Simulation d'un redémarrage de l'application)
     run_migrations()
 
-    # La version doit rester bloquée à 2
+    # La version doit rester strictement à 2
     version_record = SchemaVersionModel.get_by_id(1)
-    assert version_record.version == 2, "La version du schéma a été modifiée anormalement."
+    assert version_record.version == 2, "La version du schéma a été modifiée anormalement après la seconde passe."
