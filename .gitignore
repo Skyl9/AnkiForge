@@ -20,7 +20,11 @@ __pycache__/
 venv/
 .venv/
 env/
-.ankiforge/.env
+.ankiforge/
+.env
+.so
+llm_context.txt
+uv.lock
 superpowers/
 # --- Outils de Build et de Packaging ---
 build/
