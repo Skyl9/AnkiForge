@@ -10,14 +10,16 @@ from ankiforge.database.models import init_db, seed_initial_data
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.theme import setup_dynamic_theme
+from ankiforge.utils.logger import setup_logging
 
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
-
+# ruff : noqa: E402
 from PySide6.QtWidgets import QApplication
 
 
 def main():
+    setup_logging()
     QCoreApplication.setOrganizationName("AnkiForgeOrg")
     QCoreApplication.setApplicationName("AnkiForge")
 
