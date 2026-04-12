@@ -94,6 +94,11 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
             max_end = start + max_chars
 
             split_idx = _find_best_split(text, start, max_end, protected_intervals)
+
+            if split_idx <= start:
+                logger.warning(f"Tronçonnage forcé à l'index {start + max_chars} (aucun espace trouvé).")
+                split_idx = start + max_chars
+
             chunks.append(text[start:split_idx].strip())
 
             if split_idx >= len(text):
@@ -102,9 +107,14 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
             if strategy == "Chevauchement (Overlap)":
                 overlap_target = split_idx - overlap
                 if overlap_target <= start:
+                    next_start = split_idx
+                else:
+                    next_start = _find_best_split(text, start, overlap_target, protected_intervals)
+
+                if next_start <= start:
                     start = split_idx
                 else:
-                    start = _find_best_split(text, start, overlap_target, protected_intervals)
+                    start = next_start
             else:
                 start = split_idx
 
