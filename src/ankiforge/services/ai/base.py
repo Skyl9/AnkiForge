@@ -1,5 +1,6 @@
 # src/services/ai/base.py
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class LLMProvider(ABC):
@@ -9,7 +10,7 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def generate(self, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
         """
         Doit retourner une chaîne de caractères (idéalement formatée en JSON).
         """
@@ -18,7 +19,7 @@ class LLMProvider(ABC):
 
 # --- Implémentation Mock (pour tester sans payer l'API ou sans connexion) ---
 class MockProvider(LLMProvider):
-    def generate(self, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
         """Simule une réponse JSON parfaite pour ne pas faire planter l'interface."""
         return """
         {

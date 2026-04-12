@@ -1,7 +1,7 @@
 # src/services/ai/flexible_service.py
 import logging
 import os
-from typing import cast
+from typing import cast, Any
 
 import requests
 from dotenv import load_dotenv
@@ -26,7 +26,7 @@ class OpenAICompatibleProvider(LLMProvider):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model_name = model_name
 
-    def generate(self, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
         messages = [
             ChatCompletionSystemMessageParam(role="system", content=system_prompt),
             ChatCompletionUserMessageParam(role="user", content=user_prompt),
