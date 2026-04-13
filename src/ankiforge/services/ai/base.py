@@ -10,7 +10,7 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
         """
         Doit retourner une chaîne de caractères (idéalement formatée en JSON).
         """
@@ -19,8 +19,10 @@ class LLMProvider(ABC):
 
 # --- Implémentation Mock (pour tester sans payer l'API ou sans connexion) ---
 class MockProvider(LLMProvider):
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
         """Simule une réponse JSON parfaite pour ne pas faire planter l'interface."""
+        if response_format == "text":
+            return "Ceci est une réponse simulée en texte libre."
         return """
         {
             "notes": [

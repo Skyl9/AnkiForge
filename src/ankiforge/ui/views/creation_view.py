@@ -113,6 +113,7 @@ class GenerationThread(QThread):
                     self.cancelled.emit()
                     return
                 agent = step.agent
+                output_format = getattr(agent, "output_format", "json")
                 self.progress.emit(f"Étape {i}/{total_steps} : {agent.name}...")
 
                 jinja_template = Template(agent.system_prompt)
@@ -126,10 +127,10 @@ class GenerationThread(QThread):
                 if self.use_vision:
                     media_dir = get_app_data_dir() / "media"
                     payload = prepare_multimodal_payload(current_input, media_dir)
-                    raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=payload)
+                    raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=payload, response_format=output_format)
                 else:
                     clean_input = strip_image_tags(current_input)
-                    raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=clean_input)
+                    raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=clean_input, response_format=output_format)
 
                 logger.debug(f"Réponse brute de l'IA pour l'étape {i} : {raw_response[:100]}...")
                 self.log.emit(f"🟠 RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")

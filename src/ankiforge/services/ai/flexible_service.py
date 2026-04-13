@@ -26,20 +26,25 @@ class OpenAICompatibleProvider(LLMProvider):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model_name = model_name
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
         messages = [
             ChatCompletionSystemMessageParam(role="system", content=system_prompt),
             ChatCompletionUserMessageParam(role="user", content=user_prompt),
         ]
         try:
+            kwargs = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.2,
+            }
+
+            # 👇 C'est ici que l'on connecte votre interface au backend !
+            if response_format == "json":
+                kwargs["response_format"] = {"type": "json_object"}
+
             response = cast(
                 ChatCompletion,
-                self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                    temperature=0.2,
-                ),
+                self.client.chat.completions.create(**kwargs),
             )
             if hasattr(response, "usage") and response.usage:
                 p_tokens = response.usage.prompt_tokens or 0

@@ -18,6 +18,7 @@ from ankiforge.ui.views.settings_view import SettingsTab
 from ankiforge.ui.views.stats_view import StatsTab
 from ankiforge.ui.widgets.omnibox import Omnibox
 from ankiforge.ui.widgets.tour_guide import TourBubble
+from ankiforge.ui.views.consultant_view import ConsultantTab
 
 
 class MainWindow(QMainWindow):
@@ -75,9 +76,12 @@ class MainWindow(QMainWindow):
         self.llm_manager_tab = LLMManagerTab(self.ai_manager)
         self.ab_test_tab = ABTestTab()
         self.creation_tab = CreationTab(self.ai_manager)
+        self.consultant_tab = ConsultantTab(self.ai_manager)
+
         # --- Ajout dynamique des éléments ---
         self.add_view(self.creation_tab, "fa5s.magic", "Création")
         self.add_view(self.tab_edition, "fa5s.layer-group", "Édition / Analyse")
+        self.add_view(self.consultant_tab, "fa5s.book-open", "Consultant")
         self.add_view(ModelsTab(), "fa5s.paint-brush", "Modèles")
         self.add_view(AgentsTab(), "fa5s.robot", "Agents & Pipelines")
         self.add_view(self.stats_tabs, "fa5s.chart-bar", "Statistiques")

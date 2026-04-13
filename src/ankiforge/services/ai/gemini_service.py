@@ -26,15 +26,18 @@ class GeminiService(LLMProvider):
         # Connexion directe à l'API Google AI Studio
         self.client = genai.Client(api_key=self.api_key)
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]]) -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
         """
         Génère une réponse JSON structurée.
         """
+
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            response_mime_type="application/json",  # Force le JSON valide
             temperature=0.2,
         )
+
+        if response_format == "json":
+            config.response_mime_type = "application/json"
 
         try:
             # --- ADAPTATION POUR LA VISION ---
