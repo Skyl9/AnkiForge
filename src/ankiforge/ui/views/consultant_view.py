@@ -49,7 +49,7 @@ class ChatConsultantThread(QThread):
 
     def run(self):
         try:
-            self.progress.emit("L'IA analyse vos sources...")
+            self.progress.emit("Extraction et structuration du contexte...")
 
             system_prompt = (
                 "Tu es un expert en mémorisation, pédagogie et création de flashcards Anki.\n"
@@ -65,9 +65,14 @@ class ChatConsultantThread(QThread):
 
             user_prompt = json.dumps(user_payload, ensure_ascii=False, indent=2)
 
+            # On récupère le nom du modèle de manière sécurisée pour l'affichage
+            model_name = getattr(self.ai_provider, "model_name", "l'IA")
+            self.progress.emit(f"Envoi des données au modèle {model_name}...")
+
             # Appel API
             raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="text")
 
+            self.progress.emit("Réponse reçue, formatage en cours...")
             self.finished_signal.emit(raw_response)
 
         except Exception as e:
@@ -451,31 +456,56 @@ class ConsultantTab(QWidget):
         # 1. Animation UI
         self.chat_input.setMinimumHeight(40)
         self.chat_input.setMaximumHeight(80)
-
-        # 2. Collecte des données de contexte
+        self.btn_send.setEnabled(False)
         self.lbl_chat_status.setText("📦 Collecte des données...")
+
+        # 2. Construction de l'écho visuel stylisé
+        context_names = []
+        for ctx_id in self.active_context:
+            if ctx_id.startswith("doc_"):
+                doc = DocumentModel.get_or_none(DocumentModel.id == int(ctx_id.split("_")[1]))
+                if doc:
+                    context_names.append(f"📄 {doc.title}")
+            elif ctx_id.startswith("deck_"):
+                deck = DeckModel.get_or_none(DeckModel.id == int(ctx_id.split("_")[1]))
+                if deck:
+                    context_names.append(f"📦 {deck.name}")
+
+        ctx_display = ", ".join(context_names) if context_names else "Aucun contexte"
+
+        echo_html = (
+            f"<hr><div style='margin-bottom:10px; padding-left:10px; border-left: 3px solid palette(highlight);'>"
+            f"<b style='color: palette(highlight);'>&gt; COMMANDE :</b> {instruction}<br>"
+            f"<span style='font-size: 11px; color: palette(placeholder-text);'><i>Cible(s) : {ctx_display}</i></span>"
+            f"</div>"
+        )
+        self.chat_history.append(echo_html)
+        self.chat_input.clear()
+
+        # 3. Collecte des données
         context_data = self._build_context_data()
 
-        # 3. Récupération de l'IA sélectionnée
+        # 4. Récupération de l'IA sélectionnée
         llm_id = self.llm_selector.currentData()
         llm_config = LLMConfigModel.get_or_none(LLMConfigModel.id == llm_id)
         if not llm_config:
             self.chat_history.append("<div style='color:red;'>⚠️ Aucun moteur IA sélectionné.</div>")
+            self.btn_send.setEnabled(True)
             return
 
         active_provider = self._get_ai_provider(llm_config)
 
-        # 4. Affichage de l'écho dans la console
-        context_info = f"({len(self.active_context)} sources)" if self.active_context else "(Sans contexte)"
-        self.chat_history.append(f"<hr><div style='margin-bottom:10px;'><b>👤 Vous {context_info} :</b><br>{instruction}</div>")
-        self.chat_input.clear()
-        self.btn_send.setEnabled(False)
-
-        # 5. Lancement du Thread
+        # 5. Lancement du Thread avec connexion du signal de progression !
         self.chat_thread = ChatConsultantThread(active_provider, context_data, instruction)
+        self.chat_thread.progress.connect(self.on_chat_progress)  # LE SIGNAL MANQUANT
         self.chat_thread.finished_signal.connect(self.on_chat_success)
         self.chat_thread.error_signal.connect(self.on_chat_error)
         self.chat_thread.start()
+
+    @Slot(str)
+    def on_chat_progress(self, msg: str):
+        """Met à jour le statut en temps réel pendant que l'IA réfléchit."""
+        self.lbl_chat_status.setText(f"⏳ {msg}")
 
     def _build_context_data(self) -> dict:
         """Transforme les IDs de contexte en données réelles (texte, cartes)."""
@@ -524,14 +554,24 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def on_chat_success(self, response_text: str):
-        # Conversion Markdown -> HTML
-        html_response = markdown.markdown(response_text, extensions=["extra", "codehilite"])
+        # Conversion Markdown -> HTML avec support des tableaux et code
+        html_response = markdown.markdown(response_text, extensions=["extra", "codehilite", "tables"])
 
-        self.lbl_chat_status.setText("✅ Prêt")
-        self.chat_history.append(f"<div style='margin-bottom:20px; padding:15px; background-color:palette(alternate-base); border-radius:8px;'>" f"<b>🤖 IA :</b><br>{html_response}</div>")
+        self.lbl_chat_status.setText("")
+
+        # Injection de la réponse avec un fond distinctif
+        final_html = (
+            f"<div style='margin-top:10px; margin-bottom:20px; padding:15px; background-color:palette(alternate-base); border-radius:8px; border: 1px solid palette(window);'>"
+            f"<b>🤖 Réponse de l'IA :</b><br><br>"
+            f"<div style='font-size: 13px; line-height: 1.5;'>{html_response}</div>"
+            f"</div>"
+        )
+        self.chat_history.append(final_html)
+
         self.btn_send.setEnabled(True)
         # Scroll automatique vers le bas
-        self.chat_history.verticalScrollBar().setValue(self.chat_history.verticalScrollBar().maximum())
+        scrollbar = self.chat_history.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     @Slot(str)
     def on_chat_error(self, error_msg: str):
