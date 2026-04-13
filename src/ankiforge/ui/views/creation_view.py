@@ -143,7 +143,43 @@ class GenerationThread(QThread):
             if "notes" not in data:
                 raise ValueError("Le JSON final ne contient pas la clé 'notes'.")
 
-            self.finished.emit(data["notes"])
+            raw_notes = data["notes"]
+            cleaned_notes_to_create = []
+
+            # 👇 LE BOUCLIER ANTI-HALLUCINATION DES CLÉS (V2) 👇
+            for note_data in raw_notes:
+                cleaned_note_data = {}
+
+                # 1. Dictionnaire en minuscules pour la recherche sémantique
+                lower_note_data = {str(k).lower().strip(): v for k, v in note_data.items()}
+                # 2. Liste brute des valeurs pour le Plan B (Ordre d'apparition)
+                raw_values = list(note_data.values())
+
+                for i, field in enumerate(fields):
+                    field_lower = field.lower().strip()
+
+                    # Plan A : L'IA a respecté le nom du champ
+                    if field_lower in lower_note_data:
+                        val = lower_note_data[field_lower]
+                    # Plan B : L'IA a inventé des noms, on prend la valeur par index
+                    elif i < len(raw_values):
+                        val = raw_values[i]
+                    # Plan C : Rien trouvé
+                    else:
+                        val = ""
+
+                    # Formatage : Si l'IA a mis une liste de puces, on la convertit en sauts de ligne HTML
+                    if isinstance(val, list):
+                        val = "<br>".join([str(item) for item in val])
+                    else:
+                        val = str(val) if val is not None else ""
+
+                    cleaned_note_data[field] = val
+
+                cleaned_notes_to_create.append(cleaned_note_data)
+            # 👆 FIN DU BOUCLIER 👆
+
+            self.finished.emit(cleaned_notes_to_create)
 
         except json.JSONDecodeError as e:
             logger.exception("Erreur de décodage JSON lors de la génération :")

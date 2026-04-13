@@ -237,6 +237,32 @@ class DocumentModel(BaseModel):
     folder = ForeignKeyField(FolderModel, backref="documents", null=True, on_delete="CASCADE")
 
 
+class JobModel(BaseModel):
+    """
+    Table de suivi des tâches de fond (Parsing PDF, Batch IA long, etc.)
+    Permet la reprise après crash.
+    """
+
+    # Type de tâche : 'parse_pdf', 'batch_ai', 'audit'
+    job_type = CharField()
+    # Chemin du fichier source ou ID du document cible
+    target = CharField()
+    # Statuts : 'pending', 'processing', 'completed', 'failed', 'cancelled'
+    status = CharField(default="pending")
+    # Progression de 0 à 100
+    progress = IntegerField(default=0)
+    # Stockage JSON des paramètres spécifiques (ex: pipeline_id, model_id)
+    params = TextField(null=True)
+    # Log d'erreur en cas d'échec
+    error_log = TextField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(default=datetime.datetime.now)
+
+    def save(self, *args, **kwargs):
+        self.updated_at = datetime.datetime.now()
+        return super().save(*args, **kwargs)
+
+
 def init_db() -> None:
     db.connect(reuse_if_open=True)
     # Ajout des nouvelles tables à l'initialisation
@@ -257,6 +283,7 @@ def init_db() -> None:
             LLMConfigModel,
             TokenUsageModel,
             SchemaVersionModel,
+            JobModel,
         ]
     )
 

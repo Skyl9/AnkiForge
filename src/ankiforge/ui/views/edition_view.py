@@ -49,6 +49,7 @@ from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
 from ankiforge.ui.widgets.cloze_gestion import is_template_cloze
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
@@ -326,8 +327,13 @@ class EditionTab(QWidget):
         self.btn_batch_ai.clicked.connect(self.open_batch_edit_dialog)
         self.btn_batch_ai.setEnabled(False)  # On le grise tant qu'aucune ligne n'est sélectionnée
 
+        self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA")
+        self.btn_auto_tag.clicked.connect(self.open_auto_tag_dialog)
+        self.btn_auto_tag.setEnabled(False)
+
         toolbar_layout.addWidget(self.btn_new_note)
         toolbar_layout.addWidget(self.btn_batch_ai)
+        toolbar_layout.addWidget(self.btn_auto_tag)
         toolbar_layout.addWidget(self.btn_scan_dupes)
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
@@ -722,6 +728,7 @@ class EditionTab(QWidget):
     def on_row_selected(self) -> None:
         selected_items = self.data_table.selectedItems()
         self.btn_batch_ai.setEnabled(bool(selected_items))
+        self.btn_auto_tag.setEnabled(bool(selected_items))
         if not selected_items:
             return
 
@@ -1576,3 +1583,24 @@ class EditionTab(QWidget):
         logger.info("Batch edit annulé par l'utilisateur.")
         show_toast(self, "Modification par lot annulée.", is_error=True)
         self.refresh_table()
+
+    @Slot()
+    def open_auto_tag_dialog(self) -> None:
+        selected_rows = set(item.row() for item in self.data_table.selectedItems())
+        if not selected_rows:
+            return
+
+        note_ids = []
+        for row in selected_rows:
+            row_item = self.data_table.item(row, 0)
+            if row_item:
+                nid = row_item.data(Qt.ItemDataRole.UserRole)
+                if nid:
+                    note_ids.append(nid)
+
+        dialog = AutoTagDialog(self, note_ids)
+        if dialog.exec():
+            show_toast(self, "✨ Auto-Tagging terminé avec succès !")
+            # On rafraîchit la liste des tags à gauche ET le tableau !
+            self.refresh_tags_list()
+            self.refresh_table()

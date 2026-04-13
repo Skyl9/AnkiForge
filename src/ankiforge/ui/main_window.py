@@ -19,11 +19,16 @@ from ankiforge.ui.views.stats_view import StatsTab
 from ankiforge.ui.widgets.omnibox import Omnibox
 from ankiforge.ui.widgets.tour_guide import TourBubble
 from ankiforge.ui.views.consultant_view import ConsultantTab
+from ankiforge.services.background_daeamon import BackgroundDaemon
 
 
 class MainWindow(QMainWindow):
     def __init__(self, ai_manager):
         super().__init__()
+
+        self.daemon = BackgroundDaemon()
+        self.daemon.start()
+
         self.setWindowTitle("AnkiForge - AI Flashcard Generator")
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.ai_manager = ai_manager
@@ -142,6 +147,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent):
         self.write_settings()
         event.accept()
+        self.daemon.stop()
+        self.daemon.wait()
 
     @Slot(str, int, object)
     def handle_omnibox_result(self, result_type: str, item_id: int, extra_data: object):
