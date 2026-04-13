@@ -1,7 +1,6 @@
 # ruff: noqa: E501
 import json
 import logging
-import os
 import re
 import uuid
 from typing import Any
@@ -41,9 +40,6 @@ from ankiforge.database.models import (
     DocumentModel,
     LLMConfigModel,
 )
-from ankiforge.services.ai.base import MockProvider, LLMProvider
-from ankiforge.services.ai.flexible_service import OllamaProvider, GroqProvider, OpenAICompatibleProvider
-from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel, DangerButton
 from ankiforge.ui.theme import is_dark_mode
@@ -120,9 +116,9 @@ class GenerationThread(QThread):
                 system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
 
                 logger.info(f"Début étape {i}/{total_steps} : Agent '{agent.name}'")
-                self.log.emit(f"--- 🤖 DÉBUT ÉTAPE {i} : {agent.name.upper()} ---\n")
-                self.log.emit(f"🔵 PROMPT SYSTÈME :\n{system_prompt}\n")
-                self.log.emit(f"🟢 ENTRÉE UTILISATEUR :\n{current_input}\n")
+                self.log.emit(f"--- DÉBUT ÉTAPE {i} : {agent.name.upper()} ---\n")
+                self.log.emit(f"PROMPT SYSTÈME :\n{system_prompt}\n")
+                self.log.emit(f"ENTRÉE UTILISATEUR :\n{current_input}\n")
 
                 if self.use_vision:
                     media_dir = get_app_data_dir() / "media"
@@ -133,7 +129,7 @@ class GenerationThread(QThread):
                     raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=clean_input, response_format=output_format)
 
                 logger.debug(f"Réponse brute de l'IA pour l'étape {i} : {raw_response[:100]}...")
-                self.log.emit(f"🟠 RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")
+                self.log.emit(f"RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")
 
                 cleaned_output = self._clean_json(raw_response)
                 current_input = f"Voici les données à traiter (provenant de l'étape précédente) :\n{cleaned_output}"
@@ -146,7 +142,6 @@ class GenerationThread(QThread):
             raw_notes = data["notes"]
             cleaned_notes_to_create = []
 
-            # 👇 LE BOUCLIER ANTI-HALLUCINATION DES CLÉS (V2) 👇
             for note_data in raw_notes:
                 cleaned_note_data = {}
 
@@ -544,7 +539,6 @@ class CreationTab(QWidget):
 
         self.doc_selector.blockSignals(False)
 
-        # 👇 NOUVEAU : Auto-Sélection du premier document valide au lancement 👇
         if self.doc_selector.count() > 1:
             self.doc_selector.setCurrentIndex(1)
 
@@ -645,24 +639,7 @@ class CreationTab(QWidget):
             return
 
         llm_config = LLMConfigModel.get_by_id(llm_id)
-        p_name = llm_config.provider.lower()
-        active_provider: LLMProvider
-        if p_name == "ollama":
-            active_provider = OllamaProvider(model_name=llm_config.model_id)
-        elif p_name == "gemini":
-            active_provider = GeminiService(model_name=llm_config.model_id)
-        elif p_name == "groq":
-            active_provider = GroqProvider(model_name=llm_config.model_id)
-        elif p_name == "openai":
-            active_provider = OpenAICompatibleProvider(
-                base_url="https://api.openai.com/v1",
-                model_name=llm_config.model_id,
-                api_key=os.environ.get("OPENAI_API_KEY", ""),
-            )
-        else:
-            # Sécurité si un fournisseur (comme Anthropic brut) n'est pas encore implémenté
-            active_provider = MockProvider()
-
+        active_provider = self.ai_manager.create_provider_from_config(llm_config)
         self.btn_generate.hide()
         self.btn_cancel.show()
         self.btn_cancel.setEnabled(True)
@@ -688,7 +665,7 @@ class CreationTab(QWidget):
             self.btn_cancel.setEnabled(False)
             self.btn_cancel.setText(" Arrêt en cours...")
             logger.info("Demande d'arrêt de la génération IA reçue.")
-            self.append_log("\n⏳ Demande d'arrêt de l'IA...")
+            self.append_log("\n Demande d'arrêt de l'IA...")
 
     @Slot(str)
     def append_log(self, text: str) -> None:
@@ -702,7 +679,7 @@ class CreationTab(QWidget):
     def on_generation_success(self, generated_notes: list[dict[str, str]]) -> None:
         self.generated_notes = generated_notes
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText("✨ Regénérer les Cartes")
+        self.btn_generate.setText(" Regénérer les Cartes")
         self.btn_save.setEnabled(True)
 
         self.btn_cancel.hide()
@@ -738,7 +715,7 @@ class CreationTab(QWidget):
         self.btn_generate.show()
 
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText("✨ Générer les Cartes")
+        self.btn_generate.setText("Générer les Cartes")
         QMessageBox.critical(self, "Erreur IA", error_msg)
 
     @Slot(QTableWidgetItem)

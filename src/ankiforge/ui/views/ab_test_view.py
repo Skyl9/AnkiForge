@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import Any
 
 import qtawesome as qta
@@ -19,6 +18,7 @@ from PySide6.QtWidgets import (
 from jinja2 import Template
 
 from ankiforge.database.models import LLMConfigModel, AgentModel, NoteTypeModel
+from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import PrimaryButton, RoundedPanel, DangerButton, HeaderLabel
 from ankiforge.ui.theme import is_dark_mode
@@ -286,35 +286,6 @@ class ABTestTab(QWidget):
             self._render_preview(self.last_res_b, self.web_b)
 
     @staticmethod
-    def _instantiate_provider(llm_id: int) -> Any:
-        llm_config = LLMConfigModel.get_by_id(llm_id)
-        p_name = llm_config.provider.lower()
-        if p_name == "ollama":
-            from ankiforge.services.ai.flexible_service import OllamaProvider
-
-            return OllamaProvider(model_name=llm_config.model_id)
-        elif p_name == "gemini":
-            from ankiforge.services.ai.gemini_service import GeminiService
-
-            return GeminiService(model_name=llm_config.model_id)
-        elif p_name == "groq":
-            from ankiforge.services.ai.flexible_service import GroqProvider
-
-            return GroqProvider(model_name=llm_config.model_id)
-        elif p_name == "openai":
-            from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
-
-            return OpenAICompatibleProvider(
-                base_url="https://api.openai.com/v1",
-                model_name=llm_config.model_id,
-                api_key=os.environ.get("OPENAI_API_KEY", ""),
-            )
-
-        from ankiforge.services.ai.base import MockProvider
-
-        return MockProvider()
-
-    @staticmethod
     def _prepare_prompt(agent_id: int, note_type_id: int) -> str:
         """Injecte dynamiquement les champs du modèle de note dans le prompt via Jinja2."""
         agent = AgentModel.get_by_id(agent_id)
@@ -398,10 +369,10 @@ class ABTestTab(QWidget):
         try:
             if mode == 0:  # Moteurs
                 prompt_a = prompt_b = self._prepare_prompt(self.cb_global_config.currentData(), model_id)
-                provider_a = self._instantiate_provider(self.cb_config_a.currentData())
-                provider_b = self._instantiate_provider(self.cb_config_b.currentData())
+                provider_a = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_config_a.currentData()))
+                provider_b = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_config_b.currentData()))
             else:  # Prompts
-                provider_a = provider_b = self._instantiate_provider(self.cb_global_config.currentData())
+                provider_a = provider_b = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_global_config.currentData()))
                 prompt_a = self._prepare_prompt(self.cb_config_a.currentData(), model_id)
                 prompt_b = self._prepare_prompt(self.cb_config_b.currentData(), model_id)
         except Exception as e:

@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import Any
 
 import markdown
@@ -21,9 +20,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DocumentModel, DeckModel, LLMConfigModel, NoteVersionModel, CardModel, NoteModel
-from ankiforge.services.ai.base import MockProvider, LLMProvider
-from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider, GroqProvider, OllamaProvider
-from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.ui.components.components import PrimaryButton, RoundedPanel, HeaderLabel
 
 logger = logging.getLogger(__name__)
@@ -493,7 +489,7 @@ class ConsultantTab(QWidget):
             self.btn_send.setEnabled(True)
             return
 
-        active_provider = self._get_ai_provider(llm_config)
+        active_provider = self.ai_manager.create_provider_from_config(llm_config)
 
         # 5. Lancement du Thread avec connexion du signal de progression !
         self.chat_thread = ChatConsultantThread(active_provider, context_data, instruction)
@@ -534,23 +530,6 @@ class ConsultantTab(QWidget):
 
                     data["paquets"].append({"nom": deck.name, "notes": notes, "modele": json.loads(note.note_type.templates) if notes and note.note_type else []})
         return data
-
-    def _get_ai_provider(self, config) -> LLMProvider:
-        """Instancie le bon service IA selon la config."""
-        p_name = config.provider.lower()
-        if p_name == "ollama":
-            return OllamaProvider(model_name=config.model_id)
-        elif p_name == "gemini":
-            return GeminiService(model_name=config.model_id)
-        elif p_name == "groq":
-            return GroqProvider(model_name=config.model_id)
-        elif p_name == "openai":
-            return OpenAICompatibleProvider(
-                base_url="https://api.openai.com/v1",
-                model_name=config.model_id,
-                api_key=os.environ.get("OPENAI_API_KEY", ""),
-            )
-        return MockProvider()
 
     @Slot(str)
     def on_chat_success(self, response_text: str):

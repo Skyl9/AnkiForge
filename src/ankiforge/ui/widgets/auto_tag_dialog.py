@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import Any
 
 import qtawesome as qta
@@ -8,9 +7,8 @@ from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QProgressBar
 
 from ankiforge.database.models import NoteModel, LLMConfigModel, NoteVersionModel, db
-from ankiforge.services.ai.base import MockProvider, LLMProvider
-from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider, GroqProvider, OllamaProvider
-from ankiforge.services.ai.gemini_service import GeminiService
+from ankiforge.services.ai.base import LLMProvider
+from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.ui.components.components import PrimaryButton
 
@@ -161,23 +159,7 @@ class AutoTagDialog(QDialog):
         if not llm_config:
             return
 
-        # Construction du provider
-        p_name = llm_config.provider.lower()
-        active_provider: LLMProvider
-        if p_name == "ollama":
-            active_provider = OllamaProvider(model_name=llm_config.model_id)
-        elif p_name == "gemini":
-            active_provider = GeminiService(model_name=llm_config.model_id)
-        elif p_name == "groq":
-            active_provider = GroqProvider(model_name=llm_config.model_id)
-        elif p_name == "openai":
-            active_provider = OpenAICompatibleProvider(
-                base_url="https://api.openai.com/v1",
-                model_name=llm_config.model_id,
-                api_key=os.environ.get("OPENAI_API_KEY", ""),
-            )
-        else:
-            active_provider = MockProvider()
+        active_provider = AIManager.create_provider_from_config(llm_config)
 
         instruction = self.instruction_input.toPlainText().strip()
 

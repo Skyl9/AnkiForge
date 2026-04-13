@@ -1,7 +1,6 @@
 # ruff: noqa: E501
 import json
 import logging
-import os
 import re
 import uuid
 from typing import Any, cast
@@ -46,9 +45,7 @@ from ankiforge.database.models import (
     FolderModel,
     LLMConfigModel,
 )
-from ankiforge.services.ai.base import MockProvider, LLMProvider
-from ankiforge.services.ai.flexible_service import GroqProvider, OllamaProvider, OpenAICompatibleProvider
-from ankiforge.services.ai.gemini_service import GeminiService
+from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import PRICING_1M_USD
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
@@ -66,7 +63,7 @@ class BatchWorker(QThread):
     progress_val = Signal(int)
     progress_text = Signal(str)
     log = Signal(str)
-    finished = Signal(int, int)  # (succès, erreurs)
+    finished = Signal(int, int)
     error = Signal(str)
     cancelled = Signal()
 
@@ -116,22 +113,7 @@ class BatchWorker(QThread):
 
                 llm_config = LLMConfigModel.get_by_id(task["llm_id"])
                 max_tokens = llm_config.context_limit
-                active_provider: LLMProvider
-                p_name = llm_config.provider.lower()
-                if p_name == "ollama":
-                    active_provider = OllamaProvider(model_name=llm_config.model_id)
-                elif p_name == "gemini":
-                    active_provider = GeminiService(model_name=llm_config.model_id)
-                elif p_name == "groq":
-                    active_provider = GroqProvider(model_name=llm_config.model_id)
-                elif p_name == "openai":
-                    active_provider = OpenAICompatibleProvider(
-                        base_url="https://api.openai.com/v1",
-                        model_name=llm_config.model_id,
-                        api_key=os.environ.get("OPENAI_API_KEY", ""),
-                    )
-                else:
-                    active_provider = MockProvider()
+                active_provider = AIManager.create_provider_from_config(llm_config)
 
                 fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
                 fields_str = '", "'.join(fields)
@@ -143,11 +125,11 @@ class BatchWorker(QThread):
 
                 logger.info(f"Traitement du document '{doc.title}' ({task_idx + 1}/{total_tasks}).")
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
-                self.log.emit(f"\n{'=' * 40}\n📄 DEBUT : {doc.title}\n⚙️ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
+                self.log.emit(f"\n{'=' * 40}\n DEBUT : {doc.title}\n⚙ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
                 # PARTITIONNEMENT DU DOCUMENT
                 chunks = smart_chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 logger.info(f"Document '{doc.title}' découpé en {len(chunks)} morceaux.")
-                self.log.emit(f"✂️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
+                self.log.emit(f"️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
 
                 doc_success_notes = 0
 
@@ -177,7 +159,6 @@ class BatchWorker(QThread):
                         system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
 
                         try:
-                            # 👇 GESTION DE LA VISION
                             if use_vision:
                                 payload = prepare_multimodal_payload(current_input, media_dir)
                                 raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=payload)
@@ -189,7 +170,7 @@ class BatchWorker(QThread):
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"
                         except Exception as e:
                             logger.exception(f"Erreur IA sur le morceau {chunk_idx} du document '{doc.title}' :")
-                            self.log.emit(f"❌ ERREUR IA sur le morceau {chunk_idx}: {str(e)}")
+                            self.log.emit(f" ERREUR IA sur le morceau {chunk_idx}: {str(e)}")
                             chunk_failed = True
                             break
 

@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import re
 from typing import Optional, Any, cast
 
@@ -41,9 +40,7 @@ from ankiforge.database.models import (
     IgnoredDuplicateModel,
     LLMConfigModel,
 )
-from ankiforge.services.ai.base import MockProvider, LLMProvider
-from ankiforge.services.ai.flexible_service import OllamaProvider, GroqProvider, OpenAICompatibleProvider
-from ankiforge.services.ai.gemini_service import GeminiService
+from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
@@ -1517,22 +1514,7 @@ class EditionTab(QWidget):
             llm_config = LLMConfigModel.get_by_id(llm_id)
             if llm_config is None:
                 return
-            p_name = llm_config.provider.lower()
-            active_provider: LLMProvider
-            if p_name == "ollama":
-                active_provider = OllamaProvider(model_name=llm_config.model_id)
-            elif p_name == "gemini":
-                active_provider = GeminiService(model_name=llm_config.model_id)
-            elif p_name == "groq":
-                active_provider = GroqProvider(model_name=llm_config.model_id)
-            elif p_name == "openai":
-                active_provider = OpenAICompatibleProvider(
-                    base_url="https://api.openai.com/v1",
-                    model_name=llm_config.model_id,
-                    api_key=os.environ.get("OPENAI_API_KEY", ""),
-                )
-            else:
-                active_provider = MockProvider()
+            active_provider = AIManager.create_provider_from_config(llm_config)
 
             # Préparation de l'interface de chargement (QProgressDialog gère le bouton "Annuler" nativement)
 

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
+from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import log_token_usage
@@ -115,6 +116,32 @@ class AIManager:
         load_dotenv(str(self.env_path))
         self.provider: LLMProvider = MockProvider()  # Fallback de sécurité
         self.reload_provider()
+
+    @staticmethod
+    def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
+        """
+        Instancie et retourne le fournisseur IA correspondant à la configuration fournie.
+
+        Args:
+            config (LLMConfigModel): L'objet de configuration issu de la base de données.
+
+        Returns:
+            LLMProvider: L'instance du fournisseur configurée et prête à l'emploi.
+        """
+        p_name = config.provider.lower()
+        if p_name == "ollama":
+            return OllamaProvider(model_name=config.model_id)
+        elif p_name == "gemini":
+            return GeminiService(model_name=config.model_id)
+        elif p_name == "groq":
+            return GroqProvider(model_name=config.model_id)
+        elif p_name == "openai":
+            return OpenAICompatibleProvider(
+                base_url="https://api.openai.com/v1",
+                model_name=config.model_id,
+                api_key=os.environ.get("OPENAI_API_KEY", ""),
+            )
+        return MockProvider()
 
     def reload_provider(self):
         """Recharge l'IA en fonction des paramètres actuels du .env."""
