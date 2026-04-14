@@ -26,6 +26,7 @@ from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.ui.components.components import DBComboBox
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class ABTestTab(QWidget):
 
         mode_layout.addSpacing(10)
         mode_layout.addWidget(QLabel("<b>Modèle :</b>"))
-        self.cb_model = QComboBox()
+        self.cb_model = DBComboBox(NoteTypeModel)
         self.cb_model.setMinimumWidth(120)
         mode_layout.addWidget(self.cb_model, stretch=1)
 
@@ -200,11 +201,8 @@ class ABTestTab(QWidget):
         self.llm_list = [(llm.display_name, llm.id) for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name)]
         self.agent_list = [(agent.name, agent.id) for agent in AgentModel.select().order_by(AgentModel.name)]
 
-        self.cb_model.blockSignals(True)
-        self.cb_model.clear()
-        for nt in NoteTypeModel.select().order_by(NoteTypeModel.name):
-            self.cb_model.addItem(nt.name, userData=nt.id)
-        self.cb_model.blockSignals(False)
+        # Recharge la liste des modèles proprement !
+        self.cb_model.refresh_data()
 
         self._on_model_changed()
         self._on_mode_changed()

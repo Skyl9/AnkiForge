@@ -39,7 +39,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.utils import PRICING_1M_USD
 from ankiforge.services.workers.batch_worker import BatchWorker
-from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, DangerButton, DBComboBox, PrimaryButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.vision_utils import HTML_IMAGE_REGEX, MD_IMAGE_REGEX
 
@@ -158,13 +158,13 @@ class BatchTab(QWidget):
 
         default_params_layout = QGridLayout()
 
-        self.default_deck = QComboBox()
+        self.default_deck = DBComboBox(DeckModel)
         self.default_deck.setMinimumWidth(80)
-        self.default_model = QComboBox()
+        self.default_model = DBComboBox(NoteTypeModel)
         self.default_model.setMinimumWidth(80)
-        self.default_llm = QComboBox()
+        self.default_llm = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
         self.default_llm.setMinimumWidth(80)
-        self.default_pipeline = QComboBox()
+        self.default_pipeline = DBComboBox(PipelineModel)
         self.default_pipeline.setMinimumWidth(80)
         self.default_chunking = QComboBox()
         self.default_chunking.setMinimumWidth(80)
@@ -291,7 +291,10 @@ class BatchTab(QWidget):
     @Slot()
     def refresh_data(self) -> None:
         """Contrat MainWindow : Rafraîchit les listes et les dossiers."""
-        self.refresh_selectors()
+        self.default_deck.refresh_data()
+        self.default_model.refresh_data()
+        self.default_llm.refresh_data()
+        self.default_pipeline.refresh_data()
         self.load_tree_source()
 
     @Slot()
@@ -318,24 +321,6 @@ class BatchTab(QWidget):
             doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
 
         self.tree_source.expandAll()
-
-    @Slot()
-    def refresh_selectors(self) -> None:
-        self.default_deck.clear()
-        for deck in DeckModel.select().order_by(DeckModel.name):
-            self.default_deck.addItem(deck.name, userData=deck.id)
-
-        self.default_model.clear()
-        for nt in NoteTypeModel.select().order_by(NoteTypeModel.name):
-            self.default_model.addItem(nt.name, userData=nt.id)
-
-        self.default_pipeline.clear()
-        for pipe in PipelineModel.select().order_by(PipelineModel.name):
-            self.default_pipeline.addItem(pipe.name, userData=pipe.id)
-
-        self.default_llm.clear()
-        for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
-            self.default_llm.addItem(llm.display_name, userData=llm.id)
 
     @Slot()
     def add_selected_to_queue(self) -> None:

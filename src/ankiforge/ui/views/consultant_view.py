@@ -7,7 +7,6 @@ import qtawesome as qta
 from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -21,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import CardModel, DeckModel, DocumentModel, LLMConfigModel, NoteModel, NoteVersionModel
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
-from ankiforge.ui.components.components import HeaderLabel, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.components import HeaderLabel, PrimaryButton, RoundedPanel, DBComboBox
 
 logger = logging.getLogger(__name__)
 
@@ -287,10 +286,9 @@ class ConsultantTab(QWidget):
         header_layout.addWidget(HeaderLabel("🧠 Studio Consultant IA"))
         header_layout.addStretch()
 
-        self.llm_selector = QComboBox()
+        self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
         self.llm_selector.setMinimumHeight(32)
         self.llm_selector.setMinimumWidth(150)
-        self._populate_llms()
         header_layout.addWidget(self.llm_selector)
 
         self.main_layout.addLayout(header_layout)

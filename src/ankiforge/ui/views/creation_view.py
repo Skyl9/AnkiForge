@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 import qtawesome as qta
-from PySide6.QtCore import Qt, QUrl, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -35,13 +35,9 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.workers.creation_worker import CreationWorker
-from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel
-from ankiforge.ui.theme import is_dark_mode
-from ankiforge.ui.widgets.cloze_gestion import get_preview_template, sync_preview_card_selector
-from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
+from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel, DBComboBox
+from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.anki_renderer import render_anki_card
-from ankiforge.utils.paths import get_app_data_dir
 from ankiforge.utils.vision_utils import HTML_IMAGE_REGEX, MD_IMAGE_REGEX
 
 logger = logging.getLogger(__name__)
@@ -69,7 +65,6 @@ class CreationTab(QWidget):
         self._connect_signals()
         self._setup_shortcuts()
 
-        self.refresh_selectors()
         self.load_documents()
 
     def _setup_ui(self) -> None:
@@ -105,23 +100,19 @@ class CreationTab(QWidget):
         lbl_style = "color: palette(placeholder-text); font-size: 12px; font-weight: 500;"
 
         params_grid.addWidget(QLabel("Paquet de destination :", styleSheet=lbl_style), 0, 0)
-        self.deck_selector = QComboBox()
-        self.deck_selector.setMinimumSize(100, 32)
+        self.deck_selector = DBComboBox(DeckModel)
         params_grid.addWidget(self.deck_selector, 1, 0)
 
         params_grid.addWidget(QLabel("Modèle de note (Anki) :", styleSheet=lbl_style), 0, 1)
-        self.model_selector = QComboBox()
-        self.model_selector.setMinimumSize(100, 32)
+        self.model_selector = DBComboBox(NoteTypeModel)
         params_grid.addWidget(self.model_selector, 1, 1)
 
         params_grid.addWidget(QLabel("Moteur IA :", styleSheet=lbl_style), 2, 0)
-        self.llm_selector = QComboBox()
-        self.llm_selector.setMinimumSize(100, 32)
+        self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
         params_grid.addWidget(self.llm_selector, 3, 0)
 
         params_grid.addWidget(QLabel("Pipeline de génération :", styleSheet=lbl_style), 2, 1)
-        self.pipeline_selector = QComboBox()
-        self.pipeline_selector.setMinimumSize(100, 32)
+        self.pipeline_selector = DBComboBox(PipelineModel)
         params_grid.addWidget(self.pipeline_selector, 3, 1)
 
         self.cb_vision = QCheckBox("👁️ Activer l'analyse d'images (Vision) - ⚠️ Consomme plus de tokens")
@@ -238,23 +229,8 @@ class CreationTab(QWidget):
             QTabBar::tab:hover:!selected { background: palette(window); }
         """)
 
-        preview_container = QWidget()
-        preview_layout = QVBoxLayout(preview_container)
-        preview_layout.setContentsMargins(5, 15, 5, 5)
-
-        controls_layout = QHBoxLayout()
-        self.preview_card_selector = QComboBox()
-        self.preview_side_selector = QComboBox()
-        self.preview_side_selector.addItems(["Voir Recto", "Voir Verso"])
-
-        controls_layout.addWidget(self.preview_card_selector)
-        controls_layout.addWidget(self.preview_side_selector)
-        preview_layout.addLayout(controls_layout)
-
-        self.web_view = SafeWebEngineView()
-        preview_layout.addWidget(self.web_view)
-
-        right_tabs.addTab(preview_container, qta.icon("fa5s.eye"), " Aperçu")
+        self.preview_widget = CardPreviewWidget(show_header=False)
+        right_tabs.addTab(self.preview_widget, qta.icon("fa5s.eye"), " Aperçu")
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
@@ -289,9 +265,6 @@ class CreationTab(QWidget):
         self.results_table.itemSelectionChanged.connect(self.update_preview)
         self.btn_save.clicked.connect(self.save_to_database)
 
-        self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
-        self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
-
     def _setup_shortcuts(self) -> None:
         """Configure les raccourcis clavier de l'onglet."""
         self.shortcut_generate = QShortcut(QKeySequence("Ctrl+Return"), self)
@@ -302,54 +275,11 @@ class CreationTab(QWidget):
     @Slot()
     def refresh_data(self) -> None:
         """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
-        self.refresh_selectors()
+        self.deck_selector.refresh_data()
+        self.model_selector.refresh_data()
+        self.llm_selector.refresh_data()
+        self.pipeline_selector.refresh_data()
         self.load_documents()
-
-    @Slot()
-    def refresh_selectors(self) -> None:
-        """Met à jour les listes déroulantes IA et Modèles."""
-        self.deck_selector.blockSignals(True)
-        self.model_selector.blockSignals(True)
-        self.pipeline_selector.blockSignals(True)
-        self.llm_selector.blockSignals(True)
-
-        # On sauvegarde la sélection actuelle pour la remettre après
-        current_deck = self.deck_selector.currentData()
-        current_model = self.model_selector.currentData()
-        current_pipe = self.pipeline_selector.currentData()
-        current_llm = self.llm_selector.currentData()
-
-        self.deck_selector.clear()
-        for deck in DeckModel.select().order_by(DeckModel.name):
-            self.deck_selector.addItem(deck.name, userData=deck.id)
-
-        self.model_selector.clear()
-        for nt in NoteTypeModel.select().order_by(NoteTypeModel.name):
-            self.model_selector.addItem(nt.name, userData=nt.id)
-
-        self.pipeline_selector.clear()
-        for pipe in PipelineModel.select().order_by(PipelineModel.name):
-            self.pipeline_selector.addItem(pipe.name, userData=pipe.id)
-
-            self.llm_selector.clear()
-            for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
-                self.llm_selector.addItem(llm.display_name, userData=llm.id)
-            if current_llm:
-                self.llm_selector.setCurrentIndex(self.llm_selector.findData(current_llm))
-            self.llm_selector.blockSignals(False)
-
-        # On remet les sélections
-        if current_deck:
-            self.deck_selector.setCurrentIndex(self.deck_selector.findData(current_deck))
-        if current_model:
-            self.model_selector.setCurrentIndex(self.model_selector.findData(current_model))
-        if current_pipe:
-            self.pipeline_selector.setCurrentIndex(self.pipeline_selector.findData(current_pipe))
-
-        self.deck_selector.blockSignals(False)
-        self.model_selector.blockSignals(False)
-        self.pipeline_selector.blockSignals(False)
-
         self.on_model_changed()
 
     @Slot()
@@ -473,12 +403,6 @@ class CreationTab(QWidget):
         self.results_table.setRowCount(0)
         self.results_table.blockSignals(False)
 
-        self.preview_card_selector.blockSignals(True)
-        self.preview_card_selector.clear()
-        templates = json.loads(note_type.templates) if note_type.templates else []
-        for tmpl in templates:
-            self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
-        self.preview_card_selector.blockSignals(False)
         self.update_preview()
 
     @Slot()
@@ -509,7 +433,7 @@ class CreationTab(QWidget):
 
         self.btn_generate.setEnabled(False)
         self.results_table.setRowCount(0)
-        self.web_view.clear_memory()
+        self.preview_widget.clear_memory()
         self.console_log.clear()
 
         logger.info(f"Lancement de la génération IA (Pipeline: {pipeline_id}, LLM: {llm_config.display_name}, Vision: {self.cb_vision.isChecked()}).")
@@ -600,10 +524,7 @@ class CreationTab(QWidget):
     def update_preview(self) -> None:
         selected_items = self.results_table.selectedItems()
         if not selected_items or not self.generated_notes:
-            text_color = "#8C8C8C" if is_dark_mode() else "#6E6E6E"
-            placeholder = f"""<div style='display: flex; height: 100vh; align-items: center; justify-content: center; color: {text_color}; font-family: sans-serif; text-align: center;'>Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.</div>"""
-            self.web_view.setHtmlSafe(placeholder)
-            self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+            self.preview_widget.set_empty_state("Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.")
             return
 
         row = selected_items[0].row()
@@ -613,43 +534,8 @@ class CreationTab(QWidget):
         current_data = self.generated_notes[row]
         model_id = self.model_selector.currentData()
         note_type = NoteTypeModel.get_by_id(model_id)
-        if note_type is None:
-            return
 
-        templates = json.loads(note_type.templates) if note_type.templates else []
-        is_cloze, selected_tmpl_idx = sync_preview_card_selector(
-            selector=self.preview_card_selector,
-            templates=templates,
-            current_fields=current_data,
-        )
-
-        tmpl, card_idx = get_preview_template(
-            templates=templates,
-            is_cloze=is_cloze,
-            selected_index=selected_tmpl_idx,
-        )
-
-        is_recto = self.preview_side_selector.currentIndex() == 0
-        raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
-
-        css = note_type.css_style if note_type.css_style else ""
-
-        final_html = render_anki_card(
-            raw_html=raw_html,
-            css=css,
-            fields_dict=current_data,
-            is_recto=is_recto,
-            front_html=tmpl.get("qfmt", ""),
-            is_dark_mode=is_dark_mode(),
-            template_index=card_idx,
-        )
-
-        media_dir = get_app_data_dir() / "media"
-        media_dir.mkdir(exist_ok=True)
-        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
-
-        self.web_view.setHtmlSafe(final_html, base_url)
-        self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+        self.preview_widget.update_preview(note_type, current_data)
 
     @Slot()
     def save_to_database(self) -> None:
@@ -671,7 +557,7 @@ class CreationTab(QWidget):
 
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
-            self.web_view.clear_memory()
+            self.preview_widget.clear_memory()
             self.btn_save.setEnabled(False)
 
         except Exception as e:

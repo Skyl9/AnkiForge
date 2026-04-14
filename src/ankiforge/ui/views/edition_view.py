@@ -1,10 +1,10 @@
 import json
 import logging
 import re
-from typing import Any, Optional, cast
+from typing import Optional, cast
 
 import qtawesome
-from PySide6.QtCore import QPoint, QSettings, Qt, QTimer, QUrl, Slot
+from PySide6.QtCore import QPoint, QSettings, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -47,17 +47,14 @@ from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 from ankiforge.ui.components.components import ActionButton, DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
-from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
-from ankiforge.ui.widgets.cloze_gestion import is_template_cloze
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
-from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
-from ankiforge.utils.anki_renderer import get_max_cloze_index, render_anki_card
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 
 logger = logging.getLogger(__name__)
 
@@ -302,10 +299,8 @@ class EditionTab(QWidget):
         controls_layout.addStretch()
 
         preview_layout.addLayout(controls_layout)
-
-        self.web_view = SafeWebEngineView()
-        self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
-        preview_layout.addWidget(self.web_view)
+        self.preview_widget = CardPreviewWidget(show_header=True)
+        preview_layout.addWidget(self.preview_widget)
 
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
@@ -345,8 +340,6 @@ class EditionTab(QWidget):
         self.btn_history.clicked.connect(self.show_version_history)
         self.btn_save_edits.clicked.connect(self.save_note_edits)
 
-        self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
-        self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
         self.preview_timer.timeout.connect(self.update_preview)
 
     @Slot()
@@ -788,13 +781,6 @@ class EditionTab(QWidget):
             self.details_layout.addWidget(lbl)
             self.details_layout.addWidget(text_edit)
 
-        # Mise à jour de l'aperçu pour la création (brouillon)
-        self.preview_card_selector.blockSignals(True)
-        self.preview_card_selector.clear()
-        templates = json.loads(note_type.templates) if note_type.templates else []
-        for tmpl in templates:
-            self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
-        self.preview_card_selector.blockSignals(False)
         self.update_preview()
 
     @Slot()
@@ -914,6 +900,7 @@ class EditionTab(QWidget):
     @Slot()
     def update_preview(self) -> None:
         if not self.current_note and not self.is_creating:
+            self.preview_widget.set_empty_state("Sélectionnez une note pour la prévisualiser.")
             return
 
         note_type = None
@@ -926,68 +913,15 @@ class EditionTab(QWidget):
             note_type = NoteTypeModel.get_by_id(model_id)
         elif self.current_note:
             note_type = self.current_note.note_type
-        note_type = cast(NoteTypeModel, note_type)
 
-        if note_type is None:
+        note_type = cast(NoteTypeModel, note_type)
+        if not note_type:
             return
 
         current_fields = {name: editor.toPlainText().replace("\n", "<br>") for name, editor in self.field_editors.items()}
-        note_type_templates = note_type.templates
-        templates = cast(list[dict[str, Any]], json.loads(note_type_templates)) if note_type_templates else []
-        is_cloze = is_template_cloze(templates=templates)
 
-        # ----------------------------------------------------
-        # GESTION DYNAMIQUE DE LA LISTE DÉROULANTE DE PREVIEW
-        # ----------------------------------------------------
-        current_selector_count = self.preview_card_selector.count()
-        if is_cloze:
-            max_cloze = get_max_cloze_index(current_fields)
-            num_cards = max(1, max_cloze)
-            if current_selector_count != num_cards:
-                self.preview_card_selector.blockSignals(True)
-                self.preview_card_selector.clear()
-                for i in range(num_cards):
-                    self.preview_card_selector.addItem(f"Trou {i + 1} (c{i + 1})")
-                self.preview_card_selector.blockSignals(False)
-        else:
-            if current_selector_count != len(templates):
-                self.preview_card_selector.blockSignals(True)
-                self.preview_card_selector.clear()
-                for tmpl in templates:
-                    self.preview_card_selector.addItem(tmpl.get("name", "Carte"))
-                self.preview_card_selector.blockSignals(False)
-
-        selected_tmpl_idx = self.preview_card_selector.currentIndex()
-        if selected_tmpl_idx < 0:
-            selected_tmpl_idx = 0
-
-        if is_cloze:
-            tmpl = templates[0] if templates else {}
-            card_idx = selected_tmpl_idx  # c1, c2, etc.
-        else:
-            if selected_tmpl_idx >= len(templates):
-                selected_tmpl_idx = 0
-            tmpl = templates[selected_tmpl_idx] if templates else {}
-            card_idx = selected_tmpl_idx
-
-        is_recto = self.preview_side_selector.currentIndex() == 0
-        raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
-        css = getattr(note_type, "css_style", "") or ""
-
-        final_html = render_anki_card(
-            raw_html=raw_html,
-            css=css,
-            fields_dict=current_fields,
-            is_recto=is_recto,
-            front_html=tmpl.get("qfmt", ""),
-            is_dark_mode=is_dark_mode(),
-            template_index=int(card_idx),
-        )
-
-        media_dir = get_app_data_dir() / "media"
-        media_dir.mkdir(exist_ok=True)
-        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
-        self.web_view.setHtmlSafe(final_html, base_url)
+        # Délégation de toute la logique complexe au composant !
+        self.preview_widget.update_preview(note_type, current_fields)
 
     def approve_selected_notes(self) -> None:
         selected_rows = set(item.row() for item in self.data_table.selectedItems())
@@ -1039,7 +973,7 @@ class EditionTab(QWidget):
 
                 logger.info(f"{len(selected_rows)} notes rejetées et supprimées.")
                 self.refresh_table()
-                self.web_view.setHtml("")
+                self.preview_widget.set_empty_state("")
                 self.btn_save_edits.setEnabled(False)
             except Exception as e:
                 logger.exception("Erreur lors du rejet des notes :")

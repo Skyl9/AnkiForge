@@ -2,9 +2,9 @@
 from typing import cast
 
 import qtawesome
-from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout, QComboBox
 from PySide6.QtGui import QCursor, QIcon
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, Slot
 
 from ankiforge.ui.theme import get_icon_color
 
@@ -157,3 +157,50 @@ class MetricCard(RoundedPanel):
     def set_value(self, value: str) -> None:
         """Met à jour le gros chiffre."""
         self.lbl_value.setText(value)
+
+
+class DBComboBox(QComboBox):
+    """
+    Liste déroulante intelligente qui s'auto-peuple depuis la base de données Peewee.
+    Maintient la sélection de l'utilisateur lors du rafraîchissement.
+    """
+
+    def __init__(self, model_class, display_field: str = "name", sort_field: str = "name", parent=None):
+        """
+        Args:
+            model_class: La classe du modèle Peewee (ex: DeckModel).
+            display_field: Le nom de l'attribut à afficher (ex: "name" ou "display_name").
+            sort_field: Le nom de l'attribut servant au tri alphabétique.
+        """
+        super().__init__(parent)
+        self.model_class = model_class
+        self.display_field = display_field
+        self.sort_field = sort_field
+
+        # Style par défaut
+        self.setMinimumSize(100, 32)
+        self.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+
+        self.refresh_data()
+
+    @Slot()
+    def refresh_data(self) -> None:
+        """Recharge les données depuis SQLite en conservant la sélection active."""
+        self.blockSignals(True)
+        current_data = self.currentData()
+        self.clear()
+
+        # Requête dynamique
+        query = self.model_class.select().order_by(getattr(self.model_class, self.sort_field))
+
+        for item in query:
+            display_text = getattr(item, self.display_field)
+            self.addItem(display_text, userData=item.id)
+
+        # Restauration de la sélection
+        if current_data:
+            idx = self.findData(current_data)
+            if idx >= 0:
+                self.setCurrentIndex(idx)
+
+        self.blockSignals(False)
