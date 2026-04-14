@@ -2,51 +2,47 @@
 import json
 import logging
 import re
-import uuid
 from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QUrl, Slot
-from PySide6.QtGui import QShortcut, QKeySequence, QFont
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QTextEdit,
-    QComboBox,
+    QMessageBox,
+    QProgressBar,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
-    QMessageBox,
-    QSplitter,
-    QAbstractItemView,
     QTabWidget,
-    QProgressBar,
-    QGridLayout,
-    QFrame,
-    QCheckBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 from ankiforge.database.models import (
-    db,
     DeckModel,
-    NoteTypeModel,
-    NoteModel,
-    CardModel,
-    PipelineModel,
-    NoteVersionModel,
     DocumentModel,
     LLMConfigModel,
+    NoteTypeModel,
+    PipelineModel,
 )
+from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.workers.creation_worker import CreationWorker
-from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel, DangerButton
+from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.cloze_gestion import get_preview_template, sync_preview_card_selector
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
+from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
-from ankiforge.utils.vision_utils import MD_IMAGE_REGEX, HTML_IMAGE_REGEX
+from ankiforge.utils.vision_utils import HTML_IMAGE_REGEX, MD_IMAGE_REGEX
 
 logger = logging.getLogger(__name__)
 
@@ -662,39 +658,17 @@ class CreationTab(QWidget):
 
         deck_id = self.deck_selector.currentData()
         model_id = self.model_selector.currentData()
+
         deck = DeckModel.get_by_id(deck_id)
         note_type = NoteTypeModel.get_by_id(model_id)
-        templates = json.loads(note_type.templates) if note_type.templates else []
 
         try:
-            with db.atomic():
-                for note_data in self.generated_notes:
-                    note = NoteModel.create(
-                        guid=str(uuid.uuid4())[:10],
-                        note_type=note_type,
-                        tags=json.dumps(["AnkiForge_AI"]),
-                        status="new",
-                    )
-                    NoteVersionModel.create(
-                        note=note,
-                        version_number=1,
-                        content=json.dumps(note_data, ensure_ascii=False),
-                        source="ai",
-                        is_active=True,
-                    )
-                    is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
-
-                    if is_cloze:
-                        max_cloze = get_max_cloze_index(note_data)
-                        num_cards = max(1, max_cloze)
-                        for i in range(num_cards):
-                            CardModel.create(note=note, deck=deck, template_index=i)
-                    else:
-                        for idx, _ in enumerate(templates):
-                            CardModel.create(note=note, deck=deck, template_index=idx)
+            for note_data in self.generated_notes:
+                NoteManager.create_note(note_type=note_type, deck=deck, content_dict=note_data, tags=["AnkiForge_AI"], status="new", source="ai")
 
             logger.info(f"{len(self.generated_notes)} notes créées et sauvegardées en base.")
             show_toast(self, f"{len(self.generated_notes)} notes créées !")
+
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
             self.web_view.clear_memory()

@@ -42,6 +42,7 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.export_manager import ExportManager
+from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
@@ -868,41 +869,18 @@ class EditionTab(QWidget):
         try:
             if self.creation_model_cb is None:
                 return
+
             model_id = self.creation_model_cb.currentData()
-            note_type = NoteTypeModel.get_by_id(model_id)
-            if note_type is None:
+            if not model_id:
                 return
-            content_dict = {}
-            for field_name, editor in self.field_editors.items():
-                content_dict[field_name] = editor.toPlainText().replace("\n", "<br>")
 
-            import uuid
+            note_type = NoteTypeModel.get_by_id(model_id)
+            deck = DeckModel.get_by_id(self.current_deck_id)
 
-            with db.atomic():
-                # 1. Créer la Note
-                new_note = NoteModel.create(
-                    guid=str(uuid.uuid4())[:10],  # format basique
-                    note_type=note_type,
-                    tags="[]",
-                    status="new",
-                )
+            content_dict = {field_name: editor.toPlainText().replace("\n", "<br>") for field_name, editor in self.field_editors.items()}
 
-                # 2. Créer la version initiale
-                new_note.add_version(content_dict, source="manual")
-
-                # 3. Créer la/les cartes
-                templates = json.loads(note_type.templates) if note_type.templates else []
-                deck = DeckModel.get_by_id(self.current_deck_id)
-                is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
-
-                if is_cloze:
-                    max_cloze = get_max_cloze_index(content_dict)
-                    num_cards = max(1, max_cloze)  # Au moins 1 carte même si l'utilisateur a oublié de mettre un trou
-                    for i in range(num_cards):
-                        CardModel.create(note=new_note, deck=deck, template_index=i)
-                else:
-                    for i, _ in enumerate(templates):
-                        CardModel.create(note=new_note, deck=deck, template_index=i)
+            # Appel unique au service métier !
+            new_note = NoteManager.create_note(note_type=note_type, deck=deck, content_dict=content_dict, tags=[], status="new", source="manual")
 
             logger.info(f"Nouvelle note créée (ID: {new_note.id}).")
             show_toast(self, "✨ Nouvelle note créée !")
