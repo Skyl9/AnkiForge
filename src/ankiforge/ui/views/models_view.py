@@ -32,40 +32,60 @@ logger = logging.getLogger(__name__)
 
 
 class ModelsTab(QWidget):
+    """
+    Vue de gestion des Modèles de notes (Note Types).
+    Permet de créer, configurer (champs, CSS) et éditer les templates HTML
+    des cartes Anki (Recto/Verso) avec un rendu en direct.
+    """
+
     def __init__(self) -> None:
+        """Initialise l'onglet d'édition des modèles Anki."""
         super().__init__()
+
+        # État interne
         self.current_model_id = None
         self.current_templates: list[dict[str, str]] = []
         self.mock_dict: dict[str, str | list[str]] = {}
         self.current_css: str = ""
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        self._setup_ui()
+        self._connect_signals()
 
-        # --- 1. EN-TÊTE ---
+        self.refresh_models_list()
+
+    def _setup_ui(self) -> None:
+        """Initialise et organise les layouts et widgets principaux."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+
+        self._build_header()
+
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(10)
+
+        self._build_left_panel()
+        self._build_right_panel()
+
+        self.main_splitter.setSizes([200, 800])
+        self.main_layout.addWidget(self.main_splitter)
+
+    def _build_header(self) -> None:
+        """Construit l'en-tête contenant le titre et les actions globales."""
         header_layout = QHBoxLayout()
         header_layout.addWidget(HeaderLabel("Édition des Modèles (Note Types)"))
-        header_layout.addStretch()  # Pousse les boutons à droite
+        header_layout.addStretch()
 
-        # Les actions globales du gestionnaire de modèles
         self.btn_new_model = ActionButton("fa5s.plus", " Nouveau Modèle")
-        self.btn_new_model.clicked.connect(self.create_new_model)
-
         self.btn_refresh = ActionButton("fa5s.sync", " Rafraîchir")
-        self.btn_refresh.clicked.connect(self.refresh_models_list)
 
         header_layout.addWidget(self.btn_new_model)
         header_layout.addWidget(self.btn_refresh)
-        layout.addLayout(header_layout)
 
-        # --- 2. LAYOUT PRINCIPAL ---
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_splitter.setHandleWidth(10)
+        self.main_layout.addLayout(header_layout)
 
-        # ==========================================
-        # PANNEAU GAUCHE : Liste des Modèles
-        # ==========================================
+    def _build_left_panel(self) -> None:
+        """Construit le panneau listant les modèles disponibles."""
         list_panel = RoundedPanel()
         list_layout = QVBoxLayout(list_panel)
         list_layout.setContentsMargins(15, 15, 15, 15)
@@ -77,22 +97,29 @@ class ModelsTab(QWidget):
         self.models_list = QListWidget()
         self.models_list.setFrameShape(QFrame.Shape.NoFrame)
         self.models_list.setStyleSheet("background: transparent;")
-        self.models_list.itemClicked.connect(self.on_model_selected)
+
         list_layout.addWidget(self.models_list)
+        self.main_splitter.addWidget(list_panel)
 
-        main_splitter.addWidget(list_panel)
-
-        # ==========================================
-        # PANNEAU DROIT : Édition du Modèle
-        # ==========================================
+    def _build_right_panel(self) -> None:
+        """Construit le panneau principal d'édition scindé verticalement."""
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        right_splitter = QSplitter(Qt.Orientation.Vertical)
-        right_splitter.setHandleWidth(10)
+        self.right_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.right_splitter.setHandleWidth(10)
 
-        # --- 2A. Configuration Globale (Champs & CSS) ---
+        self._build_global_config_panel()
+        self._build_card_editor_panel()
+
+        self.right_splitter.setSizes([300, 500])
+        right_layout.addWidget(self.right_splitter)
+
+        self.main_splitter.addWidget(right_panel)
+
+    def _build_global_config_panel(self) -> None:
+        """Construit la zone d'édition des champs de données et du CSS global."""
         meta_panel = RoundedPanel()
         meta_layout = QVBoxLayout(meta_panel)
         meta_layout.setContentsMargins(15, 15, 15, 15)
@@ -104,43 +131,41 @@ class ModelsTab(QWidget):
         lbl_fields = QLabel("CHAMPS DE DONNÉES (SÉPARÉS PAR DES VIRGULES) :")
         lbl_fields.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 10px; margin-bottom: 5px;")
         meta_layout.addWidget(lbl_fields)
+
         self.fields_view = QTextEdit()
         self.fields_view.setMaximumHeight(60)
-        self.fields_view.textChanged.connect(self._enable_save)
         meta_layout.addWidget(self.fields_view)
 
         lbl_css = QLabel("STYLE GLOBAL (CSS) :")
         lbl_css.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 10px; margin-bottom: 5px;")
         meta_layout.addWidget(lbl_css)
+
         self.css_editor = QTextEdit()
         self.css_editor.setStyleSheet("font-family: monospace;")
-        self.css_editor.textChanged.connect(self.update_preview)
-        self.css_editor.textChanged.connect(self._enable_save)
         meta_layout.addWidget(self.css_editor)
 
-        # Boutons de sauvegarde/suppression du modèle alignés en bas de ce panneau
         meta_actions = QHBoxLayout()
         meta_actions.addStretch()
 
         self.btn_del_model = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer le modèle")
-        self.btn_del_model.clicked.connect(self.delete_current_model)
         self.btn_del_model.setEnabled(False)
 
         self.btn_save_model = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder le modèle")
-        self.btn_save_model.clicked.connect(self.save_current_model)
         self.btn_save_model.setEnabled(False)
 
         meta_actions.addWidget(self.btn_del_model)
         meta_actions.addWidget(self.btn_save_model)
         meta_layout.addLayout(meta_actions)
 
-        right_splitter.addWidget(meta_panel)
+        self.right_splitter.addWidget(meta_panel)
 
-        # --- 2B. Cartes & Aperçu HTML ---
+    def _build_card_editor_panel(self) -> None:
+        """Construit la zone de modification des templates HTML et l'aperçu WebEngine."""
         cards_panel = RoundedPanel()
         cards_layout = QVBoxLayout(cards_panel)
         cards_layout.setContentsMargins(15, 15, 15, 15)
 
+        # Toolbar
         cards_toolbar = QHBoxLayout()
         lbl_card = QLabel("SÉLECTION DE LA CARTE :")
         lbl_card.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
@@ -149,26 +174,18 @@ class ModelsTab(QWidget):
         self.card_selector = QComboBox()
         self.card_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.card_selector.setMinimumWidth(130)
-        self.card_selector.currentIndexChanged.connect(self.on_card_template_selected)
         cards_toolbar.addWidget(self.card_selector)
 
-        # On utilise ActionButton sans texte pour avoir des jolis boutons carrés thématiques
         self.btn_add_card = ActionButton("fa5s.plus", "")
         self.btn_add_card.setToolTip("Ajouter une carte")
-        self.btn_add_card.clicked.connect(self.add_new_card_template)
-
         self.btn_ren_card = ActionButton("fa5s.pen", "")
         self.btn_ren_card.setToolTip("Renommer cette carte")
-        self.btn_ren_card.clicked.connect(self.rename_card_template)
-
         self.btn_del_card = ActionButton("fa5s.trash", "")
         self.btn_del_card.setToolTip("Supprimer cette carte")
-        self.btn_del_card.clicked.connect(self.delete_card_template)
 
         cards_toolbar.addWidget(self.btn_add_card)
         cards_toolbar.addWidget(self.btn_ren_card)
         cards_toolbar.addWidget(self.btn_del_card)
-
         cards_toolbar.addStretch()
 
         lbl_side = QLabel("PRÉVISUALISATION :")
@@ -179,11 +196,11 @@ class ModelsTab(QWidget):
         self.side_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.side_selector.setMinimumWidth(130)
         self.side_selector.addItems(["Voir Recto", "Voir Verso"])
-        self.side_selector.currentIndexChanged.connect(self.update_preview)
         cards_toolbar.addWidget(self.side_selector)
 
         cards_layout.addLayout(cards_toolbar)
 
+        # Splitter HTML vs Preview
         html_preview_splitter = QSplitter(Qt.Orientation.Horizontal)
         html_preview_splitter.setHandleWidth(10)
 
@@ -194,17 +211,17 @@ class ModelsTab(QWidget):
         lbl_qfmt = QLabel("HTML DU RECTO :")
         lbl_qfmt.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
         editors_layout.addWidget(lbl_qfmt)
+
         self.qfmt_editor = QTextEdit()
         self.qfmt_editor.setStyleSheet("font-family: monospace;")
-        self.qfmt_editor.textChanged.connect(self.sync_editor_to_template)
         editors_layout.addWidget(self.qfmt_editor)
 
         lbl_afmt = QLabel("HTML DU VERSO :")
         lbl_afmt.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
         editors_layout.addWidget(lbl_afmt)
+
         self.afmt_editor = QTextEdit()
         self.afmt_editor.setStyleSheet("font-family: monospace;")
-        self.afmt_editor.textChanged.connect(self.sync_editor_to_template)
         editors_layout.addWidget(self.afmt_editor)
 
         self.web_view = QWebEngineView()
@@ -216,19 +233,34 @@ class ModelsTab(QWidget):
         html_preview_splitter.setSizes([350, 350])
 
         cards_layout.addWidget(html_preview_splitter)
+        self.right_splitter.addWidget(cards_panel)
 
-        right_splitter.addWidget(meta_panel)
-        right_splitter.addWidget(cards_panel)
-        right_splitter.setSizes([300, 500])
+    def _connect_signals(self) -> None:
+        """Centralise le branchement des signaux de l'interface."""
+        # En-tête
+        self.btn_new_model.clicked.connect(self.create_new_model)
+        self.btn_refresh.clicked.connect(self.refresh_models_list)
 
-        right_layout.addWidget(right_splitter)
+        # Liste des modèles
+        self.models_list.itemClicked.connect(self.on_model_selected)
 
-        main_splitter.addWidget(list_panel)
-        main_splitter.addWidget(right_panel)
-        main_splitter.setSizes([200, 800])
+        # Boutons d'action (Modèle)
+        self.btn_del_model.clicked.connect(self.delete_current_model)
+        self.btn_save_model.clicked.connect(self.save_current_model)
 
-        layout.addWidget(main_splitter)
-        self.refresh_models_list()
+        # Éditeurs textuels
+        self.fields_view.textChanged.connect(self._enable_save)
+        self.css_editor.textChanged.connect(self.update_preview)
+        self.css_editor.textChanged.connect(self._enable_save)
+        self.qfmt_editor.textChanged.connect(self.sync_editor_to_template)
+        self.afmt_editor.textChanged.connect(self.sync_editor_to_template)
+
+        # Toolbar (Cartes)
+        self.card_selector.currentIndexChanged.connect(self.on_card_template_selected)
+        self.side_selector.currentIndexChanged.connect(self.update_preview)
+        self.btn_add_card.clicked.connect(self.add_new_card_template)
+        self.btn_ren_card.clicked.connect(self.rename_card_template)
+        self.btn_del_card.clicked.connect(self.delete_card_template)
 
     @Slot()
     def refresh_data(self) -> None:
