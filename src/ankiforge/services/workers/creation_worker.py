@@ -3,10 +3,9 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QThread, Signal
-from jinja2 import Template
 
 from ankiforge.database.models import PipelineModel, NoteTypeModel, PipelineStepModel
-from ankiforge.services.ai.utils import parse_ai_json_response
+from ankiforge.services.ai.utils import parse_ai_json_response, format_system_prompt
 from ankiforge.utils.paths import get_app_data_dir
 from ankiforge.utils.vision_utils import prepare_multimodal_payload, strip_image_tags
 
@@ -69,12 +68,7 @@ class CreationWorker(QThread):
 
             if not steps:
                 raise ValueError(f"Le pipeline '{pipeline.name}' ne contient aucun agent !")
-
             fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
-            fields_str = '", "'.join(fields)
-
-            first_field = fields[0] if len(fields) > 0 else "Field1"
-            second_field = fields[1] if len(fields) > 1 else "Field2"
 
             current_input = f"TEXTE SOURCE :\n{self.text_source}"
             total_steps = len(steps)
@@ -89,8 +83,7 @@ class CreationWorker(QThread):
                 output_format = getattr(agent, "output_format", "json")
                 self.progress.emit(f"Étape {i}/{total_steps} : {agent.name}...")
 
-                jinja_template = Template(agent.system_prompt)
-                system_prompt = jinja_template.render(fields_str=fields_str, first_field=first_field, second_field=second_field)
+                system_prompt = format_system_prompt(agent.system_prompt, note_type.fields_schema)
 
                 logger.info(f"Début étape {i}/{total_steps} : Agent '{agent.name}'")
                 self.log.emit(f"--- DÉBUT ÉTAPE {i} : {agent.name.upper()} ---\n")

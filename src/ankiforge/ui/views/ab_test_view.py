@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import AgentModel, LLMConfigModel, NoteTypeModel
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.utils import parse_ai_json_response
+from ankiforge.services.ai.utils import parse_ai_json_response, format_system_prompt
 from ankiforge.services.workers.ab_worker import AbWorker
 from ankiforge.ui.components.components import DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
@@ -349,14 +349,23 @@ class ABTestTab(QWidget):
         mode = self.cb_mode.currentIndex()
 
         try:
+            nt_schema = NoteTypeModel.get_by_id(model_id).fields_schema
+
             if mode == 0:  # Moteurs
-                prompt_a = prompt_b = self._prepare_prompt(self.cb_global_config.currentData(), model_id)
+                agent = AgentModel.get_by_id(self.cb_global_config.currentData())
+                prompt_a = prompt_b = format_system_prompt(agent.system_prompt, nt_schema)
+
                 provider_a = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_config_a.currentData()))
                 provider_b = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_config_b.currentData()))
             else:  # Prompts
+                agent_a = AgentModel.get_by_id(self.cb_config_a.currentData())
+                agent_b = AgentModel.get_by_id(self.cb_config_b.currentData())
+
+                prompt_a = format_system_prompt(agent_a.system_prompt, nt_schema)
+                prompt_b = format_system_prompt(agent_b.system_prompt, nt_schema)
+
                 provider_a = provider_b = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_global_config.currentData()))
-                prompt_a = self._prepare_prompt(self.cb_config_a.currentData(), model_id)
-                prompt_b = self._prepare_prompt(self.cb_config_b.currentData(), model_id)
+
         except Exception as e:
             logger.exception("Configuration incomplète pour le test A/B :")
             show_toast(self, f"Configuration incomplète : {e}", is_error=True)

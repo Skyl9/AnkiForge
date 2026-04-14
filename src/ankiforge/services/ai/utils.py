@@ -1,5 +1,6 @@
 import json
 import re
+from jinja2 import Template
 
 from ankiforge.database.models import TokenUsageModel
 
@@ -70,3 +71,28 @@ def parse_ai_json_response(response_text: str):
 
     except json.JSONDecodeError as e:
         raise ValueError(f"L'IA a généré un format invalide. Impossible de lire le JSON.\nDétail: {e}") from e
+
+
+def format_system_prompt(system_prompt_template: str, fields_schema_json: str | None) -> str:
+    """
+    Remplit dynamiquement un prompt système Jinja2 avec les champs Anki cibles.
+
+    Args:
+        system_prompt_template (str): Le prompt système brut contenant les variables Jinja2.
+        fields_schema_json (str | None): Le schéma JSON des champs du modèle de note.
+
+    Returns:
+        str: Le prompt système final prêt à être envoyé à l'IA.
+    """
+    fields = json.loads(fields_schema_json) if fields_schema_json else ["Front", "Back"]
+    fields_str = '", "'.join(fields)
+
+    first_field = fields[0] if len(fields) > 0 else "Field1"
+    second_field = fields[1] if len(fields) > 1 else "Field2"
+
+    jinja_template = Template(system_prompt_template)
+    return jinja_template.render(
+        fields_str=fields_str,
+        first_field=first_field,
+        second_field=second_field,
+    )

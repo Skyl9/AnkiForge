@@ -1,51 +1,51 @@
 import json
 import logging
 import re
-from typing import Optional, Any, cast
+from typing import Any, Optional, cast
 
 import qtawesome
-from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QPoint
-from PySide6.QtGui import QColor, QAction
+from PySide6.QtCore import QPoint, QSettings, Qt, QTimer, QUrl, Slot
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
-    QLabel,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QFileDialog,
-    QMessageBox,
-    QSplitter,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QTableWidget,
-    QTableWidgetItem,
     QAbstractItemView,
     QComboBox,
-    QScrollArea,
-    QTextEdit,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMenu,
-    QInputDialog,
-    QFrame,
+    QMessageBox,
     QProgressDialog,
+    QScrollArea,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 from ankiforge.database.models import (
-    DeckModel,
     CardModel,
+    DeckModel,
+    LLMConfigModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
     db,
-    IgnoredDuplicateModel,
-    LLMConfigModel,
 )
 from ankiforge.services.ai.flexible_service import AIManager
+from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
-from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
@@ -55,8 +55,7 @@ from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
-from ankiforge.utils.anki_renderer import render_anki_card, get_max_cloze_index
-from ankiforge.utils.c_bridge import get_similarity
+from ankiforge.utils.anki_renderer import get_max_cloze_index, render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
@@ -1265,97 +1264,9 @@ class EditionTab(QWidget):
         self.btn_scan_dupes.setText("⏳ Analyse en cours...")
 
         try:
-            selected_deck = DeckModel.get_by_id(self.current_deck_id)
-            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+            # Appel propre au service métier
+            conflicts = DuplicateManager.find_duplicates(self.current_deck_id)
 
-            # Récupère toutes les notes du paquet
-            all_notes = (
-                NoteModel.select(NoteModel, NoteTypeModel)
-                .join(NoteTypeModel)
-                .switch(NoteModel)
-                .join(CardModel, on=(CardModel.note_id == NoteModel.id))
-                .join(DeckModel, on=(CardModel.deck_id == DeckModel.id))
-                .where(DeckModel.id.in_(matching_decks))
-                .distinct()
-            )
-
-            # 1. Grouper par Modèle
-            notes_by_model: dict[int, list[NoteModel]] = {}
-            for note in all_notes:
-                model_id = note.note_type.id if note.note_type else 0
-                if model_id not in notes_by_model:
-                    notes_by_model[model_id] = []
-                notes_by_model[model_id].append(note)
-
-            conflicts = []
-
-            # 2. Analyser chaque groupe
-            for _, notes in notes_by_model.items():
-                note_data_list = []
-                for note in notes:
-                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
-                    if active_version:
-                        content = json.loads(active_version.content)
-                        values = list(content.values())
-                        if values:
-                            all_text_combined = " ".join(str(v) for v in values)
-                            clean_text = strip_html(all_text_combined).lower()
-
-                            # ✨ NOUVEAU : Pré-calcul des métriques pour les heuristiques
-                            text_length = len(clean_text)
-                            # On crée un Set des mots de plus de 2 lettres (pour ignorer le, la, de, un...)
-                            word_set = set(w for w in clean_text.split() if len(w) > 2)
-
-                            note_data_list.append((note, clean_text, content, text_length, word_set))
-
-                ignored_records = IgnoredDuplicateModel.select()
-                ignored_pairs = {(record.note_a_id, record.note_b_id) for record in ignored_records}
-
-                # 3. Comparaison croisée O(N^2) avec Heuristiques
-                matched_ids = set()
-                for i, (note_a, clean_a, content_a, len_a, words_a) in enumerate(note_data_list):
-                    if note_a.id in matched_ids:
-                        continue
-
-                    for j in range(i + 1, len(note_data_list)):
-                        note_b, clean_b, content_b, len_b, words_b = note_data_list[j]
-                        if note_b.id in matched_ids:
-                            continue
-
-                        # HEURISTIQUE 1 : Le filtre absolu de longueur O(1)
-                        # Si le ratio mathématique maximal possible est sous 85%, on ignore
-                        if (len_a + len_b) > 0:
-                            max_possible_ratio = (2.0 * min(int(len_a), int(len_b))) / (len_a + len_b)
-                            if max_possible_ratio < 0.85:
-                                continue
-
-                        # HEURISTIQUE 2 : Le filtre sémantique (Intersection de Jaccard) O(N)
-                        # On vérifie si les cartes partagent un minimum de vocabulaire
-                        if words_a and words_b:
-                            intersection = len(words_a & words_b)
-                            union = len(words_a | words_b)
-                            jaccard_ratio = float(intersection) / float(union) if union > 0 else 0.0
-
-                            # S'ils partagent moins de 35% de leur vocabulaire, ils sont trop différents
-                            if jaccard_ratio < 0.35:
-                                continue
-
-                        # Si on est arrivé jusqu'ici, la comparaison est justifiée !
-                        id_1, id_2 = min(note_a.id, note_b.id), max(note_a.id, note_b.id)
-                        if (id_1, id_2) in ignored_pairs:
-                            continue
-
-                        # LE MOTEUR C : On fait appel à la librairie rapide pour le verdict final
-                        if get_similarity(clean_a, clean_b) > 0.90:
-                            if note_a.id < note_b.id:
-                                conflicts.append((note_a, content_a, note_b, content_b))
-                            else:
-                                conflicts.append((note_b, content_b, note_a, content_a))
-
-                            matched_ids.add(note_b.id)
-                            break
-
-            # 4. Lancer l'interface utilisateur si on a trouvé des conflits
             if not conflicts:
                 logger.info("Scan des doublons terminé : aucun doublon trouvé.")
                 show_toast(self, "Aucun doublon détecté dans ce paquet !")
@@ -1363,7 +1274,6 @@ class EditionTab(QWidget):
                 logger.info(f"Scan des doublons terminé : {len(conflicts)} conflits trouvés.")
                 dialog = DuplicateResolverDialog(conflicts, self)
                 dialog.exec()
-                # On rafraîchit le tableau car des cartes ont potentiellement été supprimées
                 self.refresh_table()
 
         except Exception as e:
