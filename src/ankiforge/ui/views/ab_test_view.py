@@ -1,26 +1,26 @@
 import json
 import logging
-from typing import Any
 
 import qtawesome as qta
-from PySide6.QtCore import Qt, QThread, Signal, Slot, QUrl
+from jinja2 import Template
+from PySide6.QtCore import Qt, QUrl, Slot
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
-    QTextEdit,
-    QComboBox,
     QSplitter,
-    QFrame,
     QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from jinja2 import Template
 
-from ankiforge.database.models import LLMConfigModel, AgentModel, NoteTypeModel
+from ankiforge.database.models import AgentModel, LLMConfigModel, NoteTypeModel
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import parse_ai_json_response
-from ankiforge.ui.components.components import PrimaryButton, RoundedPanel, DangerButton, HeaderLabel
+from ankiforge.services.workers.ab_worker import AbWorker
+from ankiforge.ui.components.components import DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
@@ -28,57 +28,6 @@ from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
-
-
-class ABTestThread(QThread):
-    progress = Signal(str)
-    result_a = Signal(str)
-    result_b = Signal(str)
-    finished_signal = Signal()
-    error_signal = Signal(str)
-    cancelled = Signal()
-
-    def __init__(self, provider_a: Any, provider_b: Any, prompt_a: str, prompt_b: str, source_text: str):
-        super().__init__()
-        self.provider_a = provider_a
-        self.provider_b = provider_b
-        self.prompt_a = prompt_a
-        self.prompt_b = prompt_b
-        self.source_text = source_text
-        self._is_cancelled = False
-
-    def cancel(self):
-        self._is_cancelled = True
-
-    def run(self):
-        try:
-            user_input = f"TEXTE SOURCE :\n{self.source_text}"
-
-            if self._is_cancelled:
-                self.cancelled.emit()
-                return
-
-            self.progress.emit("⏳ Sujet A en cours de génération...")
-            res_a = self.provider_a.generate(system_prompt=self.prompt_a, user_prompt=user_input)
-
-            if self._is_cancelled:
-                self.cancelled.emit()
-                return
-            self.result_a.emit(res_a)
-
-            self.progress.emit("⏳ Sujet B en cours de génération...")
-            res_b = self.provider_b.generate(system_prompt=self.prompt_b, user_prompt=user_input)
-
-            if self._is_cancelled:
-                self.cancelled.emit()
-                return
-            self.result_b.emit(res_b)
-
-            self.finished_signal.emit()
-
-        except Exception as e:
-            logger.exception("Erreur lors de l'exécution du test A/B :")
-            self.error_signal.emit(str(e))
 
 
 class ABTestTab(QWidget):
@@ -92,7 +41,7 @@ class ABTestTab(QWidget):
         super().__init__()
 
         # État interne
-        self.thread: ABTestThread | None = None
+        self.thread: AbWorker | None = None
         self.agent_list: list[tuple[str, int]] = []
         self.llm_list: list[tuple[str, int]] = []
         self.last_res_a = ""
@@ -424,7 +373,7 @@ class ABTestTab(QWidget):
         self.web_a.clear_memory()
         self.web_b.clear_memory()
 
-        self.thread = ABTestThread(provider_a, provider_b, prompt_a, prompt_b, source_text)
+        self.thread = AbWorker(provider_a, provider_b, prompt_a, prompt_b, source_text)
         self.thread.progress.connect(self.lbl_status.setText)
 
         # On intercepte les résultats pour les sauvegarder et lancer le rendu

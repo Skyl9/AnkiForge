@@ -1,32 +1,29 @@
-# src/ui/views/documents_view.py
 import logging
-import pathlib
 import re
-from urllib.parse import urlparse
 
 import markdown
 import qtawesome as qta
-from PySide6.QtCore import Qt, QThread, Signal, QUrl, Slot, QTimer
-from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor, QKeySequence, QShortcut
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QColor, QFont, QKeySequence, QShortcut, QSyntaxHighlighter, QTextCharFormat
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QAbstractItemView,
+    QFileDialog,
+    QFrame,
     QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMessageBox,
+    QSplitter,
+    QTextEdit,
     QTreeWidget,
     QTreeWidgetItem,
-    QTextEdit,
-    QLabel,
-    QSplitter,
-    QFileDialog,
-    QMessageBox,
-    QInputDialog,
-    QAbstractItemView,
-    QFrame,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ankiforge.database.models import db, DocumentModel, FolderModel
-from ankiforge.services.parsing.document_parser import DocumentParser
-from ankiforge.ui.components.components import DangerButton, ActionButton, HeaderLabel, PrimaryButton, RoundedPanel
+from ankiforge.database.models import DocumentModel, FolderModel, db
+from ankiforge.services.workers.document_worker import DocumentWorker
+from ankiforge.ui.components.components import ActionButton, DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
@@ -101,48 +98,6 @@ class DraggableTreeWidget(QTreeWidget):
         self.doc_moved.emit(data.get("id"), new_folder_id)
 
 
-class ParserWorker(QThread):
-    finished_signal = Signal(str, str)
-    error_signal = Signal(str)
-    log_signal = Signal(str)
-    cancelled_signal = Signal()
-
-    def __init__(self, file_path: str):
-        super().__init__()
-        self.file_path = file_path
-        self._is_cancelled = False
-
-    def cancel(self):
-        self._is_cancelled = True
-
-    def is_cancelled(self) -> bool:
-        return self._is_cancelled
-
-    def run(self):
-        try:
-            parser = DocumentParser()
-            if self.file_path.startswith("http"):
-                parsed_url = urlparse(self.file_path)
-                # On essaie de prendre le dernier mot de l'URL, sinon le nom de domaine
-                raw_title = parsed_url.path.strip("/").split("/")[-1]
-                if not raw_title:
-                    raw_title = parsed_url.netloc
-                title = f"Web - {raw_title}"
-            else:
-                title = pathlib.Path(self.file_path).stem
-            title = title[:50]
-            content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit, check_cancel=self.is_cancelled)
-            if not self._is_cancelled:
-                self.finished_signal.emit(title, content)
-        except InterruptedError as e:
-            logger.info(f"Analyse annulée par l'utilisateur : {str(e)}")
-            self.log_signal.emit(f"\n {str(e)}")
-            self.cancelled_signal.emit()
-        except Exception as e:
-            logger.exception("Erreur lors de l'analyse du document :")
-            self.error_signal.emit(str(e))
-
-
 class DocumentsTab(QWidget):
     """
     Vue de gestion de la bibliothèque de documents (Cours).
@@ -155,7 +110,7 @@ class DocumentsTab(QWidget):
         super().__init__()
 
         # État interne
-        self.worker: ParserWorker | None = None
+        self.worker: DocumentWorker | None = None
         self.shortcut_insert_split: QShortcut | None = None
         self.shortcut_backspace: QShortcut | None = None
         self.shortcut_delete: QShortcut | None = None
@@ -629,7 +584,7 @@ class DocumentsTab(QWidget):
         self.preview_text.setPlainText("🤖 Démarrage du script d'importation...\n")
         self.preview_text.blockSignals(False)
 
-        self.worker = ParserWorker(path)
+        self.worker = DocumentWorker(path)
         self.worker.log_signal.connect(self._on_parsing_log)
         self.worker.finished_signal.connect(self._on_parsing_success)
         self.worker.error_signal.connect(self._on_parsing_error)
@@ -784,7 +739,7 @@ class DocumentsTab(QWidget):
         self.preview_text.blockSignals(False)
 
         # On utilise le même worker que pour les PDF !
-        self.worker = ParserWorker(url)
+        self.worker = DocumentWorker(url)
         self.worker.log_signal.connect(self._on_parsing_log)
         self.worker.finished_signal.connect(self._on_parsing_success)
         self.worker.error_signal.connect(self._on_parsing_error)

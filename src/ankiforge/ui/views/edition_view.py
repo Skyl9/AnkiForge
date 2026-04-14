@@ -4,7 +4,7 @@ import re
 from typing import Optional, Any, cast
 
 import qtawesome
-from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QThread, Signal, QPoint
+from PySide6.QtCore import Qt, QUrl, Slot, QTimer, QSettings, QPoint
 from PySide6.QtGui import QColor, QAction
 from PySide6.QtWidgets import (
     QLabel,
@@ -41,9 +41,10 @@ from ankiforge.database.models import (
     LLMConfigModel,
 )
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.utils import parse_ai_json_response
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
+from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
+from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
@@ -82,121 +83,6 @@ class SortableTableItem(QTableWidgetItem):
             return self.text().lower() < other.text().lower()
 
 
-class ImportThread(QThread):
-    """Gère l'importation lourde d'une archive Anki (.apkg) de manière asynchrone."""
-
-    progress = Signal(str)
-    finished_signal = Signal()
-    error_signal = Signal(str)
-
-    def __init__(self, store_manager: StoreManager, path: str):
-        super().__init__()
-        self.store_manager = store_manager
-        self.path = path
-
-    def run(self) -> None:
-        try:
-            self.store_manager.store_collection(self.path, progress_callback=self.progress.emit)
-            self.finished_signal.emit()
-        except Exception as e:
-            logger.exception("Erreur lors de l'importation d'un paquet Anki :")
-            self.error_signal.emit(str(e))
-
-
-class BatchEditThread(QThread):
-    """Exécute des requêtes de modification IA par lots sur des notes existantes."""
-
-    progress = Signal(str)
-    finished_signal = Signal(int)
-    error_signal = Signal(str)
-    cancelled = Signal()
-
-    def __init__(self, ai_provider: Any, note_ids: list[int], user_prompt: str, chunk_size: int):
-        super().__init__()
-        self.ai_provider = ai_provider
-        self.note_ids = note_ids
-        self.user_prompt = user_prompt
-        self.chunk_size = chunk_size
-        self._is_cancelled = False
-
-    def cancel(self) -> None:
-        self._is_cancelled = True
-
-    def run(self) -> None:
-        try:
-            total_processed = 0
-
-            system_contract = (
-                "Tu es un assistant de traitement de base de données.\n"
-                "Voici ton instruction principale :\n"
-                f"--- {self.user_prompt} ---\n\n"
-                "RÈGLE ABSOLUE : Tu vas recevoir un tableau JSON d'objets.\n"
-                "Tu dois renvoyer EXACTEMENT la même structure (un tableau JSON).\n"
-                "Chaque objet possède une clé 'note_id' que tu DOIS impérativement conserver intacte.\n"
-                "Ne rajoute AUCUN texte autour de ta réponse, uniquement du JSON valide."
-            )
-
-            for i in range(0, len(self.note_ids), self.chunk_size):
-                if self._is_cancelled:
-                    logger.info("Traitement par lots AI annulé par l'utilisateur.")
-                    self.cancelled.emit()
-                    return
-
-                chunk_ids = self.note_ids[i : i + self.chunk_size]
-                self.progress.emit(f"Traitement du lot {i // self.chunk_size + 1} (Cartes {i + 1} à {min(i + self.chunk_size, len(self.note_ids))})...")
-
-                payload = []
-                for nid in chunk_ids:
-                    note = NoteModel.get_by_id(nid)
-                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
-                    if active_version:
-                        content = json.loads(active_version.content)
-                        content["note_id"] = note.id
-                        payload.append(content)
-
-                if not payload:
-                    continue
-
-                input_json = json.dumps(payload, ensure_ascii=False, indent=2)
-                raw_response = self.ai_provider.generate(system_prompt=system_contract, user_prompt=input_json)
-
-                try:
-                    modified_notes = parse_ai_json_response(raw_response)
-                    if not isinstance(modified_notes, list):
-                        raise ValueError("L'IA n'a pas renvoyé un tableau (list) JSON.")
-
-                    with db.atomic():
-                        for modified_note in modified_notes:
-                            note_id = modified_note.pop("note_id", None)
-                            if not note_id:
-                                continue
-
-                            db_note = NoteModel.get_by_id(note_id)
-                            active_version = NoteVersionModel.get_or_none(note=db_note, is_active=True)
-
-                            if active_version:
-                                old_content = json.loads(active_version.content)
-                                if old_content == modified_note:
-                                    continue
-
-                            db_note.add_version(modified_note, source="ai_batch")
-                            db_note.status = "pending"
-                            db_note.save()
-                            total_processed += 1
-
-                except (ValueError, TypeError) as e:
-                    logger.exception("Erreur de parsing lors du batch edit :")
-                    self.error_signal.emit(f"Erreur de parsing sur un lot : {e}\nRéponse brute : {raw_response[:100]}...")
-                    return
-
-            if not self._is_cancelled:
-                self.finished_signal.emit(total_processed)
-
-        except (ValueError, TypeError, RuntimeError) as e:
-            logger.exception("Erreur critique lors du batch edit :")
-            self.error_signal.emit(f"Erreur critique du Batch Edit : {e}")
-
-
 class EditionTab(QWidget):
     """
     Navigateur principal de l'application permettant de visualiser, éditer,
@@ -208,8 +94,8 @@ class EditionTab(QWidget):
         super().__init__()
 
         # État interne et asynchrone
-        self.batch_thread: BatchEditThread | None = None
-        self.import_thread: ImportThread | None = None
+        self.batch_thread: BatchEditWorker | None = None
+        self.import_thread: ImportCardsWorker | None = None
         self.progress_dialog: QProgressDialog | None = None
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.store = StoreManager()
@@ -485,7 +371,7 @@ class EditionTab(QWidget):
             self.progress_dialog.show()
 
             # Lancement du travail en arrière-plan
-            self.import_thread = ImportThread(self.store, path)
+            self.import_thread = ImportCardsWorker(self.store, path)
             self.import_thread.progress.connect(self.progress_dialog.setLabelText)
             self.import_thread.finished_signal.connect(self._on_import_success)
             self.import_thread.error_signal.connect(self._on_import_error)
@@ -1547,7 +1433,7 @@ class EditionTab(QWidget):
 
             # Lancement du Thread
             logger.info(f"Lancement du batch edit IA sur {len(note_ids)} notes.")
-            self.batch_thread = BatchEditThread(active_provider, note_ids, prompt, chunk_size)
+            self.batch_thread = BatchEditWorker(active_provider, note_ids, prompt, chunk_size)
             self.batch_thread.progress.connect(self.progress_dialog.setLabelText)
             self.batch_thread.finished_signal.connect(self._on_batch_edit_success)
             self.batch_thread.error_signal.connect(self._on_batch_edit_error)

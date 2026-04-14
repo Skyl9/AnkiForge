@@ -4,76 +4,26 @@ from typing import Any
 
 import markdown
 import qtawesome as qta
-from PySide6.QtCore import Qt, Signal, Slot, QPoint, QThread
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QComboBox,
+    QFrame,
     QHBoxLayout,
-    QTextEdit,
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QFrame,
-    QComboBox,
+    QTextEdit,
     QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ankiforge.database.models import DocumentModel, DeckModel, LLMConfigModel, NoteVersionModel, CardModel, NoteModel
-from ankiforge.ui.components.components import PrimaryButton, RoundedPanel, HeaderLabel
+from ankiforge.database.models import CardModel, DeckModel, DocumentModel, LLMConfigModel, NoteModel, NoteVersionModel
+from ankiforge.services.workers.consultant_worker import ConsultantWorker
+from ankiforge.ui.components.components import HeaderLabel, PrimaryButton, RoundedPanel
 
 logger = logging.getLogger(__name__)
-
-
-# ==========================================
-# 1. COMPOSANTS DE SAISIE INTELLIGENTE
-# ==========================================
-
-
-class ChatConsultantThread(QThread):
-    """Thread qui envoie le contexte massif à l'IA pour obtenir des conseils."""
-
-    progress = Signal(str)
-    finished_signal = Signal(str)
-    error_signal = Signal(str)
-
-    def __init__(self, ai_provider: Any, context_data: dict[str, Any], instruction: str):
-        super().__init__()
-        self.ai_provider = ai_provider
-        self.context_data = context_data
-        self.instruction = instruction
-
-    def run(self):
-        try:
-            self.progress.emit("Extraction et structuration du contexte...")
-
-            system_prompt = (
-                "Tu es un expert en mémorisation, pédagogie et création de flashcards Anki.\n"
-                "Ton rôle est d'analyser les documents et les paquets de cartes fournis en contexte.\n"
-                "Réponds aux questions de l'utilisateur pour l'aider à améliorer son apprentissage.\n"
-                "RÈGLES :\n"
-                "1. Réponds en Markdown avec une structure claire.\n"
-                "2. Si l'utilisateur demande un audit (/audit), cherche les incohérences ou les cartes trop complexes.\n"
-                "3. Sois direct, pédagogique et critique si nécessaire."
-            )
-
-            user_payload = {"contexte_fourni": self.context_data, "requete_utilisateur": self.instruction}
-
-            user_prompt = json.dumps(user_payload, ensure_ascii=False, indent=2)
-
-            # On récupère le nom du modèle de manière sécurisée pour l'affichage
-            model_name = getattr(self.ai_provider, "model_name", "l'IA")
-            self.progress.emit(f"Envoi des données au modèle {model_name}...")
-
-            # Appel API
-            raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="text")
-
-            self.progress.emit("Réponse reçue, formatage en cours...")
-            self.finished_signal.emit(raw_response)
-
-        except Exception as e:
-            logger.exception("Erreur dans le ChatConsultantThread :")
-            self.error_signal.emit(str(e))
 
 
 class MentionPopup(QListWidget):
@@ -314,7 +264,7 @@ class ConsultantTab(QWidget):
         super().__init__()
         self.ai_manager = ai_manager
         self.active_context: list[str] = []
-        self.chat_thread: ChatConsultantThread | None = None
+        self.chat_thread: ConsultantWorker | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -522,7 +472,7 @@ class ConsultantTab(QWidget):
 
         active_provider = self.ai_manager.create_provider_from_config(llm_config)
 
-        self.chat_thread = ChatConsultantThread(active_provider, context_data, instruction)
+        self.chat_thread = ConsultantWorker(active_provider, context_data, instruction)
         self.chat_thread.progress.connect(self.on_chat_progress)
         self.chat_thread.finished_signal.connect(self.on_chat_success)
         self.chat_thread.error_signal.connect(self.on_chat_error)

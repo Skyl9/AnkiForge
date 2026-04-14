@@ -1,4 +1,3 @@
-# src/ui/views/models_view.py
 import json
 import logging
 
