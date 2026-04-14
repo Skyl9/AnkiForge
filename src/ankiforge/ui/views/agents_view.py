@@ -29,18 +29,38 @@ logger = logging.getLogger(__name__)
 
 
 class AgentsTab(QWidget):
+    """
+    Onglet de gestion des Agents IA et des Pipelines.
+    Permet de créer, modifier et assembler des agents spécialisés en chaînes d'exécution.
+    """
+
     def __init__(self) -> None:
+        """Initialise l'onglet des agents et pipelines."""
         super().__init__()
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        self.agent_id: Optional[int] = None
 
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_splitter.setHandleWidth(10)
+        self._setup_ui()
+        self._connect_signals()
 
-        # ==========================================
-        # 🧪 PARTIE GAUCHE : LABORATOIRE DES AGENTS
-        # ==========================================
+        self.refresh_ui()
+
+    def _setup_ui(self) -> None:
+        """Construit et organise les layouts et widgets principaux."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(10)
+
+        self._build_agents_panel()
+        self._build_pipelines_panel()
+
+        self.main_splitter.setSizes([500, 500])
+        self.main_layout.addWidget(self.main_splitter)
+
+    def _build_agents_panel(self) -> None:
+        """Construit le panneau de création et d'édition des agents individuels."""
         agents_panel = RoundedPanel()
         agents_layout = QVBoxLayout(agents_panel)
         agents_layout.setContentsMargins(15, 15, 15, 15)
@@ -49,18 +69,15 @@ class AgentsTab(QWidget):
         lbl_agents.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         agents_layout.addWidget(lbl_agents)
 
-        agent_top_splitter = QSplitter(Qt.Orientation.Vertical)
-        agent_top_splitter.setHandleWidth(10)
+        self.agent_top_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.agent_top_splitter.setHandleWidth(10)
 
         # Liste des agents
         self.agents_list = QListWidget()
         self.agents_list.setStyleSheet("QListWidget { border: none; background: transparent; }")
-        self.agents_list.itemClicked.connect(self.load_selected_agent)
-        agent_top_splitter.addWidget(self.agents_list)
+        self.agent_top_splitter.addWidget(self.agents_list)
 
         # Formulaire d'édition
-        self.agent_id: Optional[int] = None
-
         form_widget = QWidget()
         form_layout = QVBoxLayout(form_widget)
         form_layout.setContentsMargins(0, 10, 0, 0)
@@ -69,7 +86,6 @@ class AgentsTab(QWidget):
         lbl_edit.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
         form_layout.addWidget(lbl_edit)
 
-        # Champs alignés plus proprement
         name_desc_layout = QHBoxLayout()
 
         name_layout = QVBoxLayout()
@@ -112,29 +128,23 @@ class AgentsTab(QWidget):
 
         btn_layout_agent = QHBoxLayout()
         self.btn_new_agent = ActionButton("fa5s.plus", " Nouvel Agent")
-        self.btn_new_agent.clicked.connect(self.clear_agent_form)
-
         self.btn_delete_agent = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer")
-        self.btn_delete_agent.clicked.connect(self.delete_agent)
-
         self.btn_save_agent = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder l'Agent")
-        self.btn_save_agent.clicked.connect(self.save_agent)
 
         btn_layout_agent.addWidget(self.btn_new_agent)
-        btn_layout_agent.addStretch()  # Pousse les boutons d'action à droite
+        btn_layout_agent.addStretch()
         btn_layout_agent.addWidget(self.btn_delete_agent)
         btn_layout_agent.addWidget(self.btn_save_agent)
 
         form_layout.addLayout(btn_layout_agent)
-        agent_top_splitter.addWidget(form_widget)
-        agent_top_splitter.setSizes([200, 400])
+        self.agent_top_splitter.addWidget(form_widget)
+        self.agent_top_splitter.setSizes([200, 400])
 
-        agents_layout.addWidget(agent_top_splitter)
-        main_splitter.addWidget(agents_panel)
+        agents_layout.addWidget(self.agent_top_splitter)
+        self.main_splitter.addWidget(agents_panel)
 
-        # ==========================================
-        # ⚙️ PARTIE DROITE : ASSEMBLEUR DE PIPELINES
-        # ==========================================
+    def _build_pipelines_panel(self) -> None:
+        """Construit le panneau d'assemblage et de configuration des pipelines."""
         pipelines_panel = RoundedPanel()
         pipelines_layout = QVBoxLayout(pipelines_panel)
         pipelines_layout.setContentsMargins(15, 15, 15, 15)
@@ -146,32 +156,22 @@ class AgentsTab(QWidget):
         pipe_header_layout.addStretch()
 
         self.btn_import_pipe = ActionButton("fa5s.folder-open", " Importer (.json)")
-        self.btn_import_pipe.clicked.connect(self.import_pipeline)
         self.btn_export_pipe = ActionButton("fa5s.file-export", " Exporter")
-        self.btn_export_pipe.clicked.connect(self.export_pipeline)
 
         pipe_header_layout.addWidget(self.btn_import_pipe)
         pipe_header_layout.addWidget(self.btn_export_pipe)
         pipelines_layout.addLayout(pipe_header_layout)
 
-        # Sélection du Pipeline
         pipe_select_layout = QHBoxLayout()
         lbl_pipe_sel = QLabel("Pipeline Actif :")
         lbl_pipe_sel.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
 
         self.pipeline_selector = QComboBox()
-        self.pipeline_selector.currentIndexChanged.connect(self.load_selected_pipeline)
-
         self.btn_new_pipeline = ActionButton("fa5s.plus", " Nouveau")
-        self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
-
         self.btn_rename_pipeline = ActionButton("fa5s.pen", "")
         self.btn_rename_pipeline.setToolTip("Renommer le Pipeline")
-        self.btn_rename_pipeline.clicked.connect(self.rename_pipeline)
-
         self.btn_delete_pipeline = DangerButton(qta.icon("fa5s.trash", color="white"), "")
         self.btn_delete_pipeline.setToolTip("Supprimer le Pipeline")
-        self.btn_delete_pipeline.clicked.connect(self.delete_pipeline)
 
         pipe_select_layout.addWidget(lbl_pipe_sel)
         pipe_select_layout.addWidget(self.pipeline_selector, stretch=1)
@@ -187,7 +187,6 @@ class AgentsTab(QWidget):
         add_step_layout = QHBoxLayout()
         self.available_agents_cb = QComboBox()
         self.btn_add_step = ActionButton("fa5s.arrow-down", " Ajouter à la chaîne")
-        self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
 
         add_step_layout.addWidget(self.available_agents_cb, stretch=1)
         add_step_layout.addWidget(self.btn_add_step)
@@ -198,19 +197,11 @@ class AgentsTab(QWidget):
         self.steps_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         pipelines_layout.addWidget(self.steps_list)
 
-        # Contrôles et Sauvegarde du pipeline
         step_ctrl_layout = QHBoxLayout()
         self.btn_step_up = ActionButton("fa5s.arrow-up", "")
-        self.btn_step_up.clicked.connect(self.move_step_up)
-
         self.btn_step_down = ActionButton("fa5s.arrow-down", "")
-        self.btn_step_down.clicked.connect(self.move_step_down)
-
         self.btn_step_remove = DangerButton(qta.icon("fa5s.times", color="white"), " Retirer l'étape")
-        self.btn_step_remove.clicked.connect(self.remove_step)
-
         self.btn_save_pipeline = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder le Pipeline")
-        self.btn_save_pipeline.clicked.connect(self.save_pipeline_steps)
 
         step_ctrl_layout.addWidget(self.btn_step_up)
         step_ctrl_layout.addWidget(self.btn_step_down)
@@ -219,11 +210,30 @@ class AgentsTab(QWidget):
         step_ctrl_layout.addWidget(self.btn_save_pipeline)
 
         pipelines_layout.addLayout(step_ctrl_layout)
-        main_splitter.addWidget(pipelines_panel)
+        self.main_splitter.addWidget(pipelines_panel)
 
-        main_splitter.setSizes([500, 500])
-        layout.addWidget(main_splitter)
-        self.refresh_ui()
+    def _connect_signals(self) -> None:
+        """Centralise la connexion des signaux aux slots de l'interface."""
+        # Agents
+        self.agents_list.itemClicked.connect(self.load_selected_agent)
+        self.btn_new_agent.clicked.connect(self.clear_agent_form)
+        self.btn_delete_agent.clicked.connect(self.delete_agent)
+        self.btn_save_agent.clicked.connect(self.save_agent)
+
+        # Pipelines
+        self.btn_import_pipe.clicked.connect(self.import_pipeline)
+        self.btn_export_pipe.clicked.connect(self.export_pipeline)
+        self.pipeline_selector.currentIndexChanged.connect(self.load_selected_pipeline)
+        self.btn_new_pipeline.clicked.connect(self.create_new_pipeline)
+        self.btn_rename_pipeline.clicked.connect(self.rename_pipeline)
+        self.btn_delete_pipeline.clicked.connect(self.delete_pipeline)
+
+        # Étapes (Steps)
+        self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
+        self.btn_step_up.clicked.connect(self.move_step_up)
+        self.btn_step_down.clicked.connect(self.move_step_down)
+        self.btn_step_remove.clicked.connect(self.remove_step)
+        self.btn_save_pipeline.clicked.connect(self.save_pipeline_steps)
 
     @Slot()
     def refresh_data(self) -> None:
@@ -268,9 +278,8 @@ class AgentsTab(QWidget):
 
     @Slot()
     def import_pipeline(self) -> None:
-        """Importe un pipeline depuis un fichier JSON et le sauvegarde en base de données."""
+        """Importe un pipeline et ses agents dépendants depuis un fichier JSON."""
         path, _ = QFileDialog.getOpenFileName(self, "Importer un Pipeline", "", "Fichiers JSON (*.json)")
-
         if not path:
             return
 
@@ -278,44 +287,40 @@ class AgentsTab(QWidget):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            with db.atomic():  # Transaction sécurisée
-                # 1. Gestion des doublons de nom de pipeline
+            with db.atomic():
                 base_name = data.get("name", "Pipeline Importé")
                 name = base_name
                 counter = 1
+
+                # Gestion de la collision des noms de pipeline
                 while PipelineModel.get_or_none(PipelineModel.name == name):
                     name = f"{base_name} ({counter})"
                     counter += 1
 
                 new_pipe = PipelineModel.create(name=name, description=data.get("description", ""))
 
-                # 2. Création ou récupération des agents
                 for step_data in data.get("steps", []):
                     agent_name = step_data.get("agent_name", "Agent Inconnu")
-
-                    # On vérifie si un agent avec le même nom existe déjà
                     agent = AgentModel.get_or_none(AgentModel.name == agent_name)
 
                     if not agent:
-                        # S'il n'existe pas, on le crée !
                         agent = AgentModel.create(
                             name=agent_name,
                             description=step_data.get("agent_desc", ""),
                             system_prompt=step_data.get("agent_prompt", ""),
                         )
 
-                    # 3. On lie l'agent au nouveau pipeline
                     PipelineStepModel.create(pipeline=new_pipe, agent=agent, step_order=step_data.get("order", 1))
 
             self.refresh_ui()
 
-            # On sélectionne automatiquement le pipeline fraîchement importé
             idx = self.pipeline_selector.findData(new_pipe.id)
             if idx >= 0:
                 self.pipeline_selector.setCurrentIndex(idx)
 
             logger.info(f"Pipeline '{name}' importé avec succès.")
             show_toast(self, f"Pipeline '{name}' importé !")
+
         except Exception as e:
             logger.exception("Erreur lors de l'importation du pipeline :")
             QMessageBox.critical(self, "Erreur d'import", f"Le fichier est invalide ou corrompu :\n{e}")

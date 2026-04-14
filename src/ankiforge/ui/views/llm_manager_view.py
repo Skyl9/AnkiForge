@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import Slot, Qt
@@ -34,25 +35,53 @@ logger = logging.getLogger(__name__)
 
 
 class LLMManagerTab(QWidget):
-    def __init__(self, ai_manager) -> None:
+    """
+    Vue de gestion des moteurs d'Intelligence Artificielle.
+    Permet de configurer les clés d'API (OpenAI, Anthropic, etc.) et
+    de maintenir le catalogue des modèles LLM disponibles pour l'application.
+    """
+
+    def __init__(self, ai_manager: Any) -> None:
+        """
+        Initialise l'onglet de gestion des IA.
+
+        Args:
+            ai_manager (AIManager): Le gestionnaire central de l'IA de l'application.
+        """
         super().__init__()
         self.ai_manager = ai_manager
-        self.current_llm_id_editing = None
+        self.current_llm_id_editing: int | None = None
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        self._setup_ui()
+        self._connect_signals()
+
+        # Chargement initial des données
+        self.load_llms_table()
+        self.on_provider_changed(self.cb_provider.currentText())
+
+    def _setup_ui(self) -> None:
+        """Initialise et organise les layouts et widgets principaux de la vue."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
 
         title = HeaderLabel("Configuration de l'Intelligence Artificielle")
-        layout.addWidget(title)
+        self.main_layout.addWidget(title)
 
-        main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_splitter.setHandleWidth(10)
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.setHandleWidth(10)
 
-        # ==========================================
-        # SECTION 1 : CLÉS API (En Carte)
-        # ==========================================
+        self._build_api_keys_panel()
+        self._build_catalog_panel()
+
+        self.main_splitter.setSizes([200, 600])
+        self.main_layout.addWidget(self.main_splitter)
+
+    def _build_api_keys_panel(self) -> None:
+        """Construit le panneau de saisie des clés d'authentification API."""
         api_panel = RoundedPanel()
+
+        # Effet d'ombre portée pour détacher le panneau
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(15)
         shadow.setColor(QColor(0, 0, 0, 150))
@@ -96,22 +125,22 @@ class LLMManagerTab(QWidget):
 
         btn_api_layout = QHBoxLayout()
         btn_api_layout.addStretch()
+
         self.btn_save_keys = PrimaryButton(qta.icon("fa5s.save", color="white"), " Mettre à jour les clés API")
-        self.btn_save_keys.clicked.connect(self.save_api_keys)
+
         btn_api_layout.addWidget(self.btn_save_keys)
         btn_api_layout.addStretch()
         api_layout.addLayout(btn_api_layout)
 
-        main_splitter.addWidget(api_panel)
+        self.main_splitter.addWidget(api_panel)
 
-        # ==========================================
-        # SECTION 2 : CATALOGUE DES MODÈLES (Cartes séparées)
-        # ==========================================
-        llm_splitter = QSplitter(Qt.Orientation.Horizontal)
-        llm_splitter.setHandleWidth(10)
-        llm_splitter.setChildrenCollapsible(False)
+    def _build_catalog_panel(self) -> None:
+        """Construit le panneau inférieur scindé (Tableau des modèles et Éditeur)."""
+        self.llm_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.llm_splitter.setHandleWidth(10)
+        self.llm_splitter.setChildrenCollapsible(False)
 
-        # --- Panneau Gauche : La Table ---
+        # Panneau Gauche : Le Tableau
         table_panel = RoundedPanel()
         table_layout = QVBoxLayout(table_panel)
         table_layout.setContentsMargins(15, 15, 15, 15)
@@ -128,14 +157,12 @@ class LLMManagerTab(QWidget):
         self.table_llms.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table_llms.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_llms.setAlternatingRowColors(True)
-        self.table_llms.itemSelectionChanged.connect(self.on_table_selection_changed)
         table_layout.addWidget(self.table_llms)
 
         table_panel.setMinimumWidth(150)
+        self.llm_splitter.addWidget(table_panel)
 
-        llm_splitter.addWidget(table_panel)
-
-        # --- Panneau Droit : L'Éditeur ---
+        # Panneau Droit : L'Éditeur
         editor_panel = RoundedPanel()
         editor_layout = QVBoxLayout(editor_panel)
         editor_layout.setContentsMargins(15, 15, 15, 15)
@@ -150,14 +177,11 @@ class LLMManagerTab(QWidget):
         self.le_display_name = QLineEdit()
         self.le_display_name.setPlaceholderText("Ex: GPT-4o (Rapide)")
         self.le_display_name.setMinimumWidth(80)
-
         form_editor.addRow(self._make_bold_label("Nom d'affichage :"), self.le_display_name)
 
         self.cb_provider = QComboBox()
         self.cb_provider.setMinimumWidth(80)
-
         self.cb_provider.addItems(["openai", "anthropic", "ollama", "groq", "gemini"])
-        self.cb_provider.currentTextChanged.connect(self.on_provider_changed)
         form_editor.addRow(self._make_bold_label("Fournisseur :"), self.cb_provider)
 
         model_id_layout = QHBoxLayout()
@@ -168,7 +192,6 @@ class LLMManagerTab(QWidget):
 
         self.btn_refresh_ollama = ActionButton("fa5s.sync", "")
         self.btn_refresh_ollama.setToolTip("Rafraîchir les modèles locaux")
-        self.btn_refresh_ollama.clicked.connect(self.refresh_ollama_models)
         self.btn_refresh_ollama.hide()
 
         model_id_layout.addWidget(self.cb_model_id, stretch=1)
@@ -187,14 +210,9 @@ class LLMManagerTab(QWidget):
         # Boutons d'action du modèle
         action_layout = QHBoxLayout()
         self.btn_clear_form = ActionButton("fa5s.plus", " Nouveau")
-        self.btn_clear_form.clicked.connect(self.clear_llm_form)
-
         self.btn_delete_llm = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer")
-        self.btn_delete_llm.clicked.connect(self.delete_llm_config)
         self.btn_delete_llm.setEnabled(False)
-
         self.btn_save_llm = PrimaryButton(qta.icon("fa5s.save", color="white"), " Ajouter")
-        self.btn_save_llm.clicked.connect(self.save_llm_config)
 
         action_layout.addWidget(self.btn_clear_form)
         action_layout.addStretch()
@@ -203,16 +221,20 @@ class LLMManagerTab(QWidget):
 
         editor_layout.addLayout(action_layout)
         editor_panel.setMinimumWidth(200)
-        llm_splitter.addWidget(editor_panel)
+        self.llm_splitter.addWidget(editor_panel)
 
-        llm_splitter.setSizes([500, 300])
-        main_splitter.addWidget(llm_splitter)
+        self.llm_splitter.setSizes([500, 300])
+        self.main_splitter.addWidget(self.llm_splitter)
 
-        main_splitter.setSizes([200, 600])
-        layout.addWidget(main_splitter)
-
-        self.load_llms_table()
-        self.on_provider_changed(self.cb_provider.currentText())
+    def _connect_signals(self) -> None:
+        """Centralise le branchement des signaux de l'interface."""
+        self.btn_save_keys.clicked.connect(self.save_api_keys)
+        self.table_llms.itemSelectionChanged.connect(self.on_table_selection_changed)
+        self.cb_provider.currentTextChanged.connect(self.on_provider_changed)
+        self.btn_refresh_ollama.clicked.connect(self.refresh_ollama_models)
+        self.btn_clear_form.clicked.connect(self.clear_llm_form)
+        self.btn_delete_llm.clicked.connect(self.delete_llm_config)
+        self.btn_save_llm.clicked.connect(self.save_llm_config)
 
     @Slot()
     def refresh_data(self) -> None:

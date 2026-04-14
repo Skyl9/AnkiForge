@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 
 
 def strip_html(text: Optional[str]) -> str:
-    """Retire toutes les balises HTML d'une chaîne pour l'affichage brut."""
+    """Retire toutes les balises HTML d'une chaîne pour l'affichage brut dans les tableaux."""
     if not text:
         return ""
     clean = re.compile("<.*?>")
@@ -70,36 +70,32 @@ def strip_html(text: Optional[str]) -> str:
 
 
 class SortableTableItem(QTableWidgetItem):
-    """Un élément de tableau qui sait trier les nombres (et les 'vX') intelligemment."""
+    """Élément de tableau Qt capable de trier les valeurs numériques et textuelles intelligemment."""
 
     def __lt__(self, other) -> bool:
-        # On nettoie le texte (ex: on transforme "v10" en "10")
         text_self = self.text().lower().replace("v", "").strip()
         text_other = other.text().lower().replace("v", "").strip()
 
         try:
-            # On essaie de comparer mathématiquement (10 > 2)
             return float(text_self) < float(text_other)
         except ValueError:
-            # Si c'est du vrai texte (ex: "Maths" vs "Physique"), on fait un tri alphabétique
             return self.text().lower() < other.text().lower()
 
 
 class ImportThread(QThread):
-    """Gère l'importation lourde d'un paquet Anki en arrière-plan."""
+    """Gère l'importation lourde d'une archive Anki (.apkg) de manière asynchrone."""
 
     progress = Signal(str)
     finished_signal = Signal()
     error_signal = Signal(str)
 
-    def __init__(self, store_manager, path: str):
+    def __init__(self, store_manager: StoreManager, path: str):
         super().__init__()
         self.store_manager = store_manager
         self.path = path
 
-    def run(self):
+    def run(self) -> None:
         try:
-            # On passe le signal .emit() comme fonction de callback !
             self.store_manager.store_collection(self.path, progress_callback=self.progress.emit)
             self.finished_signal.emit()
         except Exception as e:
@@ -108,8 +104,10 @@ class ImportThread(QThread):
 
 
 class BatchEditThread(QThread):
+    """Exécute des requêtes de modification IA par lots sur des notes existantes."""
+
     progress = Signal(str)
-    finished_signal = Signal(int)  # Nombre de cartes modifiées
+    finished_signal = Signal(int)
     error_signal = Signal(str)
     cancelled = Signal()
 
@@ -121,10 +119,10 @@ class BatchEditThread(QThread):
         self.chunk_size = chunk_size
         self._is_cancelled = False
 
-    def cancel(self):
+    def cancel(self) -> None:
         self._is_cancelled = True
 
-    def run(self):
+    def run(self) -> None:
         try:
             total_processed = 0
 
@@ -179,7 +177,7 @@ class BatchEditThread(QThread):
                             if active_version:
                                 old_content = json.loads(active_version.content)
                                 if old_content == modified_note:
-                                    continue  # On ignore si l'IA n'a rien changé !
+                                    continue
 
                             db_note.add_version(modified_note, source="ai_batch")
                             db_note.status = "pending"
@@ -200,48 +198,67 @@ class BatchEditThread(QThread):
 
 
 class EditionTab(QWidget):
+    """
+    Navigateur principal de l'application permettant de visualiser, éditer,
+    filtrer, taguer et exporter les notes et cartes Anki.
+    """
+
     def __init__(self) -> None:
+        """Initialise le navigateur central des cartes."""
         super().__init__()
+
+        # État interne et asynchrone
         self.batch_thread: BatchEditThread | None = None
-        self.creation_model_cb: QComboBox | None = None
         self.import_thread: ImportThread | None = None
         self.progress_dialog: QProgressDialog | None = None
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.store = StoreManager()
+
+        self.creation_model_cb: QComboBox | None = None
         self.current_deck_id: Optional[int] = None
         self.current_note: Optional[NoteModel] = None
         self.current_tag_filter: Optional[str] = None
         self.field_editors: dict[str, QTextEdit] = {}
         self.is_creating = False
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        self._setup_ui()
+        self._connect_signals()
 
-        # --- 1. EN-TÊTE ---
+        self.refresh_deck_tree()
+
+    def _setup_ui(self) -> None:
+        """Construit et organise les layouts et widgets de la vue d'édition."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+
+        self._build_header()
+
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(10)
+
+        self._build_explorer_panel()
+        self._build_main_content()
+
+        self.main_splitter.setSizes([200, 800])
+        self.main_layout.addWidget(self.main_splitter)
+
+    def _build_header(self) -> None:
+        """Construit l'en-tête de la vue."""
         header_layout = QHBoxLayout()
-        titre = HeaderLabel("Navigateur de Cartes & Notes")
+        header_layout.addWidget(HeaderLabel("Navigateur de Cartes & Notes"))
+        header_layout.addStretch()
 
         self.btn_load_col = ActionButton("fa5s.folder-open", " Importer un paquet")
-        self.btn_load_col.clicked.connect(self.load_cards)
-
         self.btn_export = PrimaryButton(qtawesome.icon("fa5s.box", color="white"), " Exporter vers Anki")
-        self.btn_export.clicked.connect(self.export_selected_deck)
         self.btn_export.setEnabled(False)
 
-        header_layout.addWidget(titre)
-        header_layout.addStretch()
         header_layout.addWidget(self.btn_load_col)
         header_layout.addWidget(self.btn_export)
-        layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
-        # --- 2. LAYOUT PRINCIPAL ---
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_splitter.setHandleWidth(10)
-
-        # ==========================================
-        # PANNEAU GAUCHE : Explorateur (Paquets & Tags)
-        # ==========================================
+    def _build_explorer_panel(self) -> None:
+        """Construit le panneau latéral d'exploration des paquets et filtres de tags."""
         nav_panel = RoundedPanel()
         nav_layout = QVBoxLayout(nav_panel)
         nav_layout.setContentsMargins(15, 15, 15, 15)
@@ -255,19 +272,11 @@ class EditionTab(QWidget):
         self.deck_tree.setHeaderHidden(True)
         self.deck_tree.setFrameShape(QFrame.Shape.NoFrame)
         self.deck_tree.setStyleSheet("background: transparent;")
-        self.deck_tree.itemClicked.connect(self.on_deck_selected)
         nav_layout.addWidget(self.deck_tree)
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        # On utilise ta palette pour que ça s'adapte au mode sombre/clair automatiquement
-        separator.setStyleSheet("""
-            background-color: palette(alternate-base); 
-            max-height: 1px; 
-            border: none; 
-            margin-top: 8px; 
-            margin-bottom: 8px;
-        """)
+        separator.setStyleSheet("background-color: palette(alternate-base); max-height: 1px; border: none; margin-top: 8px; margin-bottom: 8px;")
         nav_layout.addWidget(separator)
 
         lbl_tags = QLabel("FILTRES (TAGS)")
@@ -277,20 +286,24 @@ class EditionTab(QWidget):
         self.tag_list = QListWidget()
         self.tag_list.setFrameShape(QFrame.Shape.NoFrame)
         self.tag_list.setStyleSheet("background: transparent;")
-        self.tag_list.itemClicked.connect(self.on_tag_selected)
         self.tag_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tag_list.customContextMenuRequested.connect(self.show_tag_context_menu)
         nav_layout.addWidget(self.tag_list)
 
-        main_splitter.addWidget(nav_panel)
+        self.main_splitter.addWidget(nav_panel)
 
-        # ==========================================
-        # PANNEAU DROIT : Contenu Principal
-        # ==========================================
-        right_splitter = QSplitter(Qt.Orientation.Vertical)
-        right_splitter.setHandleWidth(10)
+    def _build_main_content(self) -> None:
+        """Construit la zone centrale contenant le tableau de données et les éditeurs."""
+        self.right_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.right_splitter.setHandleWidth(10)
 
-        # --- 2A. Le Tableau des données ---
+        self._build_table_panel()
+        self._build_editor_preview_panel()
+
+        self.right_splitter.setSizes([300, 300])
+        self.main_splitter.addWidget(self.right_splitter)
+
+    def _build_table_panel(self) -> None:
+        """Construit le panneau du tableau de navigation et d'actions."""
         table_panel = RoundedPanel()
         table_layout = QVBoxLayout(table_panel)
         table_layout.setContentsMargins(15, 15, 15, 15)
@@ -299,33 +312,26 @@ class EditionTab(QWidget):
         lbl_mode = QLabel("MODE D'AFFICHAGE :")
         lbl_mode.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         toolbar_layout.addWidget(lbl_mode)
+
         self.view_mode_cb = QComboBox()
         self.view_mode_cb.addItems(["Vue : Cartes (Métadonnées)", "Vue : Notes (Texte)", "Vue : Quarantaine (À valider)"])
-        self.view_mode_cb.currentIndexChanged.connect(self.refresh_table)
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
         self.btn_approve = PrimaryButton(qtawesome.icon("fa5s.check", color="white"), " Approuver")
-        self.btn_approve.clicked.connect(self.approve_selected_notes)
         self.btn_approve.setVisible(False)
-
         self.btn_reject = DangerButton(qtawesome.icon("fa5s.trash", color="white"), " Rejeter")
-        self.btn_reject.clicked.connect(self.reject_selected_notes)
         self.btn_reject.setVisible(False)
 
         self.btn_new_note = PrimaryButton(qtawesome.icon("fa5s.plus", color="white"), " Nouvelle Note")
-        self.btn_new_note.clicked.connect(self.enter_creation_mode)
         self.btn_new_note.setEnabled(False)
 
         self.btn_scan_dupes = ActionButton("fa5s.search", " Traquer les doublons")
-        self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
 
         self.btn_batch_ai = ActionButton("fa5s.magic", " Modification IA")
-        self.btn_batch_ai.clicked.connect(self.open_batch_edit_dialog)
-        self.btn_batch_ai.setEnabled(False)  # On le grise tant qu'aucune ligne n'est sélectionnée
+        self.btn_batch_ai.setEnabled(False)
 
         self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA")
-        self.btn_auto_tag.clicked.connect(self.open_auto_tag_dialog)
         self.btn_auto_tag.setEnabled(False)
 
         toolbar_layout.addWidget(self.btn_new_note)
@@ -345,20 +351,17 @@ class EditionTab(QWidget):
         self.data_table.horizontalHeader().setStretchLastSection(True)
         self.data_table.horizontalHeader().setSectionsMovable(True)
         self.data_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.data_table.horizontalHeader().customContextMenuRequested.connect(self.show_header_menu)
-        self.data_table.horizontalHeader().sectionResized.connect(self.save_table_state)
-        self.data_table.horizontalHeader().sectionMoved.connect(self.save_table_state)
-        self.data_table.itemSelectionChanged.connect(self.on_row_selected)
         self.data_table.setSortingEnabled(True)
 
         table_layout.addWidget(self.data_table)
-        right_splitter.addWidget(table_panel)
+        self.right_splitter.addWidget(table_panel)
 
-        # --- 2B. Éditeur et Aperçu ---
-        bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
-        bottom_splitter.setHandleWidth(10)
+    def _build_editor_preview_panel(self) -> None:
+        """Construit la zone de modification de la note et l'aperçu du rendu."""
+        self.bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.bottom_splitter.setHandleWidth(10)
 
-        # L'Éditeur de champs (Gauche)
+        # --- Éditeur des champs ---
         editor_panel = RoundedPanel()
         editor_layout = QVBoxLayout(editor_panel)
         editor_layout.setContentsMargins(15, 15, 15, 15)
@@ -377,27 +380,24 @@ class EditionTab(QWidget):
 
         buttons_layout = QHBoxLayout()
         self.btn_history = ActionButton("fa5s.history", " Historique")
-        self.btn_history.clicked.connect(self.show_version_history)
         self.btn_history.setEnabled(False)
 
         self.btn_save_edits = PrimaryButton(qtawesome.icon("fa5s.save", color="white"), " Sauvegarder modifications")
-        self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.btn_save_edits.setEnabled(False)
 
         buttons_layout.addWidget(self.btn_history)
-        buttons_layout.addStretch()  # Pousse le bouton sauvegarder tout à droite
+        buttons_layout.addStretch()
         buttons_layout.addWidget(self.btn_save_edits)
 
         editor_layout.addLayout(buttons_layout)
-        bottom_splitter.addWidget(editor_panel)
+        self.bottom_splitter.addWidget(editor_panel)
 
-        # L'Aperçu WebEngine (Droite)
+        # --- Aperçu WebEngine ---
         preview_panel = RoundedPanel()
         preview_layout = QVBoxLayout(preview_panel)
-        preview_layout.setContentsMargins(15, 15, 15, 15)  # Marge aérée
+        preview_layout.setContentsMargins(15, 15, 15, 15)
 
         controls_layout = QHBoxLayout()
-
         lbl_preview = QLabel("Prévisualisation :")
         lbl_preview.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
         controls_layout.addWidget(lbl_preview)
@@ -405,41 +405,63 @@ class EditionTab(QWidget):
         self.preview_card_selector = QComboBox()
         self.preview_card_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.preview_card_selector.setMinimumWidth(130)
-        self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
 
         self.preview_side_selector = QComboBox()
         self.preview_side_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.preview_side_selector.setMinimumWidth(130)
         self.preview_side_selector.addItems(["Voir Recto", "Voir Verso"])
-        self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
 
         controls_layout.addWidget(self.preview_card_selector)
         controls_layout.addWidget(self.preview_side_selector)
-        controls_layout.addStretch()  # Pousse les menus vers la gauche
+        controls_layout.addStretch()
 
         preview_layout.addLayout(controls_layout)
 
         self.web_view = SafeWebEngineView()
         self.web_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
-
         preview_layout.addWidget(self.web_view)
 
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
         self.preview_timer.setInterval(500)
+
+        self.bottom_splitter.addWidget(preview_panel)
+        self.bottom_splitter.setSizes([350, 450])
+
+        self.right_splitter.addWidget(self.bottom_splitter)
+
+    def _connect_signals(self) -> None:
+        """Centralise le branchement des signaux de l'interface."""
+        # En-tête
+        self.btn_load_col.clicked.connect(self.load_cards)
+        self.btn_export.clicked.connect(self.export_selected_deck)
+
+        # Explorateur
+        self.deck_tree.itemClicked.connect(self.on_deck_selected)
+        self.tag_list.itemClicked.connect(self.on_tag_selected)
+        self.tag_list.customContextMenuRequested.connect(self.show_tag_context_menu)
+
+        # Tableau et Toolbar
+        self.view_mode_cb.currentIndexChanged.connect(self.refresh_table)
+        self.btn_approve.clicked.connect(self.approve_selected_notes)
+        self.btn_reject.clicked.connect(self.reject_selected_notes)
+        self.btn_new_note.clicked.connect(self.enter_creation_mode)
+        self.btn_scan_dupes.clicked.connect(self.scan_for_duplicates)
+        self.btn_batch_ai.clicked.connect(self.open_batch_edit_dialog)
+        self.btn_auto_tag.clicked.connect(self.open_auto_tag_dialog)
+
+        self.data_table.horizontalHeader().customContextMenuRequested.connect(self.show_header_menu)
+        self.data_table.horizontalHeader().sectionResized.connect(self.save_table_state)
+        self.data_table.horizontalHeader().sectionMoved.connect(self.save_table_state)
+        self.data_table.itemSelectionChanged.connect(self.on_row_selected)
+
+        # Éditeur et Aperçu
+        self.btn_history.clicked.connect(self.show_version_history)
+        self.btn_save_edits.clicked.connect(self.save_note_edits)
+
+        self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
+        self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
         self.preview_timer.timeout.connect(self.update_preview)
-
-        bottom_splitter.addWidget(preview_panel)
-        bottom_splitter.setSizes([350, 450])
-        right_splitter.addWidget(bottom_splitter)
-        right_splitter.setSizes([300, 300])
-
-        main_splitter.addWidget(nav_panel)
-        main_splitter.addWidget(right_splitter)
-        main_splitter.setSizes([200, 800])
-
-        layout.addWidget(main_splitter)
-        self.refresh_deck_tree()
 
     @Slot()
     def refresh_data(self) -> None:

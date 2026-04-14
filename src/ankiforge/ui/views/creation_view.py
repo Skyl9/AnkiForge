@@ -54,6 +54,11 @@ logger = logging.getLogger(__name__)
 
 
 class GenerationThread(QThread):
+    """
+    Thread asynchrone responsable de l'exécution du pipeline de génération.
+    Il orchestre l'extraction, la transformation et le formatage du texte source via les LLMs.
+    """
+
     finished = Signal(list)
     error = Signal(str)
     progress = Signal(str)
@@ -61,6 +66,16 @@ class GenerationThread(QThread):
     cancelled = Signal()
 
     def __init__(self, ai_provider: Any, text_source: str, note_type_id: int, pipeline_id: int, use_vision: bool) -> None:
+        """
+        Initialise le thread de génération.
+
+        Args:
+            ai_provider (LLMProvider): Le moteur IA à utiliser pour l'inférence.
+            text_source (str): Le texte brut à analyser.
+            note_type_id (int): L'identifiant du modèle Anki cible.
+            pipeline_id (int): L'identifiant de la chaîne d'exécution (agents).
+            use_vision (bool): Active l'extraction et l'envoi des images jointes au texte.
+        """
         super().__init__()
         self.ai_provider = ai_provider
         self.text_source = text_source
@@ -69,11 +84,13 @@ class GenerationThread(QThread):
         self.use_vision = use_vision
         self._is_cancelled = False
 
-    def cancel(self):
+    def cancel(self) -> None:
+        """Lève le drapeau d'annulation pour interrompre le traitement."""
         self._is_cancelled = True
 
     @staticmethod
     def _clean_json(raw_text: str) -> str:
+        """Nettoie les balises markdown entourant potentiellement un JSON brut."""
         clean = raw_text.strip()
         if clean.startswith("```json"):
             clean = clean[7:-3].strip()
@@ -142,28 +159,23 @@ class GenerationThread(QThread):
             raw_notes = data["notes"]
             cleaned_notes_to_create = []
 
+            # Validation stricte des clés JSON et fallback séquentiel
             for note_data in raw_notes:
                 cleaned_note_data = {}
 
-                # 1. Dictionnaire en minuscules pour la recherche sémantique
                 lower_note_data = {str(k).lower().strip(): v for k, v in note_data.items()}
-                # 2. Liste brute des valeurs pour le Plan B (Ordre d'apparition)
                 raw_values = list(note_data.values())
 
                 for i, field in enumerate(fields):
                     field_lower = field.lower().strip()
 
-                    # Plan A : L'IA a respecté le nom du champ
                     if field_lower in lower_note_data:
                         val = lower_note_data[field_lower]
-                    # Plan B : L'IA a inventé des noms, on prend la valeur par index
                     elif i < len(raw_values):
                         val = raw_values[i]
-                    # Plan C : Rien trouvé
                     else:
                         val = ""
 
-                    # Formatage : Si l'IA a mis une liste de puces, on la convertit en sauts de ligne HTML
                     if isinstance(val, list):
                         val = "<br>".join([str(item) for item in val])
                     else:
@@ -172,7 +184,6 @@ class GenerationThread(QThread):
                     cleaned_note_data[field] = val
 
                 cleaned_notes_to_create.append(cleaned_note_data)
-            # 👆 FIN DU BOUCLIER 👆
 
             self.finished.emit(cleaned_notes_to_create)
 
@@ -185,35 +196,53 @@ class GenerationThread(QThread):
 
 
 class CreationTab(QWidget):
+    """
+    Interface de création manuelle de cartes Anki assistée par IA.
+    Permet de cibler un texte source spécifique et de le transformer en notes structurées.
+    """
+
     def __init__(self, ai_manager: Any) -> None:
+        """
+        Initialise l'onglet de création de cartes.
+
+        Args:
+            ai_manager (AIManager): Gestionnaire centralisé des services IA.
+        """
         super().__init__()
-        self.thread: GenerationThread | None = None
         self.ai_manager = ai_manager
+        self.thread: GenerationThread | None = None
         self.generated_notes: list[dict[str, str]] = []
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        self._setup_ui()
+        self._connect_signals()
+        self._setup_shortcuts()
 
-        main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_splitter.setHandleWidth(8)
-        main_splitter.setChildrenCollapsible(False)
+        self.refresh_selectors()
+        self.load_documents()
 
-        # ==========================================
-        # BLOC HAUT : CONFIGURATION & SOURCE
-        # ==========================================
+    def _setup_ui(self) -> None:
+        """Initialise et organise les composants graphiques principaux."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
 
-        top_container = QWidget()
-        top_layout = QVBoxLayout(top_container)
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(15)
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.setHandleWidth(8)
+        self.main_splitter.setChildrenCollapsible(False)
 
-        # 1. PARAMÈTRES (Plus aérés)
+        self._build_config_section()
+        self._build_source_section()
+        self._build_results_section()
+
+        self.main_splitter.setSizes([200, 500])
+        self.main_layout.addWidget(self.main_splitter)
+
+    def _build_config_section(self) -> None:
+        """Construit le panneau supérieur contenant les paramètres IA et cibles."""
         params_panel = RoundedPanel()
         params_layout = QVBoxLayout(params_panel)
         params_layout.setContentsMargins(20, 15, 20, 20)
 
-        # Titre de section moderne (Petites majuscules grisées)
         lbl_title_1 = QLabel("1. CONFIGURATION DE L'IA ET DESTINATION")
         lbl_title_1.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         params_layout.addWidget(lbl_title_1)
@@ -221,59 +250,41 @@ class CreationTab(QWidget):
         params_grid = QGridLayout()
         params_grid.setHorizontalSpacing(30)
         params_grid.setVerticalSpacing(10)
-
         lbl_style = "color: palette(placeholder-text); font-size: 12px; font-weight: 500;"
 
-        l_deck = QLabel("Paquet de destination :")
-        l_deck.setStyleSheet(lbl_style)
-        params_grid.addWidget(l_deck, 0, 0)
+        params_grid.addWidget(QLabel("Paquet de destination :", styleSheet=lbl_style), 0, 0)
         self.deck_selector = QComboBox()
-        self.deck_selector.setMinimumHeight(32)
-        self.deck_selector.setMinimumWidth(100)
+        self.deck_selector.setMinimumSize(100, 32)
         params_grid.addWidget(self.deck_selector, 1, 0)
 
-        l_model = QLabel("Modèle de note (Anki) :")
-        l_model.setStyleSheet(lbl_style)
-        params_grid.addWidget(l_model, 0, 1)
+        params_grid.addWidget(QLabel("Modèle de note (Anki) :", styleSheet=lbl_style), 0, 1)
         self.model_selector = QComboBox()
-        self.model_selector.setMinimumHeight(32)
-        self.model_selector.setMinimumWidth(100)
-        self.model_selector.currentIndexChanged.connect(self.on_model_changed)
+        self.model_selector.setMinimumSize(100, 32)
         params_grid.addWidget(self.model_selector, 1, 1)
 
-        l_llm = QLabel("Moteur IA :")
-        l_llm.setStyleSheet(lbl_style)
-        params_grid.addWidget(l_llm, 2, 0)
+        params_grid.addWidget(QLabel("Moteur IA :", styleSheet=lbl_style), 2, 0)
         self.llm_selector = QComboBox()
-        self.llm_selector.setMinimumHeight(32)
-        self.llm_selector.setMinimumWidth(100)
-        self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
+        self.llm_selector.setMinimumSize(100, 32)
         params_grid.addWidget(self.llm_selector, 3, 0)
 
-        l_pipe = QLabel("Pipeline de génération :")
-        l_pipe.setStyleSheet(lbl_style)
-        params_grid.addWidget(l_pipe, 2, 1)
+        params_grid.addWidget(QLabel("Pipeline de génération :", styleSheet=lbl_style), 2, 1)
         self.pipeline_selector = QComboBox()
-        self.pipeline_selector.setMinimumHeight(32)
-        self.pipeline_selector.setMinimumWidth(100)
+        self.pipeline_selector.setMinimumSize(100, 32)
         params_grid.addWidget(self.pipeline_selector, 3, 1)
 
         self.cb_vision = QCheckBox("👁️ Activer l'analyse d'images (Vision) - ⚠️ Consomme plus de tokens")
         self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 10px;")
-        self.cb_vision.setChecked(False)  # Désactivé par défaut pour l'économie
-        self.cb_vision.stateChanged.connect(self.update_token_estimate)
-        params_grid.addWidget(self.cb_vision, 4, 0, 1, 2)  # S'étend sur 2 colonnes
+        self.cb_vision.setChecked(False)
+        params_grid.addWidget(self.cb_vision, 4, 0, 1, 2)
 
         params_layout.addLayout(params_grid)
-        layout.addWidget(params_panel)
+        self.main_layout.insertWidget(0, params_panel)
 
-        # ==========================================
-        # BLOC 2 : TEXTE SOURCE (En Carte)
-        # ==========================================
+    def _build_source_section(self) -> None:
+        """Construit la zone centrale pour la saisie et sélection du texte source."""
         source_panel = RoundedPanel()
         source_layout = QVBoxLayout(source_panel)
         source_layout.setContentsMargins(20, 15, 20, 15)
-
         source_layout.setSpacing(15)
 
         lbl_title_2 = QLabel("2. TEXTE SOURCE")
@@ -282,39 +293,34 @@ class CreationTab(QWidget):
 
         source_header = QHBoxLayout()
         source_header.addWidget(QLabel("Choisir un cours :"))
+
         self.doc_selector = QComboBox()
         self.doc_selector.setMinimumWidth(100)
-        self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
         source_header.addWidget(self.doc_selector, stretch=1)
 
         self.btn_refresh_docs = ActionButton("fa5s.sync", "")
-        self.btn_refresh_docs.clicked.connect(self.load_documents)
         source_header.addWidget(self.btn_refresh_docs)
 
         source_header.addWidget(QLabel("Partie :"))
         self.section_selector = QComboBox()
         self.section_selector.setMinimumWidth(100)
-        self.section_selector.currentIndexChanged.connect(self.on_section_changed)
         source_header.addWidget(self.section_selector, stretch=1)
 
         source_layout.addLayout(source_header)
 
         self.source_text = QTextEdit()
         self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
-        self.source_text.textChanged.connect(self.update_token_estimate)
         source_layout.addWidget(self.source_text)
 
-        # Ligne du bas de la source : Tokens à gauche, Bouton à droite
         bottom_source_layout = QHBoxLayout()
-
         token_layout = QVBoxLayout()
         self.token_label = QLabel("Tokens : 0 / ?")
         self.token_label.setStyleSheet("color: palette(placeholder-text); font-size: 12px;")
+
         self.token_bar = QProgressBar()
         self.token_bar.setTextVisible(False)
-        self.token_bar.setFixedHeight(6)
-        self.token_bar.setFixedWidth(200)
-        self.token_bar.setMinimumWidth(50)
+        self.token_bar.setFixedSize(200, 6)
+
         token_layout.addWidget(self.token_label)
         token_layout.addWidget(self.token_bar)
 
@@ -326,26 +332,23 @@ class CreationTab(QWidget):
         bottom_source_layout.addWidget(self.lbl_progress)
 
         self.btn_generate = PrimaryButton(qta.icon("fa5s.magic", color="white"), " Générer les Cartes")
-        self.btn_generate.clicked.connect(self.start_generation)
         bottom_source_layout.addWidget(self.btn_generate)
 
         self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler")
-        self.btn_cancel.clicked.connect(self.cancel_generation)
         self.btn_cancel.hide()
         bottom_source_layout.addWidget(self.btn_cancel)
 
         source_layout.addLayout(bottom_source_layout)
         source_panel.setMinimumWidth(200)
-        main_splitter.addWidget(source_panel)
+        self.main_splitter.addWidget(source_panel)
 
-        # ==========================================
-        # BLOC 3 : RÉSULTATS (En Cartes scindées)
-        # ==========================================
+    def _build_results_section(self) -> None:
+        """Construit la zone inférieure affichant le tableau de résultats et les aperçus."""
         bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
         bottom_splitter.setHandleWidth(10)
         bottom_splitter.setChildrenCollapsible(False)
 
-        # 3A. Panneau de gauche : Le Tableau
+        # Panneau de gauche : Le Tableau
         table_panel = RoundedPanel()
         table_layout = QVBoxLayout(table_panel)
         table_layout.setContentsMargins(20, 20, 20, 20)
@@ -360,27 +363,22 @@ class CreationTab(QWidget):
         self.results_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results_table.setAlternatingRowColors(True)
-        self.results_table.itemChanged.connect(self.on_table_item_changed)
-        self.results_table.itemSelectionChanged.connect(self.update_preview)
-        # On retire la bordure native du tableau car le RoundedPanel s'en charge
         self.results_table.setFrameShape(QFrame.Shape.NoFrame)
         table_layout.addWidget(self.results_table)
 
         btn_save_layout = QHBoxLayout()
         btn_save_layout.addStretch()
         self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder dans la base")
-        self.btn_save.clicked.connect(self.save_to_database)
         self.btn_save.setEnabled(False)
         btn_save_layout.addWidget(self.btn_save)
         table_layout.addLayout(btn_save_layout)
 
-        # 3B. Panneau de droite : Aperçu & Logs
+        # Panneau de droite : Aperçu & Logs
         right_panel = RoundedPanel()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(10, 10, 10, 10)  # Marges réduites pour laisser la place aux onglets
+        right_layout.setContentsMargins(10, 10, 10, 10)
 
         right_tabs = QTabWidget()
-        # Style pour intégrer parfaitement les onglets dans la carte
         right_tabs.setStyleSheet("""
             QTabWidget::pane { border: none; border-top: 1px solid palette(alternate-base); }
             QTabBar::tab { background: transparent; color: palette(text); padding: 8px 15px; margin-right: 2px; border-radius: 4px; }
@@ -394,11 +392,8 @@ class CreationTab(QWidget):
 
         controls_layout = QHBoxLayout()
         self.preview_card_selector = QComboBox()
-        self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
-
         self.preview_side_selector = QComboBox()
         self.preview_side_selector.addItems(["Voir Recto", "Voir Verso"])
-        self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
 
         controls_layout.addWidget(self.preview_card_selector)
         controls_layout.addWidget(self.preview_side_selector)
@@ -423,14 +418,30 @@ class CreationTab(QWidget):
         bottom_splitter.addWidget(right_panel)
         bottom_splitter.setSizes([500, 300])
 
-        main_splitter.addWidget(bottom_splitter)
-        main_splitter.setSizes([200, 500])
+        self.main_splitter.addWidget(bottom_splitter)
 
-        layout.addWidget(main_splitter)
+    def _connect_signals(self) -> None:
+        """Branche les signaux de l'interface aux slots associés."""
+        self.model_selector.currentIndexChanged.connect(self.on_model_changed)
+        self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
+        self.cb_vision.stateChanged.connect(self.update_token_estimate)
+        self.doc_selector.currentIndexChanged.connect(self.on_document_changed)
+        self.btn_refresh_docs.clicked.connect(self.load_documents)
+        self.section_selector.currentIndexChanged.connect(self.on_section_changed)
+        self.source_text.textChanged.connect(self.update_token_estimate)
 
-        self.refresh_selectors()
-        self.load_documents()
+        self.btn_generate.clicked.connect(self.start_generation)
+        self.btn_cancel.clicked.connect(self.cancel_generation)
 
+        self.results_table.itemChanged.connect(self.on_table_item_changed)
+        self.results_table.itemSelectionChanged.connect(self.update_preview)
+        self.btn_save.clicked.connect(self.save_to_database)
+
+        self.preview_card_selector.currentIndexChanged.connect(self.update_preview)
+        self.preview_side_selector.currentIndexChanged.connect(self.update_preview)
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis clavier de l'onglet."""
         self.shortcut_generate = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut_generate.activated.connect(self.start_generation)
         self.shortcut_save_db = QShortcut(QKeySequence("Ctrl+S"), self)

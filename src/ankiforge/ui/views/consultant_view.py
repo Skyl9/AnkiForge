@@ -298,18 +298,41 @@ class ContextChip(QFrame):
 
 
 class ConsultantTab(QWidget):
-    """La vue complète du Studio Consultant"""
+    """
+    Vue du Studio Consultant IA.
+    Interface conversationnelle permettant à l'utilisateur d'interagir avec l'IA
+    en lui fournissant un contexte dynamique (documents ou paquets) via des mentions.
+    """
 
-    def __init__(self, ai_manager: Any):
+    def __init__(self, ai_manager: Any) -> None:
+        """
+        Initialise l'onglet du Consultant IA.
+
+        Args:
+            ai_manager (AIManager): Instance du gestionnaire d'IA central.
+        """
         super().__init__()
         self.ai_manager = ai_manager
-        self.active_context: list[str] = []  # Liste des identifiants (ex: 'deck_1', 'doc_3')
+        self.active_context: list[str] = []
+        self.chat_thread: ChatConsultantThread | None = None
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        self._setup_ui()
+        self._connect_signals()
 
-        # --- HEADER ---
+        self.refresh_context_chips()
+
+    def _setup_ui(self) -> None:
+        """Initialise et organise les composants graphiques de la vue."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(15)
+
+        self._build_header()
+        self._build_input_panel()
+        self._build_console_panel()
+
+    def _build_header(self) -> None:
+        """Construit l'en-tête contenant le titre et le sélecteur de modèle IA."""
         header_layout = QHBoxLayout()
         header_layout.addWidget(HeaderLabel("🧠 Studio Consultant IA"))
         header_layout.addStretch()
@@ -320,14 +343,15 @@ class ConsultantTab(QWidget):
         self._populate_llms()
         header_layout.addWidget(self.llm_selector)
 
-        layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
-        # --- BLOC DE SAISIE (Haut) ---
+    def _build_input_panel(self) -> None:
+        """Construit le panneau de saisie incluant la barre de contexte et l'éditeur de texte."""
         input_panel = RoundedPanel()
         input_layout = QVBoxLayout(input_panel)
         input_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Barre des Chips (Contexte)
+        # Barre des pilules de contexte (Chips)
         self.context_bar = QHBoxLayout()
         self.context_bar.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -342,25 +366,22 @@ class ConsultantTab(QWidget):
 
         input_layout.addLayout(self.context_bar)
 
-        # Zone de texte principale
+        # Zone de saisie principale et bouton d'envoi
         chat_actions_layout = QHBoxLayout()
         self.chat_input = CommandTextEdit()
-        # Au démarrage, le champ est grand et accueillant
         self.chat_input.setMinimumHeight(120)
-        self.chat_input.mention_inserted.connect(self.on_mention_inserted)
-        self.chat_input.send_requested.connect(self.send_message)
 
         self.btn_send = PrimaryButton(qta.icon("fa5s.paper-plane", color="white"), "")
         self.btn_send.setFixedSize(50, 50)
-        self.btn_send.clicked.connect(self.send_message)
 
         chat_actions_layout.addWidget(self.chat_input, stretch=1)
         chat_actions_layout.addWidget(self.btn_send, alignment=Qt.AlignmentFlag.AlignBottom)
 
         input_layout.addLayout(chat_actions_layout)
-        layout.addWidget(input_panel)
+        self.main_layout.addWidget(input_panel)
 
-        # --- CONSOLE DE LOGS (Bas) ---
+    def _build_console_panel(self) -> None:
+        """Construit la zone d'affichage de l'historique de discussion."""
         console_panel = RoundedPanel()
         console_layout = QVBoxLayout(console_panel)
 
@@ -378,18 +399,30 @@ class ConsultantTab(QWidget):
 
         console_layout.addWidget(self.chat_history)
         console_layout.addWidget(self.lbl_chat_status)
-        layout.addWidget(console_panel, stretch=1)  # Le stretch=1 permet à la console de prendre tout l'espace restant
-        self.refresh_context_chips()
 
-    def _populate_llms(self):
-        """Remplit le menu déroulant avec les moteurs IA de la base de données."""
+        self.main_layout.addWidget(console_panel, stretch=1)
+
+    def _connect_signals(self) -> None:
+        """Branche les signaux de l'interface aux slots de la classe."""
+        self.chat_input.mention_inserted.connect(self.on_mention_inserted)
+        self.chat_input.send_requested.connect(self.send_message)
+        self.btn_send.clicked.connect(self.send_message)
+
+    def _populate_llms(self) -> None:
+        """Remplit le menu déroulant avec les moteurs IA disponibles en base de données."""
         self.llm_selector.clear()
         for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
             self.llm_selector.addItem(llm.display_name, userData=llm.id)
 
     @Slot(str, str)
-    def on_mention_inserted(self, mode: str, data_id: str):
-        """Gère l'insertion d'un tag depuis le popup."""
+    def on_mention_inserted(self, mode: str, data_id: str) -> None:
+        """
+        Gère l'insertion d'une commande ou d'un élément de contexte.
+
+        Args:
+            mode (str): Type d'insertion ('/' pour commande, '@' pour contexte).
+            data_id (str): Identifiant de l'élément sélectionné.
+        """
         if mode == "/":
             if data_id == "clear":
                 self.clear_context()
@@ -404,18 +437,19 @@ class ConsultantTab(QWidget):
             self.chat_input.setFocus()
 
     @Slot(str)
-    def remove_context_item(self, data_id: str):
-        """Supprime une pilule de contexte via la croix (X)."""
+    def remove_context_item(self, data_id: str) -> None:
+        """Retire un élément spécifique du contexte actif."""
         if data_id in self.active_context:
             self.active_context.remove(data_id)
             self.refresh_context_chips()
 
-    def clear_context(self):
+    def clear_context(self) -> None:
+        """Vide l'intégralité du contexte actif."""
         self.active_context.clear()
         self.refresh_context_chips()
 
-    def refresh_context_chips(self):
-        """Redessine les pilules interactives."""
+    def refresh_context_chips(self) -> None:
+        """Redessine les éléments visuels (chips) représentant le contexte chargé."""
         while self.context_chips_layout.count():
             child = self.context_chips_layout.takeAt(0)
             if child.widget():
@@ -438,24 +472,23 @@ class ConsultantTab(QWidget):
                 doc = DocumentModel.get_or_none(DocumentModel.id == d_id)
                 display_text = f"📄 {doc.title}" if doc else "Doc inconnu"
 
-            # Création de notre nouveau widget interactif
             chip = ContextChip(ctx_id, display_text)
             chip.removed.connect(self.remove_context_item)
             self.context_chips_layout.addWidget(chip)
 
     @Slot()
-    def send_message(self):
+    def send_message(self) -> None:
+        """Prépare les données contextuelles et lance le thread de discussion IA."""
         instruction = self.chat_input.toPlainText().strip()
         if not instruction:
             return
 
-        # 1. Animation UI
+        # Rétractation de la zone de saisie pour libérer l'espace d'affichage
         self.chat_input.setMinimumHeight(40)
         self.chat_input.setMaximumHeight(80)
         self.btn_send.setEnabled(False)
         self.lbl_chat_status.setText("📦 Collecte des données...")
 
-        # 2. Construction de l'écho visuel stylisé
         context_names = []
         for ctx_id in self.active_context:
             if ctx_id.startswith("doc_"):
@@ -478,10 +511,8 @@ class ConsultantTab(QWidget):
         self.chat_history.append(echo_html)
         self.chat_input.clear()
 
-        # 3. Collecte des données
         context_data = self._build_context_data()
 
-        # 4. Récupération de l'IA sélectionnée
         llm_id = self.llm_selector.currentData()
         llm_config = LLMConfigModel.get_or_none(LLMConfigModel.id == llm_id)
         if not llm_config:
@@ -491,20 +522,24 @@ class ConsultantTab(QWidget):
 
         active_provider = self.ai_manager.create_provider_from_config(llm_config)
 
-        # 5. Lancement du Thread avec connexion du signal de progression !
         self.chat_thread = ChatConsultantThread(active_provider, context_data, instruction)
-        self.chat_thread.progress.connect(self.on_chat_progress)  # LE SIGNAL MANQUANT
+        self.chat_thread.progress.connect(self.on_chat_progress)
         self.chat_thread.finished_signal.connect(self.on_chat_success)
         self.chat_thread.error_signal.connect(self.on_chat_error)
         self.chat_thread.start()
 
     @Slot(str)
-    def on_chat_progress(self, msg: str):
-        """Met à jour le statut en temps réel pendant que l'IA réfléchit."""
+    def on_chat_progress(self, msg: str) -> None:
+        """Affiche les états intermédiaires renvoyés par le thread."""
         self.lbl_chat_status.setText(f"⏳ {msg}")
 
     def _build_context_data(self) -> dict:
-        """Transforme les IDs de contexte en données réelles (texte, cartes)."""
+        """
+        Extrait le contenu réel (texte et JSON des cartes) correspondant aux IDs de contexte actifs.
+
+        Returns:
+            dict: Données contextuelles structurées prêtes à l'envoi.
+        """
         data: dict[str, list] = {"documents": [], "paquets": []}
 
         for ctx_id in self.active_context:
@@ -518,9 +553,8 @@ class ConsultantTab(QWidget):
                 d_id = int(ctx_id.split("_")[1])
                 deck = DeckModel.get_or_none(DeckModel.id == d_id)
                 if deck:
-                    # On récupère les notes de ce paquet
                     notes = []
-                    # On limite à 100 pour éviter d'exploser les limites de tokens, modifiez selon besoin
+                    # Limite conservatrice pour prévenir le dépassement de la fenêtre de contexte
                     query = NoteModel.select().join(CardModel).where(CardModel.deck == deck).distinct().limit(100)
 
                     for note in query:
@@ -532,13 +566,12 @@ class ConsultantTab(QWidget):
         return data
 
     @Slot(str)
-    def on_chat_success(self, response_text: str):
-        # Conversion Markdown -> HTML avec support des tableaux et code
+    def on_chat_success(self, response_text: str) -> None:
+        """Affiche la réponse formatée et réactive l'interface."""
         html_response = markdown.markdown(response_text, extensions=["extra", "codehilite", "tables"])
 
         self.lbl_chat_status.setText("")
 
-        # Injection de la réponse avec un fond distinctif
         final_html = (
             f"<div style='margin-top:10px; margin-bottom:20px; padding:15px; background-color:palette(alternate-base); border-radius:8px; border: 1px solid palette(window);'>"
             f"<b>🤖 Réponse de l'IA :</b><br><br>"
@@ -548,12 +581,12 @@ class ConsultantTab(QWidget):
         self.chat_history.append(final_html)
 
         self.btn_send.setEnabled(True)
-        # Scroll automatique vers le bas
         scrollbar = self.chat_history.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
     @Slot(str)
-    def on_chat_error(self, error_msg: str):
+    def on_chat_error(self, error_msg: str) -> None:
+        """Affiche les erreurs remontées par l'IA ou le processus d'extraction."""
         self.lbl_chat_status.setText("❌ Erreur")
         self.chat_history.append(f"<div style='color:red;'><b>Erreur de l'IA :</b> {error_msg}</div>")
         self.btn_send.setEnabled(True)

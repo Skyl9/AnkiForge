@@ -82,33 +82,54 @@ class ABTestThread(QThread):
 
 
 class ABTestTab(QWidget):
+    """
+    Laboratoire A/B permettant de comparer deux moteurs IA ou deux invites (prompts).
+    Affiche les résultats générés côte à côte avec un rendu HTML et le JSON brut.
+    """
+
     def __init__(self) -> None:
+        """Initialise l'onglet de test A/B et ses variables d'état."""
         super().__init__()
 
-        # Stockage des derniers résultats pour pouvoir changer de vue (Recto/Verso) sans relancer l'IA
+        # État interne
         self.thread: ABTestThread | None = None
         self.agent_list: list[tuple[str, int]] = []
         self.llm_list: list[tuple[str, int]] = []
-
         self.last_res_a = ""
         self.last_res_b = ""
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        self._setup_ui()
+        self._connect_signals()
 
+        # Chargement initial
+        self.refresh_data()
+
+    def _setup_ui(self) -> None:
+        """Construit et organise les layouts et widgets principaux."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(15)
+
+        self._build_header()
+        self._build_mode_panel()
+        self._build_source_panel()
+        self._build_arena_panel()
+        self._build_controls_panel()
+
+    def _build_header(self) -> None:
+        """Construit l'en-tête de l'onglet."""
         header_layout = QHBoxLayout()
-        header_layout.addWidget(HeaderLabel("🧪 Laboratoire A/B (Prompt Engineering)"))
-        layout.addLayout(header_layout)
+        header_layout.addWidget(HeaderLabel("Laboratoire A/B (Prompt Engineering)"))
+        self.main_layout.addLayout(header_layout)
 
-        # --- MODE DE TEST & CIBLE ---
+    def _build_mode_panel(self) -> None:
+        """Construit le panneau de configuration globale (Mode, Modèle, Cible)."""
         mode_panel = RoundedPanel()
         mode_layout = QHBoxLayout(mode_panel)
 
         mode_layout.addWidget(QLabel("<b>Mode :</b>"))
         self.cb_mode = QComboBox()
         self.cb_mode.addItems(["Comparer deux Moteurs IA", "Comparer deux Prompts"])
-        self.cb_mode.currentIndexChanged.connect(self._on_mode_changed)
         mode_layout.addWidget(self.cb_mode, stretch=1)
 
         self.lbl_global_config = QLabel("<b>Global :</b>")
@@ -118,100 +139,112 @@ class ABTestTab(QWidget):
         self.cb_global_config.setMinimumWidth(150)
         mode_layout.addWidget(self.cb_global_config, stretch=1)
 
-        # 👇 NOUVEAU : Sélection du modèle de note 👇
         mode_layout.addSpacing(10)
         mode_layout.addWidget(QLabel("<b>Modèle :</b>"))
         self.cb_model = QComboBox()
         self.cb_model.setMinimumWidth(120)
-        self.cb_model.currentIndexChanged.connect(self._on_model_changed)
         mode_layout.addWidget(self.cb_model, stretch=1)
 
-        # 👇 NOUVEAU : Contrôles d'aperçu (Recto/Verso) 👇
         mode_layout.addSpacing(10)
         self.cb_template = QComboBox()
-        self.cb_template.currentIndexChanged.connect(self._on_preview_changed)
         mode_layout.addWidget(self.cb_template)
 
         self.cb_side = QComboBox()
         self.cb_side.addItems(["Voir Recto", "Voir Verso"])
-        self.cb_side.currentIndexChanged.connect(self._on_preview_changed)
         mode_layout.addWidget(self.cb_side)
 
-        layout.addWidget(mode_panel)
+        self.main_layout.addWidget(mode_panel)
 
-        # --- TEXTE SOURCE ---
+    def _build_source_panel(self) -> None:
+        """Construit la zone de saisie du texte source."""
         source_layout = QVBoxLayout()
         source_layout.addWidget(QLabel("<b>Texte Source :</b>"))
         self.text_source = QTextEdit()
         self.text_source.setPlaceholderText("Collez ici l'extrait de cours à tester...")
         self.text_source.setMaximumHeight(80)
         source_layout.addWidget(self.text_source)
-        layout.addLayout(source_layout)
+        self.main_layout.addLayout(source_layout)
 
-        # --- L'ARÈNE (SPLITTER A/B) ---
+    def _create_arena_side(self, title_label: QLabel, cb_config: QComboBox) -> tuple[RoundedPanel, SafeWebEngineView, QTextEdit]:
+        """
+        Utilitaire pour instancier un panneau d'arène (A ou B).
+
+        Args:
+            title_label (QLabel): Le label de titre pour ce côté.
+            cb_config (QComboBox): La liste déroulante de configuration.
+
+        Returns:
+            tuple: Le panneau conteneur, la vue web, et l'éditeur de texte brut.
+        """
+        panel = RoundedPanel()
+        p_layout = QVBoxLayout(panel)
+        p_layout.setContentsMargins(10, 10, 10, 10)
+
+        header = QHBoxLayout()
+        header.addWidget(title_label)
+        header.addWidget(cb_config, stretch=1)
+        p_layout.addLayout(header)
+
+        tabs = QTabWidget()
+        tabs.setStyleSheet("QTabBar::tab { padding: 8px 15px; }")
+
+        web_view = SafeWebEngineView()
+        tabs.addTab(web_view, qta.icon("fa5s.eye"), "Rendu Carte")
+
+        raw_text = QTextEdit()
+        raw_text.setReadOnly(True)
+        raw_text.setFrameShape(QFrame.Shape.NoFrame)
+        raw_text.setStyleSheet("font-family: monospace; background-color: palette(base);")
+        tabs.addTab(raw_text, qta.icon("fa5s.code"), "JSON Brut")
+
+        p_layout.addWidget(tabs)
+        return panel, web_view, raw_text
+
+    def _build_arena_panel(self) -> None:
+        """Construit la vue splittée comparant les environnements A et B."""
         self.arena_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.arena_splitter.setHandleWidth(10)
         self.arena_splitter.setChildrenCollapsible(False)
 
-        # Helper pour créer un côté de l'arène (A ou B)
-        def create_arena_side(title_label, cb_config):
-            panel = RoundedPanel()
-            p_layout = QVBoxLayout(panel)
-            p_layout.setContentsMargins(10, 10, 10, 10)
-
-            header = QHBoxLayout()
-            header.addWidget(title_label)
-            header.addWidget(cb_config, stretch=1)
-            p_layout.addLayout(header)
-
-            tabs = QTabWidget()
-            tabs.setStyleSheet("QTabBar::tab { padding: 8px 15px; }")
-
-            # Onglet 1 : Aperçu visuel
-            web_view = SafeWebEngineView()
-            tabs.addTab(web_view, qta.icon("fa5s.eye"), "Rendu Carte")
-
-            # Onglet 2 : JSON Brut
-            raw_text = QTextEdit()
-            raw_text.setReadOnly(True)
-            raw_text.setFrameShape(QFrame.Shape.NoFrame)
-            raw_text.setStyleSheet("font-family: monospace; background-color: palette(base);")
-            tabs.addTab(raw_text, qta.icon("fa5s.code"), "JSON Brut")
-
-            p_layout.addWidget(tabs)
-            return panel, web_view, raw_text
-
         self.lbl_a_config = QLabel("<b>A :</b>")
         self.cb_config_a = QComboBox()
-        panel_a, self.web_a, self.raw_a = create_arena_side(self.lbl_a_config, self.cb_config_a)
+        panel_a, self.web_a, self.raw_a = self._create_arena_side(self.lbl_a_config, self.cb_config_a)
         self.arena_splitter.addWidget(panel_a)
 
         self.lbl_b_config = QLabel("<b>B :</b>")
         self.cb_config_b = QComboBox()
-        panel_b, self.web_b, self.raw_b = create_arena_side(self.lbl_b_config, self.cb_config_b)
+        panel_b, self.web_b, self.raw_b = self._create_arena_side(self.lbl_b_config, self.cb_config_b)
         self.arena_splitter.addWidget(panel_b)
 
-        layout.addWidget(self.arena_splitter, stretch=1)
+        self.main_layout.addWidget(self.arena_splitter, stretch=1)
 
-        # --- CONTRÔLES (BARRE DU BAS) ---
+    def _build_controls_panel(self) -> None:
+        """Construit la barre d'outils inférieure pour lancer ou annuler le test."""
         bottom_layout = QHBoxLayout()
+
         self.lbl_status = QLabel("Prêt.")
         self.lbl_status.setStyleSheet("color: palette(placeholder-text);")
 
         self.btn_run = PrimaryButton(qta.icon("fa5s.play", color="white"), " Lancer la Comparaison")
-        self.btn_run.clicked.connect(self.run_ab_test)
-
         self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler")
-        self.btn_cancel.clicked.connect(self.cancel_test)
         self.btn_cancel.hide()
 
         bottom_layout.addWidget(self.lbl_status)
         bottom_layout.addStretch()
         bottom_layout.addWidget(self.btn_cancel)
         bottom_layout.addWidget(self.btn_run)
-        layout.addLayout(bottom_layout)
 
-        self.refresh_data()
+        self.main_layout.addLayout(bottom_layout)
+
+    def _connect_signals(self) -> None:
+        """Centralise la connexion des signaux aux slots de l'interface."""
+        self.cb_mode.currentIndexChanged.connect(self._on_mode_changed)
+        self.cb_model.currentIndexChanged.connect(self._on_model_changed)
+        self.cb_template.currentIndexChanged.connect(self._on_preview_changed)
+        self.cb_side.currentIndexChanged.connect(self._on_preview_changed)
+
+        self.btn_run.clicked.connect(self.run_ab_test)
+        self.btn_cancel.clicked.connect(self.cancel_test)
 
     @Slot()
     def refresh_data(self) -> None:

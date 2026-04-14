@@ -58,7 +58,10 @@ logger = logging.getLogger(__name__)
 
 
 class BatchWorker(QThread):
-    """Thread de traitement par lots. Découpe les documents et exécute l'IA."""
+    """
+    Thread de traitement par lots asynchrone.
+    Découpe les documents selon la stratégie choisie et exécute les pipelines IA successifs.
+    """
 
     progress_val = Signal(int)
     progress_text = Signal(str)
@@ -68,17 +71,25 @@ class BatchWorker(QThread):
     cancelled = Signal()
 
     def __init__(self, ai_provider: Any, tasks: list[dict[str, Any]]):
+        """
+        Initialise le travailleur de traitement par lots.
+
+        Args:
+            ai_provider (Any): Le fournisseur IA par défaut (peut être écrasé par la tâche).
+            tasks (list[dict]): Liste des tâches configurées depuis l'interface utilisateur.
+        """
         super().__init__()
         self.ai_provider = ai_provider
         self.tasks = tasks
         self._is_cancelled = False
 
     def cancel(self) -> None:
-        """Lève le drapeau d'annulation"""
+        """Lève le drapeau d'annulation pour interrompre le traitement au prochain cycle."""
         self._is_cancelled = True
 
     @staticmethod
     def _clean_json(raw_text: str) -> str:
+        """Nettoie les balises markdown entourant potentiellement un JSON brut."""
         clean = raw_text.strip()
         if clean.startswith("```json"):
             clean = clean[7:-3].strip()
@@ -184,27 +195,20 @@ class BatchWorker(QThread):
                         if notes_to_create:
                             with db.atomic():
                                 for note_data in notes_to_create:
-                                    # On force les clés du JSON à correspondre EXACTEMENT aux champs attendus
                                     cleaned_note_data = {}
-                                    # 1. Dictionnaire en minuscules pour la recherche sémantique
                                     lower_note_data = {str(k).lower().strip(): v for k, v in note_data.items()}
-                                    # 2. Liste brute des valeurs pour le Plan B (Ordre d'apparition)
                                     raw_values = list(note_data.values())
 
                                     for i, field in enumerate(fields):
                                         field_lower = field.lower().strip()
 
-                                        # Plan A : L'IA a respecté le nom du champ
                                         if field_lower in lower_note_data:
                                             val = lower_note_data[field_lower]
-                                        # Plan B : L'IA a inventé des noms, on prend la valeur correspondant à l'index
                                         elif i < len(raw_values):
                                             val = raw_values[i]
-                                        # Plan C : Rien trouvé
                                         else:
                                             val = ""
 
-                                        # Formatage : Si l'IA a mis une liste de puces, on la convertit en sauts de ligne HTML
                                         if isinstance(val, list):
                                             val = "<br>".join([str(item) for item in val])
                                         else:
@@ -264,7 +268,19 @@ class BatchWorker(QThread):
 
 
 class BatchTab(QWidget):
+    """
+    Vue de l'Usine à Cartes (Traitement par lots).
+    Permet à l'utilisateur de sélectionner de multiples documents, de configurer un pipeline
+    pour chacun, et de lancer la génération de cartes en arrière-plan.
+    """
+
     def __init__(self, ai_manager: Any) -> None:
+        """
+        Initialise l'onglet d'automatisation.
+
+        Args:
+            ai_manager (AIManager): Gestionnaire centralisé des services IA.
+        """
         super().__init__()
         self.worker: BatchWorker | None = None
         self.ai_manager = ai_manager
@@ -275,10 +291,32 @@ class BatchTab(QWidget):
             "Aucun (Document entier)",
         ]
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        self._setup_ui()
+        self._connect_signals()
+        self._setup_shortcuts()
 
+        self.refresh_data()
+
+    def _setup_ui(self) -> None:
+        """Construit et organise les layouts et widgets principaux."""
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+
+        self._build_header()
+
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(10)
+        self.main_splitter.setChildrenCollapsible(False)
+
+        self._build_source_panel()
+        self._build_right_panels()
+
+        self.main_splitter.setSizes([250, 950])
+        self.main_layout.addWidget(self.main_splitter)
+
+    def _build_header(self) -> None:
+        """Construit l'en-tête de la vue."""
         titles_layout = QVBoxLayout()
         titles_layout.setSpacing(2)
 
@@ -292,16 +330,10 @@ class BatchTab(QWidget):
 
         titles_layout.addWidget(header)
         titles_layout.addWidget(subtitle)
+        self.main_layout.addLayout(titles_layout)
 
-        layout.addLayout(titles_layout)
-
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_splitter.setHandleWidth(10)
-        main_splitter.setChildrenCollapsible(False)
-
-        # ==========================================
-        # PANNEAU GAUCHE : Source des documents
-        # ==========================================
+    def _build_source_panel(self) -> None:
+        """Construit le panneau de sélection des documents sources (gauche)."""
         source_panel = RoundedPanel()
         source_layout = QVBoxLayout(source_panel)
         source_layout.setContentsMargins(15, 15, 15, 15)
@@ -318,18 +350,25 @@ class BatchTab(QWidget):
         source_layout.addWidget(self.tree_source)
 
         self.btn_add_to_queue = ActionButton("fa5s.arrow-right", " Ajouter à la file d'attente")
-        self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         source_layout.addWidget(self.btn_add_to_queue)
 
-        main_splitter.addWidget(source_panel)
+        source_panel.setMinimumWidth(150)
+        self.main_splitter.addWidget(source_panel)
 
-        # ==========================================
-        # PANNEAU DROIT : File d'attente et Console
-        # ==========================================
-        right_splitter = QSplitter(Qt.Orientation.Vertical)
-        right_splitter.setHandleWidth(10)
+    def _build_right_panels(self) -> None:
+        """Construit la zone de droite divisée entre la file d'attente et la console."""
+        self.right_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.right_splitter.setHandleWidth(10)
 
-        # --- 2A. File d'attente et Configuration ---
+        self._build_queue_panel()
+        self._build_console_panel()
+
+        self.right_splitter.setSizes([350, 300])
+        self.right_splitter.setMinimumWidth(300)
+        self.main_splitter.addWidget(self.right_splitter)
+
+    def _build_queue_panel(self) -> None:
+        """Construit le panneau de configuration par défaut et du tableau de la file d'attente."""
         queue_panel = RoundedPanel()
         queue_layout = QVBoxLayout(queue_panel)
         queue_layout.setContentsMargins(15, 15, 15, 15)
@@ -351,11 +390,9 @@ class BatchTab(QWidget):
         self.default_chunking = QComboBox()
         self.default_chunking.setMinimumWidth(80)
         self.default_chunking.addItems(self.chunk_strategies)
-
         self.default_vision = QCheckBox("👁️ Vision")
         self.default_vision.setChecked(False)
 
-        # Ajout des labels en ligne 0
         default_params_layout.addWidget(QLabel("Paquet :"), 0, 0)
         default_params_layout.addWidget(QLabel("Modèle :"), 0, 1)
         default_params_layout.addWidget(QLabel("Moteur :"), 0, 2)
@@ -363,13 +400,14 @@ class BatchTab(QWidget):
         default_params_layout.addWidget(QLabel("Découpage :"), 0, 4)
         default_params_layout.addWidget(QLabel("Option :"), 0, 5)
 
-        # Ajout des champs en ligne 1
         default_params_layout.addWidget(self.default_deck, 1, 0)
         default_params_layout.addWidget(self.default_model, 1, 1)
         default_params_layout.addWidget(self.default_llm, 1, 2)
         default_params_layout.addWidget(self.default_pipeline, 1, 3)
         default_params_layout.addWidget(self.default_chunking, 1, 4)
         default_params_layout.addWidget(self.default_vision, 1, 5)
+
+        queue_layout.addLayout(default_params_layout)
 
         lbl_queue = QLabel("2. FILE D'ATTENTE")
         lbl_queue.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
@@ -383,20 +421,19 @@ class BatchTab(QWidget):
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
         self.table_queue.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table_queue.verticalHeader().setMinimumSectionSize(45)
-        self.table_queue.verticalHeader().setDefaultSectionSize(45)
         self.table_queue.verticalHeader().setVisible(False)
 
         self.lbl_empty_queue = QLabel("La file d'attente est vide. Sélectionnez des documents à gauche pour commencer.")
         self.lbl_empty_queue.setStyleSheet("color: palette(placeholder-text); font-style: italic;")
         self.lbl_empty_queue.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        queue_layout.addWidget(self.lbl_empty_queue)
 
+        queue_layout.addWidget(self.lbl_empty_queue)
         queue_layout.addWidget(self.table_queue)
 
-        right_splitter.addWidget(queue_panel)
+        self.right_splitter.addWidget(queue_panel)
 
-        # --- 2B. Console de suivi ---
+    def _build_console_panel(self) -> None:
+        """Construit le panneau inférieur affichant les logs, l'estimation et la barre de progression."""
         console_panel = RoundedPanel()
         console_layout = QVBoxLayout(console_panel)
         console_layout.setContentsMargins(15, 15, 15, 15)
@@ -447,36 +484,28 @@ class BatchTab(QWidget):
         bottom_layout.addWidget(self.lbl_status)
 
         self.btn_start = PrimaryButton(qta.icon("fa5s.rocket", color="white"), " Démarrer l'Usine")
-        self.btn_start.clicked.connect(self.start_batch)
         self.btn_start.setMinimumWidth(200)
         bottom_layout.addWidget(self.btn_start)
 
         self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler le traitement")
-        self.btn_cancel.clicked.connect(self.cancel_batch)
         self.btn_cancel.setMinimumWidth(200)
         self.btn_cancel.hide()
         bottom_layout.addWidget(self.btn_cancel)
 
         console_layout.addLayout(bottom_layout)
-        right_splitter.addWidget(console_panel)
+        self.right_splitter.addWidget(console_panel)
 
-        right_splitter.setSizes([350, 300])
+    def _connect_signals(self) -> None:
+        """Branche les signaux de l'interface aux slots associés."""
+        self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
+        self.btn_start.clicked.connect(self.start_batch)
+        self.btn_cancel.clicked.connect(self.cancel_batch)
 
-        source_panel.setMinimumWidth(150)
-        right_splitter.setMinimumWidth(300)
-
-        main_splitter.addWidget(source_panel)
-        main_splitter.addWidget(right_splitter)
-        main_splitter.setSizes([250, 950])
-
-        layout.addWidget(main_splitter)
-
-        self.refresh_selectors()
-        self.load_tree_source()
-
-        # --- RACCOURCIS CLAVIER ---
+    def _setup_shortcuts(self) -> None:
+        """Initialise les raccourcis clavier de la vue."""
         self.shortcut_start = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut_start.activated.connect(self.start_batch)
+
         self.shortcut_remove_queue = QShortcut(QKeySequence.StandardKey.Delete, self.table_queue)
         self.shortcut_remove_queue.activated.connect(self._remove_selected_from_table)
 

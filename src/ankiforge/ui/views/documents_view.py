@@ -144,46 +144,68 @@ class ParserWorker(QThread):
 
 
 class DocumentsTab(QWidget):
+    """
+    Vue de gestion de la bibliothèque de documents (Cours).
+    Permet d'importer (PDF, Web, Markdown), d'éditer, de scinder et de classer
+    les documents sources qui seront utilisés pour générer les cartes Anki.
+    """
+
     def __init__(self) -> None:
+        """Initialise l'onglet de gestion des documents."""
         super().__init__()
+
+        # État interne
         self.worker: ParserWorker | None = None
         self.shortcut_insert_split: QShortcut | None = None
         self.shortcut_backspace: QShortcut | None = None
         self.shortcut_delete: QShortcut | None = None
         self.shortcut_save: QShortcut | None = None
+
         self.current_folder_id_for_import = None
         self.current_doc_id_editing = None
 
+        self._setup_ui()
+        self._connect_signals()
+        self._setup_shortcuts()
+
+        self.load_tree()
+
+    def _setup_ui(self) -> None:
+        """Construit et organise les layouts et widgets de la vue."""
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
         self.layout.setSpacing(20)
 
+        self._build_header()
+
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.setHandleWidth(10)
+
+        self._build_explorer_panel()
+        self._build_editor_panel()
+
+        self.main_splitter.setSizes([250, 750])
+        self.layout.addWidget(self.main_splitter)
+
+    def _build_header(self) -> None:
+        """Construit l'en-tête contenant le titre et les boutons d'importation."""
         header_layout = QHBoxLayout()
-        title = HeaderLabel("Bibliothèque de Cours")
-        header_layout.addWidget(title)
+        header_layout.addWidget(HeaderLabel("Bibliothèque de Cours"))
         header_layout.addStretch()
 
         self.btn_import = ActionButton("fa5s.file-import", " Analyser un PDF/TXT (Marker)")
-        self.btn_import.clicked.connect(self.import_document)
-        header_layout.addWidget(self.btn_import)
-
         self.btn_import_web = ActionButton("fa5s.globe", " Depuis le Web (URL)")
-        self.btn_import_web.clicked.connect(self.import_web_url)
-        header_layout.addWidget(self.btn_import_web)
-
         self.btn_cancel_import = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler l'analyse")
-        self.btn_cancel_import.clicked.connect(self.cancel_import)
         self.btn_cancel_import.hide()
+
+        header_layout.addWidget(self.btn_import)
+        header_layout.addWidget(self.btn_import_web)
         header_layout.addWidget(self.btn_cancel_import)
 
         self.layout.addLayout(header_layout)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(10)
-
-        # ==========================================
-        # PANNEAU GAUCHE : Explorateur
-        # ==========================================
+    def _build_explorer_panel(self) -> None:
+        """Construit le panneau latéral gauche (Arborescence des dossiers et documents)."""
         left_panel = RoundedPanel()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(15, 15, 15, 15)
@@ -194,14 +216,9 @@ class DocumentsTab(QWidget):
 
         toolbar = QHBoxLayout()
         self.btn_new_folder = ActionButton("fa5s.folder-plus", " Dossier")
-        self.btn_new_folder.clicked.connect(self.create_folder)
-
         self.btn_new_doc = ActionButton("fa5s.file-medical", " Doc")
-        self.btn_new_doc.clicked.connect(self.create_manual_document)
-
         self.btn_delete = DangerButton(qta.icon("fa5s.trash", color="white"), "")
         self.btn_delete.setToolTip("Supprimer (Suppr)")
-        self.btn_delete.clicked.connect(self.delete_item)
 
         toolbar.addWidget(self.btn_new_folder)
         toolbar.addWidget(self.btn_new_doc)
@@ -217,15 +234,11 @@ class DocumentsTab(QWidget):
         self.tree.setDropIndicatorShown(True)
         self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
 
-        self.tree.doc_moved.connect(self._on_document_moved)
-        self.tree.itemClicked.connect(self.on_item_selected)
-
         left_layout.addWidget(self.tree)
-        splitter.addWidget(left_panel)
+        self.main_splitter.addWidget(left_panel)
 
-        # ==========================================
-        # PANNEAU DROIT : Éditeur Markdown
-        # ==========================================
+    def _build_editor_panel(self) -> None:
+        """Construit le panneau principal de droite (Éditeur Markdown et Rendu Web)."""
         right_panel = RoundedPanel()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(15, 15, 15, 15)
@@ -233,22 +246,20 @@ class DocumentsTab(QWidget):
         editor_toolbar = QHBoxLayout()
         self.lbl_doc_title = QLabel("AUCUN DOCUMENT SÉLECTIONNÉ")
         self.lbl_doc_title.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
-        editor_toolbar.addWidget(self.lbl_doc_title)
-        editor_toolbar.addStretch()
 
         self.btn_insert_split = ActionButton("fa5s.cut", " Insérer Coupure (Ctrl+D)")
-        self.btn_insert_split.clicked.connect(self.insert_split_tag)
         self.btn_insert_split.setEnabled(False)
-        editor_toolbar.addWidget(self.btn_insert_split)
 
         self.btn_split_doc = ActionButton("fa5s.cut", " Scinder aux balises [SPLIT]")
-        self.btn_split_doc.clicked.connect(self.split_document_multiple)
         self.btn_split_doc.setEnabled(False)
-        editor_toolbar.addWidget(self.btn_split_doc)
 
         self.btn_save_doc = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder (Ctrl+S)")
-        self.btn_save_doc.clicked.connect(self.save_document_edits)
         self.btn_save_doc.setEnabled(False)
+
+        editor_toolbar.addWidget(self.lbl_doc_title)
+        editor_toolbar.addStretch()
+        editor_toolbar.addWidget(self.btn_insert_split)
+        editor_toolbar.addWidget(self.btn_split_doc)
         editor_toolbar.addWidget(self.btn_save_doc)
 
         right_layout.addLayout(editor_toolbar)
@@ -256,16 +267,19 @@ class DocumentsTab(QWidget):
         self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.editor_splitter.setHandleWidth(10)
 
+        # Éditeur de texte (Markdown)
         self.preview_text = QTextEdit()
         self.preview_text.setFrameShape(QFrame.Shape.NoFrame)
         self.preview_text.viewport().setAutoFillBackground(False)
-        font = QFont("Consolas", 11)  # 11pt équivaut environ à 14px
+
+        font = QFont("Consolas", 11)
         font.setStyleHint(QFont.StyleHint.Monospace)
         self.preview_text.setFont(font)
+
         self.highlighter = MarkdownHighlighter(self.preview_text.document())
 
+        # Rendu Web (HTML rendu)
         self.render_view = SafeWebEngineView()
-
         self.render_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
 
         self.editor_splitter.addWidget(self.preview_text)
@@ -273,22 +287,36 @@ class DocumentsTab(QWidget):
         self.editor_splitter.setSizes([400, 400])
 
         right_layout.addWidget(self.editor_splitter)
+        self.main_splitter.addWidget(right_panel)
 
+        # Timer pour le rafraîchissement dynamique du rendu
         self.render_timer = QTimer(self)
         self.render_timer.setSingleShot(True)
         self.render_timer.setInterval(500)
-        self.render_timer.timeout.connect(self.update_live_preview)
+
+    def _connect_signals(self) -> None:
+        """Centralise le branchement des signaux (UI et Custom) vers leurs slots."""
+        # En-tête
+        self.btn_import.clicked.connect(self.import_document)
+        self.btn_import_web.clicked.connect(self.import_web_url)
+        self.btn_cancel_import.clicked.connect(self.cancel_import)
+
+        # Explorateur
+        self.btn_new_folder.clicked.connect(self.create_folder)
+        self.btn_new_doc.clicked.connect(self.create_manual_document)
+        self.btn_delete.clicked.connect(self.delete_item)
+        self.tree.itemClicked.connect(self.on_item_selected)
+        self.tree.doc_moved.connect(self._on_document_moved)
+
+        # Éditeur
+        self.btn_insert_split.clicked.connect(self.insert_split_tag)
+        self.btn_split_doc.clicked.connect(self.split_document_multiple)
+        self.btn_save_doc.clicked.connect(self.save_document_edits)
 
         self.preview_text.textChanged.connect(self._on_text_changed)
+        self.render_timer.timeout.connect(self.update_live_preview)
 
-        splitter.addWidget(right_panel)
-        splitter.setSizes([250, 750])
-
-        self.layout.addWidget(splitter)
-        self.setup_shortcuts()
-        self.load_tree()
-
-    def setup_shortcuts(self) -> None:
+    def _setup_shortcuts(self) -> None:
         """Initialise les raccourcis clavier globaux pour cet onglet."""
         # Sauvegarde (Ctrl+S ou Cmd+S sur Mac)
         self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
