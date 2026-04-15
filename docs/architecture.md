@@ -1,20 +1,26 @@
-# Architecture du Code
+# Architecture Technique d'AnkiForge 🏗️
 
-AnkiForge est construit avec une architecture modulaire séparant clairement l'interface utilisateur, la logique métier et la persistance des données.
+AnkiForge repose sur une architecture robuste et modulaire, conçue pour la performance et la fiabilité. Le projet suit un pattern **MVC (Modèle-Vue-Contrôleur)** strict pour séparer la logique métier de l'interface utilisateur.
 
-##  Structure des dossiers
+## Le Pattern MVC
 
-- `src/ankiforge/database/` : Contient les modèles **Peewee** (ORM). C'est la seule couche autorisée à parler à la base de données SQLite.
-- `src/ankiforge/ui/` : Contient les widgets et vues **PySide6**. Aucune requête réseau ni traitement lourd ne doit bloquer ces composants.
-- `src/ankiforge/services/` : Le cœur de l'application (IA, Parsing PDF, Export Anki).
-- `tests/` : Tous les tests unitaires gérés par **Pytest**, isolés via une base de données en RAM.
+1.  **Modèle (Database)** : Utilise l'ORM **Peewee** avec SQLite. Cette couche gère la persistance des cartes, des documents, des configurations IA et de l'historique des versions.
+2.  **Vue (UI)** : Construite avec **PySide6** (Qt pour Python). L'interface est découpée en vues indépendantes et widgets réutilisables, centralisés dans `src/ankiforge/ui/`.
+3.  **Contrôleur (Services/Workers)** : Les services (`src/ankiforge/services/`) orchestrent la logique complexe (IA, parsing, exports), tandis que les Workers (`QThread`) assurent la fluidité de l'UI en déportant les calculs lourds.
 
-## Base de données (Peewee)
-Nous utilisons **SQLite** couplé à l'ORM Peewee. 
+## Fluidité et Multithreading
 
-**Règles de conception :**
-* Toutes les relations utilisent `on_delete='CASCADE'` pour éviter les données orphelines (ex: supprimer un Paquet supprime ses Cartes).
-* Les opérations lourdes d'écriture sont enveloppées dans des transactions (`db.atomic()`) pour garantir l'intégrité.
+L'interface graphique ne bloque jamais. Chaque opération lourde (génération de cartes, parsing de PDF volumineux) est exécutée dans un `QThread` dédié.
 
-## Module C Natif (Performance)
-Pour des raisons de performances, le calcul de la distance de Levenshtein (utilisé pour la détection de doublons de cartes) est codé via une extension C native.
+*   **Workers UI** : Gèrent les tâches éphémères déclenchées par l'utilisateur.
+*   **BackgroundDaemon** : Un démon de fond ("La Forge Immortelle") qui scanne en permanence la file d'attente des travaux en base de données pour exécuter les tâches asynchrones, même après un redémarrage de l'application.
+
+## Extension C (Levenshtein)
+
+Pour la détection de doublons et le calcul de similarité entre les cartes, AnkiForge utilise une extension native en **C**. Cela permet de traiter des milliers de comparaisons en quelques millisecondes, là où une implémentation Python pure serait un goulot d'étranglement.
+
+## Gestion des Médias et Documents
+
+*   **Marker** : Moteur de Deep Learning utilisé pour convertir les PDF en Markdown structuré avec extraction d'images.
+*   **Trafilatura** : Utilisé pour le scraping web "propre" (boilerplate removal).
+*   **MediaManager** : Centralise le stockage des images dans le dossier utilisateur et garantit l'intégrité des liens HTML dans les flashcards.

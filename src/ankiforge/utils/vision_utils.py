@@ -38,8 +38,17 @@ def _encode_image_base64(image_path: Path) -> str | None:
 
 def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any]]:
     """
-    Scanne le texte, extrait les images, les convertit en Base64,
-    et construit le payload JSON standardisé (format OpenAI/Anthropic).
+    Prépare un payload compatible avec les APIs de vision (OpenAI, Gemini).
+
+    Extrait les images citées dans le texte, les convertit en base64 depuis le dossier
+    média local et construit une structure de message multimodal.
+
+    Args:
+        text (str): Texte source contenant des balises images.
+        media_dir (Path): Dossier racine où sont stockés les fichiers physiques.
+
+    Returns:
+        list[dict[str, Any]]: Une liste d'objets (texte + images base64) pour le fournisseur IA.
     """
     images_found: list[str] = []
 

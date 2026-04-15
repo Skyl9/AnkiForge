@@ -22,13 +22,39 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentParser:
-    """Service en charge d'extraire le texte brut de divers formats de documents."""
+    """
+    Service d'extraction de texte multi-format.
+
+    Capacité à transformer des fichiers PDF, Word, PowerPoint, Markdown et des pages Web
+    en texte brut structuré (Markdown) optimisé pour le traitement par IA.
+    """
 
     def __init__(self, media_manager: MediaManager | None = None):
+        """
+        Initialise le parseur avec un gestionnaire de médias.
+
+        Args:
+            media_manager (MediaManager | None): Pour gérer les images extraites (ex: PDF).
+        """
         self.media_manager = media_manager or MediaManager()
 
     def parse_document(self, source_file_path: str | Path, progress_callback=None, check_cancel=None) -> str:
-        """Détecte l'extension et utilise le bon parseur."""
+        """
+        Détermine le type de document et invoque le parseur approprié.
+
+        Args:
+            source_file_path (str | Path): Chemin local ou URL du document.
+            progress_callback (callable | None): Fonction de rappel pour la progression (msg: str).
+            check_cancel (callable | None): Fonction pour vérifier si l'utilisateur a annulé.
+
+        Returns:
+            str: Le texte extrait au format Markdown.
+
+        Raises:
+            FileNotFoundError: Si le fichier local est introuvable.
+            ValueError: Si le format n'est pas supporté.
+            RuntimeError: En cas d'échec d'un moteur tiers (ex: Marker).
+        """
         source_str = str(source_file_path).strip()
         if source_str.startswith("http"):
             if progress_callback:
@@ -59,7 +85,15 @@ class DocumentParser:
             raise ValueError(f"Format de fichier non supporté : {ext}")
 
     def _parse_web(self, url: str) -> str:
-        """Télécharge la page et extrait le contenu sémantique principal (Boilerplate removal)."""
+        """
+        Télécharge et extrait le contenu principal d'une page Web.
+
+        Args:
+            url (str): L'URL à analyser.
+
+        Returns:
+            str: Le contenu utile de la page (sans publicités ni menus).
+        """
         if trafilatura is None:
             raise RuntimeError("Le module trafilatura n'est pas installé. Lancez 'uv add trafilatura'")
         if "wikipedia.org/wiki/" in url:
@@ -79,7 +113,15 @@ class DocumentParser:
 
     @staticmethod
     def _parse_wikipedia(url: str) -> str:
-        """Utilise l'API de Wikimedia pour récupérer le HTML et extraire le LaTeX proprement."""
+        """
+        Extrait le contenu d'un article Wikipédia en préservant les formules LaTeX.
+
+        Args:
+            url (str): URL de l'article Wikipédia.
+
+        Returns:
+            str: L'article converti en Markdown avec LaTeX protégé par des $$.
+        """
         if BeautifulSoup is None or markdownify is None:
             raise RuntimeError("Pour lire les mathématiques de Wikipédia, installez les outils : 'uv add beautifulsoup4 markdownify'")
 
@@ -266,7 +308,13 @@ class DocumentParser:
 
     @staticmethod
     def _parse_text(file_path: Path) -> str:
-        """Lecture basique de fichiers texte."""
-        return file_path.read_text(encoding="utf-8")
+        """
+        Lit un fichier texte brut ou Markdown.
 
-    # Les méthodes docx et pptx pourront être ajoutées ici très facilement !
+        Args:
+            file_path (Path): Chemin vers le fichier.
+
+        Returns:
+            str: Le contenu du fichier.
+        """
+        return file_path.read_text(encoding="utf-8")

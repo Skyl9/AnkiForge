@@ -10,7 +10,10 @@ logger = logging.getLogger(__name__)
 
 class NoteManager:
     """
-    Service métier responsable de la manipulation complexe des notes et de leurs cartes associées.
+    Service métier orchestrant la création et la manipulation des notes.
+
+    Cette classe centralise la logique complexe de création de notes, garantissant
+    que chaque note possède une version initiale et ses cartes physiques correspondantes.
     """
 
     @staticmethod
@@ -23,18 +26,24 @@ class NoteManager:
         source: str = "manual",
     ) -> NoteModel:
         """
-        Crée une note complète de manière sécurisée (Note + Version initiale + Cartes physiques).
+        Crée une nouvelle note de manière atomique.
+
+        Génère la note, sa version initiale et toutes les cartes (CardModel)
+        nécessaires selon le modèle de note (basique ou cloze).
 
         Args:
-            note_type (NoteTypeModel): Le modèle Anki définissant la structure.
-            deck (DeckModel): Le paquet de destination.
-            content_dict (dict): Le dictionnaire des champs et leurs valeurs.
-            tags (list[str] | None): La liste des tags à appliquer.
-            status (str): Le statut initial de la carte (ex: 'new', 'pending').
-            source (str): L'origine de la création (ex: 'manual', 'ai').
+            note_type (NoteTypeModel): Modèle Anki définissant les champs et templates.
+            deck (DeckModel): Paquet Anki de destination.
+            content_dict (dict[str, str]): Valeurs pour chaque champ défini dans le modèle.
+            tags (list[str] | None): Liste de tags optionnelle.
+            status (str): État initial de la note ('new', 'exported', etc.).
+            source (str): Origine de la note ('manual', 'ai', 'import').
 
         Returns:
-            NoteModel: L'instance de la note fraîchement créée en base.
+            NoteModel: L'objet Note créé.
+
+        Raises:
+            RuntimeError: En cas d'échec de l'opération en base de données.
         """
         if tags is None:
             tags = []

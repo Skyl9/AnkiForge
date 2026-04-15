@@ -1,8 +1,10 @@
 import json
 import logging
 import time
+
 from PySide6.QtCore import QThread, Signal
-from ankiforge.database.models import JobModel, db, DocumentModel, FolderModel
+
+from ankiforge.database.models import DocumentModel, FolderModel, JobModel, db
 from ankiforge.services.parsing.document_parser import DocumentParser
 
 logger = logging.getLogger(__name__)
@@ -16,10 +18,12 @@ class BackgroundDaemon(QThread):
     job_updated = Signal()  # Signal pour rafraîchir l'UI
 
     def __init__(self):
+        """Initialise le démon et l'état d'exécution."""
         super().__init__()
         self._is_running = True
 
     def stop(self):
+        """Arrête proprement la boucle du démon."""
         self._is_running = False
 
     def run(self):

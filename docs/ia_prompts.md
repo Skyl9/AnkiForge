@@ -1,18 +1,31 @@
-# Gestion de l'Intelligence Artificielle
+# Intelligence Artificielle & Prompts 🧠
 
-AnkiForge est conçu pour être "Agnostique" en matière d'IA. Il peut se connecter à n'importe quel fournisseur sans changer la logique interne du programme.
+AnkiForge n'est pas lié à un fournisseur unique. Le système est conçu pour être totalement agnostique, vous laissant le choix entre la puissance du cloud et la confidentialité du local.
 
-## Fournisseurs supportés
+## Fournisseurs Supportés
 
-Toutes les IA implémentent l'interface abstraite `LLMProvider`. Le basculement se fait dynamiquement via le fichier `.env` ou l'interface utilisateur.
+Le projet implémente l'interface `LLMProvider` pour garantir une compatibilité universelle :
 
-1. **Ollama (Local & Gratuit) :** Idéal pour une utilisation hors-ligne (ex: modèle `llama3`).
-2. **Google Gemini :** Accès cloud très rapide et performant via l'API Google AI Studio.
-3. **Groq / OpenRouter :** Accès universel compatible avec le standard OpenAI.
-4. **MockProvider :** Un fournisseur de secours utilisé pour les **tests** ou en cas de crash réseau, renvoyant un JSON pré-formaté.
+*   **Local** : Ollama (standard par défaut), LM Studio.
+*   **Cloud** : Google Gemini (via API native), Groq (Llama 3 ultra-rapide), OpenAI.
+*   **Compatible OpenAI** : Tout backend respectant le standard API de OpenAI peut être configuré.
 
-## Résilience et Parsing JSON
+## Moteur de Prompts (Jinja2)
 
-Les LLMs ont tendance à rajouter des balises Markdown (````json ... ````) ou du texte de politesse autour de leurs réponses. 
+Les prompts envoyés à l'IA ne sont pas de simples chaînes de caractères codées en dur. AnkiForge utilise **Jinja2** pour l'injection dynamique de contexte :
 
-Notre utilitaire interne (`parse_ai_json_response`) utilise des expressions régulières pour isoler de force le bloc JSON. Les tests unitaires valident ce comportement contre toutes les "hallucinations" connues.**
+*   Injection du texte source extrait.
+*   Contextualisation selon les préférences de l'utilisateur (langue, niveau de détail).
+*   Formatage strict pour forcer une réponse JSON valide.
+
+## Bouclier Anti-Hallucination
+
+L'IA peut parfois être imprévisible. AnkiForge met en place plusieurs couches de sécurité :
+
+1.  **Format JSON Forcé** : Utilisation du mode JSON des APIs (quand disponible) ou d'un parsing Regex robuste.
+2.  **Validation Post-Parsing** : Chaque objet généré est validé par rapport au schéma attendu avant d'être inséré en base de données.
+3.  **Gestion des Erreurs** : En cas de réponse invalide, le système peut retenter la génération avec un prompt de correction automatique.
+
+## Confidentialité
+
+En utilisant le fournisseur **Ollama**, aucune donnée ne quitte votre ordinateur. C'est la solution recommandée pour le traitement de documents sensibles ou personnels.

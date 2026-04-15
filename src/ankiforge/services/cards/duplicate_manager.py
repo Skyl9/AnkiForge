@@ -10,7 +10,15 @@ logger = logging.getLogger(__name__)
 
 
 def strip_html(text: str | None) -> str:
-    """Retire toutes les balises HTML d'une chaîne pour l'analyse brute."""
+    """
+    Supprime les balises HTML et nettoie le texte pour l'analyse comparative.
+
+    Args:
+        text (str | None): Le texte brut contenant potentiellement du HTML.
+
+    Returns:
+        str: Le texte nettoyé, sans balises, entités HTML ou sauts de ligne superflus.
+    """
     if not text:
         return ""
     clean = re.compile("<.*?>")
@@ -18,26 +26,31 @@ def strip_html(text: str | None) -> str:
 
 
 class DuplicateManager:
-    """Service en charge de la détection de doublons sémantiques dans les paquets de cartes."""
+    """
+    Service de détection intelligente de doublons sémantiques.
+
+    Utilise une approche multi-niveaux : filtrage rapide par longueur et mots-clés (Jaccard),
+    puis comparaison précise via l'algorithme de Levenshtein (en C) pour identifier
+    les notes quasi-identiques.
+    """
 
     @staticmethod
     def find_duplicates(deck_id: int) -> list[tuple[NoteModel, dict[str, Any], NoteModel, dict[str, Any]]]:
         """
-        Analyse un paquet et ses sous-paquets pour trouver des cartes sémantiquement identiques.
-        Utilise des heuristiques (longueur, Jaccard) avant d'appeler l'algorithme de Levenshtein en C.
+        Recherche les doublons au sein d'un paquet et de ses sous-paquets.
 
         Args:
-            deck_id (int): L'identifiant du paquet racine à analyser.
+            deck_id (int): ID du paquet racine pour la recherche.
 
         Returns:
-            list: Une liste de conflits sous la forme (note_A, contenu_A, note_B, contenu_B).
+            list: Liste de tuples contenant les paires de notes en conflit et leur contenu.
         """
         conflicts = []
 
         selected_deck = DeckModel.get_by_id(deck_id)
         matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
 
-        # Récupère toutes les notes du paquet [cite: 1028]
+        # Récupère toutes les notes du paquet
         all_notes = (
             NoteModel.select(NoteModel, NoteTypeModel)
             .join(NoteTypeModel)

@@ -8,19 +8,33 @@ logger = logging.getLogger(__name__)
 
 
 class ConsultantWorker(QThread):
-    """Thread qui envoie le contexte massif à l'IA pour obtenir des conseils."""
+    """
+    Expert IA interactif pour l'analyse de collection.
+
+    Envoie une synthèse massive de la base de données (notes, docs) à l'IA
+    pour obtenir des audits pédagogiques ou des conseils personnalisés.
+    """
 
     progress = Signal(str)
     finished_signal = Signal(str)
     error_signal = Signal(str)
 
     def __init__(self, ai_provider: Any, context_data: dict[str, Any], instruction: str):
+        """
+        Initialise le consultant IA.
+
+        Args:
+            ai_provider (Any): Le moteur IA.
+            context_data (dict[str, Any]): Synthèse des données Anki (notes, doublons).
+            instruction (str): La question ou commande de l'utilisateur.
+        """
         super().__init__()
         self.ai_provider = ai_provider
         self.context_data = context_data
         self.instruction = instruction
 
     def run(self):
+        """Prépare le payload contextuel et récupère la réponse de l'IA."""
         try:
             self.progress.emit("Extraction et structuration du contexte...")
 

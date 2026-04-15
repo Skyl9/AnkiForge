@@ -15,19 +15,43 @@ warnings.filterwarnings("ignore", module="genanki")
 
 
 class ExportManager:
+    """
+    Service responsable de l'exportation des paquets au format .apkg.
+
+    Gère la conversion des modèles de base de données vers les structures genanki,
+    l'inclusion des médias (images) et la persistance des IDs pour la compatibilité Anki.
+    """
+
     def __init__(self):
+        """Initialise le gestionnaire et s'assure de l'existence du dossier média."""
         # On pointe vers notre dossier media local
         self.media_dir = get_app_data_dir() / "media"
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def generate_stable_id(text: str) -> int:
-        """Génère un entier unique et constant basé sur une chaîne de caractères."""
+        """
+        Génère un identifiant numérique stable à partir d'une chaîne de caractères.
+
+        Args:
+            text (str): Le texte source (ex: nom du paquet).
+
+        Returns:
+            int: Un entier de 10 chiffres utilisable comme ID Anki.
+        """
         return int(hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:15], 16) % (10**10)
 
     def export_deck(self, deck_id: int, output_path: str | Path, export_only_new: bool = True) -> None:
         """
-        Exporte un paquet, ses sous-paquets, et toutes les images associées vers un .apkg
+        Exporte un paquet et ses sous-paquets vers un fichier .apkg.
+
+        Args:
+            deck_id (int): ID du paquet racine à exporter.
+            output_path (str | Path): Chemin du fichier de sortie.
+            export_only_new (bool): Si True, n'exporte que les notes au statut 'new'.
+
+        Raises:
+            ValueError: Si aucune carte ne correspond aux critères d'exportation.
         """
         deck_model = DeckModel.get_by_id(deck_id)
 

@@ -72,7 +72,13 @@ class StoreManager:
 
     @staticmethod
     def interpret_header(header_ligne: str, header_dict: dict):
-        """Remplit le dictionnaire d'entête avec les INDEX (0-based) des colonnes."""
+        """
+        Analyse les lignes d'entête d'un fichier texte Anki pour mapper les colonnes.
+
+        Args:
+            header_ligne (str): Ligne de métadonnée Anki (commençant par #).
+            header_dict (dict): Dictionnaire à remplir avec les index de colonnes.
+        """
         if header_ligne.startswith("#separator"):
             return
 

@@ -13,9 +13,23 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiService(LLMProvider):
+    """
+    Service d'intégration pour l'API Google Gemini.
+
+    Gère l'authentification et la communication avec les modèles Gemini via le SDK officiel
+    de Google. Supporte les fonctionnalités multimodales (vision).
+    """
+
     def __init__(self, api_key: str | None = None, model_name: str = "gemini-2.0-flash"):
         """
-        Initialise le client Gemini avec la clé API Studio.
+        Initialise le client Gemini.
+
+        Args:
+            api_key (str | None): Clé API Google AI Studio. Cherchée dans l'environnement si absente.
+            model_name (str): Nom du modèle Gemini à utiliser.
+
+        Raises:
+            ValueError: Si aucune clé API n'est disponible.
         """
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         self.model_name = model_name
@@ -28,7 +42,18 @@ class GeminiService(LLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
         """
-        Génère une réponse JSON structurée.
+        Génère une réponse textuelle ou JSON structurée via Gemini.
+
+        Args:
+            system_prompt (str): Instructions système (system_instruction).
+            user_prompt (str | list[dict[str, Any]]): Prompt utilisateur ou contenu multimodal.
+            response_format (str): Format de réponse ("json" ou "text").
+
+        Returns:
+            str: Le contenu textuel de la réponse générée.
+
+        Raises:
+            RuntimeError: En cas d'erreur lors de l'appel à l'API Gemini.
         """
 
         config = types.GenerateContentConfig(

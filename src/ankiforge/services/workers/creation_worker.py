@@ -14,8 +14,10 @@ logger = logging.getLogger(__name__)
 
 class CreationWorker(QThread):
     """
-    Thread asynchrone responsable de l'exécution du pipeline de génération.
-    Il orchestre l'extraction, la transformation et le formatage du texte source via les LLMs.
+    Moteur asynchrone de génération de flashcards.
+
+    Gère le passage successif du texte source à travers une chaîne d'agents IA (pipeline).
+    Supporte la vision, le nettoyage de JSON et le reformatage des champs selon le modèle Anki.
     """
 
     finished = Signal(list)
@@ -26,14 +28,14 @@ class CreationWorker(QThread):
 
     def __init__(self, ai_provider: Any, text_source: str, note_type_id: int, pipeline_id: int, use_vision: bool) -> None:
         """
-        Initialise le thread de génération.
+        Initialise le worker de génération unique.
 
         Args:
-            ai_provider (LLMProvider): Le moteur IA à utiliser pour l'inférence.
-            text_source (str): Le texte brut à analyser.
-            note_type_id (int): L'identifiant du modèle Anki cible.
-            pipeline_id (int): L'identifiant de la chaîne d'exécution (agents).
-            use_vision (bool): Active l'extraction et l'envoi des images jointes au texte.
+            ai_provider (Any): Le fournisseur IA actif.
+            text_source (str): Le texte source à transformer.
+            note_type_id (int): ID du modèle Anki cible.
+            pipeline_id (int): ID du pipeline d'agents à exécuter.
+            use_vision (bool): Si True, traite et envoie aussi les images.
         """
         super().__init__()
         self.ai_provider = ai_provider
@@ -44,12 +46,20 @@ class CreationWorker(QThread):
         self._is_cancelled = False
 
     def cancel(self) -> None:
-        """Lève le drapeau d'annulation pour interrompre le traitement."""
+        """Demande l'arrêt de la génération en cours."""
         self._is_cancelled = True
 
     @staticmethod
     def _clean_json(raw_text: str) -> str:
-        """Nettoie les balises markdown entourant potentiellement un JSON brut."""
+        """
+        Nettoie le texte pour isoler le JSON (supprime les blocs markdown).
+
+        Args:
+            raw_text (str): Texte brut de l'IA.
+
+        Returns:
+            str: JSON prêt pour le parsing.
+        """
         clean = raw_text.strip()
         if clean.startswith("```json"):
             clean = clean[7:-3].strip()
@@ -58,6 +68,7 @@ class CreationWorker(QThread):
         return clean
 
     def run(self) -> None:
+        """Exécute les étapes du pipeline et émet la liste des notes générées."""
         cleaned_output = ""
         raw_response = ""
         try:

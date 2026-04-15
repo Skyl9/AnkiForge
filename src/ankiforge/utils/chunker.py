@@ -53,8 +53,19 @@ def _find_best_split(text: str, start: int, max_end: int, protected_intervals: l
 
 def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: int = 1000) -> list[str]:
     """
-    Le moteur de découpage intelligent et sécurisé.
-    Empêche la coupure au milieu des formules mathématiques et des blocs de code.
+    Divise un texte massif en morceaux (chunks) gérables par les LLM.
+
+    Le découpage est "intelligent" car il protège l'intégrité des formules LaTeX
+    et des blocs de code Markdown pour éviter de scinder une équation au milieu.
+
+    Args:
+        text (str): Le contenu complet du document.
+        strategy (str): 'Sémantique (Titres)', 'Chevauchement (Overlap)' ou 'Aucun'.
+        max_chars (int): Taille maximale cible de chaque morceau.
+        overlap (int): Nombre de caractères de chevauchement entre deux morceaux.
+
+    Returns:
+        list[str]: Liste des morceaux de texte prêts pour l'IA.
     """
     if strategy == "Aucun (Document entier)" or len(text) <= max_chars:
         return [text]

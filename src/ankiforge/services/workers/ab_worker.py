@@ -8,6 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 class AbWorker(QThread):
+    """
+    Thread exécutant un test A/B entre deux configurations d'IA.
+
+    Permet de comparer les réponses de deux modèles ou deux prompts différents
+    sur un même texte source, de manière asynchrone pour ne pas figer l'interface.
+    """
+
     progress = Signal(str)
     result_a = Signal(str)
     result_b = Signal(str)
@@ -16,6 +23,16 @@ class AbWorker(QThread):
     cancelled = Signal()
 
     def __init__(self, provider_a: Any, provider_b: Any, prompt_a: str, prompt_b: str, source_text: str):
+        """
+        Initialise le worker de test A/B.
+
+        Args:
+            provider_a (Any): Fournisseur IA pour le sujet A.
+            provider_b (Any): Fournisseur IA pour le sujet B.
+            prompt_a (str): Prompt système pour le sujet A.
+            prompt_b (str): Prompt système pour le sujet B.
+            source_text (str): Le texte utilisateur commun aux deux tests.
+        """
         super().__init__()
         self.provider_a = provider_a
         self.provider_b = provider_b
@@ -25,9 +42,11 @@ class AbWorker(QThread):
         self._is_cancelled = False
 
     def cancel(self):
+        """Demande l'arrêt prématuré du test."""
         self._is_cancelled = True
 
     def run(self):
+        """Exécute les deux générations séquentiellement et émet les résultats."""
         try:
             user_input = f"TEXTE SOURCE :\n{self.source_text}"
 

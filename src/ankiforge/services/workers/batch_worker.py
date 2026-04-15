@@ -18,8 +18,10 @@ logger = logging.getLogger(__name__)
 
 class BatchWorker(QThread):
     """
-    Thread de traitement par lots asynchrone.
-    Découpe les documents selon la stratégie choisie et exécute les pipelines IA successifs.
+    Worker massif traitant une file d'attente de documents.
+
+    Gère le découpage intelligent (chunking), le passage dans les pipelines d'agents
+    et la création automatique des notes en base de données.
     """
 
     progress_val = Signal(int)
@@ -31,11 +33,11 @@ class BatchWorker(QThread):
 
     def __init__(self, ai_provider: Any, tasks: list[dict[str, Any]]):
         """
-        Initialise le travailleur de traitement par lots.
+        Initialise le worker de traitement par lots.
 
         Args:
             ai_provider (Any): Le fournisseur IA par défaut (peut être écrasé par la tâche).
-            tasks (list[dict]): Liste des tâches configurées depuis l'interface utilisateur.
+            tasks (list[dict[str, Any]]): Liste des tâches (doc, deck, pipeline, etc.).
         """
         super().__init__()
         self.ai_provider = ai_provider
@@ -43,12 +45,20 @@ class BatchWorker(QThread):
         self._is_cancelled = False
 
     def cancel(self) -> None:
-        """Lève le drapeau d'annulation pour interrompre le traitement au prochain cycle."""
+        """Demande l'arrêt immédiat de tous les traitements en cours."""
         self._is_cancelled = True
 
     @staticmethod
     def _clean_json(raw_text: str) -> str:
-        """Nettoie les balises markdown entourant potentiellement un JSON brut."""
+        """
+        Nettoie le texte brut pour en extraire le JSON (supprime les balises markdown).
+
+        Args:
+            raw_text (str): Texte brut généré par l'IA.
+
+        Returns:
+            str: JSON nettoyé.
+        """
         clean = raw_text.strip()
         if clean.startswith("```json"):
             clean = clean[7:-3].strip()
@@ -57,6 +67,7 @@ class BatchWorker(QThread):
         return clean
 
     def run(self) -> None:
+        """Exécute séquentiellement chaque tâche de la liste."""
         try:
             total_tasks = len(self.tasks)
             success_count = 0

@@ -7,8 +7,14 @@ from ankiforge.utils.paths import get_app_data_dir
 
 def setup_logging(level=logging.INFO):
     """
-    Configure le système de log global pour AnkiForge.
-    Branche un flux vers la console et un flux vers un fichier rotatif.
+    Initialise la configuration globale des logs de l'application.
+
+    Crée un système de logs dual :
+    - Sortie console (stdout) pour le débogage en temps réel.
+    - Fichiers rotatifs (.log) dans le dossier de données utilisateur pour le diagnostic technique.
+
+    Args:
+        level (int): Niveau de log global (ex: logging.DEBUG, logging.INFO).
     """
     # 1. Définir l'emplacement du fichier de log
     log_dir = get_app_data_dir() / "logs"

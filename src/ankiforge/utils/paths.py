@@ -8,8 +8,15 @@ APP_NAME = "AnkiForge"
 
 def get_project_root() -> Path:
     """
-    Cherche dynamiquement la racine du projet en remontant l'arborescence
-    jusqu'à trouver 'pyproject.toml'.
+    Localise dynamiquement la racine du projet sur le disque.
+
+    Remonte l'arborescence depuis le fichier actuel jusqu'à trouver le fichier pyproject.toml.
+
+    Returns:
+        Path: Chemin absolu vers la racine du projet.
+
+    Raises:
+        RuntimeError: Si le projet n'est pas trouvé.
     """
     current_path = Path(__file__).resolve().parent
 

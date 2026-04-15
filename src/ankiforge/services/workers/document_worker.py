@@ -10,23 +10,39 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentWorker(QThread):
+    """
+    Worker d'analyse de document source.
+
+    Gère l'extraction initiale du texte brut d'un document local ou d'une URL
+    en utilisant les différents parseurs disponibles.
+    """
+
     finished_signal = Signal(str, str)
     error_signal = Signal(str)
     log_signal = Signal(str)
     cancelled_signal = Signal()
 
     def __init__(self, file_path: str):
+        """
+        Initialise le worker d'extraction.
+
+        Args:
+            file_path (str): Chemin vers le fichier ou URL de la page web.
+        """
         super().__init__()
         self.file_path = file_path
         self._is_cancelled = False
 
     def cancel(self):
+        """Demande l'annulation de l'extraction."""
         self._is_cancelled = True
 
     def is_cancelled(self) -> bool:
+        """Vérifie si le worker doit s'arrêter."""
         return self._is_cancelled
 
     def run(self):
+        """Exécute le parseur approprié et retourne le texte extrait."""
         try:
             parser = DocumentParser()
             if self.file_path.startswith("http"):

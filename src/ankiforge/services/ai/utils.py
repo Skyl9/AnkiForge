@@ -15,7 +15,15 @@ PRICING_1M_USD = {
 
 
 def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
-    """Enregistre la consommation en base de données et estime le coût."""
+    """
+    Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
+
+    Args:
+        provider (str): Nom du fournisseur d'IA (ex: 'openai', 'gemini').
+        model_id (str): Identifiant du modèle utilisé.
+        prompt_tokens (int): Nombre de jetons envoyés en entrée.
+        completion_tokens (int): Nombre de jetons générés en sortie.
+    """
     cost = 0.0
 
     # On cherche le prix du modèle (ou 0.0 s'il est local/gratuit comme Ollama/Groq)

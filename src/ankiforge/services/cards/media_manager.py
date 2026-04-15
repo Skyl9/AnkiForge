@@ -79,9 +79,13 @@ class MediaManager:
 
     def clean_orphaned_media(self) -> int:
         """
-        Détecte et supprime physiquement les images du dossier media
-        qui ne sont plus référencées par aucune note dans la base de données.
-        Retourne le nombre de fichiers supprimés.
+        Supprime physiquement les fichiers médias qui ne sont plus utilisés.
+
+        Analyse toutes les versions de notes en base de données pour identifier
+        les images référencées et nettoie les fichiers orphelins sur le disque.
+
+        Returns:
+            int: Le nombre de fichiers supprimés.
         """
         from ankiforge.database.models import NoteVersionModel
 

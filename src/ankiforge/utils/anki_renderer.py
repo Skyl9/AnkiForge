@@ -4,7 +4,17 @@ AnkiFields = dict[str, str | list[str]]
 
 
 def get_max_cloze_index(fields_dict: dict) -> int:
-    """Trouve l'index de trou le plus élevé (c1, c2...) dans les champs d'une note."""
+    """
+    Identifie l'index de trou de complétion (cloze) le plus élevé dans une note.
+
+    Parcourt tous les champs pour trouver des motifs de type {{c1::...}}, {{c2::...}}, etc.
+
+    Args:
+        fields_dict (dict): Dictionnaire des champs de la note.
+
+    Returns:
+        int: L'index maximum trouvé (ex: 3 pour c3). Retourne 0 si aucun n'est trouvé.
+    """
     max_idx = 0
     pattern = re.compile(r"\{\{c(\d+)::", re.IGNORECASE)
     for val in fields_dict.values():
@@ -117,6 +127,24 @@ def render_anki_card(
     is_dark_mode: bool = False,
     template_index: int = 0,
 ) -> str:
+    """
+    Simule le rendu HTML d'une carte Anki.
+
+    Gère les remplacements de champs, les sections conditionnelles, les trous de complétion
+    (cloze deletion), le mode nuit et l'injection de MathJax pour le rendu LaTeX.
+
+    Args:
+        raw_html (str): Le template HTML brut (Recto ou Verso).
+        css (str): Les styles CSS du modèle de note.
+        fields_dict (AnkiFields): Les données de la note (champs -> contenu).
+        is_recto (bool): Si True, affiche le recto. Sinon le verso.
+        front_html (str): Le contenu rendu du recto (nécessaire pour {{FrontSide}} au verso).
+        is_dark_mode (bool): Active les styles de mode nuit.
+        template_index (int): L'index de la carte physique (pour les notes à plusieurs cartes).
+
+    Returns:
+        str: Le code HTML complet, prêt à être affiché dans un QWebEngineView.
+    """
     safe_fields = _sanitize_fields(fields_dict)
 
     html = raw_html
