@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
             {
                 "title": "4. Le Contrôle Qualité",
                 "text": "Vos cartes atterrissent ici. Vous pouvez les éditer, comparer les différentes versions via l'historique, puis les exporter vers Anki.",
-                "target_widget": self.tab_edition.data_table,
+                "target_widget": self.tab_edition.note_table,
                 "action": lambda: self.sidebar.setCurrentRow(1),
             },
             {
