@@ -18,7 +18,10 @@ def test_run_migrations_idempotency(mock_db):
     assert SchemaVersionModel.table_exists(), "La table SchemaVersionModel n'a pas été créée."
 
     version_record = SchemaVersionModel.get_by_id(1)
-    assert version_record.version == 2, "La version du schéma n'a pas été incrémentée à 2."
+    assert version_record.version == 100, "La version du schéma n'a pas été incrémentée à 100 (indicateur peewee-migrate)."
+
+    # On vérifie que peewee-migrate a créé sa table d'historique
+    assert db.table_exists("migratehistory"), "La table migratehistory de peewee-migrate est manquante."
 
     # ✨ NOUVEAU : On vérifie directement dans le moteur SQLite que les colonnes sont bien là
     columns = [col.name for col in db.get_columns("agents")]
@@ -28,6 +31,6 @@ def test_run_migrations_idempotency(mock_db):
     # 3. Deuxième exécution (Simulation d'un redémarrage de l'application)
     run_migrations()
 
-    # La version doit rester strictement à 2
+    # La version doit rester à 100
     version_record = SchemaVersionModel.get_by_id(1)
-    assert version_record.version == 2, "La version du schéma a été modifiée anormalement après la seconde passe."
+    assert version_record.version == 100, "La version du schéma a été modifiée anormalement après la seconde passe."
