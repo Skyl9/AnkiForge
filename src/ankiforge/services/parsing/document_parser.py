@@ -2,8 +2,8 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess  # nosec B404
-import sys
 import tempfile
 import urllib.error
 import urllib.parse
@@ -179,17 +179,24 @@ class DocumentParser:
         except urllib.error.URLError as e:
             logger.exception("Impossible de joindre l'API Wikipédia :")
             raise RuntimeError(f"Impossible de joindre l'API Wikipédia : {e.reason}") from e
+        except json.JSONDecodeError as e:
+            logger.exception("Réponse Wikipédia corrompue :")
+            raise RuntimeError("La réponse de Wikipédia est invalide.") from e
         except Exception as e:
             logger.exception("Erreur lors du traitement Wikipédia :")
-            raise ValueError(f"Erreur lors du traitement Wikipédia : {e}") from e
+            raise RuntimeError(f"Erreur lors du traitement Wikipédia : {str(e)}") from e
 
     def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback=None, check_cancel=None) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
         # On a retiré le grand "try:" global
         with tempfile.TemporaryDirectory() as temp_dir_str:
             temp_dir = Path(temp_dir_str)
-            use_shell = sys.platform.startswith("win")
-            cmd = ["marker_single", str(file_path), "--output_dir", str(temp_dir)]
+
+            executable = shutil.which("marker_single")
+            if not executable:
+                raise FileNotFoundError("L'outil Marker n'est pas installé ou introuvable dans le PATH.")
+
+            cmd = [executable, str(file_path), "--output_dir", str(temp_dir)]
 
             if progress_callback:
                 progress_callback("Lancement du moteur de Deep Learning (Marker)...")
@@ -202,7 +209,7 @@ class DocumentParser:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
-                    shell=use_shell,  # nosec B602
+                    shell=False,  # nosec B603
                     encoding="utf-8",
                     errors="replace",
                 ) as process:

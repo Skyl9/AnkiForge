@@ -97,6 +97,6 @@ class GeminiService(LLMProvider):
                 log_token_usage("gemini", self.model_name, p_tokens, c_tokens)
 
             return response.text or ""
-        except Exception as e:
-            logger.exception(f"Erreur Gemini ({self.model_name}) :")
-            raise RuntimeError(f"Erreur Gemini ({self.model_name}) : {str(e)}") from e
+        except genai.errors.APIError as e:
+            logger.exception(f"Erreur API Gemini ({self.model_name}) :")
+            raise RuntimeError(f"Erreur API Gemini ({self.model_name}) : {str(e)}") from e

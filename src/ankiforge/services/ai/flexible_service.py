@@ -1,8 +1,8 @@
-# src/services/ai/flexible_service.py
 import logging
 import os
 from typing import cast, Any
 
+import openai
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -86,7 +86,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
             content = response.choices[0].message.content or ""
             return content
-        except Exception as e:
+        except (openai.APIError, openai.APIConnectionError) as e:
             logger.exception(f"Erreur API ({self.model_name}) :")
             raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}") from e
 

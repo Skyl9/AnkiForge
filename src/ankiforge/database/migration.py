@@ -1,5 +1,7 @@
 import logging
 import os
+import sqlite3
+import peewee
 from peewee_migrate import Router
 from ankiforge.database.models import db, SchemaVersionModel
 
@@ -39,7 +41,7 @@ def run_migrations() -> None:
 
         logging.info("Migrations terminées avec succès.")
 
-    except Exception as e:
+    except (peewee.DatabaseError, sqlite3.Error) as e:
         logging.error(f"Erreur lors de l'exécution des migrations : {e}")
         # On ne bloque pas forcément l'appli si c'est une erreur mineure,
         # mais on logge l'alerte critique.
