@@ -3,15 +3,7 @@ import re
 from jinja2 import Template
 
 from ankiforge.database.models import TokenUsageModel
-
-PRICING_1M_USD = {
-    "gpt-4o": (5.0, 15.0),
-    "gpt-4o-mini": (0.15, 0.60),
-    "claude-3-5-sonnet-20240620": (3.0, 15.0),
-    "gemini-1.5-pro": (3.5, 10.5),
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-2.0-flash": (0.10, 0.40),
-}
+from ankiforge.services.ai.pricing_service import PRICING_1M_USD
 
 
 def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:

@@ -32,9 +32,10 @@ from ankiforge.database.models import (
     LLMConfigModel,
     NoteTypeModel,
     PipelineModel,
+    PipelineStepModel,
 )
 from ankiforge.services.cards.note_manager import NoteManager
-from ankiforge.services.workers.creation_worker import CreationWorker
+from ankiforge.services.workers.creation_worker import CreationWorker, CreationTaskPayload
 from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel, DBComboBox
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
@@ -425,8 +426,26 @@ class CreationTab(QWidget):
             show_toast(self, "Veuillez sélectionner un moteur IA.", is_error=True)
             return
 
+        # PRÉPARATION DES DONNÉES SUR LE MAIN THREAD
+        note_type = NoteTypeModel.get_by_id(model_id)
+        pipeline = PipelineModel.get_by_id(pipeline_id)
         llm_config = LLMConfigModel.get_by_id(llm_id)
         active_provider = self.ai_manager.create_provider_from_config(llm_config)
+
+        steps_data = []
+        for step in pipeline.steps.order_by(PipelineStepModel.step_order):
+            steps_data.append({"name": step.agent.name, "system_prompt": step.agent.system_prompt, "output_format": getattr(step.agent, "output_format", "json")})
+
+        payload = CreationTaskPayload(
+            text_source=text,
+            note_type_id=model_id,
+            note_type_fields_schema=note_type.fields_schema,
+            pipeline_id=pipeline_id,
+            pipeline_name=pipeline.name,
+            pipeline_steps=steps_data,
+            use_vision=self.cb_vision.isChecked(),
+        )
+
         self.btn_generate.hide()
         self.btn_cancel.show()
         self.btn_cancel.setEnabled(True)
@@ -436,8 +455,8 @@ class CreationTab(QWidget):
         self.preview_widget.clear_memory()
         self.console_log.clear()
 
-        logger.info(f"Lancement de la génération IA (Pipeline: {pipeline_id}, LLM: {llm_config.display_name}, Vision: {self.cb_vision.isChecked()}).")
-        self.thread = CreationWorker(active_provider, text, model_id, pipeline_id, use_vision=self.cb_vision.isChecked())
+        logger.info(f"Lancement de la génération IA (Pipeline: {pipeline.name}, LLM: {llm_config.display_name}, Vision: {payload.use_vision}).")
+        self.thread = CreationWorker(active_provider, payload)
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)
         self.thread.finished.connect(self.on_generation_success)

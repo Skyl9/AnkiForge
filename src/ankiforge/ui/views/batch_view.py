@@ -42,9 +42,10 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
     PipelineModel,
+    PipelineStepModel,
 )
-from ankiforge.services.ai.utils import PRICING_1M_USD
-from ankiforge.services.workers.batch_worker import BatchWorker
+from ankiforge.services.ai.pricing_service import calculate_job_estimate
+from ankiforge.services.workers.batch_worker import BatchWorker, BatchTaskPayload
 from ankiforge.ui.components.components import ActionButton, DangerButton, DBComboBox, PrimaryButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
@@ -445,7 +446,7 @@ class BatchTab(QWidget):
         if self.table_queue.rowCount() == 0:
             return
 
-        tasks = []
+        tasks_payloads = []
         for row in range(self.table_queue.rowCount()):
             item_doc = self.table_queue.item(row, 0)
             doc_id = item_doc.data(Qt.ItemDataRole.UserRole) if item_doc is not None else None
@@ -456,18 +457,50 @@ class BatchTab(QWidget):
             cb_pipe = cast(QComboBox, self.table_queue.cellWidget(row, 4))
             cb_chunk = cast(QComboBox, self.table_queue.cellWidget(row, 5))
             cb_vision = cast(QCheckBox, self.table_queue.cellWidget(row, 6))
+
             deck_id = cb_deck.currentData()
             model_id = cb_model.currentData()
             llm_id = cb_llm.currentData()
             pipe_id = cb_pipe.currentData()
             chunk_strategy = cb_chunk.currentText()
 
-            if not deck_id or not model_id or not pipe_id:
+            if not deck_id or not model_id or not pipe_id or not llm_id:
                 logger.warning(f"Configuration incomplète à la ligne {row + 1} du tableau de batch.")
                 show_toast(self, f"Configuration incomplète à la ligne {row + 1}.", is_error=True)
                 return
 
-            tasks.append({"doc_id": doc_id, "deck_id": deck_id, "model_id": model_id, "llm_id": llm_id, "pipeline_id": pipe_id, "chunk_strategy": chunk_strategy, "use_vision": cb_vision.isChecked()})
+            # RÉCUPÉRATION DES DONNÉES SUR LE MAIN THREAD
+            doc = DocumentModel.get_by_id(doc_id)
+            note_type = NoteTypeModel.get_by_id(model_id)
+            pipeline = PipelineModel.get_by_id(pipe_id)
+            llm_config_model = LLMConfigModel.get_by_id(llm_id)
+
+            steps_data = []
+            for step in pipeline.steps.order_by(PipelineStepModel.step_order):
+                steps_data.append({"name": step.agent.name, "system_prompt": step.agent.system_prompt, "output_format": getattr(step.agent, "output_format", "json")})
+
+            payload = BatchTaskPayload(
+                doc_id=doc_id,
+                doc_title=doc.title,
+                doc_content=doc.content,
+                deck_id=deck_id,
+                model_id=model_id,
+                note_type_fields=json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"],
+                note_type_templates=json.loads(note_type.templates) if note_type.templates else [],
+                pipeline_id=pipe_id,
+                pipeline_steps=steps_data,
+                llm_id=llm_id,
+                llm_config={
+                    "display_name": llm_config_model.display_name,
+                    "model_id": llm_config_model.model_id,
+                    "context_limit": llm_config_model.context_limit,
+                    "api_key": llm_config_model.api_key,
+                    "provider": llm_config_model.provider,
+                },
+                chunk_strategy=chunk_strategy,
+                use_vision=cb_vision.isChecked(),
+            )
+            tasks_payloads.append(payload)
 
         self.btn_start.hide()
         self.btn_cancel.show()
@@ -478,10 +511,10 @@ class BatchTab(QWidget):
         self.console_log.clear()
         self.progress_bar.setValue(0)
 
-        logger.info(f"Lancement de l'usine à cartes : {len(tasks)} document(s) à traiter.")
-        self.append_log(f"🚀 Lancement de l'Usine : {len(tasks)} document(s) à traiter.")
+        logger.info(f"Lancement de l'usine à cartes : {len(tasks_payloads)} document(s) à traiter.")
+        self.append_log(f"🚀 Lancement de l'Usine : {len(tasks_payloads)} document(s) à traiter.")
 
-        self.worker = BatchWorker(ai_provider=self.ai_manager.provider, tasks=tasks)
+        self.worker = BatchWorker(ai_provider=self.ai_manager.provider, tasks=tasks_payloads)
         self.worker.batch_data_ready.connect(self.save_extracted_notes_to_db)
         self.worker.progress_val.connect(self.progress_bar.setValue)
         self.worker.progress_text.connect(self.lbl_status.setText)
@@ -609,36 +642,25 @@ class BatchTab(QWidget):
                 llm = LLMConfigModel.get_by_id(llm_id)
                 pipe = PipelineModel.get_by_id(pipe_id)
 
-                # Heuristique : 1 token = ~4 caractères
-                base_doc_tokens = len(doc.content) // 4
-
-                # Majoration Vision
+                # Calcul des images pour la majoration vision
+                img_count = 0
                 cb_vision = cast(QCheckBox, self.table_queue.cellWidget(row, 6))
                 if cb_vision.isChecked():
                     img_count = len(re.findall(MD_IMAGE_REGEX, doc.content)) + len(re.findall(HTML_IMAGE_REGEX, doc.content))
-                    if img_count > 0:
-                        base_doc_tokens += img_count * 300  # +300 tokens par image
 
-                # Majoration dynamique selon la méthode de découpage
-                if chunk_strategy == "Chevauchement (Overlap)":
-                    base_doc_tokens = int(base_doc_tokens * 1.15)  # +15% car des phrases sont lues deux fois
+                # Appel à la logique métier centralisée
+                row_tokens, row_cost = calculate_job_estimate(
+                    text_length=len(doc.content),
+                    step_count=max(1, pipe.steps.count()),
+                    chunk_strategy=chunk_strategy,
+                    use_vision=cb_vision.isChecked(),
+                    image_count=img_count,
+                    model_id=llm.model_id,
+                )
 
-                # Le document est relu par CHAQUE agent du pipeline
-                step_count = max(1, pipe.steps.count())
-
-                # Tokens d'entrée (Le document + un peu de gras pour les instructions)
-                input_tokens = (base_doc_tokens + 500) * step_count
-
-                # Tokens de sortie estimés (On estime qu'un résumé/flashcard fait 20% de la taille d'origine)
-                output_tokens = (base_doc_tokens * 0.2) * step_count
-
-                total_tokens += int(input_tokens + output_tokens)
-
-                # Calcul financier
-                rates = PRICING_1M_USD.get(llm.model_id, (0.0, 0.0))
-                row_cost = (input_tokens / 1_000_000 * rates[0]) + (output_tokens / 1_000_000 * rates[1])
+                total_tokens += row_tokens
                 total_cost += row_cost
-            except (AttributeError, TypeError, ValueError):
+            except (AttributeError, TypeError, ValueError, Exception):
                 continue
 
         # Mise à jour visuelle

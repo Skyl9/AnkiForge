@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any
 
 import qtawesome as qta
@@ -24,7 +23,6 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QSizePolicy,
 )
-from dotenv import set_key
 
 from ankiforge.database.models import db, LLMConfigModel
 from ankiforge.services.ai.flexible_service import OllamaProvider
@@ -99,24 +97,29 @@ class LLMManagerTab(QWidget):
         form_api = QFormLayout()
         form_api.setHorizontalSpacing(20)
 
-        self.le_openai_key = QLineEdit(os.getenv("OPENAI_API_KEY", ""))
+        # RÉCUPÉRATION DES CLÉS DEPUIS LA BDD
+        def get_key_for(provider: str) -> str:
+            llm = LLMConfigModel.get_or_none(LLMConfigModel.provider == provider)
+            return llm.api_key if llm and llm.api_key else ""
+
+        self.le_openai_key = QLineEdit(get_key_for("openai"))
         self.le_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_openai_key.setPlaceholderText("sk-...")
         self.le_openai_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé OpenAI :"), self.le_openai_key)
 
-        self.le_anthropic_key = QLineEdit(os.getenv("ANTHROPIC_API_KEY", ""))
+        self.le_anthropic_key = QLineEdit(get_key_for("anthropic"))
         self.le_anthropic_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_anthropic_key.setPlaceholderText("sk-ant-...")
         self.le_anthropic_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé Anthropic :"), self.le_anthropic_key)
 
-        self.le_gemini_key = QLineEdit(os.getenv("GEMINI_API_KEY", ""))
+        self.le_gemini_key = QLineEdit(get_key_for("gemini"))
         self.le_gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_gemini_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé Gemini :"), self.le_gemini_key)
 
-        self.le_groq_key = QLineEdit(os.getenv("GROQ_API_KEY", ""))
+        self.le_groq_key = QLineEdit(get_key_for("groq"))
         self.le_groq_key.setEchoMode(QLineEdit.EchoMode.Password)
         self.le_groq_key.setMaximumWidth(450)
         form_api.addRow(self._make_bold_label("Clé Groq :"), self.le_groq_key)
@@ -242,15 +245,24 @@ class LLMManagerTab(QWidget):
 
     @Slot()
     def save_api_keys(self) -> None:
-        env_path_str = str(self.ai_manager.env_path)
-        set_key(env_path_str, "OPENAI_API_KEY", self.le_openai_key.text().strip())
-        set_key(env_path_str, "ANTHROPIC_API_KEY", self.le_anthropic_key.text().strip())
-        set_key(env_path_str, "GEMINI_API_KEY", self.le_gemini_key.text().strip())
-        set_key(env_path_str, "GROQ_API_KEY", self.le_groq_key.text().strip())
+        keys_map = {
+            "openai": self.le_openai_key.text().strip(),
+            "anthropic": self.le_anthropic_key.text().strip(),
+            "gemini": self.le_gemini_key.text().strip(),
+            "groq": self.le_groq_key.text().strip(),
+        }
 
-        self.ai_manager.reload_provider()
-        logger.info("Clés API sauvegardées et rechargées.")
-        show_toast(self, "Clés API sauvegardées et rechargées !")
+        try:
+            with db.atomic():
+                for provider, key in keys_map.items():
+                    LLMConfigModel.update(api_key=key).where(LLMConfigModel.provider == provider).execute()
+
+            self.ai_manager.reload_provider()
+            logger.info("Clés API sauvegardées en base de données et moteurs rechargés.")
+            show_toast(self, "Clés API sauvegardées en BDD !")
+        except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde des clés API :")
+            show_toast(self, f"Erreur lors de la sauvegarde : {e}", is_error=True)
 
     def load_llms_table(self) -> None:
         self.table_llms.blockSignals(True)

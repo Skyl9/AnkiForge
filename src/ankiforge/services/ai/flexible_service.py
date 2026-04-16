@@ -4,7 +4,6 @@ from typing import cast, Any
 
 import openai
 import requests
-from dotenv import load_dotenv
 from openai import OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
@@ -12,7 +11,6 @@ from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
 from ankiforge.services.ai.utils import log_token_usage
-from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -171,20 +169,13 @@ class OpenRouterProvider(OpenAICompatibleProvider):
 class AIManager:
     """
     Orchestrateur central gérant le chargement et la configuration de l'IA active.
-
-    S'occupe de la lecture des paramètres utilisateurs (.env) et de l'instanciation
-    dynamique du fournisseur d'IA approprié.
+    Récupère les paramètres depuis la base de données SQLite.
     """
 
     def __init__(self):
         """
-        Initialise le gestionnaire et charge le fournisseur configuré par défaut.
+        Initialise le gestionnaire.
         """
-        self.env_path = get_app_data_dir() / ".env"  # Créer le fichier .env s'il n'existe pas
-        if not self.env_path.exists():
-            self.env_path.write_text("AI_PROVIDER=Ollama\nAI_MODEL=llama3\n", encoding="utf-8")
-
-        load_dotenv(str(self.env_path))
         self.provider: LLMProvider = MockProvider()  # Fallback de sécurité
         self.reload_provider()
 
@@ -192,47 +183,34 @@ class AIManager:
     def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
         """
         Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
-
-        Args:
-            config (LLMConfigModel): Configuration stockée en BDD.
-
-        Returns:
-            LLMProvider: Instance prête à l'emploi du service d'IA.
+        Injecte l'api_key stockée en BDD.
         """
-        p_name = config.provider.lower()
+        return AIManager.create_provider(provider_name=config.provider, model_id=config.model_id, api_key=config.api_key)
+
+    @staticmethod
+    def create_provider(provider_name: str, model_id: str, api_key: str | None = None) -> LLMProvider:
+        """
+        Instancie un fournisseur d'IA à partir de données brutes (Thread-safe).
+        """
+        p_name = provider_name.lower()
+        key = api_key or ""
+
         if p_name == "ollama":
-            return OllamaProvider(model_name=config.model_id)
+            return OllamaProvider(model_name=model_id)
         elif p_name == "gemini":
-            return GeminiService(model_name=config.model_id)
+            return GeminiService(api_key=key, model_name=model_id)
         elif p_name == "groq":
-            return GroqProvider(model_name=config.model_id)
+            return GroqProvider(api_key=key, model_name=model_id)
         elif p_name == "openai":
             return OpenAICompatibleProvider(
                 base_url="https://api.openai.com/v1",
-                model_name=config.model_id,
-                api_key=os.environ.get("OPENAI_API_KEY", ""),
+                model_name=model_id,
+                api_key=key,
             )
         return MockProvider()
 
     def reload_provider(self):
         """
-        Recharge l'IA active en fonction des variables d'environnement actuelles.
+        Recharge l'IA active. (Logique simplifiée : elle sera pilotée par les vues via create_provider_from_config)
         """
-        load_dotenv(str(self.env_path), override=True)  # Force le rafraichissement
-
-        provider_name = os.getenv("AI_PROVIDER", "Ollama")
-        model_name = os.getenv("AI_MODEL", "qwen2.5:7b")
-
-        try:
-            if provider_name == "Ollama":
-                self.provider = OllamaProvider(model_name=model_name)
-            elif provider_name == "Gemini":
-                self.provider = GeminiService(model_name=model_name)
-            elif provider_name == "Groq":
-                self.provider = GroqProvider(api_key=os.getenv("GROQ_API_KEY", ""), model_name=model_name)
-            else:
-                self.provider = MockProvider()
-            logger.info(f"✅ IA connectée : {provider_name} ({model_name})")
-        except Exception:
-            logger.exception("⚠️ Erreur IA, passage en mode Mock :")
-            self.provider = MockProvider()
+        logger.info("Gestionnaire d'IA prêt.")

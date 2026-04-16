@@ -1,10 +1,9 @@
 import base64
 import logging
-import os
 
 from google import genai
 from google.genai import types
-from mypy.types import Any
+from typing import Any
 
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.utils import log_token_usage
@@ -20,22 +19,22 @@ class GeminiService(LLMProvider):
     de Google. Supporte les fonctionnalités multimodales (vision).
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash"):
         """
         Initialise le client Gemini.
 
         Args:
-            api_key (str | None): Clé API Google AI Studio. Cherchée dans l'environnement si absente.
+            api_key (str): Clé API Google AI Studio.
             model_name (str): Nom du modèle Gemini à utiliser.
 
         Raises:
             ValueError: Si aucune clé API n'est disponible.
         """
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.api_key = api_key
         self.model_name = model_name
 
         if not self.api_key:
-            raise ValueError("Clé API Gemini manquante. Veuillez définir GEMINI_API_KEY dans le .env")
+            raise ValueError("Clé API Gemini manquante. Veuillez la configurer dans les paramètres.")
 
         # Connexion directe à l'API Google AI Studio
         self.client = genai.Client(api_key=self.api_key)
