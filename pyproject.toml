@@ -56,7 +56,7 @@ dev = [
 [tool.ruff]
 # On autorise des lignes plus longues (120 au lieu de 88) pour ne pas casser les prompts IA
 line-length = 200
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 # E: Erreurs (PEP8), F: Fails (variables non utilisées, imports cassés), B: Bugbear (pièges courants)
@@ -65,7 +65,7 @@ ignore = []
 
 [tool.mypy]
 # Configuration Mypy souple pour commencer sans se dégoûter
-python_version = "3.10"
+python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_redundant_casts = true

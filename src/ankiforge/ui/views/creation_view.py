@@ -1,7 +1,6 @@
 # ruff: noqa: E501
 import json
 import logging
-import re
 from typing import Any
 
 import qtawesome as qta
@@ -39,7 +38,7 @@ from ankiforge.services.workers.creation_worker import CreationWorker, CreationT
 from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel, DBComboBox
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.vision_utils import HTML_IMAGE_REGEX, MD_IMAGE_REGEX
+from ankiforge.utils.vision_utils import count_images
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +288,7 @@ class CreationTab(QWidget):
         estimated_tokens = len(text) // 4
 
         if self.cb_vision.isChecked():
-            img_count = len(re.findall(MD_IMAGE_REGEX, text)) + len(re.findall(HTML_IMAGE_REGEX, text))
+            img_count = count_images(text)
             if img_count > 0:
                 estimated_tokens += img_count * 300  # Majoration de 300 tokens par image
 
@@ -341,9 +340,13 @@ class CreationTab(QWidget):
         sections = []
         current_title = ""
         current_content: list[str] = []
+        in_code_block = False
 
         for line in text.split("\n"):
-            if line.startswith("#"):
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+
+            if not in_code_block and line.startswith("#"):
                 if current_title or current_content:
                     if "".join(current_content).strip():
                         sections.append((current_title if current_title else "Introduction", "\n".join(current_content)))

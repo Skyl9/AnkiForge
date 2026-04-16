@@ -5,12 +5,12 @@ import re
 from pathlib import Path
 from typing import Any
 
+from bs4 import BeautifulSoup
+
 logger = logging.getLogger(__name__)
 
 # Regex pour trouver les images Markdown : ![alt](media/mon_image.jpg)
 MD_IMAGE_REGEX = re.compile(r"!\[.*?\]\((.*?)\)")
-# Regex pour trouver les images HTML : <img src="media/mon_image.jpg">
-HTML_IMAGE_REGEX = re.compile(r'<img[^>]+src=["\'](.*?)["\'][^>]*>', re.IGNORECASE)
 
 
 def strip_image_tags(text: str) -> str:
@@ -18,8 +18,17 @@ def strip_image_tags(text: str) -> str:
     Supprime toutes les balises images (Markdown et HTML) d'un texte.
     Utilisé quand l'utilisateur désactive la fonction Vision pour économiser des tokens.
     """
+    # 1. Nettoyage Markdown
     clean_text = re.sub(MD_IMAGE_REGEX, "[IMAGE IGNORÉE]", text)
-    clean_text = re.sub(HTML_IMAGE_REGEX, "[IMAGE IGNORÉE]", clean_text)
+
+    # 2. Nettoyage HTML via BeautifulSoup
+    if "<img" in clean_text.lower():
+        soup = BeautifulSoup(clean_text, "html.parser")
+        for img in soup.find_all("img"):
+            img.replace_with("[IMAGE IGNORÉE]")
+        # On utilise decode_contents() pour ne pas rajouter les tags html/body si BeautifulSoup les a créés
+        clean_text = soup.decode_contents()
+
     return clean_text
 
 
@@ -34,6 +43,21 @@ def _encode_image_base64(image_path: Path) -> str | None:
     except Exception as e:
         logger.error(f"Erreur lors de la lecture de l'image {image_path}: {e}")
         return None
+
+
+def count_images(text: str) -> int:
+    """
+    Compte le nombre total d'images (Markdown + HTML) présentes dans un texte.
+    """
+    # 1. Compte Markdown
+    count = len(re.findall(MD_IMAGE_REGEX, text))
+
+    # 2. Compte HTML via BeautifulSoup
+    if "<img" in text.lower():
+        soup = BeautifulSoup(text, "html.parser")
+        count += len(soup.find_all("img"))
+
+    return count
 
 
 def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any]]:
@@ -52,20 +76,26 @@ def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any
     """
     images_found: list[str] = []
 
-    # 1. Extraction des chemins d'images (Markdown + HTML)
+    # 1. Extraction des chemins d'images Markdown
     for match in MD_IMAGE_REGEX.finditer(text):
         images_found.append(match.group(1))
-    for match in HTML_IMAGE_REGEX.finditer(text):
-        images_found.append(match.group(1))
 
-    # 2. Nettoyage du texte (On remplace les images par des marqueurs pour que l'IA comprenne la structure)
+    # 2. Extraction des chemins d'images HTML via BeautifulSoup
+    if "<img" in text.lower():
+        soup = BeautifulSoup(text, "html.parser")
+        for img in soup.find_all("img"):
+            src = img.get("src")
+            if src:
+                images_found.append(src)
+
+    # 3. Nettoyage du texte (On remplace les images par des marqueurs pour que l'IA comprenne la structure)
     clean_text = strip_image_tags(text)
 
-    # 3. Construction du Payload standard
+    # 4. Construction du Payload standard
     # Le premier élément est toujours le texte
     payload: list[dict[str, Any]] = [{"type": "text", "text": clean_text}]
 
-    # 4. Ajout des images en Base64
+    # 5. Ajout des images en Base64
     # On utilise un Set pour éviter d'envoyer la même image deux fois si elle est dupliquée dans le texte
     processed_images = set()
 

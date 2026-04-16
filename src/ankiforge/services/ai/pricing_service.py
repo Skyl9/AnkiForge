@@ -1,14 +1,5 @@
 # src/ankiforge/services/ai/pricing_service.py
 
-PRICING_1M_USD = {
-    "gpt-4o": (5.0, 15.0),
-    "gpt-4o-mini": (0.15, 0.60),
-    "claude-3-5-sonnet-20240620": (3.0, 15.0),
-    "gemini-1.5-pro": (3.5, 10.5),
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-2.0-flash": (0.10, 0.40),
-}
-
 
 def calculate_job_estimate(
     text_length: int,
@@ -16,7 +7,8 @@ def calculate_job_estimate(
     chunk_strategy: str,
     use_vision: bool,
     image_count: int,
-    model_id: str,
+    prompt_pricing: float,
+    completion_pricing: float,
 ) -> tuple[int, float]:
     """
     Calcule une estimation du nombre de jetons (tokens) et du coût financier pour un job.
@@ -27,7 +19,8 @@ def calculate_job_estimate(
         chunk_strategy (str): Stratégie de découpage choisie.
         use_vision (bool): Si la vision est activée.
         image_count (int): Nombre d'images détectées dans le texte.
-        model_id (str): Identifiant du modèle LLM.
+        prompt_pricing (float): Coût par million de tokens en entrée (USD).
+        completion_pricing (float): Coût par million de tokens en sortie (USD).
 
     Returns:
         tuple[int, float]: (nombre_total_tokens_estime, cout_estime_usd)
@@ -55,7 +48,6 @@ def calculate_job_estimate(
     total_tokens = input_tokens + output_tokens
 
     # Calcul financier
-    rates = PRICING_1M_USD.get(model_id, (0.0, 0.0))
-    total_cost = (input_tokens / 1_000_000 * rates[0]) + (output_tokens / 1_000_000 * rates[1])
+    total_cost = (input_tokens / 1_000_000 * prompt_pricing) + (output_tokens / 1_000_000 * completion_pricing)
 
     return total_tokens, total_cost

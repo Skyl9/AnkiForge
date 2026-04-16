@@ -1,7 +1,6 @@
 # ruff: noqa: E501
 import json
 import logging
-import re
 import uuid
 from typing import Any, cast
 
@@ -49,7 +48,7 @@ from ankiforge.services.workers.batch_worker import BatchWorker, BatchTaskPayloa
 from ankiforge.ui.components.components import ActionButton, DangerButton, DBComboBox, PrimaryButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
-from ankiforge.utils.vision_utils import HTML_IMAGE_REGEX, MD_IMAGE_REGEX
+from ankiforge.utils.vision_utils import count_images
 
 logger = logging.getLogger(__name__)
 
@@ -646,7 +645,7 @@ class BatchTab(QWidget):
                 img_count = 0
                 cb_vision = cast(QCheckBox, self.table_queue.cellWidget(row, 6))
                 if cb_vision.isChecked():
-                    img_count = len(re.findall(MD_IMAGE_REGEX, doc.content)) + len(re.findall(HTML_IMAGE_REGEX, doc.content))
+                    img_count = count_images(doc.content)
 
                 # Appel à la logique métier centralisée
                 row_tokens, row_cost = calculate_job_estimate(
@@ -655,7 +654,8 @@ class BatchTab(QWidget):
                     chunk_strategy=chunk_strategy,
                     use_vision=cb_vision.isChecked(),
                     image_count=img_count,
-                    model_id=llm.model_id,
+                    prompt_pricing=llm.prompt_pricing,
+                    completion_pricing=llm.completion_pricing,
                 )
 
                 total_tokens += row_tokens

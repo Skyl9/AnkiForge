@@ -269,11 +269,7 @@ class EditionTab(QWidget):
     def approve_selected_notes(self, note_ids: list[int]) -> None:
         try:
             with db.atomic():
-                for nid in note_ids:
-                    note = NoteModel.get_by_id(nid)
-                    if note:
-                        note.status = "new"
-                        note.save()
+                NoteModel.update(status="new").where(NoteModel.id.in_(note_ids)).execute()
             show_toast(self, f"{len(note_ids)} notes approuvées !")
             self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
         except Exception as e:
@@ -285,8 +281,7 @@ class EditionTab(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 with db.atomic():
-                    for nid in note_ids:
-                        NoteModel.delete_by_id(nid)
+                    NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()
                 show_toast(self, "Notes supprimées.")
                 self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
                 self.note_editor._clear_editor()

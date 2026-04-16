@@ -165,6 +165,8 @@ class LLMConfigModel(BaseModel):
     context_limit = IntegerField(default=8192)
     temperature = FloatField(default=0.7)
     api_key = CharField(null=True)
+    prompt_pricing = FloatField(default=0.0)
+    completion_pricing = FloatField(default=0.0)
 
     class Meta:
         table_name = "llm_configs"
@@ -383,11 +385,27 @@ def seed_initial_data() -> None:
     # CRÉATION DES MOTEURS IA
     # ==========================================
     if LLMConfigModel.select().count() == 0:
-        LLMConfigModel.create(display_name="GPT-4o (OpenAI)", provider="openai", model_id="gpt-4o", context_limit=128000)
+        LLMConfigModel.create(
+            display_name="GPT-4o (OpenAI)",
+            provider="openai",
+            model_id="gpt-4o",
+            context_limit=128000,
+            prompt_pricing=5.0,
+            completion_pricing=15.0,
+        )
         LLMConfigModel.create(
             display_name="Claude 3.5 Sonnet",
             provider="anthropic",
             model_id="claude-3-5-sonnet-20240620",
             context_limit=200000,
+            prompt_pricing=3.0,
+            completion_pricing=15.0,
         )
-        LLMConfigModel.create(display_name="Mistral Local (Ollama)", provider="ollama", model_id="mistral", context_limit=32768)
+        LLMConfigModel.create(
+            display_name="Mistral Local (Ollama)",
+            provider="ollama",
+            model_id="mistral",
+            context_limit=32768,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
+        )

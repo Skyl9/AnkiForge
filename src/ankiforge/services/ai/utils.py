@@ -2,8 +2,7 @@ import json
 import re
 from jinja2 import Template
 
-from ankiforge.database.models import TokenUsageModel
-from ankiforge.services.ai.pricing_service import PRICING_1M_USD
+from ankiforge.database.models import TokenUsageModel, LLMConfigModel
 
 
 def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
@@ -18,10 +17,10 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
     """
     cost = 0.0
 
-    # On cherche le prix du modèle (ou 0.0 s'il est local/gratuit comme Ollama/Groq)
-    rates = PRICING_1M_USD.get(model_id, (0.0, 0.0))
-    if rates != (0.0, 0.0):
-        cost = (prompt_tokens / 1_000_000 * rates[0]) + (completion_tokens / 1_000_000 * rates[1])
+    # On cherche la config du modèle pour obtenir les tarifs dynamiques
+    config = LLMConfigModel.get_or_none(LLMConfigModel.model_id == model_id)
+    if config:
+        cost = (prompt_tokens / 1_000_000 * config.prompt_pricing) + (completion_tokens / 1_000_000 * config.completion_pricing)
 
     TokenUsageModel.create(
         provider=provider,
