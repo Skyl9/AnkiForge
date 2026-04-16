@@ -1,6 +1,8 @@
 # ruff: noqa: E501
+import json
 import logging
 import re
+import uuid
 from typing import Any, cast
 
 import qtawesome as qta
@@ -30,17 +32,22 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import (
+    CardModel,
+    db,
     DeckModel,
     DocumentModel,
     FolderModel,
     LLMConfigModel,
+    NoteModel,
     NoteTypeModel,
+    NoteVersionModel,
     PipelineModel,
 )
 from ankiforge.services.ai.utils import PRICING_1M_USD
 from ankiforge.services.workers.batch_worker import BatchWorker
 from ankiforge.ui.components.components import ActionButton, DangerButton, DBComboBox, PrimaryButton, RoundedPanel
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.vision_utils import HTML_IMAGE_REGEX, MD_IMAGE_REGEX
 
 logger = logging.getLogger(__name__)
@@ -260,6 +267,7 @@ class BatchTab(QWidget):
 
         self.lbl_status = QLabel("Prêt.")
         self.lbl_status.setStyleSheet("color: palette(placeholder-text); font-size: 12px; margin-left: 10px; margin-right: 10px;")
+        bottom_layout.addWidget(self.progress_bar)
         bottom_layout.addWidget(self.lbl_status)
 
         self.btn_start = PrimaryButton(qta.icon("fa5s.rocket", color="white"), " Démarrer l'Usine")
@@ -474,6 +482,7 @@ class BatchTab(QWidget):
         self.append_log(f"🚀 Lancement de l'Usine : {len(tasks)} document(s) à traiter.")
 
         self.worker = BatchWorker(ai_provider=self.ai_manager.provider, tasks=tasks)
+        self.worker.batch_data_ready.connect(self.save_extracted_notes_to_db)
         self.worker.progress_val.connect(self.progress_bar.setValue)
         self.worker.progress_text.connect(self.lbl_status.setText)
         self.worker.log.connect(self.append_log)
@@ -493,6 +502,48 @@ class BatchTab(QWidget):
             logger.info("Demande d'annulation du traitement par lots reçue.")
             self.lbl_status.setText("Annulation demandée, attente de l'arrêt...")
             self.append_log("⏳ Demande d'arrêt envoyée. Attente de la fin du cycle en cours...")
+
+    @Slot(list, int, int)
+    def save_extracted_notes_to_db(self, notes_data: list[dict[str, Any]], deck_id: int, model_id: int) -> None:
+        """
+        Sauvegarde les notes extraites par le BatchWorker dans la base de données.
+        S'exécute sur le thread principal pour garantir la thread-safety de Peewee.
+        """
+        try:
+            deck = DeckModel.get_by_id(deck_id)
+            note_type = NoteTypeModel.get_by_id(model_id)
+            templates = json.loads(note_type.templates) if note_type.templates else []
+            is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+
+            with db.atomic():
+                for cleaned_note_fields in notes_data:
+                    note = NoteModel.create(
+                        guid=str(uuid.uuid4())[:10],
+                        note_type=note_type,
+                        tags=json.dumps(["AnkiForge_Batch"]),
+                        status="pending",
+                    )
+                    NoteVersionModel.create(
+                        note=note,
+                        version_number=1,
+                        content=json.dumps(cleaned_note_fields, ensure_ascii=False),
+                        source="ai_batch",
+                        is_active=True,
+                    )
+
+                    if is_cloze:
+                        max_cloze = get_max_cloze_index(cleaned_note_fields)
+                        num_cards = max(1, max_cloze)
+                        for i in range(num_cards):
+                            CardModel.create(note=note, deck=deck, template_index=i)
+                    else:
+                        for idx, _ in enumerate(templates):
+                            CardModel.create(note=note, deck=deck, template_index=idx)
+
+            logger.info(f"Sauvegarde thread-safe de {len(notes_data)} notes réussie.")
+        except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde des notes en thread-safe :")
+            self.append_log(f"❌ ERREUR CRITIQUE SAUVEGARDE : {str(e)}")
 
     @Slot(int, int)
     def on_batch_finished(self, success_count: int, error_count: int) -> None:

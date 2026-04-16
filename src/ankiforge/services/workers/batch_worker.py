@@ -1,14 +1,18 @@
 import json
 import logging
-import uuid
 from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 from jinja2 import Template
 
-from ankiforge.database.models import db, LLMConfigModel, PipelineStepModel, PipelineModel, NoteTypeModel, DeckModel, DocumentModel, NoteModel, NoteVersionModel, CardModel
+from ankiforge.database.models import (
+    LLMConfigModel,
+    PipelineStepModel,
+    PipelineModel,
+    NoteTypeModel,
+    DocumentModel,
+)
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.chunker import smart_chunk_text
 from ankiforge.utils.paths import get_app_data_dir
 from ankiforge.utils.vision_utils import strip_image_tags, prepare_multimodal_payload
@@ -20,8 +24,9 @@ class BatchWorker(QThread):
     """
     Worker massif traitant une file d'attente de documents.
 
-    Gère le découpage intelligent (chunking), le passage dans les pipelines d'agents
-    et la création automatique des notes en base de données.
+    Gère le découpage intelligent (chunking) et le passage dans les pipelines d'agents.
+    Les données extraites sont renvoyées via le signal batch_data_ready pour sauvegarde
+    sur le thread principal.
     """
 
     progress_val = Signal(int)
@@ -30,6 +35,8 @@ class BatchWorker(QThread):
     finished = Signal(int, int)
     error = Signal(str)
     cancelled = Signal()
+    # Signal transmettant (liste_de_notes_nettoyées, deck_id, model_id)
+    batch_data_ready = Signal(list, int, int)
 
     def __init__(self, ai_provider: Any, tasks: list[dict[str, Any]]):
         """
@@ -82,8 +89,8 @@ class BatchWorker(QThread):
                     self.cancelled.emit()
                     return
 
+                # LECTURES INITIALES (Autorisées sur ce thread car non bloquantes/écriture)
                 doc = DocumentModel.get_by_id(task["doc_id"])
-                deck = DeckModel.get_by_id(task["deck_id"])
                 note_type = NoteTypeModel.get_by_id(task["model_id"])
                 pipeline = PipelineModel.get_by_id(task["pipeline_id"])
                 chunk_strategy = task["chunk_strategy"]
@@ -100,13 +107,13 @@ class BatchWorker(QThread):
                 fields_str = '", "'.join(fields)
                 first_field = fields[0] if len(fields) > 0 else "Field1"
                 second_field = fields[1] if len(fields) > 1 else "Field2"
-                templates = json.loads(note_type.templates) if note_type.templates else []
 
                 optimal_max_chars = min(4000, int((max_tokens * 0.5) * 4))
 
                 logger.info(f"Traitement du document '{doc.title}' ({task_idx + 1}/{total_tasks}).")
                 self.progress_text.emit(f"Traitement : {doc.title} ({task_idx + 1}/{total_tasks})...")
                 self.log.emit(f"\n{'=' * 40}\n DEBUT : {doc.title}\n⚙ Moteur : {llm_config.display_name} ({max_tokens} tks)\n{'=' * 40}")
+
                 # PARTITIONNEMENT DU DOCUMENT
                 chunks = smart_chunk_text(doc.content, strategy=chunk_strategy, max_chars=optimal_max_chars)
                 logger.info(f"Document '{doc.title}' découpé en {len(chunks)} morceaux.")
@@ -160,60 +167,40 @@ class BatchWorker(QThread):
 
                     try:
                         data = json.loads(cleaned_output)
-                        notes_to_create = data.get("notes", [])
+                        notes_to_process = data.get("notes", [])
 
-                        if notes_to_create:
-                            with db.atomic():
-                                for note_data in notes_to_create:
-                                    cleaned_note_data = {}
-                                    lower_note_data = {str(k).lower().strip(): v for k, v in note_data.items()}
-                                    raw_values = list(note_data.values())
+                        if notes_to_process:
+                            prepared_chunk_data = []
+                            for note_data in notes_to_process:
+                                cleaned_note_fields = {}
+                                lower_note_data = {str(k).lower().strip(): v for k, v in note_data.items()}
+                                raw_values = list(note_data.values())
 
-                                    for i, field in enumerate(fields):
-                                        field_lower = field.lower().strip()
+                                for i, field in enumerate(fields):
+                                    field_lower = field.lower().strip()
 
-                                        if field_lower in lower_note_data:
-                                            val = lower_note_data[field_lower]
-                                        elif i < len(raw_values):
-                                            val = raw_values[i]
-                                        else:
-                                            val = ""
-
-                                        if isinstance(val, list):
-                                            val = "<br>".join([str(item) for item in val])
-                                        else:
-                                            val = str(val) if val is not None else ""
-
-                                        cleaned_note_data[field] = val
-
-                                    note = NoteModel.create(
-                                        guid=str(uuid.uuid4())[:10],
-                                        note_type=note_type,
-                                        tags=json.dumps(["AnkiForge_Batch"]),
-                                        status="pending",
-                                    )
-                                    NoteVersionModel.create(
-                                        note=note,
-                                        version_number=1,
-                                        content=json.dumps(cleaned_note_data, ensure_ascii=False),
-                                        # On sauve les données propres
-                                        source="ai_batch",
-                                        is_active=True,
-                                    )
-                                    is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
-
-                                    if is_cloze:
-                                        max_cloze = get_max_cloze_index(cleaned_note_data)  # Attention à bien utiliser cleaned_note_data ici aussi !
-                                        num_cards = max(1, max_cloze)
-                                        for i in range(num_cards):
-                                            CardModel.create(note=note, deck=deck, template_index=i)
+                                    if field_lower in lower_note_data:
+                                        val = lower_note_data[field_lower]
+                                    elif i < len(raw_values):
+                                        val = raw_values[i]
                                     else:
-                                        for idx, _ in enumerate(templates):
-                                            CardModel.create(note=note, deck=deck, template_index=idx)
+                                        val = ""
 
-                            doc_success_notes += len(notes_to_create)
-                            logger.info(f"{len(notes_to_create)} notes créées pour le morceau {chunk_idx} de '{doc.title}'.")
-                            self.log.emit(f"✅ {len(notes_to_create)} cartes extraites.")
+                                    if isinstance(val, list):
+                                        val = "<br>".join([str(item) for item in val])
+                                    else:
+                                        val = str(val) if val is not None else ""
+
+                                    cleaned_note_fields[field] = val
+
+                                prepared_chunk_data.append(cleaned_note_fields)
+
+                            # On envoie les données au thread principal pour sauvegarde
+                            self.batch_data_ready.emit(prepared_chunk_data, task["deck_id"], task["model_id"])
+
+                            doc_success_notes += len(notes_to_process)
+                            logger.info(f"{len(notes_to_process)} notes préparées pour le morceau {chunk_idx} de '{doc.title}'.")
+                            self.log.emit(f"✅ {len(notes_to_process)} cartes extraites.")
                     except json.JSONDecodeError:
                         logger.exception(f"Format JSON invalide pour le morceau {chunk_idx} de '{doc.title}'.")
                         self.log.emit("❌ ERREUR JSON : Format invalide.")
