@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 
 class SettingsTab(QWidget):
     """
-    Vue de configuration globale de l'application AnkiForge.
-    Permet de gérer l'apparence, les dossiers d'export, les comportements automatiques
-    ainsi que la maintenance de la base de données (purge, nettoyage des médias).
+    Global configuration view for the AnkiForge application.
+    Allows managing appearance, export folders, automatic behaviors
+    as well as database maintenance (purge, media cleaning).
     """
 
     def __init__(self) -> None:
-        """Initialise l'onglet des paramètres."""
+        """Initializes the settings tab."""
         super().__init__()
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
 
@@ -45,12 +45,12 @@ class SettingsTab(QWidget):
         self._connect_signals()
 
     def _setup_ui(self) -> None:
-        """Initialise et organise les layouts et widgets principaux."""
+        """Initializes and organizes main layouts and widgets."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(20)
 
-        title = HeaderLabel("Paramètres Généraux")
+        title = HeaderLabel(self.tr("General Settings"))
         self.main_layout.addWidget(title)
 
         self._build_appearance_section()
@@ -64,12 +64,12 @@ class SettingsTab(QWidget):
         self._build_bottom_actions()
 
     def _build_appearance_section(self) -> None:
-        """Construit le panneau de gestion de l'apparence (Thème clair/sombre)."""
+        """Builds the appearance management panel (Light/Dark theme)."""
         app_panel = RoundedPanel()
         app_layout = QVBoxLayout(app_panel)
         app_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_app = QLabel("1. APPARENCE ET INTERFACE")
+        lbl_app = QLabel(self.tr("1. APPEARANCE AND INTERFACE"))
         lbl_app.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
         app_layout.addWidget(lbl_app)
 
@@ -77,23 +77,23 @@ class SettingsTab(QWidget):
         form_app.setHorizontalSpacing(20)
 
         self.cb_theme = QComboBox()
-        self.cb_theme.addItems(["Système (Par défaut)", "Sombre (Dark)", "Clair (Light)"])
+        self.cb_theme.addItems([self.tr("System (Default)"), self.tr("Dark"), self.tr("Light")])
 
-        saved_theme = self.settings.value("ui/theme", "Système (Par défaut)")
+        saved_theme = self.settings.value("ui/theme", self.tr("System (Default)"))
         self.cb_theme.setCurrentText(str(saved_theme))
 
-        form_app.addRow(self._make_bold_label("Thème de l'application :"), self.cb_theme)
+        form_app.addRow(self._make_bold_label(self.tr("Application theme:")), self.cb_theme)
         app_layout.addLayout(form_app)
 
         self.main_layout.addWidget(app_panel)
 
     def _build_export_section(self) -> None:
-        """Construit le panneau de configuration des dossiers d'exportation."""
+        """Builds the export folders configuration panel."""
         exp_panel = RoundedPanel()
         exp_layout = QVBoxLayout(exp_panel)
         exp_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_exp = QLabel("2. EXPORTATION ET FICHIERS")
+        lbl_exp = QLabel(self.tr("2. EXPORT AND FILES"))
         lbl_exp.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
         exp_layout.addWidget(lbl_exp)
 
@@ -102,7 +102,7 @@ class SettingsTab(QWidget):
 
         path_layout = QHBoxLayout()
         self.le_export_path = QLineEdit()
-        self.le_export_path.setPlaceholderText("Sélectionnez un dossier pour vos .apkg")
+        self.le_export_path.setPlaceholderText(self.tr("Select a folder for your .apkg"))
 
         default_path = str(Path.home() / "Downloads")
         saved_path = self.settings.value("export/default_directory", default_path)
@@ -113,18 +113,18 @@ class SettingsTab(QWidget):
         path_layout.addWidget(self.le_export_path)
         path_layout.addWidget(self.btn_browse)
 
-        form_exp.addRow(self._make_bold_label("Dossier d'export par défaut :"), path_layout)
+        form_exp.addRow(self._make_bold_label(self.tr("Default export folder:")), path_layout)
         exp_layout.addLayout(form_exp)
 
         self.main_layout.addWidget(exp_panel)
 
     def _build_behavior_section(self) -> None:
-        """Construit le panneau de configuration des comportements automatiques de l'application."""
+        """Builds the automatic behaviors configuration panel."""
         beh_panel = RoundedPanel()
         beh_layout = QVBoxLayout(beh_panel)
         beh_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_beh = QLabel("3. COMPORTEMENT")
+        lbl_beh = QLabel(self.tr("3. BEHAVIOR"))
         lbl_beh.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
         beh_layout.addWidget(lbl_beh)
 
@@ -132,29 +132,29 @@ class SettingsTab(QWidget):
         form_beh.setHorizontalSpacing(20)
 
         self.cb_auto_save = QComboBox()
-        self.cb_auto_save.addItems(["Activé", "Désactivé"])
-        self.cb_auto_save.setCurrentText(str(self.settings.value("behavior/auto_save", "Activé")))
+        self.cb_auto_save.addItems([self.tr("Enabled"), self.tr("Disabled")])
+        self.cb_auto_save.setCurrentText(str(self.settings.value("behavior/auto_save", self.tr("Enabled"))))
 
-        form_beh.addRow(self._make_bold_label("Sauvegarde automatique des notes :"), self.cb_auto_save)
+        form_beh.addRow(self._make_bold_label(self.tr("Automatic note saving:")), self.cb_auto_save)
         beh_layout.addLayout(form_beh)
 
         self.main_layout.addWidget(beh_panel)
 
     def _build_maintenance_section(self) -> None:
-        """Construit le panneau des outils de nettoyage et de maintenance de la base de données."""
+        """Builds the database cleaning and maintenance tools panel."""
         maint_panel = RoundedPanel()
         maint_layout = QVBoxLayout(maint_panel)
         maint_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_maint = QLabel("4. MAINTENANCE ET NETTOYAGE")
+        lbl_maint = QLabel(self.tr("4. MAINTENANCE AND CLEANING"))
         lbl_maint.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
         maint_layout.addWidget(lbl_maint)
 
-        # Sous-section : Médias
+        # Sub-section: Media
         media_layout = QHBoxLayout()
-        self.btn_clean_media = ActionButton("fa5s.broom", " Nettoyer les images orphelines")
+        self.btn_clean_media = ActionButton("fa5s.broom", self.tr(" Clean orphaned media"))
 
-        lbl_media_desc = QLabel("Libère de l'espace disque en supprimant les images non utilisées.")
+        lbl_media_desc = QLabel(self.tr("Frees disk space by deleting unused images."))
         lbl_media_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
 
         media_layout.addWidget(self.btn_clean_media)
@@ -162,18 +162,18 @@ class SettingsTab(QWidget):
         media_layout.addStretch()
         maint_layout.addLayout(media_layout)
 
-        # Sous-section : Historique des notes
+        # Sub-section: Note history
         hist_layout = QHBoxLayout()
 
         self.spin_keep_versions = QSpinBox()
         self.spin_keep_versions.setRange(1, 50)
         self.spin_keep_versions.setValue(cast(int, self.settings.value("maintenance/keep_versions", 5, type=int)))
-        self.spin_keep_versions.setPrefix("Garder ")
-        self.spin_keep_versions.setSuffix(" versions")
+        self.spin_keep_versions.setPrefix(self.tr("Keep "))
+        self.spin_keep_versions.setSuffix(self.tr(" versions"))
 
-        self.btn_purge_hist = ActionButton("fa5s.history", " Purger l'historique")
+        self.btn_purge_hist = ActionButton("fa5s.history", self.tr(" Purge history"))
 
-        lbl_hist_desc = QLabel("Allège la base de données en supprimant les anciennes sauvegardes.")
+        lbl_hist_desc = QLabel(self.tr("Lightens the database by deleting old backups."))
         lbl_hist_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
 
         hist_layout.addWidget(self.spin_keep_versions)
@@ -185,19 +185,19 @@ class SettingsTab(QWidget):
         self.main_layout.addWidget(maint_panel)
 
     def _build_documentation_section(self) -> None:
-        """Construit le panneau de liens vers la documentation externe."""
+        """Builds the documentation section panel."""
         doc_panel = RoundedPanel()
         doc_layout = QVBoxLayout(doc_panel)
         doc_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_doc = QLabel("5. AIDE ET DOCUMENTATION")
+        lbl_doc = QLabel(self.tr("5. HELP AND DOCUMENTATION"))
         lbl_doc.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 10px;")
         doc_layout.addWidget(lbl_doc)
 
         help_layout = QHBoxLayout()
-        self.btn_open_doc = ActionButton("fa5s.book", " Ouvrir le guide d'utilisation")
+        self.btn_open_doc = ActionButton("fa5s.book", self.tr(" Open user guide"))
 
-        lbl_doc_desc = QLabel("Consultez les tutoriels sur la création d'Agents et le formatage Markdown/LaTeX.")
+        lbl_doc_desc = QLabel(self.tr("Check tutorials on Agent creation and Markdown/LaTeX formatting."))
         lbl_doc_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
 
         help_layout.addWidget(self.btn_open_doc)
@@ -208,18 +208,18 @@ class SettingsTab(QWidget):
         self.main_layout.addWidget(doc_panel)
 
     def _build_bottom_actions(self) -> None:
-        """Construit la barre d'action inférieure contenant le bouton de sauvegarde."""
+        """Builds the bottom action bar containing the save button."""
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.btn_save_all = PrimaryButton(qta.icon("fa5s.save", color="white"), " Enregistrer les préférences")
+        self.btn_save_all = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save preferences"))
         self.btn_save_all.setMinimumWidth(250)
 
         btn_layout.addWidget(self.btn_save_all)
         self.main_layout.addLayout(btn_layout)
 
     def _connect_signals(self) -> None:
-        """Centralise le branchement des signaux de l'interface."""
+        """Centralizes UI signal connections."""
         self.btn_browse.clicked.connect(self.browse_export_path)
         self.btn_save_all.clicked.connect(self.save_all_settings)
         self.btn_clean_media.clicked.connect(self.clean_orphaned_media)
@@ -228,26 +228,26 @@ class SettingsTab(QWidget):
 
     @staticmethod
     def _make_bold_label(text: str) -> QLabel:
-        """Utilitaire interne pour formater rapidement les labels des formulaires."""
+        """Internal utility to quickly format form labels."""
         lbl = QLabel(text)
         lbl.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
         return lbl
 
     @Slot()
     def browse_export_path(self) -> None:
-        """Ouvre une boîte de dialogue native pour sélectionner un dossier de destination."""
-        directory = QFileDialog.getExistingDirectory(self, "Choisir le dossier d'exportation", self.le_export_path.text())
+        """Opens a native dialog to select a destination folder."""
+        directory = QFileDialog.getExistingDirectory(self, self.tr("Choose export directory"), self.le_export_path.text())
         if directory:
             self.le_export_path.setText(directory)
 
     @Slot()
     def refresh_data(self) -> None:
-        """Contrat MainWindow : Point d'entrée pour rafraîchir l'onglet (non utilisé ici)."""
+        """MainWindow contract: Entry point to refresh the tab (not used here)."""
         pass
 
     @Slot()
     def save_all_settings(self) -> None:
-        """Sauvegarde l'ensemble des paramètres modifiés dans les QSettings et les applique."""
+        """Saves all modified settings in QSettings and applies them."""
         self.settings.setValue("ui/theme", self.cb_theme.currentText())
         self.settings.setValue("export/default_directory", self.le_export_path.text())
         self.settings.setValue("behavior/auto_save", self.cb_auto_save.currentText())
@@ -256,16 +256,16 @@ class SettingsTab(QWidget):
         self.settings.sync()
         refresh_theme_live()
 
-        logger.info("Préférences utilisateur enregistrées et appliquées.")
-        show_toast(self, "Préférences enregistrées et appliquées !")
+        logger.info("User preferences saved and applied.")
+        show_toast(self, self.tr("Preferences saved and applied!"))
 
     @Slot()
     def clean_orphaned_media(self) -> None:
-        """Recherche et supprime définitivement les fichiers médias non utilisés."""
+        """Finds and permanently deletes unused media files."""
         reply = QMessageBox.question(
             self,
-            "Nettoyage des médias",
-            "Voulez-vous rechercher et supprimer définitivement du disque les images qui ne sont plus associées à aucune note ?",
+            self.tr("Media cleaning"),
+            self.tr("Do you want to find and permanently delete images that are no longer associated with any note?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
@@ -273,21 +273,21 @@ class SettingsTab(QWidget):
             manager = MediaManager()
             deleted_count = manager.clean_orphaned_media()
             if deleted_count > 0:
-                logger.info(f"Nettoyage des médias terminé : {deleted_count} fichiers supprimés.")
-                show_toast(self, f"Nettoyage terminé : {deleted_count} fichier(s) supprimé(s) !")
+                logger.info(f"Media cleaning finished: {deleted_count} files deleted.")
+                show_toast(self, self.tr("Cleaning finished: {0} file(s) deleted!").format(deleted_count))
             else:
-                logger.info("Nettoyage des médias : aucun fichier orphelin trouvé.")
-                show_toast(self, "Votre dossier média est déjà parfaitement propre.")
+                logger.info("Media cleaning: no orphaned files found.")
+                show_toast(self, self.tr("Your media folder is already perfectly clean."))
 
     @Slot()
     def purge_history(self) -> None:
-        """Supprime les versions obsolètes des notes pour libérer de l'espace en base de données."""
+        """Deletes obsolete note versions to free database space."""
         keep_last = self.spin_keep_versions.value()
 
         reply = QMessageBox.question(
             self,
-            "Purge de l'historique",
-            f"Voulez-vous vraiment supprimer définitivement les anciennes versions de vos notes pour n'en garder que {keep_last} par note ?",
+            self.tr("History purge"),
+            self.tr("Do you really want to permanently delete old versions of your notes to keep only {0} per note?").format(keep_last),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
@@ -296,11 +296,11 @@ class SettingsTab(QWidget):
 
             deleted_count = NoteModel.purge_old_versions(keep_last=keep_last)
             if deleted_count > 0:
-                logger.info(f"Purge de l'historique terminée : {deleted_count} anciennes versions supprimées.")
-                show_toast(self, f"Purge terminée : {deleted_count} ancienne(s) version(s) supprimée(s) !")
+                logger.info(f"History purge finished: {deleted_count} old versions deleted.")
+                show_toast(self, self.tr("Purge finished: {0} old version(s) deleted!").format(deleted_count))
             else:
-                logger.info("Purge de l'historique : aucune version obsolète à purger.")
-                show_toast(self, "Aucune version obsolète à purger.")
+                logger.info("History purge: no obsolete versions to purge.")
+                show_toast(self, self.tr("No obsolete versions to purge."))
 
     @Slot()
     def open_documentation(self) -> None:
