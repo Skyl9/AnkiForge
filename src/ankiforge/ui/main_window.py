@@ -29,17 +29,17 @@ class MainWindow(QMainWindow):
         self.daemon = BackgroundDaemon()
         self.daemon.start()
 
-        self.setWindowTitle("AnkiForge - AI Flashcard Generator")
+        self.setWindowTitle(self.tr("AnkiForge - AI Flashcard Generator"))
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
         self.ai_manager = ai_manager
 
-        # --- Layout Principal (Sidebar + Stack) ---
+        # --- Principal Layout (Sidebar + Stack) ---
         main_widget = QWidget()
         main_layout = QHBoxLayout(main_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 1. La Barre Latérale (Sidebar) dynamique avec la palette
+        # 1. Dynamic Sidebar with palette
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(220)
         self.sidebar.setIconSize(QSize(20, 20))
@@ -66,14 +66,14 @@ class MainWindow(QMainWindow):
             }
         """)
 
-        # 2. Le conteneur des vues (Stack)
+        # 2. View container (Stack)
         self.stack = QStackedWidget()
 
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.stack)
         self.setCentralWidget(main_widget)
 
-        # --- Initialisation des vues ---
+        # --- Views initialization ---
         self.stats_tabs = StatsTab()
         self.batch_tab = BatchTab(self.ai_manager)
         self.tab_edition = EditionTab()
@@ -83,26 +83,26 @@ class MainWindow(QMainWindow):
         self.creation_tab = CreationTab(self.ai_manager)
         self.consultant_tab = ConsultantTab(self.ai_manager)
 
-        # --- Ajout dynamique des éléments ---
-        self.add_view(self.creation_tab, "fa5s.magic", "Création")
-        self.add_view(self.tab_edition, "fa5s.layer-group", "Édition / Analyse")
-        self.add_view(self.consultant_tab, "fa5s.book-open", "Consultant")
-        self.add_view(ModelsTab(), "fa5s.paint-brush", "Modèles")
-        self.add_view(AgentsTab(), "fa5s.robot", "Agents & Pipelines")
-        self.add_view(self.stats_tabs, "fa5s.chart-bar", "Statistiques")
-        self.add_view(self.tab_documents, "fa5s.folder-open", "Documents")
+        # --- Dynamic view addition ---
+        self.add_view(self.creation_tab, "fa5s.magic", self.tr("Creation"))
+        self.add_view(self.tab_edition, "fa5s.layer-group", self.tr("Edition / Analysis"))
+        self.add_view(self.consultant_tab, "fa5s.book-open", self.tr("Consultant"))
+        self.add_view(ModelsTab(), "fa5s.paint-brush", self.tr("Models"))
+        self.add_view(AgentsTab(), "fa5s.robot", self.tr("Agents & Pipelines"))
+        self.add_view(self.stats_tabs, "fa5s.chart-bar", self.tr("Statistics"))
+        self.add_view(self.tab_documents, "fa5s.folder-open", self.tr("Documents"))
 
-        self.add_view(self.batch_tab, "fa5s.rocket", "Automatisation")
-        self.add_view(self.llm_manager_tab, "fa5s.robot", "Moteurs IA")
-        self.add_view(self.ab_test_tab, "fa5s.flask", "Tests A/B")
-        self.add_view(SettingsTab(), "fa5s.cog", "Paramètres IA")
+        self.add_view(self.batch_tab, "fa5s.rocket", self.tr("Automation"))
+        self.add_view(self.llm_manager_tab, "fa5s.robot", self.tr("AI Engines"))
+        self.add_view(self.ab_test_tab, "fa5s.flask", self.tr("A/B Testing"))
+        self.add_view(SettingsTab(), "fa5s.cog", self.tr("AI Settings"))
 
-        # Connexion du signal de changement de vue
+        # View change signal connection
         self.sidebar.currentRowChanged.connect(self.on_sidebar_changed)
 
         self.read_settings()
 
-        # --- OMNIBOX (RECHERCHE GLOBALE) ---
+        # --- OMNIBOX (GLOBAL SEARCH) ---
         self.omnibox = Omnibox(self)
         self.omnibox.result_selected.connect(self.handle_omnibox_result)
         self.shortcut_search = QShortcut(QKeySequence("Ctrl+K"), self)
@@ -115,14 +115,14 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(widget)
         item = QListWidgetItem(qta.icon(icon_name, color=get_icon_color()), f"  {title}")
 
-        # On cache le nom de l'icône dans la donnée de l'item (UserRole + 1 pour ne pas écraser d'autres datas)
+        # Hide icon name in item data (UserRole + 1)
         item.setData(Qt.ItemDataRole.UserRole + 1, icon_name)
 
         self.sidebar.addItem(item)
 
     @Slot(int)
     def on_sidebar_changed(self, index: int) -> None:
-        """Change la vue active et rafraîchit les données."""
+        """Changes the active view and refreshes data."""
         self.stack.setCurrentIndex(index)
         current_widget = self.stack.widget(index)
         refresh_method = getattr(current_widget, "refresh_data", None)
@@ -159,17 +159,18 @@ class MainWindow(QMainWindow):
         elif result_type == "note":
             index = self.stack.indexOf(self.tab_edition)
             self.sidebar.setCurrentRow(index)
-            self.tab_edition.view_mode_cb.setCurrentText("Vue : Notes (Texte)")
+            # Use English title for view mode
+            self.tab_edition.view_mode_cb.setCurrentText(self.tr("View: Notes (Text)"))
             self.tab_edition.jump_to_note(item_id, cast(int, extra_data))
 
     def changeEvent(self, event):
-        """Intercepte le changement de thème global pour rafraîchir la sidebar."""
+        """Intercepts global theme changes to refresh the sidebar."""
         if event.type() == QEvent.Type.PaletteChange:
             from ankiforge.ui.theme import get_icon_color
 
             color = get_icon_color()
 
-            # On boucle sur tous les onglets pour redessiner leur icône
+            # Loop through all tabs to redraw icons
             for i in range(self.sidebar.count()):
                 item = self.sidebar.item(i)
                 icon_name = item.data(Qt.ItemDataRole.UserRole + 1)
@@ -179,43 +180,45 @@ class MainWindow(QMainWindow):
         super().changeEvent(event)
 
     def _setup_tour_scenario(self):
-        """Définit toutes les étapes du tutoriel."""
+        """Defines all tutorial steps."""
         scenario = [
             {
-                "title": "Bienvenue dans AnkiForge !",
-                "text": "L'Intelligence Artificielle au service de votre mémoire.<br><br>Ce court tutoriel interactif "
-                "va vous guider à travers l'interface pour vous montrer c"
-                "omment forger vos premières flashcards en quelques clics.",
-                "target_widget": None,  # S'affiche au centre
-                "action": None,  # Pas d'action spéciale
+                "title": self.tr("Welcome to AnkiForge!"),
+                "text": self.tr(
+                    "Artificial Intelligence at the service of your memory.<br><br>"
+                    "This short interactive tutorial will guide you through the interface "
+                    "to show you how to forge your first flashcards in just a few clicks."
+                ),
+                "target_widget": None,
+                "action": None,
             },
             {
-                "title": "1. Le Moteur IA",
-                "text": "C'est ici que tout commence. Entrez votre clé API OpenAI, Gemini, ou utilisez Ollama en local. Sans ce moteur, la génération ne pourra pas démarrer.",
+                "title": self.tr("1. The AI Engine"),
+                "text": self.tr("This is where it all starts. Enter your OpenAI or Gemini API key, " "or use Ollama locally. Without this engine, generation cannot start."),
                 "target_widget": self.llm_manager_tab.le_openai_key,
                 "action": lambda: self.sidebar.setCurrentRow(7),
             },
             {
-                "title": "2. La Matière Première",
-                "text": "Importez vos cours en PDF ou tapez vos notes en Markdown ici. Le texte sera automatiquement sauvegardé et prêt à être analysé.",
+                "title": self.tr("2. Raw Material"),
+                "text": self.tr("Import your courses in PDF or type your notes in Markdown here. " "Text will be automatically saved and ready for analysis."),
                 "target_widget": self.tab_documents.btn_import,
                 "action": lambda: self.sidebar.setCurrentRow(5),
             },
             {
-                "title": "3. L'Usine à Cartes",
-                "text": "Sélectionnez le document importé, choisissez un Agent IA, et lancez la génération. L'IA va extraire les concepts clés et formater le code LaTeX.",
+                "title": self.tr("3. The Card Factory"),
+                "text": self.tr("Select the imported document, choose an AI Agent, and start generation. " "The AI will extract key concepts and format LaTeX code."),
                 "target_widget": self.creation_tab.btn_generate,
                 "action": lambda: self.sidebar.setCurrentRow(0),
             },
             {
-                "title": "4. Le Contrôle Qualité",
-                "text": "Vos cartes atterrissent ici. Vous pouvez les éditer, comparer les différentes versions via l'historique, puis les exporter vers Anki.",
+                "title": self.tr("4. Quality Control"),
+                "text": self.tr("Your cards land here. You can edit them, compare versions via history, " "and then export them to Anki."),
                 "target_widget": self.tab_edition.note_table,
                 "action": lambda: self.sidebar.setCurrentRow(1),
             },
             {
-                "title": "Vous êtes prêt",
-                "text": "N'oubliez pas l'onglet Automatisation pour traiter des dossiers entiers d'un seul coup et l'onglet Statistiques pour suivre vos coûts API.\n\nBonnes révisions !",
+                "title": self.tr("You're ready"),
+                "text": self.tr("Don't forget the Automation tab to process entire folders at once " "and the Statistics tab to track your API costs.\n\nHappy studying!"),
                 "target_widget": None,
                 "action": None,
             },

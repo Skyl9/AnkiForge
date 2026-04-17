@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboB
 
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.ui.theme import is_dark_mode
-from ankiforge.ui.widgets.cloze_gestion import sync_preview_card_selector, get_preview_template
+from ankiforge.ui.widgets.cloze_manager import sync_preview_card_selector, get_preview_template
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import render_anki_card, AnkiFields
 from ankiforge.utils.paths import get_app_data_dir
@@ -102,7 +102,7 @@ class CardPreviewWidget(QWidget):
             return
 
         if is_cloze is None or selected_tmpl_idx is None:
-            from ankiforge.ui.widgets.cloze_gestion import is_template_cloze
+            from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 
             is_cloze = is_template_cloze(self.current_templates)
             selected_tmpl_idx = max(0, self.card_selector.currentIndex())
