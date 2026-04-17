@@ -45,16 +45,16 @@ logger = logging.getLogger(__name__)
 
 class CreationTab(QWidget):
     """
-    Interface de création manuelle de cartes Anki assistée par IA.
-    Permet de cibler un texte source spécifique et de le transformer en notes structurées.
+    Manual Anki card creation interface assisted by AI.
+    Allows targeting a specific source text and transforming it into structured notes.
     """
 
     def __init__(self, ai_manager: Any) -> None:
         """
-        Initialise l'onglet de création de cartes.
+        Initializes the card creation tab.
 
         Args:
-            ai_manager (AIManager): Gestionnaire centralisé des services IA.
+            ai_manager (AIManager): Centralized AI services manager.
         """
         super().__init__()
         self.ai_manager = ai_manager
@@ -68,7 +68,7 @@ class CreationTab(QWidget):
         self.load_documents()
 
     def _setup_ui(self) -> None:
-        """Initialise et organise les composants graphiques principaux."""
+        """Initializes and organizes main graphical components."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(20)
@@ -85,12 +85,12 @@ class CreationTab(QWidget):
         self.main_layout.addWidget(self.main_splitter)
 
     def _build_config_section(self) -> None:
-        """Construit le panneau supérieur contenant les paramètres IA et cibles."""
+        """Builds the upper panel containing AI parameters and targets."""
         params_panel = RoundedPanel()
         params_layout = QVBoxLayout(params_panel)
         params_layout.setContentsMargins(20, 15, 20, 20)
 
-        lbl_title_1 = QLabel("1. CONFIGURATION DE L'IA ET DESTINATION")
+        lbl_title_1 = QLabel(self.tr("1. AI CONFIGURATION AND DESTINATION"))
         lbl_title_1.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         params_layout.addWidget(lbl_title_1)
 
@@ -99,23 +99,23 @@ class CreationTab(QWidget):
         params_grid.setVerticalSpacing(10)
         lbl_style = "color: palette(placeholder-text); font-size: 12px; font-weight: 500;"
 
-        params_grid.addWidget(QLabel("Paquet de destination :", styleSheet=lbl_style), 0, 0)
+        params_grid.addWidget(QLabel(self.tr("Destination deck:"), styleSheet=lbl_style), 0, 0)
         self.deck_selector = DBComboBox(DeckModel)
         params_grid.addWidget(self.deck_selector, 1, 0)
 
-        params_grid.addWidget(QLabel("Modèle de note (Anki) :", styleSheet=lbl_style), 0, 1)
+        params_grid.addWidget(QLabel(self.tr("Note model (Anki):"), styleSheet=lbl_style), 0, 1)
         self.model_selector = DBComboBox(NoteTypeModel)
         params_grid.addWidget(self.model_selector, 1, 1)
 
-        params_grid.addWidget(QLabel("Moteur IA :", styleSheet=lbl_style), 2, 0)
+        params_grid.addWidget(QLabel(self.tr("AI Engine:"), styleSheet=lbl_style), 2, 0)
         self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
         params_grid.addWidget(self.llm_selector, 3, 0)
 
-        params_grid.addWidget(QLabel("Pipeline de génération :", styleSheet=lbl_style), 2, 1)
+        params_grid.addWidget(QLabel(self.tr("Generation pipeline:"), styleSheet=lbl_style), 2, 1)
         self.pipeline_selector = DBComboBox(PipelineModel)
         params_grid.addWidget(self.pipeline_selector, 3, 1)
 
-        self.cb_vision = QCheckBox("👁️ Activer l'analyse d'images (Vision) - ⚠️ Consomme plus de tokens")
+        self.cb_vision = QCheckBox(self.tr("👁️ Enable image analysis (Vision) - ⚠️ Consumes more tokens"))
         self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 10px;")
         self.cb_vision.setChecked(False)
         params_grid.addWidget(self.cb_vision, 4, 0, 1, 2)
@@ -124,18 +124,18 @@ class CreationTab(QWidget):
         self.main_layout.insertWidget(0, params_panel)
 
     def _build_source_section(self) -> None:
-        """Construit la zone centrale pour la saisie et sélection du texte source."""
+        """Builds the central area for source text input and selection."""
         source_panel = RoundedPanel()
         source_layout = QVBoxLayout(source_panel)
         source_layout.setContentsMargins(20, 15, 20, 15)
         source_layout.setSpacing(15)
 
-        lbl_title_2 = QLabel("2. TEXTE SOURCE")
+        lbl_title_2 = QLabel(self.tr("2. SOURCE TEXT"))
         lbl_title_2.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         source_layout.addWidget(lbl_title_2)
 
         source_header = QHBoxLayout()
-        source_header.addWidget(QLabel("Choisir un cours :"))
+        source_header.addWidget(QLabel(self.tr("Choose a course:")))
 
         self.doc_selector = QComboBox()
         self.doc_selector.setMinimumWidth(100)
@@ -144,7 +144,7 @@ class CreationTab(QWidget):
         self.btn_refresh_docs = ActionButton("fa5s.sync", "")
         source_header.addWidget(self.btn_refresh_docs)
 
-        source_header.addWidget(QLabel("Partie :"))
+        source_header.addWidget(QLabel(self.tr("Section:")))
         self.section_selector = QComboBox()
         self.section_selector.setMinimumWidth(100)
         source_header.addWidget(self.section_selector, stretch=1)
@@ -152,12 +152,12 @@ class CreationTab(QWidget):
         source_layout.addLayout(source_header)
 
         self.source_text = QTextEdit()
-        self.source_text.setPlaceholderText("Sélectionnez un document puis une section...")
+        self.source_text.setPlaceholderText(self.tr("Select a document then a section..."))
         source_layout.addWidget(self.source_text)
 
         bottom_source_layout = QHBoxLayout()
         token_layout = QVBoxLayout()
-        self.token_label = QLabel("Tokens : 0 / ?")
+        self.token_label = QLabel(self.tr("Tokens: 0 / ?"))
         self.token_label.setStyleSheet("color: palette(placeholder-text); font-size: 12px;")
 
         self.token_bar = QProgressBar()
@@ -174,10 +174,10 @@ class CreationTab(QWidget):
         self.lbl_progress.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 12px; margin-right: 15px;")
         bottom_source_layout.addWidget(self.lbl_progress)
 
-        self.btn_generate = PrimaryButton(qta.icon("fa5s.magic", color="white"), " Générer les Cartes")
+        self.btn_generate = PrimaryButton(qta.icon("fa5s.magic", color="white"), self.tr(" Generate Cards"))
         bottom_source_layout.addWidget(self.btn_generate)
 
-        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler")
+        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), self.tr(" Cancel"))
         self.btn_cancel.hide()
         bottom_source_layout.addWidget(self.btn_cancel)
 
@@ -186,17 +186,17 @@ class CreationTab(QWidget):
         self.main_splitter.addWidget(source_panel)
 
     def _build_results_section(self) -> None:
-        """Construit la zone inférieure affichant le tableau de résultats et les aperçus."""
+        """Builds the lower area displaying the results table and previews."""
         bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
         bottom_splitter.setHandleWidth(10)
         bottom_splitter.setChildrenCollapsible(False)
 
-        # Panneau de gauche : Le Tableau
+        # Left panel: The Table
         table_panel = RoundedPanel()
         table_layout = QVBoxLayout(table_panel)
         table_layout.setContentsMargins(20, 20, 20, 20)
 
-        lbl_title_3 = QLabel("RÉSULTATS (DOUBLE-CLIQUEZ POUR ÉDITER)")
+        lbl_title_3 = QLabel(self.tr("RESULTS (DOUBLE-CLICK TO EDIT)"))
         lbl_title_3.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         table_layout.addWidget(lbl_title_3)
 
@@ -211,12 +211,12 @@ class CreationTab(QWidget):
 
         btn_save_layout = QHBoxLayout()
         btn_save_layout.addStretch()
-        self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder dans la base")
+        self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save to database"))
         self.btn_save.setEnabled(False)
         btn_save_layout.addWidget(self.btn_save)
         table_layout.addLayout(btn_save_layout)
 
-        # Panneau de droite : Aperçu & Logs
+        # Right panel: Preview & Logs
         right_panel = RoundedPanel()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(10, 10, 10, 10)
@@ -230,7 +230,7 @@ class CreationTab(QWidget):
         """)
 
         self.preview_widget = CardPreviewWidget(show_header=False)
-        right_tabs.addTab(self.preview_widget, qta.icon("fa5s.eye"), " Aperçu")
+        right_tabs.addTab(self.preview_widget, qta.icon("fa5s.eye"), self.tr(" Preview"))
 
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
@@ -238,7 +238,7 @@ class CreationTab(QWidget):
         font = QFont("Consolas")
         font.setStyleHint(QFont.StyleHint.Monospace)
         self.console_log.setFont(font)
-        right_tabs.addTab(self.console_log, qta.icon("fa5s.terminal"), " Console IA")
+        right_tabs.addTab(self.console_log, qta.icon("fa5s.terminal"), self.tr(" AI Console"))
 
         right_layout.addWidget(right_tabs)
 
@@ -249,7 +249,7 @@ class CreationTab(QWidget):
         self.main_splitter.addWidget(bottom_splitter)
 
     def _connect_signals(self) -> None:
-        """Branche les signaux de l'interface aux slots associés."""
+        """Connects UI signals to associated slots."""
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
         self.llm_selector.currentIndexChanged.connect(self.update_token_estimate)
         self.cb_vision.stateChanged.connect(self.update_token_estimate)
@@ -266,7 +266,7 @@ class CreationTab(QWidget):
         self.btn_save.clicked.connect(self.save_to_database)
 
     def _setup_shortcuts(self) -> None:
-        """Configure les raccourcis clavier de l'onglet."""
+        """Configures view keyboard shortcuts."""
         self.shortcut_generate = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut_generate.activated.connect(self.start_generation)
         self.shortcut_save_db = QShortcut(QKeySequence("Ctrl+S"), self)
@@ -274,7 +274,7 @@ class CreationTab(QWidget):
 
     @Slot()
     def refresh_data(self) -> None:
-        """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
+        """Standardized method called by MainWindow on tab change."""
         self.deck_selector.refresh_data()
         self.model_selector.refresh_data()
         self.llm_selector.refresh_data()
@@ -290,7 +290,7 @@ class CreationTab(QWidget):
         if self.cb_vision.isChecked():
             img_count = count_images(text)
             if img_count > 0:
-                estimated_tokens += img_count * 300  # Majoration de 300 tokens par image
+                estimated_tokens += img_count * 300  # 300 token surcharge per image
 
         llm_id = self.llm_selector.currentData()
         max_tokens = 8192
@@ -302,17 +302,17 @@ class CreationTab(QWidget):
 
         self.token_bar.setMaximum(max_tokens)
         self.token_bar.setValue(min(estimated_tokens, max_tokens))
-        self.token_label.setText(f"<b>Tokens : ~{estimated_tokens:,} / {max_tokens:,}</b>".replace(",", " "))
+        self.token_label.setText(self.tr("<b>Tokens: ~{0} / {1}</b>").format(estimated_tokens, max_tokens).replace(",", " "))
 
         if estimated_tokens < (max_tokens * 0.5):
             color = "#4CAF50"
-            self.btn_generate.setText(" Générer les Cartes")
+            self.btn_generate.setText(self.tr(" Generate Cards"))
         elif estimated_tokens < (max_tokens * 0.8):
             color = "#FF9800"
-            self.btn_generate.setText(" Générer les Cartes (Texte long)")
+            self.btn_generate.setText(self.tr("Generate Cards (Long text)"))
         else:
             color = "#F44336"
-            self.btn_generate.setText(" Générer (Risque de dépassement IA !)")
+            self.btn_generate.setText(self.tr("Generate (AI Overflow Risk!)"))
 
         self.token_label.setStyleSheet(f"color: {color};")
         self.token_bar.setStyleSheet(f"""
@@ -322,10 +322,10 @@ class CreationTab(QWidget):
 
     @Slot()
     def load_documents(self) -> None:
-        """Charge la liste des documents depuis la base de données."""
+        """Loads document list from database."""
         self.doc_selector.blockSignals(True)
         self.doc_selector.clear()
-        self.doc_selector.addItem("-- Sélectionner un document --", None)
+        self.doc_selector.addItem(self.tr("-- Select a document --"), None)
 
         for doc in DocumentModel.select().order_by(DocumentModel.created_at.desc()):
             self.doc_selector.addItem(doc.title, doc.id)
@@ -360,7 +360,7 @@ class CreationTab(QWidget):
                 current_content.append(line)
 
         if current_content and "".join(current_content).strip():
-            sections.append((current_title if current_title else "Texte", "\n".join(current_content)))
+            sections.append((current_title if current_title else "Text", "\n".join(current_content)))
 
         return sections
 
@@ -375,9 +375,9 @@ class CreationTab(QWidget):
             full_text = doc.content
 
             sections = self._parse_markdown_sections(full_text)
-            self.section_selector.addItem("📑 Tout le document", full_text)
+            self.section_selector.addItem(self.tr("📑 All document"), full_text)
             for title, content in sections:
-                self.section_selector.addItem(f"🔹 {title}", content)
+                self.section_selector.addItem(self.tr("🔹 {0}").format(title), content)
 
             self.source_text.setPlainText(full_text)
         else:
@@ -417,19 +417,19 @@ class CreationTab(QWidget):
         llm_id = self.llm_selector.currentData()
 
         if not text.strip():
-            logger.warning("Tentative de génération sans texte source.")
-            show_toast(self, "Veuillez entrer du texte source.", is_error=True)
+            logger.warning("Attempted generation without source text.")
+            show_toast(self, self.tr("Please enter source text."), is_error=True)
             return
         if not pipeline_id:
-            logger.warning("Tentative de génération sans pipeline sélectionné.")
-            show_toast(self, "Veuillez sélectionner un Pipeline IA.", is_error=True)
+            logger.warning("Attempted generation without selected pipeline.")
+            show_toast(self, self.tr("Please select an AI Pipeline."), is_error=True)
             return
         if not llm_id:
-            logger.warning("Tentative de génération sans moteur sélectionné.")
-            show_toast(self, "Veuillez sélectionner un moteur IA.", is_error=True)
+            logger.warning("Attempted generation without selected engine.")
+            show_toast(self, self.tr("Please select an AI engine."), is_error=True)
             return
 
-        # PRÉPARATION DES DONNÉES SUR LE MAIN THREAD
+        # DATA PREPARATION ON MAIN THREAD
         note_type = NoteTypeModel.get_by_id(model_id)
         pipeline = PipelineModel.get_by_id(pipeline_id)
         llm_config = LLMConfigModel.get_by_id(llm_id)
@@ -458,7 +458,7 @@ class CreationTab(QWidget):
         self.preview_widget.clear_memory()
         self.console_log.clear()
 
-        logger.info(f"Lancement de la génération IA (Pipeline: {pipeline.name}, LLM: {llm_config.display_name}, Vision: {payload.use_vision}).")
+        logger.info(f"Launching AI generation (Pipeline: {pipeline.name}, LLM: {llm_config.display_name}, Vision: {payload.use_vision}).")
         self.thread = CreationWorker(active_provider, payload)
         self.thread.progress.connect(self.update_progress)
         self.thread.log.connect(self.append_log)
@@ -472,9 +472,9 @@ class CreationTab(QWidget):
         if self.thread is not None and self.thread.isRunning():
             self.thread.cancel()
             self.btn_cancel.setEnabled(False)
-            self.btn_cancel.setText(" Arrêt en cours...")
-            logger.info("Demande d'arrêt de la génération IA reçue.")
-            self.append_log("\n Demande d'arrêt de l'IA...")
+            self.btn_cancel.setText(self.tr(" Stopping..."))
+            logger.info("AI generation stop request received.")
+            self.append_log(self.tr("\n AI stop request..."))
 
     @Slot(str)
     def append_log(self, text: str) -> None:
@@ -488,13 +488,13 @@ class CreationTab(QWidget):
     def on_generation_success(self, generated_notes: list[dict[str, str]]) -> None:
         self.generated_notes = generated_notes
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText(" Regénérer les Cartes")
+        self.btn_generate.setText(self.tr(" Regenerate Cards"))
         self.btn_save.setEnabled(True)
 
         self.btn_cancel.hide()
         self.btn_generate.show()
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText("Regénérer les Cartes")
+        self.btn_generate.setText(self.tr(" Regenerate Cards"))
         self.btn_save.setEnabled(True)
 
         model_id = self.model_selector.currentData()
@@ -524,8 +524,8 @@ class CreationTab(QWidget):
         self.btn_generate.show()
 
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText("Générer les Cartes")
-        QMessageBox.critical(self, "Erreur IA", error_msg)
+        self.btn_generate.setText(self.tr(" Generate Cards"))
+        QMessageBox.critical(self, self.tr("AI Error"), error_msg)
 
     @Slot(QTableWidgetItem)
     def on_table_item_changed(self, item: QTableWidgetItem) -> None:
@@ -546,7 +546,7 @@ class CreationTab(QWidget):
     def update_preview(self) -> None:
         selected_items = self.results_table.selectedItems()
         if not selected_items or not self.generated_notes:
-            self.preview_widget.set_empty_state("Sélectionnez une ligne dans le tableau<br>pour prévisualiser la carte.")
+            self.preview_widget.set_empty_state(self.tr("Select a row in the table<br>to preview the card."))
             return
 
         row = selected_items[0].row()
@@ -574,8 +574,8 @@ class CreationTab(QWidget):
             for note_data in self.generated_notes:
                 NoteManager.create_note(note_type=note_type, deck=deck, content_dict=note_data, tags=["AnkiForge_AI"], status="new", source="ai")
 
-            logger.info(f"{len(self.generated_notes)} notes créées et sauvegardées en base.")
-            show_toast(self, f"{len(self.generated_notes)} notes créées !")
+            logger.info(f"Created and saved {len(self.generated_notes)} notes to database.")
+            show_toast(self, self.tr("{0} notes created!").format(len(self.generated_notes)))
 
             self.generated_notes.clear()
             self.results_table.setRowCount(0)
@@ -583,15 +583,15 @@ class CreationTab(QWidget):
             self.btn_save.setEnabled(False)
 
         except Exception as e:
-            logger.exception("Impossible de sauvegarder les notes générées en base :")
-            QMessageBox.critical(self, "Erreur Base de donnée", f"Impossible de sauvegarder : {e}")
+            logger.exception("Unable to save generated notes to database")
+            QMessageBox.critical(self, self.tr("Database Error"), self.tr("Unable to save: {0}").format(str(e)))
 
     @Slot()
     def on_generation_cancelled(self) -> None:
         self.btn_cancel.hide()
-        self.btn_cancel.setText(" Annuler")
+        self.btn_cancel.setText(self.tr(" Cancel"))
         self.btn_generate.show()
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText(" Générer les Cartes")
-        logger.info("Génération IA annulée par l'utilisateur.")
-        show_toast(self, "Génération annulée.", is_error=True)
+        self.btn_generate.setText(self.tr(" Generate Cards"))
+        logger.info("AI generation cancelled by user.")
+        show_toast(self, self.tr("Generation cancelled."), is_error=True)

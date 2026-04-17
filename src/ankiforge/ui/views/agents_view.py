@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 
 class AgentsTab(QWidget):
     """
-    Onglet de gestion des Agents IA et des Pipelines.
-    Permet de créer, modifier et assembler des agents spécialisés en chaînes d'exécution.
+    AI Agents and Pipelines management tab.
+    Allows creating, modifying, and assembling specialized agents into execution chains.
     """
 
     def __init__(self) -> None:
-        """Initialise l'onglet des agents et pipelines."""
+        """Initializes the agents and pipelines tab."""
         super().__init__()
         self.agent_id: Optional[int] = None
 
@@ -45,7 +45,7 @@ class AgentsTab(QWidget):
         self.refresh_ui()
 
     def _setup_ui(self) -> None:
-        """Construit et organise les layouts et widgets principaux."""
+        """Builds and organizes main layouts and widgets."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(20)
@@ -60,47 +60,47 @@ class AgentsTab(QWidget):
         self.main_layout.addWidget(self.main_splitter)
 
     def _build_agents_panel(self) -> None:
-        """Construit le panneau de création et d'édition des agents individuels."""
+        """Builds the panel for creating and editing individual agents."""
         agents_panel = RoundedPanel()
         agents_layout = QVBoxLayout(agents_panel)
         agents_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_agents = QLabel("🤖 LABORATOIRE DES AGENTS")
+        lbl_agents = QLabel(self.tr("🤖 AGENT LABORATORY"))
         lbl_agents.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         agents_layout.addWidget(lbl_agents)
 
         self.agent_top_splitter = QSplitter(Qt.Orientation.Vertical)
         self.agent_top_splitter.setHandleWidth(10)
 
-        # Liste des agents
+        # Agents list
         self.agents_list = QListWidget()
         self.agents_list.setStyleSheet("QListWidget { border: none; background: transparent; }")
         self.agent_top_splitter.addWidget(self.agents_list)
 
-        # Formulaire d'édition
+        # Edition form
         form_widget = QWidget()
         form_layout = QVBoxLayout(form_widget)
         form_layout.setContentsMargins(0, 10, 0, 0)
 
-        lbl_edit = QLabel("ÉDITION DE L'AGENT :")
+        lbl_edit = QLabel(self.tr("AGENT EDITION:"))
         lbl_edit.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-bottom: 5px;")
         form_layout.addWidget(lbl_edit)
 
         name_desc_layout = QHBoxLayout()
 
         name_layout = QVBoxLayout()
-        lbl_name = QLabel("Nom :")
+        lbl_name = QLabel(self.tr("Name:"))
         lbl_name.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
         self.agent_name_input = QLineEdit()
-        self.agent_name_input.setPlaceholderText("ex: Linteur Qualité")
+        self.agent_name_input.setPlaceholderText(self.tr("ex: Quality Linter"))
         name_layout.addWidget(lbl_name)
         name_layout.addWidget(self.agent_name_input)
 
         desc_layout = QVBoxLayout()
-        lbl_desc = QLabel("Description :")
+        lbl_desc = QLabel(self.tr("Description:"))
         lbl_desc.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
         self.agent_desc_input = QLineEdit()
-        self.agent_desc_input.setPlaceholderText("Rôle de cet agent...")
+        self.agent_desc_input.setPlaceholderText(self.tr("Role of this agent..."))
         desc_layout.addWidget(lbl_desc)
         desc_layout.addWidget(self.agent_desc_input)
 
@@ -108,28 +108,30 @@ class AgentsTab(QWidget):
         name_desc_layout.addLayout(desc_layout)
         form_layout.addLayout(name_desc_layout)
 
-        lbl_prompt = QLabel("Prompt Système (Jinja2) :")
+        lbl_prompt = QLabel(self.tr("System Prompt (Jinja2):"))
         lbl_prompt.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px; margin-top: 10px;")
         form_layout.addWidget(lbl_prompt)
 
         self.agent_prompt_input = QTextEdit()
-        self.agent_prompt_input.setPlaceholderText("Tu es un expert en... Tes variables sont {{Front}} et {{Back}}...")
+        self.agent_prompt_input.setPlaceholderText(self.tr("You are an expert in... Your variables are {{Front}} and {{Back}}..."))
         self.agent_prompt_input.setStyleSheet("font-family: monospace;")
         form_layout.addWidget(self.agent_prompt_input)
 
-        lbl_format = QLabel("Format de réponse de l'IA :")
+        lbl_format = QLabel(self.tr("AI Response Format:"))
         lbl_format.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px")
         form_layout.addWidget(lbl_format)
 
         self.cb_output_format = QComboBox()
-        self.cb_output_format.addItem(" JSON Strict (Agent final pour Anki)", userData="json")
-        self.cb_output_format.addItem(" Texte Libre / Markdown (Agent intermédiaire)", userData="text")
+        self.cb_output_format.addItem(self.tr(" Strict JSON (Final agent for Anki)"), userData="json")
+        self.cb_output_format.addItem(self.tr(" Free Text / Markdown (Intermediate agent)"), userData="text")
+        # Fixing layout order after creation
+        form_layout.takeAt(form_layout.count() - 1)
         form_layout.addWidget(self.cb_output_format)
 
         btn_layout_agent = QHBoxLayout()
-        self.btn_new_agent = ActionButton("fa5s.plus", " Nouvel Agent")
-        self.btn_delete_agent = DangerButton(qta.icon("fa5s.trash", color="white"), " Supprimer")
-        self.btn_save_agent = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder l'Agent")
+        self.btn_new_agent = ActionButton("fa5s.plus", self.tr(" New Agent"))
+        self.btn_delete_agent = DangerButton(qta.icon("fa5s.trash", color="white"), self.tr(" Delete"))
+        self.btn_save_agent = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save Agent"))
 
         btn_layout_agent.addWidget(self.btn_new_agent)
         btn_layout_agent.addStretch()
@@ -144,34 +146,34 @@ class AgentsTab(QWidget):
         self.main_splitter.addWidget(agents_panel)
 
     def _build_pipelines_panel(self) -> None:
-        """Construit le panneau d'assemblage et de configuration des pipelines."""
+        """Builds the pipeline assembly and configuration panel."""
         pipelines_panel = RoundedPanel()
         pipelines_layout = QVBoxLayout(pipelines_panel)
         pipelines_layout.setContentsMargins(15, 15, 15, 15)
 
         pipe_header_layout = QHBoxLayout()
-        lbl_pipelines = QLabel("⚙️ ASSEMBLEUR DE PIPELINES")
+        lbl_pipelines = QLabel(self.tr("⚙️ PIPELINE ASSEMBLER"))
         lbl_pipelines.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         pipe_header_layout.addWidget(lbl_pipelines)
         pipe_header_layout.addStretch()
 
-        self.btn_import_pipe = ActionButton("fa5s.folder-open", " Importer (.json)")
-        self.btn_export_pipe = ActionButton("fa5s.file-export", " Exporter")
+        self.btn_import_pipe = ActionButton("fa5s.folder-open", self.tr(" Import (.json)"))
+        self.btn_export_pipe = ActionButton("fa5s.file-export", self.tr(" Export"))
 
         pipe_header_layout.addWidget(self.btn_import_pipe)
         pipe_header_layout.addWidget(self.btn_export_pipe)
         pipelines_layout.addLayout(pipe_header_layout)
 
         pipe_select_layout = QHBoxLayout()
-        lbl_pipe_sel = QLabel("Pipeline Actif :")
+        lbl_pipe_sel = QLabel(self.tr("Active Pipeline:"))
         lbl_pipe_sel.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px;")
 
         self.pipeline_selector = QComboBox()
-        self.btn_new_pipeline = ActionButton("fa5s.plus", " Nouveau")
+        self.btn_new_pipeline = ActionButton("fa5s.plus", self.tr(" New"))
         self.btn_rename_pipeline = ActionButton("fa5s.pen", "")
-        self.btn_rename_pipeline.setToolTip("Renommer le Pipeline")
+        self.btn_rename_pipeline.setToolTip(self.tr("Rename the Pipeline"))
         self.btn_delete_pipeline = DangerButton(qta.icon("fa5s.trash", color="white"), "")
-        self.btn_delete_pipeline.setToolTip("Supprimer le Pipeline")
+        self.btn_delete_pipeline.setToolTip(self.tr("Delete the Pipeline"))
 
         pipe_select_layout.addWidget(lbl_pipe_sel)
         pipe_select_layout.addWidget(self.pipeline_selector, stretch=1)
@@ -180,13 +182,13 @@ class AgentsTab(QWidget):
         pipe_select_layout.addWidget(self.btn_delete_pipeline)
         pipelines_layout.addLayout(pipe_select_layout)
 
-        lbl_chain = QLabel("CHAÎNE D'EXÉCUTION (ORDRE DES AGENTS) :")
+        lbl_chain = QLabel(self.tr("EXECUTION CHAIN (AGENT ORDER):"))
         lbl_chain.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px; margin-top: 20px; margin-bottom: 5px;")
         pipelines_layout.addWidget(lbl_chain)
 
         add_step_layout = QHBoxLayout()
         self.available_agents_cb = QComboBox()
-        self.btn_add_step = ActionButton("fa5s.arrow-down", " Ajouter à la chaîne")
+        self.btn_add_step = ActionButton("fa5s.arrow-down", self.tr(" Add to chain"))
 
         add_step_layout.addWidget(self.available_agents_cb, stretch=1)
         add_step_layout.addWidget(self.btn_add_step)
@@ -200,8 +202,8 @@ class AgentsTab(QWidget):
         step_ctrl_layout = QHBoxLayout()
         self.btn_step_up = ActionButton("fa5s.arrow-up", "")
         self.btn_step_down = ActionButton("fa5s.arrow-down", "")
-        self.btn_step_remove = DangerButton(qta.icon("fa5s.times", color="white"), " Retirer l'étape")
-        self.btn_save_pipeline = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder le Pipeline")
+        self.btn_step_remove = DangerButton(qta.icon("fa5s.times", color="white"), self.tr(" Remove step"))
+        self.btn_save_pipeline = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save Pipeline"))
 
         step_ctrl_layout.addWidget(self.btn_step_up)
         step_ctrl_layout.addWidget(self.btn_step_down)
@@ -213,7 +215,7 @@ class AgentsTab(QWidget):
         self.main_splitter.addWidget(pipelines_panel)
 
     def _connect_signals(self) -> None:
-        """Centralise la connexion des signaux aux slots de l'interface."""
+        """Centralizes signal connections."""
         # Agents
         self.agents_list.itemClicked.connect(self.load_selected_agent)
         self.btn_new_agent.clicked.connect(self.clear_agent_form)
@@ -228,7 +230,7 @@ class AgentsTab(QWidget):
         self.btn_rename_pipeline.clicked.connect(self.rename_pipeline)
         self.btn_delete_pipeline.clicked.connect(self.delete_pipeline)
 
-        # Étapes (Steps)
+        # Steps
         self.btn_add_step.clicked.connect(self.add_agent_to_pipeline)
         self.btn_step_up.clicked.connect(self.move_step_up)
         self.btn_step_down.clicked.connect(self.move_step_down)
@@ -237,20 +239,20 @@ class AgentsTab(QWidget):
 
     @Slot()
     def refresh_data(self) -> None:
-        """Contrat MainWindow : Rafraîchit les agents et pipelines."""
+        """MainWindow contract: Refreshes agents and pipelines."""
         self.refresh_ui()
 
     @Slot()
     def export_pipeline(self) -> None:
-        """Exporte le pipeline sélectionné et tous ses agents dans un fichier JSON."""
+        """Exports the selected pipeline and all its agents to a JSON file."""
         pipe_id = self.pipeline_selector.currentData()
         if not pipe_id:
-            QMessageBox.warning(self, "Erreur", "Aucun pipeline sélectionné.")
+            QMessageBox.warning(self, self.tr("Error"), self.tr("No pipeline selected."))
             return
 
         pipeline = PipelineModel.get_by_id(pipe_id)
 
-        # On construit le dictionnaire de données
+        # Building data dictionary
         export_data = {"name": pipeline.name, "description": pipeline.description, "steps": []}
 
         for step in pipeline.steps.order_by(PipelineStepModel.step_order):
@@ -263,23 +265,23 @@ class AgentsTab(QWidget):
                 }
             )
 
-        # Ouverture de la boîte de dialogue de sauvegarde
-        path, _ = QFileDialog.getSaveFileName(self, "Exporter le Pipeline", f"{pipeline.name.replace(' ', '_')}.json", "Fichiers JSON (*.json)")
+        # Open save dialog
+        path, _ = QFileDialog.getSaveFileName(self, self.tr("Export Pipeline"), self.tr("{0}.json").format(pipeline.name.replace(" ", "_")), self.tr("JSON Files (*.json)"))
 
         if path:
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(export_data, f, ensure_ascii=False, indent=4)
-                logger.info(f"Pipeline '{pipeline.name}' exporté vers {path}")
-                show_toast(self, "Le Pipeline a été exporté avec succès !")
+                logger.info(f"Pipeline '{pipeline.name}' exported to {path}")
+                show_toast(self, self.tr("The Pipeline has been exported successfully!"))
             except Exception as e:
-                logger.exception(f"Impossible d'exporter le pipeline '{pipeline.name}' :")
-                QMessageBox.critical(self, "Erreur", f"Impossible d'exporter le fichier : {e}")
+                logger.exception(f"Unable to export pipeline '{pipeline.name}'")
+                QMessageBox.critical(self, self.tr("Error"), self.tr('Unable to export pipeline "{0}":').format(pipeline.name) + f"\n{e}")
 
     @Slot()
     def import_pipeline(self) -> None:
-        """Importe un pipeline et ses agents dépendants depuis un fichier JSON."""
-        path, _ = QFileDialog.getOpenFileName(self, "Importer un Pipeline", "", "Fichiers JSON (*.json)")
+        """Imports a pipeline and its dependent agents from a JSON file."""
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("Import a Pipeline"), "", self.tr("JSON Files (*.json)"))
         if not path:
             return
 
@@ -288,11 +290,11 @@ class AgentsTab(QWidget):
                 data = json.load(f)
 
             with db.atomic():
-                base_name = data.get("name", "Pipeline Importé")
+                base_name = data.get("name", self.tr("Imported Pipeline"))
                 name = base_name
                 counter = 1
 
-                # Gestion de la collision des noms de pipeline
+                # Name collision handling
                 while PipelineModel.get_or_none(PipelineModel.name == name):
                     name = f"{base_name} ({counter})"
                     counter += 1
@@ -300,7 +302,7 @@ class AgentsTab(QWidget):
                 new_pipe = PipelineModel.create(name=name, description=data.get("description", ""))
 
                 for step_data in data.get("steps", []):
-                    agent_name = step_data.get("agent_name", "Agent Inconnu")
+                    agent_name = step_data.get("agent_name", self.tr("Unknown Agent"))
                     agent = AgentModel.get_or_none(AgentModel.name == agent_name)
 
                     if not agent:
@@ -318,12 +320,12 @@ class AgentsTab(QWidget):
             if idx >= 0:
                 self.pipeline_selector.setCurrentIndex(idx)
 
-            logger.info(f"Pipeline '{name}' importé avec succès.")
-            show_toast(self, f"Pipeline '{name}' importé !")
+            logger.info(f"Pipeline '{name}' imported successfully.")
+            show_toast(self, self.tr('Pipeline "{0}" imported!').format(name))
 
         except Exception as e:
-            logger.exception("Erreur lors de l'importation du pipeline :")
-            QMessageBox.critical(self, "Erreur d'import", f"Le fichier est invalide ou corrompu :\n{e}")
+            logger.exception("Error while importing pipeline")
+            QMessageBox.critical(self, self.tr("Import Error"), self.tr("The file is invalid or corrupted:\n{0}").format(str(e)))
 
     @Slot()
     def refresh_ui(self) -> None:
@@ -374,7 +376,7 @@ class AgentsTab(QWidget):
         output_format = self.cb_output_format.currentData()
 
         if not name or not prompt:
-            QMessageBox.warning(self, "Erreur", "Le nom et le prompt sont obligatoires.")
+            QMessageBox.warning(self, "Error", self.tr("Name and prompt are required."))
             return
 
         try:
@@ -387,25 +389,25 @@ class AgentsTab(QWidget):
                 agent.save()
             else:
                 AgentModel.create(name=name, description=desc, system_prompt=prompt, output_format=output_format)
-            logger.info(f"Agent '{name}' sauvegardé.")
-            show_toast(self, "Agent sauvegardé !")
+            logger.info(f"Agent '{name}' saved.")
+            show_toast(self, self.tr("Agent saved!"))
             self.refresh_ui()
         except Exception as e:
-            logger.exception(f"Erreur lors de la sauvegarde de l'agent '{name}' :")
-            QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
+            logger.exception(f"Error while saving agent '{name}'")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Error during save: {0}").format(str(e)))
 
     @Slot()
     def delete_agent(self) -> None:
         if not self.agent_id:
-            QMessageBox.warning(self, "Erreur", "Veuillez sélectionner un agent avant de le supprimer.")
+            QMessageBox.warning(self, self.tr("Error"), self.tr("Please select an agent before deleting it."))
             return
 
         name = self.agent_name_input.text().strip()
 
         reply = QMessageBox.question(
             self,
-            "Confirmation",
-            f"Voulez-vous vraiment supprimer l'agent '{name}' ?",
+            self.tr("Confirmation"),
+            self.tr('Do you really want to delete the agent "{0}"?').format(name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
@@ -414,20 +416,20 @@ class AgentsTab(QWidget):
                 agent = AgentModel.get_by_id(self.agent_id)
                 agent.delete_instance(recursive=True)
 
-                logger.info(f"Agent '{name}' supprimé avec succès.")
-                show_toast(self, "Agent détruit avec succès")
+                logger.info(f"Agent '{name}' deleted successfully.")
+                show_toast(self, self.tr("Agent successfully destroyed"))
 
                 self.clear_agent_form()
                 self.refresh_ui()
 
             except Exception as e:
-                logger.exception(f"Impossible de supprimer l'agent '{name}' :")
-                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer l'agent : {e}")
+                logger.exception(f"Unable to delete agent '{name}'")
+                QMessageBox.critical(self, self.tr("Error"), self.tr('Unable to delete agent "{0}":').format(name) + f"\n{e}")
 
     @Slot()
     def create_new_pipeline(self) -> None:
         count = PipelineModel.select().count() + 1
-        pipe = PipelineModel.create(name=f"Nouveau Pipeline {count}", description="À configurer")
+        pipe = PipelineModel.create(name=self.tr("New Pipeline {0}").format(count), description=self.tr("To be configured"))
         self.refresh_ui()
         idx = self.pipeline_selector.findData(pipe.id)
         self.pipeline_selector.setCurrentIndex(idx)
@@ -455,7 +457,7 @@ class AgentsTab(QWidget):
             self.steps_list.addItem(item)
 
     def _recalculate_step_numbers(self):
-        """Recalcule visuellement tous les numéros après un mouvement."""
+        """Visually recalculates all numbers after movement."""
         for i in range(self.steps_list.count()):
             item = self.steps_list.item(i)
             agent_name = item.data(Qt.ItemDataRole.UserRole)
@@ -501,11 +503,11 @@ class AgentsTab(QWidget):
                     agent_name = self.steps_list.item(i).data(Qt.ItemDataRole.UserRole)
                     agent = AgentModel.get(AgentModel.name == agent_name)
                     PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=i + 1)
-            logger.info(f"Ordre du pipeline '{pipeline.name}' mis à jour.")
-            QMessageBox.information(self, "Succès", "L'ordre du pipeline a été mis à jour !")
+            logger.info(f"Pipeline '{pipeline.name}' order updated.")
+            QMessageBox.information(self, self.tr("Success"), self.tr("Pipeline order has been updated!"))
         except Exception as e:
-            logger.exception("Erreur lors de la sauvegarde du pipeline :")
-            QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {e}")
+            logger.exception("Error while saving pipeline")
+            QMessageBox.critical(self, self.tr("Error"), self.tr("Error during pipeline save:") + f"\n{e}")
 
     @Slot()
     def rename_pipeline(self) -> None:
@@ -514,21 +516,21 @@ class AgentsTab(QWidget):
             return
 
         pipeline = PipelineModel.get_by_id(pipe_id)
-        new_name, ok = QInputDialog.getText(self, "Renommer Pipeline", "Nouveau nom :", text=pipeline.name)
+        new_name, ok = QInputDialog.getText(self, self.tr("Rename Pipeline"), self.tr("New name:"), text=pipeline.name)
 
         if ok and new_name.strip() and new_name.strip() != pipeline.name:
             try:
                 pipeline.name = new_name.strip()
                 pipeline.save()
 
-                # Mise à jour silencieuse de la combobox
+                # Silent combobox update
                 idx = self.pipeline_selector.currentIndex()
                 self.pipeline_selector.setItemText(idx, pipeline.name)
-                logger.info(f"Pipeline '{pipeline.name}' renommé.")
-                show_toast(self, "Pipeline renommé avec succès !")
+                logger.info(f"Pipeline '{pipeline.name}' renamed.")
+                show_toast(self, self.tr("Pipeline renamed successfully!"))
             except Exception as e:
-                logger.exception(f"Impossible de renommer le pipeline '{pipeline.name}' :")
-                QMessageBox.critical(self, "Erreur", f"Impossible de renommer :\n{e}")
+                logger.exception(f"Unable to rename pipeline '{pipeline.name}'")
+                QMessageBox.critical(self, self.tr("Error"), self.tr('Unable to rename pipeline "{0}":').format(pipeline.name) + f"\n{e}")
 
     @Slot()
     def delete_pipeline(self) -> None:
@@ -539,25 +541,25 @@ class AgentsTab(QWidget):
         pipeline = PipelineModel.get_by_id(pipe_id)
         reply = QMessageBox.question(
             self,
-            "Supprimer le Pipeline",
-            f"Voulez-vous vraiment supprimer le pipeline '{pipeline.name}' ?\nCela n'effacera pas les agents, juste l'ordre d'exécution.",
+            self.tr("Delete Pipeline"),
+            self.tr('Do you really want to delete the pipeline "{0}"?\nThis will not delete the agents, only the execution order.').format(pipeline.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                # La suppression en cascade effacera les PipelineStepModel associés
+                # Cascading delete will wipe associated PipelineStepModel
                 pipeline.delete_instance(recursive=True)
 
-                # Retire de l'interface
+                # Remove from UI
                 idx = self.pipeline_selector.currentIndex()
                 self.pipeline_selector.removeItem(idx)
 
                 if self.pipeline_selector.count() == 0:
                     self.steps_list.clear()
 
-                logger.info(f"Pipeline '{pipeline.name}' supprimé.")
-                show_toast(self, "Pipeline supprimé !")
+                logger.info(f"Pipeline '{pipeline.name}' deleted.")
+                show_toast(self, self.tr("Pipeline deleted!"))
             except Exception as e:
-                logger.exception(f"Impossible de supprimer le pipeline '{pipeline.name}' :")
-                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer :\n{e}")
+                logger.exception(f"Unable to delete pipeline '{pipeline.name}'")
+                QMessageBox.critical(self, self.tr("Error"), self.tr('Unable to delete pipeline "{0}":').format(pipeline.name) + f"\n{e}")

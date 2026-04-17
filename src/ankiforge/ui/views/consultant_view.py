@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 
 
 class MentionPopup(QListWidget):
-    """Le menu flottant qui apparaît quand on tape @ ou /"""
+    """The floating menu that appears when typing @ or /"""
 
-    item_selected = Signal(str, str)  # type (cmd ou context), valeur
+    item_selected = Signal(str, str)  # type (cmd or context), value
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,10 +62,10 @@ class MentionPopup(QListWidget):
 
         if mode == "/":
             commands = [
-                ("audit", "🔍 /audit : Analyser et trouver des erreurs"),
-                ("explain", "📖 /explain : Expliquer un concept"),
-                ("mnemonics", "🧠 /mnemonics : Créer des mnémotechniques"),
-                ("clear", "🧹 /clear : Vider le contexte actuel"),
+                ("audit", self.tr("🔍 /audit : Analyze and find errors")),
+                ("explain", self.tr("📖 /explain : Explain a concept")),
+                ("mnemonics", self.tr("🧠 /mnemonics : Create mnemonics")),
+                ("clear", self.tr("🧹 /clear : Clear current context")),
             ]
             for cmd_id, display in commands:
                 if query in cmd_id or query in display.lower():
@@ -76,12 +76,12 @@ class MentionPopup(QListWidget):
         elif mode == "@":
             for deck in DeckModel.select():
                 if query in deck.name.lower():
-                    item = QListWidgetItem(f"📦 Paquet : {deck.name}")
+                    item = QListWidgetItem(self.tr("📦 Deck : {0}").format(deck.name))
                     item.setData(Qt.ItemDataRole.UserRole, f"deck_{deck.id}")
                     self.addItem(item)
             for doc in DocumentModel.select():
                 if query in doc.title.lower():
-                    item = QListWidgetItem(f"📄 Doc : {doc.title}")
+                    item = QListWidgetItem(self.tr("📄 Doc : {0}").format(doc.title))
                     item.setData(Qt.ItemDataRole.UserRole, f"doc_{doc.id}")
                     self.addItem(item)
 
@@ -93,7 +93,7 @@ class MentionPopup(QListWidget):
 
 
 class CommandTextEdit(QTextEdit):
-    """Éditeur de texte qui écoute les frappes pour déclencher le popup."""
+    """Text editor that listens for keystrokes to trigger the popup."""
 
     mention_inserted = Signal(str, str)
     send_requested = Signal()
@@ -102,8 +102,8 @@ class CommandTextEdit(QTextEdit):
         super().__init__(parent)
         self.popup = MentionPopup()
         self.popup.item_selected.connect(self._on_popup_selected)
-        self.setPlaceholderText("Tapez / pour une commande, ou @ pour charger du contexte (Doc, Paquet)...")
-        # Police plus grande pour l'effet "Barre de commande"
+        self.setPlaceholderText(self.tr("Type / for a command, or @ to load context (Doc, Deck)..."))
+        # Larger font for "Command Bar" effect
         font = self.font()
         font.setPointSize(12)
         self.setFont(font)
@@ -130,7 +130,7 @@ class CommandTextEdit(QTextEdit):
                 self.hide_popup()
                 return
 
-        # Shift+Enter = Saut de ligne. Enter simple = Envoi.
+        # Shift+Enter = Line break. Simple Enter = Send.
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self.send_requested.emit()
             return
@@ -183,12 +183,12 @@ class CommandTextEdit(QTextEdit):
 
 
 # ==========================================
-# 2. LE WIDGET CHIP (Pilule interactive)
+# 2. THE CHIP WIDGET (Interactive pill)
 # ==========================================
 
 
 class ContextChip(QFrame):
-    """Une petite pilule visuelle représentant un élément de contexte, avec un bouton supprimer."""
+    """A small visual pill representing a context element, with a delete button."""
 
     removed = Signal(str)
 
@@ -242,23 +242,23 @@ class ContextChip(QFrame):
 
 
 # ==========================================
-# 3. L'ONGLET PRINCIPAL
+# 3. MAIN TAB
 # ==========================================
 
 
 class ConsultantTab(QWidget):
     """
-    Vue du Studio Consultant IA.
-    Interface conversationnelle permettant à l'utilisateur d'interagir avec l'IA
-    en lui fournissant un contexte dynamique (documents ou paquets) via des mentions.
+    AI Consultant Studio view.
+    Conversational interface allowing the user to interact with the AI
+    by providing dynamic context (documents or decks) via mentions.
     """
 
     def __init__(self, ai_manager: Any) -> None:
         """
-        Initialise l'onglet du Consultant IA.
+        Initializes the AI Consultant tab.
 
         Args:
-            ai_manager (AIManager): Instance du gestionnaire d'IA central.
+            ai_manager (AIManager): Central AI manager instance.
         """
         super().__init__()
         self.ai_manager = ai_manager
@@ -271,7 +271,7 @@ class ConsultantTab(QWidget):
         self.refresh_context_chips()
 
     def _setup_ui(self) -> None:
-        """Initialise et organise les composants graphiques de la vue."""
+        """Initializes and organizes the view graphical components."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
@@ -281,9 +281,9 @@ class ConsultantTab(QWidget):
         self._build_console_panel()
 
     def _build_header(self) -> None:
-        """Construit l'en-tête contenant le titre et le sélecteur de modèle IA."""
+        """Builds the header containing the title and AI model selector."""
         header_layout = QHBoxLayout()
-        header_layout.addWidget(HeaderLabel("🧠 Studio Consultant IA"))
+        header_layout.addWidget(HeaderLabel(self.tr("🧠 AI Consultant Studio")))
         header_layout.addStretch()
 
         self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
@@ -294,16 +294,16 @@ class ConsultantTab(QWidget):
         self.main_layout.addLayout(header_layout)
 
     def _build_input_panel(self) -> None:
-        """Construit le panneau de saisie incluant la barre de contexte et l'éditeur de texte."""
+        """Builds the input panel including the context bar and text editor."""
         input_panel = RoundedPanel()
         input_layout = QVBoxLayout(input_panel)
         input_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Barre des pilules de contexte (Chips)
+        # Context chips bar
         self.context_bar = QHBoxLayout()
         self.context_bar.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        lbl_ctx = QLabel("Contexte :")
+        lbl_ctx = QLabel(self.tr("Context:"))
         lbl_ctx.setStyleSheet("font-size: 11px; font-weight: bold; color: palette(placeholder-text);")
         self.context_bar.addWidget(lbl_ctx)
 
@@ -314,7 +314,7 @@ class ConsultantTab(QWidget):
 
         input_layout.addLayout(self.context_bar)
 
-        # Zone de saisie principale et bouton d'envoi
+        # Main input area and send button
         chat_actions_layout = QHBoxLayout()
         self.chat_input = CommandTextEdit()
         self.chat_input.setMinimumHeight(120)
@@ -329,7 +329,7 @@ class ConsultantTab(QWidget):
         self.main_layout.addWidget(input_panel)
 
     def _build_console_panel(self) -> None:
-        """Construit la zone d'affichage de l'historique de discussion."""
+        """Builds the discussion history display area."""
         console_panel = RoundedPanel()
         console_layout = QVBoxLayout(console_panel)
 
@@ -338,10 +338,12 @@ class ConsultantTab(QWidget):
         self.chat_history.setFrameShape(QFrame.Shape.NoFrame)
         self.chat_history.setStyleSheet("background: transparent; font-size: 14px;")
         self.chat_history.append(
-            "<div style='color: gray; text-align: center; margin-top: 40px;'>"
-            "<h2>Bienvenue dans votre Studio</h2>"
-            "<i>Chargez vos documents et paquets avec <b>@</b>.<br>"
-            "Lancez des requêtes ciblées avec <b>/</b> (ex: /audit).</i></div>"
+            self.tr(
+                "<div style='color: gray; text-align: center; margin-top: 40px;'>"
+                "<h2>Welcome to your Studio</h2>"
+                "<i>Load your documents and decks with <b>@</b>.<br>"
+                "Launch targeted requests with <b>/</b> (ex: /audit).</i></div>"
+            )
         )
         self.lbl_chat_status = QLabel("")
 
@@ -351,13 +353,13 @@ class ConsultantTab(QWidget):
         self.main_layout.addWidget(console_panel, stretch=1)
 
     def _connect_signals(self) -> None:
-        """Branche les signaux de l'interface aux slots de la classe."""
+        """Connects UI signals to class slots."""
         self.chat_input.mention_inserted.connect(self.on_mention_inserted)
         self.chat_input.send_requested.connect(self.send_message)
         self.btn_send.clicked.connect(self.send_message)
 
     def _populate_llms(self) -> None:
-        """Remplit le menu déroulant avec les moteurs IA disponibles en base de données."""
+        """Fills the dropdown with AI engines available in the database."""
         self.llm_selector.clear()
         for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
             self.llm_selector.addItem(llm.display_name, userData=llm.id)
@@ -365,16 +367,16 @@ class ConsultantTab(QWidget):
     @Slot(str, str)
     def on_mention_inserted(self, mode: str, data_id: str) -> None:
         """
-        Gère l'insertion d'une commande ou d'un élément de contexte.
+        Handles insertion of a command or context item.
 
         Args:
-            mode (str): Type d'insertion ('/' pour commande, '@' pour contexte).
-            data_id (str): Identifiant de l'élément sélectionné.
+            mode (str): Insertion type ('/' for command, '@' for context).
+            data_id (str): Identifier of the selected item.
         """
         if mode == "/":
             if data_id == "clear":
                 self.clear_context()
-                self.chat_history.append("<div style='color: orange;'>🧹 <i>Le contexte a été vidé.</i></div>")
+                self.chat_history.append(self.tr("<div style='color: orange;'>🧹 <i>Context has been cleared.</i></div>"))
             else:
                 self.chat_input.insertPlainText(f"/{data_id} ")
 
@@ -386,39 +388,39 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def remove_context_item(self, data_id: str) -> None:
-        """Retire un élément spécifique du contexte actif."""
+        """Removes a specific item from the active context."""
         if data_id in self.active_context:
             self.active_context.remove(data_id)
             self.refresh_context_chips()
 
     def clear_context(self) -> None:
-        """Vide l'intégralité du contexte actif."""
+        """Clears the entire active context."""
         self.active_context.clear()
         self.refresh_context_chips()
 
     def refresh_context_chips(self) -> None:
-        """Redessine les éléments visuels (chips) représentant le contexte chargé."""
+        """Redraws visual elements (chips) representing loaded context."""
         while self.context_chips_layout.count():
             child = self.context_chips_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
 
         if not self.active_context:
-            lbl = QLabel("Aucun (L'IA répondra de manière générique)")
+            lbl = QLabel(self.tr("None (AI will respond generically)"))
             lbl.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
             self.context_chips_layout.addWidget(lbl)
             return
 
         for ctx_id in self.active_context:
-            display_text = "Inconnu"
+            display_text = self.tr("Unknown")
             if ctx_id.startswith("deck_"):
                 d_id = int(ctx_id.split("_")[1])
                 deck = DeckModel.get_or_none(DeckModel.id == d_id)
-                display_text = f"📦 {deck.name}" if deck else "Paquet inconnu"
+                display_text = self.tr("📦 {0}").format(deck.name) if deck else self.tr("Unknown deck")
             elif ctx_id.startswith("doc_"):
                 d_id = int(ctx_id.split("_")[1])
                 doc = DocumentModel.get_or_none(DocumentModel.id == d_id)
-                display_text = f"📄 {doc.title}" if doc else "Doc inconnu"
+                display_text = self.tr("📄 {0}").format(doc.title) if doc else self.tr("Unknown doc")
 
             chip = ContextChip(ctx_id, display_text)
             chip.removed.connect(self.remove_context_item)
@@ -426,34 +428,34 @@ class ConsultantTab(QWidget):
 
     @Slot()
     def send_message(self) -> None:
-        """Prépare les données contextuelles et lance le thread de discussion IA."""
+        """Prepares contextual data and launches AI discussion thread."""
         instruction = self.chat_input.toPlainText().strip()
         if not instruction:
             return
 
-        # Rétractation de la zone de saisie pour libérer l'espace d'affichage
+        # Retract input area to free display space
         self.chat_input.setMinimumHeight(40)
         self.chat_input.setMaximumHeight(80)
         self.btn_send.setEnabled(False)
-        self.lbl_chat_status.setText("📦 Collecte des données...")
+        self.lbl_chat_status.setText(self.tr("📦 Data collection..."))
 
         context_names = []
         for ctx_id in self.active_context:
             if ctx_id.startswith("doc_"):
                 doc = DocumentModel.get_or_none(DocumentModel.id == int(ctx_id.split("_")[1]))
                 if doc:
-                    context_names.append(f"📄 {doc.title}")
+                    context_names.append(self.tr("📄 {0}").format(doc.title))
             elif ctx_id.startswith("deck_"):
                 deck = DeckModel.get_or_none(DeckModel.id == int(ctx_id.split("_")[1]))
                 if deck:
-                    context_names.append(f"📦 {deck.name}")
+                    context_names.append(self.tr("📦 {0}").format(deck.name))
 
-        ctx_display = ", ".join(context_names) if context_names else "Aucun contexte"
+        ctx_display = ", ".join(context_names) if context_names else self.tr("No context")
 
         echo_html = (
             f"<hr><div style='margin-bottom:10px; padding-left:10px; border-left: 3px solid palette(highlight);'>"
-            f"<b style='color: palette(highlight);'>&gt; COMMANDE :</b> {instruction}<br>"
-            f"<span style='font-size: 11px; color: palette(placeholder-text);'><i>Cible(s) : {ctx_display}</i></span>"
+            f"<b style='color: palette(highlight);'>{self.tr('> COMMAND :')}</b> {instruction}<br>"
+            f"<span style='font-size: 11px; color: palette(placeholder-text);'><i>{self.tr('Target(s) : {0}').format(ctx_display)}</i></span>"
             f"</div>"
         )
         self.chat_history.append(echo_html)
@@ -464,7 +466,7 @@ class ConsultantTab(QWidget):
         llm_id = self.llm_selector.currentData()
         llm_config = LLMConfigModel.get_or_none(LLMConfigModel.id == llm_id)
         if not llm_config:
-            self.chat_history.append("<div style='color:red;'>⚠️ Aucun moteur IA sélectionné.</div>")
+            self.chat_history.append(f"<div style='color:red;'>{self.tr('⚠️ No AI engine selected.')}</div>")
             self.btn_send.setEnabled(True)
             return
 
@@ -478,15 +480,15 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def on_chat_progress(self, msg: str) -> None:
-        """Affiche les états intermédiaires renvoyés par le thread."""
-        self.lbl_chat_status.setText(f"⏳ {msg}")
+        """Displays intermediate states returned by the thread."""
+        self.lbl_chat_status.setText(self.tr("⏳ {0}").format(msg))
 
     def _build_context_data(self) -> dict:
         """
-        Extrait le contenu réel (texte et JSON des cartes) correspondant aux IDs de contexte actifs.
+        Extracts real content (text and card JSON) corresponding to active context IDs.
 
         Returns:
-            dict: Données contextuelles structurées prêtes à l'envoi.
+            dict: Structured contextual data ready for sending.
         """
         data: dict[str, list] = {"documents": [], "paquets": []}
 
@@ -502,7 +504,7 @@ class ConsultantTab(QWidget):
                 deck = DeckModel.get_or_none(DeckModel.id == d_id)
                 if deck:
                     notes = []
-                    # Limite conservatrice pour prévenir le dépassement de la fenêtre de contexte
+                    # Conservative limit to prevent exceeding context window
                     query = NoteModel.select().join(CardModel).where(CardModel.deck == deck).distinct().limit(100)
 
                     for note in query:
@@ -515,14 +517,14 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def on_chat_success(self, response_text: str) -> None:
-        """Affiche la réponse formatée et réactive l'interface."""
+        """Displays formatted response and reactivates interface."""
         html_response = markdown.markdown(response_text, extensions=["extra", "codehilite", "tables"])
 
         self.lbl_chat_status.setText("")
 
         final_html = (
             f"<div style='margin-top:10px; margin-bottom:20px; padding:15px; background-color:palette(alternate-base); border-radius:8px; border: 1px solid palette(window);'>"
-            f"<b>🤖 Réponse de l'IA :</b><br><br>"
+            f"<b>{self.tr('🤖 AI Response :')}</b><br><br>"
             f"<div style='font-size: 13px; line-height: 1.5;'>{html_response}</div>"
             f"</div>"
         )
@@ -534,7 +536,7 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def on_chat_error(self, error_msg: str) -> None:
-        """Affiche les erreurs remontées par l'IA ou le processus d'extraction."""
-        self.lbl_chat_status.setText("❌ Erreur")
-        self.chat_history.append(f"<div style='color:red;'><b>Erreur de l'IA :</b> {error_msg}</div>")
+        """Displays errors raised by AI or extraction process."""
+        self.lbl_chat_status.setText(self.tr("❌ Error"))
+        self.chat_history.append(f"<div style='color:red;'><b>{self.tr('AI Error :')}</b> {error_msg}</div>")
         self.btn_send.setEnabled(True)
