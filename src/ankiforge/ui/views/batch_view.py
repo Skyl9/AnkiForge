@@ -55,26 +55,26 @@ logger = logging.getLogger(__name__)
 
 class BatchTab(QWidget):
     """
-    Vue de l'Usine à Cartes (Traitement par lots).
-    Permet à l'utilisateur de sélectionner de multiples documents, de configurer un pipeline
-    pour chacun, et de lancer la génération de cartes en arrière-plan.
+    Card Factory View (Batch Processing).
+    Allows the user to select multiple documents, configure a pipeline
+    for each, and launch background card generation.
     """
 
     def __init__(self, ai_manager: Any) -> None:
         """
-        Initialise l'onglet d'automatisation.
+        Initializes the automation tab.
 
         Args:
-            ai_manager (AIManager): Gestionnaire centralisé des services IA.
+            ai_manager (AIManager): Centralized AI services manager.
         """
         super().__init__()
         self.worker: BatchWorker | None = None
         self.ai_manager = ai_manager
         self.chunk_strategies = [
-            "Sémantique (Titres)",
-            "Chevauchement (Overlap)",
-            "Classique",
-            "Aucun (Document entier)",
+            self.tr("Semantic (Headings)"),
+            self.tr("Overlap"),
+            self.tr("Classic"),
+            self.tr("None (Entire document)"),
         ]
 
         self._setup_ui()
@@ -84,7 +84,7 @@ class BatchTab(QWidget):
         self.refresh_data()
 
     def _setup_ui(self) -> None:
-        """Construit et organise les layouts et widgets principaux."""
+        """Builds and organizes layouts and main widgets."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(20)
@@ -102,15 +102,15 @@ class BatchTab(QWidget):
         self.main_layout.addWidget(self.main_splitter)
 
     def _build_header(self) -> None:
-        """Construit l'en-tête de la vue."""
+        """Builds the view header."""
         titles_layout = QVBoxLayout()
         titles_layout.setSpacing(2)
 
-        header = QLabel("⚙️ Automatisation Avancée (Usine à cartes)")
+        header = QLabel(self.tr("⚙️ Advanced Automation (Card Factory)"))
         header.setStyleSheet("font-size: 15px; font-weight: bold; color: palette(text);")
         header.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
-        subtitle = QLabel("Gérez votre file d'attente et personnalisez le traitement pour chaque document.")
+        subtitle = QLabel(self.tr("Manage your queue and customize processing for each document."))
         subtitle.setStyleSheet("color: palette(placeholder-text); font-size: 11px;")
         subtitle.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
@@ -119,12 +119,12 @@ class BatchTab(QWidget):
         self.main_layout.addLayout(titles_layout)
 
     def _build_source_panel(self) -> None:
-        """Construit le panneau de sélection des documents sources (gauche)."""
+        """Builds the source documents selection panel (left)."""
         source_panel = RoundedPanel()
         source_layout = QVBoxLayout(source_panel)
         source_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_source = QLabel("1. SOURCE (COURS ET DOSSIERS)")
+        lbl_source = QLabel(self.tr("1. SOURCE (COURSES AND FOLDERS)"))
         lbl_source.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         source_layout.addWidget(lbl_source)
 
@@ -135,14 +135,14 @@ class BatchTab(QWidget):
         self.tree_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         source_layout.addWidget(self.tree_source)
 
-        self.btn_add_to_queue = ActionButton("fa5s.arrow-right", " Ajouter à la file d'attente")
+        self.btn_add_to_queue = ActionButton("fa5s.arrow-right", self.tr(" Add to Queue"))
         source_layout.addWidget(self.btn_add_to_queue)
 
         source_panel.setMinimumWidth(150)
         self.main_splitter.addWidget(source_panel)
 
     def _build_right_panels(self) -> None:
-        """Construit la zone de droite divisée entre la file d'attente et la console."""
+        """Builds the right zone split between queue and console."""
         self.right_splitter = QSplitter(Qt.Orientation.Vertical)
         self.right_splitter.setHandleWidth(10)
 
@@ -154,12 +154,12 @@ class BatchTab(QWidget):
         self.main_splitter.addWidget(self.right_splitter)
 
     def _build_queue_panel(self) -> None:
-        """Construit le panneau de configuration par défaut et du tableau de la file d'attente."""
+        """Builds the default configuration panel and queue table."""
         queue_panel = RoundedPanel()
         queue_layout = QVBoxLayout(queue_panel)
         queue_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_config = QLabel("CONFIGURATION PAR DÉFAUT")
+        lbl_config = QLabel(self.tr("DEFAULT CONFIGURATION"))
         lbl_config.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         queue_layout.addWidget(lbl_config)
 
@@ -176,15 +176,15 @@ class BatchTab(QWidget):
         self.default_chunking = QComboBox()
         self.default_chunking.setMinimumWidth(80)
         self.default_chunking.addItems(self.chunk_strategies)
-        self.default_vision = QCheckBox("👁️ Vision")
+        self.default_vision = QCheckBox(self.tr("👁️ Vision"))
         self.default_vision.setChecked(False)
 
-        default_params_layout.addWidget(QLabel("Paquet :"), 0, 0)
-        default_params_layout.addWidget(QLabel("Modèle :"), 0, 1)
-        default_params_layout.addWidget(QLabel("Moteur :"), 0, 2)
-        default_params_layout.addWidget(QLabel("Pipeline :"), 0, 3)
-        default_params_layout.addWidget(QLabel("Découpage :"), 0, 4)
-        default_params_layout.addWidget(QLabel("Option :"), 0, 5)
+        default_params_layout.addWidget(QLabel(self.tr("Deck:")), 0, 0)
+        default_params_layout.addWidget(QLabel(self.tr("Model:")), 0, 1)
+        default_params_layout.addWidget(QLabel(self.tr("Engine:")), 0, 2)
+        default_params_layout.addWidget(QLabel(self.tr("AI Pipeline:")), 0, 3)
+        default_params_layout.addWidget(QLabel(self.tr("Chunking:")), 0, 4)
+        default_params_layout.addWidget(QLabel(self.tr("Option:")), 0, 5)
 
         default_params_layout.addWidget(self.default_deck, 1, 0)
         default_params_layout.addWidget(self.default_model, 1, 1)
@@ -195,21 +195,23 @@ class BatchTab(QWidget):
 
         queue_layout.addLayout(default_params_layout)
 
-        lbl_queue = QLabel("2. FILE D'ATTENTE")
+        lbl_queue = QLabel(self.tr("2. QUEUE"))
         lbl_queue.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
         queue_layout.addWidget(lbl_queue)
 
         self.table_queue = QTableWidget()
         self.table_queue.setFrameShape(QFrame.Shape.NoFrame)
         self.table_queue.setColumnCount(8)
-        self.table_queue.setHorizontalHeaderLabels(["Document", "Paquet", "Modèle", "Moteur IA", "Pipeline IA", "Découpage", "Vision", "Action"])
+        self.table_queue.setHorizontalHeaderLabels(
+            [self.tr("Document"), self.tr("Deck"), self.tr("Model"), self.tr("AI Engine"), self.tr("AI Pipeline"), self.tr("Chunking"), self.tr("Vision"), self.tr("Action")]
+        )
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
         self.table_queue.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table_queue.verticalHeader().setVisible(False)
 
-        self.lbl_empty_queue = QLabel("La file d'attente est vide. Sélectionnez des documents à gauche pour commencer.")
+        self.lbl_empty_queue = QLabel(self.tr("The queue is empty. Select documents on the left to start."))
         self.lbl_empty_queue.setStyleSheet("color: palette(placeholder-text); font-style: italic;")
         self.lbl_empty_queue.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -219,12 +221,12 @@ class BatchTab(QWidget):
         self.right_splitter.addWidget(queue_panel)
 
     def _build_console_panel(self) -> None:
-        """Construit le panneau inférieur affichant les logs, l'estimation et la barre de progression."""
+        """Builds the bottom panel displaying logs, estimate, and progress bar."""
         console_panel = RoundedPanel()
         console_layout = QVBoxLayout(console_panel)
         console_layout.setContentsMargins(15, 15, 15, 15)
 
-        lbl_console = QLabel("CONSOLE DE SUIVI")
+        lbl_console = QLabel(self.tr("MONITORING CONSOLE"))
         lbl_console.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
         console_layout.addWidget(lbl_console)
 
@@ -237,7 +239,7 @@ class BatchTab(QWidget):
         self.console_log.setFont(font)
         console_layout.addWidget(self.console_log)
 
-        self.lbl_estimate = QLabel("📊 Estimation : 0 tokens | 💰 Coût : Gratuit")
+        self.lbl_estimate = QLabel(self.tr("📊 Estimate: 0 tokens | 💰 Cost: Free"))
         self.lbl_estimate.setStyleSheet(
             "font-weight: bold; color: palette(highlight); font-size: 13px; margin-top: 10px; margin-bottom: 10px; padding: 10px; border: 1px dashed palette(highlight); border-radius: 6px;"
         )
@@ -245,9 +247,11 @@ class BatchTab(QWidget):
         console_layout.addWidget(self.lbl_estimate)
 
         self.lbl_disclaimer = QLabel(
-            "<i>* <b>Méthode de calcul</b> : 1 token ≈ 4 caractères. La génération génère environ 20% du volume lu. "
-            "Le découpage par 'Chevauchement' ajoute une majoration de 15%.<br>"
-            "⚠️ <b>Avertissement</b> : Ces valeurs sont purement estimatives. AnkiForge décline toute responsabilité quant aux coûts réels facturés par les fournisseurs d'API.</i>"
+            self.tr(
+                "<i>* <b>Calculation method</b> : 1 token ≈ 4 characters. Generation creates about 20% of original volume. "
+                "Overlap chunking adds a 15% surcharge.<br>"
+                "⚠️ <b>Warning</b> : These values are purely estimates. AnkiForge declines all responsibility for actual costs billed by API providers.</i>"
+            )
         )
         self.lbl_disclaimer.setStyleSheet("color: palette(placeholder-text); font-size: 10px;")
         self.lbl_disclaimer.setWordWrap(True)
@@ -265,16 +269,16 @@ class BatchTab(QWidget):
         """)
         bottom_layout.addWidget(self.progress_bar)
 
-        self.lbl_status = QLabel("Prêt.")
+        self.lbl_status = QLabel(self.tr("Ready."))
         self.lbl_status.setStyleSheet("color: palette(placeholder-text); font-size: 12px; margin-left: 10px; margin-right: 10px;")
         bottom_layout.addWidget(self.progress_bar)
         bottom_layout.addWidget(self.lbl_status)
 
-        self.btn_start = PrimaryButton(qta.icon("fa5s.rocket", color="white"), " Démarrer l'Usine")
+        self.btn_start = PrimaryButton(qta.icon("fa5s.rocket", color="white"), self.tr(" Start the Factory"))
         self.btn_start.setMinimumWidth(200)
         bottom_layout.addWidget(self.btn_start)
 
-        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler le traitement")
+        self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), self.tr(" Cancel processing"))
         self.btn_cancel.setMinimumWidth(200)
         self.btn_cancel.hide()
         bottom_layout.addWidget(self.btn_cancel)
@@ -283,13 +287,13 @@ class BatchTab(QWidget):
         self.right_splitter.addWidget(console_panel)
 
     def _connect_signals(self) -> None:
-        """Branche les signaux de l'interface aux slots associés."""
+        """Connects UI signals to associated slots."""
         self.btn_add_to_queue.clicked.connect(self.add_selected_to_queue)
         self.btn_start.clicked.connect(self.start_batch)
         self.btn_cancel.clicked.connect(self.cancel_batch)
 
     def _setup_shortcuts(self) -> None:
-        """Initialise les raccourcis clavier de la vue."""
+        """Initializes view keyboard shortcuts."""
         self.shortcut_start = QShortcut(QKeySequence("Ctrl+Return"), self)
         self.shortcut_start.activated.connect(self.start_batch)
 
@@ -298,7 +302,7 @@ class BatchTab(QWidget):
 
     @Slot()
     def refresh_data(self) -> None:
-        """Contrat MainWindow : Rafraîchit les listes et les dossiers."""
+        """MainWindow contract: Refreshes lists and folders."""
         self.default_deck.refresh_data()
         self.default_model.refresh_data()
         self.default_llm.refresh_data()
@@ -321,7 +325,7 @@ class BatchTab(QWidget):
                 doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": doc.title})
 
         orphan_docs = DocumentModel.select().where(DocumentModel.folder.is_null()).order_by(DocumentModel.title)
-        orphan_root = QTreeWidgetItem(self.tree_source, [" Non classés"])
+        orphan_root = QTreeWidgetItem(self.tree_source, [self.tr(" Unclassified")])
         orphan_root.setIcon(0, qta.icon("fa5s.box-open", color="#B0BEC5"))
         for doc in orphan_docs:
             doc_item = QTreeWidgetItem(orphan_root, [f" {doc.title}"])
@@ -363,21 +367,21 @@ class BatchTab(QWidget):
         item_doc.setData(Qt.ItemDataRole.UserRole, doc_id)
         self.table_queue.setItem(row_idx, 0, item_doc)
 
-        # 2. Paquet
+        # 2. Deck
         cb_deck = QComboBox()
         for i in range(self.default_deck.count()):
             cb_deck.addItem(self.default_deck.itemText(i), self.default_deck.itemData(i))
         cb_deck.setCurrentIndex(self.default_deck.currentIndex())
         self.table_queue.setCellWidget(row_idx, 1, cb_deck)
 
-        # 3. Modèle de carte
+        # 3. Card Model
         cb_model = QComboBox()
         for i in range(self.default_model.count()):
             cb_model.addItem(self.default_model.itemText(i), self.default_model.itemData(i))
         cb_model.setCurrentIndex(self.default_model.currentIndex())
         self.table_queue.setCellWidget(row_idx, 2, cb_model)
 
-        # 4. Moteur IA (NOUVEAU)
+        # 4. AI Engine
         cb_llm = QComboBox()
         for i in range(self.default_llm.count()):
             cb_llm.addItem(self.default_llm.itemText(i), self.default_llm.itemData(i))
@@ -391,14 +395,14 @@ class BatchTab(QWidget):
         cb_pipe.setCurrentIndex(self.default_pipeline.currentIndex())
         self.table_queue.setCellWidget(row_idx, 4, cb_pipe)
 
-        # 6. Découpage
+        # 6. Chunking
         cb_chunk = QComboBox()
         cb_chunk.addItems(self.chunk_strategies)
         cb_chunk.setCurrentIndex(self.default_chunking.currentIndex())
         self.table_queue.setCellWidget(row_idx, 5, cb_chunk)
 
-        # 7. Vision (NOUVEAU)
-        cb_vision = QCheckBox("Activer")
+        # 7. Vision
+        cb_vision = QCheckBox(self.tr("Enable"))
         cb_vision.setChecked(self.default_vision.isChecked())
         self.table_queue.setCellWidget(row_idx, 6, cb_vision)
 
@@ -429,7 +433,7 @@ class BatchTab(QWidget):
     def _check_ready_state(self) -> None:
         count = self.table_queue.rowCount()
         self.btn_start.setEnabled(count > 0)
-        self.lbl_status.setText(f"{count} document(s) dans la file d'attente.")
+        self.lbl_status.setText(self.tr("{0} document(s) in queue.").format(count))
         self.lbl_empty_queue.setVisible(count == 0)
         self.table_queue.setVisible(count > 0)
         self._update_estimates()
@@ -464,11 +468,11 @@ class BatchTab(QWidget):
             chunk_strategy = cb_chunk.currentText()
 
             if not deck_id or not model_id or not pipe_id or not llm_id:
-                logger.warning(f"Configuration incomplète à la ligne {row + 1} du tableau de batch.")
-                show_toast(self, f"Configuration incomplète à la ligne {row + 1}.", is_error=True)
+                logger.warning(f"Incomplete configuration at row {row + 1} of batch table.")
+                show_toast(self, self.tr("Incomplete configuration at row {0}.").format(row + 1), is_error=True)
                 return
 
-            # RÉCUPÉRATION DES DONNÉES SUR LE MAIN THREAD
+            # DATA RETRIEVAL ON MAIN THREAD
             doc = DocumentModel.get_by_id(doc_id)
             note_type = NoteTypeModel.get_by_id(model_id)
             pipeline = PipelineModel.get_by_id(pipe_id)
@@ -510,8 +514,8 @@ class BatchTab(QWidget):
         self.console_log.clear()
         self.progress_bar.setValue(0)
 
-        logger.info(f"Lancement de l'usine à cartes : {len(tasks_payloads)} document(s) à traiter.")
-        self.append_log(f"🚀 Lancement de l'Usine : {len(tasks_payloads)} document(s) à traiter.")
+        logger.info(f"Launching card factory: {len(tasks_payloads)} document(s) to process.")
+        self.append_log(self.tr("🚀 Launching the Factory: {0} document(s) to process.").format(len(tasks_payloads)))
 
         self.worker = BatchWorker(ai_provider=self.ai_manager.provider, tasks=tasks_payloads)
         self.worker.batch_data_ready.connect(self.save_extracted_notes_to_db)
@@ -526,20 +530,20 @@ class BatchTab(QWidget):
 
     @Slot()
     def cancel_batch(self) -> None:
-        """Demande l'arrêt propre du worker."""
+        """Requests a clean stop of the worker."""
         if self.worker is not None and self.worker.isRunning():
             self.worker.cancel()
             self.btn_cancel.setEnabled(False)
-            self.btn_cancel.setText(" Arrêt en cours...")
-            logger.info("Demande d'annulation du traitement par lots reçue.")
-            self.lbl_status.setText("Annulation demandée, attente de l'arrêt...")
-            self.append_log("⏳ Demande d'arrêt envoyée. Attente de la fin du cycle en cours...")
+            self.btn_cancel.setText(self.tr(" Stopping..."))
+            logger.info("Batch processing cancellation request received.")
+            self.lbl_status.setText(self.tr("Cancellation requested, waiting for stop..."))
+            self.append_log(self.tr("⏳ Stop request sent. Waiting for current cycle to finish..."))
 
     @Slot(list, int, int)
     def save_extracted_notes_to_db(self, notes_data: list[dict[str, Any]], deck_id: int, model_id: int) -> None:
         """
-        Sauvegarde les notes extraites par le BatchWorker dans la base de données.
-        S'exécute sur le thread principal pour garantir la thread-safety de Peewee.
+        Saves notes extracted by BatchWorker to the database.
+        Runs on main thread to guarantee Peewee thread-safety.
         """
         try:
             deck = DeckModel.get_by_id(deck_id)
@@ -572,37 +576,37 @@ class BatchTab(QWidget):
                         for idx, _ in enumerate(templates):
                             CardModel.create(note=note, deck=deck, template_index=idx)
 
-            logger.info(f"Sauvegarde thread-safe de {len(notes_data)} notes réussie.")
+            logger.info(f"Thread-safe saving of {len(notes_data)} notes successful.")
         except Exception as e:
-            logger.exception("Erreur lors de la sauvegarde des notes en thread-safe :")
-            self.append_log(f"❌ ERREUR CRITIQUE SAUVEGARDE : {str(e)}")
+            logger.exception("Error while saving notes thread-safely")
+            self.append_log(self.tr("❌ CRITICAL SAVE ERROR: {0}").format(str(e)))
 
     @Slot(int, int)
     def on_batch_finished(self, success_count: int, error_count: int) -> None:
         self._unlock_ui()
-        self.lbl_status.setText("Terminé.")
-        msg = f"Traitement de la file d'attente terminé.\n\n✅ Documents réussis : {success_count}\n❌ Documents échoués : {error_count}"
+        self.lbl_status.setText(self.tr("Done."))
+        msg = self.tr("Queue processing finished.\n\n✅ Successful documents: {0}\n❌ Failed documents: {1}").format(success_count, error_count)
         self.append_log(f"\n{'=' * 40}\n{msg}")
-        (show_toast(self, "Traitement par lots terminé !"))
+        (show_toast(self, self.tr("Batch processing finished!")))
 
     @Slot(str)
     def on_batch_error(self, error_msg: str) -> None:
         self._unlock_ui()
-        self.lbl_status.setText("Erreur fatale.")
-        QMessageBox.critical(self, "Erreur Fatale", error_msg)
+        self.lbl_status.setText(self.tr("Fatal error."))
+        QMessageBox.critical(self, self.tr("Fatal Error"), error_msg)
 
     @Slot()
     def on_batch_cancelled(self) -> None:
-        """Gère l'interface une fois le worker effectivement arrêté."""
+        """Handles the UI once the worker has actually stopped."""
         self._unlock_ui()
-        logger.info("Traitement par lots annulé proprement.")
-        self.lbl_status.setText("Traitement annulé.")
-        show_toast(self, "L'opération a été annulée proprement.", is_error=True)
+        logger.info("Batch processing cancelled properly.")
+        self.lbl_status.setText(self.tr("Processing cancelled."))
+        show_toast(self, self.tr("Operation was cancelled properly."), is_error=True)
 
     def _unlock_ui(self) -> None:
-        """Restaure l'interface."""
+        """Restores the UI."""
         self.btn_cancel.hide()
-        self.btn_cancel.setText(" Annuler le traitement")
+        self.btn_cancel.setText(self.tr(" Cancel processing"))
         self.btn_start.show()
         self.btn_start.setEnabled(True)
         self.btn_add_to_queue.setEnabled(True)
@@ -610,14 +614,14 @@ class BatchTab(QWidget):
 
     @Slot()
     def _remove_selected_from_table(self) -> None:
-        """Supprime la ligne actuellement sélectionnée dans la table de file d'attente."""
+        """Removes the currently selected row from the queue table."""
         current_row = self.table_queue.currentRow()
         if current_row != -1:
             self._remove_row(current_row)
 
     @Slot()
     def _update_estimates(self) -> None:
-        """Calcule une estimation du nombre de tokens et du coût pour la file d'attente."""
+        """Calculates token and cost estimates for the queue."""
         total_tokens = 0
         total_cost = 0.0
 
@@ -663,15 +667,16 @@ class BatchTab(QWidget):
             except (AttributeError, TypeError, ValueError, Exception):
                 continue
 
-        # Mise à jour visuelle
+        # Visual update
         if total_tokens == 0:
-            self.lbl_estimate.setText("📊 Estimation : 0 tokens | 💰 Coût : Gratuit")
+            self.lbl_estimate.setText(self.tr("📊 Estimate: 0 tokens | 💰 Cost: Free"))
             self.lbl_estimate.setStyleSheet(
                 "font-weight: bold; color: palette(placeholder-text); font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed palette(alternate-base); border-radius: 6px;"
             )
         elif total_cost > 0.001:
-            self.lbl_estimate.setText(f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût API : ~${total_cost:.3f}".replace(",", " "))
+            self.lbl_estimate.setText(self.tr("📊 Estimate: ~{0} tokens | 💰 API Cost: ~${1:.3f}").format(total_tokens, total_cost).replace(",", " "))
             self.lbl_estimate.setStyleSheet("font-weight: bold; color: #FF9800; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #FF9800; border-radius: 6px;")
         else:
-            self.lbl_estimate.setText(f"📊 Estimation : ~{total_tokens:,} tokens | 💰 Coût : Gratuit (Local / Free API)".replace(",", " "))
+            cost_str = self.tr("Free (Local / Free API)")
+            self.lbl_estimate.setText(self.tr("📊 Estimate: ~{0} tokens | 💰 Cost: {1}").format(total_tokens, cost_str).replace(",", " "))
             self.lbl_estimate.setStyleSheet("font-weight: bold; color: #4CAF50; font-size: 13px; margin-top: 10px; margin-bottom: 5px; padding: 10px; border: 1px dashed #4CAF50; border-radius: 6px;")

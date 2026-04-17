@@ -29,15 +29,15 @@ logger = logging.getLogger(__name__)
 
 class EditionTab(QWidget):
     """
-    Navigateur principal de l'application permettant de visualiser, éditer,
-    filtrer, taguer et exporter les notes et cartes Anki.
-    Orchestre les widgets FilterSidebar, NoteTableWidget et NoteEditorWidget.
+    Main application navigator allowing to visualize, edit,
+    filter, tag and export Anki notes and cards.
+    Orchestrates the FilterSidebar, NoteTableWidget and NoteEditorWidget widgets.
     """
 
     def __init__(self) -> None:
         super().__init__()
 
-        # État interne et asynchrone
+        # Internal and asynchronous state
         self.batch_thread: BatchEditWorker | None = None
         self.import_thread: ImportCardsWorker | None = None
         self.progress_dialog: QProgressDialog | None = None
@@ -52,7 +52,7 @@ class EditionTab(QWidget):
         self.refresh_data()
 
     def _setup_ui(self) -> None:
-        """Construit et organise les layouts et widgets de la vue d'édition."""
+        """Builds and organizes layouts and widgets for the edition view."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(20)
@@ -62,19 +62,19 @@ class EditionTab(QWidget):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setHandleWidth(10)
 
-        # 1. Barre latérale de filtrage
+        # 1. Filter sidebar
         self.filter_sidebar = FilterSidebar()
         self.main_splitter.addWidget(self.filter_sidebar)
 
-        # Zone de droite (Tableau + Éditeur)
+        # Right zone (Table + Editor)
         self.right_splitter = QSplitter(Qt.Orientation.Vertical)
         self.right_splitter.setHandleWidth(10)
 
-        # 2. Tableau des notes
+        # 2. Notes table
         self.note_table = NoteTableWidget()
         self.right_splitter.addWidget(self.note_table)
 
-        # 3. Éditeur de note
+        # 3. Note editor
         self.note_editor = NoteEditorWidget()
         self.right_splitter.addWidget(self.note_editor)
 
@@ -85,13 +85,13 @@ class EditionTab(QWidget):
         self.main_layout.addWidget(self.main_splitter)
 
     def _build_header(self) -> None:
-        """Construit l'en-tête de la vue."""
+        """Builds the view header."""
         header_layout = QHBoxLayout()
-        header_layout.addWidget(HeaderLabel("Navigateur de Cartes & Notes"))
+        header_layout.addWidget(HeaderLabel(self.tr("Cards & Notes Navigator")))
         header_layout.addStretch()
 
-        self.btn_load_col = ActionButton("fa5s.folder-open", " Importer un paquet")
-        self.btn_export = PrimaryButton(qtawesome.icon("fa5s.box", color="white"), " Exporter vers Anki")
+        self.btn_load_col = ActionButton("fa5s.folder-open", self.tr(" Import a deck"))
+        self.btn_export = PrimaryButton(qtawesome.icon("fa5s.box", color="white"), self.tr(" Export to Anki"))
         self.btn_export.setEnabled(False)
 
         header_layout.addWidget(self.btn_load_col)
@@ -99,8 +99,8 @@ class EditionTab(QWidget):
         self.main_layout.addLayout(header_layout)
 
     def _connect_signals(self) -> None:
-        """Centralise le branchement des signaux des composants."""
-        # En-tête
+        """Centralizes component signal connections."""
+        # Header
         self.btn_load_col.clicked.connect(self.load_cards)
         self.btn_export.clicked.connect(self.export_selected_deck)
 
@@ -125,7 +125,7 @@ class EditionTab(QWidget):
 
     @Slot()
     def refresh_data(self) -> None:
-        """Rafraîchit l'intégralité des données de la vue."""
+        """Refreshes all view data."""
         self.filter_sidebar.refresh_decks()
         self.refresh_tags()
         if self.current_deck_id:
@@ -133,7 +133,8 @@ class EditionTab(QWidget):
 
     def refresh_tags(self) -> None:
         mode = self.note_table.view_mode_cb.currentText()
-        is_quarantine = mode == "Vue : Quarantaine (À valider)"
+        # Comparison with translated mode name
+        is_quarantine = mode == self.tr("View: Quarantine (To validate)")
         self.filter_sidebar.refresh_tags(self.current_deck_id, is_quarantine)
 
     @Slot(int)
@@ -141,8 +142,8 @@ class EditionTab(QWidget):
         if self.note_editor.is_creating:
             reply = QMessageBox.question(
                 self,
-                "Création en cours",
-                "Changer de paquet annulera la création en cours. Continuer ?",
+                self.tr("Creation in progress"),
+                self.tr("Changing deck will cancel the current creation. Continue?"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
@@ -170,8 +171,8 @@ class EditionTab(QWidget):
     @Slot(int)
     def on_note_selected(self, note_id: int) -> None:
         if self.note_editor.is_creating:
-            # Si on sélectionne une ligne pendant la création, on demande confirmation
-            # (Logique simplifiée ici, NoteEditorWidget pourrait aussi gérer son propre état bloquant)
+            # If a row is selected during creation, we should ask for confirmation
+            # (Simplified logic here, NoteEditorWidget could also handle its own blocking state)
             pass
         self.note_editor.load_note(note_id)
 
@@ -190,8 +191,8 @@ class EditionTab(QWidget):
                 self.jump_to_note(select_note_id, deck_id_local)
 
     def jump_to_note(self, note_id: int, deck_id: int) -> None:
-        """Sélectionne le paquet, puis trouve et sélectionne la carte dans le tableau."""
-        # On délègue la partie sélection de deck à la sidebar
+        """Selects the deck, then finds and selects the card in the table."""
+        # Delegate deck selection to sidebar
         from PySide6.QtWidgets import QTreeWidgetItemIterator
 
         iterator = QTreeWidgetItemIterator(self.filter_sidebar.deck_tree)
@@ -203,7 +204,7 @@ class EditionTab(QWidget):
                 break
             iterator += 1
 
-        # Puis on cherche dans la table
+        # Then search in table
         table = self.note_table.data_table
         for row in range(table.rowCount()):
             item = table.item(row, 0)
@@ -214,10 +215,10 @@ class EditionTab(QWidget):
 
     @Slot()
     def load_cards(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Ouvrir document", "", "Documents Anki (*.colpkg *.txt *.apkg)")
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("Open document"), "", self.tr("Anki Documents (*.colpkg *.txt *.apkg)"))
         if path:
             self.btn_load_col.setEnabled(False)
-            self.progress_dialog = QProgressDialog("Importation en cours...", "Annuler", 0, 0, self)
+            self.progress_dialog = QProgressDialog(self.tr("Importing..."), self.tr("Cancel"), 0, 0, self)
             self.progress_dialog.show()
 
             self.import_thread = ImportCardsWorker(self.store, path)
@@ -229,14 +230,14 @@ class EditionTab(QWidget):
     def _on_import_success(self) -> None:
         if self.progress_dialog:
             self.progress_dialog.close()
-        show_toast(self, "Paquet importé avec succès !")
+        show_toast(self, self.tr("Deck imported successfully!"))
         self.refresh_data()
         self.btn_load_col.setEnabled(True)
 
     def _on_import_error(self, error_msg: str) -> None:
         if self.progress_dialog:
             self.progress_dialog.close()
-        QMessageBox.critical(self, "Erreur d'importation", error_msg)
+        QMessageBox.critical(self, self.tr("Import Error"), error_msg)
         self.btn_load_col.setEnabled(True)
 
     @Slot()
@@ -246,47 +247,50 @@ class EditionTab(QWidget):
         deck = DeckModel.get_by_id(self.current_deck_id)
 
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Exportation")
-        msg_box.setText(f"Exporter le paquet '{deck.name}' ?")
-        btn_new = msg_box.addButton("🚀 Nouvelles cartes", QMessageBox.ButtonRole.AcceptRole)
-        _ = msg_box.addButton("📦 Tout le paquet", QMessageBox.ButtonRole.RejectRole)
-        msg_box.addButton("Annuler", QMessageBox.ButtonRole.DestructiveRole)
+        msg_box.setWindowTitle(self.tr("Export"))
+        msg_box.setText(self.tr("Export deck '{0}'?").format(deck.name))
+        btn_new = msg_box.addButton(self.tr("🚀 New cards"), QMessageBox.ButtonRole.AcceptRole)
+        _ = msg_box.addButton(self.tr("📦 Whole deck"), QMessageBox.ButtonRole.RejectRole)
+        msg_box.addButton(self.tr("Cancel"), QMessageBox.ButtonRole.DestructiveRole)
         msg_box.exec()
 
-        if msg_box.clickedButton().text() == "Annuler":
+        if msg_box.clickedButton().text() == self.tr("Cancel"):
             return
         export_only_new = msg_box.clickedButton() == btn_new
 
-        path, _ = QFileDialog.getSaveFileName(self, "Exporter", f"{deck.name}.apkg", "Anki Deck (*.apkg)")
+        path, _ = QFileDialog.getSaveFileName(self, self.tr("Export"), self.tr("{0}.apkg").format(deck.name), self.tr("Anki Deck (*.apkg)"))
         if path:
             try:
                 ExportManager().export_deck(self.current_deck_id, path, export_only_new=export_only_new)
-                show_toast(self, "Exportation terminée !")
+                show_toast(self, self.tr("Export finished!"))
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", str(e))
+                logger.exception("Error during deck export")
+                QMessageBox.critical(self, self.tr("Error"), str(e))
 
     @Slot(list)
     def approve_selected_notes(self, note_ids: list[int]) -> None:
         try:
             with db.atomic():
                 NoteModel.update(status="new").where(NoteModel.id.in_(note_ids)).execute()
-            show_toast(self, f"{len(note_ids)} notes approuvées !")
+            show_toast(self, self.tr("{0} notes approved!").format(len(note_ids)))
             self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", str(e))
+            logger.exception("Error while approving notes")
+            QMessageBox.critical(self, self.tr("Error"), str(e))
 
     @Slot(list)
     def reject_selected_notes(self, note_ids: list[int]) -> None:
-        reply = QMessageBox.question(self, "Confirmation", f"Supprimer définitivement {len(note_ids)} notes ?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(self, self.tr("Confirmation"), self.tr("Permanently delete {0} notes?").format(len(note_ids)), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 with db.atomic():
                     NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()
-                show_toast(self, "Notes supprimées.")
+                show_toast(self, self.tr("Notes deleted."))
                 self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
                 self.note_editor._clear_editor()
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", str(e))
+                logger.exception("Error while deleting notes")
+                QMessageBox.critical(self, self.tr("Error"), str(e))
 
     @Slot()
     def scan_for_duplicates(self) -> None:
@@ -295,12 +299,13 @@ class EditionTab(QWidget):
         try:
             conflicts = DuplicateManager.find_duplicates(self.current_deck_id)
             if not conflicts:
-                show_toast(self, "Aucun doublon trouvé !")
+                show_toast(self, self.tr("No duplicates found!"))
             else:
                 DuplicateResolverDialog(conflicts, self).exec()
                 self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", str(e))
+            logger.exception("Error while scanning for duplicates")
+            QMessageBox.critical(self, self.tr("Error"), str(e))
 
     @Slot(int)
     def show_version_history(self, note_id: int) -> None:
@@ -317,7 +322,7 @@ class EditionTab(QWidget):
             llm_config = LLMConfigModel.get_by_id(data["llm_id"])
             provider = AIManager.create_provider_from_config(llm_config)
 
-            self.progress_dialog = QProgressDialog("Modification IA...", "Annuler", 0, 0, self)
+            self.progress_dialog = QProgressDialog(self.tr("AI Modification..."), self.tr("Cancel"), 0, 0, self)
             self.batch_thread = BatchEditWorker(provider, note_ids, data["prompt"], data["chunk_size"])
             self.batch_thread.progress.connect(self.progress_dialog.setLabelText)
             self.batch_thread.finished_signal.connect(self._on_batch_edit_success)
@@ -329,17 +334,17 @@ class EditionTab(QWidget):
     def _on_batch_edit_success(self, count: int):
         if self.progress_dialog:
             self.progress_dialog.close()
-        show_toast(self, f"{count} notes traitées !")
+        show_toast(self, self.tr("{0} notes processed!").format(count))
         self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
 
     def _on_batch_edit_error(self, msg: str):
         if self.progress_dialog:
             self.progress_dialog.close()
-        QMessageBox.critical(self, "Erreur IA", msg)
+        QMessageBox.critical(self, self.tr("AI Error"), msg)
 
     @Slot(list)
     def open_auto_tag_dialog(self, note_ids: list[int]) -> None:
         if AutoTagDialog(self, note_ids).exec():
-            show_toast(self, "Auto-Tagging terminé !")
+            show_toast(self, self.tr("Auto-Tagging finished!"))
             self.refresh_tags()
             self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
