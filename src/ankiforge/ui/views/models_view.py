@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import cast
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer
@@ -18,12 +19,14 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QMessageBox,
     QFrame,
+    QPushButton,
 )
 
 from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.ui.widgets.highlighters import AnkiHtmlHighlighter, CssHighlighter
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -85,8 +88,8 @@ class ModelsTab(QWidget):
 
     def _build_left_panel(self) -> None:
         """Construit le panneau listant les modèles disponibles."""
-        list_panel = RoundedPanel()
-        list_layout = QVBoxLayout(list_panel)
+        self.left_panel_widget = RoundedPanel()
+        list_layout = QVBoxLayout(self.left_panel_widget)
         list_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_list = QLabel("MODÈLES DISPONIBLES")
@@ -98,7 +101,7 @@ class ModelsTab(QWidget):
         self.models_list.setStyleSheet("background: transparent;")
 
         list_layout.addWidget(self.models_list)
-        self.main_splitter.addWidget(list_panel)
+        self.main_splitter.addWidget(self.left_panel_widget)
 
     def _build_right_panel(self) -> None:
         """Construit le panneau principal d'édition scindé verticalement."""
@@ -119,8 +122,8 @@ class ModelsTab(QWidget):
 
     def _build_global_config_panel(self) -> None:
         """Construit la zone d'édition des champs de données et du CSS global."""
-        meta_panel = RoundedPanel()
-        meta_layout = QVBoxLayout(meta_panel)
+        self.meta_panel_widget = RoundedPanel()
+        meta_layout = QVBoxLayout(self.meta_panel_widget)
         meta_layout.setContentsMargins(15, 15, 15, 15)
 
         lbl_meta = QLabel("CONFIGURATION GLOBALE")
@@ -141,6 +144,7 @@ class ModelsTab(QWidget):
 
         self.css_editor = QTextEdit()
         self.css_editor.setStyleSheet("font-family: monospace;")
+        self.css_highlighter = CssHighlighter(self.css_editor.document())
         meta_layout.addWidget(self.css_editor)
 
         meta_actions = QHBoxLayout()
@@ -156,7 +160,7 @@ class ModelsTab(QWidget):
         meta_actions.addWidget(self.btn_save_model)
         meta_layout.addLayout(meta_actions)
 
-        self.right_splitter.addWidget(meta_panel)
+        self.right_splitter.addWidget(self.meta_panel_widget)
 
     def _build_card_editor_panel(self) -> None:
         """Construit la zone de modification des templates HTML et l'aperçu WebEngine."""
@@ -187,6 +191,11 @@ class ModelsTab(QWidget):
         cards_toolbar.addWidget(self.btn_del_card)
         cards_toolbar.addStretch()
 
+        self.btn_focus_mode = ActionButton("fa5s.expand", " Mode Focus")
+        self.btn_focus_mode.setToolTip("Basculer vers l'éditeur plein écran")
+        self.btn_focus_mode.clicked.connect(self.toggle_focus_mode)
+        cards_toolbar.addWidget(self.btn_focus_mode)
+
         lbl_side = QLabel("PRÉVISUALISATION :")
         lbl_side.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; letter-spacing: 1px;")
         cards_toolbar.addWidget(lbl_side)
@@ -198,6 +207,27 @@ class ModelsTab(QWidget):
         cards_toolbar.addWidget(self.side_selector)
 
         cards_layout.addLayout(cards_toolbar)
+
+        # Barre de snippets
+        snippets_layout = QHBoxLayout()
+        snippets_layout.setSpacing(5)
+
+        snippets = [
+            ("{{Champ}}", "{{Champ}}"),
+            ("{{FrontSide}}", "{{FrontSide}}"),
+            ("{{cloze:Champ}}", "{{cloze:Champ}}"),
+            ("<hr id=answer>", "<hr id=answer>"),
+        ]
+
+        for label, text in snippets:
+            btn = QPushButton(label)
+            btn.setFlat(True)
+            btn.setStyleSheet("font-size: 10px; padding: 2px 5px; border: 1px solid palette(alternate-base); border-radius: 3px;")
+            btn.clicked.connect(lambda _, t=text: self.insert_snippet(t))
+            snippets_layout.addWidget(btn)
+
+        snippets_layout.addStretch()
+        cards_layout.addLayout(snippets_layout)
 
         # Splitter HTML vs Preview
         html_preview_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -213,6 +243,7 @@ class ModelsTab(QWidget):
 
         self.qfmt_editor = QTextEdit()
         self.qfmt_editor.setStyleSheet("font-family: monospace;")
+        self.qfmt_highlighter = AnkiHtmlHighlighter(self.qfmt_editor.document())
         editors_layout.addWidget(self.qfmt_editor)
 
         lbl_afmt = QLabel("HTML DU VERSO :")
@@ -221,6 +252,7 @@ class ModelsTab(QWidget):
 
         self.afmt_editor = QTextEdit()
         self.afmt_editor.setStyleSheet("font-family: monospace;")
+        self.afmt_highlighter = AnkiHtmlHighlighter(self.afmt_editor.document())
         editors_layout.addWidget(self.afmt_editor)
 
         self.web_view = QWebEngineView()
@@ -587,6 +619,37 @@ class ModelsTab(QWidget):
             self.current_templates[idx]["name"] = new_name.strip()
             self.card_selector.setItemText(idx, new_name.strip())
             self._enable_save()
+
+    @Slot()
+    def toggle_focus_mode(self) -> None:
+        """Bascule entre le mode normal et le mode focus (plein écran)."""
+        is_focused = not self.left_panel_widget.isVisible()
+
+        if is_focused:
+            # Revenir au mode normal
+            self.left_panel_widget.setVisible(True)
+            self.meta_panel_widget.setVisible(True)
+            self.btn_focus_mode.setText(" Mode Focus")
+            self.btn_focus_mode.setIcon(qta.icon("fa5s.expand"))
+        else:
+            # Passer en mode focus
+            self.left_panel_widget.setVisible(False)
+            self.meta_panel_widget.setVisible(False)
+            self.btn_focus_mode.setText(" Quitter Focus")
+            self.btn_focus_mode.setIcon(qta.icon("fa5s.compress"))
+
+    def insert_snippet(self, text: str) -> None:
+        """Insère un snippet de code dans l'éditeur qui a le focus."""
+        focused_widget = self.focusWidget()
+        # On vérifie si c'est un de nos éditeurs HTML
+        if focused_widget in [self.qfmt_editor, self.afmt_editor]:
+            cast(QTextEdit, focused_widget).textCursor().insertText(text)
+        else:
+            # Par défaut, on insère dans celui qui est probablement en cours d'usage si aucun n'a le focus direct
+            is_recto = self.side_selector.currentIndex() == 0
+            editor = self.qfmt_editor if is_recto else self.afmt_editor
+            editor.textCursor().insertText(text)
+            editor.setFocus()
 
     @Slot()
     def sync_editor_to_template(self) -> None:
