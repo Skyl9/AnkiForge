@@ -22,22 +22,22 @@ class AbWorker(QThread):
     error_signal = Signal(str)
     cancelled = Signal()
 
-    def __init__(self, provider_a: Any, provider_b: Any, prompt_a: str, prompt_b: str, source_text: str):
+    def __init__(self, provider_a: Any, provider_b: Any, prompts_a: list[str], prompts_b: list[str], source_text: str):
         """
         Initialise le worker de test A/B.
 
         Args:
             provider_a (Any): Fournisseur IA pour le sujet A.
             provider_b (Any): Fournisseur IA pour le sujet B.
-            prompt_a (str): Prompt système pour le sujet A.
-            prompt_b (str): Prompt système pour le sujet B.
-            source_text (str): Le texte utilisateur commun aux deux tests.
+            prompts_a (list[str]): Liste des prompts système (1 prompt = Agent, >1 = Pipeline) pour A.
+            prompts_b (list[str]): Liste des prompts système pour B.
+            source_text (str): Le texte utilisateur initial.
         """
         super().__init__()
         self.provider_a = provider_a
         self.provider_b = provider_b
-        self.prompt_a = prompt_a
-        self.prompt_b = prompt_b
+        self.prompts_a = prompts_a
+        self.prompts_b = prompts_b
         self.source_text = source_text
         self._is_cancelled = False
 
@@ -45,26 +45,40 @@ class AbWorker(QThread):
         """Demande l'arrêt prématuré du test."""
         self._is_cancelled = True
 
+    def _execute_chain(self, provider: Any, prompts: list[str], prefix: str) -> str:
+        """Exécute la chaîne d'agents en passant le résultat au suivant."""
+        current_input = f"TEXTE SOURCE :\n{self.source_text}"
+        res = ""
+        total = len(prompts)
+
+        for i, prompt in enumerate(prompts):
+            if self._is_cancelled:
+                return ""
+
+            if total > 1:
+                self.progress.emit(f"{prefix} - Étape {i + 1}/{total}...")
+            else:
+                self.progress.emit(f"{prefix} en cours de génération...")
+
+            res = provider.generate(system_prompt=prompt, user_prompt=current_input)
+            current_input = res  # L'entrée du prochain agent est le résultat de l'actuel
+
+        return res
+
     def run(self):
         """Exécute les deux générations séquentiellement et émet les résultats."""
         try:
-            user_input = f"TEXTE SOURCE :\n{self.source_text}"
-
             if self._is_cancelled:
                 self.cancelled.emit()
                 return
 
-            self.progress.emit("⏳ Sujet A en cours de génération...")
-            res_a = self.provider_a.generate(system_prompt=self.prompt_a, user_prompt=user_input)
-
+            res_a = self._execute_chain(self.provider_a, self.prompts_a, "⏳ Sujet A")
             if self._is_cancelled:
                 self.cancelled.emit()
                 return
             self.result_a.emit(res_a)
 
-            self.progress.emit("⏳ Sujet B en cours de génération...")
-            res_b = self.provider_b.generate(system_prompt=self.prompt_b, user_prompt=user_input)
-
+            res_b = self._execute_chain(self.provider_b, self.prompts_b, "⏳ Sujet B")
             if self._is_cancelled:
                 self.cancelled.emit()
                 return

@@ -1,20 +1,14 @@
 import json
 import re
+
+from PySide6.QtCore import QCoreApplication, QTimer
 from jinja2 import Template
 
 from ankiforge.database.models import TokenUsageModel, LLMConfigModel
 
 
-def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
-    """
-    Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
-
-    Args:
-        provider (str): Nom du fournisseur d'IA (ex: 'openai', 'gemini').
-        model_id (str): Identifiant du modèle utilisé.
-        prompt_tokens (int): Nombre de jetons envoyés en entrée.
-        completion_tokens (int): Nombre de jetons générés en sortie.
-    """
+def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
+    """Fonction interne qui écrit réellement dans la BDD (strictement sur le Main Thread)."""
     cost = 0.0
 
     # On cherche la config du modèle pour obtenir les tarifs dynamiques
@@ -30,6 +24,25 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
         total_tokens=prompt_tokens + completion_tokens,
         estimated_cost_usd=cost,
     )
+
+
+def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
+    """
+    Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
+
+    Args:
+        provider (str): Nom du fournisseur d'IA (ex: 'openai', 'gemini').
+        model_id (str): Identifiant du modèle utilisé.
+        prompt_tokens (int): Nombre de jetons envoyés en entrée.
+        completion_tokens (int): Nombre de jetons générés en sortie.
+    """
+    app = QCoreApplication.instance()
+    if app:
+        # Téléportation vers l'Event Loop du thread principal de l'UI
+        QTimer.singleShot(0, app, lambda: _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens))
+    else:
+        # Fallback si pas d'interface graphique (ex: pendant les tests unitaires via pytest)
+        _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens)
 
 
 def parse_ai_json_response(response_text: str):

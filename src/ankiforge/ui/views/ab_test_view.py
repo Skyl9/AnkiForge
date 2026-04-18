@@ -2,7 +2,6 @@ import json
 import logging
 
 import qtawesome as qta
-from jinja2 import Template
 from PySide6.QtCore import Qt, QUrl, Slot
 from PySide6.QtWidgets import (
     QComboBox,
@@ -16,46 +15,48 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import AgentModel, LLMConfigModel, NoteTypeModel
+from ankiforge.database.models import AgentModel, LLMConfigModel, NoteTypeModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.utils import parse_ai_json_response, format_system_prompt
+from ankiforge.services.ai.utils import format_system_prompt, parse_ai_json_response
 from ankiforge.services.workers.ab_worker import AbWorker
-from ankiforge.ui.components.components import DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, DangerButton, DBComboBox, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
 from ankiforge.utils.paths import get_app_data_dir
-from ankiforge.ui.components.components import DBComboBox
 
 logger = logging.getLogger(__name__)
 
 
 class ABTestTab(QWidget):
     """
-    Laboratoire A/B permettant de comparer deux moteurs IA ou deux invites (prompts).
-    Affiche les résultats générés côte à côte avec un rendu HTML et le JSON brut.
+    Laboratoire A/B permettant de comparer deux moteurs IA ou deux invites (prompts/pipelines).
+    Affiche les cartes générées avec une navigation par pagination.
     """
 
     def __init__(self) -> None:
-        """Initialise l'onglet de test A/B et ses variables d'état."""
         super().__init__()
 
-        # État interne
+        # État interne pour la pagination
         self.thread: AbWorker | None = None
-        self.agent_list: list[tuple[str, int]] = []
+        self.action_list: list[tuple[str, str]] = []
         self.llm_list: list[tuple[str, int]] = []
+
         self.last_res_a = ""
+        self.notes_a: list[dict] = []
+        self.idx_a = 0
+
         self.last_res_b = ""
+        self.notes_b: list[dict] = []
+        self.idx_b = 0
 
         self._setup_ui()
         self._connect_signals()
 
-        # Chargement initial
         self.refresh_data()
 
     def _setup_ui(self) -> None:
-        """Construit et organise les layouts et widgets principaux."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
@@ -67,19 +68,17 @@ class ABTestTab(QWidget):
         self._build_controls_panel()
 
     def _build_header(self) -> None:
-        """Construit l'en-tête de l'onglet."""
         header_layout = QHBoxLayout()
         header_layout.addWidget(HeaderLabel("Laboratoire A/B (Prompt Engineering)"))
         self.main_layout.addLayout(header_layout)
 
     def _build_mode_panel(self) -> None:
-        """Construit le panneau de configuration globale (Mode, Modèle, Cible)."""
         mode_panel = RoundedPanel()
         mode_layout = QHBoxLayout(mode_panel)
 
         mode_layout.addWidget(QLabel("<b>Mode :</b>"))
         self.cb_mode = QComboBox()
-        self.cb_mode.addItems(["Comparer deux Moteurs IA", "Comparer deux Prompts"])
+        self.cb_mode.addItems(["Comparer deux Moteurs IA", "Comparer deux Prompts / Pipelines"])
         mode_layout.addWidget(self.cb_mode, stretch=1)
 
         self.lbl_global_config = QLabel("<b>Global :</b>")
@@ -106,7 +105,6 @@ class ABTestTab(QWidget):
         self.main_layout.addWidget(mode_panel)
 
     def _build_source_panel(self) -> None:
-        """Construit la zone de saisie du texte source."""
         source_layout = QVBoxLayout()
         source_layout.addWidget(QLabel("<b>Texte Source :</b>"))
         self.text_source = QTextEdit()
@@ -115,17 +113,7 @@ class ABTestTab(QWidget):
         source_layout.addWidget(self.text_source)
         self.main_layout.addLayout(source_layout)
 
-    def _create_arena_side(self, title_label: QLabel, cb_config: QComboBox) -> tuple[RoundedPanel, SafeWebEngineView, QTextEdit]:
-        """
-        Utilitaire pour instancier un panneau d'arène (A ou B).
-
-        Args:
-            title_label (QLabel): Le label de titre pour ce côté.
-            cb_config (QComboBox): La liste déroulante de configuration.
-
-        Returns:
-            tuple: Le panneau conteneur, la vue web, et l'éditeur de texte brut.
-        """
+    def _create_arena_side(self, title_label: QLabel, cb_config: QComboBox):
         panel = RoundedPanel()
         p_layout = QVBoxLayout(panel)
         p_layout.setContentsMargins(10, 10, 10, 10)
@@ -138,9 +126,32 @@ class ABTestTab(QWidget):
         tabs = QTabWidget()
         tabs.setStyleSheet("QTabBar::tab { padding: 8px 15px; }")
 
-        web_view = SafeWebEngineView()
-        tabs.addTab(web_view, qta.icon("fa5s.eye"), "Rendu Carte")
+        # --- Onglet Rendu avec Pagination ---
+        render_tab = QWidget()
+        render_layout = QVBoxLayout(render_tab)
+        render_layout.setContentsMargins(0, 5, 0, 0)
 
+        nav_layout = QHBoxLayout()
+        btn_prev = ActionButton("fa5s.chevron-left", "")
+        btn_prev.setEnabled(False)
+        lbl_counter = QLabel("0 / 0")
+        lbl_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_counter.setStyleSheet("font-weight: bold; color: palette(placeholder-text);")
+        btn_next = ActionButton("fa5s.chevron-right", "")
+        btn_next.setEnabled(False)
+
+        nav_layout.addWidget(btn_prev)
+        nav_layout.addWidget(lbl_counter, stretch=1)
+        nav_layout.addWidget(btn_next)
+
+        web_view = SafeWebEngineView()
+
+        render_layout.addLayout(nav_layout)
+        render_layout.addWidget(web_view)
+
+        tabs.addTab(render_tab, qta.icon("fa5s.eye"), "Rendu Cartes")
+
+        # --- Onglet JSON Brut ---
         raw_text = QTextEdit()
         raw_text.setReadOnly(True)
         raw_text.setFrameShape(QFrame.Shape.NoFrame)
@@ -148,28 +159,26 @@ class ABTestTab(QWidget):
         tabs.addTab(raw_text, qta.icon("fa5s.code"), "JSON Brut")
 
         p_layout.addWidget(tabs)
-        return panel, web_view, raw_text
+        return panel, web_view, raw_text, btn_prev, btn_next, lbl_counter
 
     def _build_arena_panel(self) -> None:
-        """Construit la vue splittée comparant les environnements A et B."""
         self.arena_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.arena_splitter.setHandleWidth(10)
         self.arena_splitter.setChildrenCollapsible(False)
 
         self.lbl_a_config = QLabel("<b>A :</b>")
         self.cb_config_a = QComboBox()
-        panel_a, self.web_a, self.raw_a = self._create_arena_side(self.lbl_a_config, self.cb_config_a)
+        panel_a, self.web_a, self.raw_a, self.btn_prev_a, self.btn_next_a, self.lbl_count_a = self._create_arena_side(self.lbl_a_config, self.cb_config_a)
         self.arena_splitter.addWidget(panel_a)
 
         self.lbl_b_config = QLabel("<b>B :</b>")
         self.cb_config_b = QComboBox()
-        panel_b, self.web_b, self.raw_b = self._create_arena_side(self.lbl_b_config, self.cb_config_b)
+        panel_b, self.web_b, self.raw_b, self.btn_prev_b, self.btn_next_b, self.lbl_count_b = self._create_arena_side(self.lbl_b_config, self.cb_config_b)
         self.arena_splitter.addWidget(panel_b)
 
         self.main_layout.addWidget(self.arena_splitter, stretch=1)
 
     def _build_controls_panel(self) -> None:
-        """Construit la barre d'outils inférieure pour lancer ou annuler le test."""
         bottom_layout = QHBoxLayout()
 
         self.lbl_status = QLabel("Prêt.")
@@ -187,7 +196,6 @@ class ABTestTab(QWidget):
         self.main_layout.addLayout(bottom_layout)
 
     def _connect_signals(self) -> None:
-        """Centralise la connexion des signaux aux slots de l'interface."""
         self.cb_mode.currentIndexChanged.connect(self._on_mode_changed)
         self.cb_model.currentIndexChanged.connect(self._on_model_changed)
         self.cb_template.currentIndexChanged.connect(self._on_preview_changed)
@@ -196,14 +204,20 @@ class ABTestTab(QWidget):
         self.btn_run.clicked.connect(self.run_ab_test)
         self.btn_cancel.clicked.connect(self.cancel_test)
 
+        # Pagination
+        self.btn_prev_a.clicked.connect(lambda: self._navigate_a(-1))
+        self.btn_next_a.clicked.connect(lambda: self._navigate_a(1))
+        self.btn_prev_b.clicked.connect(lambda: self._navigate_b(-1))
+        self.btn_next_b.clicked.connect(lambda: self._navigate_b(1))
+
     @Slot()
     def refresh_data(self) -> None:
         self.llm_list = [(llm.display_name, llm.id) for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name)]
-        self.agent_list = [(agent.name, agent.id) for agent in AgentModel.select().order_by(AgentModel.name)]
+        agents = [("[Agent] " + a.name, f"agent_{a.id}") for a in AgentModel.select().order_by(AgentModel.name)]
+        pipes = [("[Pipeline] " + p.name, f"pipe_{p.id}") for p in PipelineModel.select().order_by(PipelineModel.name)]
+        self.action_list = agents + pipes
 
-        # Recharge la liste des modèles proprement !
         self.cb_model.refresh_data()
-
         self._on_model_changed()
         self._on_mode_changed()
 
@@ -219,23 +233,23 @@ class ABTestTab(QWidget):
         self.cb_config_b.clear()
 
         if mode == 0:
-            self.lbl_global_config.setText("<b>Prompt :</b>")
+            self.lbl_global_config.setText("<b>Prompt/Pipe :</b>")
             self.lbl_a_config.setText("<b>Moteur A :</b>")
             self.lbl_b_config.setText("<b>Moteur B :</b>")
-            for name, uid in self.agent_list:
-                self.cb_global_config.addItem(name, userData=uid)
+            for name, uid_str in self.action_list:
+                self.cb_global_config.addItem(name, userData=uid_str)
             for name, uid in self.llm_list:
                 self.cb_config_a.addItem(name, userData=uid)
                 self.cb_config_b.addItem(name, userData=uid)
         else:
             self.lbl_global_config.setText("<b>Moteur :</b>")
-            self.lbl_a_config.setText("<b>Prompt A :</b>")
-            self.lbl_b_config.setText("<b>Prompt B :</b>")
+            self.lbl_a_config.setText("<b>A (Prompt/Pipe) :</b>")
+            self.lbl_b_config.setText("<b>B (Prompt/Pipe) :</b>")
             for name, uid in self.llm_list:
                 self.cb_global_config.addItem(name, userData=uid)
-            for name, uid in self.agent_list:
-                self.cb_config_a.addItem(name, userData=uid)
-                self.cb_config_b.addItem(name, userData=uid)
+            for name, uid_str in self.action_list:
+                self.cb_config_a.addItem(name, userData=uid_str)
+                self.cb_config_b.addItem(name, userData=uid_str)
 
         self.cb_global_config.blockSignals(False)
         self.cb_config_a.blockSignals(False)
@@ -243,7 +257,6 @@ class ABTestTab(QWidget):
 
     @Slot()
     def _on_model_changed(self):
-        """Met à jour la liste des types de cartes (Carte 1, Carte 2...) quand on change de modèle."""
         model_id = self.cb_model.currentData()
         self.cb_template.blockSignals(True)
         self.cb_template.clear()
@@ -257,63 +270,115 @@ class ABTestTab(QWidget):
         self.cb_template.blockSignals(False)
         self._on_preview_changed()
 
-    @Slot()
-    def _on_preview_changed(self):
-        """Relance le rendu web des deux côtés quand on bascule Recto/Verso ou de Carte."""
-        if self.last_res_a:
-            self._render_preview(self.last_res_a, self.web_a)
-        if self.last_res_b:
-            self._render_preview(self.last_res_b, self.web_b)
+    def _get_prompts_chain(self, item_id_str: str, nt_schema: str) -> list[str]:
+        parts = item_id_str.split("_")
+        item_type = parts[0]
+        uid = int(parts[1])
 
-    @staticmethod
-    def _prepare_prompt(agent_id: int, note_type_id: int) -> str:
-        """Injecte dynamiquement les champs du modèle de note dans le prompt via Jinja2."""
-        agent = AgentModel.get_by_id(agent_id)
-        note_type = NoteTypeModel.get_by_id(note_type_id)
-        fields = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
+        if item_type == "agent":
+            agent = AgentModel.get_by_id(uid)
+            return [format_system_prompt(agent.system_prompt, nt_schema)]
+        elif item_type == "pipe":
+            pipe = PipelineModel.get_by_id(uid)
+            chain = []
+            for step in pipe.steps.order_by(PipelineStepModel.step_order):
+                chain.append(format_system_prompt(step.agent.system_prompt, nt_schema))
+            return chain
+        return []
 
-        jinja_template = Template(agent.system_prompt)
-        return jinja_template.render(
-            fields_str='", "'.join(fields),
-            first_field=fields[0] if len(fields) > 0 else "Field1",
-            second_field=fields[1] if len(fields) > 1 else "Field2",
-        )
-
-    def _render_preview(self, raw_json: str, web_view: SafeWebEngineView):
-        """Tente de parser le JSON et affiche la première carte générée."""
+    def _extract_notes_from_json(self, raw_json: str) -> list[dict]:
+        """Extrait la liste des notes du JSON de manière sécurisée."""
         try:
             data = parse_ai_json_response(raw_json)
-            # Gestion si l'IA renvoie {"notes": [...]} ou juste [...]
-            notes_list = data.get("notes", []) if isinstance(data, dict) else data
+            notes = data.get("notes", []) if isinstance(data, dict) else data
+            if isinstance(notes, list):
+                return notes
+        except json.JSONDecodeError:
+            logger.debug("JSON invalide : %s", raw_json)
+        return []
 
-            if not isinstance(notes_list, list) or len(notes_list) == 0:
-                raise ValueError("Aucune note trouvée dans le JSON.")
+    # --- MÉTHODES DE NAVIGATION ET RENDU ---
 
-            first_note_data = notes_list[0]
+    def _navigate_a(self, step: int):
+        self.idx_a += step
+        self._update_render_a()
+
+    def _navigate_b(self, step: int):
+        self.idx_b += step
+        self._update_render_b()
+
+    @Slot()
+    def _on_preview_changed(self):
+        self._update_render_a()
+        self._update_render_b()
+
+    def _update_render_a(self):
+        self._render_single_note(self.notes_a, self.idx_a, self.web_a, self.btn_prev_a, self.btn_next_a, self.lbl_count_a, self.last_res_a)
+
+    def _update_render_b(self):
+        self._render_single_note(self.notes_b, self.idx_b, self.web_b, self.btn_prev_b, self.btn_next_b, self.lbl_count_b, self.last_res_b)
+
+    def _render_single_note(self, notes_list: list[dict], current_idx: int, web_view: SafeWebEngineView, btn_prev: ActionButton, btn_next: ActionButton, lbl_counter: QLabel, raw_json: str):
+        """Affiche uniquement la carte sélectionnée avec les contrôles de pagination et corrige les clés JSON."""
+        if not notes_list:
+            btn_prev.setEnabled(False)
+            btn_next.setEnabled(False)
+            lbl_counter.setText("0 / 0")
+
+            if raw_json:
+                err_html = "<div style='text-align:center; padding:20px; color:#F44336;'>Aucune carte valide trouvée dans le JSON.</div>"
+                web_view.setHtmlSafe(err_html)
+            else:
+                web_view.setHtmlSafe("")
+            return
+
+        # Mise à jour des boutons
+        btn_prev.setEnabled(current_idx > 0)
+        btn_next.setEnabled(current_idx < len(notes_list) - 1)
+        lbl_counter.setText(f"Carte {current_idx + 1} / {len(notes_list)}")
+
+        try:
             note_type = NoteTypeModel.get_by_id(self.cb_model.currentData())
             templates = json.loads(note_type.templates) if note_type.templates else []
-
             if not templates:
                 raise ValueError("Ce modèle Anki n'a pas de template HTML.")
 
             tmpl_idx = self.cb_template.currentIndex()
             if tmpl_idx < 0 or tmpl_idx >= len(templates):
                 return
+
             tmpl = templates[tmpl_idx]
             css = note_type.css_style if note_type.css_style else ""
             is_recto = self.cb_side.currentIndex() == 0
-
-            # Formatage des listes potentielles
-            for k, v in first_note_data.items():
-                if isinstance(v, list):
-                    first_note_data[k] = "<br>".join([str(i) for i in v])
-
             raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
+
+            # Formater les données de la carte courante
+            current_note = dict(notes_list[current_idx])
+
+            # --- PATCH AUTO-MAPPING POUR LES IA RÉCALCITRANTES (Ollama/Mistral) ---
+            expected_fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
+            actual_keys = list(current_note.keys())
+
+            # Si les clés générées ne correspondent pas du tout au modèle attendu
+            if expected_fields and actual_keys and actual_keys[0] not in expected_fields:
+                mapped_note = {}
+                for i, expected_name in enumerate(expected_fields):
+                    if i < len(actual_keys):
+                        # On force le mappage: 1ère clé générée -> 1er champ attendu, etc.
+                        mapped_note[expected_name] = current_note[actual_keys[i]]
+                    else:
+                        mapped_note[expected_name] = ""
+                current_note = mapped_note
+            # ----------------------------------------------------------------------
+
+            for k, v in current_note.items():
+                if isinstance(v, list):
+                    current_note[k] = "<br>".join([str(i) for i in v])
 
             final_html = render_anki_card(
                 raw_html=raw_html,
                 css=css,
-                fields_dict=first_note_data,
+                fields_dict=current_note,
                 is_recto=is_recto,
                 front_html=tmpl.get("qfmt", ""),
                 is_dark_mode=is_dark_mode(),
@@ -323,16 +388,11 @@ class ABTestTab(QWidget):
             web_view.setHtmlSafe(final_html, QUrl.fromLocalFile(media_dir))
 
         except Exception as e:
-            logger.exception("Erreur lors du rendu de la prévisualisation A/B :")
-            err_html = f"""
-            <div style='color: palette(text); font-family: sans-serif; padding: 20px; text-align: center;'>
-                <h3 style='color: #F44336;'>Erreur de rendu</h3>
-                <p>L'IA n'a pas généré un JSON valide ou compatible avec le modèle '{self.cb_model.currentText()}'.</p>
-                <p style='font-size: 12px; color: palette(placeholder-text);'>{str(e)}</p>
-                <p><i>Vérifiez l'onglet 'JSON Brut'.</i></p>
-            </div>
-            """
+            logger.exception("Erreur lors du rendu de la note :")
+            err_html = f"<div style='text-align:center; padding:20px; color:#F44336;'><h3>Erreur de rendu</h3><p>{str(e)}</p></div>"
             web_view.setHtmlSafe(err_html)
+
+    # --- LANCEMENT ET RECEPTION DES RÉSULTATS ---
 
     @Slot()
     def run_ab_test(self) -> None:
@@ -340,7 +400,6 @@ class ABTestTab(QWidget):
         model_id = self.cb_model.currentData()
 
         if not source_text:
-            logger.info("Tentative de test A/B sans texte source.")
             show_toast(self, "Veuillez entrer du texte source.", is_error=True)
             return
 
@@ -349,19 +408,13 @@ class ABTestTab(QWidget):
         try:
             nt_schema = NoteTypeModel.get_by_id(model_id).fields_schema
 
-            if mode == 0:  # Moteurs
-                agent = AgentModel.get_by_id(self.cb_global_config.currentData())
-                prompt_a = prompt_b = format_system_prompt(agent.system_prompt, nt_schema)
-
+            if mode == 0:
+                prompts_a = prompts_b = self._get_prompts_chain(self.cb_global_config.currentData(), nt_schema)
                 provider_a = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_config_a.currentData()))
                 provider_b = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_config_b.currentData()))
-            else:  # Prompts
-                agent_a = AgentModel.get_by_id(self.cb_config_a.currentData())
-                agent_b = AgentModel.get_by_id(self.cb_config_b.currentData())
-
-                prompt_a = format_system_prompt(agent_a.system_prompt, nt_schema)
-                prompt_b = format_system_prompt(agent_b.system_prompt, nt_schema)
-
+            else:
+                prompts_a = self._get_prompts_chain(self.cb_config_a.currentData(), nt_schema)
+                prompts_b = self._get_prompts_chain(self.cb_config_b.currentData(), nt_schema)
                 provider_a = provider_b = AIManager.create_provider_from_config(LLMConfigModel.get_by_id(self.cb_global_config.currentData()))
 
         except Exception as e:
@@ -369,24 +422,26 @@ class ABTestTab(QWidget):
             show_toast(self, f"Configuration incomplète : {e}", is_error=True)
             return
 
-        logger.info(f"Lancement du test A/B en mode {mode}.")
-
         self.btn_run.hide()
         self.btn_cancel.show()
         self.btn_cancel.setEnabled(True)
 
         self.raw_a.clear()
         self.raw_b.clear()
-        self.web_a.clear_memory()
-        self.web_b.clear_memory()
 
-        self.thread = AbWorker(provider_a, provider_b, prompt_a, prompt_b, source_text)
+        # Réinitialisation de la navigation
+        self.notes_a = []
+        self.idx_a = 0
+        self._update_render_a()
+
+        self.notes_b = []
+        self.idx_b = 0
+        self._update_render_b()
+
+        self.thread = AbWorker(provider_a, provider_b, prompts_a, prompts_b, source_text)
         self.thread.progress.connect(self.lbl_status.setText)
-
-        # On intercepte les résultats pour les sauvegarder et lancer le rendu
         self.thread.result_a.connect(self._on_result_a)
         self.thread.result_b.connect(self._on_result_b)
-
         self.thread.finished_signal.connect(self._on_test_finished)
         self.thread.error_signal.connect(self._on_test_error)
         self.thread.cancelled.connect(self._on_test_cancelled)
@@ -397,13 +452,17 @@ class ABTestTab(QWidget):
     def _on_result_a(self, text: str):
         self.last_res_a = text
         self.raw_a.setPlainText(text)
-        self._render_preview(text, self.web_a)
+        self.notes_a = self._extract_notes_from_json(text)
+        self.idx_a = 0
+        self._update_render_a()
 
     @Slot(str)
     def _on_result_b(self, text: str):
         self.last_res_b = text
         self.raw_b.setPlainText(text)
-        self._render_preview(text, self.web_b)
+        self.notes_b = self._extract_notes_from_json(text)
+        self.idx_b = 0
+        self._update_render_b()
 
     @Slot()
     def cancel_test(self) -> None:
@@ -415,20 +474,17 @@ class ABTestTab(QWidget):
     @Slot()
     def _on_test_finished(self) -> None:
         self._reset_ui()
-        logger.info("Test A/B terminé avec succès.")
         self.lbl_status.setText("✅ Test terminé. Observez les différences !")
 
     @Slot(str)
     def _on_test_error(self, err: str) -> None:
         self._reset_ui()
-        logger.error(f"Erreur lors du test A/B : {err}")
         self.lbl_status.setText("❌ Erreur.")
         show_toast(self, f"Erreur IA : {err}", is_error=True)
 
     @Slot()
     def _on_test_cancelled(self) -> None:
         self._reset_ui()
-        logger.info("Test A/B annulé par l'utilisateur.")
         self.lbl_status.setText("🛑 Test annulé.")
 
     def _reset_ui(self) -> None:
