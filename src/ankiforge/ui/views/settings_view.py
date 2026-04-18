@@ -20,8 +20,6 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import NoteModel
 from ankiforge.services.cards.media_manager import MediaManager
-
-# 👇 Ajout de RoundedPanel dans les imports
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import refresh_theme_live
 from ankiforge.ui.widgets.toast import show_toast
@@ -32,7 +30,7 @@ logger = logging.getLogger(__name__)
 class SettingsTab(QWidget):
     """
     Global configuration view for the AnkiForge application.
-    Allows managing appearance, export folders, automatic behaviors
+    Allows managing appearance, language, export folders, automatic behaviors
     as well as database maintenance (purge, media cleaning).
     """
 
@@ -40,7 +38,6 @@ class SettingsTab(QWidget):
         """Initializes the settings tab."""
         super().__init__()
         self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
-
         self._setup_ui()
         self._connect_signals()
 
@@ -76,19 +73,24 @@ class SettingsTab(QWidget):
         form_app = QFormLayout()
         form_app.setHorizontalSpacing(20)
 
+        # THEME
         self.cb_theme = QComboBox()
         self.cb_theme.addItems([self.tr("System (Default)"), self.tr("Dark"), self.tr("Light")])
-
         saved_theme = self.settings.value("ui/theme", self.tr("System (Default)"))
         self.cb_theme.setCurrentText(str(saved_theme))
-
         form_app.addRow(self._make_bold_label(self.tr("Application theme:")), self.cb_theme)
-        app_layout.addLayout(form_app)
 
+        # Language
+        self.cb_language = QComboBox()
+        self.cb_language.addItems(["English", "Français"])  # On ne traduit pas les noms des langues
+        saved_lang = self.settings.value("ui/language", "English")
+        self.cb_language.setCurrentText(str(saved_lang))
+        form_app.addRow(self._make_bold_label(self.tr("Application language:")), self.cb_language)
+
+        app_layout.addLayout(form_app)
         self.main_layout.addWidget(app_panel)
 
     def _build_export_section(self) -> None:
-        """Builds the export folders configuration panel."""
         exp_panel = RoundedPanel()
         exp_layout = QVBoxLayout(exp_panel)
         exp_layout.setContentsMargins(15, 15, 15, 15)
@@ -115,7 +117,6 @@ class SettingsTab(QWidget):
 
         form_exp.addRow(self._make_bold_label(self.tr("Default export folder:")), path_layout)
         exp_layout.addLayout(form_exp)
-
         self.main_layout.addWidget(exp_panel)
 
     def _build_behavior_section(self) -> None:
@@ -137,7 +138,6 @@ class SettingsTab(QWidget):
 
         form_beh.addRow(self._make_bold_label(self.tr("Automatic note saving:")), self.cb_auto_save)
         beh_layout.addLayout(form_beh)
-
         self.main_layout.addWidget(beh_panel)
 
     def _build_maintenance_section(self) -> None:
@@ -153,7 +153,6 @@ class SettingsTab(QWidget):
         # Sub-section: Media
         media_layout = QHBoxLayout()
         self.btn_clean_media = ActionButton("fa5s.broom", self.tr(" Clean orphaned media"))
-
         lbl_media_desc = QLabel(self.tr("Frees disk space by deleting unused images."))
         lbl_media_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
 
@@ -164,7 +163,6 @@ class SettingsTab(QWidget):
 
         # Sub-section: Note history
         hist_layout = QHBoxLayout()
-
         self.spin_keep_versions = QSpinBox()
         self.spin_keep_versions.setRange(1, 50)
         self.spin_keep_versions.setValue(cast(int, self.settings.value("maintenance/keep_versions", 5, type=int)))
@@ -172,7 +170,6 @@ class SettingsTab(QWidget):
         self.spin_keep_versions.setSuffix(self.tr(" versions"))
 
         self.btn_purge_hist = ActionButton("fa5s.history", self.tr(" Purge history"))
-
         lbl_hist_desc = QLabel(self.tr("Lightens the database by deleting old backups."))
         lbl_hist_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
 
@@ -196,7 +193,6 @@ class SettingsTab(QWidget):
 
         help_layout = QHBoxLayout()
         self.btn_open_doc = ActionButton("fa5s.book", self.tr(" Open user guide"))
-
         lbl_doc_desc = QLabel(self.tr("Check tutorials on Agent creation and Markdown/LaTeX formatting."))
         lbl_doc_desc.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
 
@@ -248,7 +244,11 @@ class SettingsTab(QWidget):
     @Slot()
     def save_all_settings(self) -> None:
         """Saves all modified settings in QSettings and applies them."""
+        old_lang = str(self.settings.value("ui/language", "English"))
+        new_lang = self.cb_language.currentText()
+
         self.settings.setValue("ui/theme", self.cb_theme.currentText())
+        self.settings.setValue("ui/language", new_lang)
         self.settings.setValue("export/default_directory", self.le_export_path.text())
         self.settings.setValue("behavior/auto_save", self.cb_auto_save.currentText())
         self.settings.setValue("maintenance/keep_versions", self.spin_keep_versions.value())
@@ -258,6 +258,9 @@ class SettingsTab(QWidget):
 
         logger.info("User preferences saved and applied.")
         show_toast(self, self.tr("Preferences saved and applied!"))
+
+        if old_lang != new_lang:
+            QMessageBox.information(self, self.tr("Restart Required"), self.tr("Please restart AnkiForge to apply the new language."))
 
     @Slot()
     def clean_orphaned_media(self) -> None:
