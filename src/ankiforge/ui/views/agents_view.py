@@ -125,7 +125,6 @@ class AgentsTab(QWidget):
         self.cb_output_format.addItem(self.tr(" Strict JSON (Final agent for Anki)"), userData="json")
         self.cb_output_format.addItem(self.tr(" Free Text / Markdown (Intermediate agent)"), userData="text")
         # Fixing layout order after creation
-        form_layout.takeAt(form_layout.count() - 1)
         form_layout.addWidget(self.cb_output_format)
 
         btn_layout_agent = QHBoxLayout()
