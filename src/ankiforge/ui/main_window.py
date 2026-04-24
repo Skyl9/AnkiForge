@@ -176,9 +176,11 @@ class MainWindow(QMainWindow):
 
         # Décocher les autres boutons de l'activity bar
         for i in range(self.activity_layout.count()):
-            w = self.activity_layout.itemAt(i).widget()
-            if isinstance(w, QToolButton) and w != sender and w != self.btn_daemon_status:
-                w.setChecked(False)
+            layout_item = self.activity_layout.itemAt(i)
+            if layout_item:
+                w = layout_item.widget()
+                if isinstance(w, QToolButton) and w != sender and w != self.btn_daemon_status:
+                    w.setChecked(False)
 
         # Si on reclique sur la catégorie active -> on ferme le tiroir
         if self.current_category == category and self.drawer.isVisible():
@@ -281,9 +283,11 @@ class MainWindow(QMainWindow):
     def _get_category_button(self, category: str) -> QToolButton | None:
         """Cherche dynamiquement un bouton de l'Activity Bar par son ID."""
         for i in range(self.activity_layout.count()):
-            w = self.activity_layout.itemAt(i).widget()
-            if isinstance(w, QToolButton) and w.property("category") == category:
-                return w
+            layout_item = self.activity_layout.itemAt(i)
+            if layout_item:
+                w = layout_item.widget()
+                if isinstance(w, QToolButton) and w.property("category") == category:
+                    return w
         return None
 
     def _jump_to_tab(self, category: str, drawer_row: int) -> None:
@@ -303,9 +307,11 @@ class MainWindow(QMainWindow):
 
                 # Décocher les autres boutons proprement
                 for i in range(self.activity_layout.count()):
-                    w = self.activity_layout.itemAt(i).widget()
-                    if isinstance(w, QToolButton) and w != btn and w != self.btn_daemon_status:
-                        w.setChecked(False)
+                    layout_item = self.activity_layout.itemAt(i)
+                    if layout_item:
+                        w = layout_item.widget()
+                        if isinstance(w, QToolButton) and w != btn and w != self.btn_daemon_status:
+                            w.setChecked(False)
 
         if self.drawer.count() > drawer_row:
             self.drawer.setCurrentRow(drawer_row)

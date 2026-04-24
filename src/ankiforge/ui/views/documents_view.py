@@ -127,9 +127,9 @@ class DocumentsTab(QWidget):
 
     def _setup_ui(self) -> None:
         """Builds and organizes view layouts and widgets."""
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
-        self.layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
 
         self._build_header()
 
@@ -140,7 +140,7 @@ class DocumentsTab(QWidget):
         self._build_editor_panel()
 
         self.main_splitter.setSizes([250, 750])
-        self.layout.addWidget(self.main_splitter)
+        self.main_layout.addWidget(self.main_splitter)
 
     def _build_header(self) -> None:
         """Builds the header containing the title and import buttons."""
@@ -157,7 +157,7 @@ class DocumentsTab(QWidget):
         header_layout.addWidget(self.btn_import_web)
         header_layout.addWidget(self.btn_cancel_import)
 
-        self.layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
     def _build_explorer_panel(self) -> None:
         """Builds the left side panel (Folder and document tree)."""

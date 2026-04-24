@@ -71,6 +71,23 @@ check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 
+
+[[tool.mypy.overrides]]
+module = [
+    "peewee.*",
+    "requests.*"
+]
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "ankiforge.database.models"
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+module = "ankiforge.services.cards.duplicate_manager"
+disable_error_code = ["attr-defined"]
+
 [tool.bandit]
 # On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données
 exclude_dirs = ["tests"]

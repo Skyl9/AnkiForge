@@ -38,9 +38,9 @@ class StatsTab(QWidget):
 
     def _setup_ui(self) -> None:
         """Organizes main layouts and triggers the construction of sub-panels."""
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
-        self.layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
 
         self._build_header()
         self._build_metrics_section()
@@ -57,7 +57,7 @@ class StatsTab(QWidget):
         header_layout.addStretch()
         header_layout.addWidget(self.btn_refresh)
 
-        self.layout.addLayout(header_layout)
+        self.main_layout.addLayout(header_layout)
 
     def _build_metrics_section(self) -> None:
         """Builds the upper grid displaying metric cards (KPIs)."""
@@ -78,7 +78,7 @@ class StatsTab(QWidget):
         self.metrics_layout.addWidget(self.card_total_tokens, 1, 1)
         self.metrics_layout.addWidget(self.card_total_cost, 1, 2)
 
-        self.layout.addLayout(self.metrics_layout)
+        self.main_layout.addLayout(self.metrics_layout)
 
     def _build_charts_section(self) -> None:
         """Builds the lower area containing the distribution table and the donut chart."""
@@ -121,7 +121,7 @@ class StatsTab(QWidget):
 
         # Proportions 50/50
         bottom_splitter.setSizes([500, 500])
-        self.layout.addWidget(bottom_splitter)
+        self.main_layout.addWidget(bottom_splitter)
 
     def _connect_signals(self) -> None:
         """Branche les signaux de l'interface aux slots associés."""

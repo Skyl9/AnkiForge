@@ -3,7 +3,7 @@ from typing import Optional
 
 import qtawesome
 from PySide6.QtCore import QSettings, Qt, Slot
-from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QProgressDialog, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QProgressDialog, QSplitter, QVBoxLayout, QWidget, QTreeWidgetItemIterator
 
 from ankiforge.database.models import DeckModel, LLMConfigModel, NoteModel, db
 from ankiforge.services.ai.flexible_service import AIManager
@@ -193,7 +193,6 @@ class EditionTab(QWidget):
     def jump_to_note(self, note_id: int, deck_id: int) -> None:
         """Selects the deck, then finds and selects the card in the table."""
         # Delegate deck selection to sidebar
-        from PySide6.QtWidgets import QTreeWidgetItemIterator
 
         iterator = QTreeWidgetItemIterator(self.filter_sidebar.deck_tree)
         while iterator.value():
@@ -207,10 +206,10 @@ class EditionTab(QWidget):
         # Then search in table
         table = self.note_table.data_table
         for row in range(table.rowCount()):
-            item = table.item(row, 0)
-            if item and item.data(Qt.ItemDataRole.UserRole) == note_id:
+            table_item = table.item(row, 0)
+            if table_item and table_item.data(Qt.ItemDataRole.UserRole) == note_id:
                 table.selectRow(row)
-                table.scrollToItem(item)
+                table.scrollToItem(table_item)
                 break
 
     @Slot()

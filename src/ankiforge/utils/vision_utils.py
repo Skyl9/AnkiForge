@@ -86,7 +86,7 @@ def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any
         for img in soup.find_all("img"):
             src = img.get("src")
             if src:
-                images_found.append(src)
+                images_found.append(str(src))
 
     # 3. Nettoyage du texte (On remplace les images par des marqueurs pour que l'IA comprenne la structure)
     clean_text = strip_image_tags(text)
