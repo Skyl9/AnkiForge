@@ -402,8 +402,10 @@ class ConsultantTab(QWidget):
         """Redraws visual elements (chips) representing loaded context."""
         while self.context_chips_layout.count():
             child = self.context_chips_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            if child:
+                w = child.widget()
+                if w:
+                    w.deleteLater()
 
         if not self.active_context:
             lbl = QLabel(self.tr("None (AI will respond generically)"))

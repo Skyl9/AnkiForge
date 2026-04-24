@@ -39,7 +39,7 @@ class ABTestTab(QWidget):
         super().__init__()
 
         # État interne pour la pagination
-        self.thread: AbWorker | None = None
+        self.worker_thread: AbWorker | None = None
         self.action_list: list[tuple[str, str]] = []
         self.llm_list: list[tuple[str, int]] = []
 
@@ -438,15 +438,15 @@ class ABTestTab(QWidget):
         self.idx_b = 0
         self._update_render_b()
 
-        self.thread = AbWorker(provider_a, provider_b, prompts_a, prompts_b, source_text)
-        self.thread.progress.connect(self.lbl_status.setText)
-        self.thread.result_a.connect(self._on_result_a)
-        self.thread.result_b.connect(self._on_result_b)
-        self.thread.finished_signal.connect(self._on_test_finished)
-        self.thread.error_signal.connect(self._on_test_error)
-        self.thread.cancelled.connect(self._on_test_cancelled)
+        self.worker_thread = AbWorker(provider_a, provider_b, prompts_a, prompts_b, source_text)
+        self.worker_thread.progress.connect(self.lbl_status.setText)
+        self.worker_thread.result_a.connect(self._on_result_a)
+        self.worker_thread.result_b.connect(self._on_result_b)
+        self.worker_thread.finished_signal.connect(self._on_test_finished)
+        self.worker_thread.error_signal.connect(self._on_test_error)
+        self.worker_thread.cancelled.connect(self._on_test_cancelled)
 
-        self.thread.start()
+        self.worker_thread.start()
 
     @Slot(str)
     def _on_result_a(self, text: str):
@@ -466,8 +466,8 @@ class ABTestTab(QWidget):
 
     @Slot()
     def cancel_test(self) -> None:
-        if self.thread is not None and self.thread.isRunning():
-            self.thread.cancel()
+        if self.worker_thread is not None and self.worker_thread.isRunning():
+            self.worker_thread.cancel()
             self.btn_cancel.setEnabled(False)
             self.lbl_status.setText("Arrêt en cours...")
 

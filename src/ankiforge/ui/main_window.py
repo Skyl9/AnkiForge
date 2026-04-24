@@ -2,7 +2,7 @@ from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import QEvent, QSettings, QSize, Qt, QTimer, Slot
-from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QStackedWidget, QToolButton, QVBoxLayout, QWidget
 
 from ankiforge.services.background_daeamon import BackgroundDaemon
@@ -390,7 +390,8 @@ class MainWindow(QMainWindow):
             self.resize(1200, 850)
 
         # Par défaut, ouvrir la forge
-        first_btn = self.activity_layout.itemAt(0).widget()
+        item = self.activity_layout.itemAt(0)
+        first_btn = item.widget() if item else None
         if first_btn and isinstance(first_btn, QToolButton):
             first_btn.click()
 
@@ -405,12 +406,13 @@ class MainWindow(QMainWindow):
             color = get_icon_color()
             piliers_icons = ["fa5s.hammer", "fa5s.book", "fa5s.flask", "fa5s.cog"]
             for i, icon_name in enumerate(piliers_icons):
-                w = self.activity_layout.itemAt(i).widget()
+                item = self.activity_layout.itemAt(i)
+                w = item.widget() if item else None
                 if isinstance(w, QToolButton):
                     w.setIcon(qta.icon(icon_name, color=color))
         super().changeEvent(event)
 
-    def showEvent(self, event: QEvent) -> None:
+    def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         tour_done = self.settings.value("app/tour_completed", False, type=bool)
         if not tour_done:

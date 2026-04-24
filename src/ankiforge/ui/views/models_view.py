@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import cast
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QUrl, Slot, QTimer
@@ -688,7 +687,7 @@ class ModelsTab(QWidget):
         focused_widget = self.focusWidget()
         # Check if it's one of our HTML editors
         if focused_widget in [self.qfmt_editor, self.afmt_editor]:
-            cast(QTextEdit, focused_widget).textCursor().insertText(text)
+            focused_widget.textCursor().insertText(text)
         else:
             # Default, insert in the one likely being used if none has focus
             is_recto = self.side_selector.currentIndex() == 0

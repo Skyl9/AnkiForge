@@ -2,6 +2,7 @@
 
 import difflib
 import json
+from typing import Any, cast
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
@@ -94,7 +95,7 @@ class VersionHistoryDialog(QDialog):
             else:
                 label = f"v{v.version_number} - {v.source}"
 
-            date_str = v.created_at.strftime("%d/%m/%Y %H:%M")
+            date_str = cast(Any, v.created_at).strftime("%d/%m/%Y %H:%M")
 
             item = QListWidgetItem(f"{label}\n{date_str}")
             item.setData(Qt.ItemDataRole.UserRole, v)
@@ -150,8 +151,8 @@ class VersionHistoryDialog(QDialog):
 
         try:
             # On parse les JSON
-            active_content = json.loads(self.active_version.content)
-            selected_content = json.loads(selected_version.content)
+            active_content = json.loads(cast(str, self.active_version.content))
+            selected_content = json.loads(cast(str, selected_version.content))
 
             # On construit une vue champ par champ
             full_html = ""

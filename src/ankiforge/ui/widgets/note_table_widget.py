@@ -350,5 +350,7 @@ class NoteTableWidget(RoundedPanel):
                     item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row, 4, item_version)
                     # On remet l'ID car setItem l'écrase
-                    self.data_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, note_id)
+                    item_first = self.data_table.item(row, 0)
+                    if item_first:
+                        item_first.setData(Qt.ItemDataRole.UserRole, note_id)
                 break

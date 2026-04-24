@@ -51,6 +51,7 @@ dev = [
     "tiktoken>=0.12.0",
     "types-markdown>=3.10.2.20260408",
     "types-peewee>=4.0.0.20260408",
+    "types-requests>=2.33.0.20260408",
 ]
 
 [tool.ruff]
@@ -81,11 +82,13 @@ ignore_missing_imports = true
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "ankiforge.database.models"
-disable_error_code = ["attr-defined"]
-
-[[tool.mypy.overrides]]
-module = "ankiforge.services.cards.duplicate_manager"
+module = [
+    "ankiforge.database.models",
+    "ankiforge.services.background_daeamon",
+    "ankiforge.ui.views.documents_view",
+    "ankiforge.ui.views.batch_view",
+    "ankiforge.ui.views.edition_view"
+]
 disable_error_code = ["attr-defined"]
 
 [tool.bandit]

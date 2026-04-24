@@ -183,8 +183,10 @@ class NoteEditorWidget(QWidget):
 
         while self.details_layout.count() > 2:
             child = self.details_layout.takeAt(2)
-            if child.widget():
-                child.widget().deleteLater()
+            if child:
+                w = child.widget()
+                if w:
+                    w.deleteLater()
 
         self.field_editors.clear()
         for field_name in fields:
@@ -202,8 +204,10 @@ class NoteEditorWidget(QWidget):
     def _clear_editor(self):
         while self.details_layout.count():
             child = self.details_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            if child:
+                w = child.widget()
+                if w:
+                    w.deleteLater()
         self.field_editors.clear()
         self.current_note = None
 

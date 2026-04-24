@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 import datetime
 import json
+from typing import Any
 
 from pathlib import Path
 from peewee import (
@@ -34,6 +35,8 @@ db = SqliteDatabase(
 
 
 class BaseModel(Model):
+    id: Any
+
     class Meta:
         database = db
 
@@ -69,6 +72,9 @@ class NoteTypeModel(BaseModel):
 
 class NoteModel(BaseModel):
     """Le conteneur physique de la note. Il ne change jamais."""
+
+    note_type_id: Any
+    cards: Any
 
     anki_id = BigIntegerField(unique=True, null=True)
     guid = CharField(unique=True)
@@ -140,6 +146,9 @@ class NoteVersionModel(BaseModel):
 
 class CardModel(BaseModel):
     """La carte physique générée par la Note et rangée dans un Deck"""
+
+    note_id: Any
+    deck_id: Any
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (cid)
     note = ForeignKeyField(NoteModel, backref="cards", on_delete="CASCADE")

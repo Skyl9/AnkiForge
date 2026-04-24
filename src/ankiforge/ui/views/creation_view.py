@@ -58,7 +58,7 @@ class CreationTab(QWidget):
         """
         super().__init__()
         self.ai_manager = ai_manager
-        self.thread: CreationWorker | None = None
+        self.worker_thread: CreationWorker | None = None
         self.generated_notes: list[dict[str, str]] = []
 
         self._setup_ui()
@@ -99,19 +99,27 @@ class CreationTab(QWidget):
         params_grid.setVerticalSpacing(10)
         lbl_style = "color: palette(placeholder-text); font-size: 12px; font-weight: 500;"
 
-        params_grid.addWidget(QLabel(self.tr("Destination deck:"), styleSheet=lbl_style), 0, 0)
+        lbl_deck = QLabel(self.tr("Destination deck:"))
+        lbl_deck.setStyleSheet(lbl_style)
+        params_grid.addWidget(lbl_deck, 0, 0)
         self.deck_selector = DBComboBox(DeckModel)
         params_grid.addWidget(self.deck_selector, 1, 0)
 
-        params_grid.addWidget(QLabel(self.tr("Note model (Anki):"), styleSheet=lbl_style), 0, 1)
+        lbl_model = QLabel(self.tr("Note model (Anki):"))
+        lbl_model.setStyleSheet(lbl_style)
+        params_grid.addWidget(lbl_model, 0, 1)
         self.model_selector = DBComboBox(NoteTypeModel)
         params_grid.addWidget(self.model_selector, 1, 1)
 
-        params_grid.addWidget(QLabel(self.tr("AI Engine:"), styleSheet=lbl_style), 2, 0)
+        lbl_engine = QLabel(self.tr("AI Engine:"))
+        lbl_engine.setStyleSheet(lbl_style)
+        params_grid.addWidget(lbl_engine, 2, 0)
         self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
         params_grid.addWidget(self.llm_selector, 3, 0)
 
-        params_grid.addWidget(QLabel(self.tr("Generation pipeline:"), styleSheet=lbl_style), 2, 1)
+        lbl_pipeline = QLabel(self.tr("Generation pipeline:"))
+        lbl_pipeline.setStyleSheet(lbl_style)
+        params_grid.addWidget(lbl_pipeline, 2, 1)
         self.pipeline_selector = DBComboBox(PipelineModel)
         params_grid.addWidget(self.pipeline_selector, 3, 1)
 
@@ -476,18 +484,18 @@ class CreationTab(QWidget):
         self.console_log.clear()
 
         logger.info(f"Launching AI generation (Pipeline: {pipeline.name}, LLM: {llm_config.display_name}, Vision: {payload.use_vision}).")
-        self.thread = CreationWorker(active_provider, payload)
-        self.thread.progress.connect(self.update_progress)
-        self.thread.log.connect(self.append_log)
-        self.thread.finished.connect(self.on_generation_success)
-        self.thread.error.connect(self.on_generation_error)
-        self.thread.cancelled.connect(self.on_generation_cancelled)
-        self.thread.start()
+        self.worker_thread = CreationWorker(active_provider, payload)
+        self.worker_thread.progress.connect(self.update_progress)
+        self.worker_thread.log.connect(self.append_log)
+        self.worker_thread.finished.connect(self.on_generation_success)
+        self.worker_thread.error.connect(self.on_generation_error)
+        self.worker_thread.cancelled.connect(self.on_generation_cancelled)
+        self.worker_thread.start()
 
     @Slot()
     def cancel_generation(self) -> None:
-        if self.thread is not None and self.thread.isRunning():
-            self.thread.cancel()
+        if self.worker_thread is not None and self.worker_thread.isRunning():
+            self.worker_thread.cancel()
             self.btn_cancel.setEnabled(False)
             self.btn_cancel.setText(self.tr(" Stopping..."))
             logger.info("AI generation stop request received.")

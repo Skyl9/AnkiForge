@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, cast
 
 from PySide6.QtCore import QUrl, Slot
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox
@@ -78,7 +78,7 @@ class CardPreviewWidget(QWidget):
         if override_templates is not None:
             self.current_templates = override_templates
         else:
-            self.current_templates = json.loads(note_type.templates) if note_type and note_type.templates else []
+            self.current_templates = json.loads(cast(str, note_type.templates)) if note_type and note_type.templates else []
 
         if override_css is not None:
             self.current_css = override_css

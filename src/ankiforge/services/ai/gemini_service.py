@@ -65,7 +65,7 @@ class GeminiService(LLMProvider):
 
         try:
             # --- ADAPTATION POUR LA VISION ---
-            contents_to_send = []
+            contents_to_send: list[Any] = []
 
             if isinstance(user_prompt, str):
                 contents_to_send = [user_prompt]

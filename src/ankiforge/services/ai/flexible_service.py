@@ -52,10 +52,10 @@ class OpenAICompatibleProvider(LLMProvider):
         """
         messages = [
             ChatCompletionSystemMessageParam(role="system", content=system_prompt),
-            ChatCompletionUserMessageParam(role="user", content=user_prompt),
+            ChatCompletionUserMessageParam(role="user", content=cast(Any, user_prompt)),
         ]
         try:
-            kwargs = {
+            kwargs: dict[str, Any] = {
                 "model": self.model_name,
                 "messages": messages,
                 "temperature": 0.2,
@@ -186,7 +186,7 @@ class AIManager:
         Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
         Injecte l'api_key stockée en BDD.
         """
-        return AIManager.create_provider(provider_name=config.provider, model_id=config.model_id, api_key=config.api_key)
+        return AIManager.create_provider(provider_name=str(config.provider), model_id=str(config.model_id), api_key=str(config.api_key) if config.api_key else None)
 
     @staticmethod
     def create_provider(provider_name: str, model_id: str, api_key: str | None = None) -> LLMProvider:

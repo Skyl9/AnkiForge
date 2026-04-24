@@ -467,7 +467,7 @@ class BatchTab(QWidget):
             pipe_id = cb_pipe.currentData()
             chunk_strategy = cb_chunk.currentText()
 
-            if not deck_id or not model_id or not pipe_id or not llm_id:
+            if not doc_id or not deck_id or not model_id or not pipe_id or not llm_id:
                 logger.warning(f"Incomplete configuration at row {row + 1} of batch table.")
                 show_toast(self, self.tr("Incomplete configuration at row {0}.").format(row + 1), is_error=True)
                 return
@@ -483,7 +483,7 @@ class BatchTab(QWidget):
                 steps_data.append({"name": step.agent.name, "system_prompt": step.agent.system_prompt, "output_format": getattr(step.agent, "output_format", "json")})
 
             payload = BatchTaskPayload(
-                doc_id=doc_id,
+                doc_id=int(doc_id),
                 doc_title=doc.title,
                 doc_content=doc.content,
                 deck_id=deck_id,
