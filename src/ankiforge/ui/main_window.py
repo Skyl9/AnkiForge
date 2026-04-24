@@ -1,14 +1,16 @@
 from typing import Any
 
 import qtawesome as qta
-from PySide6.QtCore import Slot, QSettings, Qt, QSize, QEvent, QTimer
-from PySide6.QtGui import QCloseEvent, QShortcut, QKeySequence
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QStackedWidget, QListWidgetItem, QToolButton, QFrame
+from PySide6.QtCore import QEvent, QSettings, QSize, Qt, QTimer, Slot
+from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QStackedWidget, QToolButton, QVBoxLayout, QWidget
 
+from ankiforge.services.background_daeamon import BackgroundDaemon
 from ankiforge.ui.theme import get_icon_color
 from ankiforge.ui.views.ab_test_view import ABTestTab
 from ankiforge.ui.views.agents_view import AgentsTab
 from ankiforge.ui.views.batch_view import BatchTab
+from ankiforge.ui.views.consultant_view import ConsultantTab
 from ankiforge.ui.views.creation_view import CreationTab
 from ankiforge.ui.views.documents_view import DocumentsTab
 from ankiforge.ui.views.edition_view import EditionTab
@@ -18,8 +20,6 @@ from ankiforge.ui.views.settings_view import SettingsTab
 from ankiforge.ui.views.stats_view import StatsTab
 from ankiforge.ui.widgets.omnibox import Omnibox
 from ankiforge.ui.widgets.tour_guide import TourBubble
-from ankiforge.ui.views.consultant_view import ConsultantTab
-from ankiforge.services.background_daeamon import BackgroundDaemon
 
 
 class MainWindow(QMainWindow):
@@ -166,6 +166,14 @@ class MainWindow(QMainWindow):
 
         category = sender.property("category")
 
+        if self.current_category != category and not self._can_switch_tab() and self.current_category is not None:
+            sender.setChecked(False)
+            # On réactive visuellement le bouton précédent
+            prev_btn = self._get_category_button(self.current_category)
+            if prev_btn:
+                prev_btn.setChecked(True)
+            return
+
         # Décocher les autres boutons de l'activity bar
         for i in range(self.activity_layout.count()):
             w = self.activity_layout.itemAt(i).widget()
@@ -194,9 +202,41 @@ class MainWindow(QMainWindow):
         # Sélectionner le premier par défaut si rien n'est sélectionné
         self.drawer.setCurrentRow(0)
 
+    def _can_switch_tab(self) -> bool:
+        """
+        Vérifie si la vue actuelle autorise le départ.
+        Affiche une popup de confirmation si nécessaire.
+        """
+        current_widget = self.stack.currentWidget()
+
+        # On vérifie si le widget possède la méthode is_dirty et si elle renvoie True
+        if hasattr(current_widget, "is_dirty") and current_widget.is_dirty():
+            reply = QMessageBox.question(
+                self,
+                self.tr("Données non sauvegardées"),
+                self.tr("Vous avez des modifications ou des notes non sauvegardées. Voulez-vous vraiment quitter cet onglet et perdre vos données ?"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                # 👇 NOUVEAU : On force la vue à nettoyer son désordre avant de partir
+                if hasattr(current_widget, "reset_unsaved_state"):
+                    current_widget.reset_unsaved_state()
+                return True
+            return False
+        return True
+
     @Slot(int)
     def _on_drawer_selection_changed(self, row: int) -> None:
         if row < 0:
+            return
+        if not self._can_switch_tab():
+            self.drawer.blockSignals(True)
+            for i in range(self.drawer.count()):
+                if self.drawer.item(i).data(Qt.ItemDataRole.UserRole) == self.stack.currentIndex():
+                    self.drawer.setCurrentRow(i)
+                    break
+            self.drawer.blockSignals(False)
             return
         item = self.drawer.item(row)
         stack_idx = item.data(Qt.ItemDataRole.UserRole)

@@ -240,6 +240,17 @@ class EditionTab(QWidget):
         QMessageBox.critical(self, self.tr("Import Error"), error_msg)
         self.btn_load_col.setEnabled(True)
 
+    def is_dirty(self) -> bool:
+        """Indique si une création de note manuelle est en cours."""
+        return self.note_editor.is_creating
+
+    def reset_unsaved_state(self) -> None:
+        """Réinitialise l'état de l'onglet après abandon de la création en cours."""
+        if self.note_editor.is_creating:
+            # On sort du mode création silencieusement, sans rafraîchir le tableau
+            self.note_editor._exit_creation_mode(refresh=False)
+            logger.info("Mode création annulé (changement d'onglet forcé).")
+
     @Slot()
     def export_selected_deck(self) -> None:
         if not self.current_deck_id:

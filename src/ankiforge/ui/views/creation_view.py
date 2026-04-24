@@ -272,6 +272,23 @@ class CreationTab(QWidget):
         self.shortcut_save_db = QShortcut(QKeySequence("Ctrl+S"), self)
         self.shortcut_save_db.activated.connect(self.save_to_database)
 
+    def is_dirty(self) -> bool:
+        """Indique si des notes générées attendent d'être sauvegardées."""
+        return len(self.generated_notes) > 0
+
+    def reset_unsaved_state(self) -> None:
+        """Réinitialise l'état de l'onglet après l'abandon explicite des données par l'utilisateur."""
+        self.generated_notes.clear()
+        self.results_table.setRowCount(0)
+        self.preview_widget.clear_memory()
+
+        self.btn_save.setEnabled(False)
+        self.btn_generate.setText(self.tr(" Generate Cards"))
+        self.btn_generate.setEnabled(True)
+        self.btn_cancel.hide()
+
+        logger.info("État de la vue Création réinitialisé (données jetées).")
+
     @Slot()
     def refresh_data(self) -> None:
         """Standardized method called by MainWindow on tab change."""
