@@ -108,3 +108,38 @@ def format_system_prompt(system_prompt_template: str, fields_schema_json: str | 
         first_field=first_field,
         second_field=second_field,
     )
+
+
+def get_human_readable_api_error(error: Exception) -> str:
+    """
+    Traduit les erreurs techniques d'API (OpenAI, Gemini, requêtes locales)
+    en messages compréhensibles et orientés action pour l'utilisateur.
+    """
+    error_str = str(error).lower()
+
+    # 1. Erreurs de Quotas et Surcharge (429)
+    if any(k in error_str for k in ["429", "quota", "resource exhausted", "rate limit", "too many requests"]):
+        return "Vous avez dépassé votre quota d'utilisation ou le service est actuellement surchargé. Veuillez patienter un moment ou vérifier votre facturation API."
+
+    # 2. Erreurs d'Authentification (401 / 403)
+    if any(k in error_str for k in ["401", "403", "unauthorized", "api_key_invalid", "api key", "authentication"]):
+        return "La clé API fournie est invalide, expirée ou manquante. Veuillez vérifier vos paramètres d'authentification IA."
+
+    # 3. Timeout et Connexion Perdue
+    if any(k in error_str for k in ["timeout", "timed out", "read timeout"]):
+        return "La connexion au service IA a expiré (Timeout). Le modèle est peut-être surchargé ou votre connexion internet est instable."
+
+    # 4. Connexion refusée (Typique de Ollama éteint)
+    if any(k in error_str for k in ["connection refused", "failed to establish", "connrefused", "target machine actively refused"]):
+        return "Impossible de se connecter au service. Si vous utilisez Ollama en local, vérifiez que le logiciel est bien lancé en arrière-plan."
+
+    # 5. Dépassement de contexte
+    if any(k in error_str for k in ["context length", "maximum context", "token limit"]):
+        return "Le document fourni est trop long pour la capacité de mémoire de ce modèle. Essayez de réduire la taille du découpage (Chunking) ou utilisez un modèle avec un plus grand contexte."
+
+    # 6. Erreur serveur générique (500)
+    if any(k in error_str for k in ["500", "502", "503", "internal server error", "bad gateway"]):
+        return "Le serveur du fournisseur IA a rencontré une erreur interne. Veuillez réessayer plus tard."
+
+    # Fallback : on renvoie l'erreur brute mais encapsulée proprement
+    return f"Une erreur technique est survenue : {str(error)}"

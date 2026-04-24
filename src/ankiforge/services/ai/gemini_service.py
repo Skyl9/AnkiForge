@@ -6,7 +6,7 @@ from google.genai import types
 from typing import Any
 
 from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.utils import log_token_usage
+from ankiforge.services.ai.utils import log_token_usage, get_human_readable_api_error
 
 logger = logging.getLogger(__name__)
 
@@ -97,5 +97,6 @@ class GeminiService(LLMProvider):
 
             return response.text or ""
         except genai.errors.APIError as e:
-            logger.exception(f"Erreur API Gemini ({self.model_name}) :")
-            raise RuntimeError(f"Erreur API Gemini ({self.model_name}) : {str(e)}") from e
+            logger.exception(f"Erreur API Gemini brute ({self.model_name}) :")
+            human_msg = get_human_readable_api_error(e)
+            raise RuntimeError(f"Erreur API Gemini ({self.model_name}) : {human_msg}") from e

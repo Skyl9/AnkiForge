@@ -10,7 +10,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, 
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
-from ankiforge.services.ai.utils import log_token_usage
+from ankiforge.services.ai.utils import log_token_usage, get_human_readable_api_error
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,8 @@ class OpenAICompatibleProvider(LLMProvider):
             return content
         except (openai.APIError, openai.APIConnectionError) as e:
             logger.exception(f"Erreur API ({self.model_name}) :")
-            raise RuntimeError(f"Erreur API ({self.model_name}) : {str(e)}") from e
+            human_msg = get_human_readable_api_error(e)
+            raise RuntimeError(f"Erreur API ({self.model_name}) : {human_msg}") from e
 
 
 class OllamaProvider(OpenAICompatibleProvider):

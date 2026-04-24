@@ -21,8 +21,9 @@ from PySide6.QtWidgets import (
     QFrame,
     QPushButton,
 )
+from peewee import fn
 
-from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel
+from ankiforge.database.models import db, NoteTypeModel, CardModel, NoteModel, NoteVersionModel
 from ankiforge.ui.components.components import HeaderLabel, ActionButton, PrimaryButton, DangerButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.toast import show_toast
@@ -206,6 +207,11 @@ class ModelsTab(QWidget):
         self.side_selector.addItems([self.tr("View Front"), self.tr("View Back")])
         cards_toolbar.addWidget(self.side_selector)
 
+        self.btn_random_data = ActionButton("fa5s.dice", "")
+        self.btn_random_data.setToolTip(self.tr("Injecter une vraie carte aléatoire dans l'aperçu"))
+        self.btn_random_data.clicked.connect(lambda: self.load_real_preview_data(randomize=True))
+        cards_toolbar.addWidget(self.btn_random_data)
+
         cards_layout.addLayout(cards_toolbar)
 
         # Snippets bar
@@ -292,6 +298,44 @@ class ModelsTab(QWidget):
         self.btn_add_card.clicked.connect(self.add_new_card_template)
         self.btn_ren_card.clicked.connect(self.rename_card_template)
         self.btn_del_card.clicked.connect(self.delete_card_template)
+
+    @Slot()
+    def load_real_preview_data(self, randomize: bool = False) -> None:
+        """
+        Remplace le dictionnaire factice par les données d'une VRAIE note
+        utilisant ce modèle pour tester le rendu CSS en conditions réelles.
+        """
+        if not self.current_model_id:
+            return
+
+        note_type = NoteTypeModel.get_by_id(self.current_model_id)
+        fields = json.loads(note_type.fields_schema) if note_type.fields_schema else []
+
+        # 1. Base factice (Fallback si aucune carte n'existe encore)
+        self.mock_dict = {f: f"<span style='color:#888;'><i>[Simulation de {f}]</i></span>" for f in fields}
+
+        # 2. Requête BDD pour trouver une vraie note
+        query = NoteModel.select().where(NoteModel.note_type_id == self.current_model_id)
+        if randomize:
+            query = query.order_by(fn.Random())  # Tire une carte au hasard !
+
+        real_note = query.first()
+
+        # 3. Écrasement des données factices par les vraies données
+        if real_note:
+            active_v = NoteVersionModel.get_or_none(note=real_note, is_active=True)
+            if active_v:
+                try:
+                    real_content = json.loads(active_v.content)
+                    for f in fields:
+                        # Si le champ existe et n'est pas vide
+                        if f in real_content and str(real_content[f]).strip():
+                            self.mock_dict[f] = str(real_content[f])
+                except json.JSONDecodeError:
+                    pass
+
+        # On rafraîchit l'écran avec les nouvelles données
+        self.update_preview()
 
     @Slot()
     def refresh_data(self) -> None:
@@ -520,7 +564,7 @@ class ModelsTab(QWidget):
             self.fields_view.setPlainText(", ".join(fields))
             self.fields_view.blockSignals(False)
 
-            self.mock_dict = {f: f"<span style='color:#888;'><i>[Simulation of {f}]</i></span>" for f in fields}
+            self.load_real_preview_data(randomize=False)
 
             self.current_css = note_type.css_style if note_type.css_style else ""
             self.css_editor.blockSignals(True)
