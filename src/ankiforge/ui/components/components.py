@@ -1,10 +1,10 @@
-# src/ankiforge/ui/widgets/components.py
 from typing import cast
 
 import qtawesome
-from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout, QComboBox
+from PySide6.QtWidgets import QPushButton, QFrame, QLabel, QVBoxLayout, QComboBox, QSizePolicy, QWidget
 from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtCore import Qt, QEvent, Slot
+
 
 from ankiforge.ui.theme import get_icon_color
 
@@ -204,3 +204,39 @@ class DBComboBox(QComboBox):
                 self.setCurrentIndex(idx)
 
         self.blockSignals(False)
+
+
+class EmptyStateWidget(QWidget):
+    """Widget réutilisable pour guider l'utilisateur quand une liste est vide."""
+
+    def __init__(self, icon_name: str, title: str, description: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(10)
+
+        # Icône large et discrète
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setPixmap(qtawesome.icon(icon_name, color=get_icon_color(), opacity=0.3).pixmap(80, 80))
+        self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Titre en gras
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: palette(placeholder-text);")
+        self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Description pédagogique
+        self.desc_lbl = QLabel(description)
+        self.desc_lbl.setStyleSheet("font-size: 13px; color: palette(placeholder-text);")
+        self.desc_lbl.setWordWrap(True)
+        self.desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.desc_lbl.setMaximumWidth(350)
+
+        layout.addStretch()
+        layout.addWidget(self.icon_lbl)
+        layout.addWidget(self.title_lbl)
+        layout.addWidget(self.desc_lbl)
+        layout.addStretch()

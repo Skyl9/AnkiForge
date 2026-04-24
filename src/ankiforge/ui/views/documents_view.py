@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import DocumentModel, FolderModel, db
 from ankiforge.services.workers.document_worker import DocumentWorker
-from ankiforge.ui.components.components import ActionButton, DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
+from ankiforge.ui.components.components import ActionButton, DangerButton, HeaderLabel, PrimaryButton, RoundedPanel, EmptyStateWidget
 from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
@@ -188,6 +188,10 @@ class DocumentsTab(QWidget):
         self.tree.setAcceptDrops(True)
         self.tree.setDropIndicatorShown(True)
         self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+
+        self.tree_empty_overlay = EmptyStateWidget(
+            icon_name="fa5s.file-import", title=self.tr("Bibliothèque vide"), description=self.tr("Importez vos PDF ou fichiers texte pour commencer à forger vos connaissances.")
+        )
 
         left_layout.addWidget(self.tree)
         self.main_splitter.addWidget(left_panel)
@@ -402,7 +406,13 @@ class DocumentsTab(QWidget):
             doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
             doc_item.setFlags((doc_item.flags() | Qt.ItemFlag.ItemIsDragEnabled) & ~Qt.ItemFlag.ItemIsDropEnabled)
 
-        self.tree.expandAll()
+        is_empty = FolderModel.select().count() == 0 and DocumentModel.select().where(DocumentModel.folder.is_null()).count() == 0
+
+        self.tree.setVisible(not is_empty)
+        self.tree_empty_overlay.setVisible(is_empty)
+
+        if not is_empty:
+            self.tree.expandAll()
 
     @Slot(int, object)
     def _on_document_moved(self, doc_id: int, new_folder_id: object) -> None:

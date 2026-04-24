@@ -59,3 +59,41 @@ class CssHighlighter(QSyntaxHighlighter):
         for pattern, format in self.highlighting_rules:
             for match in pattern.finditer(text):
                 self.setFormat(match.start(), match.end() - match.start(), format)
+
+
+class JinjaHighlighter(QSyntaxHighlighter):
+    """
+    Highlighter pour les prompts système utilisant la syntaxe Jinja2 et Markdown.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.highlighting_rules = []
+
+        # 1. Commentaires Jinja {# ... #} (Vert)
+        comment_format = QTextCharFormat()
+        comment_format.setForeground(QColor("#6A9955"))
+        comment_format.setFontItalic(True)
+        self.highlighting_rules.append((re.compile(r"\{#.*?#\}"), comment_format))
+
+        # 2. Blocs de contrôle Jinja {% ... %} (Violet)
+        block_format = QTextCharFormat()
+        block_format.setForeground(QColor("#C586C0"))
+        block_format.setFontWeight(QFont.Weight.Bold)
+        self.highlighting_rules.append((re.compile(r"\{%.*?%\}"), block_format))
+
+        # 3. Variables Jinja {{ ... }} (Orange)
+        var_format = QTextCharFormat()
+        var_format.setForeground(QColor("#CE9178"))
+        var_format.setFontWeight(QFont.Weight.Bold)
+        self.highlighting_rules.append((re.compile(r"\{\{.*?\}\}"), var_format))
+
+        # 4. Mots clés Markdown inline `code` (Vert d'eau)
+        code_format = QTextCharFormat()
+        code_format.setForeground(QColor("#4EC9B0"))
+        self.highlighting_rules.append((re.compile(r"`[^`]+`"), code_format))
+
+    def highlightBlock(self, text):
+        for pattern, format in self.highlighting_rules:
+            for match in pattern.finditer(text):
+                self.setFormat(match.start(), match.end() - match.start(), format)

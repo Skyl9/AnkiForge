@@ -1,15 +1,15 @@
-import logging
 import json
+import logging
 import re
 from typing import Optional, cast
 
 import qtawesome
-from PySide6.QtCore import Qt, Signal, QPoint, QSettings
+from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem, QAbstractItemView, QFrame, QMenu, QMessageBox
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.components.components import RoundedPanel, PrimaryButton, DangerButton, ActionButton
+from ankiforge.ui.components.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,9 @@ class NoteTableWidget(RoundedPanel):
         layout.addLayout(toolbar_layout)
 
         # --- Table ---
+        self.container_layout = QVBoxLayout()
+        self.container_layout.setContentsMargins(0, 0, 0, 0)
+
         self.data_table = QTableWidget()
         self.data_table.setFrameShape(QFrame.Shape.NoFrame)
         self.data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -107,7 +110,18 @@ class NoteTableWidget(RoundedPanel):
         self.data_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.data_table.setSortingEnabled(True)
 
-        layout.addWidget(self.data_table)
+        self.empty_overlay = EmptyStateWidget(
+            icon_name="fa5s.clone",
+            title=self.tr("Aucune carte à afficher"),
+            description=self.tr("Sélectionnez un paquet dans l'explorateur à gauche ou créez votre première carte pour la voir apparaître ici."),
+        )
+
+        self.container_layout.addWidget(self.data_table)
+        self.container_layout.addWidget(self.empty_overlay)
+        layout.addLayout(self.container_layout)
+
+        # État initial
+        self.data_table.hide()
 
     def _connect_signals(self):
         self.view_mode_cb.currentIndexChanged.connect(self._on_view_mode_changed)
@@ -169,9 +183,10 @@ class NoteTableWidget(RoundedPanel):
     def _on_reject_clicked(self):
         self.reject_requested.emit(self.get_selected_note_ids())
 
-    def refresh_table(self, deck_id: int | None, tag_filter: str | None = None):
+    def refresh_table(self, deck_id: int | None, tag_filter: str | None = None) -> None:
         if not deck_id:
-            self.data_table.setRowCount(0)
+            self.data_table.hide()
+            self.empty_overlay.show()
             return
 
         self.data_table.setSortingEnabled(False)
@@ -271,6 +286,13 @@ class NoteTableWidget(RoundedPanel):
         except Exception as e:
             logger.exception("Erreur lors du rafraîchissement du tableau de données :")
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
+
+        if self.data_table.rowCount() == 0:
+            self.data_table.hide()
+            self.empty_overlay.show()
+        else:
+            self.empty_overlay.hide()
+            self.data_table.show()
 
     def _show_header_menu(self, pos: QPoint) -> None:
         menu = QMenu(self)

@@ -19,10 +19,12 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QFileDialog,
     QInputDialog,
+    QPushButton,
 )
 
 from ankiforge.database.models import PipelineModel, PipelineStepModel, db, AgentModel
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, DangerButton, RoundedPanel
+from ankiforge.ui.widgets.highlighters import JinjaHighlighter
 from ankiforge.ui.widgets.toast import show_toast
 
 logger = logging.getLogger(__name__)
@@ -112,9 +114,34 @@ class AgentsTab(QWidget):
         lbl_prompt.setStyleSheet("font-weight: bold; color: palette(text); font-size: 11px; margin-top: 10px;")
         form_layout.addWidget(lbl_prompt)
 
+        snippets_layout = QHBoxLayout()
+        snippets_layout.setSpacing(5)
+
+        snippets = [
+            ("{{ fields_str }}", "{{ fields_str }}"),
+            ("{{ first_field }}", "{{ first_field }}"),
+            ("{{ second_field }}", "{{ second_field }}"),
+            ("{% if %}", "{% if condition %}\n    \n{% endif %}"),
+            ("{% for %}", "{% for item in liste %}\n    \n{% endfor %}"),
+        ]
+
+        for label, text in snippets:
+            btn = QPushButton(label)
+            btn.setFlat(True)
+            btn.setStyleSheet("font-size: 10px; padding: 3px 6px; border: 1px solid palette(alternate-base); border-radius: 4px; color: palette(highlight);")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda _, t=text: self.insert_snippet(t))
+            snippets_layout.addWidget(btn)
+
+        snippets_layout.addStretch()
+        form_layout.addLayout(snippets_layout)
+
         self.agent_prompt_input = QTextEdit()
         self.agent_prompt_input.setPlaceholderText(self.tr("You are an expert in... Your variables are {{Front}} and {{Back}}..."))
         self.agent_prompt_input.setStyleSheet("font-family: monospace;")
+
+        self.jinja_highlighter = JinjaHighlighter(self.agent_prompt_input.document())
+
         form_layout.addWidget(self.agent_prompt_input)
 
         lbl_format = QLabel(self.tr("AI Response Format:"))
@@ -240,6 +267,13 @@ class AgentsTab(QWidget):
     def refresh_data(self) -> None:
         """MainWindow contract: Refreshes agents and pipelines."""
         self.refresh_ui()
+
+    def insert_snippet(self, text: str) -> None:
+        """Insère le texte au curseur dans l'éditeur de prompt."""
+        cursor = self.agent_prompt_input.textCursor()
+        cursor.insertText(text)
+        self.agent_prompt_input.setTextCursor(cursor)
+        self.agent_prompt_input.setFocus()
 
     @Slot()
     def export_pipeline(self) -> None:
