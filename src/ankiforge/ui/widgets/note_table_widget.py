@@ -7,6 +7,7 @@ import qtawesome
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
+from peewee import prefetch
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.components.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
@@ -241,7 +242,7 @@ class NoteTableWidget(RoundedPanel):
                 self.data_table.setColumnCount(5)
                 self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
 
-                notes = (
+                notes_query = (
                     NoteModel.select(NoteModel, NoteTypeModel)
                     .join(NoteTypeModel)
                     .switch(NoteModel)
@@ -250,12 +251,20 @@ class NoteTableWidget(RoundedPanel):
                     .where(DeckModel.id.in_(matching_decks) & status_condition)
                     .distinct()
                 )
+                # 2. Requête secondaire (uniquement les versions actives)
+                versions_query = NoteVersionModel.select().where(NoteVersionModel.is_active)
 
-                for row_index, note in enumerate(notes):
+                # 3. LA MAGIE PEEWEE : On précharge tout en mémoire en 2 requêtes SQL !
+                notes_with_versions = prefetch(notes_query, versions_query)
+
+                for row_index, note in enumerate(notes_with_versions):
                     self.data_table.insertRow(row_index)
 
-                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
-                    content_dict = json.loads(active_version.content) if active_version else {}
+                    # Puisque prefetch a déjà attaché les versions, on y accède directement en RAM
+                    # Note: note.versions est maintenant une liste Python peuplée automatiquement
+                    active_version = note.versions[0] if len(note.versions) > 0 else None
+
+                    content_dict = json.loads(str(active_version.content)) if active_version else {}
 
                     values = list(content_dict.values())
                     recto = strip_html(values[0]) if len(values) > 0 else ""

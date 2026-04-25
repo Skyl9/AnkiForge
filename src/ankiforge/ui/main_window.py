@@ -1,3 +1,5 @@
+from datetime import datetime
+import os
 from typing import Any
 
 import qtawesome as qta
@@ -19,6 +21,7 @@ from ankiforge.ui.views.models_view import ModelsTab
 from ankiforge.ui.views.settings_view import SettingsTab
 from ankiforge.ui.views.stats_view import StatsTab
 from ankiforge.ui.widgets.omnibox import Omnibox
+from ankiforge.ui.widgets.toast import Toast
 from ankiforge.ui.widgets.tour_guide import TourBubble
 
 
@@ -43,8 +46,34 @@ class MainWindow(QMainWindow):
         # Initialisation des vues et raccourcis
         self._setup_omnibox()
         self._setup_tour()
-
+        self._setup_shortcuts()
         self.read_settings()
+
+    def _setup_shortcuts(self) -> None:
+        self.shortcut_screenshot = QShortcut(QKeySequence("F12"), self)
+        self.shortcut_screenshot.activated.connect(self.take_screenshot)
+
+    @Slot()
+    def take_screenshot(self) -> None:
+        """Capture la fenêtre principale et la sauvegarde dans le dossier 'screenshots'."""
+
+        # 1. On crée le dossier s'il n'existe pas
+        os.makedirs("screenshots", exist_ok=True)
+
+        # 2. La magie Qt : on capture l'interface
+        pixmap = self.grab()
+
+        # 3. On génère un nom unique
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        filepath = f"screenshots/ankiforge_capture_{timestamp}.png"
+
+        # 4. On sauvegarde (Haute qualité)
+        pixmap.save(filepath, "PNG")
+
+        # Optionnel : Afficher un de tes jolis Toasts pour confirmer
+
+        Toast(self, self.tr(f"Capture sauvegardée : {filepath}"), "fa5s.camera").show_toast()
 
     def _setup_ui(self) -> None:
         main_widget = QWidget()

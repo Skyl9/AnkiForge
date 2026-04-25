@@ -9,6 +9,25 @@ GLOBAL_STYLESHEET = """
 QMainWindow {
     background-color: palette(window);
 }
+/* --- Boutons globaux --- */
+QPushButton {
+    padding: 8px 16px; 
+    border-radius: 6px;
+}
+QPushButton:disabled {
+    background-color: rgba(128, 128, 128, 0.1);
+    color: palette(placeholder-text);
+    border: 1px dashed palette(alternate-base);
+}
+QPushButton#SecondaryBtn {
+    background-color: transparent;
+    border: 1px solid palette(alternate-base);
+    color: palette(text);
+    font-weight: bold;
+}
+QPushButton#SecondaryBtn:hover {
+    background-color: palette(alternate-base);
+}
 /* --- Scrollbars Modernes --- */
 QScrollBar:vertical { border: none; background: transparent; width: 10px; margin: 0px; }
 QScrollBar::handle:vertical { background: palette(alternate-base); min-height: 30px; border-radius: 5px; }
@@ -20,15 +39,16 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
 
 /* --- Champs de saisie et Menus déroulants --- */
 QLineEdit, QTextEdit, QComboBox, QSpinBox {
-    background-color: palette(window);
+    background-color: palette(base);
     color: palette(text);
     border: 1px solid palette(alternate-base);
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     selection-background-color: palette(highlight);
 }
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus {
     border: 1px solid palette(highlight);
+    background-color: palette(base);
 }
 QComboBox::drop-down { border: none; padding-right: 10px; }
 QComboBox QAbstractItemView {
@@ -59,7 +79,7 @@ QTabBar::tab:hover:!selected { background: palette(window); }
 
 
 QHeaderView::section {
-    background-color: palette(alternate-base);
+    background-color: palette(window);
     color: palette(text);
     font-weight: bold;
     padding: 8px;
@@ -118,9 +138,9 @@ def apply_light_theme(app: QApplication) -> None:
     palette = QPalette()
 
     # Adoucissement global du thème clair
-    bg_color = QColor(235, 235, 235)  # Fond légèrement plus sombre pour détacher les cartes
-    surface_color = QColor(252, 252, 252)  # Blanc "cassé" moins agressif
-    alternate_base = QColor(215, 215, 215)  # Gris plus marqué pour bien délimiter les champs de saisie
+    bg_color = QColor("#F0F0F3")  # Fond légèrement plus sombre pour détacher les cartes
+    surface_color = QColor("#FFFFFF")  # Blanc "cassé" moins agressif
+    alternate_base = QColor("#E0E0E0")  # Gris plus marqué pour bien délimiter les champs de saisie
     text_primary = QColor(40, 40, 40)
     text_disabled = QColor(140, 140, 140)
     accent_color = QColor(63, 81, 181)

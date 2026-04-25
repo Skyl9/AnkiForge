@@ -25,13 +25,17 @@ class PrimaryButton(QPushButton):
                 background-color: #4CAF50;
                 color: white;
                 border-radius: 6px;
-                padding: 8px 16px;
+                padding: 10px 20px;
                 font-weight: bold;
                 font-size: 13px;
             }
             PrimaryButton:hover { background-color: #45a049; }
             PrimaryButton:pressed { background-color: #388E3C; }
-            PrimaryButton:disabled { background-color: palette(alternate-base); color: palette(placeholder-text); }
+            PrimaryButton:disabled { 
+                background-color: rgba(76, 175, 80, 0.3); 
+                color: rgba(255, 255, 255, 0.5); 
+                border: 1px dashed rgba(76, 175, 80, 0.5);
+            }
         """)
 
 
@@ -51,12 +55,16 @@ class DangerButton(QPushButton):
                 background-color: #F44336;
                 color: white;
                 border-radius: 6px;
-                padding: 8px 16px;
+                padding: 10px 20px;
                 font-weight: bold;
             }
             DangerButton:hover { background-color: #E53935; }
             DangerButton:pressed { background-color: #D32F2F; }
-            DangerButton:disabled { background-color: palette(alternate-base); color: palette(placeholder-text); }
+            DangerButton:disabled { 
+                background-color: rgba(244, 67, 54, 0.2); 
+                color: rgba(255, 255, 255, 0.5);
+                border: 1px dashed rgba(244, 67, 54, 0.5);
+            }        
         """)
 
 
@@ -90,8 +98,9 @@ class ActionButton(QPushButton):
             }
             ActionButton:pressed { background-color: palette(base); }
             ActionButton:disabled { 
-                background-color: palette(window);
+                background-color: transparent;
                 color: palette(placeholder-text); 
+                border: 1px dashed palette(alternate-base);
             }
         """)
 
