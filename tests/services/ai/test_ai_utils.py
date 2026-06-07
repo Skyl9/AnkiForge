@@ -1,6 +1,7 @@
 import pytest
+import dataclasses
 
-from ankiforge.services.ai.utils import parse_ai_json_response
+from ankiforge.services.ai.utils import AIReponseParser
 
 # On génère le fameux symbole Markdown dynamiquement via son code ASCII (96)
 # Cela permet d'écrire les tests sans jamais casser l'affichage de l'éditeur !
@@ -11,7 +12,7 @@ def test_parse_pure_json():
     """Test 1: L'IA est disciplinée et renvoie uniquement le JSON brut."""
     raw_response = """{"notes": [{"Recto": "Question", "Verso": "Réponse"}]}"""
 
-    result = parse_ai_json_response(raw_response)
+    result = AIReponseParser.parse(raw_response)
 
     assert isinstance(result, dict)
     assert "notes" in result
@@ -31,7 +32,7 @@ def test_parse_markdown_json_with_text():
         """N'hésitez pas si vous en voulez d'autres."""
     )
 
-    result = parse_ai_json_response(raw_response)
+    result = AIReponseParser.parse(raw_response)
 
     assert "notes" in result
     assert len(result["notes"]) == 1
@@ -42,7 +43,7 @@ def test_parse_markdown_without_language_specifier():
     """Test 3: L'IA met la balise de code mais oublie de préciser le mot 'json'."""
     raw_response = """\n""" + MARKDOWN_CODE_BLOCK + """\n""" + """{"notes": [{"Test": "OK"}]}\n""" + MARKDOWN_CODE_BLOCK + """\n"""
 
-    result = parse_ai_json_response(raw_response)
+    result = AIReponseParser.parse(raw_response)
 
     assert isinstance(result, dict)
     assert result["notes"][0]["Test"] == "OK"
@@ -52,7 +53,7 @@ def test_parse_json_with_leading_and_trailing_spaces():
     """Test 4: L'IA renvoie du JSON pur mais avec des sauts de ligne ou des espaces inutiles."""
     raw_response = """\n\n   {"notes": []}   \n"""
 
-    result = parse_ai_json_response(raw_response)
+    result = AIReponseParser.parse(raw_response)
 
     assert isinstance(result, dict)
     assert result["notes"] == []
@@ -65,7 +66,38 @@ def test_parse_invalid_broken_json():
 
     # On vérifie que notre fonction attrape l'erreur et lève une ValueError propre
     with pytest.raises(ValueError) as exc_info:
-        parse_ai_json_response(raw_response)
+        AIReponseParser.parse(raw_response)
 
     assert "Impossible de lire le JSON" in str(exc_info.value)
     assert "L'IA a généré un format invalide" in str(exc_info.value)
+
+
+@dataclasses.dataclass
+class Flashcard:
+    Recto: str
+    Verso: str
+
+
+@dataclasses.dataclass
+class DeckResponse:
+    notes: list[Flashcard]
+
+
+def test_parse_with_dataclass():
+    raw_response = """{"notes": [{"Recto": "Q1", "Verso": "A1"}, {"Recto": "Q2", "Verso": "A2"}]}"""
+    result = AIReponseParser.parse(raw_response, target_model=DeckResponse)
+
+    assert isinstance(result, DeckResponse)
+    assert len(result.notes) == 2
+    assert isinstance(result.notes[0], Flashcard)
+    assert result.notes[0].Recto == "Q1"
+
+
+def test_parse_with_list_dataclass():
+    raw_response = """[{"Recto": "Q1", "Verso": "A1"}]"""
+    result = AIReponseParser.parse(raw_response, target_model=list[Flashcard])
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], Flashcard)
+    assert result[0].Recto == "Q1"

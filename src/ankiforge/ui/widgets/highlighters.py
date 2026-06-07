@@ -97,3 +97,27 @@ class JinjaHighlighter(QSyntaxHighlighter):
         for pattern, format in self.highlighting_rules:
             for match in pattern.finditer(text):
                 self.setFormat(match.start(), match.end() - match.start(), format)
+
+
+class SourceHighlighter(QSyntaxHighlighter):
+    """Surligneur léger pour griser le HTML et colorer le Markdown."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.rules = []
+
+        # 1. Balises HTML (ex: <span id="...">) -> Grisé
+        html_format = QTextCharFormat()
+        html_format.setForeground(QColor(150, 150, 150))
+        self.rules.append((re.compile(r"<[^>]+>"), html_format))
+
+        # 2. Titres Markdown (# Titre) -> Couleur Accent + Gras
+        h_format = QTextCharFormat()
+        h_format.setForeground(QColor("#7E57C2"))  # Couleur de ton thème
+        h_format.setFontWeight(QFont.Weight.Bold)
+        self.rules.append((re.compile(r"^#+\s+.*"), h_format))
+
+    def highlightBlock(self, text):
+        for pattern, format in self.rules:
+            for match in pattern.finditer(text):
+                self.setFormat(match.start(), match.end() - match.start(), format)

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QThread, Signal
 
-from ankiforge.services.ai.utils import parse_ai_json_response, format_system_prompt
+from ankiforge.services.ai.utils import AIReponseParser, format_system_prompt
 from ankiforge.utils.paths import get_app_data_dir
 from ankiforge.utils.vision_utils import prepare_multimodal_payload, strip_image_tags
 
@@ -126,7 +126,7 @@ class CreationWorker(QThread):
                 cleaned_output = self._clean_json(raw_response)
                 current_input = f"Voici les données à traiter (provenant de l'étape précédente) :\n{cleaned_output}"
 
-            data = parse_ai_json_response(raw_response)
+            data = AIReponseParser.parse(raw_response)
 
             if "notes" not in data:
                 raise ValueError("Le JSON final ne contient pas la clé 'notes'.")

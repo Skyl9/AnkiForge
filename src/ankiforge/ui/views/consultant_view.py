@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import CardModel, DeckModel, DocumentModel, LLMConfigModel, NoteModel, NoteVersionModel
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
-from ankiforge.ui.components.components import HeaderLabel, PrimaryButton, RoundedPanel, DBComboBox
+from ankiforge.ui.components.components import HeaderLabel, PrimaryButton, RoundedPanel, DBComboBox, EmptyStateWidget
 
 logger = logging.getLogger(__name__)
 
@@ -337,16 +337,14 @@ class ConsultantTab(QWidget):
         self.chat_history.setReadOnly(True)
         self.chat_history.setFrameShape(QFrame.Shape.NoFrame)
         self.chat_history.setStyleSheet("background: transparent; font-size: 14px;")
-        self.chat_history.append(
-            self.tr(
-                "<div style='color: gray; text-align: center; margin-top: 40px;'>"
-                "<h2>Welcome to your Studio</h2>"
-                "<i>Load your documents and decks with <b>@</b>.<br>"
-                "Launch targeted requests with <b>/</b> (ex: /audit).</i></div>"
-            )
+        self.chat_history.hide()
+
+        self.empty_state = EmptyStateWidget(
+            icon_name="fa5s.robot", title=self.tr("Votre Consultant Personnel"), description=self.tr("Sélectionnez un document à analyser sur la gauche (tapez @), ou posez directement une question.")
         )
         self.lbl_chat_status = QLabel("")
 
+        console_layout.addWidget(self.empty_state)
         console_layout.addWidget(self.chat_history)
         console_layout.addWidget(self.lbl_chat_status)
 
@@ -434,6 +432,9 @@ class ConsultantTab(QWidget):
         instruction = self.chat_input.toPlainText().strip()
         if not instruction:
             return
+
+        self.empty_state.hide()
+        self.chat_history.show()
 
         # Retract input area to free display space
         self.chat_input.setMinimumHeight(40)

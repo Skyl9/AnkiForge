@@ -41,15 +41,6 @@ class BaseModel(Model):
         database = db
 
 
-class SchemaVersionModel(BaseModel):
-    """Stocke la version actuelle de la structure de la base de données."""
-
-    version = IntegerField(default=1)
-
-    class Meta:
-        table_name = "schema_version"
-
-
 class DeckModel(BaseModel):
     """Représente un paquet Anki et sa hiérarchie (Subdecks)"""
 
@@ -277,27 +268,7 @@ class JobModel(BaseModel):
 
 def init_db() -> None:
     db.connect(reuse_if_open=True)
-    # Ajout des nouvelles tables à l'initialisation
-    db.create_tables(
-        [
-            DeckModel,
-            NoteTypeModel,
-            NoteModel,
-            CardModel,
-            NoteVersionModel,
-            AgentModel,
-            PipelineModel,
-            PipelineStepModel,
-            DocumentModel,
-            FolderModel,
-            PromptModel,
-            IgnoredDuplicateModel,
-            LLMConfigModel,
-            TokenUsageModel,
-            SchemaVersionModel,
-            JobModel,
-        ]
-    )
+    # La création des tables est désormais entièrement déléguée à peewee-migrate.
 
 
 class IgnoredDuplicateModel(BaseModel):

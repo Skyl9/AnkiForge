@@ -422,6 +422,26 @@ class StoreManager:
                 # Remplacement du return par un raise
                 raise ValueError(f"Type de fichier non supporté : {extension}")
 
+    def approve_notes(self, note_ids: list[int]) -> None:
+        """Approuve une liste de notes en mettant leur statut à 'new'."""
+        with db.atomic():
+            NoteModel.update(status="new").where(NoteModel.id.in_(note_ids)).execute()
+
+    def delete_notes(self, note_ids: list[int]) -> None:
+        """Supprime une liste de notes de la base de données."""
+        with db.atomic():
+            NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()
+
+    def apply_linter_suggestion(self, note_id: int, suggestion: dict) -> None:
+        """Applique les suggestions du linter à une note via StoreManager."""
+        with db.atomic():
+            note = NoteModel.get_by_id(note_id)
+            active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
+            if active_version:
+                content = json.loads(active_version.content)
+                content.update(suggestion)
+                note.add_version(content, source="Linter AI")
+
 
 if __name__ == "__main__":
     # N'oublie pas d'initialiser la base de données avant de tester !

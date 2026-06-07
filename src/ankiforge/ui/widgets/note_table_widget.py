@@ -1,12 +1,12 @@
 import json
 import logging
 import re
-from typing import Optional, cast
+from typing import cast
 
 import qtawesome
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView
 from peewee import prefetch
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
@@ -15,7 +15,7 @@ from ankiforge.ui.components.components import ActionButton, DangerButton, Empty
 logger = logging.getLogger(__name__)
 
 
-def strip_html(text: Optional[str]) -> str:
+def strip_html(text: str | None) -> str:
     """Retire toutes les balises HTML d'une chaîne pour l'affichage brut dans les tableaux."""
     if not text:
         return ""
@@ -48,6 +48,7 @@ class NoteTableWidget(RoundedPanel):
     scan_dupes_requested = Signal()
     batch_ai_requested = Signal(list)  # Liste des IDs
     auto_tag_requested = Signal(list)  # Liste des IDs
+    audit_ai_requested = Signal(list)  # Liste des IDs
     approve_requested = Signal(list)  # Liste des IDs
     reject_requested = Signal(list)  # Liste des IDs
 
@@ -88,9 +89,13 @@ class NoteTableWidget(RoundedPanel):
         self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA")
         self.btn_auto_tag.setEnabled(False)
 
+        self.btn_audit_ai = ActionButton("fa5s.clipboard-check", " Auditer IA")
+        self.btn_audit_ai.setEnabled(False)
+
         toolbar_layout.addWidget(self.btn_new_note)
         toolbar_layout.addWidget(self.btn_batch_ai)
         toolbar_layout.addWidget(self.btn_auto_tag)
+        toolbar_layout.addWidget(self.btn_audit_ai)
         toolbar_layout.addWidget(self.btn_scan_dupes)
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
@@ -102,6 +107,7 @@ class NoteTableWidget(RoundedPanel):
         self.container_layout.setContentsMargins(0, 0, 0, 0)
 
         self.data_table = QTableWidget()
+
         self.data_table.setFrameShape(QFrame.Shape.NoFrame)
         self.data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.data_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -130,6 +136,7 @@ class NoteTableWidget(RoundedPanel):
         self.btn_scan_dupes.clicked.connect(self.scan_dupes_requested.emit)
         self.btn_batch_ai.clicked.connect(self._on_batch_ai_clicked)
         self.btn_auto_tag.clicked.connect(self._on_auto_tag_clicked)
+        self.btn_audit_ai.clicked.connect(self._on_audit_ai_clicked)
         self.btn_approve.clicked.connect(self._on_approve_clicked)
         self.btn_reject.clicked.connect(self._on_reject_clicked)
 
@@ -141,10 +148,14 @@ class NoteTableWidget(RoundedPanel):
     def _on_view_mode_changed(self):
         self.view_mode_changed.emit(self.view_mode_cb.currentText())
 
+    def get_current_view_mode(self) -> str:
+        return self.view_mode_cb.currentText()
+
     def _on_selection_changed(self):
         selected_ids = self.get_selected_note_ids()
         self.btn_batch_ai.setEnabled(bool(selected_ids))
         self.btn_auto_tag.setEnabled(bool(selected_ids))
+        self.btn_audit_ai.setEnabled(bool(selected_ids))
 
         is_quarantine = self.view_mode_cb.currentText() == "Vue : Quarantaine (À valider)"
         if is_quarantine:
@@ -172,11 +183,24 @@ class NoteTableWidget(RoundedPanel):
                         note_ids.append(note_id)
         return note_ids
 
+    def select_and_scroll_to_note(self, note_id: int) -> bool:
+        """Selects a note in the table and scrolls to it. Returns True if found."""
+        for row in range(self.data_table.rowCount()):
+            table_item = self.data_table.item(row, 0)
+            if table_item and table_item.data(Qt.ItemDataRole.UserRole) == note_id:
+                self.data_table.selectRow(row)
+                self.data_table.scrollToItem(table_item)
+                return True
+        return False
+
     def _on_batch_ai_clicked(self):
         self.batch_ai_requested.emit(self.get_selected_note_ids())
 
     def _on_auto_tag_clicked(self):
         self.auto_tag_requested.emit(self.get_selected_note_ids())
+
+    def _on_audit_ai_clicked(self):
+        self.audit_ai_requested.emit(self.get_selected_note_ids())
 
     def _on_approve_clicked(self):
         self.approve_requested.emit(self.get_selected_note_ids())
@@ -212,6 +236,12 @@ class NoteTableWidget(RoundedPanel):
                 self.data_table.setColumnCount(4)
                 self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Template"])
 
+                self.data_table.horizontalHeader().setStretchLastSection(False)
+                self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Le nom du paquet s'étire
+                self.data_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+
                 cards = (
                     CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
                     .join(NoteModel)
@@ -241,6 +271,13 @@ class NoteTableWidget(RoundedPanel):
             else:
                 self.data_table.setColumnCount(5)
                 self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
+
+                self.data_table.horizontalHeader().setStretchLastSection(False)
+                self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Question s'étire
+                self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Réponse s'étire aussi
+                self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
 
                 notes_query = (
                     NoteModel.select(NoteModel, NoteTypeModel)

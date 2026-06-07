@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, cast
+from typing import cast
 import json
 
 from PySide6.QtCore import Qt, Signal, Slot, QPoint
@@ -82,7 +82,7 @@ class FilterSidebar(RoundedPanel):
         except Exception as e:
             logger.error(f"Erreur lors du rafraîchissement des paquets : {e}")
 
-    def refresh_tags(self, deck_id: Optional[int], is_quarantine: bool = False):
+    def refresh_tags(self, deck_id: int | None, is_quarantine: bool = False):
         self.tag_list.clear()
 
         all_item = QListWidgetItem("🏷️ Tous les tags")
@@ -123,6 +123,19 @@ class FilterSidebar(RoundedPanel):
         deck_id = item.data(0, Qt.ItemDataRole.UserRole)
         if deck_id:
             self.deck_selected.emit(deck_id)
+
+    def select_deck(self, deck_id: int) -> bool:
+        """Selects a deck programmatically in the tree."""
+        from PySide6.QtWidgets import QTreeWidgetItemIterator
+
+        iterator = QTreeWidgetItemIterator(self.deck_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.data(0, Qt.ItemDataRole.UserRole) == deck_id:
+                self.deck_tree.setCurrentItem(item)
+                return True
+            iterator += 1
+        return False
 
     @Slot(QListWidgetItem)
     def _on_tag_clicked(self, item: QListWidgetItem):

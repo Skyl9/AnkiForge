@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
@@ -39,7 +38,7 @@ class AgentsTab(QWidget):
     def __init__(self) -> None:
         """Initializes the agents and pipelines tab."""
         super().__init__()
-        self.agent_id: Optional[int] = None
+        self.agent_id: int | None = None
 
         self._setup_ui()
         self._connect_signals()

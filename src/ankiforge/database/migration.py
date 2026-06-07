@@ -3,7 +3,7 @@ import os
 import sqlite3
 import peewee
 from peewee_migrate import Router
-from ankiforge.database.models import db, SchemaVersionModel
+from ankiforge.database.models import db
 
 # On définit le dossier des migrations relativement à ce fichier
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "migrations")
@@ -20,27 +20,30 @@ def run_migrations() -> None:
 
     router = Router(db, migrate_dir=MIGRATIONS_DIR)
 
-    # 2. Gestion de la transition depuis l'ancien système manuel (SchemaVersionModel)
-    db.create_tables([SchemaVersionModel], safe=True)
-    version_record, _ = SchemaVersionModel.get_or_create(id=1, defaults={"version": 1})
+    # 2. Gestion de la transition depuis l'ancien système manuel
+    # Si la table 'agents' existe, c'est que l'utilisateur a au moins la v1 (créée via l'ancien init_db)
+    is_legacy = db.table_exists("agents")
+    done_migrations = router.done
 
-    # Si l'utilisateur est déjà en v2 via l'ancien système, on peut marquer
-    # la migration 001_initial comme déjà faite si on veut éviter des logs de création
-    # Mais peewee-migrate utilise 'CREATE TABLE IF NOT EXISTS' par défaut avec migrator.create_table
-    # donc c'est sans danger de laisser rouler.
+    if is_legacy:
+        # Falsifier la migration initiale si elle n'est pas encore tracée
+        if "001_initial" not in done_migrations:
+            router.model.create(name="001_initial")
+            logging.info("Legacy DB detected: faking migration 001_initial.")
+
+        # Si la colonne prompt_pricing existe, l'utilisateur a déjà la structure de la v2
+        if "002_llm_pricing" not in done_migrations:
+            if db.table_exists("llm_configs"):
+                columns = [col.name for col in db.get_columns("llm_configs")]
+                if "prompt_pricing" in columns:
+                    router.model.create(name="002_llm_pricing")
+                    logging.info("Legacy DB detected: faking migration 002_llm_pricing.")
 
     logging.info("Lancement des migrations via peewee-migrate...")
     try:
         # Exécute toutes les migrations en attente
         router.run()
-
-        # On met à jour l'ancienne table de version pour indiquer que peewee-migrate a pris le relais
-        if version_record.version < 100:
-            version_record.version = 100  # Marqueur arbitraire pour "Migré vers peewee-migrate"
-            version_record.save()
-
         logging.info("Migrations terminées avec succès.")
-
     except (peewee.DatabaseError, sqlite3.Error) as e:
         logging.error(f"Erreur lors de l'exécution des migrations : {e}")
         # On ne bloque pas forcément l'appli si c'est une erreur mineure,

@@ -205,7 +205,10 @@ class BatchTab(QWidget):
         self.table_queue.setHorizontalHeaderLabels(
             [self.tr("Document"), self.tr("Deck"), self.tr("Model"), self.tr("AI Engine"), self.tr("AI Pipeline"), self.tr("Chunking"), self.tr("Vision"), self.tr("Action")]
         )
+        self.table_queue.horizontalHeader().setStretchLastSection(False)
         self.table_queue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for col in range(1, 8):
+            self.table_queue.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         self.table_queue.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table_queue.setAlternatingRowColors(True)
         self.table_queue.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)

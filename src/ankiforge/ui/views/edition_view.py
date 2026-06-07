@@ -1,21 +1,20 @@
 import logging
-from typing import Optional
 
-import qtawesome
+
 from PySide6.QtCore import QSettings, Qt, Slot
-from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QProgressDialog, QSplitter, QVBoxLayout, QWidget, QTreeWidgetItemIterator
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QSplitter, QVBoxLayout, QWidget
 
-from ankiforge.database.models import DeckModel, LLMConfigModel, NoteModel, db
+from ankiforge.database.models import DeckModel, LLMConfigModel, NoteModel
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
-from ankiforge.ui.components.components import ActionButton, HeaderLabel, PrimaryButton
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
+from ankiforge.ui.widgets.linter_dialog import LinterDialog
 
 # Nouveaux composants extraits
 from ankiforge.ui.widgets.filter_sidebar import FilterSidebar
@@ -23,6 +22,7 @@ from ankiforge.ui.widgets.note_editor_widget import NoteEditorWidget
 from ankiforge.ui.widgets.note_table_widget import NoteTableWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
+from ankiforge.ui.widgets.edition_header_widget import EditionHeaderWidget
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,8 @@ class EditionTab(QWidget):
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(20)
 
-        self._build_header()
+        self.header_widget = EditionHeaderWidget()
+        self.main_layout.addWidget(self.header_widget)
 
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setHandleWidth(10)
@@ -84,25 +85,11 @@ class EditionTab(QWidget):
         self.main_splitter.setSizes([200, 800])
         self.main_layout.addWidget(self.main_splitter)
 
-    def _build_header(self) -> None:
-        """Builds the view header."""
-        header_layout = QHBoxLayout()
-        header_layout.addWidget(HeaderLabel(self.tr("Cards & Notes Navigator")))
-        header_layout.addStretch()
-
-        self.btn_load_col = ActionButton("fa5s.folder-open", self.tr(" Import a deck"))
-        self.btn_export = PrimaryButton(qtawesome.icon("fa5s.box", color="white"), self.tr(" Export to Anki"))
-        self.btn_export.setEnabled(False)
-
-        header_layout.addWidget(self.btn_load_col)
-        header_layout.addWidget(self.btn_export)
-        self.main_layout.addLayout(header_layout)
-
     def _connect_signals(self) -> None:
         """Centralizes component signal connections."""
         # Header
-        self.btn_load_col.clicked.connect(self.load_cards)
-        self.btn_export.clicked.connect(self.export_selected_deck)
+        self.header_widget.import_requested.connect(self.load_cards)
+        self.header_widget.export_requested.connect(self.export_selected_deck)
 
         # Sidebar
         self.filter_sidebar.deck_selected.connect(self.on_deck_selected)
@@ -114,6 +101,7 @@ class EditionTab(QWidget):
         self.note_table.new_note_requested.connect(self.enter_creation_mode)
         self.note_table.scan_dupes_requested.connect(self.scan_for_duplicates)
         self.note_table.batch_ai_requested.connect(self.open_batch_edit_dialog)
+        self.note_table.audit_ai_requested.connect(self.open_linter_dialog)
         self.note_table.auto_tag_requested.connect(self.open_auto_tag_dialog)
         self.note_table.approve_requested.connect(self.approve_selected_notes)
         self.note_table.reject_requested.connect(self.reject_selected_notes)
@@ -132,7 +120,7 @@ class EditionTab(QWidget):
             self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
 
     def refresh_tags(self) -> None:
-        mode = self.note_table.view_mode_cb.currentText()
+        mode = self.note_table.get_current_view_mode()
         # Comparison with translated mode name
         is_quarantine = mode == self.tr("View: Quarantine (To validate)")
         self.filter_sidebar.refresh_tags(self.current_deck_id, is_quarantine)
@@ -152,14 +140,14 @@ class EditionTab(QWidget):
 
         self.current_deck_id = deck_id
         self.current_tag_filter = None
-        self.btn_export.setEnabled(True)
+        self.header_widget.set_export_enabled(True)
         self.note_editor.set_current_deck(deck_id)
 
         self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
         self.refresh_tags()
 
     @Slot(object)
-    def on_tag_selected(self, tag: Optional[str]) -> None:
+    def on_tag_selected(self, tag: str | None) -> None:
         self.current_tag_filter = tag
         self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
 
@@ -175,6 +163,14 @@ class EditionTab(QWidget):
             # (Simplified logic here, NoteEditorWidget could also handle its own blocking state)
             pass
         self.note_editor.load_note(note_id)
+
+    @Slot(list)
+    def open_linter_dialog(self, note_ids: list[int]) -> None:
+        if not note_ids:
+            return
+        dialog = LinterDialog(note_ids, self)
+        dialog.exec()
+        self.refresh_data()
 
     @Slot()
     def enter_creation_mode(self) -> None:
@@ -193,30 +189,17 @@ class EditionTab(QWidget):
     def jump_to_note(self, note_id: int, deck_id: int) -> None:
         """Selects the deck, then finds and selects the card in the table."""
         # Delegate deck selection to sidebar
-
-        iterator = QTreeWidgetItemIterator(self.filter_sidebar.deck_tree)
-        while iterator.value():
-            item = iterator.value()
-            if item.data(0, Qt.ItemDataRole.UserRole) == deck_id:
-                self.filter_sidebar.deck_tree.setCurrentItem(item)
-                self.on_deck_selected(deck_id)
-                break
-            iterator += 1
+        if self.filter_sidebar.select_deck(deck_id):
+            self.on_deck_selected(deck_id)
 
         # Then search in table
-        table = self.note_table.data_table
-        for row in range(table.rowCount()):
-            table_item = table.item(row, 0)
-            if table_item and table_item.data(Qt.ItemDataRole.UserRole) == note_id:
-                table.selectRow(row)
-                table.scrollToItem(table_item)
-                break
+        self.note_table.select_and_scroll_to_note(note_id)
 
     @Slot()
     def load_cards(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, self.tr("Open document"), "", self.tr("Anki Documents (*.colpkg *.txt *.apkg)"))
         if path:
-            self.btn_load_col.setEnabled(False)
+            self.header_widget.set_import_enabled(False)
             self.progress_dialog = QProgressDialog(self.tr("Importing..."), self.tr("Cancel"), 0, 0, self)
             self.progress_dialog.show()
 
@@ -231,13 +214,13 @@ class EditionTab(QWidget):
             self.progress_dialog.close()
         show_toast(self, self.tr("Deck imported successfully!"))
         self.refresh_data()
-        self.btn_load_col.setEnabled(True)
+        self.header_widget.set_import_enabled(True)
 
     def _on_import_error(self, error_msg: str) -> None:
         if self.progress_dialog:
             self.progress_dialog.close()
         QMessageBox.critical(self, self.tr("Import Error"), error_msg)
-        self.btn_load_col.setEnabled(True)
+        self.header_widget.set_import_enabled(True)
 
     def is_dirty(self) -> bool:
         """Indique si une création de note manuelle est en cours."""
@@ -280,8 +263,7 @@ class EditionTab(QWidget):
     @Slot(list)
     def approve_selected_notes(self, note_ids: list[int]) -> None:
         try:
-            with db.atomic():
-                NoteModel.update(status="new").where(NoteModel.id.in_(note_ids)).execute()
+            self.store.approve_notes(note_ids)
             show_toast(self, self.tr("{0} notes approved!").format(len(note_ids)))
             self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
         except Exception as e:
@@ -293,8 +275,7 @@ class EditionTab(QWidget):
         reply = QMessageBox.question(self, self.tr("Confirmation"), self.tr("Permanently delete {0} notes?").format(len(note_ids)), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                with db.atomic():
-                    NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()
+                self.store.delete_notes(note_ids)
                 show_toast(self, self.tr("Notes deleted."))
                 self.note_table.refresh_table(self.current_deck_id, self.current_tag_filter)
                 self.note_editor._clear_editor()

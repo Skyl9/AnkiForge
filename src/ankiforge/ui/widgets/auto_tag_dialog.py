@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboB
 from ankiforge.database.models import NoteModel, LLMConfigModel, NoteVersionModel, db
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.utils import parse_ai_json_response
+from ankiforge.services.ai.utils import AIReponseParser
 from ankiforge.ui.components.components import PrimaryButton
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class AutoTaggingThread(QThread):
                 print(raw_response)
                 # Extraction et Sauvegarde
                 try:
-                    tagged_results = parse_ai_json_response(raw_response)
+                    tagged_results = AIReponseParser.parse(raw_response)
                     if not isinstance(tagged_results, list):
                         raise ValueError("L'IA n'a pas renvoyé une liste JSON.")
 

@@ -37,6 +37,7 @@ from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.workers.creation_worker import CreationWorker, CreationTaskPayload
 from ankiforge.ui.components.components import ActionButton, DangerButton, PrimaryButton, RoundedPanel, DBComboBox
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankiforge.ui.widgets.highlighters import SourceHighlighter
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.vision_utils import count_images
 
@@ -88,48 +89,80 @@ class CreationTab(QWidget):
         """Builds the upper panel containing AI parameters and targets."""
         params_panel = RoundedPanel()
         params_layout = QVBoxLayout(params_panel)
-        params_layout.setContentsMargins(20, 15, 20, 20)
+        params_layout.setContentsMargins(15, 10, 15, 10)
 
+        # --- HEADER COLLAPSABLE ---
+        header_layout = QHBoxLayout()
         lbl_title_1 = QLabel(self.tr("1. AI CONFIGURATION AND DESTINATION"))
         lbl_title_1.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
-        params_layout.addWidget(lbl_title_1)
+        header_layout.addWidget(lbl_title_1)
+
+        header_layout.addStretch()
+
+        self.btn_toggle_config = ActionButton("fa5s.chevron-up", "")
+        self.btn_toggle_config.setFixedSize(24, 24)
+        self.btn_toggle_config.setStyleSheet("border: none; background: transparent;")
+        self.btn_toggle_config.clicked.connect(self._toggle_config_panel)
+        header_layout.addWidget(self.btn_toggle_config)
+
+        params_layout.addLayout(header_layout)
+
+        # --- CONTENU ---
+        self.config_container = QWidget()
+        config_layout = QVBoxLayout(self.config_container)
+        config_layout.setContentsMargins(0, 5, 0, 0)
 
         params_grid = QGridLayout()
-        params_grid.setHorizontalSpacing(30)
-        params_grid.setVerticalSpacing(10)
-        lbl_style = "color: palette(placeholder-text); font-size: 12px; font-weight: 500;"
+        params_grid.setHorizontalSpacing(15)
+        params_grid.setVerticalSpacing(5)
+        lbl_style = "color: palette(placeholder-text); font-size: 11px; font-weight: bold;"
 
         lbl_deck = QLabel(self.tr("Destination deck:"))
         lbl_deck.setStyleSheet(lbl_style)
-        params_grid.addWidget(lbl_deck, 0, 0)
         self.deck_selector = DBComboBox(DeckModel)
-        params_grid.addWidget(self.deck_selector, 1, 0)
 
         lbl_model = QLabel(self.tr("Note model (Anki):"))
         lbl_model.setStyleSheet(lbl_style)
-        params_grid.addWidget(lbl_model, 0, 1)
         self.model_selector = DBComboBox(NoteTypeModel)
-        params_grid.addWidget(self.model_selector, 1, 1)
 
         lbl_engine = QLabel(self.tr("AI Engine:"))
         lbl_engine.setStyleSheet(lbl_style)
-        params_grid.addWidget(lbl_engine, 2, 0)
         self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
-        params_grid.addWidget(self.llm_selector, 3, 0)
 
         lbl_pipeline = QLabel(self.tr("Generation pipeline:"))
         lbl_pipeline.setStyleSheet(lbl_style)
-        params_grid.addWidget(lbl_pipeline, 2, 1)
         self.pipeline_selector = DBComboBox(PipelineModel)
-        params_grid.addWidget(self.pipeline_selector, 3, 1)
 
-        self.cb_vision = QCheckBox(self.tr("👁️ Enable image analysis (Vision) - ⚠️ Consumes more tokens"))
-        self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 10px;")
+        # Ligne 1 : Les 4 labels
+        params_grid.addWidget(lbl_deck, 0, 0)
+        params_grid.addWidget(lbl_model, 0, 1)
+        params_grid.addWidget(lbl_engine, 0, 2)
+        params_grid.addWidget(lbl_pipeline, 0, 3)
+
+        # Ligne 2 : Les 4 dropdowns
+        params_grid.addWidget(self.deck_selector, 1, 0)
+        params_grid.addWidget(self.model_selector, 1, 1)
+        params_grid.addWidget(self.llm_selector, 1, 2)
+        params_grid.addWidget(self.pipeline_selector, 1, 3)
+
+        config_layout.addLayout(params_grid)
+
+        self.cb_vision = QCheckBox(self.tr("👁️ Enable image analysis (Vision)"))
+        self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 5px;")
         self.cb_vision.setChecked(False)
-        params_grid.addWidget(self.cb_vision, 4, 0, 1, 2)
+        config_layout.addWidget(self.cb_vision)
 
-        params_layout.addLayout(params_grid)
+        params_layout.addWidget(self.config_container)
         self.main_layout.insertWidget(0, params_panel)
+
+    @Slot()
+    def _toggle_config_panel(self) -> None:
+        if self.config_container.isVisible():
+            self.config_container.hide()
+            self.btn_toggle_config.setIcon(qta.icon("fa5s.chevron-down", color="gray"))
+        else:
+            self.config_container.show()
+            self.btn_toggle_config.setIcon(qta.icon("fa5s.chevron-up", color="gray"))
 
     def _build_source_section(self) -> None:
         """Builds the central area for source text input and selection."""
@@ -161,6 +194,7 @@ class CreationTab(QWidget):
 
         self.source_text = QTextEdit()
         self.source_text.setPlaceholderText(self.tr("Select a document then a section..."))
+        self.source_highlighter = SourceHighlighter(self.source_text.document())
         source_layout.addWidget(self.source_text)
 
         bottom_source_layout = QHBoxLayout()
@@ -217,13 +251,6 @@ class CreationTab(QWidget):
         self.results_table.setFrameShape(QFrame.Shape.NoFrame)
         table_layout.addWidget(self.results_table)
 
-        btn_save_layout = QHBoxLayout()
-        btn_save_layout.addStretch()
-        self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save to database"))
-        self.btn_save.setEnabled(False)
-        btn_save_layout.addWidget(self.btn_save)
-        table_layout.addLayout(btn_save_layout)
-
         # Right panel: Preview & Logs
         right_panel = RoundedPanel()
         right_layout = QVBoxLayout(right_panel)
@@ -249,6 +276,19 @@ class CreationTab(QWidget):
         right_tabs.addTab(self.console_log, qta.icon("fa5s.terminal"), self.tr(" AI Console"))
 
         right_layout.addWidget(right_tabs)
+
+        btn_save_layout = QHBoxLayout()
+        btn_save_layout.addStretch()
+
+        self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save to database"))
+        self.btn_save.setEnabled(False)
+        self.btn_save.setStyleSheet("""
+                    PrimaryButton { background-color: #2196F3; color: white; border-radius: 6px; padding: 10px 20px; font-weight: bold; }
+                    PrimaryButton:hover { background-color: #1976D2; }
+                    PrimaryButton:disabled { background-color: rgba(33, 150, 243, 0.3); color: rgba(255, 255, 255, 0.5); border: 1px dashed rgba(33, 150, 243, 0.5); }
+                """)
+        btn_save_layout.addWidget(self.btn_save)
+        right_layout.addLayout(btn_save_layout)
 
         bottom_splitter.addWidget(table_panel)
         bottom_splitter.addWidget(right_panel)

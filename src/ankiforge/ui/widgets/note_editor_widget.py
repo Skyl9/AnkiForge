@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Optional
+
 
 import qtawesome
 from PySide6.QtCore import Qt, Signal, Slot, QTimer
@@ -29,11 +29,11 @@ class NoteEditorWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_note: Optional[NoteModel] = None
-        self.current_deck_id: Optional[int] = None
+        self.current_note: NoteModel | None = None
+        self.current_deck_id: int | None = None
         self.field_editors: dict[str, QTextEdit] = {}
         self.is_creating = False
-        self.creation_model_cb: Optional[QComboBox] = None
+        self.creation_model_cb: QComboBox | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -98,7 +98,7 @@ class NoteEditorWidget(QWidget):
         self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.preview_timer.timeout.connect(self.update_preview)
 
-    def set_current_deck(self, deck_id: Optional[int]):
+    def set_current_deck(self, deck_id: int | None):
         self.current_deck_id = deck_id
 
     def load_note(self, note_id: int):

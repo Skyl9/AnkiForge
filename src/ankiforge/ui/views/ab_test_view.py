@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import AgentModel, LLMConfigModel, NoteTypeModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.utils import format_system_prompt, parse_ai_json_response
+from ankiforge.services.ai.utils import format_system_prompt, AIReponseParser
 from ankiforge.services.workers.ab_worker import AbWorker
 from ankiforge.ui.components.components import ActionButton, DangerButton, DBComboBox, HeaderLabel, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
@@ -289,7 +289,7 @@ class ABTestTab(QWidget):
     def _extract_notes_from_json(self, raw_json: str) -> list[dict]:
         """Extrait la liste des notes du JSON de manière sécurisée."""
         try:
-            data = parse_ai_json_response(raw_json)
+            data = AIReponseParser.parse(raw_json)
             notes = data.get("notes", []) if isinstance(data, dict) else data
             if isinstance(notes, list):
                 return notes

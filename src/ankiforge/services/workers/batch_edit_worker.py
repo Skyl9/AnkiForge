@@ -5,7 +5,7 @@ from typing import Any
 from PySide6.QtCore import QThread, Signal
 
 from ankiforge.database.models import NoteModel, NoteVersionModel, db
-from ankiforge.services.ai.utils import parse_ai_json_response
+from ankiforge.services.ai.utils import AIReponseParser
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class BatchEditWorker(QThread):
                 raw_response = self.ai_provider.generate(system_prompt=system_contract, user_prompt=input_json)
 
                 try:
-                    modified_notes = parse_ai_json_response(raw_response)
+                    modified_notes = AIReponseParser.parse(raw_response)
                     if not isinstance(modified_notes, list):
                         raise ValueError("L'IA n'a pas renvoyé un tableau (list) JSON.")
 

@@ -1,6 +1,9 @@
 import json
 import re
 
+import dataclasses
+from typing import Any, Type, TypeVar, get_origin, get_args, cast
+
 from PySide6.QtCore import QCoreApplication, QTimer
 from jinja2 import Template
 
@@ -45,12 +48,17 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
         _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens)
 
 
-def parse_ai_json_response(response_text: str):
+T = TypeVar("T")
+
+
+class AIReponseParser:
     """
-    Nettoie et convertit la réponse de l'IA en objet Python (dict ou list).
-    Extrait intelligemment le bloc JSON même s'il y a du texte autour.
+    Classe utilitaire pour nettoyer, parser et valider les réponses JSON des LLMs.
+    Utilise les dataclasses Python pour une validation rigoureuse des structures.
     """
-    try:
+
+    @staticmethod
+    def _extract_json_string(response_text: str) -> str:
         backticks = "`" * 3
         # 1. On cherche d'abord proprement un bloc de code markdown
         pattern = backticks + r"(?:json)?\s*(.*?)" + backticks
@@ -67,7 +75,7 @@ def parse_ai_json_response(response_text: str):
                 cleaned_text = response_text.strip()
 
         # 👇 3. LE BOUCLIER ANTI-CRASH (Version Définitive & Infaillible) 👇
-        def escape_latex(m):
+        def escape_latex(m: re.Match) -> str:
             char = m.group(1)
             # Si le backslash protège un caractère JSON valide (ex: \n, \", \\)
             if char in '"\\/bfnrtu':
@@ -78,11 +86,76 @@ def parse_ai_json_response(response_text: str):
 
         # On intercepte chaque backslash suivi d'un caractère et on le filtre
         cleaned_text = re.sub(r"\\(.)", escape_latex, cleaned_text)
+        return cleaned_text
 
-        return json.loads(cleaned_text)
+    @classmethod
+    def parse(cls, response_text: str, target_model: Type[T] | None = None) -> T | Any:
+        """
+        Nettoie et convertit la réponse de l'IA en objet Python.
+        Si une dataclass (target_model) est fournie, le JSON sera validé et instancié.
+        Sinon, retourne un dictionnaire ou une liste native.
+        """
+        cleaned_text = cls._extract_json_string(response_text)
+        try:
+            data = json.loads(cleaned_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"L'IA a généré un format invalide. Impossible de lire le JSON.\nDétail: {e}") from e
 
-    except json.JSONDecodeError as e:
-        raise ValueError(f"L'IA a généré un format invalide. Impossible de lire le JSON.\nDétail: {e}") from e
+        if target_model is not None:
+            return cls._validate(data, target_model)
+
+        return data
+
+    @classmethod
+    def _validate(cls, data: Any, target_model: Type[T]) -> T:
+        origin = get_origin(target_model)
+        if origin is list:
+            args = get_args(target_model)
+            if not isinstance(data, list):
+                raise ValueError("L'IA n'a pas renvoyé une liste JSON.")
+            if args and dataclasses.is_dataclass(args[0]):
+                item_type = args[0]
+                return [cls._instantiate_dataclass(item, item_type) for item in data]  # type: ignore
+            return data  # type: ignore
+
+        elif dataclasses.is_dataclass(target_model):
+            if not isinstance(data, dict):
+                raise ValueError(f"L'IA n'a pas renvoyé un objet JSON compatible avec {target_model.__name__}.")
+            return cast(T, cls._instantiate_dataclass(data, target_model))
+
+        return data
+
+    @classmethod
+    def _instantiate_dataclass(cls, data: dict, target_model: Type[T]) -> T:
+        if not isinstance(data, dict):
+            raise ValueError(f"Données invalides pour instancier {target_model.__name__}. Un dictionnaire était attendu.")
+
+        init_kwargs = {}
+        for field in dataclasses.fields(target_model):  # type: ignore
+            if field.name in data:
+                val = data[field.name]
+                field_origin = get_origin(field.type)
+                field_args = get_args(field.type)
+
+                if field_origin is list and field_args and dataclasses.is_dataclass(field_args[0]):
+                    if not isinstance(val, list):
+                        raise ValueError(f"Le champ '{field.name}' doit être une liste.")
+                    init_kwargs[field.name] = [cls._instantiate_dataclass(item, field_args[0]) for item in val]
+                elif dataclasses.is_dataclass(field.type):
+                    init_kwargs[field.name] = cls._instantiate_dataclass(val, field.type)  # type: ignore
+                else:
+                    init_kwargs[field.name] = val
+            elif field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING:
+                field_args = get_args(field.type)
+                if type(None) in field_args:
+                    init_kwargs[field.name] = None  # type: ignore
+                else:
+                    raise ValueError(f"Clé manquante dans le JSON pour le champ requis: '{field.name}'")
+
+        try:
+            return target_model(**init_kwargs)
+        except Exception as e:
+            raise ValueError(f"Erreur de validation lors de la création de {target_model.__name__} : {e}") from e
 
 
 def format_system_prompt(system_prompt_template: str, fields_schema_json: str | None) -> str:
