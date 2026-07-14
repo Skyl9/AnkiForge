@@ -30,9 +30,13 @@ def test_run_migrations_idempotency(mock_db):
 
     # S'il l'avait faked (parce qu'elle était legacy), elle devrait être dans router.done.
     assert "002_llm_pricing" in router.done, "La migration 002 devrait être marquée comme terminée."
+    assert "003_orientation_features" in router.done, "La migration 003 devrait être marquée comme terminée."
+    assert "004_ai_cache" in router.done, "La migration 004 devrait être marquée comme terminée."
 
     # 2. Deuxième exécution (Idempotence)
     run_migrations()
 
     router = Router(db, migrate_dir=MIGRATIONS_DIR)
     assert "001_initial" in router.done
+    assert "003_orientation_features" in router.done
+    assert "004_ai_cache" in router.done

@@ -17,6 +17,9 @@ from ankiforge.database.models import (
     IgnoredDuplicateModel,
     LLMConfigModel,
     PromptModel,
+    MediaModel,
+    NoteVersionMediaModel,
+    AICacheModel,
 )
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -43,6 +46,9 @@ def mock_db():
         IgnoredDuplicateModel,
         LLMConfigModel,
         PromptModel,
+        MediaModel,
+        NoteVersionMediaModel,
+        AICacheModel,
     ]
 
     # On force Peewee à utiliser cette fausse base plutôt que le fichier .db réel

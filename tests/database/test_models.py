@@ -12,6 +12,9 @@ from ankiforge.database.models import (
     AgentModel,
     PipelineModel,
     PipelineStepModel,
+    MediaModel,
+    NoteVersionMediaModel,
+    AICacheModel,
 )
 
 
@@ -268,3 +271,69 @@ def test_purge_old_versions():
     # On vérifie que ce sont bien les versions 6, 7 et 8 qui ont survécu
     remaining_versions = [v.version_number for v in note.versions.order_by(NoteVersionModel.version_number)]
     assert remaining_versions == [6, 7, 8]
+
+
+def test_media_version_cascade_and_restrict():
+    """Vérifie le versionnement des médias : restriction sur suppression de média lié et cascade sur version."""
+    # 1. Préparation
+    note_type = NoteTypeModel.create(name="Media Test", fields_schema="[]", templates="[]", css_style="")
+    note = NoteModel.create(guid="media_guid", note_type=note_type)
+    version = note.add_version({"Front": "Test"})
+
+    media = MediaModel.create(filename="abc.png", original_name="test.png", checksum="sha256_hash", mime_type="image/png")
+
+    # Associer le média à la version de note
+    _liaison = NoteVersionMediaModel.create(note_version=version, media=media)
+
+    assert NoteVersionMediaModel.select().count() == 1
+
+    # 2. Vérification de RESTRICT sur le média
+    # Si on tente de détruire le média alors qu'il est lié, cela doit lever une IntegrityError (due à la contrainte SQLite foreign key)
+    with pytest.raises(IntegrityError):
+        media.delete_instance()
+
+    # 3. Vérification de CASCADE sur la version de note
+    # Si on détruit la version de la note, la liaison NoteVersionMediaModel doit être supprimée
+    version.delete_instance()
+    assert NoteVersionMediaModel.select().count() == 0
+
+    # Maintenant que la liaison est supprimée, on doit pouvoir détruire le média physique
+    media.delete_instance()
+    assert MediaModel.select().count() == 0
+
+
+def test_pipeline_conditional_steps():
+    """Vérifie que les étapes de pipeline supportent les branchements conditionnels."""
+    pipeline = PipelineModel.create(name="Conditional Pipeline")
+    agent_gen = AgentModel.create(name="Générateur", system_prompt="Prompt")
+    agent_ok = AgentModel.create(name="Succès", system_prompt="Prompt")
+    agent_err = AgentModel.create(name="Erreur", system_prompt="Prompt")
+
+    step_ok = PipelineStepModel.create(pipeline=pipeline, agent=agent_ok, step_order=2)
+    step_err = PipelineStepModel.create(pipeline=pipeline, agent=agent_err, step_order=3)
+
+    # Étape principale qui branche vers step_ok en cas de succès et step_err en cas d'échec
+    step_gen = PipelineStepModel.create(pipeline=pipeline, agent=agent_gen, step_order=1, on_success_step=step_ok, on_failure_step=step_err, failure_behavior="goto_failure_step")
+
+    # Recharger et vérifier
+    step_gen_reloaded = PipelineStepModel.get_by_id(step_gen.id)
+    assert step_gen_reloaded.on_success_step == step_ok
+    assert step_gen_reloaded.on_failure_step == step_err
+    assert step_gen_reloaded.failure_behavior == "goto_failure_step"
+
+    # Vérifier le comportement SET NULL en cas de suppression d'une cible
+    step_ok.delete_instance()
+    step_gen_after_delete = PipelineStepModel.get_by_id(step_gen.id)
+    assert step_gen_after_delete.on_success_step is None
+    assert step_gen_after_delete.on_failure_step == step_err
+
+
+def test_ai_cache_uniqueness():
+    """Vérifie l'unicité de la clé composite (prompt_hash, system_prompt_hash, model_id, temperature) dans le cache d'IA."""
+    AICacheModel.create(prompt_hash="p1", system_prompt_hash="s1", model_id="m1", temperature=0.7, response_content="Response 1")
+
+    assert AICacheModel.select().count() == 1
+
+    # Tenter d'insérer le même hash d'appel doit lever une IntegrityError
+    with pytest.raises(IntegrityError):
+        AICacheModel.create(prompt_hash="p1", system_prompt_hash="s1", model_id="m1", temperature=0.7, response_content="Response 2")

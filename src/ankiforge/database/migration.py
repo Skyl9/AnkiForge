@@ -39,6 +39,20 @@ def run_migrations() -> None:
                     router.model.create(name="002_llm_pricing")
                     logging.info("Legacy DB detected: faking migration 002_llm_pricing.")
 
+        # Si la colonne last_synced_at existe sur notemodel, l'utilisateur a déjà la structure de la v3
+        if "003_orientation_features" not in done_migrations:
+            if db.table_exists("notemodel"):
+                columns = [col.name for col in db.get_columns("notemodel")]
+                if "last_synced_at" in columns:
+                    router.model.create(name="003_orientation_features")
+                    logging.info("Legacy DB detected: faking migration 003_orientation_features.")
+
+        # Si la table ai_cache existe déjà, l'utilisateur a déjà la structure de la v4
+        if "004_ai_cache" not in done_migrations:
+            if db.table_exists("ai_cache"):
+                router.model.create(name="004_ai_cache")
+                logging.info("Legacy DB detected: faking migration 004_ai_cache.")
+
     logging.info("Lancement des migrations via peewee-migrate...")
     try:
         # Exécute toutes les migrations en attente

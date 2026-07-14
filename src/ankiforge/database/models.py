@@ -21,10 +21,12 @@ from peewee import (
 from ankiforge.utils.paths import get_app_data_dir
 
 # 3. On définit le chemin final de la base de données
-DB_PATH = get_app_data_dir() / "ankiforge.db"
-# Base de données SQLite connectée au bon endroit
+DEFAULT_DB_PATH = get_app_data_dir() / "ankiforge.db"
+DB_PATH = DEFAULT_DB_PATH
+
+# Base de données SQLite (initialisation différée possible pour le multi-profils)
 db = SqliteDatabase(
-    DB_PATH,
+    None,
     pragmas={
         "journal_mode": "wal",  # Permet la lecture et l'écriture simultanées !
         "cache_size": -1024 * 64,  # Alloue 64MB de RAM pour accélérer les requêtes
@@ -32,6 +34,7 @@ db = SqliteDatabase(
         "synchronous": 1,  # Équilibre parfait entre sécurité en cas de crash et vitesse d'écriture
     },
 )
+db.init(DEFAULT_DB_PATH)
 
 
 class BaseModel(Model):
@@ -72,6 +75,8 @@ class NoteModel(BaseModel):
     note_type = ForeignKeyField(NoteTypeModel, backref="notes")
     tags = TextField(null=True)
     status = CharField(default="new")
+    last_synced_at = DateTimeField(null=True)
+    anki_content_hash = CharField(null=True)
 
     @db.atomic()
     def add_version(self, new_content_dict: dict, source: str = "manual") -> "NoteVersionModel":
@@ -133,6 +138,29 @@ class NoteVersionModel(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     source = CharField(default="ai")  # Peut être 'ai', 'manual', ou 'import'
     is_active = BooleanField(default=True)  # Permet de savoir quelle version exporter
+
+
+class MediaModel(BaseModel):
+    """Représente un fichier média physique géré par AnkiForge"""
+
+    filename = CharField(unique=True)  # Nom unique généré (ex: sha256.png)
+    original_name = CharField()  # Nom d'origine (ex: schema.png)
+    checksum = CharField(unique=True)  # Hash SHA-256 pour la déduplication
+    mime_type = CharField()  # Type MIME (image/png, audio/mp3)
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "mediamodel"
+
+
+class NoteVersionMediaModel(BaseModel):
+    """Table de liaison entre une version de note et ses médias associés"""
+
+    note_version = ForeignKeyField(NoteVersionModel, backref="medias", on_delete="CASCADE")
+    media = ForeignKeyField(MediaModel, backref="note_versions", on_delete="RESTRICT")
+
+    class Meta:
+        table_name = "noteversionmediamodel"
 
 
 class CardModel(BaseModel):
@@ -216,6 +244,9 @@ class PipelineStepModel(BaseModel):
     pipeline = ForeignKeyField(PipelineModel, backref="steps", on_delete="CASCADE")
     agent = ForeignKeyField(AgentModel, backref="pipeline_steps", on_delete="CASCADE")
     step_order = IntegerField()  # 1, 2, 3... l'ordre d'exécution
+    on_success_step = ForeignKeyField("self", null=True, backref="success_successors", on_delete="SET NULL")
+    on_failure_step = ForeignKeyField("self", null=True, backref="failure_successors", on_delete="SET NULL")
+    failure_behavior = CharField(default="stop")  # 'stop', 'continue', 'goto_failure_step'
 
     class Meta:
         table_name = "pipeline_steps"
@@ -281,6 +312,21 @@ class IgnoredDuplicateModel(BaseModel):
         table_name = "ignored_duplicates"
         # On s'assure de ne pas sauvegarder 10 fois la même paire
         indexes = ((("note_a", "note_b"), True),)
+
+
+class AICacheModel(BaseModel):
+    """Stocke le cache des appels de complétion d'IA pour économiser les coûts et le réseau"""
+
+    prompt_hash = CharField(index=True)
+    system_prompt_hash = CharField()
+    model_id = CharField()
+    temperature = FloatField()
+    response_content = TextField()
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "ai_cache"
+        indexes = ((("prompt_hash", "system_prompt_hash", "model_id", "temperature"), True),)
 
 
 def seed_initial_data() -> None:
