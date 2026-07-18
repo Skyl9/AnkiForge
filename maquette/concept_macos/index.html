@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnkiForge - Mac Style</title>
+    <!-- Approximation of SF Pro -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="mac-window">
+        <!-- Titlebar -->
+        <div class="mac-titlebar">
+            <div class="traffic-lights">
+                <div class="light red"></div>
+                <div class="light yellow"></div>
+                <div class="light green"></div>
+            </div>
+            <div class="window-title">
+                <i class="ph-fill ph-cube"></i> AnkiForge
+            </div>
+            <div class="titlebar-actions">
+                <div class="mac-search" onclick="openOmnibox()">
+                    <i class="ph ph-magnifying-glass"></i> Rechercher
+                </div>
+            </div>
+        </div>
+
+        <div class="mac-content">
+            <!-- Sidebar (Vibrancy) -->
+            <nav class="mac-sidebar">
+                <div class="sidebar-section">
+                    <div class="section-title">Bibliothèque</div>
+                    <a href="#" class="nav-item active" data-view="dashboard"><i class="ph ph-squares-four text-blue"></i> Tableau de bord</a>
+                    <a href="#" class="nav-item" data-view="editor"><i class="ph ph-file-text text-orange"></i> Éditeur de Cartes</a>
+                </div>
+                
+                <div class="sidebar-section">
+                    <div class="section-title">Intelligence</div>
+                    <a href="#" class="nav-item"><i class="ph ph-brain text-purple"></i> Studio IA</a>
+                    <a href="#" class="nav-item"><i class="ph ph-flask text-teal"></i> Labo A/B</a>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="section-title">Tags</div>
+                    <a href="#" class="nav-item"><i class="ph-fill ph-tag text-gray"></i> #médecine</a>
+                    <a href="#" class="nav-item"><i class="ph-fill ph-tag text-gray"></i> #anatomie</a>
+                </div>
+            </nav>
+
+            <!-- Main Area -->
+            <main class="mac-main">
+                
+                <!-- DASHBOARD -->
+                <div id="view-dashboard" class="view active">
+                    <div class="mac-header">
+                        <h1>Tableau de bord</h1>
+                        <button class="mac-btn" onclick="openAutoTagModal()">Auto-Tagging IA</button>
+                    </div>
+                    
+                    <div class="mac-grid">
+                        <div class="mac-card">
+                            <i class="ph ph-cards card-icon text-blue"></i>
+                            <div class="card-val">1,245</div>
+                            <div class="card-desc">Cartes totales</div>
+                        </div>
+                        <div class="mac-card">
+                            <i class="ph ph-brain card-icon text-purple"></i>
+                            <div class="card-val">890</div>
+                            <div class="card-desc">Générées par IA</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EDITEUR -->
+                <div id="view-editor" class="view hidden">
+                    <div class="mac-header">
+                        <h1>Édition : Anatomie Cœur</h1>
+                        <div class="segmented-control">
+                            <button class="seg-btn active">Markdown</button>
+                            <button class="seg-btn">Live Preview</button>
+                        </div>
+                    </div>
+
+                    <div class="mac-editor-area">
+                        <div class="textarea" contenteditable="true">
+                            <h2>Le cycle cardiaque</h2>
+                            <p>Systole et diastole...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="omnibox-modal" class="modal-overlay hidden" onclick="closeModals(event)">
+        <div class="mac-spotlight">
+            <i class="ph ph-magnifying-glass spotlight-icon"></i>
+            <input type="text" placeholder="Recherche Spotlight..." autofocus>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

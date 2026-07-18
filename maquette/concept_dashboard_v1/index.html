@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnkiForge - Maquette Interactive</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <i class="ph ph-cube-transparent logo-icon"></i>
+                <span class="logo-text">AnkiForge</span>
+            </div>
+            
+            <div class="sidebar-menu">
+                <div class="menu-category">Général</div>
+                <a href="#" class="menu-item active" data-view="dashboard">
+                    <i class="ph ph-squares-four"></i> Tableau de bord
+                </a>
+                <a href="#" class="menu-item" data-view="editor">
+                    <i class="ph ph-pen-nib"></i> Éditeur & Bibliothèque
+                </a>
+                
+                <div class="menu-category">Intelligence Artificielle</div>
+                <a href="#" class="menu-item" data-view="ai-studio">
+                    <i class="ph ph-brain"></i> Studio AI & Pipelines
+                </a>
+                <a href="#" class="menu-item" data-view="ab-lab">
+                    <i class="ph ph-flask"></i> Laboratoire A/B
+                </a>
+
+                <div class="menu-category">Données</div>
+                <a href="#" class="menu-item" data-view="import">
+                    <i class="ph ph-download-simple"></i> Imports (PDF/Web)
+                </a>
+                <a href="#" class="menu-item" data-view="tags">
+                    <i class="ph ph-tag"></i> Gestion des Tags
+                </a>
+                <a href="#" class="menu-item" data-view="conflicts">
+                    <i class="ph ph-git-merge"></i> Résolution Fusion
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <a href="#" class="menu-item" data-view="settings">
+                    <i class="ph ph-gear"></i> Paramètres
+                </a>
+                <div class="user-profile">
+                    <div class="avatar">TR</div>
+                    <div class="user-info">
+                        <span class="workspace">Workspace: Médecine</span>
+                        <span class="status"><i class="ph-fill ph-circle text-green"></i> Connecté</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="omnibox" onclick="openOmnibox()">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <span>Rechercher une carte, un tag, un agent... (Ctrl+K)</span>
+                    <kbd>⌘K</kbd>
+                </div>
+                
+                <div class="topbar-actions">
+                    <div class="daemon-status active" title="Tâches en fond">
+                        <i class="ph ph-spinner-gap spin"></i>
+                        <span>Parsing PDF (2/5)</span>
+                    </div>
+                    <div class="token-tracker">
+                        <i class="ph ph-coin"></i>
+                        <span>0.04$ / 25K Tok</span>
+                    </div>
+                    <button class="btn-icon"><i class="ph ph-bell"></i></button>
+                </div>
+            </header>
+
+            <!-- Views Container -->
+            <div class="views-container">
+                
+                <!-- VUE : ÉDITEUR (Par défaut pour la démo) -->
+                <div id="view-editor" class="view hidden">
+                    <div class="editor-workspace">
+                        
+                        <!-- Tabs -->
+                        <div class="editor-tabs">
+                            <div class="tab active">
+                                <i class="ph ph-file-text"></i> Anatomie Cœur.md
+                                <i class="ph ph-x close-tab"></i>
+                            </div>
+                            <div class="tab">
+                                <i class="ph ph-file-text"></i> Physiologie.md
+                                <i class="ph ph-x close-tab"></i>
+                            </div>
+                            <button class="btn-icon tab-add"><i class="ph ph-plus"></i></button>
+                        </div>
+
+                        <div class="editor-panels">
+                            <!-- Panneau de Gauche : WYSIWYG -->
+                            <div class="panel-left">
+                                <div class="panel-toolbar">
+                                    <div class="toolbar-group">
+                                        <button class="btn-icon" title="Gras"><i class="ph ph-text-b"></i></button>
+                                        <button class="btn-icon" title="Italique"><i class="ph ph-text-italic"></i></button>
+                                        <button class="btn-icon" title="Math LaTeX"><i class="ph ph-function"></i></button>
+                                    </div>
+                                    <div class="toolbar-group">
+                                        <button class="btn-icon" title="Auto-Cloze"><i class="ph ph-brackets-square"></i></button>
+                                        <button class="btn-icon" title="Image Vision"><i class="ph ph-image"></i></button>
+                                    </div>
+                                </div>
+                                
+                                <div class="editor-textarea" contenteditable="true">
+                                    <h1>Le cycle cardiaque</h1>
+                                    <p>La révolution cardiaque comprend la <strong>systole</strong> (contraction) et la <strong>diastole</strong> (relâchement).</p>
+                                    <div class="cloze-hint">
+                                        {{c1::Le volume d'éjection systolique::Quel volume ?}} est d'environ 70 mL au repos.
+                                    </div>
+                                    <p>Formule du débit : $$ Q = VES \times FC $$</p>
+                                </div>
+                            </div>
+
+                            <!-- Resizer -->
+                            <div class="splitter"></div>
+
+                            <!-- Panneau de Droite : Live Preview & AI Chat -->
+                            <div class="panel-right">
+                                <div class="panel-header">
+                                    <div class="toggle-group">
+                                        <button class="toggle-btn active" onclick="switchRightPanel('preview')">Live Preview</button>
+                                        <button class="toggle-btn" onclick="switchRightPanel('ai-chat')">Assistant IA</button>
+                                        <button class="toggle-btn" onclick="switchRightPanel('history')">Historique</button>
+                                    </div>
+                                </div>
+                                
+                                <div id="right-preview" class="right-content active">
+                                    <div class="flashcard-preview">
+                                        <div class="card-front">
+                                            <h3>Le cycle cardiaque</h3>
+                                            <p>La révolution cardiaque comprend la <strong>systole</strong> (contraction) et la <strong>diastole</strong> (relâchement).</p>
+                                            <div class="cloze-preview">[...] est d'environ 70 mL au repos.</div>
+                                            <p>Formule du débit : <i>Q = VES × FC</i></p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="right-ai-chat" class="right-content hidden">
+                                    <div class="ai-chat-box">
+                                        <div class="chat-message ai">
+                                            Je remarque que cette carte est un peu longue. Veux-tu que je la scinde en deux cartes distinctes (Systole/Diastole et Débit) ?
+                                        </div>
+                                        <div class="chat-input-area">
+                                            <input type="text" placeholder="Demander à l'IA d'affiner...">
+                                            <button class="btn-primary"><i class="ph ph-paper-plane-right"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VUE : DASHBOARD -->
+                <div id="view-dashboard" class="view active">
+                    <div class="page-header">
+                        <h2>Tableau de Bord</h2>
+                        <button class="btn-primary" onclick="openAutoTagModal()"><i class="ph ph-magic-wand"></i> Lancer Auto-Tagging</button>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="card stat-card">
+                            <i class="ph ph-cards"></i>
+                            <div class="stat-info">
+                                <h3>Cartes Créées</h3>
+                                <p class="value">1,245</p>
+                            </div>
+                        </div>
+                        <div class="card stat-card">
+                            <i class="ph ph-brain"></i>
+                            <div class="stat-info">
+                                <h3>Générées par IA</h3>
+                                <p class="value">890</p>
+                            </div>
+                        </div>
+                        <div class="card stat-card">
+                            <i class="ph ph-clock"></i>
+                            <div class="stat-info">
+                                <h3>Parsing en attente</h3>
+                                <p class="value text-warning">3 Docs</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="empty-state">
+                        <i class="ph ph-chart-line-up"></i>
+                        <h3>Aucune donnée d'apprentissage récente</h3>
+                        <p>Synchronisez avec Anki pour voir vos statistiques de révision ici.</p>
+                        <button class="btn-secondary">Synchroniser</button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="omnibox-modal" class="modal-overlay hidden" onclick="closeModals(event)">
+        <div class="omnibox-dialog">
+            <input type="text" placeholder="Rechercher partout..." autofocus>
+            <div class="omnibox-results">
+                <div class="result-item"><i class="ph ph-file-text"></i> Anatomie Cœur <span class="badge">Note</span></div>
+                <div class="result-item"><i class="ph ph-brain"></i> Linter Prompt <span class="badge">Agent IA</span></div>
+                <div class="result-item"><i class="ph ph-tag"></i> #cardiologie <span class="badge">Tag</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="auto-tag-modal" class="modal-overlay hidden" onclick="closeModals(event)">
+        <div class="dialog modal-dialog">
+            <div class="dialog-header">
+                <h3>Validation Auto-Tagging</h3>
+                <button class="btn-icon" onclick="closeModals()"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="dialog-body">
+                <p>L'IA a analysé 15 cartes. Veuillez valider les tags proposés :</p>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Note</th>
+                            <th>Tags Proposés</th>
+                            <th>Valider</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Le cycle cardiaque...</td>
+                            <td><span class="tag">#cardio</span> <span class="tag">#physio</span></td>
+                            <td><input type="checkbox" checked></td>
+                        </tr>
+                        <tr>
+                            <td>Innervation du cœur...</td>
+                            <td><span class="tag">#anatomie</span> <span class="tag">#neuro</span></td>
+                            <td><input type="checkbox" checked></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="dialog-footer">
+                <button class="btn-secondary" onclick="closeModals()">Annuler</button>
+                <button class="btn-primary" onclick="closeModals()">Appliquer les Tags</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

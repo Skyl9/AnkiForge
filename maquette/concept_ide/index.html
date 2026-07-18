@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark-theme">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnkiForge - IDE Concept Refonte</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- APP HEADER (macOS style window drag area) -->
+        <header class="app-header">
+            <div class="window-controls">
+                <span class="close"></span>
+                <span class="minimize"></span>
+                <span class="maximize"></span>
+            </div>
+            <div class="window-title">AnkiForge IDE</div>
+            <div class="header-actions">
+                <button class="cmd-k-btn" onclick="toggleCommandPalette()">
+                    <i class="fa-solid fa-magnifying-glass"></i> <span class="cmd-k-text">Cmd+K</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="app-body">
+            <!-- SIDEBAR -->
+            <nav id="sidebar">
+                <div class="nav-top">
+                    <button class="nav-btn active" data-view="dashboard" title="Dashboard">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </button>
+                    <button class="nav-btn" data-view="forge" title="Forge">
+                        <i class="fa-solid fa-hammer"></i>
+                    </button>
+                    <button class="nav-btn" data-view="library" title="Library">
+                        <i class="fa-solid fa-book"></i>
+                    </button>
+                    <button class="nav-btn" data-view="ai-studio" title="AI Studio">
+                        <i class="fa-solid fa-robot"></i>
+                    </button>
+                </div>
+                <div class="nav-bottom">
+                    <button class="nav-btn" onclick="toggleSettingsModal()" title="Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- MAIN VIEW AREA -->
+            <main id="main-view">
+                <!-- VIEW: DASHBOARD -->
+                <div class="view active" id="view-dashboard" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                    <div class="dashboard-hero" style="display: flex; flex-direction: column; align-items: center; text-align: center;">
+                        <div class="logo-triangles mb-20" style="font-size: 5rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <h1 style="font-size: 2.5rem; font-weight: 300; margin-bottom: 10px;">Bienvenue dans <span style="font-weight: 600;">AnkiForge</span></h1>
+                        <p class="muted" style="max-width: 500px; line-height: 1.6;">Le générateur de cartes intelligent et votre assistant d'apprentissage personnel. Que souhaitez-vous faire aujourd'hui ?</p>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; width: 100%; max-width: 800px;">
+                            <button class="outline" style="padding: 30px; display: flex; flex-direction: column; align-items: center; border-radius: 8px; background: transparent; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="document.querySelector('[data-view=\'forge\']').click()">
+                                <i class="fa-solid fa-hammer mb-10" style="font-size: 2rem; color: #3b82f6;"></i>
+                                <span style="font-weight: 600; margin-bottom: 5px; color: var(--text-color);">Forger des cartes</span>
+                                <span class="muted" style="font-size: 0.85rem;">Créer de nouvelles flashcards depuis un document ou un cours.</span>
+                            </button>
+                            <button class="outline" style="padding: 30px; display: flex; flex-direction: column; align-items: center; border-radius: 8px; background: transparent; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="document.querySelector('[data-view=\'library\']').click()">
+                                <i class="fa-solid fa-book mb-10" style="font-size: 2rem; color: #10b981;"></i>
+                                <span style="font-weight: 600; margin-bottom: 5px; color: var(--text-color);">Explorer la bibliothèque</span>
+                                <span class="muted" style="font-size: 0.85rem;">Naviguez dans vos paquets Anki et vos documents sources.</span>
+                            </button>
+                            <button class="outline" style="padding: 30px; display: flex; flex-direction: column; align-items: center; border-radius: 8px; background: transparent; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="document.querySelector('[data-view=\'ai-studio\']').click()">
+                                <i class="fa-solid fa-robot mb-10" style="font-size: 2rem; color: #8b5cf6;"></i>
+                                <span style="font-weight: 600; margin-bottom: 5px; color: var(--text-color);">Consulter l'IA</span>
+                                <span class="muted" style="font-size: 0.85rem;">Posez des questions à vos agents ou configurez des pipelines.</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: FORGE -->
+                <div class="view" id="view-forge">
+                    <div class="view-header">
+                        <h2>Forge (Création & Batch)</h2>
+                    </div>
+                    <div class="view-scrollable">
+                        <!-- Text Source -->
+                        <div class="panel outline">
+                            <div class="panel-header"><h3>Texte Source</h3></div>
+                            <div class="toolbar">
+                                <select class="input-element flex-grow"><option>-- Sélectionner un document --</option></select>
+                                <button class="btn icon-btn"><i class="fa-solid fa-arrows-rotate"></i></button>
+                                <input type="text" class="input-element flex-grow" placeholder="Partie...">
+                            </div>
+                            <textarea class="textarea-element w-full mt-10" rows="6" placeholder="Sélectionnez un document puis une section..."></textarea>
+                            <div class="toolbar space-between mt-10">
+                                <span class="muted small">Tokens : 0 / ?</span>
+                                <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+                                <button class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Générer les Cartes</button>
+                            </div>
+                        </div>
+
+                        <!-- Results & Preview -->
+                        <div class="split-view h-full mt-10">
+                            <div class="panel outline flex-1 flex-col">
+                                <div class="panel-header"><h3>Résultats</h3></div>
+                                <div class="table-container flex-grow mt-10">
+                                    <table>
+                                        <thead><tr><th>Texte</th><th>Remarques extra</th></tr></thead>
+                                        <tbody><tr><td colspan="2" class="text-center muted p-20">Aucune carte générée.</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="panel outline flex-1 flex-col">
+                                <div class="tabs">
+                                    <button class="tab active">Aperçu</button>
+                                    <button class="tab">Console IA</button>
+                                </div>
+                                <div class="toolbar mt-10">
+                                    <input type="text" class="input-element flex-grow" placeholder="Recherche...">
+                                    <select class="input-element"><option>Voir Recto</option></select>
+                                </div>
+                                <div class="preview-area flex-grow mt-10 center-content">
+                                    <p class="muted">Sélectionnez une ligne dans le tableau.</p>
+                                </div>
+                                <div class="toolbar right mt-10">
+                                    <button class="btn btn-primary"><i class="fa-solid fa-save"></i> Sauvegarder dans la base</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: LIBRARY -->
+                <div class="view" id="view-library">
+                    <div class="view-header space-between">
+                        <h2>Library (Documents & Cartes)</h2>
+                        <div class="toolbar">
+                            <button class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Import Deck</button>
+                            <button class="btn btn-secondary"><i class="fa-solid fa-globe"></i> Depuis le Web</button>
+                        </div>
+                    </div>
+                    <div class="split-view h-full">
+                        <!-- Explorer -->
+                        <div class="panel outline flex-col" style="width: 250px;">
+                            <div class="panel-header"><h3>Explorateur</h3></div>
+                            <div class="tabs small mt-10">
+                                <button class="tab active">Docs</button>
+                                <button class="tab">Decks</button>
+                            </div>
+                            <div class="list-area flex-grow mt-10">
+                                <div class="list-item"><i class="fa-solid fa-folder text-blue mr-5"></i> Mes Cours</div>
+                                <div class="list-item"><i class="fa-solid fa-layer-group text-yellow mr-5"></i> Default Deck</div>
+                            </div>
+                            <div class="toolbar mt-10">
+                                <button class="btn btn-secondary flex-grow"><i class="fa-solid fa-plus"></i></button>
+                                <button class="btn btn-danger icon-btn"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <!-- Content Editor / Navigator -->
+                        <div class="panel outline flex-1 flex-col">
+                            <div class="toolbar space-between border-bottom pb-10">
+                                <div class="toolbar-left">
+                                    <select class="input-element"><option>Vue : Cartes (Métadonnées)</option><option>Éditeur de Document</option></select>
+                                </div>
+                                <div class="toolbar-right">
+                                    <button class="btn btn-secondary"><i class="fa-solid fa-scissors"></i> [SPLIT]</button>
+                                    <button class="btn btn-secondary"><i class="fa-solid fa-plus"></i> Nouvelle Note</button>
+                                </div>
+                            </div>
+                            <!-- Switchable content based on selection (document or cards list) -->
+                            <div class="flex-grow flex-col mt-10">
+                                <div class="table-container flex-grow">
+                                    <table>
+                                        <thead><tr><th>Titre / Front</th><th>Tags</th></tr></thead>
+                                        <tbody><tr><td colspan="2" class="text-center muted p-20">Sélectionnez un dossier ou paquet.</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: AI STUDIO -->
+                <div class="view" id="view-ai-studio">
+                    <div class="view-header space-between">
+                        <h2><i class="fa-solid fa-brain"></i> AI Studio</h2>
+                        <select class="input-element w-200"><option>Claude 3.5 Sonnet</option></select>
+                    </div>
+                    <div class="view-scrollable h-full flex-col">
+                        <div class="panel outline flex-grow flex-col">
+                            <div class="chat-history flex-grow center-content flex-col">
+                                <i class="fa-solid fa-robot text-muted mb-10" style="font-size: 3rem;"></i>
+                                <h3>Votre Consultant Personnel</h3>
+                                <p class="muted mt-5 text-center">Sélectionnez un document à analyser (@)<br>ou posez une question.</p>
+                            </div>
+                            <div class="chat-input-area mt-10">
+                                <div class="muted small mb-5">Contexte : Aucun</div>
+                                <div class="relative">
+                                    <textarea class="textarea-element w-full" rows="3" placeholder="Tapez / pour une commande, ou @ pour charger du contexte..."></textarea>
+                                    <button class="btn btn-primary absolute-bottom-right icon-btn"><i class="fa-solid fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- INSPECTOR PANEL -->
+            <aside id="inspector" class="expanded">
+                <div class="inspector-header">
+                    <h3><i class="fa-solid fa-sliders"></i> Inspecteur</h3>
+                    <button class="btn icon-btn" id="toggle-inspector"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <div class="inspector-content">
+                    <!-- Inspector: Forge (Config & Batch) -->
+                    <div class="inspector-pane active" id="pane-forge">
+                        <div class="section">
+                            <h4>Configuration IA</h4>
+                            <div class="form-group"><label>Paquet :</label><input type="text" class="input-element"></div>
+                            <div class="form-group"><label>Modèle :</label><select class="input-element"><option>Texte à trous</option></select></div>
+                            <div class="form-group"><label>Moteur :</label><select class="input-element"><option>Claude 3.5</option></select></div>
+                            <div class="form-group"><label>Pipeline :</label><select class="input-element"><option>Excellence</option></select></div>
+                            <label class="checkbox-label mt-10"><input type="checkbox"> <i class="fa-solid fa-eye text-yellow"></i> Enable Vision</label>
+                        </div>
+                        <div class="section border-top pt-10">
+                            <h4>Usine à Cartes (Batch)</h4>
+                            <div class="form-group"><label>Découpage :</label><select class="input-element"><option>Sémantique</option></select></div>
+                            <div class="table-container mt-10" style="height: 100px;">
+                                <table class="small-table">
+                                    <thead><tr><th>Doc</th><th>Statut</th></tr></thead>
+                                    <tbody><tr><td colspan="2" class="text-center muted">File vide</td></tr></tbody>
+                                </table>
+                            </div>
+                            <div class="muted small mt-10 text-center">0% - Prêt.</div>
+                            <button class="btn btn-primary w-full mt-10"><i class="fa-solid fa-rocket"></i> Démarrer l'Usine</button>
+                        </div>
+                    </div>
+
+                    <!-- Inspector: Library (Card / Doc Editing) -->
+                    <div class="inspector-pane" id="pane-library">
+                        <div class="section">
+                            <h4>Édition de Carte</h4>
+                            <div class="form-group"><label>Tags :</label><input type="text" class="input-element" placeholder="tag1, tag2"></div>
+                            <div class="toolbar wrap gap-5 mt-10">
+                                <button class="btn btn-secondary small"><i class="fa-solid fa-wand-magic-sparkles"></i> Modif IA</button>
+                                <button class="btn btn-secondary small"><i class="fa-solid fa-tag"></i> Auto-Tag</button>
+                                <button class="btn btn-secondary small"><i class="fa-solid fa-check-double"></i> Auditer</button>
+                            </div>
+                        </div>
+                        <div class="section border-top pt-10">
+                            <div class="toolbar space-between mb-5">
+                                <h4>HTML Recto</h4>
+                                <div class="toolbar gap-5">
+                                    <button class="tag-btn">{{Champ}}</button>
+                                    <button class="tag-btn">{{cloze:Champ}}</button>
+                                </div>
+                            </div>
+                            <textarea class="textarea-element w-full code-font" rows="5"></textarea>
+                            
+                            <h4 class="mt-10 mb-5">HTML Verso</h4>
+                            <textarea class="textarea-element w-full code-font" rows="5"></textarea>
+                            
+                            <button class="btn btn-primary w-full mt-10"><i class="fa-solid fa-save"></i> Sauvegarder</button>
+                        </div>
+                    </div>
+
+                    <!-- Inspector: AI Studio (Agents, Pipelines, A/B) -->
+                    <div class="inspector-pane" id="pane-ai-studio">
+                        <div class="tabs small mb-10">
+                            <button class="tab active" data-target="agent-edit">Agents</button>
+                            <button class="tab" data-target="pipeline-edit">Pipelines</button>
+                            <button class="tab" data-target="ab-test">A/B Tests</button>
+                        </div>
+                        <!-- Sub pane: Agents -->
+                        <div class="section sub-pane active" id="agent-edit">
+                            <div class="form-group"><label>Agent :</label><select class="input-element"><option>Linter & Qualité</option></select></div>
+                            <div class="form-group"><label>Nom :</label><input type="text" class="input-element" value="Linter Qualité"></div>
+                            <div class="form-group"><label>Prompt Jinja2 :</label>
+                                <textarea class="textarea-element w-full code-font" rows="8">Tu es un expert...</textarea>
+                            </div>
+                            <div class="form-group"><label>Format :</label><select class="input-element"><option>JSON Strict</option></select></div>
+                            <div class="toolbar space-between mt-10">
+                                <button class="btn btn-danger icon-btn"><i class="fa-solid fa-trash"></i></button>
+                                <button class="btn btn-primary flex-grow ml-10"><i class="fa-solid fa-save"></i> Sauvegarder</button>
+                            </div>
+                        </div>
+                        <!-- Sub pane: Pipelines -->
+                        <div class="section sub-pane hidden" id="pipeline-edit">
+                            <div class="form-group"><label>Pipeline Actif :</label><select class="input-element"><option>Excellence</option></select></div>
+                            <div class="list-area mt-10" style="height: 150px;">
+                                <div class="list-item">1. Archiviste</div>
+                                <div class="list-item">2. Linter</div>
+                            </div>
+                            <div class="toolbar mt-10 space-between">
+                                <select class="input-element flex-grow"><option>Agent...</option></select>
+                                <button class="btn btn-secondary icon-btn ml-5"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                        </div>
+                        <!-- Sub pane: A/B -->
+                        <div class="section sub-pane hidden" id="ab-test">
+                            <h4 class="mb-5">Tests A/B</h4>
+                            <p class="muted small mb-10">Configurez une comparaison entre deux moteurs IA.</p>
+                            <div class="form-group"><label>Moteur A :</label><select class="input-element"><option>Claude</option></select></div>
+                            <div class="form-group"><label>Moteur B :</label><select class="input-element"><option>GPT-4o</option></select></div>
+                            <button class="btn btn-primary w-full mt-10"><i class="fa-solid fa-play"></i> Lancer Comparaison</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- COMMAND PALETTE OVERLAY -->
+    <div id="cmd-palette" class="overlay hidden">
+        <div class="palette-container">
+            <div class="palette-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass palette-icon"></i>
+                <input type="text" class="palette-input" placeholder="Que voulez-vous faire ? (ex: 'import', 'IA', 'nouveau')">
+            </div>
+            <div class="palette-list">
+                <div class="palette-item" onclick="toggleCommandPalette()"><i class="fa-solid fa-hammer"></i> Générer des Flashcards</div>
+                <div class="palette-item" onclick="toggleCommandPalette()"><i class="fa-solid fa-rocket"></i> Démarrer Batch Factory</div>
+                <div class="palette-item" onclick="toggleCommandPalette()"><i class="fa-solid fa-robot"></i> Consulter l'IA</div>
+                <div class="palette-item" onclick="toggleCommandPalette()"><i class="fa-solid fa-plus"></i> Nouveau Modèle de Carte</div>
+                <div class="palette-item" onclick="toggleCommandPalette()"><i class="fa-solid fa-folder-open"></i> Importer un Paquet Anki</div>
+                <div class="palette-item" onclick="toggleSettingsModal(); toggleCommandPalette()"><i class="fa-solid fa-gear"></i> Ouvrir les Paramètres</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL (macOS Style) -->
+    <div id="settings-modal" class="overlay hidden">
+        <div class="modal-window">
+            <div class="modal-header">
+                <div class="window-controls">
+                    <span class="close" onclick="toggleSettingsModal()"></span>
+                    <span class="minimize"></span>
+                    <span class="maximize"></span>
+                </div>
+                <div class="window-title">Paramètres AnkiForge</div>
+                <div class="header-actions"></div>
+            </div>
+            <div class="modal-body">
+                <div class="settings-sidebar">
+                    <button class="settings-tab active" data-target="set-general"><i class="fa-solid fa-sliders"></i> Paramètres Généraux</button>
+                    <button class="settings-tab" data-target="set-ai"><i class="fa-solid fa-microchip"></i> Moteurs IA</button>
+                    <button class="settings-tab" data-target="set-models"><i class="fa-solid fa-pen-nib"></i> Modèles de Cartes</button>
+                    <button class="settings-tab" data-target="set-stats"><i class="fa-solid fa-chart-pie"></i> Statistiques</button>
+                </div>
+                <div class="settings-content">
+                    <div class="settings-pane active" id="set-general">
+                        <h3>Apparence et Interface</h3>
+                        <div class="form-group-row"><label>Thème :</label><select class="input-element"><option>Système</option></select></div>
+                        <div class="form-group-row"><label>Langue :</label><select class="input-element"><option>Français</option></select></div>
+                        <h3 class="mt-20">Exportation</h3>
+                        <div class="form-group-row"><label>Dossier par défaut :</label>
+                            <div class="toolbar flex-grow"><input type="text" class="input-element flex-grow" value="/Users/.../Downloads"><button class="btn btn-secondary icon-btn"><i class="fa-solid fa-folder"></i></button></div>
+                        </div>
+                        <h3 class="mt-20">Maintenance</h3>
+                        <div class="toolbar mt-10">
+                            <button class="btn btn-secondary"><i class="fa-solid fa-broom"></i> Nettoyer images</button>
+                            <button class="btn btn-secondary"><i class="fa-solid fa-clock-rotate-left"></i> Purger historique</button>
+                        </div>
+                        <button class="btn btn-primary absolute-bottom-right m-20">Enregistrer</button>
+                    </div>
+
+                    <div class="settings-pane" id="set-ai">
+                        <h3>Clés API</h3>
+                        <div class="form-group-row"><label>OpenAI :</label><input type="password" class="input-element flex-grow" placeholder="sk-..."></div>
+                        <div class="form-group-row"><label>Anthropic :</label><input type="password" class="input-element flex-grow" placeholder="sk-ant-..."></div>
+                        <div class="form-group-row"><label>Gemini :</label><input type="password" class="input-element flex-grow" placeholder="AIza..."></div>
+                        <button class="btn btn-primary mt-10">Mettre à jour les clés API</button>
+                        
+                        <h3 class="mt-20">Catalogue des Modèles</h3>
+                        <div class="table-container outline mt-10" style="height: 150px;">
+                            <table class="w-full">
+                                <thead><tr><th>Nom</th><th>Fournisseur</th><th>ID</th></tr></thead>
+                                <tbody>
+                                    <tr><td>Claude 3.5 Sonnet</td><td>Anthropic</td><td>claude-3-5...</td></tr>
+                                    <tr><td>GPT-4o</td><td>OpenAI</td><td>gpt-4o</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="settings-pane" id="set-models">
+                        <div class="split-view h-full">
+                            <div class="panel flex-col outline w-200">
+                                <h4>Modèles Disponibles</h4>
+                                <div class="list-area flex-grow mt-10">
+                                    <div class="list-item active">Texte à trous (Cloze)</div>
+                                    <div class="list-item">Basique (Q/R)</div>
+                                </div>
+                                <button class="btn btn-secondary mt-10 w-full"><i class="fa-solid fa-plus"></i> Nouveau</button>
+                            </div>
+                            <div class="panel outline flex-1 flex-col ml-10">
+                                <h4>Configuration Globale</h4>
+                                <div class="form-group mt-10"><label>Champs (séparés par virgule) :</label><input type="text" class="input-element" value="Front, Back, Extra"></div>
+                                <div class="form-group mt-10 flex-grow flex-col"><label>Style CSS Global :</label>
+                                    <textarea class="textarea-element w-full flex-grow code-font"></textarea>
+                                </div>
+                                <div class="toolbar right mt-10">
+                                    <button class="btn btn-primary"><i class="fa-solid fa-save"></i> Sauvegarder Modèle</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-pane" id="set-stats">
+                        <h3>Tableau de Bord</h3>
+                        <div class="grid-3 mt-10 gap-10">
+                            <div class="stat-card">
+                                <span class="stat-label">Total Notes</span>
+                                <span class="stat-value">1,245</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Total Cartes</span>
+                                <span class="stat-value">3,102</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Pipelines IA</span>
+                                <span class="stat-value">4</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Tokens (30j)</span>
+                                <span class="stat-value text-blue">142,5K</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Coût Estimé</span>
+                                <span class="stat-value text-green">$0.42</span>
+                            </div>
+                        </div>
+                        <h4 class="mt-20">Répartition par Paquet</h4>
+                        <div class="table-container outline mt-10" style="height: 150px;">
+                            <table class="w-full">
+                                <thead><tr><th>Paquet</th><th>Cartes</th></tr></thead>
+                                <tbody>
+                                    <tr><td>Informatique::Python</td><td>450</td></tr>
+                                    <tr><td>Langues::Anglais</td><td>2,652</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+:root {
+    --mac-bg: #FFFFFF;
+    --mac-sidebar: rgba(245, 245, 247, 0.6);
+    --mac-border: rgba(0, 0, 0, 0.1);
+    --mac-text: #1D1D1F;
+    --mac-text-muted: #86868B;
+    
+    --mac-blue: #007AFF;
+    --mac-orange: #FF9500;
+    --mac-purple: #AF52DE;
+    --mac-teal: #5AC8FA;
+    --mac-gray: #8E8E93;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070') center/cover;
+    height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+}
+
+.hidden { display: none !important; }
+
+.mac-window {
+    width: 90vw; height: 85vh;
+    background: var(--mac-bg);
+    border-radius: 10px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.1);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* Titlebar */
+.mac-titlebar {
+    height: 52px;
+    background: var(--mac-sidebar);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--mac-border);
+    display: flex; align-items: center; padding: 0 16px;
+    position: relative;
+}
+
+.traffic-lights { display: flex; gap: 8px; width: 60px;}
+.light { width: 12px; height: 12px; border-radius: 50%; }
+.red { background: #FF5F56; border: 1px solid #E0443E; }
+.yellow { background: #FFBD2E; border: 1px solid #DEA123; }
+.green { background: #27C93F; border: 1px solid #1AAB29; }
+
+.window-title { flex: 1; text-align: center; font-weight: 600; font-size: 14px; display: flex; justify-content: center; align-items: center; gap: 6px; }
+
+.titlebar-actions { width: 60px; display:flex; justify-content:flex-end;}
+.mac-search { background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 6px; font-size: 12px; color: var(--mac-text-muted); cursor: pointer; display: flex; align-items:center; gap: 4px;}
+
+/* Content area */
+.mac-content { display: flex; flex: 1; }
+
+/* Sidebar */
+.mac-sidebar {
+    width: 220px;
+    background: var(--mac-sidebar);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid var(--mac-border);
+    padding: 16px 12px;
+}
+.sidebar-section { margin-bottom: 20px; }
+.section-title { font-size: 11px; font-weight: 600; color: var(--mac-text-muted); margin-bottom: 6px; padding-left: 8px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--mac-text); font-size: 13px; margin-bottom: 2px;}
+.nav-item.active { background: rgba(0, 122, 255, 0.1); color: var(--mac-blue); font-weight: 500;}
+.nav-item:hover:not(.active) { background: rgba(0,0,0,0.05); }
+
+.text-blue { color: var(--mac-blue); }
+.text-orange { color: var(--mac-orange); }
+.text-purple { color: var(--mac-purple); }
+.text-teal { color: var(--mac-teal); }
+.text-gray { color: var(--mac-gray); }
+
+/* Main */
+.mac-main { flex: 1; position: relative; }
+.view { position: absolute; top:0; left:0; right:0; bottom:0; padding: 32px; overflow-y: auto;}
+
+.mac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+.mac-header h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px;}
+
+.mac-btn { background: white; border: 1px solid var(--mac-border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; }
+
+/* Dashboard */
+.mac-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.mac-card { background: white; border: 1px solid var(--mac-border); border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+.card-icon { font-size: 24px; margin-bottom: 12px; }
+.card-val { font-size: 28px; font-weight: 600; }
+.card-desc { font-size: 13px; color: var(--mac-text-muted); }
+
+/* Editor */
+.segmented-control { display: flex; background: rgba(0,0,0,0.05); padding: 2px; border-radius: 6px; }
+.seg-btn { background: transparent; border: none; padding: 4px 12px; font-size: 13px; border-radius: 4px; cursor: pointer; color: var(--mac-text);}
+.seg-btn.active { background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-weight: 500;}
+
+.mac-editor-area { background: white; border: 1px solid var(--mac-border); border-radius: 10px; height: calc(100% - 70px); padding: 24px; }
+.textarea { outline: none; }
+
+/* Spotlight Modal */
+.modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.2); display: flex; justify-content: center; z-index: 100;}
+.mac-spotlight { margin-top: 20vh; width: 600px; height: 60px; background: rgba(255,255,255,0.85); backdrop-filter: blur(40px); border-radius: 12px; display: flex; align-items: center; padding: 0 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.5);}
+.spotlight-icon { font-size: 24px; color: var(--mac-text-muted); }
+.mac-spotlight input { flex:1; background: transparent; border: none; font-size: 24px; outline: none; margin-left: 12px; font-weight: 300;}

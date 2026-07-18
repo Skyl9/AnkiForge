@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnkiForge - Concept Glassmorphism</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="glass-bg">
+        <!-- Animated Background Orbs -->
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+
+        <div class="glass-container">
+            <!-- Sidebar Navigation -->
+            <nav class="glass-sidebar">
+                <div class="brand">
+                    <div class="logo-box"><i class="ph ph-cube"></i></div>
+                    <span>AnkiForge</span>
+                </div>
+                
+                <div class="nav-links">
+                    <a href="#" class="glass-nav-item active" data-view="dashboard">
+                        <i class="ph ph-squares-four"></i> Tableau de bord
+                    </a>
+                    <a href="#" class="glass-nav-item" data-view="editor">
+                        <i class="ph ph-pen-nib"></i> Éditeur & Bibliothèque
+                    </a>
+                    <a href="#" class="glass-nav-item" data-view="ai-studio">
+                        <i class="ph ph-brain"></i> Studio AI
+                    </a>
+                    <a href="#" class="glass-nav-item" data-view="sync">
+                        <i class="ph ph-arrows-left-right"></i> Synchronisation
+                    </a>
+                </div>
+
+                <div class="glass-user">
+                    <img src="https://ui-avatars.com/api/?name=TR&background=6366f1&color=fff" alt="User">
+                    <div class="user-info">
+                        <strong>Tristan R.</strong>
+                        <span>Workspace Actif</span>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Area -->
+            <main class="glass-main">
+                <header class="glass-header">
+                    <div class="glass-search" onclick="openOmnibox()">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <span>Rechercher...</span>
+                        <kbd>⌘K</kbd>
+                    </div>
+                    <div class="header-actions">
+                        <button class="glass-icon-btn"><i class="ph ph-bell"></i></button>
+                        <button class="glass-icon-btn"><i class="ph ph-gear"></i></button>
+                    </div>
+                </header>
+
+                <div class="glass-content">
+                    
+                    <!-- DASHBOARD VIEW -->
+                    <div id="view-dashboard" class="view active">
+                        <h1 class="glass-title">Aperçu du système</h1>
+                        
+                        <div class="glass-grid">
+                            <div class="glass-card">
+                                <div class="card-icon gradient-1"><i class="ph ph-cards"></i></div>
+                                <div class="card-text">
+                                    <h3>Cartes Totales</h3>
+                                    <div class="value">1,245</div>
+                                </div>
+                            </div>
+                            <div class="glass-card">
+                                <div class="card-icon gradient-2"><i class="ph ph-brain"></i></div>
+                                <div class="card-text">
+                                    <h3>Cartes IA</h3>
+                                    <div class="value">890</div>
+                                </div>
+                            </div>
+                            <div class="glass-card">
+                                <div class="card-icon gradient-3"><i class="ph ph-coin"></i></div>
+                                <div class="card-text">
+                                    <h3>Coût API</h3>
+                                    <div class="value">$2.40</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-card large-card" style="margin-top:24px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                                <h3>Actions Suggérées</h3>
+                                <button class="glass-btn-primary" onclick="openAutoTagModal()">Lancer Auto-Tagging</button>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.7);">L'IA a terminé le parsing de "Cours Cardiologie.pdf".</p>
+                        </div>
+                    </div>
+
+                    <!-- EDITOR VIEW -->
+                    <div id="view-editor" class="view hidden">
+                        <h1 class="glass-title">Édition : Anatomie Cœur</h1>
+                        <div class="glass-card large-card" style="height: calc(100% - 60px);">
+                            <div class="glass-editor" contenteditable="true">
+                                <h2>Le cycle cardiaque</h2>
+                                <p>La systole et la diastole.</p>
+                                <div class="glass-cloze">{{c1::Le volume d'éjection systolique}}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="omnibox-modal" class="modal-overlay hidden" onclick="closeModals(event)">
+        <div class="glass-omnibox">
+            <i class="ph ph-magnifying-glass"></i>
+            <input type="text" placeholder="Entrez votre recherche..." autofocus>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
