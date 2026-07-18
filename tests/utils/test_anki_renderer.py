@@ -23,7 +23,7 @@ def test_is_empty():
 
 def test_sanitize_fields():
     """Vérifie la conversion des listes et des None pour le moteur."""
-    raw = {"Texte": "Normal", "Liste": ["A", "B"], "Vide": ""}
+    raw: dict[str, str | list[str]] = {"Texte": "Normal", "Liste": ["A", "B"], "Vide": ""}
     safe = _sanitize_fields(raw)
 
     assert safe["Texte"] == "Normal"
@@ -68,7 +68,7 @@ def test_render_anki_card_integration():
     """Test global du rendu final."""
     raw_html = "<b>{{Recto}}</b><br>{{Verso}}"
     css = ".card { color: red; }"
-    fields = {"Recto": "Q?", "Verso": "R!"}
+    fields: dict[str, str | list[str]] = {"Recto": "Q?", "Verso": "R!"}
 
     result = render_anki_card(raw_html=raw_html, css=css, fields_dict=fields, is_recto=True)
 

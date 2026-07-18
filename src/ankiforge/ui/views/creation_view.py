@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -69,53 +68,46 @@ class CreationTab(QWidget):
         self.load_documents()
 
     def _setup_ui(self) -> None:
-        """Initializes and organizes main graphical components."""
+        """Initializes and organizes main graphical components in 3 columns."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
-        self.main_layout.setSpacing(20)
+        self.main_layout.setSpacing(0)
 
-        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setHandleWidth(8)
         self.main_splitter.setChildrenCollapsible(False)
 
-        self._build_config_section()
-        self._build_source_section()
-        self._build_results_section()
+        config_panel = self._build_config_section()
+        source_panel = self._build_source_section()
+        results_panel = self._build_results_section()
 
-        self.main_splitter.setSizes([200, 500])
+        self.main_splitter.addWidget(config_panel)
+        self.main_splitter.addWidget(source_panel)
+        self.main_splitter.addWidget(results_panel)
+
+        self.main_splitter.setSizes([280, 400, 600])
         self.main_layout.addWidget(self.main_splitter)
 
-    def _build_config_section(self) -> None:
-        """Builds the upper panel containing AI parameters and targets."""
+    def _build_config_section(self) -> QWidget:
+        """Builds the left panel containing AI parameters and targets."""
         params_panel = RoundedPanel()
         params_layout = QVBoxLayout(params_panel)
-        params_layout.setContentsMargins(15, 10, 15, 10)
+        params_layout.setContentsMargins(15, 15, 15, 15)
+        params_layout.setSpacing(15)
 
-        # --- HEADER COLLAPSABLE ---
-        header_layout = QHBoxLayout()
-        lbl_title_1 = QLabel(self.tr("1. AI CONFIGURATION AND DESTINATION"))
+        lbl_title_1 = QLabel(self.tr("1. CONFIGURATION"))
         lbl_title_1.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
-        header_layout.addWidget(lbl_title_1)
+        params_layout.addWidget(lbl_title_1)
 
-        header_layout.addStretch()
+        lbl_style = "color: palette(text); font-size: 12px; font-weight: bold;"
 
-        self.btn_toggle_config = ActionButton("fa5s.chevron-up", "")
-        self.btn_toggle_config.setFixedSize(24, 24)
-        self.btn_toggle_config.setStyleSheet("border: none; background: transparent;")
-        self.btn_toggle_config.clicked.connect(self._toggle_config_panel)
-        header_layout.addWidget(self.btn_toggle_config)
+        lbl_pipeline = QLabel(self.tr("Generation pipeline:"))
+        lbl_pipeline.setStyleSheet(lbl_style)
+        self.pipeline_selector = DBComboBox(PipelineModel)
 
-        params_layout.addLayout(header_layout)
-
-        # --- CONTENU ---
-        self.config_container = QWidget()
-        config_layout = QVBoxLayout(self.config_container)
-        config_layout.setContentsMargins(0, 5, 0, 0)
-
-        params_grid = QGridLayout()
-        params_grid.setHorizontalSpacing(15)
-        params_grid.setVerticalSpacing(5)
-        lbl_style = "color: palette(placeholder-text); font-size: 11px; font-weight: bold;"
+        lbl_engine = QLabel(self.tr("AI Engine:"))
+        lbl_engine.setStyleSheet(lbl_style)
+        self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
 
         lbl_deck = QLabel(self.tr("Destination deck:"))
         lbl_deck.setStyleSheet(lbl_style)
@@ -125,122 +117,94 @@ class CreationTab(QWidget):
         lbl_model.setStyleSheet(lbl_style)
         self.model_selector = DBComboBox(NoteTypeModel)
 
-        lbl_engine = QLabel(self.tr("AI Engine:"))
-        lbl_engine.setStyleSheet(lbl_style)
-        self.llm_selector = DBComboBox(LLMConfigModel, display_field="display_name", sort_field="display_name")
+        params_layout.addWidget(lbl_pipeline)
+        params_layout.addWidget(self.pipeline_selector)
+        params_layout.addWidget(lbl_engine)
+        params_layout.addWidget(self.llm_selector)
+        params_layout.addWidget(lbl_deck)
+        params_layout.addWidget(self.deck_selector)
+        params_layout.addWidget(lbl_model)
+        params_layout.addWidget(self.model_selector)
 
-        lbl_pipeline = QLabel(self.tr("Generation pipeline:"))
-        lbl_pipeline.setStyleSheet(lbl_style)
-        self.pipeline_selector = DBComboBox(PipelineModel)
-
-        # Ligne 1 : Les 4 labels
-        params_grid.addWidget(lbl_deck, 0, 0)
-        params_grid.addWidget(lbl_model, 0, 1)
-        params_grid.addWidget(lbl_engine, 0, 2)
-        params_grid.addWidget(lbl_pipeline, 0, 3)
-
-        # Ligne 2 : Les 4 dropdowns
-        params_grid.addWidget(self.deck_selector, 1, 0)
-        params_grid.addWidget(self.model_selector, 1, 1)
-        params_grid.addWidget(self.llm_selector, 1, 2)
-        params_grid.addWidget(self.pipeline_selector, 1, 3)
-
-        config_layout.addLayout(params_grid)
-
-        self.cb_vision = QCheckBox(self.tr("👁️ Enable image analysis (Vision)"))
-        self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 5px;")
+        self.cb_vision = QCheckBox(self.tr("👁️ Enable image analysis"))
+        self.cb_vision.setStyleSheet("color: palette(highlight); font-weight: bold; margin-top: 10px;")
         self.cb_vision.setChecked(False)
-        config_layout.addWidget(self.cb_vision)
+        params_layout.addWidget(self.cb_vision)
 
-        params_layout.addWidget(self.config_container)
-        self.main_layout.insertWidget(0, params_panel)
+        params_layout.addStretch()
 
-    @Slot()
-    def _toggle_config_panel(self) -> None:
-        if self.config_container.isVisible():
-            self.config_container.hide()
-            self.btn_toggle_config.setIcon(qta.icon("fa5s.chevron-down", color="gray"))
-        else:
-            self.config_container.show()
-            self.btn_toggle_config.setIcon(qta.icon("fa5s.chevron-up", color="gray"))
+        return params_panel
 
-    def _build_source_section(self) -> None:
+    def _build_source_section(self) -> QWidget:
         """Builds the central area for source text input and selection."""
         source_panel = RoundedPanel()
         source_layout = QVBoxLayout(source_panel)
-        source_layout.setContentsMargins(20, 15, 20, 15)
-        source_layout.setSpacing(15)
+        source_layout.setContentsMargins(15, 15, 15, 15)
+        source_layout.setSpacing(10)
 
         lbl_title_2 = QLabel(self.tr("2. SOURCE TEXT"))
         lbl_title_2.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         source_layout.addWidget(lbl_title_2)
 
         source_header = QHBoxLayout()
-        source_header.addWidget(QLabel(self.tr("Choose a course:")))
-
         self.doc_selector = QComboBox()
         self.doc_selector.setMinimumWidth(100)
         source_header.addWidget(self.doc_selector, stretch=1)
 
         self.btn_refresh_docs = ActionButton("fa5s.sync", "")
         source_header.addWidget(self.btn_refresh_docs)
+        source_layout.addLayout(source_header)
 
-        source_header.addWidget(QLabel(self.tr("Section:")))
         self.section_selector = QComboBox()
         self.section_selector.setMinimumWidth(100)
-        source_header.addWidget(self.section_selector, stretch=1)
-
-        source_layout.addLayout(source_header)
+        source_layout.addWidget(self.section_selector)
 
         self.source_text = QTextEdit()
         self.source_text.setPlaceholderText(self.tr("Select a document then a section..."))
         self.source_highlighter = SourceHighlighter(self.source_text.document())
         source_layout.addWidget(self.source_text)
 
-        bottom_source_layout = QHBoxLayout()
-        token_layout = QVBoxLayout()
         self.token_label = QLabel(self.tr("Tokens: 0 / ?"))
         self.token_label.setStyleSheet("color: palette(placeholder-text); font-size: 12px;")
+        source_layout.addWidget(self.token_label)
 
         self.token_bar = QProgressBar()
         self.token_bar.setTextVisible(False)
-        self.token_bar.setFixedSize(200, 6)
-
-        token_layout.addWidget(self.token_label)
-        token_layout.addWidget(self.token_bar)
-
-        bottom_source_layout.addLayout(token_layout)
-        bottom_source_layout.addStretch()
+        self.token_bar.setFixedHeight(6)
+        source_layout.addWidget(self.token_bar)
 
         self.lbl_progress = QLabel("")
-        self.lbl_progress.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 12px; margin-right: 15px;")
-        bottom_source_layout.addWidget(self.lbl_progress)
+        self.lbl_progress.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 12px;")
+        source_layout.addWidget(self.lbl_progress)
 
         self.btn_generate = PrimaryButton(qta.icon("fa5s.magic", color="white"), self.tr(" Generate Cards"))
-        bottom_source_layout.addWidget(self.btn_generate)
+        source_layout.addWidget(self.btn_generate)
 
         self.btn_cancel = DangerButton(qta.icon("fa5s.stop", color="white"), self.tr(" Cancel"))
         self.btn_cancel.hide()
-        bottom_source_layout.addWidget(self.btn_cancel)
+        source_layout.addWidget(self.btn_cancel)
 
-        source_layout.addLayout(bottom_source_layout)
-        source_panel.setMinimumWidth(200)
-        self.main_splitter.addWidget(source_panel)
+        return source_panel
 
-    def _build_results_section(self) -> None:
-        """Builds the lower area displaying the results table and previews."""
-        bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
-        bottom_splitter.setHandleWidth(10)
-        bottom_splitter.setChildrenCollapsible(False)
+    def _build_results_section(self) -> QWidget:
+        """Builds the right area displaying the results table and previews."""
+        results_panel = RoundedPanel()
+        results_layout = QVBoxLayout(results_panel)
+        results_layout.setContentsMargins(15, 15, 15, 15)
+        results_layout.setSpacing(10)
 
-        # Left panel: The Table
-        table_panel = RoundedPanel()
-        table_layout = QVBoxLayout(table_panel)
-        table_layout.setContentsMargins(20, 20, 20, 20)
-
-        lbl_title_3 = QLabel(self.tr("RESULTS (DOUBLE-CLICK TO EDIT)"))
+        lbl_title_3 = QLabel(self.tr("3. RESULTS & PREVIEW"))
         lbl_title_3.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
-        table_layout.addWidget(lbl_title_3)
+        results_layout.addWidget(lbl_title_3)
+
+        results_splitter = QSplitter(Qt.Orientation.Vertical)
+        results_splitter.setHandleWidth(8)
+        results_splitter.setChildrenCollapsible(False)
+
+        # Top: Table
+        table_container = QWidget()
+        table_layout = QVBoxLayout(table_container)
+        table_layout.setContentsMargins(0, 0, 0, 0)
 
         self.results_table = QTableWidget()
         self.results_table.horizontalHeader().setStretchLastSection(True)
@@ -251,10 +215,10 @@ class CreationTab(QWidget):
         self.results_table.setFrameShape(QFrame.Shape.NoFrame)
         table_layout.addWidget(self.results_table)
 
-        # Right panel: Preview & Logs
-        right_panel = RoundedPanel()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(10, 10, 10, 10)
+        # Bottom: Preview / Console
+        bottom_container = QWidget()
+        bottom_layout = QVBoxLayout(bottom_container)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
 
         right_tabs = QTabWidget()
         right_tabs.setStyleSheet("""
@@ -275,10 +239,7 @@ class CreationTab(QWidget):
         self.console_log.setFont(font)
         right_tabs.addTab(self.console_log, qta.icon("fa5s.terminal"), self.tr(" AI Console"))
 
-        right_layout.addWidget(right_tabs)
-
-        btn_save_layout = QHBoxLayout()
-        btn_save_layout.addStretch()
+        bottom_layout.addWidget(right_tabs)
 
         self.btn_save = PrimaryButton(qta.icon("fa5s.save", color="white"), self.tr(" Save to database"))
         self.btn_save.setEnabled(False)
@@ -287,14 +248,15 @@ class CreationTab(QWidget):
                     PrimaryButton:hover { background-color: #1976D2; }
                     PrimaryButton:disabled { background-color: rgba(33, 150, 243, 0.3); color: rgba(255, 255, 255, 0.5); border: 1px dashed rgba(33, 150, 243, 0.5); }
                 """)
-        btn_save_layout.addWidget(self.btn_save)
-        right_layout.addLayout(btn_save_layout)
+        bottom_layout.addWidget(self.btn_save)
 
-        bottom_splitter.addWidget(table_panel)
-        bottom_splitter.addWidget(right_panel)
-        bottom_splitter.setSizes([500, 300])
+        results_splitter.addWidget(table_container)
+        results_splitter.addWidget(bottom_container)
+        results_splitter.setSizes([400, 300])
 
-        self.main_splitter.addWidget(bottom_splitter)
+        results_layout.addWidget(results_splitter)
+
+        return results_panel
 
     def _connect_signals(self) -> None:
         """Connects UI signals to associated slots."""

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QThread, Signal
 
 from ankiforge.services.ai.utils import AIReponseParser, format_system_prompt
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_media_dir
 from ankiforge.utils.vision_utils import prepare_multimodal_payload, strip_image_tags
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ class CreationWorker(QThread):
                 self.log.emit(f"ENTRÉE UTILISATEUR :\n{current_input}\n")
 
                 if self.payload.use_vision:
-                    media_dir = get_app_data_dir() / "media"
+                    media_dir = get_media_dir()
                     payload_multimodal = prepare_multimodal_payload(current_input, media_dir)
                     raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=payload_multimodal, response_format=output_format)
                 else:

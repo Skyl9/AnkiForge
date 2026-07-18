@@ -1,6 +1,7 @@
 # tests/test_models.py
 import json
 import pytest
+from typing import Any, cast
 from peewee import IntegrityError
 
 from ankiforge.database.models import (
@@ -101,7 +102,7 @@ def test_note_versioning_system():
     v2 = note.add_version(v2_content, source="manual")
 
     # 3. VÉRIFICATION (Then)
-    assert note.versions.count() == 2, "La note devrait posséder exactement 2 versions."
+    assert cast(Any, note).versions.count() == 2, "La note devrait posséder exactement 2 versions."
 
     # On recharge les versions depuis la base pour être sûr de leur état actuel
     v1_reloaded = NoteVersionModel.get_by_id(v1.id)
@@ -259,17 +260,17 @@ def test_purge_old_versions():
     for i in range(1, 9):
         note.add_version({"Test": f"Version {i}"})
 
-    assert note.versions.count() == 8
+    assert cast(Any, note).versions.count() == 8
 
     # 2. Action (On ne garde que les 3 dernières)
     deleted = NoteModel.purge_old_versions(keep_last=3)
 
     # 3. Vérification
     assert deleted == 5
-    assert note.versions.count() == 3
+    assert cast(Any, note).versions.count() == 3
 
     # On vérifie que ce sont bien les versions 6, 7 et 8 qui ont survécu
-    remaining_versions = [v.version_number for v in note.versions.order_by(NoteVersionModel.version_number)]
+    remaining_versions = [v.version_number for v in cast(Any, note).versions.order_by(NoteVersionModel.version_number)]
     assert remaining_versions == [6, 7, 8]
 
 

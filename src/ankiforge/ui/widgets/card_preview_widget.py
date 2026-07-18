@@ -9,7 +9,7 @@ from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.cloze_manager import sync_preview_card_selector, get_preview_template
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import render_anki_card, AnkiFields
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_media_dir
 
 
 class CardPreviewWidget(QWidget):
@@ -128,7 +128,7 @@ class CardPreviewWidget(QWidget):
             template_index=card_idx,
         )
 
-        media_dir = get_app_data_dir() / "media"
+        media_dir = get_media_dir()
         media_dir.mkdir(exist_ok=True)
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 

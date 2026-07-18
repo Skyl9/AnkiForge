@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script de génération du fichier .dmg pour AnkiForge
+# Script de génération du fichier .dmg pour ankiforge_obsidian
 
 # 1. On se place à la racine du projet
 cd "$(dirname "$0")/.." || exit

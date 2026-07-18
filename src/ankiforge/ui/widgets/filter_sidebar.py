@@ -47,7 +47,8 @@ class FilterSidebar(RoundedPanel):
         layout.addWidget(separator)
 
         lbl_tags = QLabel("FILTRES (TAGS)")
-        lbl_tags.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 10px;")
+        layout.addSpacing(10)
+        lbl_tags.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         layout.addWidget(lbl_tags)
 
         self.tag_list = QListWidget()

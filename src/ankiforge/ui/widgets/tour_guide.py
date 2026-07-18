@@ -52,9 +52,10 @@ class TourBubble(QWidget):
         bg_layout.addWidget(self.lbl_title)
 
         self.lbl_text = QLabel("Description...")
-        self.lbl_text.setStyleSheet("font-size: 14px; color: palette(text); border: none; margin-bottom: 10px;")
+        self.lbl_text.setStyleSheet("font-size: 14px; color: palette(text); border: none;")
         self.lbl_text.setWordWrap(True)
         bg_layout.addWidget(self.lbl_text)
+        bg_layout.addSpacing(10)
 
         # --- BARRE DE BOUTONS ---
         btn_layout = QHBoxLayout()

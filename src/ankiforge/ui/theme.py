@@ -141,7 +141,7 @@ def setup_dynamic_theme(app: QApplication) -> None:
     font = QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE)
     app.setFont(font)
 
-    settings = QSettings("AnkiForgeOrg", "AnkiForge")
+    settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
     saved_theme = settings.value("ui/theme", "Système (Par défaut)")
 
     def apply_theme(is_dark: bool):

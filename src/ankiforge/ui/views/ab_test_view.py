@@ -24,7 +24,7 @@ from ankiforge.ui.theme import is_dark_mode
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import render_anki_card
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_media_dir
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class ABTestTab(QWidget):
         source_layout.addWidget(QLabel("<b>Texte Source :</b>"))
         self.text_source = QTextEdit()
         self.text_source.setPlaceholderText("Collez ici l'extrait de cours à tester...")
-        self.text_source.setMaximumHeight(80)
+        self.text_source.setMaximumHeight(120)
         source_layout.addWidget(self.text_source)
         self.main_layout.addLayout(source_layout)
 
@@ -384,7 +384,7 @@ class ABTestTab(QWidget):
                 is_dark_mode=is_dark_mode(),
             )
 
-            media_dir = get_app_data_dir() / "media"
+            media_dir = get_media_dir()
             web_view.setHtmlSafe(final_html, QUrl.fromLocalFile(media_dir))
 
         except Exception as e:

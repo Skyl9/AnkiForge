@@ -141,7 +141,7 @@ class NoteVersionModel(BaseModel):
 
 
 class MediaModel(BaseModel):
-    """Représente un fichier média physique géré par AnkiForge"""
+    """Représente un fichier média physique géré par ankiforge_obsidian"""
 
     filename = CharField(unique=True)  # Nom unique généré (ex: sha256.png)
     original_name = CharField()  # Nom d'origine (ex: schema.png)

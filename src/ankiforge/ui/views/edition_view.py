@@ -41,7 +41,7 @@ class EditionTab(QWidget):
         self.batch_thread: BatchEditWorker | None = None
         self.import_thread: ImportCardsWorker | None = None
         self.progress_dialog: QProgressDialog | None = None
-        self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
         self.store = StoreManager()
 
         self.current_deck_id: int | None = None
@@ -63,26 +63,29 @@ class EditionTab(QWidget):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setHandleWidth(10)
 
-        # 1. Filter sidebar
+        # 1. Explorer (Sidebar + Table)
+        self.explorer_widget = QWidget()
+        self.explorer_layout = QVBoxLayout(self.explorer_widget)
+        self.explorer_layout.setContentsMargins(0, 0, 0, 0)
+        self.explorer_layout.setSpacing(10)
+
+        self.explorer_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.explorer_splitter.setHandleWidth(10)
+
         self.filter_sidebar = FilterSidebar()
-        self.main_splitter.addWidget(self.filter_sidebar)
+        self.explorer_splitter.addWidget(self.filter_sidebar)
 
-        # Right zone (Table + Editor)
-        self.right_splitter = QSplitter(Qt.Orientation.Vertical)
-        self.right_splitter.setHandleWidth(10)
-
-        # 2. Notes table
         self.note_table = NoteTableWidget()
-        self.right_splitter.addWidget(self.note_table)
+        self.explorer_splitter.addWidget(self.note_table)
 
-        # 3. Note editor
+        self.explorer_layout.addWidget(self.explorer_splitter)
+        self.main_splitter.addWidget(self.explorer_widget)
+
+        # 2. Rich Editor + Live Preview (handled by NoteEditorWidget)
         self.note_editor = NoteEditorWidget()
-        self.right_splitter.addWidget(self.note_editor)
+        self.main_splitter.addWidget(self.note_editor)
 
-        self.right_splitter.setSizes([300, 300])
-        self.main_splitter.addWidget(self.right_splitter)
-
-        self.main_splitter.setSizes([200, 800])
+        self.main_splitter.setSizes([320, 800])
         self.main_layout.addWidget(self.main_splitter)
 
     def _connect_signals(self) -> None:

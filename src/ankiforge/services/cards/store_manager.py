@@ -218,7 +218,8 @@ class StoreManager:
             # --- EXTRACTION SQL -> PEEWEE ---
             if progress_callback:
                 progress_callback("Injection des données dans Ankiforge...")
-                conn = sqlite3.connect(sqlite_db_path)
+
+            conn = sqlite3.connect(sqlite_db_path)
             cursor = conn.cursor()
             try:
                 # db.atomic() rend l'insertion massive beaucoup plus rapide et sûre

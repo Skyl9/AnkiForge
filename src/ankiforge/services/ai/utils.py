@@ -140,9 +140,9 @@ class AIReponseParser:
                 if field_origin is list and field_args and dataclasses.is_dataclass(field_args[0]):
                     if not isinstance(val, list):
                         raise ValueError(f"Le champ '{field.name}' doit être une liste.")
-                    init_kwargs[field.name] = [cls._instantiate_dataclass(item, field_args[0]) for item in val]
+                    init_kwargs[field.name] = [cls._instantiate_dataclass(item, cast(Type[T], field_args[0])) for item in val]
                 elif dataclasses.is_dataclass(field.type):
-                    init_kwargs[field.name] = cls._instantiate_dataclass(val, field.type)  # type: ignore
+                    init_kwargs[field.name] = cls._instantiate_dataclass(val, cast(Type[T], field.type))  # type: ignore
                 else:
                     init_kwargs[field.name] = val
             elif field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING:

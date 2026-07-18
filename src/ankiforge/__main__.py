@@ -16,13 +16,34 @@ from ankiforge.utils.paths import get_project_root
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QInputDialog
+from ankiforge.services.profile_manager import ProfileManager
 
 
 def main():
     setup_logging()
     QCoreApplication.setOrganizationName("AnkiForgeOrg")
-    QCoreApplication.setApplicationName("AnkiForge")
+    QCoreApplication.setApplicationName("ankiforge_obsidian")
+
+    app = QApplication(sys.argv)
+
+    pm = ProfileManager()
+    profiles = pm.list_profiles()
+
+    selected_profile = "default"
+    if not profiles:
+        pm.create_profile("default")
+        selected_profile = "default"
+    elif len(profiles) == 1:
+        selected_profile = profiles[0]
+    else:
+        item, ok = QInputDialog.getItem(None, "Sélection du profil", "Choisissez un profil :", profiles, 0, False)
+        if ok and item:
+            selected_profile = item
+        else:
+            sys.exit(0)  # Annulé
+
+    pm.switch_profile(selected_profile)
 
     load_dotenv()
     init_db()
@@ -31,9 +52,7 @@ def main():
     seed_initial_data()
     ai_manager = AIManager()
 
-    app = QApplication(sys.argv)
-
-    settings = QSettings("AnkiForgeOrg", "AnkiForge")
+    settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
     lang = settings.value("ui/language", "English")
     if lang == "Français":
         translator = QTranslator()

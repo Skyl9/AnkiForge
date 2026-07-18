@@ -8,7 +8,7 @@ class LLMProvider(ABC):
     Interface abstraite définissant le contrat pour tous les fournisseurs d'IA.
 
     Cette classe doit être héritée par chaque service d'IA (OpenAI, Gemini, Ollama, etc.)
-    pour garantir une interface cohérente à travers l'application AnkiForge.
+    pour garantir une interface cohérente à travers l'application ankiforge_obsidian.
     """
 
     @abstractmethod

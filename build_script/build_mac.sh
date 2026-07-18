@@ -7,7 +7,7 @@ echo "Nettoyage des dossiers de build précédents..."
 rm -rf build/ dist/
 
 echo " Génération de l'application avec PyInstaller..."
-uv run pyinstaller build_script/AnkiForge.spec --noconfirm
+uv run pyinstaller build_script/ankiforge_obsidian.spec --noconfirm
 
 echo "Compilation terminée."
 echo "L'application exécutable se trouve dans le dossier dist/AnkiForge.app"

@@ -50,6 +50,23 @@ class NoteEditorWidget(QWidget):
         editor_layout = QVBoxLayout(editor_panel)
         editor_layout.setContentsMargins(15, 15, 15, 15)
 
+        # Toolbar
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setContentsMargins(0, 0, 0, 10)
+
+        btn_bold = ActionButton("fa5s.bold", "")
+        btn_italic = ActionButton("fa5s.italic", "")
+        btn_h2 = ActionButton("fa5s.heading", "")
+        btn_latex = ActionButton("fa5s.square-root-alt", "")
+
+        toolbar_layout.addWidget(btn_bold)
+        toolbar_layout.addWidget(btn_italic)
+        toolbar_layout.addWidget(btn_h2)
+        toolbar_layout.addWidget(btn_latex)
+        toolbar_layout.addStretch()
+
+        editor_layout.addLayout(toolbar_layout)
+
         self.details_scroll = QScrollArea()
         self.details_scroll.setWidgetResizable(True)
         self.details_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -82,7 +99,18 @@ class NoteEditorWidget(QWidget):
         preview_layout.setContentsMargins(15, 15, 15, 15)
 
         self.preview_widget = CardPreviewWidget(show_header=True)
+
+        # Mobile/Desktop Toggle
+        preview_tools_layout = QHBoxLayout()
+        self.btn_toggle_mobile = ActionButton("fa5s.mobile-alt", " Mobile")
+        self.btn_toggle_mobile.setCheckable(True)
+        self.btn_toggle_mobile.toggled.connect(self._toggle_mobile_preview)
+
+        preview_tools_layout.addWidget(self.btn_toggle_mobile)
+        preview_tools_layout.addStretch()
+
         preview_layout.addWidget(self.preview_widget)
+        preview_layout.addLayout(preview_tools_layout)
 
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
@@ -97,6 +125,16 @@ class NoteEditorWidget(QWidget):
         self.btn_history.clicked.connect(self._on_history_clicked)
         self.btn_save_edits.clicked.connect(self.save_note_edits)
         self.preview_timer.timeout.connect(self.update_preview)
+
+    def _toggle_mobile_preview(self, checked: bool):
+        if checked:
+            self.preview_widget.setMaximumWidth(375)
+            self.btn_toggle_mobile.setText(" Desktop")
+            self.btn_toggle_mobile.setIcon(qtawesome.icon("fa5s.desktop", color="white"))
+        else:
+            self.preview_widget.setMaximumWidth(16777215)  # QWIDGETSIZE_MAX
+            self.btn_toggle_mobile.setText(" Mobile")
+            self.btn_toggle_mobile.setIcon(qtawesome.icon("fa5s.mobile-alt", color="white"))
 
     def set_current_deck(self, deck_id: int | None):
         self.current_deck_id = deck_id
@@ -118,12 +156,13 @@ class NoteEditorWidget(QWidget):
             content_dict = json.loads(active_version.content) if active_version else {}
 
             lbl_title = QLabel(f"<b>Édition (Modèle : {self.current_note.note_type.name})</b>")
-            lbl_title.setStyleSheet("font-size: 16px; margin-bottom: 5px;")
+            lbl_title.setStyleSheet("font-size: 16px;")
             self.details_layout.addWidget(lbl_title)
+            self.details_layout.addSpacing(5)
 
             for field_name, field_value in content_dict.items():
                 lbl = QLabel(field_name)
-                lbl.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px;")
+                lbl.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 10px; text-transform: uppercase; letter-spacing: 1px;")
                 text_edit = DropImageTextEdit()
 
                 clean_value = field_value.replace("<br>", "\n") if field_value else ""
@@ -132,7 +171,9 @@ class NoteEditorWidget(QWidget):
                 text_edit.textChanged.connect(self._on_text_changed)
 
                 self.field_editors[field_name] = text_edit
+                self.details_layout.addSpacing(15)
                 self.details_layout.addWidget(lbl)
+                self.details_layout.addSpacing(5)
                 self.details_layout.addWidget(text_edit)
 
             self.update_preview()
@@ -150,8 +191,9 @@ class NoteEditorWidget(QWidget):
         self.btn_history.setVisible(False)
 
         lbl_title = QLabel("<b>Création de Note</b>")
-        lbl_title.setStyleSheet("font-size: 16px; margin-bottom: 5px;")
+        lbl_title.setStyleSheet("font-size: 16px;")
         self.details_layout.addWidget(lbl_title)
+        self.details_layout.addSpacing(5)
 
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel("Modèle :"))

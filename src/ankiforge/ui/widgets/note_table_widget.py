@@ -54,7 +54,7 @@ class NoteTableWidget(RoundedPanel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
         self._setup_ui()
         self._connect_signals()
 

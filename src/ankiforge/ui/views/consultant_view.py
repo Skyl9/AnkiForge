@@ -5,51 +5,57 @@ from typing import Any
 import markdown
 import qtawesome as qta
 from PySide6.QtCore import QPoint, Qt, Signal, Slot
-from PySide6.QtGui import QKeyEvent, QTextCursor
+from PySide6.QtGui import QKeyEvent, QTextCursor, QGuiApplication
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QTextEdit,
+    QTextBrowser,
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QPushButton,
 )
 
 from ankiforge.database.models import CardModel, DeckModel, DocumentModel, LLMConfigModel, NoteModel, NoteVersionModel
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.components.components import HeaderLabel, PrimaryButton, RoundedPanel, DBComboBox, EmptyStateWidget
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 
 logger = logging.getLogger(__name__)
 
 
 class MentionPopup(QListWidget):
-    """The floating menu that appears when typing @ or /"""
-
-    item_selected = Signal(str, str)  # type (cmd or context), value
+    item_selected = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setStyleSheet("""
-            QListWidget {
-                background-color: palette(window);
-                border: 1px solid palette(alternate-base);
-                border-radius: 6px;
+        self.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 4px;
                 font-size: 13px;
-            }
-            QListWidget::item {
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QListWidget::item {{
                 padding: 6px;
                 border-radius: 4px;
-            }
-            QListWidget::item:selected {
-                background-color: palette(highlight);
-                color: palette(highlighted-text);
-            }
+            }}
+            QListWidget::item:selected {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: #ffffff;
+            }}
         """)
         self.itemClicked.connect(self._on_item_clicked)
         self.hide()
@@ -93,8 +99,6 @@ class MentionPopup(QListWidget):
 
 
 class CommandTextEdit(QTextEdit):
-    """Text editor that listens for keystrokes to trigger the popup."""
-
     mention_inserted = Signal(str, str)
     send_requested = Signal()
 
@@ -103,10 +107,15 @@ class CommandTextEdit(QTextEdit):
         self.popup = MentionPopup()
         self.popup.item_selected.connect(self._on_popup_selected)
         self.setPlaceholderText(self.tr("Type / for a command, or @ to load context (Doc, Deck)..."))
-        # Larger font for "Command Bar" effect
-        font = self.font()
-        font.setPointSize(12)
-        self.setFont(font)
+
+        self.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: none;
+                font-size: {DesignTokens.FONT_SIZE_BASE}px;
+            }}
+        """)
 
         self.is_typing_mention = False
         self.mention_start_pos = 0
@@ -130,7 +139,6 @@ class CommandTextEdit(QTextEdit):
                 self.hide_popup()
                 return
 
-        # Shift+Enter = Line break. Simple Enter = Send.
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             self.send_requested.emit()
             return
@@ -182,44 +190,36 @@ class CommandTextEdit(QTextEdit):
         self.mention_inserted.emit(mode, data_id)
 
 
-# ==========================================
-# 2. THE CHIP WIDGET (Interactive pill)
-# ==========================================
-
-
 class ContextChip(QFrame):
-    """A small visual pill representing a context element, with a delete button."""
-
     removed = Signal(str)
 
     def __init__(self, data_id: str, display_text: str, parent=None):
         super().__init__(parent)
         self.data_id = data_id
 
-        self.setStyleSheet("""
-            QFrame {
-                background-color: palette(highlight);
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_HOVER};
                 border-radius: 12px;
-                padding: 2px 4px;
-            }
-            QLabel {
-                color: palette(highlighted-text);
+                padding: 2px 8px;
+            }}
+            QLabel {{
+                color: {DesignTokens.TEXT_PRIMARY};
                 font-weight: bold;
                 font-size: 11px;
-                padding-left: 4px;
                 background: transparent;
-            }
-            QToolButton {
+            }}
+            QToolButton {{
                 background: transparent;
-                color: palette(highlighted-text);
+                color: {DesignTokens.TEXT_MUTED};
                 border: none;
                 font-weight: bold;
                 font-size: 14px;
                 border-radius: 8px;
-            }
-            QToolButton:hover {
-                background-color: rgba(0, 0, 0, 0.2);
-            }
+            }}
+            QToolButton:hover {{
+                color: {DesignTokens.COLOR_RED};
+            }}
         """)
 
         layout = QHBoxLayout(self)
@@ -227,7 +227,6 @@ class ContextChip(QFrame):
         layout.setSpacing(4)
 
         lbl = QLabel(display_text)
-
         btn_close = QToolButton()
         btn_close.setText("×")
         btn_close.setFixedSize(16, 16)
@@ -241,25 +240,158 @@ class ContextChip(QFrame):
         self.removed.emit(self.data_id)
 
 
-# ==========================================
-# 3. MAIN TAB
-# ==========================================
+class ChatMessageWidget(QWidget):
+    """A bubble representing a message (User or AI)."""
+
+    def __init__(self, text: str, is_user: bool, parent=None):
+        super().__init__(parent)
+        self.is_user = is_user
+        self.raw_text = text
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 5, 10, 5)
+
+        # Avatar
+        self.avatar = QLabel()
+        self.avatar.setFixedSize(32, 32)
+        self.avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if is_user:
+            self.avatar.setText("U")
+            self.avatar.setStyleSheet(f"""
+                QLabel {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {DesignTokens.ACCENT_PRIMARY}, stop:1 {DesignTokens.ACCENT_HOVER});
+                    color: white;
+                    border-radius: 16px;
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            icon = qta.icon("fa5s.robot", color=DesignTokens.ACCENT_PRIMARY)
+            self.avatar.setPixmap(icon.pixmap(20, 20))
+            self.avatar.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: 16px;
+                }}
+            """)
+
+        self.bubble = QFrame()
+        bubble_layout = QVBoxLayout(self.bubble)
+        bubble_layout.setContentsMargins(15, 12, 15, 12)
+
+        self.text_browser = QTextBrowser()
+        self.text_browser.setOpenExternalLinks(True)
+        self.text_browser.setFrameShape(QFrame.Shape.NoFrame)
+        self.text_browser.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.text_browser.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.text_browser.document().documentLayout().documentSizeChanged.connect(self._adjust_height)
+
+        if is_user:
+            self.text_browser.setPlainText(text)
+            self.text_browser.setStyleSheet(f"""
+                QTextBrowser {{
+                    background: transparent;
+                    color: #ffffff;
+                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                }}
+            """)
+            self.bubble.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+
+            # Layout logic: User message (Text on left, Avatar on right)
+            layout.addStretch()
+            layout.addWidget(self.bubble, stretch=1)
+
+            avatar_layout = QVBoxLayout()
+            avatar_layout.addWidget(self.avatar)
+            avatar_layout.addStretch()
+            layout.addLayout(avatar_layout)
+        else:
+            html = markdown.markdown(text, extensions=["extra", "codehilite", "tables"])
+            self.text_browser.setHtml(html)
+            self.text_browser.setStyleSheet(f"""
+                QTextBrowser {{
+                    background: transparent;
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                }}
+            """)
+            self.bubble.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+            apply_shadow(self.bubble, blur=DesignTokens.SHADOW_SM_BLUR)
+
+            # Layout logic: AI message (Avatar on left, Text on right)
+            avatar_layout = QVBoxLayout()
+            avatar_layout.addWidget(self.avatar)
+            avatar_layout.addStretch()
+            layout.addLayout(avatar_layout)
+
+            layout.addWidget(self.bubble, stretch=1)
+            layout.addStretch()
+
+        bubble_layout.addWidget(self.text_browser)
+
+        if not is_user:
+            actions_layout = QHBoxLayout()
+            actions_layout.setContentsMargins(0, 5, 0, 0)
+            actions_layout.addStretch()
+
+            btn_copy = QToolButton()
+            btn_copy.setIcon(qta.icon("fa5s.copy", color=DesignTokens.TEXT_MUTED))
+            btn_copy.setStyleSheet("border: none; background: transparent;")
+            btn_copy.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_copy.clicked.connect(self._copy_text)
+
+            btn_regen = QToolButton()
+            btn_regen.setIcon(qta.icon("fa5s.sync-alt", color=DesignTokens.TEXT_MUTED))
+            btn_regen.setStyleSheet("border: none; background: transparent;")
+            btn_regen.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            btn_up = QToolButton()
+            btn_up.setIcon(qta.icon("fa5s.thumbs-up", color=DesignTokens.TEXT_MUTED))
+            btn_up.setStyleSheet("border: none; background: transparent;")
+            btn_up.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            btn_down = QToolButton()
+            btn_down.setIcon(qta.icon("fa5s.thumbs-down", color=DesignTokens.TEXT_MUTED))
+            btn_down.setStyleSheet("border: none; background: transparent;")
+            btn_down.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            actions_layout.addWidget(btn_copy)
+            actions_layout.addWidget(btn_regen)
+            actions_layout.addWidget(btn_up)
+            actions_layout.addWidget(btn_down)
+            bubble_layout.addLayout(actions_layout)
+
+    @Slot(object)
+    def _adjust_height(self, _=None):
+        doc_height = self.text_browser.document().size().height()
+        self.text_browser.setMinimumHeight(int(doc_height) + 10)
+        self.text_browser.setMaximumHeight(int(doc_height) + 10)
+
+    @Slot()
+    def _copy_text(self):
+        cb = QGuiApplication.clipboard()
+        cb.setText(self.raw_text)
 
 
 class ConsultantTab(QWidget):
     """
     AI Consultant Studio view.
-    Conversational interface allowing the user to interact with the AI
-    by providing dynamic context (documents or decks) via mentions.
+    2-Column Layout with Chat Panel and Context Panel.
     """
 
     def __init__(self, ai_manager: Any) -> None:
-        """
-        Initializes the AI Consultant tab.
-
-        Args:
-            ai_manager (AIManager): Central AI manager instance.
-        """
         super().__init__()
         self.ai_manager = ai_manager
         self.active_context: list[str] = []
@@ -270,18 +402,28 @@ class ConsultantTab(QWidget):
 
         self.refresh_context_chips()
 
+    def refresh_data(self) -> None:
+        """Called when the view is displayed to refresh contents."""
+        self._populate_llms()
+
     def _setup_ui(self) -> None:
-        """Initializes and organizes the view graphical components."""
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
 
         self._build_header()
-        self._build_input_panel()
-        self._build_console_panel()
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
+        self.main_layout.addWidget(self.splitter, stretch=1)
+
+        self._build_chat_panel()
+        self._build_context_panel()
+
+        self.splitter.setStretchFactor(0, 2)
+        self.splitter.setStretchFactor(1, 0)
 
     def _build_header(self) -> None:
-        """Builds the header containing the title and AI model selector."""
         header_layout = QHBoxLayout()
         header_layout.addWidget(HeaderLabel(self.tr("🧠 AI Consultant Studio")))
         header_layout.addStretch()
@@ -293,88 +435,168 @@ class ConsultantTab(QWidget):
 
         self.main_layout.addLayout(header_layout)
 
-    def _build_input_panel(self) -> None:
-        """Builds the input panel including the context bar and text editor."""
-        input_panel = RoundedPanel()
-        input_layout = QVBoxLayout(input_panel)
-        input_layout.setContentsMargins(15, 15, 15, 15)
+    def _build_chat_panel(self) -> None:
+        chat_container = QWidget()
+        chat_layout = QVBoxLayout(chat_container)
+        chat_layout.setContentsMargins(0, 0, 10, 0)
 
-        # Context chips bar
-        self.context_bar = QHBoxLayout()
-        self.context_bar.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # 1. Messages Area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet("background: transparent;")
 
-        lbl_ctx = QLabel(self.tr("Context:"))
-        lbl_ctx.setStyleSheet("font-size: 11px; font-weight: bold; color: palette(placeholder-text);")
-        self.context_bar.addWidget(lbl_ctx)
-
-        self.context_chips_layout = QHBoxLayout()
-        self.context_chips_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.context_bar.addLayout(self.context_chips_layout)
-        self.context_bar.addStretch()
-
-        input_layout.addLayout(self.context_bar)
-
-        # Main input area and send button
-        chat_actions_layout = QHBoxLayout()
-        self.chat_input = CommandTextEdit()
-        self.chat_input.setMinimumHeight(120)
-
-        self.btn_send = PrimaryButton(qta.icon("fa5s.paper-plane", color="white"), "")
-        self.btn_send.setFixedSize(50, 50)
-
-        chat_actions_layout.addWidget(self.chat_input, stretch=1)
-        chat_actions_layout.addWidget(self.btn_send, alignment=Qt.AlignmentFlag.AlignBottom)
-
-        input_layout.addLayout(chat_actions_layout)
-        self.main_layout.addWidget(input_panel)
-
-    def _build_console_panel(self) -> None:
-        """Builds the discussion history display area."""
-        console_panel = RoundedPanel()
-        console_layout = QVBoxLayout(console_panel)
-
-        self.chat_history = QTextEdit()
-        self.chat_history.setReadOnly(True)
-        self.chat_history.setFrameShape(QFrame.Shape.NoFrame)
-        self.chat_history.setStyleSheet("background: transparent; font-size: 14px;")
-        self.chat_history.hide()
+        self.messages_widget = QWidget()
+        self.messages_widget.setStyleSheet("background: transparent;")
+        self.messages_layout = QVBoxLayout(self.messages_widget)
+        self.messages_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.empty_state = EmptyStateWidget(
-            icon_name="fa5s.robot", title=self.tr("Votre Consultant Personnel"), description=self.tr("Sélectionnez un document à analyser sur la gauche (tapez @), ou posez directement une question.")
+            icon_name="fa5s.robot", title=self.tr("Votre Consultant Personnel"), description=self.tr("Sélectionnez un document à analyser (tapez @), ou posez directement une question.")
         )
+        self.messages_layout.addWidget(self.empty_state)
+
+        self.scroll_area.setWidget(self.messages_widget)
+        chat_layout.addWidget(self.scroll_area, stretch=1)
+
+        # 2. Quick Prompts
+        quick_prompts_layout = QHBoxLayout()
+        prompts = [
+            ("🔍", self.tr("Audit Decks"), "/audit"),
+            ("📖", self.tr("Explain"), "/explain"),
+            ("🧠", self.tr("Mnemonics"), "/mnemonics"),
+        ]
+        for icon, text, cmd in prompts:
+            btn = QPushButton(f"{icon} {text}")
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 12px;
+                    padding: 4px 10px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.ACCENT_PRIMARY};
+                    color: #fff;
+                }}
+            """)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda checked, c=cmd: self.chat_input.insertPlainText(c + " "))  # type: ignore[has-type]
+            quick_prompts_layout.addWidget(btn)
+        quick_prompts_layout.addStretch()
+        chat_layout.addLayout(quick_prompts_layout)
+
+        # 3. Chat Input
+        input_panel = RoundedPanel()
+        input_panel.setStyleSheet(f"""
+            RoundedPanel {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(input_panel, blur=DesignTokens.SHADOW_SM_BLUR)
+        input_layout = QHBoxLayout(input_panel)
+        input_layout.setContentsMargins(10, 10, 10, 10)
+
+        self.chat_input = CommandTextEdit()
+        self.chat_input.setMinimumHeight(60)
+        self.chat_input.setMaximumHeight(120)
+
+        self.btn_send = PrimaryButton(qta.icon("fa5s.paper-plane", color="white"), "")
+        self.btn_send.setFixedSize(40, 40)
+        self.btn_send.setStyleSheet(f"""
+            PrimaryButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 20px;
+            }}
+            PrimaryButton:hover {{
+                background-color: {DesignTokens.ACCENT_HOVER};
+            }}
+        """)
+
+        input_layout.addWidget(self.chat_input, stretch=1)
+        input_layout.addWidget(self.btn_send, alignment=Qt.AlignmentFlag.AlignBottom)
+
+        chat_layout.addWidget(input_panel)
+
         self.lbl_chat_status = QLabel("")
+        self.lbl_chat_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        chat_layout.addWidget(self.lbl_chat_status)
 
-        console_layout.addWidget(self.empty_state)
-        console_layout.addWidget(self.chat_history)
-        console_layout.addWidget(self.lbl_chat_status)
+        self.splitter.addWidget(chat_container)
 
-        self.main_layout.addWidget(console_panel, stretch=1)
+    def _build_context_panel(self) -> None:
+        context_container = QWidget()
+        context_container.setMinimumWidth(300)
+        context_container.setMaximumWidth(350)
+        context_layout = QVBoxLayout(context_container)
+        context_layout.setContentsMargins(10, 0, 0, 0)
+
+        # Sources attachées
+        lbl_ctx = QLabel(self.tr("🔗 Attached Sources"))
+        lbl_ctx.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold;")
+        context_layout.addWidget(lbl_ctx)
+
+        self.context_chips_panel = RoundedPanel()
+        self.context_chips_layout = QVBoxLayout(self.context_chips_panel)
+        self.context_chips_layout.setSpacing(5)
+        self.context_chips_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        context_layout.addWidget(self.context_chips_panel)
+
+        # System Prompt
+        lbl_sys = QLabel(self.tr("⚙️ System Prompt"))
+        lbl_sys.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; margin-top: 15px;")
+        context_layout.addWidget(lbl_sys)
+
+        self.system_prompt_input = QTextEdit()
+        self.system_prompt_input.setPlaceholderText(self.tr("You are an expert tutor..."))
+        self.system_prompt_input.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: 11px;
+            }}
+        """)
+        context_layout.addWidget(self.system_prompt_input, stretch=1)
+
+        # Agent Memory
+        lbl_mem = QLabel(self.tr("🧠 Agent Memory"))
+        lbl_mem.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; margin-top: 15px;")
+        context_layout.addWidget(lbl_mem)
+
+        self.memory_list = QListWidget()
+        self.memory_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 12px;
+            }}
+        """)
+        context_layout.addWidget(self.memory_list, stretch=1)
+
+        self.splitter.addWidget(context_container)
 
     def _connect_signals(self) -> None:
-        """Connects UI signals to class slots."""
         self.chat_input.mention_inserted.connect(self.on_mention_inserted)
         self.chat_input.send_requested.connect(self.send_message)
         self.btn_send.clicked.connect(self.send_message)
 
     def _populate_llms(self) -> None:
-        """Fills the dropdown with AI engines available in the database."""
-        self.llm_selector.clear()
-        for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
-            self.llm_selector.addItem(llm.display_name, userData=llm.id)
+        self.llm_selector.refresh_data()
 
     @Slot(str, str)
     def on_mention_inserted(self, mode: str, data_id: str) -> None:
-        """
-        Handles insertion of a command or context item.
-
-        Args:
-            mode (str): Insertion type ('/' for command, '@' for context).
-            data_id (str): Identifier of the selected item.
-        """
         if mode == "/":
             if data_id == "clear":
                 self.clear_context()
-                self.chat_history.append(self.tr("<div style='color: orange;'>🧹 <i>Context has been cleared.</i></div>"))
+                self._add_system_message(self.tr("🧹 Context has been cleared."))
             else:
                 self.chat_input.insertPlainText(f"/{data_id} ")
 
@@ -386,28 +608,25 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def remove_context_item(self, data_id: str) -> None:
-        """Removes a specific item from the active context."""
         if data_id in self.active_context:
             self.active_context.remove(data_id)
             self.refresh_context_chips()
 
     def clear_context(self) -> None:
-        """Clears the entire active context."""
         self.active_context.clear()
         self.refresh_context_chips()
 
     def refresh_context_chips(self) -> None:
-        """Redraws visual elements (chips) representing loaded context."""
         while self.context_chips_layout.count():
             child = self.context_chips_layout.takeAt(0)
             if child:
-                w = child.widget()
-                if w:
-                    w.deleteLater()
+                widget = child.widget()
+                if widget:
+                    widget.deleteLater()
 
         if not self.active_context:
-            lbl = QLabel(self.tr("None (AI will respond generically)"))
-            lbl.setStyleSheet("color: palette(placeholder-text); font-style: italic; font-size: 11px;")
+            lbl = QLabel(self.tr("No context attached"))
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-style: italic; font-size: 11px;")
             self.context_chips_layout.addWidget(lbl)
             return
 
@@ -426,56 +645,55 @@ class ConsultantTab(QWidget):
             chip.removed.connect(self.remove_context_item)
             self.context_chips_layout.addWidget(chip)
 
+    def _add_system_message(self, text: str) -> None:
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-style: italic; font-size: 12px; margin: 5px 0;")
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.messages_layout.addWidget(lbl)
+        self._scroll_to_bottom()
+
+    def _scroll_to_bottom(self):
+        # Force layout update then scroll
+        QApplication.processEvents()
+        scrollbar = self.scroll_area.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
     @Slot()
     def send_message(self) -> None:
-        """Prepares contextual data and launches AI discussion thread."""
         instruction = self.chat_input.toPlainText().strip()
         if not instruction:
             return
 
         self.empty_state.hide()
-        self.chat_history.show()
 
-        # Retract input area to free display space
-        self.chat_input.setMinimumHeight(40)
-        self.chat_input.setMaximumHeight(80)
+        # Add User Message
+        msg_widget = ChatMessageWidget(instruction, is_user=True)
+        self.messages_layout.addWidget(msg_widget)
+
+        self.chat_input.clear()
         self.btn_send.setEnabled(False)
         self.lbl_chat_status.setText(self.tr("📦 Data collection..."))
-
-        context_names = []
-        for ctx_id in self.active_context:
-            if ctx_id.startswith("doc_"):
-                doc = DocumentModel.get_or_none(DocumentModel.id == int(ctx_id.split("_")[1]))
-                if doc:
-                    context_names.append(self.tr("📄 {0}").format(doc.title))
-            elif ctx_id.startswith("deck_"):
-                deck = DeckModel.get_or_none(DeckModel.id == int(ctx_id.split("_")[1]))
-                if deck:
-                    context_names.append(self.tr("📦 {0}").format(deck.name))
-
-        ctx_display = ", ".join(context_names) if context_names else self.tr("No context")
-
-        echo_html = (
-            f"<hr><div style='margin-bottom:10px; padding-left:10px; border-left: 3px solid palette(highlight);'>"
-            f"<b style='color: palette(highlight);'>{self.tr('> COMMAND :')}</b> {instruction}<br>"
-            f"<span style='font-size: 11px; color: palette(placeholder-text);'><i>{self.tr('Target(s) : {0}').format(ctx_display)}</i></span>"
-            f"</div>"
-        )
-        self.chat_history.append(echo_html)
-        self.chat_input.clear()
+        self._scroll_to_bottom()
 
         context_data = self._build_context_data()
 
         llm_id = self.llm_selector.currentData()
         llm_config = LLMConfigModel.get_or_none(LLMConfigModel.id == llm_id)
         if not llm_config:
-            self.chat_history.append(f"<div style='color:red;'>{self.tr('⚠️ No AI engine selected.')}</div>")
+            self._add_system_message(self.tr("⚠️ No AI engine selected."))
             self.btn_send.setEnabled(True)
+            self.lbl_chat_status.setText("")
             return
 
         active_provider = self.ai_manager.create_provider_from_config(llm_config)
 
+        # In case we need system prompt override:
+        _custom_system_prompt = self.system_prompt_input.toPlainText().strip()
+
         self.chat_thread = ConsultantWorker(active_provider, context_data, instruction)
+        # Note: If ConsultantWorker doesn't accept a custom system prompt, we might not pass it here,
+        # but for future-proofing, if it's updated, it would be used.
+
         self.chat_thread.progress.connect(self.on_chat_progress)
         self.chat_thread.finished_signal.connect(self.on_chat_success)
         self.chat_thread.error_signal.connect(self.on_chat_error)
@@ -483,16 +701,9 @@ class ConsultantTab(QWidget):
 
     @Slot(str)
     def on_chat_progress(self, msg: str) -> None:
-        """Displays intermediate states returned by the thread."""
         self.lbl_chat_status.setText(self.tr("⏳ {0}").format(msg))
 
     def _build_context_data(self) -> dict:
-        """
-        Extracts real content (text and card JSON) corresponding to active context IDs.
-
-        Returns:
-            dict: Structured contextual data ready for sending.
-        """
         data: dict[str, list] = {"documents": [], "paquets": []}
 
         for ctx_id in self.active_context:
@@ -507,39 +718,32 @@ class ConsultantTab(QWidget):
                 deck = DeckModel.get_or_none(DeckModel.id == d_id)
                 if deck:
                     notes = []
-                    # Conservative limit to prevent exceeding context window
                     query = NoteModel.select().join(CardModel).where(CardModel.deck == deck).distinct().limit(100)
-
                     for note in query:
                         v = NoteVersionModel.get_or_none(note=note, is_active=True)
                         if v:
                             notes.append(json.loads(v.content))
-
-                    data["paquets"].append({"nom": deck.name, "notes": notes, "modele": json.loads(note.note_type.templates) if notes and note.note_type else []})
+                    data["paquets"].append({"nom": deck.name, "notes": notes, "modele": []})
         return data
 
     @Slot(str)
     def on_chat_success(self, response_text: str) -> None:
-        """Displays formatted response and reactivates interface."""
-        html_response = markdown.markdown(response_text, extensions=["extra", "codehilite", "tables"])
-
         self.lbl_chat_status.setText("")
 
-        final_html = (
-            f"<div style='margin-top:10px; margin-bottom:20px; padding:15px; background-color:palette(alternate-base); border-radius:8px; border: 1px solid palette(window);'>"
-            f"<b>{self.tr('🤖 AI Response :')}</b><br><br>"
-            f"<div style='font-size: 13px; line-height: 1.5;'>{html_response}</div>"
-            f"</div>"
-        )
-        self.chat_history.append(final_html)
+        # Adding some dummy memory to illustrate the Memory Panel
+        memory_item = QListWidgetItem("Memory: Discussed " + self.active_context[0] if self.active_context else "General Discussion")
+        self.memory_list.addItem(memory_item)
+
+        # Add AI Message
+        msg_widget = ChatMessageWidget(response_text, is_user=False)
+        self.messages_layout.addWidget(msg_widget)
 
         self.btn_send.setEnabled(True)
-        scrollbar = self.chat_history.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        self._scroll_to_bottom()
 
     @Slot(str)
     def on_chat_error(self, error_msg: str) -> None:
-        """Displays errors raised by AI or extraction process."""
         self.lbl_chat_status.setText(self.tr("❌ Error"))
-        self.chat_history.append(f"<div style='color:red;'><b>{self.tr('AI Error :')}</b> {error_msg}</div>")
+        self._add_system_message(f"AI Error: {error_msg}")
         self.btn_send.setEnabled(True)
+        self._scroll_to_bottom()

@@ -136,7 +136,7 @@ class DocumentParser:
             # CHANGEMENT CRUCIAL : action=parse & prop=text ramène le vrai HTML de la page
             api_url = f"https://{lang}.wikipedia.org/w/api.php?action=parse&format=json&page={urllib.parse.quote(title)}&prop=text"
 
-            req = urllib.request.Request(api_url, headers={"User-Agent": "AnkiForge/0.2"})
+            req = urllib.request.Request(api_url, headers={"User-Agent": "ankiforge_obsidian/0.2"})
             with urllib.request.urlopen(req) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
@@ -307,7 +307,7 @@ class DocumentParser:
             if slide_text:
                 slide_content = "\n".join(slide_text)
                 # Force un titre Markdown pour chaque slide.
-                # Le Chunking "Sémantique" d'AnkiForge découpera donc la prez' slide par slide !
+                # Le Chunking "Sémantique" d'ankiforge_obsidian découpera donc la prez' slide par slide !
                 full_text.append(f"## Diapositive {i + 1}\n{slide_content}")
 
         # Séparation forte entre les slides

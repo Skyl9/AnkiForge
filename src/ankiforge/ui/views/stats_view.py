@@ -21,7 +21,7 @@ from ankiforge.ui.widgets.donut_chart import DonutChartWidget
 
 class StatsTab(QWidget):
     """
-    AnkiForge application dashboard.
+    ankiforge_obsidian application dashboard.
     Displays global metrics (cards, decks, pipelines) as well as
     monitoring of AI token usage and estimated costs.
     """
@@ -49,7 +49,7 @@ class StatsTab(QWidget):
     def _build_header(self) -> None:
         """Builds the header containing the title and the refresh button."""
         header_layout = QHBoxLayout()
-        header_layout.addWidget(HeaderLabel(self.tr("AnkiForge Dashboard")))
+        header_layout.addWidget(HeaderLabel(self.tr("ankiforge_obsidian Dashboard")))
 
         self.btn_refresh = ActionButton("fa5s.sync", self.tr(" Refresh statistics"))
         self.btn_refresh.setFixedWidth(250)

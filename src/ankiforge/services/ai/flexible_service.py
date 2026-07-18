@@ -167,6 +167,30 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key)
 
 
+class AnthropicProvider(LLMProvider):
+    """
+    Fournisseur pour les modèles Anthropic (Claude 3.5, etc.).
+    """
+
+    def __init__(self, api_key: str | None = None, model_name: str = "claude-3-5-sonnet-20240620"):
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy_key")
+        self.model_name = model_name
+
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+        headers = {"x-api-key": self.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+
+        payload = {"model": self.model_name, "max_tokens": 4096, "system": system_prompt, "messages": [{"role": "user", "content": cast(Any, user_prompt)}]}
+
+        try:
+            response = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            return data["content"][0]["text"]
+        except requests.RequestException as e:
+            logger.exception(f"Erreur API ({self.model_name}) :")
+            raise RuntimeError(f"Erreur API Anthropic ({self.model_name}) : {e}") from e
+
+
 class AIManager:
     """
     Orchestrateur central gérant le chargement et la configuration de l'IA active.
@@ -208,10 +232,24 @@ class AIManager:
                 model_name=model_id,
                 api_key=key,
             )
+        elif p_name == "anthropic":
+            return AnthropicProvider(api_key=key, model_name=model_id)
         return MockProvider()
 
     def reload_provider(self):
         """
-        Recharge l'IA active. (Logique simplifiée : elle sera pilotée par les vues via create_provider_from_config)
+        Recharge l'IA active depuis la base de données.
         """
-        logger.info("Gestionnaire d'IA prêt.")
+        try:
+            from ankiforge.database.models import LLMConfigModel
+
+            config = LLMConfigModel.select().first()
+            if config:
+                self.provider = self.create_provider_from_config(config)
+                logger.info(f"Fournisseur d'IA rechargé : {config.provider} ({config.model_id})")
+            else:
+                self.provider = MockProvider()
+                logger.warning("Aucune configuration d'IA trouvée, utilisation du MockProvider.")
+        except Exception as e:
+            self.provider = MockProvider()
+            logger.error(f"Erreur lors du rechargement de l'IA, utilisation du MockProvider: {e}")

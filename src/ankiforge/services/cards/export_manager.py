@@ -6,7 +6,7 @@ from pathlib import Path
 import genanki
 
 from ankiforge.database.models import DeckModel, CardModel, NoteVersionModel, NoteModel, NoteTypeModel, db
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_media_dir
 
 # Suppression des avertissements de genanki notamment pour le mauvais parsing du latex reconnu comme balise html
 import warnings
@@ -25,7 +25,7 @@ class ExportManager:
     def __init__(self):
         """Initialise le gestionnaire et s'assure de l'existence du dossier média."""
         # On pointe vers notre dossier media local
-        self.media_dir = get_app_data_dir() / "media"
+        self.media_dir = get_media_dir()
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod

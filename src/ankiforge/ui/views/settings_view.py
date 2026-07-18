@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class SettingsTab(QWidget):
     """
-    Global configuration view for the AnkiForge application.
+    Global configuration view for the ankiforge_obsidian application.
     Allows managing appearance, language, export folders, automatic behaviors
     as well as database maintenance (purge, media cleaning).
     """
@@ -37,7 +37,7 @@ class SettingsTab(QWidget):
     def __init__(self) -> None:
         """Initializes the settings tab."""
         super().__init__()
-        self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
         self._setup_ui()
         self._connect_signals()
 
@@ -260,7 +260,7 @@ class SettingsTab(QWidget):
         show_toast(self, self.tr("Preferences saved and applied!"))
 
         if old_lang != new_lang:
-            QMessageBox.information(self, self.tr("Restart Required"), self.tr("Please restart AnkiForge to apply the new language."))
+            QMessageBox.information(self, self.tr("Restart Required"), self.tr("Please restart ankiforge_obsidian to apply the new language."))
 
     @Slot()
     def clean_orphaned_media(self) -> None:
