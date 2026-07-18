@@ -1,82 +1,79 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- VIEW NAVIGATION ---
-    const navBtns = document.querySelectorAll('#sidebar .nav-top .nav-btn');
-    const views = document.querySelectorAll('.view');
-    const inspectorPanes = document.querySelectorAll('.inspector-pane');
+    // --- SIDEBAR TOGGLE ---
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+    const mainSidebar = document.getElementById('main-sidebar');
 
-    navBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Update active state on nav buttons
-            navBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+    if (toggleSidebarBtn && mainSidebar) {
+        toggleSidebarBtn.addEventListener('click', () => {
+            mainSidebar.classList.toggle('collapsed');
+        });
+    }
 
-            const targetViewId = btn.getAttribute('data-view');
+    // --- VIEW NAVIGATION (100% ROBUST) ---
+    const allNavTriggers = document.querySelectorAll('[data-view]');
+    const allViews = document.querySelectorAll('.view');
 
-            // Show target view
-            views.forEach(v => {
-                if(v.id === `view-${targetViewId}`) {
-                    v.classList.add('active');
-                } else {
-                    v.classList.remove('active');
-                }
-            });
+    window.navigateToView = function(viewId) {
+        if (!viewId) return;
 
-            // Show corresponding inspector pane
-            inspectorPanes.forEach(pane => {
-                if(pane.id === `pane-${targetViewId}`) {
-                    pane.classList.add('active');
-                } else {
-                    pane.classList.remove('active');
-                }
-            });
-            
-            // Auto expand inspector if it was collapsed and we change view (optional UX choice)
-            const inspector = document.getElementById('inspector');
-            if(inspector.classList.contains('collapsed')) {
-                inspector.classList.remove('collapsed');
-                const toggleIcon = document.querySelector('#toggle-inspector i');
-                toggleIcon.classList.remove('fa-chevron-left');
-                toggleIcon.classList.add('fa-chevron-right');
+        // 1. Update active state on all triggers
+        allNavTriggers.forEach(trigger => {
+            if (trigger.getAttribute('data-view') === viewId) {
+                trigger.classList.add('active');
+            } else {
+                trigger.classList.remove('active');
             }
+        });
+
+        // 2. Hide all views and show the target one robustly
+        allViews.forEach(view => {
+            if (view.id === `view-${viewId}`) {
+                view.classList.add('active');
+                view.classList.remove('hidden');
+                // Force inline styles to bypass any CSS specificity issues
+                view.style.display = 'flex';
+                // Reset scroll to top
+                view.scrollTop = 0;
+            } else {
+                view.classList.remove('active');
+                view.classList.add('hidden');
+                // Force hide
+                view.style.display = 'none';
+            }
+        });
+    };
+
+    // Attach click listeners safely
+    allNavTriggers.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            // Prevent default anchor behavior
+            if (this.tagName.toLowerCase() === 'a') {
+                e.preventDefault();
+            }
+            const targetViewId = this.getAttribute('data-view');
+            window.navigateToView(targetViewId);
         });
     });
 
-    // --- INSPECTOR TOGGLE ---
-    const toggleInspectorBtn = document.getElementById('toggle-inspector');
-    const inspector = document.getElementById('inspector');
-    
-    toggleInspectorBtn.addEventListener('click', () => {
-        inspector.classList.toggle('collapsed');
-        const icon = toggleInspectorBtn.querySelector('i');
-        if (inspector.classList.contains('collapsed')) {
-            icon.classList.remove('fa-chevron-right');
-            icon.classList.add('fa-chevron-left');
-        } else {
-            icon.classList.remove('fa-chevron-left');
-            icon.classList.add('fa-chevron-right');
-        }
-    });
+
 
     // --- GENERIC TAB SWITCHING ---
     document.querySelectorAll('.tabs').forEach(tabGroup => {
         const tabs = tabGroup.querySelectorAll('.tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                // Remove active from sibling tabs
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
 
-                // If tab has data-target, switch sub-panes (used in AI Studio Inspector)
                 const targetId = tab.getAttribute('data-target');
                 if (targetId) {
-                    // Find closest parent container to scope the sub-panes
                     const container = tabGroup.closest('.inspector-pane') || tabGroup.parentElement;
                     const subPanes = container.querySelectorAll('.sub-pane');
                     subPanes.forEach(pane => {
                         if (pane.id === targetId) {
                             pane.classList.remove('hidden');
-                            pane.classList.add('active'); // For flex
+                            pane.classList.add('active');
                         } else {
                             pane.classList.add('hidden');
                             pane.classList.remove('active');
@@ -89,9 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- COMMAND PALETTE (CMD+K) ---
     const cmdPalette = document.getElementById('cmd-palette');
-    const paletteInput = cmdPalette.querySelector('.palette-input');
+    const paletteInput = cmdPalette?.querySelector('.palette-input');
 
     window.toggleCommandPalette = function() {
+        if(!cmdPalette) return;
         cmdPalette.classList.toggle('hidden');
         if (!cmdPalette.classList.contains('hidden')) {
             paletteInput.focus();
@@ -99,21 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Keyboard shortcut (Cmd+K or Ctrl+K)
     document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
             e.preventDefault();
             toggleCommandPalette();
         }
-        // Close on Escape
-        if (e.key === 'Escape' && !cmdPalette.classList.contains('hidden')) {
-            toggleCommandPalette();
-        }
-    });
-
-    // Close when clicking outside palette container
-    cmdPalette.addEventListener('click', (e) => {
-        if (e.target === cmdPalette) {
+        if (e.key === 'Escape' && cmdPalette && !cmdPalette.classList.contains('hidden')) {
             toggleCommandPalette();
         }
     });
@@ -122,8 +111,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsModal = document.getElementById('settings-modal');
     
     window.toggleSettingsModal = function() {
-        settingsModal.classList.toggle('hidden');
+        if(settingsModal) settingsModal.classList.toggle('hidden');
     };
+
+    // Close Modals when clicking outside
+    window.closeModals = function(e) {
+        if(e && e.target.classList.contains('modal-overlay')) {
+            e.target.classList.add('hidden');
+        } else if(!e) {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+        }
+    }
 
     // Settings Tabs
     const settingsTabs = document.querySelectorAll('.settings-tab');
@@ -145,15 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Close Settings on Escape or clicking outside
-    settingsModal.addEventListener('click', (e) => {
-        if (e.target === settingsModal) {
-            toggleSettingsModal();
-        }
-    });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !settingsModal.classList.contains('hidden')) {
-            toggleSettingsModal();
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
+                modal.classList.add('hidden');
+            });
         }
     });
 });
