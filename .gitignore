@@ -5,7 +5,6 @@ data/
 *.sqlite3
 identifier.sqlite
 .worktrees
-script/
 marker_output_test/
 # --- Fichiers Anki ---
 *.apkg
@@ -42,7 +41,6 @@ wheels/
 *.egg
 .coverage
 test.md
-GEMINI.md
 *.json
 experiment/
 
