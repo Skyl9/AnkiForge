@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AnkiForge - Mac Style</title>
     <!-- Approximation of SF Pro -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -22,88 +22,2415 @@
                 <i class="ph-fill ph-cube"></i> AnkiForge
             </div>
             <div class="titlebar-actions">
-                <div class="mac-search" onclick="openOmnibox()">
+                <div class="mac-search" onclick="toggleCommandPalette()">
                     <i class="ph ph-magnifying-glass"></i> Rechercher
                 </div>
             </div>
         </div>
 
         <div class="mac-content">
-            <!-- Sidebar (Vibrancy) -->
-            <nav class="mac-sidebar">
-                <div class="sidebar-section">
-                    <div class="section-title">Bibliothèque</div>
-                    <a href="#" class="nav-item active" data-view="dashboard"><i class="ph ph-squares-four text-blue"></i> Tableau de bord</a>
-                    <a href="#" class="nav-item" data-view="editor"><i class="ph ph-file-text text-orange"></i> Éditeur de Cartes</a>
+<nav class="sidebar" id="main-sidebar">
+          <div class="sidebar-header">
+            <i class="ph ph-cube-transparent logo-icon"></i>
+            <span class="logo-text">AnkiForge</span>
+            <button
+              class="btn-icon sidebar-toggle"
+              id="toggle-sidebar"
+              style="margin-left: auto"
+            >
+              <i class="ph ph-list"></i>
+            </button>
+          </div>
+
+          <div class="sidebar-menu">
+            <div class="menu-category">Général</div>
+            <a href="#" class="menu-item active" data-view="dashboard">
+              <i class="ph ph-squares-four"></i>
+              <span class="menu-label">Tableau de bord</span>
+            </a>
+
+            <div class="menu-category">Forge & Outils</div>
+            <a href="#" class="menu-item" data-view="forge">
+              <i class="ph ph-magic-wand"></i>
+              <span class="menu-label">Studio de Création</span>
+            </a>
+            <a href="#" class="menu-item" data-view="edition-analyse">
+              <i class="ph ph-cards"></i>
+              <span class="menu-label">Édition / Analyse</span>
+            </a>
+            <a href="#" class="menu-item" data-view="ai-studio">
+              <i class="ph ph-robot"></i>
+              <span class="menu-label">AI Consultant</span>
+            </a>
+            <a href="#" class="menu-item" data-view="batch-factory">
+              <i class="ph ph-factory"></i>
+              <span class="menu-label">Batch Factory</span>
+            </a>
+
+            <div class="menu-category">Bibliothèque</div>
+            <a href="#" class="menu-item" data-view="library">
+              <i class="ph ph-file-text"></i>
+              <span class="menu-label">My Documents</span>
+            </a>
+            <a href="#" class="menu-item" data-view="card-models">
+              <i class="ph ph-swatches"></i>
+              <span class="menu-label">Card Models</span>
+            </a>
+
+            <div class="menu-category">Laboratoire IA</div>
+            <a href="#" class="menu-item" data-view="agents">
+              <i class="ph ph-cpu"></i>
+              <span class="menu-label">Éditeur d'Agents</span>
+            </a>
+            <a href="#" class="menu-item" data-view="pipelines">
+              <i class="ph ph-git-merge"></i>
+              <span class="menu-label">Pipelines</span>
+            </a>
+            <a href="#" class="menu-item" data-view="ab-tests">
+              <i class="ph ph-scales"></i>
+              <span class="menu-label">Tests A/B</span>
+            </a>
+          </div>
+
+          <!-- Sidebar Footer -->
+          <div class="sidebar-footer">
+            <a
+              href="#"
+              class="menu-item"
+              style="margin-bottom: 10px"
+              onclick="toggleSettingsModal()"
+            >
+              <i class="ph ph-gear"></i>
+              <span class="menu-label">Paramètres</span>
+            </a>
+            <div class="user-profile" title="Espace de travail : Médecine">
+              <div class="avatar">TR</div>
+              <div class="user-info menu-label">
+                <span class="workspace">Workspace: Médecine</span>
+                <span class="status"
+                  ><i class="ph-fill ph-circle text-green"></i> Connecté</span
+                >
+              </div>
+            </div>
+          </div>
+        </nav>
+<main class="main-content">
+          <header class="topbar">
+            <div class="omnibox" onclick="toggleCommandPalette()">
+              <i class="ph ph-magnifying-glass"></i>
+              <span>Rechercher ou lancer une commande... (Ctrl+K)</span>
+              <kbd>⌘K</kbd>
+            </div>
+
+            <div class="topbar-actions">
+              <div class="daemon-status active" title="Tâches en fond">
+                <i class="ph ph-spinner-gap spin"></i>
+                <span>Usine à cartes (0%)</span>
+              </div>
+              <div class="token-tracker">
+                <i class="ph ph-coin"></i>
+                <span>$0.42 / 142K Tok</span>
+              </div>
+              <button class="btn-icon"><i class="ph ph-bell"></i></button>
+            </div>
+          </header>
+
+          <div class="workspace-area">
+            <!-- Views Container -->
+            <div class="views-container">
+              <!-- VUE : DASHBOARD -->
+              <div id="view-dashboard" class="view active">
+                <div class="split-view flex-1" style="gap: 12px; height: 100%">
+                  <!-- Left / Main Panel -->
+                  <div class="ide-panel flex-1 flex-col">
+                    <div class="ide-tabs">
+                      <div class="ide-tabs-list">
+                        <button
+                          class="ide-tab active"
+                          data-target="tab-dash-home"
+                        >
+                          <i class="ph ph-house"></i> Accueil
+                        </button>
+                      </div>
+                    </div>
+                    <div class="ide-panel-content p-0">
+                      <div
+                        id="tab-dash-home"
+                        class="sub-pane active flex-col h-full"
+                        style="padding: 24px; overflow-y: auto"
+                      >
+                        <div
+                          class="dashboard-hero-premium"
+                          style="margin-bottom: 24px"
+                        >
+                          <div class="hero-bg-glow"></div>
+                          <div class="hero-content">
+                            <div class="logo-triangles mb-20">
+                              <i class="ph ph-stack"></i>
+                            </div>
+                            <h1>Bienvenue dans <span>AnkiForge</span></h1>
+                            <p class="muted mt-10">
+                              Le générateur de cartes intelligent et votre
+                              assistant d'apprentissage personnel.
+                            </p>
+                          </div>
+                        </div>
+
+                        <h3 class="mb-10">
+                          <i class="ph ph-lightning"></i> Actions Rapides
+                        </h3>
+                        <div class="grid-3" style="gap: 15px">
+                          <button
+                            class="dashboard-btn-premium"
+                            onclick="
+                              document
+                                .querySelector('[data-view=\'forge\']')
+                                .click()
+                            "
+                          >
+                            <div
+                              class="btn-icon-wrapper"
+                              style="
+                                background: rgba(59, 130, 246, 0.1);
+                                color: #3b82f6;
+                              "
+                            >
+                              <i class="ph ph-hammer"></i>
+                            </div>
+                            <div class="btn-text">
+                              <span class="title">Forger des cartes</span>
+                              <span class="desc">Depuis un document</span>
+                            </div>
+                          </button>
+                          <button
+                            class="dashboard-btn-premium"
+                            onclick="
+                              document
+                                .querySelector('[data-view=\'library\']')
+                                .click()
+                            "
+                          >
+                            <div
+                              class="btn-icon-wrapper"
+                              style="
+                                background: rgba(16, 185, 129, 0.1);
+                                color: #10b981;
+                              "
+                            >
+                              <i class="ph ph-books"></i>
+                            </div>
+                            <div class="btn-text">
+                              <span class="title">Bibliothèque</span>
+                              <span class="desc">Naviguer les paquets</span>
+                            </div>
+                          </button>
+                          <button
+                            class="dashboard-btn-premium"
+                            onclick="
+                              document
+                                .querySelector('[data-view=\'ai-studio\']')
+                                .click()
+                            "
+                          >
+                            <div
+                              class="btn-icon-wrapper"
+                              style="
+                                background: rgba(139, 92, 246, 0.1);
+                                color: #8b5cf6;
+                              "
+                            >
+                              <i class="ph ph-robot"></i>
+                            </div>
+                            <div class="btn-text">
+                              <span class="title">Consulter l'IA</span>
+                              <span class="desc">Configurer les agents</span>
+                            </div>
+                          </button>
+                        </div>
+
+                        <div
+                          class="dashboard-dropzone mt-20 flex-grow"
+                          style="
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            border: 2px dashed var(--border-color);
+                            border-radius: var(--radius-md);
+                            padding: 30px;
+                            text-align: center;
+                            background: var(--bg-secondary);
+                            transition: all 0.2s;
+                            min-height: 200px;
+                          "
+                        >
+                          <i
+                            class="ph ph-upload-simple"
+                            style="
+                              font-size: 2.5rem;
+                              margin-bottom: 10px;
+                              color: var(--accent-primary);
+                            "
+                          ></i>
+                          <h4>Glissez un PDF ou Document ici</h4>
+                          <p class="muted small">
+                            L'analyse sémantique et la génération démarreront
+                            automatiquement.
+                          </p>
+                          <button class="btn btn-secondary mt-15">
+                            <i class="ph ph-folder-open"></i> Parcourir les
+                            fichiers
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Right Sidebar Panel -->
+                  <div class="flex-col" style="gap: 12px; width: 320px">
+                    <div class="ide-panel">
+                      <div class="ide-tabs">
+                        <div class="ide-tabs-list">
+                          <button
+                            class="ide-tab active"
+                            data-target="tab-dash-stats"
+                          >
+                            <i class="ph ph-chart-line-up"></i> Statistiques
+                          </button>
+                        </div>
+                      </div>
+                      <div class="ide-panel-content">
+                        <div
+                          id="tab-dash-stats"
+                          class="sub-pane active flex-col h-full"
+                        >
+                          <div class="stats-grid">
+                            <div class="stat-item">
+                              <span class="stat-val">1,245</span>
+                              <span class="stat-lbl">Cartes Forgées</span>
+                            </div>
+                            <div class="stat-item">
+                              <span class="stat-val text-green">98%</span>
+                              <span class="stat-lbl">Taux Succès IA</span>
+                            </div>
+                            <div class="stat-item">
+                              <span class="stat-val">14</span>
+                              <span class="stat-lbl">Docs Analysés</span>
+                            </div>
+                            <div class="stat-item">
+                              <span class="stat-val text-purple">3.5</span>
+                              <span class="stat-lbl">Modèle par défaut</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="ide-panel flex-1">
+                      <div class="ide-tabs">
+                        <div class="ide-tabs-list">
+                          <button
+                            class="ide-tab active"
+                            data-target="tab-dash-activity"
+                          >
+                            <i class="ph ph-clock-counter-clockwise"></i>
+                            Activité Récente
+                          </button>
+                        </div>
+                        <button
+                          class="btn-icon small detach-btn"
+                          style="margin-left: auto; margin-right: 4px"
+                          title="Options"
+                        >
+                          <i class="ph ph-dots-three"></i>
+                        </button>
+                      </div>
+                      <div class="ide-panel-content">
+                        <div
+                          id="tab-dash-activity"
+                          class="sub-pane active flex-col h-full"
+                        >
+                          <div class="activity-list flex-grow">
+                            <div class="activity-item">
+                              <div class="activity-icon bg-blue">
+                                <i class="ph ph-file-pdf"></i>
+                              </div>
+                              <div class="activity-details">
+                                <span class="activity-title"
+                                  >Cours_Cardio_P3.pdf</span
+                                >
+                                <span class="activity-time"
+                                  >Il y a 2h • 45 cartes</span
+                                >
+                              </div>
+                            </div>
+                            <div class="activity-item">
+                              <div class="activity-icon bg-green">
+                                <i class="ph ph-cards"></i>
+                              </div>
+                              <div class="activity-details">
+                                <span class="activity-title"
+                                  >Médecine/Cardio</span
+                                >
+                                <span class="activity-time"
+                                  >Exporté vers Anki • 3h</span
+                                >
+                              </div>
+                            </div>
+                            <div class="activity-item">
+                              <div class="activity-icon bg-purple">
+                                <i class="ph ph-robot"></i>
+                              </div>
+                              <div class="activity-details">
+                                <span class="activity-title">Agent Linter</span>
+                                <span class="activity-time"
+                                  >Config mise à jour • Hier</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                          <button class="btn btn-secondary w-full mt-10 small">
+                            Voir tout l'historique
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              <!-- VUE : FORGE -->
+              <div class="view" id="view-forge">
+                <div class="split-view flex-1" style="gap: 12px">
+                  <!-- COL 1 : Config IA -->
+                  <div class="ide-panel" style="width: 280px">
+                    <div class="ide-tabs" style="align-items: center">
+                      <div
+                        class="ide-tabs-list"
+                        style="display: flex; flex: 1; overflow-x: auto"
+                      >
+                        <button
+                          class="ide-tab active"
+                          draggable="true"
+                          data-target="tab-config"
+                        >
+                          <i class="ph ph-cpu"></i> Config IA
+                        </button>
+                        <button
+                          class="ide-tab"
+                          draggable="true"
+                          data-target="tab-moteur"
+                        >
+                          <i class="ph ph-gear"></i> Moteur
+                        </button>
+                      </div>
+                      <button
+                        class="btn-icon small detach-btn"
+                        style="margin-left: auto; margin-right: 4px"
+                        title="Détacher"
+                      >
+                        <i class="ph ph-arrow-up-right"></i>
+                      </button>
+                    </div>
+                    <div class="ide-panel-content">
+                      <div
+                        id="tab-config"
+                        class="sub-pane active flex-col"
+                        style="gap: 12px"
+                      >
+                        <div class="form-group">
+                          <label>Paquet :</label
+                          ><input
+                            type="text"
+                            class="input-element"
+                            placeholder="Nom du paquet"
+                          />
+                        </div>
+                        <div class="form-group">
+                          <label>Modèle :</label
+                          ><select class="input-element">
+                            <option>Basique (Recto/Verso)</option>
+                            <option>Texte à trous</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label>Moteur :</label
+                          ><select class="input-element">
+                            <option>Claude 3.5 Sonnet</option>
+                            <option>GPT-4o</option>
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label>Pipeline :</label
+                          ><select class="input-element">
+                            <option>Excellence (Standard)</option>
+                            <option>Rapide (Fast)</option>
+                          </select>
+                        </div>
+                        <label class="checkbox-label mt-10"
+                          ><input type="checkbox" />
+                          <i class="ph ph-eye text-yellow"></i> Activer Vision
+                          (PDF/Images)</label
+                        >
+                      </div>
+                      <div id="tab-moteur" class="sub-pane hidden flex-col">
+                        <p class="muted">
+                          Paramètres avancés du moteur (Température, Top P,
+                          etc.) à venir...
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- COL 2 : Source (Top) & Cartes Générées (Bottom) -->
+                  <div class="flex-col flex-1" style="gap: 12px; min-width: 0">
+                    <!-- Source Panel -->
+                    <div class="ide-panel" style="flex: 0 0 35%">
+                      <div class="ide-tabs" style="align-items: center">
+                        <div
+                          class="ide-tabs-list"
+                          style="display: flex; flex: 1; overflow-x: auto"
+                        >
+                          <button
+                            class="ide-tab active"
+                            draggable="true"
+                            data-target="tab-source"
+                          >
+                            <i class="ph ph-text-align-left"></i> Document
+                            Source
+                          </button>
+                        </div>
+                        <button
+                          class="btn-icon small detach-btn"
+                          style="margin-left: auto; margin-right: 4px"
+                          title="Détacher"
+                        >
+                          <i class="ph ph-arrow-up-right"></i>
+                        </button>
+                      </div>
+                      <div class="ide-panel-content">
+                        <div
+                          id="tab-source"
+                          class="sub-pane active h-full flex-col"
+                        >
+                          <div class="toolbar">
+                            <select class="input-element flex-grow">
+                              <option>-- Sélectionner un document --</option>
+                            </select>
+                            <button class="btn btn-secondary icon-btn">
+                              <i class="ph ph-arrows-clockwise"></i>
+                            </button>
+                          </div>
+                          <textarea
+                            class="textarea-element w-full mt-10 flex-grow"
+                            style="resize: none"
+                            placeholder="Collez votre texte source ici ou sélectionnez un document..."
+                          ></textarea>
+                          <div class="toolbar space-between mt-10">
+                            <span class="muted small tech-font"
+                              >Tokens estimés : 0</span
+                            >
+                            <button class="btn btn-primary">
+                              <i class="ph ph-magic-wand"></i> Générer les
+                              Cartes
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Unified Résultats & Preview Panel -->
+                    <div class="ide-panel flex-1">
+                      <div class="ide-tabs" style="align-items: center">
+                        <div
+                          class="ide-tabs-list"
+                          style="display: flex; flex: 1; overflow-x: auto"
+                        >
+                          <button
+                            class="ide-tab active"
+                            draggable="true"
+                            data-target="tab-resultats"
+                          >
+                            <i class="ph ph-list-numbers"></i> Cartes Générées
+                            (2)
+                          </button>
+                          <button
+                            class="ide-tab"
+                            draggable="true"
+                            data-target="tab-erreurs"
+                          >
+                            <i class="ph ph-warning-circle"></i> Erreurs
+                          </button>
+                        </div>
+
+                        <!-- IDEA-like Preview Toggles -->
+                        <div
+                          class="view-toggles"
+                          style="
+                            display: flex;
+                            gap: 4px;
+                            padding: 0 12px;
+                            border-right: 1px solid var(--border-color);
+                            margin-right: 8px;
+                          "
+                        >
+                          <button
+                            class="btn-icon small view-toggle-btn"
+                            data-view-mode="list"
+                            title="Liste uniquement (Editor Only)"
+                          >
+                            <i class="ph ph-list-dashes"></i>
+                          </button>
+                          <button
+                            class="btn-icon small view-toggle-btn active"
+                            data-view-mode="split"
+                            title="Split View (Editor and Preview)"
+                            style="
+                              background: var(--bg-hover);
+                              color: var(--text-primary);
+                            "
+                          >
+                            <i class="ph ph-columns"></i>
+                          </button>
+                          <button
+                            class="btn-icon small view-toggle-btn"
+                            data-view-mode="preview"
+                            title="Preview uniquement"
+                          >
+                            <i class="ph ph-monitor"></i>
+                          </button>
+                        </div>
+
+                        <button
+                          class="btn-icon small detach-btn"
+                          style="margin-left: 0; margin-right: 4px"
+                          title="Détacher"
+                        >
+                          <i class="ph ph-arrow-up-right"></i>
+                        </button>
+                      </div>
+
+                      <div class="ide-panel-content p-0" style="padding: 0">
+                        <div
+                          id="tab-resultats"
+                          class="sub-pane active h-full flex-row w-full"
+                        >
+                          <!-- LEFT SIDE : Table -->
+                          <div
+                            id="unified-table-view"
+                            class="flex-col"
+                            style="
+                              flex: 1;
+                              padding: 16px;
+                              border-right: 1px solid var(--border-color);
+                              display: flex;
+                            "
+                          >
+                            <div class="table-container flex-grow">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Recto</th>
+                                    <th>Verso</th>
+                                    <th>Statut</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr
+                                    style="cursor: pointer"
+                                    class="active-row"
+                                  >
+                                    <td>La capitale de la France ?</td>
+                                    <td>Paris</td>
+                                    <td>
+                                      <span
+                                        class="badge text-green tech-font"
+                                        style="font-size: 10px"
+                                        >PRÊT</span
+                                      >
+                                    </td>
+                                  </tr>
+                                  <tr style="cursor: pointer">
+                                    <td>Symbole chimique de l'eau ?</td>
+                                    <td>H2O</td>
+                                    <td>
+                                      <span
+                                        class="badge text-green tech-font"
+                                        style="font-size: 10px"
+                                        >PRÊT</span
+                                      >
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                            <div class="toolbar right mt-10">
+                              <button class="btn btn-primary">
+                                <i class="ph ph-floppy-disk"></i> Sauvegarder
+                                dans Anki
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- RIGHT SIDE : Preview -->
+                          <div
+                            id="unified-preview-view"
+                            class="flex-col"
+                            style="
+                              flex: 1;
+                              padding: 16px;
+                              background-color: rgba(0, 0, 0, 0.1);
+                              display: flex;
+                            "
+                          >
+                            <div class="toolbar space-between mb-16">
+                              <div class="toolbar" style="gap: 4px">
+                                <button
+                                  class="btn-icon small"
+                                  title="Carte précédente"
+                                >
+                                  <i class="ph ph-caret-left"></i>
+                                </button>
+                                <span
+                                  class="muted small tech-font"
+                                  style="margin: 0 8px; font-weight: 600"
+                                  >1 / 2</span
+                                >
+                                <button
+                                  class="btn-icon small"
+                                  title="Carte suivante"
+                                >
+                                  <i class="ph ph-caret-right"></i>
+                                </button>
+                              </div>
+                              <button
+                                class="btn-icon small"
+                                id="toggle-verso-btn"
+                                title="Activer / Désactiver le Verso"
+                              >
+                                <i class="ph ph-eye-slash"></i>
+                                <span style="font-size: 11px; margin-left: 4px"
+                                  >Masquer Verso</span
+                                >
+                              </button>
+                            </div>
+                            <div
+                              class="preview-card-container flex-grow"
+                              style="padding: 0"
+                            >
+                              <div class="flashcard-wrapper">
+                                <div class="preview-side">
+                                  La capitale de la France ?
+                                </div>
+                                <div
+                                  id="verso-container"
+                                  style="display: flex; flex-direction: column"
+                                >
+                                  <div class="preview-divider">Verso</div>
+                                  <div
+                                    class="preview-side"
+                                    style="
+                                      color: var(--accent-primary);
+                                      font-weight: 500;
+                                    "
+                                  >
+                                    Paris
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div
+                              class="toolbar space-between mt-16"
+                              style="gap: 12px"
+                            >
+                              <button
+                                class="btn btn-primary flex-1"
+                                style="justify-content: center"
+                              >
+                                <i class="ph ph-check"></i> Valider
+                              </button>
+                              <button
+                                class="btn btn-secondary flex-1"
+                                style="justify-content: center"
+                              >
+                                <i class="ph ph-pencil-simple"></i> Éditer
+                              </button>
+                              <button
+                                class="btn btn-secondary text-red flex-1"
+                                style="justify-content: center"
+                              >
+                                <i class="ph ph-trash"></i> Rejeter
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          id="tab-erreurs"
+                          class="sub-pane hidden h-full flex-col"
+                          style="padding: 16px"
+                        >
+                          <p class="muted">
+                            Aucune erreur lors de la génération.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- VUE : EDITION / ANALYSE -->
+              <div class="view" id="view-edition-analyse">
+                <div class="split-view flex-1" style="gap: 12px; height: 100%">
+                  <!-- COLONNE 1 : Explorateur & Liste -->
+                  <div
+                    class="ide-panel flex-col"
+                    style="width: 320px; flex-shrink: 0"
+                  >
+                    <div class="ide-tabs">
+                      <div class="ide-tabs-list">
+                        <button
+                          class="ide-tab active"
+                          data-target="tab-ea-explorer"
+                        >
+                          <i class="ph ph-compass"></i> Explorateur
+                        </button>
+                      </div>
+                    </div>
+                    <div class="ide-panel-content p-0 flex-col h-full">
+                      <div class="sub-pane active flex-col h-full">
+                        <!-- Partie Haute : Explorateur et Filtres -->
+                        <div
+                          class="flex-col"
+                          style="
+                            height: 35%;
+                            border-bottom: 1px solid var(--border-color);
+                            padding: 12px;
+                            overflow-y: auto;
+                          "
+                        >
+                          <div class="list-area flex-grow">
+                            <div class="list-item">
+                              <i class="ph-fill ph-folder text-blue mr-5"></i>
+                              Default
+                            </div>
+                            <div class="list-item active">
+                              <i class="ph-fill ph-folder text-blue mr-5"></i>
+                              Ensimag...
+                            </div>
+                            <div class="list-item" style="padding-left: 20px">
+                              <i class="ph-fill ph-folder text-blue mr-5"></i>
+                              Seme...
+                            </div>
+                          </div>
+                          <h5 class="muted mt-15 mb-5 uppercase small">
+                            <i class="ph ph-tag"></i> Filtres (Tags)
+                          </h5>
+                          <div class="list-area flex-grow">
+                            <div class="list-item">
+                              <i class="ph-fill ph-tag text-yellow mr-5"></i>
+                              Tous les tags
+                            </div>
+                            <div class="list-item">
+                              <i class="ph-fill ph-tag text-yellow mr-5"></i>
+                              Définition (1)
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Partie Basse : Liste des Cartes -->
+                        <div class="flex-col flex-1" style="overflow: hidden">
+                          <div
+                            class="toolbar border-bottom"
+                            style="padding: 10px; gap: 8px"
+                          >
+                            <div class="relative flex-grow">
+                              <i
+                                class="ph ph-magnifying-glass absolute"
+                                style="
+                                  left: 8px;
+                                  top: 50%;
+                                  transform: translateY(-50%);
+                                  color: var(--text-muted);
+                                "
+                              ></i>
+                              <input
+                                type="text"
+                                class="input-element w-full"
+                                placeholder="Rechercher..."
+                                style="padding-left: 28px"
+                              />
+                            </div>
+                            <button class="btn-icon small">
+                              <i class="ph ph-funnel"></i>
+                            </button>
+                          </div>
+                          <div
+                            class="list-area flex-grow"
+                            style="overflow-y: auto"
+                          >
+                            <div
+                              class="list-item active flex-col"
+                              style="
+                                align-items: flex-start;
+                                padding: 12px;
+                                border-bottom: 1px solid var(--border-color);
+                                gap: 4px;
+                              "
+                            >
+                              <div class="space-between w-full">
+                                <span
+                                  class="font-bold small tech-font text-blue"
+                                  >ID: 175908405</span
+                                >
+                                <span
+                                  class="badge text-green small"
+                                  style="
+                                    font-size: 10px;
+                                    border: 1px solid rgba(16, 185, 129, 0.3);
+                                    padding: 2px 6px;
+                                    border-radius: 4px;
+                                  "
+                                  >Carte n°1</span
+                                >
+                              </div>
+                              <div
+                                class="text-primary w-full mt-5"
+                                style="
+                                  white-space: nowrap;
+                                  overflow: hidden;
+                                  text-overflow: ellipsis;
+                                  font-weight: 500;
+                                "
+                              >
+                                <i class="ph ph-swatches muted"></i>
+                                Informatique
+                              </div>
+                              <div
+                                class="muted small w-full mt-5"
+                                style="
+                                  white-space: nowrap;
+                                  overflow: hidden;
+                                  text-overflow: ellipsis;
+                                "
+                              >
+                                <i class="ph ph-folder muted"></i> Ensimag...
+                              </div>
+                              <div class="mt-5">
+                                <span class="tag-btn">Informatique</span>
+                              </div>
+                            </div>
+                            <div
+                              class="list-item flex-col"
+                              style="
+                                align-items: flex-start;
+                                padding: 12px;
+                                border-bottom: 1px solid var(--border-color);
+                                gap: 4px;
+                              "
+                            >
+                              <div class="space-between w-full">
+                                <span
+                                  class="font-bold small tech-font text-blue"
+                                  >ID: 175908415</span
+                                >
+                                <span
+                                  class="badge text-green small"
+                                  style="
+                                    font-size: 10px;
+                                    border: 1px solid rgba(16, 185, 129, 0.3);
+                                    padding: 2px 6px;
+                                    border-radius: 4px;
+                                  "
+                                  >Carte n°1</span
+                                >
+                              </div>
+                              <div
+                                class="text-primary w-full mt-5"
+                                style="
+                                  white-space: nowrap;
+                                  overflow: hidden;
+                                  text-overflow: ellipsis;
+                                  font-weight: 500;
+                                "
+                              >
+                                <i class="ph ph-swatches muted"></i>
+                                Informatique
+                              </div>
+                              <div
+                                class="muted small w-full mt-5"
+                                style="
+                                  white-space: nowrap;
+                                  overflow: hidden;
+                                  text-overflow: ellipsis;
+                                "
+                              >
+                                <i class="ph ph-folder muted"></i> Ensimag...
+                              </div>
+                              <div class="mt-5">
+                                <span class="tag-btn">Maths</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- COLONNE 3 : Éditeur & Prévisualisation -->
+                  <div class="ide-panel flex-1">
+                    <div class="ide-tabs">
+                      <div class="ide-tabs-list">
+                        <button
+                          class="ide-tab active"
+                          data-target="tab-ea-editor"
+                        >
+                          <i class="ph ph-pencil-simple"></i> Éditeur (ID:
+                          175908)
+                        </button>
+                      </div>
+                      <div
+                        class="toolbar"
+                        style="
+                          padding: 0 12px;
+                          border-right: 1px solid var(--border-color);
+                          margin-right: 8px;
+                        "
+                      >
+                        <button
+                          class="btn btn-secondary small"
+                          style="margin-right: 8px"
+                          onclick="openHistoryModal()"
+                        >
+                          <i class="ph ph-clock-counter-clockwise"></i>
+                          Historique
+                        </button>
+                        <button
+                          class="btn btn-primary small"
+                          style="background-color: #10b981; color: white"
+                        >
+                          <i class="ph ph-floppy-disk"></i> Sauvegarder
+                        </button>
+                      </div>
+                      <button
+                        class="btn-icon small detach-btn"
+                        title="Détacher"
+                      >
+                        <i class="ph ph-arrow-up-right"></i>
+                      </button>
+                    </div>
+                    <div class="ide-panel-content p-0" style="padding: 0">
+                      <div
+                        id="tab-ea-editor"
+                        class="sub-pane active flex-col h-full"
+                      >
+                        <!-- Top : Editor Fields -->
+                        <div
+                          class="flex-col"
+                          style="
+                            padding: 16px;
+                            border-bottom: 1px solid var(--border-color);
+                            flex: 1;
+                            overflow-y: auto;
+                          "
+                        >
+                          <div class="form-group mb-15">
+                            <div class="space-between mb-5">
+                              <label class="muted uppercase small bold"
+                                >Recto</label
+                              >
+                              <div class="toolbar gap-5">
+                                <button class="btn-icon small" title="Gras">
+                                  <i class="ph ph-text-b"></i>
+                                </button>
+                                <button class="btn-icon small" title="Italique">
+                                  <i class="ph ph-text-italic"></i>
+                                </button>
+                                <button class="btn-icon small" title="Code">
+                                  <i class="ph ph-code"></i>
+                                </button>
+                              </div>
+                            </div>
+                            <textarea
+                              class="textarea-element w-full code-font"
+                              rows="4"
+                              style="background: var(--bg-main)"
+                            >
+Qu'est-ce qu'une **fonction de répartition** \(F_X(t)\) et quelles sont ses 4 propriétés principales ?</textarea>
+                          </div>
+                          <div class="form-group">
+                            <div class="space-between mb-5">
+                              <label class="muted uppercase small bold"
+                                >Verso</label
+                              >
+                            </div>
+                            <textarea
+                              class="textarea-element w-full code-font"
+                              rows="6"
+                              style="background: var(--bg-main)"
+                            >
+La fonction de répartition d'une variable aléatoire (v.a.) réelle X est ...</textarea>
+                          </div>
+                          <div class="toolbar mt-15 gap-10">
+                            <span class="tag-btn">Informatique</span>
+                            <button class="btn-icon small">
+                              <i class="ph ph-plus"></i>
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Bottom : Live Preview -->
+                        <div
+                          class="flex-col"
+                          style="
+                            flex: 1;
+                            padding: 16px;
+                            background-color: rgba(0, 0, 0, 0.15);
+                            overflow-y: auto;
+                          "
+                        >
+                          <div class="preview-controls">
+                            <div class="toolbar gap-15">
+                              <span class="muted small uppercase bold"
+                                >Prévisualisation</span
+                              >
+                              <div class="select-wrapper">
+                                <select class="input-element preview-select">
+                                  <option>Carte n°1 (Principale)</option>
+                                  <option>Carte n°2 (Inversée)</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div class="toolbar gap-15">
+                              <label class="toggle-switch">
+                                <input
+                                  type="checkbox"
+                                  checked
+                                  id="editor-preview-verso-toggle"
+                                />
+                                <span class="slider"></span>
+                              </label>
+                              <span class="small bold" style="margin-right: 8px"
+                                >Verso</span
+                              >
+                              <div class="device-toggles">
+                                <button
+                                  class="device-btn active"
+                                  onclick="setPreviewDevice('desktop', this)"
+                                >
+                                  <i class="ph ph-monitor"></i>
+                                </button>
+                                <button
+                                  class="device-btn"
+                                  onclick="setPreviewDevice('mobile', this)"
+                                >
+                                  <i class="ph ph-device-mobile"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            class="preview-card-container flex-grow center-content"
+                            style="padding: 20px"
+                          >
+                            <div id="mobile-preview-frame">
+                              <div class="premium-flashcard">
+                                <div class="card-content">
+                                  Qu'est-ce qu'une
+                                  <strong>fonction de répartition</strong>
+                                  <span class="latex-inline"
+                                    >F<sub>X</sub>(t)</span
+                                  >
+                                  et quelles sont ses 4 propriétés principales ?
+                                </div>
+                                <div
+                                  class="card-divider"
+                                  id="editor-preview-divider"
+                                >
+                                  <span>VERSO</span>
+                                </div>
+                                <div
+                                  class="card-content"
+                                  id="editor-preview-verso"
+                                >
+                                  La fonction de répartition d'une variable
+                                  aléatoire (v.a.) réelle X est définie pour
+                                  tout
+                                  <span class="latex-inline"
+                                    >t &isin; &#8477;</span
+                                  >
+                                  par :<br />
+                                  <div class="latex-block">
+                                    F<sub>X</sub>(t) = P(X &le; t)
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MODAL : HISTORIQUE PREMIUM -->
+              <div
+                class="modal-overlay"
+                id="history-modal-overlay"
+                style="display: none"
+              >
+                <div class="history-modal-premium" id="history-modal">
+                  <!-- Header -->
+                  <div class="hm-header">
+                    <div class="hm-header-left">
+                      <div class="mac-dots">
+                        <div
+                          class="mac-dot mac-close"
+                          onclick="closeHistoryModal()"
+                        ></div>
+                        <div class="mac-dot mac-min"></div>
+                        <div class="mac-dot mac-max"></div>
+                      </div>
+                      <div class="hm-title">
+                        <i
+                          class="ph ph-clock-counter-clockwise"
+                          style="color: var(--accent-primary)"
+                        ></i>
+                        <span>Machine à remonter le temps</span>
+                      </div>
+                      <div class="hm-subtitle badge-glass">ID: 175908</div>
+                    </div>
+                    <div class="hm-header-right">
+                      <button
+                        class="btn-icon small"
+                        onclick="closeHistoryModal()"
+                      >
+                        <i class="ph ph-x"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Body -->
+                  <div class="hm-body">
+                    <!-- Sidebar: Versions -->
+                    <div class="hm-sidebar">
+                      <div class="hm-sidebar-header">
+                        <span class="muted uppercase small bold tracking-wide"
+                          >Historique des versions</span
+                        >
+                      </div>
+                      <div class="hm-timeline">
+                        <!-- Version Item Active -->
+                        <div class="hm-timeline-item active">
+                          <div class="hm-timeline-marker"></div>
+                          <div class="hm-timeline-content">
+                            <div class="space-between mb-5">
+                              <span class="bold text-primary"
+                                >v3 (Actuelle)</span
+                              >
+                              <span
+                                class="badge-status text-green bg-green-glass"
+                                >En ligne</span
+                              >
+                            </div>
+                            <div class="muted small mb-5">
+                              Modification manuelle
+                            </div>
+                            <div class="tech-font small text-muted">
+                              18/07/2026 17:30
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Version Item -->
+                        <div class="hm-timeline-item">
+                          <div class="hm-timeline-marker"></div>
+                          <div class="hm-timeline-content">
+                            <div class="space-between mb-5">
+                              <span class="bold text-secondary">v2</span>
+                              <span
+                                class="badge-status text-purple bg-purple-glass"
+                                >Généré par IA</span
+                              >
+                            </div>
+                            <div class="muted small mb-5">
+                              Amélioration du verso
+                            </div>
+                            <div class="tech-font small text-muted">
+                              18/07/2026 17:15
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Version Item -->
+                        <div class="hm-timeline-item">
+                          <div class="hm-timeline-marker"></div>
+                          <div class="hm-timeline-content">
+                            <div class="space-between mb-5">
+                              <span class="bold text-secondary"
+                                >v1 (Import)</span
+                              >
+                            </div>
+                            <div class="muted small mb-5">
+                              Import initial PDF
+                            </div>
+                            <div class="tech-font small text-muted">
+                              18/07/2026 17:03
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Main: Diff View -->
+                    <div class="hm-diff-view">
+                      <div class="hm-diff-header space-between">
+                        <div class="toolbar gap-10">
+                          <span class="muted small uppercase bold tracking-wide"
+                            >Comparaison avec la v3</span
+                          >
+                          <div class="diff-legend">
+                            <span class="diff-tag diff-del"
+                              ><i class="ph ph-minus-circle"></i> Supprimé</span
+                            >
+                            <span class="diff-tag diff-add"
+                              ><i class="ph ph-plus-circle"></i> Ajouté</span
+                            >
+                          </div>
+                        </div>
+                        <div class="toolbar">
+                          <button class="btn btn-secondary small">
+                            <i class="ph ph-code"></i> Code
+                          </button>
+                          <button class="btn btn-primary small">
+                            <i class="ph ph-columns"></i> Split
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="hm-diff-content">
+                        <!-- Diff Block: Recto -->
+                        <div class="hm-diff-block">
+                          <div class="hm-diff-title">
+                            <i class="ph ph-rectangle"></i> Recto
+                          </div>
+                          <div class="hm-diff-lines code-font">
+                            <div class="diff-line unchanged">
+                              <div class="diff-line-num">1</div>
+                              <div class="diff-line-text">
+                                Qu'est-ce qu'une fonction de répartition
+                                \(F_X(t)\)
+                              </div>
+                            </div>
+                            <div class="diff-line diff-del-line">
+                              <div class="diff-line-num">2</div>
+                              <div class="diff-line-text">
+                                - et quelles sont ses
+                                <span class="diff-highlight-del">3</span>
+                                propriétés principales ?
+                              </div>
+                            </div>
+                            <div class="diff-line diff-add-line">
+                              <div class="diff-line-num">2</div>
+                              <div class="diff-line-text">
+                                + et quelles sont ses
+                                <span class="diff-highlight-add">4</span>
+                                propriétés principales ?
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Diff Block: Verso -->
+                        <div class="hm-diff-block mt-20">
+                          <div class="hm-diff-title">
+                            <i
+                              class="ph ph-rectangle"
+                              style="transform: rotate(180deg)"
+                            ></i>
+                            Verso
+                          </div>
+                          <div class="hm-diff-lines code-font">
+                            <div class="diff-line unchanged">
+                              <div class="diff-line-num">1</div>
+                              <div class="diff-line-text">
+                                La fonction de répartition d'une variable
+                                aléatoire (v.a.) réelle X est définie pour tout
+                                \(t \in \mathbb{R}\) par :
+                              </div>
+                            </div>
+                            <div class="diff-line diff-add-line">
+                              <div class="diff-line-num">2</div>
+                              <div class="diff-line-text">
+                                +
+                                <span class="diff-highlight-add"
+                                  >\(F_X(t) = P(X \le t)\)</span
+                                >
+                              </div>
+                            </div>
+                            <div class="diff-line diff-del-line">
+                              <div class="diff-line-num">3</div>
+                              <div class="diff-line-text">
+                                -
+                                <span class="diff-highlight-del"
+                                  >\(F_X(t) = P(X < t)\)</span
+                                >
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="hm-diff-footer space-between">
+                        <span class="muted small"
+                          ><i class="ph ph-info"></i> Sélectionnez une version à
+                          gauche pour comparer.</span
+                        >
+                        <button
+                          class="btn btn-primary btn-glow"
+                          style="
+                            background: rgba(16, 185, 129, 0.15);
+                            color: #10b981;
+                            border: 1px solid rgba(16, 185, 129, 0.3);
+                          "
+                        >
+                          <i class="ph ph-clock-counter-clockwise"></i>
+                          Restaurer la v2
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : AI CONSULTANT -->
+            <div class="view" id="view-ai-studio">
+              <div class="split-view flex-1" style="gap: 12px; height: 100%">
                 
-                <div class="sidebar-section">
-                    <div class="section-title">Intelligence</div>
-                    <a href="#" class="nav-item"><i class="ph ph-brain text-purple"></i> Studio IA</a>
-                    <a href="#" class="nav-item"><i class="ph ph-flask text-teal"></i> Labo A/B</a>
+                <!-- Main Chat Panel -->
+                <div class="ide-panel flex-1 flex-col">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active" data-target="tab-ai-chat">
+                        <i class="ph ph-chat-centered-text"></i> Chat
+                      </button>
+                    </div>
+                    <div class="toolbar" style="padding: 0 12px; border-right: 1px solid var(--border-color); margin-right: 8px;">
+                      <select class="input-element small">
+                        <option>Claude 3.5 Sonnet</option>
+                        <option>GPT-4o</option>
+                      </select>
+                    </div>
+                    <button class="btn-icon small detach-btn" title="Détacher">
+                      <i class="ph ph-arrow-up-right"></i>
+                    </button>
+                  </div>
+                  <div class="ide-panel-content p-0">
+                    <div id="tab-ai-chat" class="sub-pane active flex-col h-full" style="position: relative;">
+                      
+                      <!-- Chat Messages Area -->
+                      <div class="chat-messages-container flex-grow" style="overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 24px;">
+                        
+                        <!-- User Message -->
+                        <div class="chat-message user-message">
+                          <div class="message-avatar user-avatar">TR</div>
+                          <div class="message-content-wrapper">
+                            <div class="message-header">Vous <span class="message-time">10:42</span></div>
+                            <div class="message-body">
+                              <p>Peux-tu analyser mon deck <strong>"Cardio_P3"</strong> et me suggérer des améliorations ? J'ai l'impression qu'il manque des tags pertinents et certaines cartes me semblent trop longues.</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- AI Message -->
+                        <div class="chat-message ai-message">
+                          <div class="message-avatar ai-avatar"><i class="ph ph-robot"></i></div>
+                          <div class="message-content-wrapper">
+                            <div class="message-header">AnkiForge AI <span class="message-time">10:43</span></div>
+                            <div class="message-body markdown-body">
+                              <p>Bien sûr ! J'ai analysé votre deck <strong>"Cardio_P3"</strong> (142 cartes trouvées).</p>
+                              
+                              <h4>1. Structure et Longueur des Cartes</h4>
+                              <p>J'ai détecté <strong>15 cartes</strong> qui dépassent la longueur recommandée (plus de 50 mots au verso). Ces cartes risquent de ralentir votre apprentissage.</p>
+                              
+                              <div class="code-block-wrapper">
+                                <div class="code-block-header">
+                                  <span>Exemple de carte à diviser (ID: 4829)</span>
+                                  <button class="btn-icon small"><i class="ph ph-copy"></i></button>
+                                </div>
+                                <pre><code>Recto : Décrivez la physiopathologie de l'insuffisance cardiaque droite.
+Verso : L'IC droite est caractérisée par une incapacité du VD à... [texte très long]</code></pre>
+                              </div>
+                              <p><em>Suggestion : Divisez cette carte en 3 cartes plus spécifiques (Causes, Signes cliniques, Conséquences hémodynamiques).</em></p>
+
+                              <h4>2. Suggestions de Tags</h4>
+                              <p>Actuellement, le deck n'a que le tag <code>#Cardio</code>. Voici quelques sous-tags recommandés basés sur le contenu sémantique :</p>
+                              <div class="tag-suggestions" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                                <span class="badge badge-outline"><i class="ph ph-plus"></i> #Pathologie/IC</span>
+                                <span class="badge badge-outline"><i class="ph ph-plus"></i> #ECG/Anormal</span>
+                                <span class="badge badge-outline"><i class="ph ph-plus"></i> #Pharma/Diurétiques</span>
+                              </div>
+                            </div>
+                            
+                            <!-- Actions sur la réponse -->
+                            <div class="message-actions mt-10">
+                              <button class="btn btn-secondary small"><i class="ph ph-magic-wand"></i> Appliquer les tags</button>
+                              <button class="btn btn-secondary small"><i class="ph ph-scissors"></i> Diviser les cartes longues</button>
+                              <div class="spacer" style="flex: 1;"></div>
+                              <button class="btn-icon small" title="Copier"><i class="ph ph-copy"></i></button>
+                              <button class="btn-icon small" title="Bonne réponse"><i class="ph ph-thumbs-up"></i></button>
+                              <button class="btn-icon small" title="Mauvaise réponse"><i class="ph ph-thumbs-down"></i></button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Input Area -->
+                      <div class="chat-input-area" style="padding: 0 24px 24px 24px;">
+                        
+                        <!-- Quick Prompts -->
+                        <div class="quick-prompts" style="display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px;">
+                          <button class="quick-prompt-btn"><i class="ph ph-sparkle"></i> Résumer le cours</button>
+                          <button class="quick-prompt-btn"><i class="ph ph-magnifying-glass"></i> Chercher des doublons</button>
+                          <button class="quick-prompt-btn"><i class="ph ph-cards"></i> Générer un QCM</button>
+                        </div>
+
+                        <!-- Chat Box -->
+                        <div class="chat-box-premium" style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 12px; display: flex; flex-direction: column; transition: border-color 0.2s; box-shadow: var(--shadow-sm);">
+                          <!-- Active Mentions (if any) -->
+                          <div class="active-mentions mb-10" style="display: flex; gap: 6px;">
+                            <span class="mention-badge"><i class="ph ph-cards"></i> Deck: Cardio_P3 <button class="btn-icon tiny"><i class="ph ph-x"></i></button></span>
+                          </div>
+                          
+                          <textarea class="textarea-element w-full" rows="1" placeholder="Posez une question, tapez '/' pour les commandes ou '@' pour mentionner..." style="border: none; background: transparent; padding: 0; box-shadow: none; resize: none; min-height: 44px; outline: none;"></textarea>
+                          
+                          <div class="chat-box-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                            <div class="chat-box-tools" style="display: flex; gap: 4px;">
+                              <button class="btn-icon" title="Joindre un fichier"><i class="ph ph-paperclip"></i></button>
+                              <button class="btn-icon" title="Mentionner un contexte (@)"><i class="ph ph-at"></i></button>
+                              <button class="btn-icon" title="Bibliothèque de Prompts"><i class="ph ph-books"></i></button>
+                            </div>
+                            <div class="chat-box-send">
+                              <span class="muted small tech-font mr-10">142 tokens</span>
+                              <button class="btn btn-primary btn-icon-only" style="border-radius: 50%; width: 36px; height: 36px; padding: 0; justify-content: center;"><i class="ph ph-arrow-up"></i></button>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="text-center mt-10">
+                          <span class="muted small">L'IA peut faire des erreurs. Vérifiez toujours les cartes générées.</span>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
                 </div>
 
-                <div class="sidebar-section">
-                    <div class="section-title">Tags</div>
-                    <a href="#" class="nav-item"><i class="ph-fill ph-tag text-gray"></i> #médecine</a>
-                    <a href="#" class="nav-item"><i class="ph-fill ph-tag text-gray"></i> #anatomie</a>
-                </div>
-            </nav>
+                <!-- Right Context Panel -->
+                <div class="ide-panel flex-col" style="width: 300px;">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active" data-target="tab-ai-context">
+                        <i class="ph ph-bounding-box"></i> Contexte Actif
+                      </button>
+                    </div>
+                  </div>
+                  <div class="ide-panel-content p-0 h-full">
+                    <div id="tab-ai-context" class="sub-pane active flex-col h-full" style="padding: 16px;">
+                      
+                      <div class="context-section mb-20">
+                        <h4 class="text-muted small mb-10 text-uppercase" style="letter-spacing: 0.5px; font-weight: 600;">Sources attachées</h4>
+                        <div class="context-item active">
+                          <div class="context-icon bg-green"><i class="ph ph-cards"></i></div>
+                          <div class="context-info">
+                            <span class="context-title">Cardio_P3</span>
+                            <span class="context-meta">Deck • 142 cartes</span>
+                          </div>
+                          <button class="btn-icon tiny"><i class="ph ph-x"></i></button>
+                        </div>
+                        <button class="btn btn-secondary w-full mt-10 small border-dashed"><i class="ph ph-plus"></i> Ajouter un contexte</button>
+                      </div>
 
-            <!-- Main Area -->
-            <main class="mac-main">
+                      <div class="context-section mb-20">
+                        <h4 class="text-muted small mb-10 text-uppercase" style="letter-spacing: 0.5px; font-weight: 600;">Instructions Système</h4>
+                        <div class="system-prompt-box">
+                          <p class="small muted">"Tu es un expert médical spécialisé en cardiologie. Ton but est d'optimiser l'apprentissage..."</p>
+                          <button class="btn-icon small absolute-top-right"><i class="ph ph-pencil-simple"></i></button>
+                        </div>
+                      </div>
+                      
+                      <div class="context-section mt-auto border-top pt-16">
+                        <h4 class="text-muted small mb-10 text-uppercase" style="letter-spacing: 0.5px; font-weight: 600;">Mémoire de l'Agent</h4>
+                        <div class="memory-stats">
+                          <div class="stat-row">
+                            <span>Tokens Utilisés</span>
+                            <span class="tech-font">14,204</span>
+                          </div>
+                          <div class="stat-row">
+                            <span>Cartes Modifiées</span>
+                            <span class="text-blue">0</span>
+                          </div>
+                        </div>
+                        <button class="btn btn-secondary w-full mt-10 small"><i class="ph ph-broom"></i> Vider la mémoire</button>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- VUE : LIBRARY (My Documents) -->
+            <div class="view" id="view-library">
+              <div class="split-view flex-1" style="gap: 12px; height: 100%">
                 
-                <!-- DASHBOARD -->
-                <div id="view-dashboard" class="view active">
-                    <div class="mac-header">
-                        <h1>Tableau de bord</h1>
-                        <button class="mac-btn" onclick="openAutoTagModal()">Auto-Tagging IA</button>
+                <!-- LEFT: Document Explorer -->
+                <div class="ide-panel flex-col" style="width: 260px; flex-shrink: 0">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active">
+                        <i class="ph ph-files"></i> Explorateur
+                      </button>
                     </div>
-                    
-                    <div class="mac-grid">
-                        <div class="mac-card">
-                            <i class="ph ph-cards card-icon text-blue"></i>
-                            <div class="card-val">1,245</div>
-                            <div class="card-desc">Cartes totales</div>
-                        </div>
-                        <div class="mac-card">
-                            <i class="ph ph-brain card-icon text-purple"></i>
-                            <div class="card-val">890</div>
-                            <div class="card-desc">Générées par IA</div>
-                        </div>
+                  </div>
+                  <div class="ide-panel-content p-0 flex-col h-full">
+                    <div class="toolbar" style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                      <button class="btn btn-secondary small flex-grow">
+                        <i class="ph ph-upload-simple"></i> Importer
+                      </button>
+                      <button class="btn-icon small" title="Nouveau dossier">
+                        <i class="ph ph-folder-plus"></i>
+                      </button>
                     </div>
+                    <div class="doc-explorer flex-grow" style="overflow-y: auto; padding: 10px;">
+                      <!-- Arborescence -->
+                      <div class="doc-item doc-folder active-folder">
+                        <i class="ph-fill ph-folder text-blue doc-icon"></i>
+                        <span>Cours Médecine</span>
+                        <i class="ph ph-caret-down doc-caret"></i>
+                      </div>
+                      <div class="doc-item doc-file doc-pdf active" style="padding-left: 28px;">
+                        <i class="ph-fill ph-file-pdf text-red doc-icon"></i>
+                        <span>Cardio_P3.pdf</span>
+                      </div>
+                      <div class="doc-item doc-file doc-txt" style="padding-left: 28px;">
+                        <i class="ph-fill ph-file-text text-muted doc-icon"></i>
+                        <span>Notes_Rapides.txt</span>
+                      </div>
+                      
+                      <div class="doc-item doc-folder mt-5">
+                        <i class="ph-fill ph-folder text-blue doc-icon"></i>
+                        <span>Anglais</span>
+                        <i class="ph ph-caret-right doc-caret"></i>
+                      </div>
+                      
+                      <div class="doc-item doc-folder mt-5">
+                        <i class="ph-fill ph-folder text-blue doc-icon"></i>
+                        <span>Programmation</span>
+                        <i class="ph ph-caret-down doc-caret"></i>
+                      </div>
+                      <div class="doc-item doc-file doc-md" style="padding-left: 28px;">
+                        <i class="ph-fill ph-file-code text-yellow doc-icon"></i>
+                        <span>Python_Bases.md</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- EDITEUR -->
-                <div id="view-editor" class="view hidden">
-                    <div class="mac-header">
-                        <h1>Édition : Anatomie Cœur</h1>
-                        <div class="segmented-control">
-                            <button class="seg-btn active">Markdown</button>
-                            <button class="seg-btn">Live Preview</button>
-                        </div>
+                <!-- CENTER/RIGHT: Document View/Editor -->
+                <div class="ide-panel flex-1 flex-col">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active">
+                        <i class="ph ph-file-pdf"></i> Cardio_P3.pdf
+                      </button>
+                      <button class="ide-tab">
+                        <i class="ph ph-file-text"></i> Notes_Rapides.txt
+                      </button>
                     </div>
+                    <button class="btn-icon small detach-btn" title="Détacher">
+                      <i class="ph ph-arrow-up-right"></i>
+                    </button>
+                  </div>
+                  
+                  <!-- Toolbar -->
+                  <div class="doc-toolbar toolbar border-bottom" style="padding: 8px 12px; gap: 8px; background: var(--bg-panel); flex-wrap: wrap;">
+                    <button class="btn btn-secondary small tooltip-target" title="IA : Identifier les zones denses">
+                      <i class="ph ph-magic-wand text-purple"></i> Analyser PDF/TXT (Marker)
+                    </button>
+                    <button class="btn btn-secondary small">
+                      <i class="ph ph-globe text-blue"></i> Depuis le Web (URL)
+                    </button>
+                    <div class="toolbar-divider" style="width: 1px; height: 20px; background: var(--border-color); margin: 0 4px;"></div>
+                    <button class="btn btn-secondary small">
+                      <i class="ph ph-scissors text-yellow"></i> Insérer Coupure (Ctrl+D)
+                    </button>
+                    <button class="btn btn-secondary small">
+                      <i class="ph ph-split-horizontal"></i> Scinder aux balises [SPLIT]
+                    </button>
+                    <div style="flex-grow: 1;"></div>
+                    <span class="muted small tech-font mr-10">4520 mots</span>
+                    <button class="btn btn-primary small glow-btn-green">
+                      <i class="ph ph-floppy-disk"></i> Sauvegarder (Ctrl+S)
+                    </button>
+                  </div>
 
-                    <div class="mac-editor-area">
-                        <div class="textarea" contenteditable="true">
-                            <h2>Le cycle cardiaque</h2>
-                            <p>Systole et diastole...</p>
+                  <!-- Editor / Viewer Area -->
+                  <div class="ide-panel-content p-0 flex-1 flex-col relative" style="background: var(--bg-input);">
+                    <div class="document-editor flex-grow" style="padding: 30px 40px; overflow-y: auto; display: flex; justify-content: center;">
+                      <!-- Faux Document (Page style) -->
+                      <div class="doc-page" style="background: var(--bg-main); max-width: 800px; width: 100%; min-height: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 40px; box-shadow: var(--shadow-sm);">
+                        
+                        <h1 class="mb-20" style="font-size: 24px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">Cardiologie - Partie 3 : Insuffisance Cardiaque</h1>
+                        
+                        <p class="mb-10 text-secondary" style="line-height: 1.6; font-size: 14px;">L'insuffisance cardiaque (IC) est une pathologie fréquente et grave, correspondant à l'incapacité du cœur à assurer un débit sanguin suffisant pour répondre aux besoins métaboliques de l'organisme, ou à le faire au prix de pressions de remplissage anormalement élevées.</p>
+                        
+                        <div class="split-marker my-20">
+                          <div class="split-line"></div>
+                          <div class="split-label">
+                            <span class="text-yellow bold small"><i class="ph ph-scissors"></i> [SPLIT] - Coupure insérée (Ctrl+D)</span>
+                            <button class="btn-icon tiny" style="color: var(--text-muted)"><i class="ph ph-x"></i></button>
+                          </div>
                         </div>
+                        
+                        <h2 class="mb-15 mt-20" style="font-size: 18px; color: var(--accent-primary);">1. Physiopathologie de l'IC Droite</h2>
+                        <p class="text-secondary mb-15" style="line-height: 1.6; font-size: 14px;">Le cœur droit est responsable de propulser le sang veineux vers les poumons pour son oxygénation. L'insuffisance cardiaque droite est le plus souvent la conséquence d'une insuffisance cardiaque gauche (par augmentation des pressions capillaires pulmonaires).</p>
+                        
+                        <!-- Marker / Highlight IA -->
+                        <div class="marker-highlight mb-20">
+                          <div class="marker-header space-between mb-10">
+                            <span class="small bold text-purple" style="letter-spacing: 0.5px;"><i class="ph ph-magic-wand"></i> ANALYSE MARKER (IA)</span>
+                            <div class="toolbar gap-5">
+                              <button class="btn-icon tiny" title="Rejeter"><i class="ph ph-x"></i></button>
+                              <button class="btn-icon tiny text-green" title="Valider"><i class="ph ph-check"></i></button>
+                            </div>
+                          </div>
+                          <div class="marker-content text-primary" style="font-size: 14px; line-height: 1.6; padding-left: 10px; border-left: 3px solid #8b5cf6;">
+                            <p><strong>Signes Cliniques :</strong><br>
+                            - Turgescence jugulaire<br>
+                            - Hépatomégalie (foie cardiaque, parfois douloureux)<br>
+                            - Reflux hépato-jugulaire<br>
+                            - Œdèmes des membres inférieurs (blancs, mous, prenant le godet)</p>
+                          </div>
+                          <div class="marker-actions mt-10">
+                            <button class="btn btn-secondary small" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-color: rgba(139, 92, 246, 0.3);">
+                              <i class="ph ph-hammer"></i> Forger des cartes ici
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <p class="text-secondary" style="line-height: 1.6; font-size: 14px;">Le diagnostic repose sur la clinique, mais l'échocardiographie reste l'examen clé pour évaluer la fonction ventriculaire droite et estimer les pressions pulmonaires.</p>
+                      </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : CARD MODELS -->
+            <div class="view" id="view-card-models">
+              <div class="split-view flex-1" style="gap: 15px; overflow: hidden; padding-top: 15px;">
+                <!-- Left Pane: Models List -->
+                <div class="ide-panel flex-col" style="width: 250px; flex-shrink: 0;">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active"><i class="ph ph-swatches"></i> Modèles Disponibles</button>
+                    </div>
+                  </div>
+                  <div class="ide-panel-content flex-col p-0">
+                    <div class="list-area flex-grow mt-10 px-10">
+                      <div class="list-item active">Texte à trous (Cloze)</div>
+                      <div class="list-item">Basique</div>
+                      <div class="list-item">Basique (Inversé)</div>
+                    </div>
+                    <div class="toolbar gap-5 p-10 border-top mt-10">
+                      <button class="btn btn-secondary flex-1 small"><i class="ph ph-plus"></i> Nouveau</button>
+                      <button class="btn btn-danger ghost flex-1 small"><i class="ph ph-trash"></i> Supprimer</button>
+                    </div>
+                  </div>
                 </div>
 
-            </main>
+                <!-- Center Pane: Code Editors and Live Preview -->
+                <div class="ide-panel flex-1 flex-col">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active"><i class="ph ph-pencil-simple"></i> Éditeur de Modèle</button>
+                    </div>
+                    <div class="toolbar" style="padding: 0 12px; border-right: 1px solid var(--border-color); margin-right: 8px;">
+                      <button class="btn btn-secondary small"><i class="ph ph-arrows-clockwise"></i> Rafraîchir</button>
+                      <button class="btn btn-primary small ml-5 glow-btn-primary"><i class="ph ph-floppy-disk"></i> Sauvegarder</button>
+                    </div>
+                    <button class="btn-icon small detach-btn" title="Détacher">
+                      <i class="ph ph-arrow-up-right"></i>
+                    </button>
+                  </div>
+                  <div class="ide-panel-content flex-col flex-grow p-0">
+                    <div class="split-view flex-1" style="gap: 0; overflow: hidden;">
+                      <!-- Left side: Editor -->
+                      <div class="flex-col flex-1 view-scrollable p-16" style="border-right: 1px solid var(--border-color);">
+                        <div class="form-group mb-15">
+                          <label class="muted uppercase small mb-5">Champs de données (séparés par des virgules) :</label>
+                          <input type="text" class="input-element w-full" value="Texte, Extra" />
+                        </div>
+                        
+                        <div class="toolbar items-center pb-15 mb-10 border-bottom flex-wrap gap-10">
+                          <span class="muted uppercase small">Sélection de la carte :</span>
+                          <select class="input-element" style="width: 150px;">
+                            <option>Carte 1</option>
+                          </select>
+                          <button class="btn btn-secondary icon-btn"><i class="ph ph-plus"></i></button>
+                          <button class="btn btn-secondary icon-btn"><i class="ph ph-pencil-simple"></i></button>
+                          <button class="btn btn-secondary icon-btn"><i class="ph ph-trash"></i></button>
+                        </div>
+                        
+                        <div class="ide-tabs mb-10" style="margin: 0 -12px; border-bottom: 1px solid var(--border-color);">
+                          <div class="ide-tabs-list pl-10">
+                            <button class="ide-tab active" data-target="tab-cm-css"><i class="ph ph-file-css"></i> Style CSS</button>
+                            <button class="ide-tab" data-target="tab-cm-html-front"><i class="ph ph-file-html"></i> HTML Recto</button>
+                            <button class="ide-tab" data-target="tab-cm-html-back"><i class="ph ph-file-html"></i> HTML Verso</button>
+                          </div>
+                        </div>
+
+                        <div class="toolbar mb-10 gap-5 flex-wrap">
+                          <button class="tag-btn">{{Texte}}</button>
+                          <button class="tag-btn">{{Extra}}</button>
+                          <button class="tag-btn">{{FrontSide}}</button>
+                          <button class="tag-btn">{{cloze:Texte}}</button>
+                          <button class="tag-btn">&lt;hr id="answer"&gt;</button>
+                        </div>
+
+                        <!-- Tab Contents -->
+                        <div id="tab-cm-css" class="sub-pane active flex-col flex-grow" style="min-height: 300px;">
+                          <div class="code-editor-wrapper flex-grow">
+                            <div class="code-editor-lines">
+                              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+                            </div>
+                            <textarea class="code-editor-element w-full flex-grow" style="resize: none;" spellcheck="false">.card {
+  font-family: var(--font-main);
+  font-size: 20px;
+  text-align: center;
+  color: #1e293b;
+  background-color: #ffffff;
+}
+
+.cloze {
+  font-weight: bold;
+  color: #3b82f6;
+}</textarea>
+                          </div>
+                        </div>
+
+                        <div id="tab-cm-html-front" class="sub-pane hidden flex-col flex-grow" style="min-height: 300px;">
+                          <div class="code-editor-wrapper flex-grow">
+                            <div class="code-editor-lines">
+                              <span>1</span>
+                            </div>
+                            <textarea class="code-editor-element w-full flex-grow" style="resize: none;" spellcheck="false">{{cloze:Texte}}</textarea>
+                          </div>
+                        </div>
+
+                        <div id="tab-cm-html-back" class="sub-pane hidden flex-col flex-grow" style="min-height: 300px;">
+                          <div class="code-editor-wrapper flex-grow">
+                            <div class="code-editor-lines">
+                              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+                            </div>
+                            <textarea class="code-editor-element w-full flex-grow" style="resize: none;" spellcheck="false">{{cloze:Texte}}
+<br>
+<hr id="answer">
+<br>
+{{Extra}}</textarea>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Right side: Live Preview -->
+                      <div class="flex-col" style="width: 400px; flex-shrink: 0; background: var(--bg-main); border-left: 1px solid var(--border-color);">
+                        <div class="toolbar items-center p-10 border-bottom justify-end gap-5" style="background: var(--bg-panel)">
+                          <span class="muted small tech-font mr-auto ml-5"><i class="ph ph-monitor"></i> Live Preview</span>
+                          <span class="muted small">Carte :</span>
+                          <select class="input-element small" style="width: 70px;">
+                            <option>1/3</option>
+                            <option>2/3</option>
+                            <option>3/3</option>
+                          </select>
+                          <select class="input-element small">
+                            <option>Voir Recto</option>
+                            <option>Voir Verso</option>
+                          </select>
+                        </div>
+                        <div class="preview-container flex-grow flex-col items-center justify-center p-20" style="background-image: radial-gradient(circle at center, #1e2128 0%, #0f1115 100%); overflow: auto;">
+                          <!-- Simulated Anki Card -->
+                          <div class="anki-card-preview">
+                            La capitale de la France est <span style="font-weight: bold; color: #3b82f6;">[...]</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+                        <!-- VUE : BATCH FACTORY - CI/CD (Power User) -->
+            <div class="view" id="view-batch-factory-cicd">
+              <div class="cicd-dashboard h-full flex-col gap-12">
+                <!-- TOP ROW: Metrics -->
+                <div class="cicd-metrics flex-row gap-12">
+                  <!-- Stat Cards with Glassmorphism -->
+                  <div class="metric-card glass-panel flex-1 space-between">
+                    <div class="flex-col">
+                      <span class="muted uppercase small bold">Statut Global</span>
+                      <span class="text-green text-lg bold mt-5">En attente</span>
+                    </div>
+                    <i class="ph ph-check-circle text-green" style="font-size: 28px; opacity: 0.8"></i>
+                  </div>
+                  <div class="metric-card glass-panel flex-1 space-between">
+                    <div class="flex-col">
+                      <span class="muted uppercase small bold">Temps Restant</span>
+                      <span class="text-primary text-lg bold mt-5 code-font">--:--:--</span>
+                    </div>
+                    <i class="ph ph-timer text-primary" style="font-size: 28px; opacity: 0.8"></i>
+                  </div>
+                  <div class="metric-card glass-panel flex-1 space-between">
+                    <div class="flex-col">
+                      <span class="muted uppercase small bold">Cartes Générées</span>
+                      <span class="text-blue text-lg bold mt-5 code-font">0 / 0</span>
+                    </div>
+                    <i class="ph ph-cards text-blue" style="font-size: 28px; opacity: 0.8"></i>
+                  </div>
+                  <div class="metric-card glass-panel flex-1 space-between">
+                    <div class="flex-col">
+                      <span class="muted uppercase small bold">Coût Estimé</span>
+                      <span class="text-yellow text-lg bold mt-5 code-font">$0.00</span>
+                    </div>
+                    <i class="ph ph-coin text-yellow" style="font-size: 28px; opacity: 0.8"></i>
+                  </div>
+                </div>
+
+                <!-- MIDDLE ROW: Config & Queue -->
+                <div class="cicd-middle flex-row gap-12 flex-1 min-h-0">
+                  <!-- Left: Source & Config -->
+                  <div class="ide-panel glass-panel flex-col" style="width: 350px;">
+                    <div class="ide-tabs">
+                      <div class="ide-tabs-list">
+                        <button class="ide-tab active"><i class="ph ph-sliders-horizontal"></i> Paramètres du Build</button>
+                      </div>
+                    </div>
+                    <div class="ide-panel-content flex-col gap-15 overflow-y-auto p-16">
+                      <div class="form-group">
+                        <label>Source (Fichiers/Dossiers) :</label>
+                        <div class="toolbar w-full">
+                          <select class="input-element glow-input flex-grow">
+                            <option>Non classés (3 fichiers)</option>
+                            <option>Cours Cardio P3</option>
+                          </select>
+                          <button class="btn btn-secondary icon-btn"><i class="ph ph-folder-open"></i></button>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label>Paquet Cible :</label>
+                        <input type="text" class="input-element glow-input w-full" placeholder="Ex: Médecine::Cardio" />
+                      </div>
+                      <div class="grid-2 gap-10" style="display: grid; grid-template-columns: 1fr 1fr;">
+                        <div class="form-group">
+                          <label>Modèle :</label>
+                          <select class="input-element glow-input w-full"><option>Cloze</option></select>
+                        </div>
+                        <div class="form-group">
+                          <label>Moteur IA :</label>
+                          <select class="input-element glow-input w-full"><option>Claude 3.5</option></select>
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label>Pipeline :</label>
+                        <select class="input-element glow-input w-full"><option>Excellence (Standard)</option></select>
+                      </div>
+                      <div class="form-group mt-10">
+                         <label class="checkbox-label"><input type="checkbox" checked/> <i class="ph ph-eye text-yellow"></i> Vision (Images/PDF)</label>
+                         <label class="checkbox-label mt-5"><input type="checkbox" checked/> <i class="ph ph-check-square-offset text-blue"></i> Validation automatique</label>
+                      </div>
+                      
+                      <button class="btn btn-primary w-full mt-auto py-12 glow-btn-primary" style="font-size: 14px; justify-content: center;">
+                        <i class="ph ph-plus"></i> Ajouter à la Queue
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Right: Queue Table -->
+                  <div class="ide-panel glass-panel flex-1 flex-col min-w-0">
+                    <div class="ide-tabs space-between pr-10">
+                      <div class="ide-tabs-list">
+                        <button class="ide-tab active"><i class="ph ph-list-dashes"></i> File d'attente détaillée</button>
+                      </div>
+                      <div class="toolbar gap-5">
+                         <button class="btn-icon small" title="Vider"><i class="ph ph-trash"></i></button>
+                         <button class="btn btn-primary small glow-btn-green" style="background-color: var(--text-green)"><i class="ph ph-play"></i> Démarrer Pipeline</button>
+                      </div>
+                    </div>
+                    <div class="ide-panel-content flex-col p-0 h-full overflow-y-auto">
+                      <div class="table-container flex-grow h-full" style="border: none; border-radius: 0;">
+                        <table class="cicd-table w-full text-left">
+                          <thead>
+                            <tr>
+                              <th style="width: 40px"><input type="checkbox" checked></th>
+                              <th style="width: 120px">Statut</th>
+                              <th>Fichier / Source</th>
+                              <th style="width: 25%">Progrès</th>
+                              <th style="width: 120px">Tokens Est.</th>
+                              <th style="width: 60px">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr class="table-row-hover">
+                              <td><input type="checkbox" checked></td>
+                              <td><span class="badge badge-outline text-blue border-blue"><i class="ph ph-spinner-gap spin"></i> En cours</span></td>
+                              <td><i class="ph-fill ph-file-pdf text-red mr-5"></i> Cours_Cardio_Part1.pdf</td>
+                              <td>
+                                 <div class="progress-bar-container">
+                                   <div class="progress-bar-fill bg-blue" style="width: 45%"></div>
+                                 </div>
+                                 <div class="space-between mt-5 small muted tech-font"><span>Extraction texte...</span><span>45%</span></div>
+                              </td>
+                              <td class="tech-font text-muted">~ 25,000</td>
+                              <td><button class="btn-icon small text-red"><i class="ph ph-x"></i></button></td>
+                            </tr>
+                            <tr class="table-row-hover">
+                              <td><input type="checkbox" checked></td>
+                              <td><span class="badge badge-outline text-yellow border-yellow"><i class="ph ph-clock"></i> En attente</span></td>
+                              <td><i class="ph-fill ph-file-pdf text-red mr-5"></i> Cours_Cardio_Part2.pdf</td>
+                              <td>
+                                 <div class="progress-bar-container">
+                                   <div class="progress-bar-fill" style="width: 0%"></div>
+                                 </div>
+                                 <div class="space-between mt-5 small muted tech-font"><span>En attente...</span><span>0%</span></div>
+                              </td>
+                              <td class="tech-font text-muted">~ 32,000</td>
+                              <td><button class="btn-icon small text-red"><i class="ph ph-x"></i></button></td>
+                            </tr>
+                             <tr class="table-row-hover">
+                              <td><input type="checkbox" checked></td>
+                              <td><span class="badge badge-outline text-green border-green"><i class="ph ph-check"></i> Terminé</span></td>
+                              <td><i class="ph-fill ph-file-text text-blue mr-5"></i> Notes_Intro.txt</td>
+                              <td>
+                                 <div class="progress-bar-container">
+                                   <div class="progress-bar-fill bg-green" style="width: 100%"></div>
+                                 </div>
+                                 <div class="space-between mt-5 small muted tech-font"><span>45 cartes générées</span><span>100%</span></div>
+                              </td>
+                              <td class="tech-font text-muted">1,240</td>
+                              <td><button class="btn-icon small"><i class="ph ph-eye"></i></button></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- BOTTOM ROW: Terminal -->
+                <div class="ide-panel terminal-glow flex-col" style="height: 250px; border: 1px solid rgba(59, 130, 246, 0.4); flex-shrink: 0;">
+                  <div class="ide-tabs space-between pr-10" style="background: #0f111a;">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active code-font" style="background: transparent; color: #fff; box-shadow: none;">
+                        <i class="ph ph-terminal-window text-blue"></i> root@ankiforge:~/pipeline_logs
+                      </button>
+                    </div>
+                    <div class="toolbar gap-5">
+                      <button class="btn-icon small text-muted hover-text-primary" title="Clear"><i class="ph ph-trash"></i></button>
+                      <button class="btn-icon small text-muted hover-text-primary" title="Scroll Lock"><i class="ph ph-lock-key"></i></button>
+                    </div>
+                  </div>
+                  <div class="ide-panel-content flex-col p-0 h-full" style="background-color: #0c0c0c; font-family: 'Fira Code', monospace; font-size: 12px; line-height: 1.6; padding: 12px; overflow-y: auto;">
+                    <div class="log-line text-muted">[2026-07-18 17:50:01] <span class="text-blue bold">INFO</span> Pipeline worker initialized.</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:02] <span class="text-blue bold">INFO</span> Starting build job #4092 for 'Cours_Cardio_Part1.pdf'</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:05] <span class="text-blue bold">INFO</span> [Step 1/4] Extracting text... [PDF Parsed: 14 pages]</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:10] <span class="text-yellow bold">WARN</span> Page 7 contains complex diagrams. Vision model will be used.</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:15] <span class="text-blue bold">INFO</span> [Step 2/4] Sending chunks to Claude 3.5 Sonnet (Est. tokens: 25k)</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:28] <span class="text-blue bold">INFO</span> Received 15 flashcards from Chunk 1.</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:35] <span class="text-green bold">SUCCESS</span> Chunk 1 validated by Linter Agent.</div>
+                    <div class="log-line text-muted">[2026-07-18 17:50:40] <span class="text-blue bold" style="color: #6366f1;">>_</span> Awaiting response for Chunk 2<span class="blink" style="color: #6366f1;">_</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : BATCH FACTORY - KANBAN -->
+            <div class="view hidden" id="view-batch-factory-kanban">
+              <div class="kanban-board flex-1 flex-row gap-10 h-full" style="padding-bottom: 10px; overflow-x: auto;">
+                <!-- Column 1 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active">À traiter (Sources) <span class="badge">0</span></div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone">
+                    <button class="btn btn-secondary w-full border-dashed"><i class="ph ph-plus"></i> Ajouter Document</button>
+                  </div>
+                </div>
+                <!-- Column 2 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active">En Cours (IA) <i class="ph ph-spinner-gap spin ml-5"></i></div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone" style="background: rgba(59, 130, 246, 0.05);">
+                    <div class="text-center muted mt-20"><i class="ph ph-robot" style="font-size: 24px;"></i><br>Déposez une tâche ici pour lancer l'IA</div>
+                  </div>
+                </div>
+                <!-- Column 3 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active text-yellow">Validation Requise</div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone" style="background: rgba(245, 158, 11, 0.05);">
+                  </div>
+                </div>
+                <!-- Column 4 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active text-green">Terminé (Prêt Anki)</div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone" style="background: rgba(16, 185, 129, 0.05);">
+                    <button class="btn btn-primary w-full mt-auto" style="background-color: #10b981;"><i class="ph ph-export"></i> Exporter vers Anki</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : BATCH FACTORY - WIZARD -->
+            <div class="view hidden" id="view-batch-factory-wizard">
+              <div class="center-content h-full w-full">
+                <div class="ide-panel flex-col wizard-panel glass-panel" style="width: 800px; height: 600px; border-radius: var(--radius-lg); box-shadow: var(--shadow-glass);">
+                  <div class="wizard-header space-between p-20 border-bottom">
+                    <h2><i class="ph ph-magic-wand text-blue"></i> Assistant de Création</h2>
+                    <div class="wizard-steps flex-row gap-10">
+                      <div class="step active"><span class="step-num">1</span> Source</div>
+                      <div class="step-line"></div>
+                      <div class="step"><span class="step-num">2</span> IA & Config</div>
+                      <div class="step-line"></div>
+                      <div class="step"><span class="step-num">3</span> Terminer</div>
+                    </div>
+                  </div>
+                  <div class="wizard-body flex-grow p-20 flex-col center-content text-center">
+                    <div class="upload-zone outline mb-20 flex-col center-content" style="width: 100%; height: 250px; border-radius: var(--radius-md); border-style: dashed; border-width: 2px;">
+                      <i class="ph ph-upload-simple text-blue" style="font-size: 48px; margin-bottom: 15px;"></i>
+                      <h3>Glissez-déposez vos documents ici</h3>
+                      <p class="muted mt-10">PDF, TXT, DOCX, ou dossiers complets supportés.</p>
+                      <button class="btn btn-secondary mt-20"><i class="ph ph-folder-open"></i> Parcourir</button>
+                    </div>
+                  </div>
+                  <div class="wizard-footer space-between p-20 border-top">
+                    <button class="btn btn-secondary" disabled>Retour</button>
+                    <button class="btn btn-primary px-20">Suivant <i class="ph ph-caret-right"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : AGENTS -->
+            <div class="view" id="view-agents">
+              <div class="split-view flex-1" style="gap: 12px; height: 100%">
+                <div class="ide-panel" style="width: 250px">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button
+                        class="ide-tab active"
+                        data-target="tab-agents-list"
+                      >
+                        <i class="ph ph-users"></i> Agents IA
+                      </button>
+                    </div>
+                    <button
+                      class="btn-icon small detach-btn"
+                      style="margin-left: auto; margin-right: 4px"
+                      title="Détacher"
+                    >
+                      <i class="ph ph-arrow-up-right"></i>
+                    </button>
+                  </div>
+                  <div class="ide-panel-content">
+                    <div
+                      id="tab-agents-list"
+                      class="sub-pane active flex-col h-full"
+                    >
+                      <div class="list-area flex-grow mt-10">
+                        <div class="list-item active">Linter & Qualité</div>
+                        <div class="list-item">Archiviste</div>
+                        <div class="list-item">Générateur QA</div>
+                      </div>
+                      <div class="toolbar gap-5 mt-10 border-top pt-10">
+                        <button class="btn btn-secondary flex-1 small">
+                          <i class="ph ph-plus"></i> Nouveau
+                        </button>
+                        <button class="btn btn-danger ghost flex-1 small">
+                          <i class="ph ph-trash"></i> Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="ide-panel flex-1">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button
+                        class="ide-tab active"
+                        data-target="tab-agents-editor"
+                      >
+                        <i class="ph ph-robot"></i> Éditeur d'Agents IA
+                      </button>
+                    </div>
+                    <button class="btn-icon small detach-btn" title="Détacher">
+                      <i class="ph ph-arrow-up-right"></i>
+                    </button>
+                  </div>
+                  <div class="ide-panel-content">
+                    <div
+                      id="tab-agents-editor"
+                      class="sub-pane active flex-col h-full"
+                    >
+                      <div class="form-group">
+                        <label>Nom de l'Agent :</label
+                        ><input
+                          type="text"
+                          class="input-element"
+                          value="Linter Qualité"
+                        />
+                      </div>
+                      <div class="form-group mt-10 flex-grow flex-col">
+                        <label>Prompt Jinja2 :</label>
+                        <textarea
+                          class="textarea-element w-full code-font flex-grow"
+                          style="resize: none"
+                        >
+Tu es un expert...</textarea>
+                      </div>
+                      <div class="form-group mt-10">
+                        <label>Format de sortie :</label
+                        ><select class="input-element">
+                          <option>JSON Strict</option>
+                        </select>
+                      </div>
+                      <div class="toolbar right mt-20">
+                        <button class="btn btn-primary glow-btn-primary ml-auto">
+                          <i class="ph ph-floppy-disk"></i> Sauvegarder
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : PIPELINES -->
+            <div class="view" id="view-pipelines">
+              <div
+                class="split-view flex-1"
+                style="justify-content: center; padding: 20px; height: 100%"
+              >
+                <div
+                  class="ide-panel flex-col w-full"
+                  style="max-width: 800px; height: fit-content"
+                >
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button
+                        class="ide-tab active"
+                        data-target="tab-pipelines"
+                      >
+                        <i class="ph ph-git-merge"></i> Pipelines de Génération
+                      </button>
+                    </div>
+                  </div>
+                  <div class="ide-panel-content">
+                    <div
+                      id="tab-pipelines"
+                      class="sub-pane active flex-col h-full"
+                    >
+                      <div class="form-group">
+                        <label>Pipeline Actif :</label
+                        ><select class="input-element">
+                          <option>Excellence (Standard)</option>
+                        </select>
+                      </div>
+                      <div
+                        class="list-area mt-20 p-10"
+                        style="
+                          border-radius: var(--radius-sm);
+                          min-height: 200px;
+                          border: 1px solid var(--border-color);
+                          background: var(--bg-secondary);
+                        "
+                      >
+                        <div
+                          class="list-item"
+                          style="
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-color);
+                            margin-bottom: 8px;
+                            border-radius: var(--radius-sm);
+                            padding: 12px;
+                          "
+                        >
+                          <i
+                            class="ph ph-dots-six-vertical text-muted mr-10"
+                          ></i>
+                          1. Archiviste (Extraction)
+                        </div>
+                        <div
+                          class="list-item"
+                          style="
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-color);
+                            margin-bottom: 8px;
+                            border-radius: var(--radius-sm);
+                            padding: 12px;
+                          "
+                        >
+                          <i
+                            class="ph ph-dots-six-vertical text-muted mr-10"
+                          ></i>
+                          2. Générateur QA
+                        </div>
+                        <div
+                          class="list-item"
+                          style="
+                            background: var(--bg-primary);
+                            border: 1px solid var(--border-color);
+                            margin-bottom: 8px;
+                            border-radius: var(--radius-sm);
+                            padding: 12px;
+                          "
+                        >
+                          <i
+                            class="ph ph-dots-six-vertical text-muted mr-10"
+                          ></i>
+                          3. Linter (Validation)
+                        </div>
+                      </div>
+                      <div class="toolbar mt-20 space-between">
+                        <select class="input-element flex-grow">
+                          <option>Ajouter un Agent à la chaîne...</option>
+                        </select>
+                        <button class="btn btn-secondary ml-10">
+                          <i class="ph ph-plus"></i> Ajouter
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : AB TESTS -->
+            <div class="view" id="view-ab-tests">
+              <div class="split-view flex-1" style="gap: 15px; overflow: hidden; padding-top: 15px;">
+                <div class="ide-panel flex-1 flex-col">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active"><i class="ph ph-scales"></i> Laboratoire A/B</button>
+                    </div>
+                    <div class="toolbar" style="padding: 0 12px; border-right: 1px solid var(--border-color); margin-right: 8px;">
+                      <button class="btn btn-primary glow-btn-green small" style="background-color: #10b981; border-color: #10b981; color: white;"><i class="ph-fill ph-play"></i> Lancer</button>
+                    </div>
+                    <button class="btn-icon small detach-btn" title="Détacher">
+                      <i class="ph ph-arrow-up-right"></i>
+                    </button>
+                  </div>
+                  
+                  <div class="ide-panel-content flex-col flex-grow p-15 gap-15 view-scrollable">
+                    <!-- HEADER BAR (Config) -->
+                    <div class="toolbar gap-15 flex-wrap p-10 outline" style="border-radius: var(--radius-md); background: var(--bg-panel); flex-shrink: 0;">
+                      <div class="toolbar gap-5">
+                        <label class="muted small bold">Mode :</label>
+                        <select class="input-element small">
+                          <option>Comparer deux Moteurs IA</option>
+                        </select>
+                      </div>
+                      <div class="toolbar gap-5">
+                        <label class="muted small bold">Prompt/Pipe :</label>
+                        <select class="input-element small">
+                          <option>[Agent] Archiviste Pédagogue</option>
+                        </select>
+                      </div>
+                      <div class="toolbar gap-5">
+                        <label class="muted small bold">Modèle :</label>
+                        <select class="input-element small">
+                          <option>Informatique</option>
+                        </select>
+                      </div>
+                      <div style="flex-grow: 1;"></div>
+                      <div class="toolbar gap-10">
+                        <button class="btn btn-secondary small">Carte informatique</button>
+                        <button class="btn btn-secondary small">Voir Recto</button>
+                      </div>
+                    </div>
+
+                    <!-- TEXTE SOURCE -->
+                    <div class="ide-panel flex-col" style="flex-shrink: 0; height: 120px;">
+                      <div class="ide-tabs p-10 border-bottom" style="background: var(--bg-panel); border-radius: var(--radius-md) var(--radius-md) 0 0; border: none; min-height: auto;">
+                        <span class="muted small bold uppercase ml-5">Texte Source :</span>
+                      </div>
+                      <div class="ide-panel-content p-0 h-full">
+                        <textarea class="textarea-element w-full h-full" style="resize: none; border: none; background: transparent; padding: 12px; font-size: 14px; box-shadow: none;" placeholder="Collez ici l'extrait de cours à tester..."></textarea>
+                      </div>
+                    </div>
+
+                    <!-- DOUBLE EDITEUR POUR COMPARER -->
+                    <div class="split-view flex-1" style="gap: 12px; min-height: 300px;">
+                      
+                      <!-- ENGINE A -->
+                      <div class="ide-panel flex-col flex-1">
+                        <div class="toolbar p-10 border-bottom gap-10" style="background: var(--bg-panel);">
+                          <label class="muted small bold">Moteur A :</label>
+                          <select class="input-element small flex-grow">
+                            <option>Claude 3.5 Sonnet</option>
+                          </select>
+                        </div>
+                        <div class="ide-tabs" style="border-bottom: 1px solid var(--border-color);">
+                          <div class="ide-tabs-list">
+                            <button class="ide-tab active"><i class="ph ph-eye"></i> Rendu Cartes</button>
+                            <button class="ide-tab"><i class="ph ph-code"></i> JSON Brut</button>
+                          </div>
+                        </div>
+                        <div class="toolbar p-10 space-between border-bottom" style="background: var(--bg-secondary);">
+                          <button class="btn-icon small"><i class="ph ph-caret-left"></i></button>
+                          <span class="tech-font small bold muted">0 / 0</span>
+                          <button class="btn-icon small"><i class="ph ph-caret-right"></i></button>
+                        </div>
+                        <div class="ide-panel-content p-0 flex-1 flex-col center-content" style="background: var(--bg-main);">
+                          <!-- Empty area where cards will be rendered -->
+                          <i class="ph ph-cursor-click text-muted" style="font-size: 48px; opacity: 0.1;"></i>
+                        </div>
+                      </div>
+
+                      <!-- ENGINE B -->
+                      <div class="ide-panel flex-col flex-1">
+                        <div class="toolbar p-10 border-bottom gap-10" style="background: var(--bg-panel);">
+                          <label class="muted small bold">Moteur B :</label>
+                          <select class="input-element small flex-grow">
+                            <option>Claude 3.5 Sonnet</option>
+                          </select>
+                        </div>
+                        <div class="ide-tabs" style="border-bottom: 1px solid var(--border-color);">
+                          <div class="ide-tabs-list">
+                            <button class="ide-tab active"><i class="ph ph-eye"></i> Rendu Cartes</button>
+                            <button class="ide-tab"><i class="ph ph-code"></i> JSON Brut</button>
+                          </div>
+                        </div>
+                        <div class="toolbar p-10 space-between border-bottom" style="background: var(--bg-secondary);">
+                          <button class="btn-icon small"><i class="ph ph-caret-left"></i></button>
+                          <span class="tech-font small bold muted">0 / 0</span>
+                          <button class="btn-icon small"><i class="ph ph-caret-right"></i></button>
+                        </div>
+                        <div class="ide-panel-content p-0 flex-1 flex-col center-content" style="background: var(--bg-main);">
+                          <i class="ph ph-cursor-click text-muted" style="font-size: 48px; opacity: 0.1;"></i>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div id="omnibox-modal" class="modal-overlay hidden" onclick="closeModals(event)">
-        <div class="mac-spotlight">
-            <i class="ph ph-magnifying-glass spotlight-icon"></i>
-            <input type="text" placeholder="Recherche Spotlight..." autofocus>
-        </div>
-    </div>
-
+    
     <script src="app.js"></script>
 </body>
 </html>
