@@ -1,21 +1,34 @@
-from PySide6.QtWidgets import QLabel, QPushButton, QWidget
-from PySide6.QtCore import Signal
-from ..theme import DesignTokens
+from PySide6.QtWidgets import QLabel, QPushButton, QWidget, QHBoxLayout
+from PySide6.QtCore import Signal, Qt
+from ankiforge.ui.theme import DesignTokens
 
 
 class Badge(QLabel):
     """Pill badge. Variantes: filled, outline, status, glass."""
 
-    def __init__(self, text: str, variant: str = "filled", color: str = "", parent: QWidget | None = None):
+    def __init__(self, text: str, variant: str = "filled", color: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
-        base_color = color if color else DesignTokens.ACCENT_PRIMARY
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        base_color = color or DesignTokens.ACCENT_PRIMARY
+
+        style = """
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: bold;
+        """
 
         if variant == "filled":
-            self.setStyleSheet(f"background-color: {base_color}; color: #ffffff; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;")
+            style += f"background-color: {base_color}; color: #ffffff;"
         elif variant == "outline":
-            self.setStyleSheet(f"background-color: transparent; color: {base_color}; border: 1px solid {base_color}; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;")
+            style += f"background-color: transparent; border: 1px solid {base_color}; color: {base_color};"
         elif variant == "status":
-            self.setStyleSheet(f"background-color: rgba(16, 185, 129, 0.1); color: {DesignTokens.COLOR_GREEN}; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;")
+            style += f"background-color: rgba(99, 102, 241, 0.1); color: {base_color}; border: 1px solid rgba(99, 102, 241, 0.2);"
+        elif variant == "glass":
+            style += "background-color: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2);"
+
+        self.setStyleSheet(style)
 
 
 class TagButton(QPushButton):
@@ -23,19 +36,43 @@ class TagButton(QPushButton):
 
     removed = Signal(str)
 
-    def __init__(self, text: str, removable: bool = False, parent: QWidget | None = None):
-        super().__init__(text, parent)
-        self._text = text
+    def __init__(self, text: str, removable: bool = False, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.tag_text = text
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(4)
+
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"""
+            color: {DesignTokens.ACCENT_PRIMARY};
+            font-family: "{DesignTokens.FONT_CODE}";
+            font-size: 11px;
+        """)
+        layout.addWidget(lbl)
+
+        if removable:
+            del_lbl = QLabel("×")
+            del_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 14px;")
+            layout.addWidget(del_lbl)
+
         self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: rgba(99, 102, 241, 0.1);
-                color: {DesignTokens.ACCENT_PRIMARY};
+            TagButton {{
+                background-color: {DesignTokens.BG_ACTIVE};
                 border: 1px solid rgba(99, 102, 241, 0.2);
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 8px;
-                font-family: {DesignTokens.FONT_CODE};
-                font-size: 11px;
+                border-radius: 12px;
+            }}
+            TagButton:hover {{
+                background-color: rgba(99, 102, 241, 0.15);
+                border: 1px solid rgba(99, 102, 241, 0.4);
             }}
         """)
-        if removable:
-            self.clicked.connect(lambda: self.removed.emit(self._text))
+
+    def mouseReleaseEvent(self, event) -> None:
+        from PySide6.QtGui import QMouseEvent
+
+        if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
+            self.removed.emit(self.tag_text)
+        super().mouseReleaseEvent(event)

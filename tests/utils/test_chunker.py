@@ -7,7 +7,7 @@ from ankiforge.utils.chunker import (
 
 def test_protected_intervals_detection():
     """Vérifie que les blocs Markdown et LaTeX sont bien repérés."""
-    text = "Voici du texte normal.\n" "```python\nprint('Hello')\n```\n" "Et une équation:\n" "$$\nE=mc^2\n$$\n" "Fin."
+    text = "Voici du texte normal.\n```python\nprint('Hello')\n```\nEt une équation:\n$$\nE=mc^2\n$$\nFin."
     intervals = _get_protected_intervals(text)
 
     assert len(intervals) == 2

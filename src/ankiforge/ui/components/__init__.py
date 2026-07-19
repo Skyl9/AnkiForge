@@ -5,8 +5,7 @@ from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, 
 from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem
 from .badges import Badge, TagButton
 from .tables import StyledTableWidget, CicdTable
-from .misc import UserAvatar, StyledToolbar, DaemonStatusWidget, ProgressBarWidget, DropZone
-from .code_editor import CodeEditorWidget
+from .misc import UserAvatar, StyledToolbar, DaemonStatusWidget
 
 __all__ = [
     "PrimaryButton",
@@ -37,7 +36,4 @@ __all__ = [
     "UserAvatar",
     "StyledToolbar",
     "DaemonStatusWidget",
-    "ProgressBarWidget",
-    "DropZone",
-    "CodeEditorWidget",
 ]

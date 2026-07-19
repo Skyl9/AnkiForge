@@ -1,40 +1,72 @@
 from PySide6.QtWidgets import QLineEdit, QPlainTextEdit, QWidget, QComboBox
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QPainter, QColor
-from ..theme import DesignTokens
+from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve, Property
+from PySide6.QtGui import QPainter, QColor, QPaintEvent
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 
 
 class StyledLineEdit(QLineEdit):
     """Input avec style design system. Focus = glow indigo."""
 
-    pass
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(36)
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 0 12px;
+                font-family: "{DesignTokens.FONT_MAIN}";
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
 
 
 class StyledTextEdit(QPlainTextEdit):
     """Textarea avec style design system."""
 
-    pass
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 8px 12px;
+                font-family: "{DesignTokens.FONT_CODE}";
+            }}
+            QPlainTextEdit:focus {{
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
 
 
 class GlowLineEdit(QLineEdit):
     """Input avec glow accentué au focus. Usage: recherche, omnibox."""
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setFixedHeight(40)
         self.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 10px 16px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 0 16px;
                 font-size: 14px;
+                font-family: "{DesignTokens.FONT_MAIN}";
             }}
             QLineEdit:focus {{
                 border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_MAIN};
+                background-color: {DesignTokens.BG_PANEL};
             }}
         """)
+        apply_shadow(self, blur=8, offset_y=2)
 
 
 class ToggleSwitch(QWidget):
@@ -42,38 +74,85 @@ class ToggleSwitch(QWidget):
 
     toggled = Signal(bool)
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(36, 20)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._checked = False
+        self._thumb_pos = 2
+
+        self.anim = QPropertyAnimation(self, b"thumb_pos")
+        self.anim.setDuration(150)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
 
     def is_checked(self) -> bool:
         return self._checked
 
     def set_checked(self, checked: bool) -> None:
+        if self._checked == checked:
+            return
         self._checked = checked
-        self.update()
+        self.anim.setEndValue(18 if self._checked else 2)
+        self.anim.start()
         self.toggled.emit(self._checked)
 
-    def mousePressEvent(self, event):
-        self.set_checked(not self._checked)
-        super().mousePressEvent(event)
+    def get_thumb_pos(self) -> int:
+        return self._thumb_pos
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    def set_thumb_pos(self, pos: int) -> None:
+        self._thumb_pos = pos
+        self.update()
 
-        bg_color = QColor(DesignTokens.ACCENT_PRIMARY) if self._checked else QColor(DesignTokens.BORDER_COLOR)
-        painter.setBrush(bg_color)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(0, 0, self.width(), self.height(), 10, 10)
+    thumb_pos = Property(int, get_thumb_pos, set_thumb_pos)
 
-        painter.setBrush(QColor("#ffffff"))
-        x_pos = self.width() - 18 if self._checked else 2
-        painter.drawEllipse(x_pos, 2, 16, 16)
+    def mouseReleaseEvent(self, event) -> None:
+        from PySide6.QtGui import QMouseEvent
+
+        if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
+            self.set_checked(not self._checked)
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        bg_color = QColor(DesignTokens.ACCENT_PRIMARY) if self._checked else QColor(DesignTokens.BG_INPUT)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(bg_color)
+        p.drawRoundedRect(0, 0, self.width(), self.height(), 10, 10)
+
+        p.setBrush(QColor("#ffffff"))
+        p.drawEllipse(self._thumb_pos, 2, 16, 16)
 
 
 class StyledComboBox(QComboBox):
     """ComboBox avec style design system."""
 
-    pass
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(36)
+        self.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 0 12px;
+                font-family: "{DesignTokens.FONT_MAIN}";
+            }}
+            QComboBox::drop-down {{
+                border: none;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+            }}
+            QComboBox:focus {{
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                selection-background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)

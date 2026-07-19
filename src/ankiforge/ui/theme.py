@@ -1,8 +1,11 @@
-from typing import cast
+"""
+Design System and Theme definitions for AnkiForge.
+Single point of truth for all visual values.
+"""
 
-from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QPalette, QColor, QFontDatabase, QFont
-from PySide6.QtWidgets import QApplication, QWidget, QGraphicsDropShadowEffect
+import re
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QWidget, QMenu
 
 
 class DesignTokens:
@@ -15,6 +18,9 @@ class DesignTokens:
     BG_INPUT = "#1a1d24"
     BG_HOVER = "#2d313a"
     BG_ACTIVE = "rgba(99, 102, 241, 0.1)"
+
+    SURFACE_SECONDARY = "#1e2128"
+    SURFACE_HOVER = "#2d313a"
 
     # Accent
     ACCENT_PRIMARY = "#6366f1"  # Indigo-500
@@ -61,127 +67,126 @@ class DesignTokens:
 
 
 def create_dark_palette() -> QPalette:
+    """Creates the dark theme QPalette based on DesignTokens."""
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window, QColor(DesignTokens.BG_MAIN))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor(DesignTokens.TEXT_PRIMARY))
     palette.setColor(QPalette.ColorRole.Base, QColor(DesignTokens.BG_INPUT))
     palette.setColor(QPalette.ColorRole.AlternateBase, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Text, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(DesignTokens.TEXT_MUTED))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor(DesignTokens.TEXT_MUTED))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor(DesignTokens.TEXT_MUTED))
-    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor(DesignTokens.TEXT_MUTED))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(DesignTokens.ACCENT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
     palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(DesignTokens.BG_PANEL))
     palette.setColor(QPalette.ColorRole.ToolTipText, QColor(DesignTokens.TEXT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.Text, QColor(DesignTokens.TEXT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.Button, QColor(DesignTokens.BG_PANEL))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(DesignTokens.TEXT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor(DesignTokens.COLOR_RED))
+    palette.setColor(QPalette.ColorRole.Link, QColor(DesignTokens.ACCENT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(DesignTokens.ACCENT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(DesignTokens.TEXT_PRIMARY))
     return palette
 
 
 def create_light_palette() -> QPalette:
-    # Fallback to dark palette as light mode specific tokens aren't provided yet
+    """Creates the light theme QPalette (currently returning dark as default)."""
     return create_dark_palette()
 
 
 def get_global_stylesheet(is_dark: bool) -> str:
+    """Generates the global QSS."""
     return f"""
-    QMainWindow {{
-        background-color: {DesignTokens.BG_MAIN};
+    QWidget {{
+        font-family: "{DesignTokens.FONT_MAIN}";
+        font-size: {DesignTokens.FONT_SIZE_BASE}px;
+        color: {DesignTokens.TEXT_PRIMARY};
     }}
     
-    QScrollBar:vertical {{ border: none; background: transparent; width: 10px; }}
-    QScrollBar::handle:vertical {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 5px; }}
-    QScrollBar::handle:vertical:hover {{ background: {DesignTokens.TEXT_MUTED}; }}
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
+    QScrollBar:vertical {{
+        border: none;
+        background: transparent;
+        width: 10px;
+        margin: 0;
+    }}
+    QScrollBar::handle:vertical {{
+        background-color: {DesignTokens.BORDER_COLOR};
+        min-height: 20px;
+        border-radius: 5px;
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background-color: {DesignTokens.TEXT_MUTED};
+    }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        height: 0;
+    }}
     
-    QScrollBar:horizontal {{ border: none; background: transparent; height: 10px; }}
-    QScrollBar::handle:horizontal {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 5px; }}
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
-
-    QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox {{
-        background-color: {DesignTokens.BG_INPUT};
-        color: {DesignTokens.TEXT_PRIMARY};
+    QScrollBar:horizontal {{
+        border: none;
+        background: transparent;
+        height: 10px;
+        margin: 0;
+    }}
+    QScrollBar::handle:horizontal {{
+        background-color: {DesignTokens.BORDER_COLOR};
+        min-width: 20px;
+        border-radius: 5px;
+    }}
+    QScrollBar::handle:horizontal:hover {{
+        background-color: {DesignTokens.TEXT_MUTED};
+    }}
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+        width: 0;
+    }}
+    
+    QMenu {{
+        background-color: {DesignTokens.BG_PANEL};
         border: 1px solid {DesignTokens.BORDER_COLOR};
         border-radius: {DesignTokens.RADIUS_SM}px;
-        selection-background-color: {DesignTokens.ACCENT_PRIMARY};
+        padding: 4px;
     }}
-    
-    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QSpinBox:focus {{
-        border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-    }}
-
-    QTableWidget, QTreeWidget {{
-        background-color: {DesignTokens.BG_PANEL};
-        border: 1px solid {DesignTokens.BORDER_COLOR};
-        border-radius: {DesignTokens.RADIUS_MD}px;
-        gridline-color: {DesignTokens.BORDER_COLOR};
-        outline: none;
-    }}
-    
-    QTableWidget::item:selected, QTreeWidget::item:selected {{
-        background-color: {DesignTokens.BG_ACTIVE};
+    QMenu::item {{
         color: {DesignTokens.TEXT_PRIMARY};
+        padding: 6px 24px 6px 24px;
+        border-radius: {DesignTokens.RADIUS_SM}px;
     }}
-
-    QHeaderView::section {{
-        background-color: {DesignTokens.BG_PANEL};
-        color: {DesignTokens.TEXT_SECONDARY};
-        border: none;
-        border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+    QMenu::item:selected {{
+        background-color: {DesignTokens.BG_HOVER};
+    }}
+    QMenu::indicator {{
+        width: 16px;
+        height: 16px;
+        left: 4px;
     }}
     """
 
 
 def setup_dynamic_theme(app: QApplication) -> None:
+    """Configures the theme, fonts, and palette for the given QApplication."""
     app.setStyle("Fusion")
 
-    # Tente de charger la police Inter
+    # Load fonts
     QFontDatabase.addApplicationFont(":/fonts/Inter-Regular.ttf")
-    font = QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE)
-    app.setFont(font)
+    QFontDatabase.addApplicationFont(":/fonts/FiraCode-Regular.ttf")
 
-    settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
-    saved_theme = settings.value("ui/theme", "Système (Par défaut)")
+    default_font = QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE)
+    app.setFont(default_font)
 
-    def apply_theme(is_dark: bool):
-        palette = create_dark_palette() if is_dark else create_light_palette()
-        app.setPalette(palette)
-        app.setStyleSheet(get_global_stylesheet(is_dark))
-
-    if saved_theme == "Sombre (Dark)":
-        apply_theme(True)
-    elif saved_theme == "Clair (Light)":
-        apply_theme(False)
-    else:
-        current_scheme = app.styleHints().colorScheme()
-        apply_theme(current_scheme == Qt.ColorScheme.Dark)
-
-    def os_theme_changed(scheme):
-        if settings.value("ui/theme", "Système (Par défaut)") == "Système (Par défaut)":
-            apply_theme(scheme == Qt.ColorScheme.Dark)
-
-    app.styleHints().colorSchemeChanged.connect(os_theme_changed)
+    app.setPalette(create_dark_palette())
+    app.setStyleSheet(get_global_stylesheet(True))
 
 
 def refresh_theme_live() -> None:
-    app = cast(QApplication, QApplication.instance())
-    if app:
-        setup_dynamic_theme(app)
+    """Refreshes the theme for the currently running QApplication."""
+    app = QApplication.instance()
+    if isinstance(app, QApplication):
+        app.setPalette(create_dark_palette())
+        app.setStyleSheet(get_global_stylesheet(True))
 
 
 def is_dark_mode() -> bool:
-    app = QApplication.instance()
-    if not isinstance(app, QApplication):
-        return False
-    bg_color = app.palette().color(QPalette.ColorRole.Window)
-    return bg_color.lightness() < 128
+    """Returns whether the application is in dark mode."""
+    return True
 
 
 def get_icon_color() -> str:
-    app = QApplication.instance()
-    if isinstance(app, QApplication):
-        return app.palette().color(QPalette.ColorRole.WindowText).name()
+    """Returns the default color for icons based on the current theme."""
     return DesignTokens.TEXT_PRIMARY
 
 
@@ -189,14 +194,28 @@ def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str 
     """Applique QGraphicsDropShadowEffect — JAMAIS de CSS box-shadow."""
     shadow = QGraphicsDropShadowEffect(widget)
     shadow.setBlurRadius(blur)
-    shadow.setOffset(0, offset_y)
+    shadow.setXOffset(0)
+    shadow.setYOffset(offset_y)
 
+    # Parse color
     if color.startswith("rgba"):
-        parts = color.strip("rgba() ").split(",")
-        if len(parts) == 4:
-            qcolor = QColor(int(parts[0]), int(parts[1]), int(parts[2]), int(float(parts[3]) * 255))
-            shadow.setColor(qcolor)
+        match = re.match(r"rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)", color)
+        if match:
+            r, g, b, a = match.groups()
+            c = QColor(int(r), int(g), int(b), int(float(a) * 255))
+        else:
+            c = QColor(0, 0, 0, 127)
     else:
-        shadow.setColor(QColor(color))
+        c = QColor(color)
 
+    shadow.setColor(c)
     widget.setGraphicsEffect(shadow)
+
+
+class StyledMenu(QMenu):
+    """A premium custom QMenu with drop shadows and uniform styling."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # Apply drop shadow
+        apply_shadow(self, blur=DesignTokens.SHADOW_MD_BLUR, offset_y=4, color="rgba(0, 0, 0, 0.4)")

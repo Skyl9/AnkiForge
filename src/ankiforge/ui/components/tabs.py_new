@@ -1,0 +1,244 @@
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QButtonGroup, 
+    QScrollArea, QApplication, QFrame
+)
+from PySide6.QtCore import Signal, Qt, QMimeData, QPoint, QPropertyAnimation
+from PySide6.QtGui import QDrag, QDropEvent, QDragEnterEvent, QDragMoveEvent, QMouseEvent, QPainter, QColor, QPen
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.icon_loader import load_phosphor_icon
+
+class TabButton(QPushButton):
+    """Bouton d'onglet draggable."""
+    def __init__(self, title: str, icon_name: str = "", parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setText(f" {title}" if icon_name else title)
+        if icon_name:
+            self.setProperty("icon_name", icon_name)
+            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
+        self.setCheckable(True)
+        self.setFixedHeight(36)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(f"""
+            TabButton {{
+                background-color: {DesignTokens.SURFACE_SECONDARY};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: none;
+                border-top: 2px solid transparent;
+                padding: 0 12px;
+                font-family: "{DesignTokens.FONT_MAIN}";
+                font-size: {DesignTokens.FONT_SIZE_BASE}px;
+            }}
+            TabButton:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {DesignTokens.SURFACE_HOVER};
+            }}
+            TabButton:checked {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: transparent;
+            }}
+        """)
+        self._drag_start_pos = QPoint()
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start_pos = event.position().toPoint()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return super().mouseMoveEvent(event)
+        
+        distance = (event.position().toPoint() - self._drag_start_pos).manhattanLength()
+        if distance > QApplication.startDragDistance():
+            drag = QDrag(self)
+            mime_data = QMimeData()
+            
+            # Store tab index
+            container = self.parentWidget()
+            if hasattr(container, 'layout'):
+                layout = container.layout()
+                index = layout.indexOf(self)
+                mime_data.setText(str(index))
+                
+            drag.setMimeData(mime_data)
+            drag.exec(Qt.DropAction.MoveAction)
+        super().mouseMoveEvent(event)
+
+class TabContainer(QWidget):
+    """Conteneur qui gère le drag & drop des onglets."""
+    tab_reordered = Signal(int, int) # from_index, to_index
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.layout_h = QHBoxLayout(self)
+        self.layout_h.setContentsMargins(0, 0, 0, 0)
+        self.layout_h.setSpacing(4)
+        self.layout_h.addStretch()
+        self._drop_index = -1
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasText() and event.source() in self.findChildren(TabButton):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        if event.mimeData().hasText():
+            pos = event.position().toPoint()
+            # Calculate insertion index based on X
+            self._drop_index = 0
+            for i in range(self.layout_h.count() - 1): # Exclude stretch
+                item = self.layout_h.itemAt(i)
+                if item and item.widget():
+                    w = item.widget()
+                    if pos.x() > w.x() + w.width() / 2:
+                        self._drop_index = i + 1
+            event.acceptProposedAction()
+            self.update() # Trigger paint event for indicator
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self._drop_index = -1
+        self.update()
+
+    def dropEvent(self, event: QDropEvent):
+        if event.mimeData().hasText():
+            from_index = int(event.mimeData().text())
+            to_index = self._drop_index
+            if from_index != to_index and from_index != to_index - 1:
+                # Adjust if moving right, because the from_index widget is removed before inserting
+                if to_index > from_index:
+                    to_index -= 1
+                self.tab_reordered.emit(from_index, to_index)
+            self._drop_index = -1
+            self.update()
+            event.acceptProposedAction()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self._drop_index >= 0:
+            painter = QPainter(self)
+            pen = QPen(QColor(DesignTokens.ACCENT_PRIMARY))
+            pen.setWidth(2)
+            painter.setPen(pen)
+            x = 0
+            if self._drop_index < self.layout_h.count() - 1:
+                item = self.layout_h.itemAt(self._drop_index)
+                if item and item.widget():
+                    x = item.widget().x() - 2
+            else:
+                item = self.layout_h.itemAt(self.layout_h.count() - 2)
+                if item and item.widget():
+                    x = item.widget().x() + item.widget().width() + 2
+            
+            painter.drawLine(x, 0, x, self.height())
+
+
+class ScrollableTabBarWidget(QWidget):
+    """Barre d'onglets scrollable avec drag & drop."""
+    tab_changed = Signal(int)
+    tab_reordered = Signal(int, int)
+    tab_close_requested = Signal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(36)
+        
+        self.layout_main = QHBoxLayout(self)
+        self.layout_main.setContentsMargins(0, 0, 0, 0)
+        self.layout_main.setSpacing(0)
+        
+        # Left Arrow
+        self.btn_left = QPushButton("<")
+        self.btn_left.setFixedSize(24, 36)
+        self.btn_left.setFlat(True)
+        self.btn_left.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
+        self.btn_left.clicked.connect(self._scroll_left)
+        self.btn_left.hide()
+        
+        # Right Arrow
+        self.btn_right = QPushButton(">")
+        self.btn_right.setFixedSize(24, 36)
+        self.btn_right.setFlat(True)
+        self.btn_right.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
+        self.btn_right.clicked.connect(self._scroll_right)
+        self.btn_right.hide()
+
+        # Scroll Area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        # Tab Container
+        self.container = TabContainer()
+        self.scroll_area.setWidget(self.container)
+
+        self.layout_main.addWidget(self.btn_left)
+        self.layout_main.addWidget(self.scroll_area)
+        self.layout_main.addWidget(self.btn_right)
+
+        self.btn_group = QButtonGroup(self)
+        self.btn_group.setExclusive(True)
+        self.btn_group.idClicked.connect(self._on_tab_clicked)
+        self.tabs: list[TabButton] = []
+
+        self.container.tab_reordered.connect(self._on_tab_reordered)
+        
+        self.scroll_area.horizontalScrollBar().rangeChanged.connect(self._update_scroll_buttons)
+        self.scroll_area.horizontalScrollBar().valueChanged.connect(self._update_scroll_buttons)
+
+    def add_tab(self, title: str, icon_name: str = "", closable: bool = False) -> int:
+        idx = len(self.tabs)
+        btn = TabButton(title, icon_name)
+        self.btn_group.addButton(btn, idx)
+        self.tabs.append(btn)
+        self.container.layout_h.insertWidget(self.container.layout_h.count() - 1, btn)
+        if len(self.tabs) == 1:
+            btn.setChecked(True)
+            self.tab_changed.emit(0)
+        return idx
+
+    def set_active_tab(self, index: int) -> None:
+        if 0 <= index < len(self.tabs):
+            self.tabs[index].setChecked(True)
+            self.tab_changed.emit(index)
+            # Ensure visible
+            self.scroll_area.ensureWidgetVisible(self.tabs[index])
+
+    def _on_tab_clicked(self, idx: int):
+        self.tab_changed.emit(idx)
+
+    def _on_tab_reordered(self, from_idx: int, to_idx: int):
+        tab = self.tabs.pop(from_idx)
+        self.tabs.insert(to_idx, tab)
+        
+        self.container.layout_h.removeWidget(tab)
+        self.container.layout_h.insertWidget(to_idx, tab)
+        
+        for i, t in enumerate(self.tabs):
+            self.btn_group.setId(t, i)
+            
+        self.tab_reordered.emit(from_idx, to_idx)
+
+    def _scroll_left(self):
+        bar = self.scroll_area.horizontalScrollBar()
+        bar.setValue(bar.value() - 100)
+
+    def _scroll_right(self):
+        bar = self.scroll_area.horizontalScrollBar()
+        bar.setValue(bar.value() + 100)
+
+    def _update_scroll_buttons(self):
+        bar = self.scroll_area.horizontalScrollBar()
+        self.btn_left.setVisible(bar.value() > bar.minimum())
+        self.btn_right.setVisible(bar.value() < bar.maximum())
+        
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_scroll_buttons()

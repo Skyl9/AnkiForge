@@ -16,7 +16,8 @@ from ankiforge.utils.paths import get_project_root
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
-from PySide6.QtWidgets import QApplication, QInputDialog
+from PySide6.QtWidgets import QApplication
+from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 from ankiforge.services.profile_manager import ProfileManager
 
 
@@ -37,9 +38,9 @@ def main():
     elif len(profiles) == 1:
         selected_profile = profiles[0]
     else:
-        item, ok = QInputDialog.getItem(None, "Sélection du profil", "Choisissez un profil :", profiles, 0, False)
-        if ok and item:
-            selected_profile = item
+        dialog = ProfileSelectorDialog(profiles)
+        if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
+            selected_profile = dialog.get_selected_profile()
         else:
             sys.exit(0)  # Annulé
 
@@ -63,7 +64,7 @@ def main():
 
     setup_dynamic_theme(app)
 
-    window = MainWindow(ai_manager)
+    window = MainWindow(ai_manager, selected_profile)
     window.show()
 
     sys.exit(app.exec())

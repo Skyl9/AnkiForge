@@ -1,144 +1,104 @@
-from PySide6.QtWidgets import QWidget, QLabel, QHBoxLayout, QFrame, QVBoxLayout
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QPainter, QColor
-from ..theme import DesignTokens
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPainter, QColor, QLinearGradient, QFont, QPaintEvent
+from ankiforge.ui.theme import DesignTokens
 
 
 class UserAvatar(QWidget):
     """Avatar 32px avec gradient. Affiche les initiales."""
 
-    def __init__(self, initials: str, size: int = 32, parent: QWidget | None = None):
+    def __init__(self, initials: str, size: int = 32, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
-        self.initials = initials
+        self.initials = initials[:2].upper()
+        self.size_val = size
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor(DesignTokens.ACCENT_PRIMARY))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(0, 0, self.width(), self.height())
+    def paintEvent(self, event: QPaintEvent) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        painter.setPen(QColor("#ffffff"))
-        font = painter.font()
-        font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.initials)
+        grad = QLinearGradient(0, 0, self.width(), self.height())
+        grad.setColorAt(0, QColor(DesignTokens.ACCENT_PRIMARY))
+        grad.setColorAt(1, QColor(DesignTokens.COLOR_PURPLE))
+
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(grad)
+        p.drawEllipse(0, 0, self.width(), self.height())
+
+        p.setPen(QColor("#ffffff"))
+        font = QFont(DesignTokens.FONT_MAIN, self.size_val // 3, QFont.Weight.Bold)
+        p.setFont(font)
+        p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.initials)
 
 
 class StyledToolbar(QWidget):
     """Toolbar flex avec gap-8. Variantes: left, right, space-between."""
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.layout_main = QHBoxLayout(self)
-        self.layout_main.setContentsMargins(0, 0, 0, 0)
-        self.layout_main.setSpacing(8)
+        self.setFixedHeight(48)
+        self.layout_h = QHBoxLayout(self)
+        self.layout_h.setContentsMargins(16, 0, 16, 0)
+        self.layout_h.setSpacing(8)
 
     def add_widget(self, widget: QWidget) -> None:
-        self.layout_main.addWidget(widget)
+        self.layout_h.addWidget(widget)
 
     def add_stretch(self) -> None:
-        self.layout_main.addStretch()
+        self.layout_h.addStretch()
 
     def add_separator(self) -> None:
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
         sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR};")
-        self.layout_main.addWidget(sep)
+        self.layout_h.addWidget(sep)
 
 
 class DaemonStatusWidget(QWidget):
     """Pill statut daemon : spinning icon + texte. Usage: topbar."""
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border-radius: 12px;")
+        self.setFixedHeight(28)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
-        self.icon_lbl = QLabel("○")
+        self.layout_h = QHBoxLayout(self)
+        self.layout_h.setContentsMargins(8, 0, 12, 0)
+        self.layout_h.setSpacing(6)
+
+        self.icon_lbl = QLabel("⚙")
         self.text_lbl = QLabel("Idle")
-        self.text_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.text_lbl.setStyleSheet("font-size: 12px; font-weight: bold;")
 
-        layout.addWidget(self.icon_lbl)
-        layout.addWidget(self.text_lbl)
+        self.layout_h.addWidget(self.icon_lbl)
+        self.layout_h.addWidget(self.text_lbl)
+        self.set_status("idle", "Idle")
 
     def set_status(self, status: str, text: str) -> None:
         self.text_lbl.setText(text)
+
         if status == "active":
-            self.icon_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW};")
+            color = DesignTokens.COLOR_YELLOW
+            icon = "⚙"
+            bg = "rgba(245, 158, 11, 0.1)"
         elif status == "pending":
-            self.icon_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE};")
+            color = DesignTokens.COLOR_BLUE
+            icon = "◷"
+            bg = "rgba(59, 130, 246, 0.1)"
         else:
-            self.icon_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
+            color = DesignTokens.TEXT_MUTED
+            icon = "✓"
+            bg = "transparent"
 
+        self.icon_lbl.setText(icon)
+        self.icon_lbl.setStyleSheet(f"color: {color};")
+        self.text_lbl.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
 
-class ProgressBarWidget(QWidget):
-    """Barre de progression 6px avec glow fill."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self.setFixedHeight(6)
-        self._progress = 0
-
-    def set_progress(self, value: int) -> None:
-        self._progress = min(max(value, 0), 100)
-        self.update()
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        painter.setBrush(QColor(DesignTokens.BG_INPUT))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(0, 0, self.width(), self.height(), 3, 3)
-
-        if self._progress > 0:
-            width = int((self._progress / 100.0) * self.width())
-            painter.setBrush(QColor(DesignTokens.ACCENT_PRIMARY))
-            painter.drawRoundedRect(0, 0, width, self.height(), 3, 3)
-
-
-class DropZone(QFrame):
-    """Zone de drag & drop avec bordure dashed. Usage: Dashboard, Wizard."""
-
-    files_dropped = Signal(list)
-
-    def __init__(self, text: str = "Glissez vos fichiers ici", accept_extensions: list[str] | None = None, parent: QWidget | None = None):
-        super().__init__(parent)
-        self.setObjectName("DropZone")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setAcceptDrops(True)
-        self.accept_extensions = accept_extensions or []
         self.setStyleSheet(f"""
-            #DropZone {{
-                border: 2px dashed {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                background-color: {DesignTokens.BG_PANEL};
-            }}
-            #DropZone:hover {{
-                border: 2px dashed {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_HOVER};
+            DaemonStatusWidget {{
+                background-color: {bg};
+                border: 1px solid {color if status != "idle" else DesignTokens.BORDER_COLOR};
+                border-radius: 14px;
             }}
         """)
-        layout = QVBoxLayout(self)
-        self.setMinimumHeight(150)
-        lbl = QLabel(text)
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
-        layout.addWidget(lbl)
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        urls = event.mimeData().urls()
-        files = [u.toLocalFile() for u in urls if u.isLocalFile()]
-        if self.accept_extensions:
-            files = [f for f in files if any(f.endswith(ext) for ext in self.accept_extensions)]
-        if files:
-            self.files_dropped.emit(files)
