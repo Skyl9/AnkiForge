@@ -1,3 +1,4 @@
+exclude: '^script/'
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.0  # Utilisez la dernière version de Ruff
