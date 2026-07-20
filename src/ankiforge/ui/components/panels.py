@@ -1,9 +1,9 @@
-from PySide6.QtWidgets import QFrame, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QPushButton, QSplitter
+from PySide6.QtWidgets import QFrame, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QSplitter, QPushButton
 from PySide6.QtCore import Signal, Qt, QRect
-from PySide6.QtGui import QIcon, QPainter, QColor, QAction
+from PySide6.QtGui import QIcon, QPainter, QColor, QAction, QPen
 from typing import Tuple
 from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.tabs import ScrollableTabBarWidget
 from ankiforge.utils.icon_loader import load_phosphor_icon
 import ankiforge.ui.components.tabs as tabs_mod
@@ -80,9 +80,10 @@ class PanelPlaceholderWidget(QFrame):
         self.parent_panel = parent_panel
         self.setStyleSheet(f"""
             PanelPlaceholderWidget {{
-                border: 2px dashed {DesignTokens.TEXT_MUTED};
+                border: 2px dashed {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                background-color: transparent;
+                background-color: rgba(255, 255, 255, 0.01);
+                margin: 8px;
             }}
         """)
         self.setAcceptDrops(True)
@@ -99,47 +100,49 @@ class PanelPlaceholderWidget(QFrame):
             top_layout.addWidget(self.close_btn)
             layout.addLayout(top_layout)
 
+        # Add vertical centering stretch
+        layout.addStretch()
+
         center_layout = QVBoxLayout()
         center_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        center_layout.setSpacing(12)
 
         self.icon_lbl = QLabel()
-        self.icon_lbl.setPixmap(load_phosphor_icon("ph.plus-circle", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
+        self.icon_lbl.setPixmap(load_phosphor_icon("ph.squares-down", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        center_layout.addWidget(self.icon_lbl)
+        self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+        center_layout.addWidget(self.icon_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.text_lbl = QLabel("Aucun onglet actif")
-        self.text_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: 600;")
+        self.text_lbl = QLabel("Panneau Libre")
+        self.text_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: 600; border: none; background: transparent;")
         self.text_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        center_layout.addWidget(self.text_lbl)
+        center_layout.addWidget(self.text_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.sub_lbl = QLabel("Utilisez le bouton [+] ci-dessus pour réactiver un onglet,\nou cliquez sur le bouton ci-dessous pour restaurer la disposition.")
-        self.sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin: 4px 0;")
+        self.sub_lbl = QLabel("Glissez-déposez un onglet ou une fenêtre ici pour l'ancrer.")
+        self.sub_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin: 4px 0; border: none; background: transparent;")
         self.sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sub_lbl.setWordWrap(True)
-        center_layout.addWidget(self.sub_lbl)
+        center_layout.addWidget(self.sub_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        center_layout.addSpacing(12)
-        self.restore_btn = QPushButton("Restaurer les onglets", self)
-        self.restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.restore_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 6px 16px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_MAIN};
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+        center_layout.addSpacing(4)
+
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(12)
+        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.add_tab_btn = PrimaryButton("Ouvrir un onglet...", self)
+        self.add_tab_btn.clicked.connect(self._show_add_tab_menu)
+        buttons_layout.addWidget(self.add_tab_btn)
+
+        self.restore_btn = SecondaryButton("Restaurer tout", self)
         self.restore_btn.clicked.connect(self.parent_panel.restore_all_registered_tabs)
-        center_layout.addWidget(self.restore_btn)
+        buttons_layout.addWidget(self.restore_btn)
+
+        center_layout.addLayout(buttons_layout)
 
         layout.addLayout(center_layout)
+
+        # Add vertical centering stretch
         layout.addStretch()
 
     def dragEnterEvent(self, event):
@@ -148,7 +151,12 @@ class PanelPlaceholderWidget(QFrame):
                 PanelPlaceholderWidget {{
                     border: 2px dashed {DesignTokens.ACCENT_PRIMARY};
                     border-radius: {DesignTokens.RADIUS_MD}px;
-                    background-color: rgba(0, 122, 255, 0.1);
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    margin: 8px;
+                }}
+                QLabel {{
+                    border: none;
+                    background-color: transparent;
                 }}
             """)
             event.acceptProposedAction()
@@ -158,8 +166,13 @@ class PanelPlaceholderWidget(QFrame):
     def dragLeaveEvent(self, event):
         self.setStyleSheet(f"""
             PanelPlaceholderWidget {{
-                border: 2px dashed {DesignTokens.TEXT_MUTED};
+                border: 2px dashed {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
+                background-color: rgba(255, 255, 255, 0.01);
+                margin: 8px;
+            }}
+            QLabel {{
+                border: none;
                 background-color: transparent;
             }}
         """)
@@ -191,6 +204,40 @@ class PanelPlaceholderWidget(QFrame):
                 simplify_splitter_hierarchy(parent_splitter)
             else:
                 redistribute_splitter_space(parent_splitter)
+
+    def _show_add_tab_menu(self):
+        self.parent_panel._show_tabs_menu_at_button(self.add_tab_btn)
+
+
+class PanelDragOverlay(QWidget):
+    """Transparent glass pane overlay to draw the drag split preview rect on top of all child widgets."""
+
+    def __init__(self, parent_panel: QWidget) -> None:
+        super().__init__(parent_panel)
+        self.parent_panel = parent_panel
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        self.setVisible(False)
+
+    def paintEvent(self, event) -> None:
+        direction = getattr(self.parent_panel, "_split_direction", None)
+        if direction:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+            # Semi-transparent primary violet background
+            color = QColor(DesignTokens.ACCENT_PRIMARY)
+            color.setAlpha(60)  # ~24% opacity
+
+            # Solid border
+            border_color = QColor(DesignTokens.ACCENT_PRIMARY)
+            border_color.setAlpha(180)
+
+            rect = self.parent_panel._get_split_rect()
+
+            painter.setBrush(color)
+            painter.setPen(QPen(border_color, 2, Qt.PenStyle.SolidLine))
+            painter.drawRoundedRect(rect, DesignTokens.RADIUS_MD, DesignTokens.RADIUS_MD)
 
 
 class IdePanel(QFrame):
@@ -281,10 +328,20 @@ class IdePanel(QFrame):
         self.placeholder_widget.setVisible(False)
         self._split_direction: str | None = None
         self.setAcceptDrops(True)
+
+        self.drag_overlay = PanelDragOverlay(self)
+
         self._toggle_placeholder()
 
     def _toggle_placeholder(self):
         if len(self.tabs_bar.tabs) == 0:
+            # Hide header when empty to remove tab effect at the top
+            self.header.setVisible(False)
+            self.menu_btn.setVisible(False)
+            if hasattr(self, "detach_btn"):
+                self.detach_btn.setVisible(False)
+            self._extra_widgets_zone.setVisible(False)
+
             # Check for other non-empty panels in the same window/workspace hierarchy
             window = self.window()
             other_non_empty_panels = []
@@ -307,7 +364,11 @@ class IdePanel(QFrame):
                     else:
                         redistribute_splitter_space(parent_splitter)
                 else:
-                    self.setVisible(False)
+                    # Static panel: keep visible and show placeholder
+                    self.placeholder_widget.setVisible(True)
+                    self.content_stack.setVisible(False)
+                    if self._static_title_label is not None:
+                        self._static_title_label.setVisible(True)
             else:
                 # If this is the last panel remaining in the workspace, show placeholder
                 self.placeholder_widget.setVisible(True)
@@ -315,6 +376,14 @@ class IdePanel(QFrame):
                 if self._static_title_label is not None:
                     self._static_title_label.setVisible(True)
         else:
+            # Show header when populated
+            self.header.setVisible(True)
+            self.menu_btn.setVisible(True)
+            if hasattr(self, "detach_btn"):
+                self.detach_btn.setVisible(True)
+            if self._extra_layout.count() > 0:
+                self._extra_widgets_zone.setVisible(True)
+
             self.placeholder_widget.setVisible(False)
             self.content_stack.setVisible(True)
             if self._static_title_label is not None:
@@ -337,9 +406,20 @@ class IdePanel(QFrame):
         else:
             if title in self._registered_tabs:
                 info = self._registered_tabs[title]
+
+                # Safety check: verify if the C++ widget has been deleted
+                try:
+                    _ = info["widget"].parent()
+                except RuntimeError:
+                    # C++ object was deleted. Remove from registration.
+                    self._registered_tabs.pop(title, None)
+                    self._toggle_placeholder()
+                    return
+
                 info["active"] = True
                 idx = self.tabs_bar.add_tab(title, info["icon_name"], info["closable"])
                 self.content_stack.addWidget(info["widget"])
+                info["widget"].show()
                 self._toggle_placeholder()
                 self.set_active_tab(len(self.tabs_bar.tabs) - 1)
 
@@ -368,25 +448,59 @@ class IdePanel(QFrame):
             self.close_tab(title)
 
     def _show_tabs_menu(self):
+        self._show_tabs_menu_at_button(self.menu_btn)
+
+    def _show_tabs_menu_at_button(self, button: QPushButton) -> None:
         from ankiforge.ui.theme import StyledMenu
+        from PySide6.QtCore import QPoint
 
         menu = StyledMenu(self)
-        for title, _ in self._registered_tabs.items():
-            action = QAction(title, self)
-            action.setCheckable(True)
 
-            is_active_here = False
-            for btn in self.tabs_bar.tabs:
-                if btn.text().strip() == title.strip():
-                    is_active_here = True
-                    break
-            action.setChecked(is_active_here)
+        # 1. Find top-level view widget
+        top_view = self
+        while top_view and top_view.parentWidget() and top_view.parentWidget() != top_view.window():
+            if top_view.parentWidget().__class__.__name__ == "QStackedWidget":
+                break
+            top_view = top_view.parentWidget()
 
-            action.setProperty("tab_title", title)
-            action.triggered.connect(self._on_menu_action_triggered)
+        if not top_view:
+            top_view = self.window()
+
+        # 2. Collect catalog from all panels in the same view
+        all_view_panels = top_view.findChildren(IdePanel)
+        catalog = {}
+        for panel in all_view_panels:
+            for title, info in panel._registered_tabs.items():
+                catalog[title] = (panel, info)
+
+        if not catalog:
+            action = QAction("Aucun onglet disponible", self)
+            action.setEnabled(False)
             menu.addAction(action)
+        else:
+            for title in catalog:
+                is_here = False
+                for btn in self.tabs_bar.tabs:
+                    if btn.text().strip() == title.strip():
+                        is_here = True
+                        break
 
-        menu.exec(self.menu_btn.mapToGlobal(self.menu_btn.rect().bottomLeft()))
+                action = QAction(title, self)
+                action.setCheckable(True)
+                action.setChecked(is_here)
+
+                # Use a custom property to store action title
+                action.setProperty("tab_title", title)
+                action.setProperty("tab_is_here", is_here)
+
+                if is_here:
+                    action.setEnabled(False)
+                else:
+                    action.triggered.connect(self._on_menu_action_triggered)
+
+                menu.addAction(action)
+
+        menu.exec(button.mapToGlobal(QPoint(0, button.height())))
 
     def _on_menu_action_triggered(self) -> None:
         from PySide6.QtGui import QAction
@@ -447,6 +561,7 @@ class IdePanel(QFrame):
         self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": True}
         self.tabs_bar.insert_tab(index, title, icon_name)
         self.content_stack.insertWidget(index, widget)
+        widget.show()
         self.set_active_tab(index)
         self._toggle_placeholder()
         return index
@@ -458,6 +573,14 @@ class IdePanel(QFrame):
     def restore_all_registered_tabs(self):
         """Restore all registered tabs in this panel."""
         for title in list(self._registered_tabs.keys()):
+            # Safety check: skip if C++ widget is deleted
+            info = self._registered_tabs.get(title)
+            if info:
+                try:
+                    _ = info["widget"].parent()
+                except RuntimeError:
+                    self._registered_tabs.pop(title, None)
+                    continue
             self.open_tab(title)
 
     def add_header_widget(self, widget: QWidget) -> None:
@@ -499,12 +622,25 @@ class IdePanel(QFrame):
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("application/x-ankiforge-tab"):
+            if tabs_mod._dragged_tab_info:
+                src_panel = tabs_mod._dragged_tab_info["source_panel"]
+                if src_panel == self and len(self.tabs_bar.tabs) <= 1:
+                    event.ignore()
+                    return
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event):
         if event.mimeData().hasFormat("application/x-ankiforge-tab"):
+            if tabs_mod._dragged_tab_info:
+                src_panel = tabs_mod._dragged_tab_info["source_panel"]
+                if src_panel == self and len(self.tabs_bar.tabs) <= 1:
+                    self._split_direction = None
+                    self.drag_overlay.setVisible(False)
+                    event.ignore()
+                    return
+
             pos = event.position().toPoint()
             w = self.width()
             h = self.height()
@@ -518,22 +654,29 @@ class IdePanel(QFrame):
             elif pos.y() > h * 0.75:
                 self._split_direction = "bottom"
 
-            self.update()
+            if self._split_direction:
+                self.drag_overlay.setGeometry(self.rect())
+                self.drag_overlay.setVisible(True)
+                self.drag_overlay.update()
+            else:
+                self.drag_overlay.setVisible(False)
+
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dragLeaveEvent(self, event):
         self._split_direction = None
-        self.update()
+        self.drag_overlay.setVisible(False)
 
     def paintEvent(self, event):
+        # Painting is now done by the drag_overlay glass pane on top of all child widgets
         super().paintEvent(event)
-        if getattr(self, "_split_direction", None):
-            painter = QPainter(self)
-            color = QColor(DesignTokens.ACCENT_PRIMARY)
-            color.setAlpha(60)
-            painter.fillRect(self._get_split_rect(), color)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "drag_overlay"):
+            self.drag_overlay.setGeometry(self.rect())
 
     def _get_split_rect(self):
         w = self.width()
@@ -550,7 +693,11 @@ class IdePanel(QFrame):
 
     def dropEvent(self, event):
         if event.mimeData().hasFormat("application/x-ankiforge-tab"):
-            if getattr(self, "_split_direction", None):
+            direction = getattr(self, "_split_direction", None)
+            self._split_direction = None
+            self.drag_overlay.setVisible(False)
+
+            if direction:
                 if tabs_mod._dragged_tab_info:
                     src_panel = tabs_mod._dragged_tab_info["source_panel"]
                     idx = tabs_mod._dragged_tab_info["index"]
@@ -558,13 +705,26 @@ class IdePanel(QFrame):
                     title = tabs_mod._dragged_tab_info["title"]
                     icon_name = tabs_mod._dragged_tab_info["icon_name"]
 
-                    if self._split_direction:
-                        widget, title, closable = src_panel.remove_tab_widget(idx)
-                        self.split_panel(self._split_direction, title, widget, icon_name, closable)
+                    widget, title, closable = src_panel.remove_tab_widget(idx)
+                    self.split_panel(direction, title, widget, icon_name, closable)
 
                     tabs_mod._dragged_tab_info = None
                 event.acceptProposedAction()
-            self._split_direction = None
+            else:
+                # Center drop: dock the tab to this panel!
+                if tabs_mod._dragged_tab_info:
+                    src_panel = tabs_mod._dragged_tab_info["source_panel"]
+                    idx = tabs_mod._dragged_tab_info["index"]
+                    widget = tabs_mod._dragged_tab_info["widget"]
+                    title = tabs_mod._dragged_tab_info["title"]
+                    icon_name = tabs_mod._dragged_tab_info["icon_name"]
+
+                    if src_panel != self:
+                        widget, title, closable = src_panel.remove_tab_widget(idx)
+                        self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, icon_name, closable)
+
+                    tabs_mod._dragged_tab_info = None
+                event.acceptProposedAction()
             self.update()
 
     def split_panel(self, direction: str, title: str, widget: QWidget, icon_name: str, closable: bool = True):

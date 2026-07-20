@@ -221,50 +221,143 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- DETACH PANEL ---
+  // --- DETACH PANEL SIMULATION ---
   const detachBtns = document.querySelectorAll(".detach-btn");
   detachBtns.forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const panel = e.target.closest(".ide-panel");
-      if (panel) {
-        const win = window.open("", "_blank", "width=800,height=600");
-        if (win) {
-          win.document.write(`
-                        <html>
-                        <head>
-                            <title>Panneau Détaché - AnkiForge</title>
-                            <style>
-                                body { 
-                                    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                                    padding: 40px; 
-                                    background: #0F1115; 
-                                    color: #F8FAFC; 
-                                    display: flex;
-                                    flex-direction: column;
-                                    align-items: center;
-                                    justify-content: center;
-                                    height: 100vh;
-                                    margin: 0;
-                                    text-align: center;
-                                }
-                                .ph { font-size: 48px; color: #6366F1; margin-bottom: 20px; }
-                                h2 { font-weight: 500; margin-bottom: 10px; }
-                                p { color: #94A3B8; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="ph ph-squares-out"></div>
-                            <h2>Panneau Détaché (Maquette)</h2>
-                            <p>Dans la version finale, le panneau serait détaché dans cette nouvelle fenêtre avec tout son contexte.</p>
-                        </body>
-                        </html>
-                    `);
-        } else {
-          alert(
-            "Pop-up bloquée. Le panneau serait détaché dans une nouvelle fenêtre.",
-          );
-        }
-      }
+      if (!panel) return;
+      
+      const activeTab = panel.querySelector(".ide-tab.active");
+      if (!activeTab) return;
+      
+      const targetId = activeTab.getAttribute("data-target");
+      const content = panel.querySelector(`#${targetId}`);
+      if (!content) return;
+      
+      const title = activeTab.textContent ? activeTab.textContent.trim() : activeTab.innerText.trim();
+      const iconClass = activeTab.querySelector("i") ? activeTab.querySelector("i").className : "ph ph-cube-transparent";
+
+      // Hide active tab and content
+      activeTab.style.display = "none";
+      content.style.display = "none";
+      
+      // Create empty state placeholder
+      const emptyState = document.createElement("div");
+      emptyState.className = "empty-state-dock";
+      emptyState.innerHTML = `
+          <i class="ph ph-squares-down"></i>
+          <h3>Panneau Libre</h3>
+          <p>Glissez-déposez l'onglet ou la fenêtre ici pour l'ancrer.</p>
+          <div style="display: flex; gap: 12px; margin-top: 16px;">
+              <button class="mock-add-btn" style="background-color: var(--accent-primary); color: white; border: none; border-radius: var(--radius-sm); padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s;">Ouvrir un onglet...</button>
+              <button class="mock-restore-btn" style="background-color: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 16px; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.2s;">Restaurer tout</button>
+          </div>
+      `;
+      panel.appendChild(emptyState);
+      
+      // Create mock floating window
+      const floatWin = document.createElement("div");
+      floatWin.className = "mock-floating-window";
+      floatWin.style.left = `${panel.getBoundingClientRect().left + 40}px`;
+      floatWin.style.top = `${panel.getBoundingClientRect().top + 40}px`;
+      
+      floatWin.innerHTML = `
+          <div class="mock-floating-header">
+              <span class="mock-floating-title"><i class="${iconClass}"></i> ${title} (Détaché)</span>
+              <button class="btn-icon small close-float-btn" title="Ancrer à nouveau"><i class="ph ph-x"></i></button>
+          </div>
+          <div class="mock-floating-content">
+              <div class="ide-tabs-list">
+                  <div class="ide-tab active" draggable="true" style="cursor: grab;">
+                      <i class="${iconClass}"></i>
+                      ${title}
+                  </div>
+              </div>
+              <div style="margin-top: 12px; height: calc(100% - 48px); overflow: auto;">
+                  <div class="sub-pane active flex-col h-full">
+                      <p style="color: var(--text-secondary); font-size: 13px;">Contenu du panneau détaché en cours de manipulation.</p>
+                  </div>
+              </div>
+          </div>
+      `;
+      document.body.appendChild(floatWin);
+      
+      // Handle moving the floating window
+      const header = floatWin.querySelector(".mock-floating-header");
+      let isDragging = false;
+      let startX, startY;
+      
+      header.addEventListener("mousedown", (e) => {
+          if (e.target.closest(".close-float-btn")) return;
+          isDragging = true;
+          startX = e.clientX - floatWin.offsetLeft;
+          startY = e.clientY - floatWin.offsetTop;
+          floatWin.style.borderColor = "var(--accent-primary)";
+      });
+      
+      document.addEventListener("mousemove", (e) => {
+          if (!isDragging) return;
+          floatWin.style.left = `${e.clientX - startX}px`;
+          floatWin.style.top = `${e.clientY - startY}px`;
+      });
+      
+      document.addEventListener("mouseup", () => {
+          isDragging = false;
+          floatWin.style.borderColor = "";
+      });
+      
+      // Drag events to restore/dock back
+      const floatTab = floatWin.querySelector(".ide-tab");
+      
+      floatTab.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", targetId);
+          e.dataTransfer.effectAllowed = "move";
+      });
+      
+      // Drag over empty target
+      emptyState.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          emptyState.classList.add("drag-over");
+      });
+      
+      emptyState.addEventListener("dragleave", () => {
+          emptyState.classList.remove("drag-over");
+      });
+      
+      emptyState.addEventListener("drop", (e) => {
+          e.preventDefault();
+          emptyState.classList.remove("drag-over");
+          
+          // Restore tab & content
+          activeTab.style.display = "";
+          content.style.display = "";
+          emptyState.remove();
+          floatWin.remove();
+      });
+      
+      // Close button docks back
+      floatWin.querySelector(".close-float-btn").addEventListener("click", () => {
+          activeTab.style.display = "";
+          content.style.display = "";
+          emptyState.remove();
+          floatWin.remove();
+      });
+
+      // Mock actions dock back
+      emptyState.querySelector(".mock-add-btn").addEventListener("click", () => {
+          activeTab.style.display = "";
+          content.style.display = "";
+          emptyState.remove();
+          floatWin.remove();
+      });
+
+      emptyState.querySelector(".mock-restore-btn").addEventListener("click", () => {
+          activeTab.style.display = "";
+          content.style.display = "";
+          emptyState.remove();
+          floatWin.remove();
+      });
     });
   });
 });
@@ -375,3 +468,81 @@ window.closeHistoryModal = function () {
     overlay.style.display = "none";
   }
 };
+
+// --- CUSTOM CONTEXT MENU SIMULATION ---
+document.addEventListener("DOMContentLoaded", () => {
+  const contextMenu = document.getElementById("custom-context-menu");
+  if (!contextMenu) return;
+
+  let rightClickedTab = null;
+
+  document.body.addEventListener("contextmenu", (e) => {
+    const tab = e.target.closest(".ide-tab");
+    if (!tab) {
+      contextMenu.style.display = "none";
+      return;
+    }
+
+    e.preventDefault();
+    rightClickedTab = tab;
+
+    // Check if the tab is inside a floating window
+    const isFloating = !!tab.closest(".mock-floating-window");
+    const detachAction = contextMenu.querySelector(".detach-tab-action");
+    const dockAction = contextMenu.querySelector(".dock-tab-action");
+
+    if (isFloating) {
+      detachAction.style.display = "none";
+      dockAction.style.display = "flex";
+    } else {
+      detachAction.style.display = "flex";
+      dockAction.style.display = "none";
+    }
+
+    // Position menu at cursor
+    contextMenu.style.left = `${e.pageX}px`;
+    contextMenu.style.top = `${e.pageY}px`;
+    contextMenu.style.display = "flex";
+  });
+
+  // Hide context menu when clicking outside
+  document.addEventListener("click", () => {
+    contextMenu.style.display = "none";
+  });
+
+  // Handle menu actions
+  contextMenu.querySelector(".close-tab-action").addEventListener("click", () => {
+    if (rightClickedTab) {
+      // Simulate close
+      rightClickedTab.style.display = "none";
+      const targetId = rightClickedTab.getAttribute("data-target");
+      if (targetId) {
+        const content = document.getElementById(targetId);
+        if (content) content.style.display = "none";
+      }
+    }
+  });
+
+  contextMenu.querySelector(".detach-tab-action").addEventListener("click", () => {
+    if (rightClickedTab) {
+      // Find parent panel
+      const panel = rightClickedTab.closest(".ide-panel");
+      if (panel) {
+        // Trigger the detach button click
+        const detachBtn = panel.querySelector(".detach-panel-btn");
+        if (detachBtn) detachBtn.click();
+      }
+    }
+  });
+
+  contextMenu.querySelector(".dock-tab-action").addEventListener("click", () => {
+    if (rightClickedTab) {
+      // Find the close button of the mock floating window to dock it back
+      const floatWin = rightClickedTab.closest(".mock-floating-window");
+      if (floatWin) {
+        const closeBtn = floatWin.querySelector(".close-float-btn");
+        if (closeBtn) closeBtn.click();
+      }
+    }
+  });
+});

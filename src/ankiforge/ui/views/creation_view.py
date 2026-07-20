@@ -266,12 +266,20 @@ class CreationView(QWidget):
         self.center_splitter.setSizes([300, 500])
         self.main_splitter.setSizes([280, 800])
 
-        self.main_splitter.setCollapsible(0, False)
-        self.main_splitter.setCollapsible(1, False)
-        self.center_splitter.setCollapsible(0, False)
-        self.center_splitter.setCollapsible(1, False)
-        self.results_splitter.setCollapsible(0, False)
-        self.results_splitter.setCollapsible(1, False)
+        self.main_splitter.setCollapsible(0, True)
+        self.main_splitter.setCollapsible(1, True)
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
+
+        self.center_splitter.setCollapsible(0, True)
+        self.center_splitter.setCollapsible(1, True)
+        self.center_splitter.setStretchFactor(0, 1)
+        self.center_splitter.setStretchFactor(1, 1)
+
+        self.results_splitter.setCollapsible(0, True)
+        self.results_splitter.setCollapsible(1, True)
+        self.results_splitter.setStretchFactor(0, 3)
+        self.results_splitter.setStretchFactor(1, 2)
 
     def _populate_mock_data(self) -> None:
         self.results_table.setRowCount(2)

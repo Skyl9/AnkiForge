@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QButtonGroup, QScrollArea, QApplication, QFrame, QStackedWidget
-from PySide6.QtCore import Signal, Qt, QMimeData, QPoint
+from PySide6.QtCore import Signal, Qt, QMimeData, QPoint, QPropertyAnimation, QEasingCurve
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from PySide6.QtGui import QDrag, QDropEvent, QDragEnterEvent, QDragMoveEvent, QMouseEvent, QPainter, QColor, QPen
-from typing import Any
+from typing import Any, Tuple
 
 _dragged_tab_info = None
 _floating_windows = []
@@ -227,12 +227,54 @@ class TabButton(QPushButton):
 
         menu = StyledMenu(self)
         action_close = menu.addAction("Fermer l'onglet")
-        action_detach = menu.addAction("Détacher l'onglet")
+        action_close.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_PRIMARY))
+
+        # Check if this tab is inside a FloatingDockWindow
+        panel: Any = self
+        while panel and not hasattr(panel, "remove_tab_widget"):
+            panel = panel.parentWidget()
+
+        is_detached = panel and (panel.__class__.__name__ == "FloatingDockWindow")
+
+        if is_detached:
+            action_dock = menu.addAction("Rattacher l'onglet")
+            action_dock.setIcon(load_phosphor_icon("ph.arrow-down-left", color=DesignTokens.TEXT_PRIMARY))
+        else:
+            action_detach = menu.addAction("Détacher l'onglet")
+            action_detach.setIcon(load_phosphor_icon("ph.arrow-up-right", color=DesignTokens.TEXT_PRIMARY))
 
         action = menu.exec(event.globalPos())
         if action == action_close:
             self.close_requested.emit()
-        elif action == action_detach:
+        elif is_detached and action == action_dock:
+            # Re-dock this specific tab immediately
+            scroll_bar: Any = self
+            while scroll_bar and not hasattr(scroll_bar, "tabs"):
+                scroll_bar = scroll_bar.parentWidget()
+
+            if scroll_bar and panel:
+                try:
+                    idx = scroll_bar.tabs.index(self)
+                    widget, title, closable = panel.remove_tab_widget(idx)
+
+                    # Retrieve original dock attributes using Python attributes
+                    orig_panel = getattr(widget, "original_panel", None)
+                    orig_idx = getattr(widget, "original_index", None)
+                    orig_title = getattr(widget, "original_title", title)
+                    orig_icon_name = getattr(widget, "original_icon_name", "")
+                    orig_closable = getattr(widget, "original_closable", closable)
+
+                    if orig_panel and orig_idx is not None:
+                        try:
+                            # Safety check if C++ object is still valid
+                            _ = orig_panel.parent()
+                            target_idx = min(orig_idx, len(orig_panel.tabs_bar.tabs))
+                            orig_panel.insert_tab_widget(target_idx, orig_title, widget, orig_icon_name, orig_closable)
+                        except RuntimeError:
+                            pass
+                except ValueError:
+                    pass
+        elif not is_detached and action == action_detach:
             self.detach_requested.emit()
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -278,6 +320,13 @@ class TabButton(QPushButton):
 
             if action in (Qt.DropAction.IgnoreAction, None) and _dragged_tab_info:
                 src_panel = _dragged_tab_info["source_panel"]
+
+                # Check if we are dragging the last tab of a FloatingDockWindow onto the desktop
+                if src_panel.__class__.__name__ == "FloatingDockWindow" and len(src_panel.tabs_bar.tabs) <= 1:
+                    # Ignore the detach: keep the tab in its current floating window
+                    _dragged_tab_info = None
+                    return
+
                 idx = _dragged_tab_info["index"]
                 widget = _dragged_tab_info["widget"]
                 title = _dragged_tab_info["title"]
@@ -285,9 +334,22 @@ class TabButton(QPushButton):
 
                 src_panel.remove_tab_widget(idx)
 
+                # Store original dock properties on the widget for automatic re-docking on close
+                widget.original_panel = src_panel
+                widget.original_index = idx
+                widget.original_title = title
+                widget.original_icon_name = icon_name
+                widget.original_closable = True
+
                 fw = FloatingDockWindow()
                 fw.insert_tab_widget(0, title, widget, icon_name)
-                fw.move(event.globalPosition().toPoint())
+
+                # Center header under cursor
+                from PySide6.QtGui import QCursor
+
+                cursor_pos = QCursor.pos()
+                fw.move(cursor_pos.x() - fw.width() // 2, cursor_pos.y() - 18)
+
                 _floating_windows.append(fw)
                 fw.show()
 
@@ -515,9 +577,19 @@ class ScrollableTabBarWidget(QWidget):
             from PySide6.QtGui import QCursor
 
             widget, title, closable = panel.remove_tab_widget(idx)
+            icon_name = btn.property("icon_name") or ""
+
+            # Store original dock properties on the widget for automatic re-docking on close
+            widget.original_panel = panel
+            widget.original_index = idx
+            widget.original_title = title
+            widget.original_icon_name = icon_name
+            widget.original_closable = closable
+
             fw = FloatingDockWindow()
-            fw.insert_tab_widget(0, title, widget, btn.property("icon_name") or "", closable)
-            fw.move(QCursor.pos())
+            fw.insert_tab_widget(0, title, widget, icon_name, closable)
+            cursor_pos = QCursor.pos()
+            fw.move(cursor_pos.x() - fw.width() // 2, cursor_pos.y() - 18)
             _floating_windows.append(fw)
             fw.show()
 
@@ -557,8 +629,15 @@ class FloatingDockWindow(QWidget):
     def __init__(self):
         super().__init__(None, Qt.WindowType.Window)
         self.setWindowTitle("AnkiForge - Detached Tab")
-        self.resize(600, 400)
+        self.resize(800, 600)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
+
+        # Setup snappy and smooth fade-in animation
+        self._fade_anim = QPropertyAnimation(self, b"windowOpacity")
+        self._fade_anim.setDuration(100)
+        self._fade_anim.setStartValue(0.7)
+        self._fade_anim.setEndValue(1.0)
+        self._fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
         self.layout_v = QVBoxLayout(self)
         self.layout_v.setContentsMargins(0, 0, 0, 0)
@@ -568,10 +647,25 @@ class FloatingDockWindow(QWidget):
         self.header.setFixedHeight(36)
         self.header.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
         self.header_layout = QHBoxLayout(self.header)
-        self.header_layout.setContentsMargins(0, 0, 0, 0)
+        self.header_layout.setContentsMargins(8, 0, 8, 0)
+        self.header_layout.setSpacing(8)
 
         self.tabs_bar = ScrollableTabBarWidget()
-        self.header_layout.addWidget(self.tabs_bar)
+        self.header_layout.addWidget(self.tabs_bar, 1)
+
+        # Add plus and re-dock buttons on the right side of header layout
+        from ankiforge.ui.components.buttons import IconButton
+
+        self.menu_btn = IconButton("ph.plus", "Ouvrir un onglet...", 16)
+        self.dock_btn = IconButton("ph.arrow-down-left", "Rattacher la fenêtre", 16)
+
+        # Connect actions
+        self.dock_btn.clicked.connect(self.close)
+        self.menu_btn.clicked.connect(self._show_tabs_menu)
+
+        self.header_layout.addWidget(self.menu_btn, 0)
+        self.header_layout.addWidget(self.dock_btn, 0)
+
         self.layout_v.addWidget(self.header)
 
         self.content_stack = QStackedWidget()
@@ -587,10 +681,17 @@ class FloatingDockWindow(QWidget):
         self.content_stack.removeWidget(widget)
         self.content_stack.insertWidget(to_idx, widget)
 
-    def remove_tab_widget(self, index: int) -> QWidget:
+    def remove_tab_widget(self, index: int) -> Tuple[QWidget, str, bool]:
         widget = self.content_stack.widget(index)
         if widget is None:
             raise ValueError(f"No widget at index {index}")
+
+        btn = self.tabs_bar.tabs[index]
+        title = btn.text().strip()
+        closable = btn.property("closable")
+        if closable is None:
+            closable = True
+
         self.tabs_bar.remove_tab(index)
         self.content_stack.removeWidget(widget)
 
@@ -598,22 +699,177 @@ class FloatingDockWindow(QWidget):
             self.close()
             self.deleteLater()
 
-        return widget
+        return widget, title, closable
 
     def insert_tab_widget(self, index: int, title: str, widget: QWidget, icon_name: str = "", closable: bool = True):
         self.tabs_bar.insert_tab(index, title, icon_name, closable)
         self.content_stack.insertWidget(index, widget)
+        widget.show()
         self.set_active_tab(index)
+
+        # Resize to fit the widget size hint or current size fully
+        target_size = widget.size()
+        if target_size.width() <= 0 or target_size.height() <= 0:
+            target_size = widget.sizeHint()
+
+        header_height = 36
+        new_width = max(800, target_size.width())
+        new_height = max(600, target_size.height() + header_height)
+        self.resize(new_width, new_height)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not getattr(self, "_animated", False):
+            self._animated = True
+            self.setWindowOpacity(0.7)
+            self._fade_anim.start()
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(150, lambda: self.setWindowOpacity(1.0))
 
     def set_active_tab(self, index: int):
         self.tabs_bar.set_active_tab(index)
 
     def closeEvent(self, event):
-        for i in range(self.content_stack.count()):
-            w = self.content_stack.widget(i)
+        # Safely remove all widgets from the stack to prevent their C++ destruction
+        while self.content_stack.count() > 0:
+            w = self.content_stack.widget(0)
             if w:
+                self.content_stack.removeWidget(w)
                 w.setParent(None)
+                w.hide()
+
+                # Retrieve original dock properties using Python attributes
+                orig_panel = getattr(w, "original_panel", None)
+                orig_idx = getattr(w, "original_index", None)
+                orig_title = getattr(w, "original_title", None)
+                orig_icon_name = getattr(w, "original_icon_name", "")
+                orig_closable = getattr(w, "original_closable", True)
+
+                # Re-dock back to the original panel if valid
+                if orig_panel and orig_idx is not None and orig_title:
+                    try:
+                        # Safety check if C++ object is still valid
+                        _ = orig_panel.parent()
+
+                        # Dock back to its original index (cap to current tabs count to prevent index out of bounds)
+                        target_idx = min(orig_idx, len(orig_panel.tabs_bar.tabs))
+                        orig_panel.insert_tab_widget(target_idx, orig_title, w, orig_icon_name, orig_closable)
+                    except RuntimeError:
+                        # Original panel was deleted, do nothing
+                        pass
+
         if self in _floating_windows:
             _floating_windows.remove(self)
         self.deleteLater()
         event.accept()
+
+    def _show_tabs_menu(self):
+        # Find any widget in the stack to get its original_panel
+        if self.content_stack.count() > 0:
+            w = self.content_stack.widget(0)
+            orig_panel = getattr(w, "original_panel", None)
+            if orig_panel:
+                self._show_tabs_menu_at_button(self.menu_btn, orig_panel)
+
+    def _show_tabs_menu_at_button(self, button, orig_panel):
+        from ankiforge.ui.theme import StyledMenu
+        from PySide6.QtGui import QAction
+        from PySide6.QtCore import QPoint
+
+        menu = StyledMenu(self)
+
+        # 1. Find top-level view widget
+        top_view = orig_panel
+        while top_view and top_view.parentWidget() and top_view.parentWidget() != top_view.window():
+            if top_view.parentWidget().__class__.__name__ == "QStackedWidget":
+                break
+            top_view = top_view.parentWidget()
+
+        if not top_view:
+            top_view = orig_panel.window()
+
+        # 2. Collect catalog from all panels in the same view
+        all_view_panels = top_view.findChildren(orig_panel.__class__)
+        catalog = {}
+        for panel in all_view_panels:
+            for title, info in panel._registered_tabs.items():
+                catalog[title] = (panel, info)
+
+        if not catalog:
+            action = QAction("Aucun onglet disponible", self)
+            action.setEnabled(False)
+            menu.addAction(action)
+        else:
+            for title in catalog:
+                is_here = False
+                for btn in self.tabs_bar.tabs:
+                    if btn.text().strip() == title.strip():
+                        is_here = True
+                        break
+
+                action = QAction(title, self)
+                action.setCheckable(True)
+                action.setChecked(is_here)
+
+                if is_here:
+                    action.setEnabled(False)
+                else:
+                    action.triggered.connect(lambda checked, t=title: self.open_tab(t, orig_panel))
+                menu.addAction(action)
+
+        menu.exec(button.mapToGlobal(QPoint(0, button.height())))
+
+    def open_tab(self, title: str, orig_panel):
+        from ankiforge.ui.components.panels import find_tab_owner
+
+        # Find where the tab is currently located
+        owner, idx = find_tab_owner(title)
+        if owner:
+            if owner == self:
+                self.set_active_tab(idx)
+            else:
+                widget, tab_title, closable = owner.remove_tab_widget(idx)
+
+                # Store original dock properties on widget for re-docking
+                if not hasattr(widget, "original_panel") or widget.original_panel is None:
+                    widget.original_panel = getattr(owner, "original_panel", None) or owner
+                    widget.original_index = idx
+                    widget.original_title = tab_title
+                    widget.original_icon_name = getattr(owner, "_registered_tabs", {}).get(tab_title, {}).get("icon_name", "")
+                    widget.original_closable = closable
+
+                self.insert_tab_widget(self.tabs_bar.count(), title, widget, widget.original_icon_name, closable)
+        else:
+            # If not active anywhere, find it in the view's registered tabs and pull it in
+            if orig_panel:
+                top_view = orig_panel
+                while top_view and top_view.parentWidget() and top_view.parentWidget() != top_view.window():
+                    if top_view.parentWidget().__class__.__name__ == "QStackedWidget":
+                        break
+                    top_view = top_view.parentWidget()
+                if not top_view:
+                    top_view = orig_panel.window()
+
+                all_view_panels = top_view.findChildren(orig_panel.__class__)
+                for panel in all_view_panels:
+                    if title in panel._registered_tabs:
+                        info = panel._registered_tabs[title]
+
+                        try:
+                            _ = info["widget"].parent()
+                        except RuntimeError:
+                            panel._registered_tabs.pop(title, None)
+                            return
+
+                        info["active"] = True
+
+                        # Store original properties on widget
+                        info["widget"].original_panel = panel
+                        info["widget"].original_index = list(panel._registered_tabs.keys()).index(title)
+                        info["widget"].original_title = title
+                        info["widget"].original_icon_name = info["icon_name"]
+                        info["widget"].original_closable = info["closable"]
+
+                        self.insert_tab_widget(self.tabs_bar.count(), title, info["widget"], info["icon_name"], info["closable"])
+                        break

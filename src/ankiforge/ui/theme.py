@@ -5,6 +5,7 @@ Single point of truth for all visual values.
 
 import re
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QWidget, QMenu
 
 
@@ -17,14 +18,14 @@ class DesignTokens:
     BG_PANEL = "#1e2128"
     BG_INPUT = "#1a1d24"
     BG_HOVER = "#2d313a"
-    BG_ACTIVE = "rgba(99, 102, 241, 0.1)"
+    BG_ACTIVE = "rgba(139, 92, 246, 0.1)"
 
     SURFACE_SECONDARY = "#1e2128"
     SURFACE_HOVER = "#2d313a"
 
     # Accent
-    ACCENT_PRIMARY = "#6366f1"  # Indigo-500
-    ACCENT_HOVER = "#4f46e5"  # Indigo-600
+    ACCENT_PRIMARY = "#8b5cf6"  # Purple-500 (Violet)
+    ACCENT_HOVER = "#7c3aed"  # Purple-600
 
     # Text
     TEXT_PRIMARY = "#f8fafc"
@@ -136,18 +137,23 @@ def get_global_stylesheet(is_dark: bool) -> str:
     }}
     
     QMenu {{
-        background-color: {DesignTokens.BG_PANEL};
+        background-color: {DesignTokens.BG_SIDEBAR};
         border: 1px solid {DesignTokens.BORDER_COLOR};
-        border-radius: {DesignTokens.RADIUS_SM}px;
-        padding: 4px;
+        border-radius: {DesignTokens.RADIUS_MD}px;
+        padding: 6px;
     }}
     QMenu::item {{
-        color: {DesignTokens.TEXT_PRIMARY};
-        padding: 6px 24px 6px 24px;
+        color: {DesignTokens.TEXT_SECONDARY};
+        padding: 8px 16px 8px 36px;
         border-radius: {DesignTokens.RADIUS_SM}px;
+        margin: 2px 0px;
     }}
     QMenu::item:selected {{
         background-color: {DesignTokens.BG_HOVER};
+        color: {DesignTokens.TEXT_PRIMARY};
+    }}
+    QMenu::icon {{
+        left: 12px;
     }}
     QMenu::indicator {{
         width: 16px;
@@ -217,5 +223,31 @@ class StyledMenu(QMenu):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+
+        # Apply local style sheet to force background painting on translucent window under macOS
+        self.setStyleSheet(f"""
+            QMenu {{
+                background-color: {DesignTokens.BG_SIDEBAR};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 6px;
+            }}
+            QMenu::item {{
+                color: {DesignTokens.TEXT_SECONDARY};
+                padding: 8px 16px 8px 36px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                margin: 2px 0px;
+            }}
+            QMenu::item:selected {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QMenu::icon {{
+                left: 12px;
+            }}
+        """)
+
         # Apply drop shadow
-        apply_shadow(self, blur=DesignTokens.SHADOW_MD_BLUR, offset_y=4, color="rgba(0, 0, 0, 0.4)")
+        apply_shadow(self, blur=DesignTokens.SHADOW_MD_BLUR, offset_y=4, color="rgba(0, 0, 0, 0.5)")

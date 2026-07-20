@@ -5,10 +5,9 @@ Main Window & Navigation for AnkiForge.
 from typing import Dict, Tuple, Optional, Type, Any, cast
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QObject, QEvent
-from PySide6.QtGui import QMouseEvent, QIcon
+from PySide6.QtGui import QMouseEvent
 
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.paths import get_project_root
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.components.buttons import IconButton
@@ -118,8 +117,9 @@ class Sidebar(QWidget):
         self.logo_icon = ClickableLabel()
         self.logo_icon.setCursor(Qt.CursorShape.PointingHandCursor)
         self.logo_icon.clicked.connect(self.toggle_requested.emit)
-        logo_path = get_project_root() / "src" / "ankiforge" / "ressources" / "icons" / "logo.svg"
-        self.logo_icon.setPixmap(QIcon(str(logo_path)).pixmap(24, 24))
+        from ankiforge.utils.icon_loader import load_logo_icon
+
+        self.logo_icon.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
 
         self.logo_text = QLabel("AnkiForge")
         self.logo_text.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 16px; border: none;")
@@ -375,7 +375,7 @@ class MainWindow(QMainWindow):
         "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", DummyView),
     }
 
-    def __init__(self, ai_manager: AIManager, profile_name: str = "default") -> None:
+    def __init__(self, ai_manager: Optional[AIManager], profile_name: str = "default") -> None:
         super().__init__()
         self.ai_manager = ai_manager
         self.profile_name = profile_name
@@ -507,3 +507,11 @@ class MainWindow(QMainWindow):
     def _open_command_palette(self) -> None:
         """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""
         print("Command Palette Requested")
+
+    def closeEvent(self, event) -> None:
+        # Close all floating windows
+        from ankiforge.ui.components.tabs import _floating_windows
+
+        for fw in list(_floating_windows):
+            fw.close()
+        super().closeEvent(event)

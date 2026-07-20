@@ -2821,3 +2821,114 @@ tr:hover td {
 .code-editor-element:focus {
   border-color: var(--accent-primary);
 }
+
+/* Mock Floating Window Styles */
+.mock-floating-window {
+  position: absolute;
+  top: 100px;
+  left: 200px;
+  width: 400px;
+  height: 300px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+.mock-floating-header {
+  height: 36px;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: move;
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+.mock-floating-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.mock-floating-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Empty Panel Drop Zone Placeholder */
+.empty-state-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  height: 100%;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  margin: 8px;
+  background-color: rgba(255, 255, 255, 0.01);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.empty-state-dock.drag-over {
+  border-color: var(--accent-primary);
+  background-color: rgba(99, 102, 241, 0.05);
+}
+.empty-state-dock i {
+  font-size: 32px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.empty-state-dock h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.empty-state-dock p {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Custom Context Menu */
+.custom-context-menu {
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  min-width: 160px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.custom-context-menu .menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.custom-context-menu .menu-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.custom-context-menu .menu-item i {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.custom-context-menu .menu-item:hover i {
+  color: var(--text-primary);
+}
