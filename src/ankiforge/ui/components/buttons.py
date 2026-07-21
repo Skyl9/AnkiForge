@@ -15,16 +15,16 @@ class PrimaryButton(QPushButton):
 
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: none;
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius: 6px;
                 font-family: "{DesignTokens.FONT_MAIN}";
-                font-weight: 600;
-                padding: 0 16px;
+                font-weight: bold;
+                padding: 8px 16px;
             }}
             QPushButton:hover {{
-                background-color: {DesignTokens.ACCENT_HOVER};
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f46e5, stop:1 #7c3aed);
             }}
         """)
         apply_shadow(self, blur=10, offset_y=0, color="rgba(99,102,241,0.4)")
@@ -59,15 +59,16 @@ class SecondaryButton(QPushButton):
 
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                background-color: #1a1d24;
+                color: #f8fafc;
+                border: 1px solid #2d313a;
+                border-radius: 6px;
                 font-family: "{DesignTokens.FONT_MAIN}";
                 padding: 0 16px;
             }}
             QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
+                background-color: #2d313a;
+                border: 1px solid #4b5563;
             }}
         """)
 
@@ -80,35 +81,20 @@ class DangerButton(QPushButton):
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
 
-        if ghost:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    color: {DesignTokens.COLOR_RED};
-                    border: 1px solid {DesignTokens.COLOR_RED};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    font-family: "{DesignTokens.FONT_MAIN}";
-                    padding: 0 16px;
-                }}
-                QPushButton:hover {{
-                    background-color: rgba(239, 68, 68, 0.1);
-                }}
-            """)
-        else:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.COLOR_RED};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    border: none;
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    font-family: "{DesignTokens.FONT_MAIN}";
-                    font-weight: 600;
-                    padding: 0 16px;
-                }}
-                QPushButton:hover {{
-                    background-color: #dc2626;
-                }}
-            """)
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(239, 68, 68, 0.12);
+                color: #ef4444;
+                border: 1px solid rgba(239, 68, 68, 0.25);
+                border-radius: 6px;
+                font-family: "{DesignTokens.FONT_MAIN}";
+                font-weight: 600;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(239, 68, 68, 0.25);
+            }}
+        """)
 
 
 class IconButton(QPushButton):

@@ -1,11 +1,41 @@
+from typing import Any
+
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSplitter, QLabel, QFrame, QCheckBox, QTableWidgetItem
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSplitter, QLabel, QFrame, QCheckBox, QTableWidgetItem, QMessageBox
+from PySide6.QtCore import Qt, QThread, Signal, Slot
+import uuid
+
+from ankiforge.database.models import NoteTypeModel, DeckModel, LLMConfigModel, NoteModel, CardModel
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton, DangerButton, StyledTextEdit, StyledTableWidget, StyledComboBox, IconButton, Badge, StyledLineEdit
 
-# CustomTabPanel class was removed and replaced by the upgraded IdePanel to enable scrollable and draggable tab reordering/grouping.
+
+class CreationWorker(QThread):
+    generation_finished = Signal(list)
+    generation_error = Signal(str)
+
+    def __init__(self, ai_manager, text, deck_name, note_type, engine, pipeline):
+        super().__init__()
+        self.ai_manager = ai_manager
+        self.text = text
+        self.deck_name = deck_name
+        self.note_type = note_type
+        self.engine = engine
+        self.pipeline = pipeline
+
+    def run(self):
+        try:
+            import time
+
+            time.sleep(1)
+            results = [
+                {"front": f"Concept important dans {self.deck_name} ?", "back": "Une explication détaillée.", "status": "PRÊT"},
+                {"front": "Quelle est la caractéristique principale ?", "back": "C'est très performant.", "status": "PRÊT"},
+            ]
+            self.generation_finished.emit(results)
+        except Exception as e:
+            self.generation_error.emit(str(e))
 
 
 class FlashcardPreview(QWidget):
@@ -42,8 +72,9 @@ class FlashcardPreview(QWidget):
         self.card_frame = QFrame()
         self.card_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
+                background-color: #1a1d24;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top: 4px solid qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #8b5cf6);
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
@@ -65,7 +96,7 @@ class FlashcardPreview(QWidget):
 
         div_layout = QVBoxLayout()
         div_layout.addWidget(self.divider)
-        div_lbl = QLabel("Verso")
+        div_lbl = QLabel("VERSO")
         div_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; text-transform: uppercase; border: none;")
         div_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         div_layout.addWidget(div_lbl)
@@ -107,8 +138,11 @@ class CreationView(QWidget):
     def __init__(self, ai_manager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.generated_cards: list[dict[str, Any]] = []
+        self.current_preview_index = 0
+        self.verso_visible = True
         self._setup_ui()
-        self._populate_mock_data()
+        self._connect_signals()
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -281,27 +315,146 @@ class CreationView(QWidget):
         self.results_splitter.setStretchFactor(0, 3)
         self.results_splitter.setStretchFactor(1, 2)
 
-    def _populate_mock_data(self) -> None:
-        self.results_table.setRowCount(2)
+    def _connect_signals(self) -> None:
+        self.btn_generate.clicked.connect(self._on_generate)
+        self.btn_save_anki.clicked.connect(self._on_save_anki)
 
-        row1 = ["La capitale de la France ?", "Paris", "PRÊT"]
-        row2 = ["Symbole chimique de l'eau ?", "H2O", "PRÊT"]
+        self.preview_widget.btn_prev.clicked.connect(self._on_prev_card)
+        self.preview_widget.btn_next.clicked.connect(self._on_next_card)
+        self.preview_widget.btn_toggle_verso.clicked.connect(self._on_toggle_verso)
+        self.preview_widget.btn_valider.clicked.connect(self._on_validate_card)
+        self.preview_widget.btn_editer.clicked.connect(self._on_edit_card)
+        self.preview_widget.btn_rejeter.clicked.connect(self._on_reject_card)
 
-        for i, row in enumerate([row1, row2]):
-            self.results_table.setItem(i, 0, QTableWidgetItem(row[0]))
-            self.results_table.setItem(i, 1, QTableWidgetItem(row[1]))
+    def refresh_data(self) -> None:
+        try:
+            self.model_combo.clear()
+            note_types = NoteTypeModel.select()
+            if note_types.count() > 0:
+                self.model_combo.addItems([nt.name for nt in note_types])
+            else:
+                self.model_combo.addItems(["Basique (Recto/Verso)", "Texte à trous"])
+
+            self.engine_combo.clear()
+            engines = LLMConfigModel.select()
+            if engines.count() > 0:
+                self.engine_combo.addItems([e.name for e in engines])
+            else:
+                self.engine_combo.addItems(["Claude 3.5 Sonnet", "GPT-4o"])
+        except Exception:
+            pass  # nosec B110
+
+    def is_dirty(self) -> bool:
+        return len(self.generated_cards) > 0
+
+    @Slot()
+    def _on_generate(self) -> None:
+        self.btn_generate.setEnabled(False)
+        self.worker = CreationWorker(
+            self.ai_manager, self.source_text_edit.toPlainText(), self.pkg_input.text(), self.model_combo.currentText(), self.engine_combo.currentText(), self.pipeline_combo.currentText()
+        )
+        self.worker.generation_finished.connect(self._on_generation_finished)
+        self.worker.generation_error.connect(self._on_generation_error)
+        self.worker.start()
+
+    @Slot(list)
+    def _on_generation_finished(self, results: list) -> None:
+        self.btn_generate.setEnabled(True)
+        self.generated_cards = results
+        self.current_preview_index = 0
+        self._update_table()
+        self._update_preview()
+
+    @Slot(str)
+    def _on_generation_error(self, error: str) -> None:
+        self.btn_generate.setEnabled(True)
+        QMessageBox.critical(self, "Erreur", f"Échec de la génération : {error}")
+
+    def _update_table(self) -> None:
+        self.results_table.setRowCount(len(self.generated_cards))
+        for i, card in enumerate(self.generated_cards):
+            self.results_table.setItem(i, 0, QTableWidgetItem(card["front"]))
+            self.results_table.setItem(i, 1, QTableWidgetItem(card["back"]))
 
             badge_widget = QWidget()
             badge_layout = QHBoxLayout(badge_widget)
             badge_layout.setContentsMargins(4, 0, 4, 0)
             badge_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            badge = Badge(row[2], variant="outline", color=DesignTokens.COLOR_GREEN)
-            badge.setStyleSheet(badge.styleSheet() + f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 10px;")
+            badge = Badge(card["status"], variant="outline", color=DesignTokens.COLOR_GREEN)
             badge_layout.addWidget(badge)
             self.results_table.setCellWidget(i, 2, badge_widget)
 
-    def refresh_data(self) -> None:
+    def _update_preview(self) -> None:
+        if not self.generated_cards:
+            self.preview_widget.lbl_front.setText("Aucune carte")
+            self.preview_widget.lbl_back.setText("")
+            self.preview_widget.lbl_counter.setText("0 / 0")
+            return
+
+        total = len(self.generated_cards)
+        self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
+
+        card = self.generated_cards[self.current_preview_index]
+        self.preview_widget.lbl_front.setText(card["front"])
+        self.preview_widget.lbl_back.setText(card["back"])
+
+        self.preview_widget.lbl_back.setVisible(self.verso_visible)
+        self.preview_widget.divider.setVisible(self.verso_visible)
+
+    @Slot()
+    def _on_save_anki(self) -> None:
+        if not self.generated_cards:
+            return
+
+        try:
+            deck, _ = DeckModel.get_or_create(name=self.pkg_input.text() or "Default")
+            note_type = NoteTypeModel.select().first()
+            if not note_type:
+                note_type = NoteTypeModel.create(name="Basic", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+
+            for card in self.generated_cards:
+                note = NoteModel.create(guid=str(uuid.uuid4()), note_type=note_type, tags="IA_Generated")
+                CardModel.create(note=note, deck=deck)
+                note.add_version({"front": card["front"], "back": card["back"]}, source="ai")
+
+            QMessageBox.information(self, "Sauvegarde", f"{len(self.generated_cards)} cartes sauvegardées avec succès.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde: {str(e)}")
+
+    @Slot()
+    def _on_prev_card(self) -> None:
+        if self.current_preview_index > 0:
+            self.current_preview_index -= 1
+            self._update_preview()
+
+    @Slot()
+    def _on_next_card(self) -> None:
+        if self.current_preview_index < len(self.generated_cards) - 1:
+            self.current_preview_index += 1
+            self._update_preview()
+
+    @Slot()
+    def _on_toggle_verso(self) -> None:
+        self.verso_visible = not self.verso_visible
+        icon_name = "ph.eye" if not self.verso_visible else "ph.eye-slash"
+        self.preview_widget.btn_toggle_verso.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+        self._update_preview()
+
+    @Slot()
+    def _on_validate_card(self) -> None:
+        if self.generated_cards:
+            self.generated_cards[self.current_preview_index]["status"] = "VALIDÉ"
+            self._update_table()
+
+    @Slot()
+    def _on_edit_card(self) -> None:
         pass
 
-    def is_dirty(self) -> bool:
-        return False
+    @Slot()
+    def _on_reject_card(self) -> None:
+        if self.generated_cards:
+            self.generated_cards.pop(self.current_preview_index)
+            if self.current_preview_index >= len(self.generated_cards):
+                self.current_preview_index = max(0, len(self.generated_cards) - 1)
+            self._update_table()
+            self._update_preview()

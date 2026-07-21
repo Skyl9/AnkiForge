@@ -197,30 +197,51 @@ class TabButton(QPushButton):
         self.setCheckable(True)
         self.setFixedHeight(36)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        padding_right = 28 if closable else 12
         self.setStyleSheet(f"""
             TabButton {{
-                background-color: transparent;
-                color: {DesignTokens.TEXT_SECONDARY};
+                background-color: #16181d;
+                color: #94a3b8;
                 border: none;
-                border-bottom: 2px solid transparent;
-                padding: 0 12px;
+                border-top: 2px solid transparent;
+                padding: 0 {padding_right}px 0 12px;
                 font-family: "{DesignTokens.FONT_MAIN}";
                 font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                text-align: left;
             }}
             TabButton:hover {{
-                color: {DesignTokens.TEXT_PRIMARY};
-                background-color: {DesignTokens.BG_HOVER};
+                color: #f8fafc;
+                background-color: #2d313a;
             }}
             TabButton:checked {{
-                color: {DesignTokens.TEXT_PRIMARY};
-                border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: transparent;
+                background-color: #1e2128;
+                color: #f8fafc;
+                border-top: 2px solid #8b5cf6;
+                font-weight: bold;
             }}
         """)
+        if self.closable:
+            self.close_btn = QPushButton(self)
+            self.close_btn.setFixedSize(16, 16)
+            self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.close_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    border-radius: 8px;
+                    border: none;
+                }
+                QPushButton:hover {
+                    background-color: rgba(255, 255, 255, 0.1);
+                }
+            """)
+            self.close_btn.setIcon(load_phosphor_icon("ph.x", color="#94a3b8"))
+            self.close_btn.clicked.connect(self.close_requested.emit)
         self._drag_start_pos = QPoint()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        if hasattr(self, "close_btn"):
+            self.close_btn.move(self.width() - 22, (self.height() - 16) // 2)
 
     def contextMenuEvent(self, event):
         from ankiforge.ui.theme import StyledMenu

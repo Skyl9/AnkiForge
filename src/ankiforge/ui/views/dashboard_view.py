@@ -1,8 +1,8 @@
 from typing import Any
 from peewee import fn
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSplitter, QScrollArea, QGridLayout, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSplitter, QScrollArea, QGridLayout, QSizePolicy, QFileDialog
 from PySide6.QtCore import Qt, QThread, Slot, Signal
-from PySide6.QtGui import QColor, QPainter, QLinearGradient, QFont
+from PySide6.QtGui import QFont
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.components import IdePanel, SecondaryButton
@@ -39,7 +39,13 @@ class DashboardHeroBanner(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(180)
-        self.setStyleSheet(f"border-radius: {DesignTokens.RADIUS_LG}px;")
+        self.setStyleSheet("""
+            DashboardHeroBanner {
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(99, 102, 241, 0.12), stop:1 rgba(139, 92, 246, 0.04));
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                border-radius: 16px;
+            }
+        """)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -66,21 +72,10 @@ class DashboardHeroBanner(QFrame):
 
         apply_shadow(self, blur=20, offset_y=4, color="rgba(0, 0, 0, 0.2)")
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        gradient = QLinearGradient(0, 0, self.width(), self.height())
-        color1 = QColor(99, 102, 241, 13)
-        color2 = QColor(139, 92, 246, 13)
-        gradient.setColorAt(0, color1)
-        gradient.setColorAt(1, color2)
-
-        painter.setBrush(gradient)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(self.rect(), DesignTokens.RADIUS_LG, DesignTokens.RADIUS_LG)
-
 
 class DashboardActionButton(QFrame):
+    clicked = Signal()
+
     def __init__(self, title, subtitle, icon_name, color, bg_color, parent=None):
         super().__init__(parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -91,8 +86,8 @@ class DashboardActionButton(QFrame):
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
             DashboardActionButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: #2d313a;
+                border: 1px solid #8b5cf6;
             }}
         """)
 
@@ -128,11 +123,16 @@ class DashboardActionButton(QFrame):
 
         subtitle_label = QLabel(subtitle)
         subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 12))
-        subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
         text_layout.addWidget(subtitle_label)
 
         layout.addLayout(text_layout)
         layout.addStretch()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
 
 
 class ActivityItem(QFrame):
@@ -180,8 +180,11 @@ class ActivityItem(QFrame):
 
 
 class DashboardDropZone(QFrame):
+    file_selected = Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setAcceptDrops(True)
         self.setStyleSheet(f"""
             DashboardDropZone {{
                 background-color: {DesignTokens.BG_MAIN};
@@ -217,8 +220,25 @@ class DashboardDropZone(QFrame):
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(subtitle)
 
-        btn = SecondaryButton("Parcourir les fichiers")
-        layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignCenter)
+        self.btn = SecondaryButton("Parcourir les fichiers")
+        self.btn.clicked.connect(self._browse_files)
+        layout.addWidget(self.btn, 0, Qt.AlignmentFlag.AlignCenter)
+
+    def _browse_files(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un document", "", "Documents (*.pdf *.txt *.md);;Tous les fichiers (*.*)")
+        if file_path:
+            self.file_selected.emit(file_path)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if urls and urls[0].isLocalFile():
+            self.file_selected.emit(urls[0].toLocalFile())
 
 
 class StatItem(QFrame):
@@ -226,8 +246,8 @@ class StatItem(QFrame):
         super().__init__(parent)
         self.setStyleSheet(f"""
             StatItem {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
+                background-color: #1e2128;
+                border: 1px solid #2d313a;
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
@@ -255,6 +275,8 @@ class StatItem(QFrame):
 
 
 class DashboardView(QWidget):
+    request_navigation = Signal(str)
+
     def __init__(self, ai_manager: Any = None, parent: QWidget | None = None):
         super().__init__(parent)
         self.ai_manager = ai_manager
@@ -305,8 +327,11 @@ class DashboardView(QWidget):
         actions_layout.setSpacing(16)
 
         btn1 = DashboardActionButton("Forger des cartes", "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, "rgba(59, 130, 246, 0.1)")
+        btn1.clicked.connect(lambda: self.request_navigation.emit("creation"))
         btn2 = DashboardActionButton("Bibliothèque", "Naviguer les paquets", "ph.books", DesignTokens.COLOR_GREEN, "rgba(16, 185, 129, 0.1)")
+        btn2.clicked.connect(lambda: self.request_navigation.emit("documents"))
         btn3 = DashboardActionButton("Consulter l'IA", "Configurer les agents", "ph.robot", DesignTokens.COLOR_PURPLE, "rgba(139, 92, 246, 0.1)")
+        btn3.clicked.connect(lambda: self.request_navigation.emit("consultant"))
 
         actions_layout.addWidget(btn1)
         actions_layout.addWidget(btn2)
@@ -315,6 +340,7 @@ class DashboardView(QWidget):
 
         drop_zone = DashboardDropZone()
         drop_zone.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        drop_zone.file_selected.connect(self._on_file_selected)
         content_layout.addWidget(drop_zone, 1)
 
         scroll_area.setWidget(content_widget)
@@ -386,12 +412,15 @@ class DashboardView(QWidget):
         self.worker.feed_loaded.connect(self._on_feed_loaded)
         self.worker.start()
 
+    def _on_file_selected(self, file_path: str):
+        # We navigate to creation view and maybe pass the file path later
+        self.request_navigation.emit("creation")
+
     @Slot(dict)
     def _on_stats_loaded(self, stats: dict) -> None:
         try:
-            # If DB is empty, use mockup value as fallback
-            cards_val = f"{stats['cards']:,}" if stats["cards"] > 0 else "1,245"
-            docs_val = str(stats["notes"]) if stats["notes"] > 0 else "14"
+            cards_val = f"{stats['cards']:,}"
+            docs_val = str(stats["notes"])
 
             self.stat_cards_forged.set_value(cards_val)
             self.stat_docs_analyzed.set_value(docs_val)
@@ -410,22 +439,12 @@ class DashboardView(QWidget):
                     if widget:
                         widget.deleteLater()
 
-            if not feed:
-                # Fallback to mockup activities if DB has no history
-                mock_activities = [
-                    ("Cours_Cardio_P3.pdf", "Il y a 2h • 45 cartes", "ph.file-pdf", DesignTokens.COLOR_BLUE),
-                    ("Médecine/Cardio", "Exporté vers Anki • 3h", "ph.cards", DesignTokens.COLOR_GREEN),
-                    ("Agent Linter", "Config mise à jour • Hier", "ph.robot", DesignTokens.COLOR_PURPLE),
-                ]
-                for title, time_desc, icon_name, bg_color in mock_activities:
-                    self.activity_list_layout.addWidget(ActivityItem(title, time_desc, icon_name, bg_color))
-            else:
-                for item in feed:
-                    title = f"Note #{item['note_id']} (v{item['version']})"
-                    time_desc = f"{item['created_at']} via {item['source']}"
-                    icon = "ph.sparkle" if item["source"] == "ai" else "ph.cards"
-                    color = DesignTokens.COLOR_BLUE if item["source"] == "ai" else DesignTokens.COLOR_GREEN
-                    self.activity_list_layout.addWidget(ActivityItem(title, time_desc, icon, color))
+            for item in feed:
+                title = f"Note #{item['note_id']} (v{item['version']})"
+                time_desc = f"{item['created_at']} via {item['source']}"
+                icon = "ph.sparkle" if item["source"] == "ai" else "ph.cards"
+                color = DesignTokens.COLOR_BLUE if item["source"] == "ai" else DesignTokens.COLOR_GREEN
+                self.activity_list_layout.addWidget(ActivityItem(title, time_desc, icon, color))
         except RuntimeError:
             pass
 

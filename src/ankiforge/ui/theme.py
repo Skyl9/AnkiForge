@@ -160,6 +160,57 @@ def get_global_stylesheet(is_dark: bool) -> str:
         height: 16px;
         left: 4px;
     }}
+    
+    QTableWidget, QTableView {{
+        background-color: #1e2128;
+        border: none;
+        gridline-color: #2d313a;
+    }}
+    QHeaderView::section {{
+        background-color: #16181d;
+        color: #64748b;
+        font-weight: bold;
+        text-transform: uppercase;
+        padding: 4px;
+        border: none;
+    }}
+    QTableView::item:hover {{
+        background-color: #2d313a;
+    }}
+    QTableView::item:selected {{
+        background-color: #2d313a;
+        border-left: 2px solid #8b5cf6;
+    }}
+    
+    QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{
+        background-color: #1a1d24;
+        border: 1px solid #2d313a;
+        border-radius: 6px;
+        color: #f8fafc;
+        padding: 4px 8px;
+    }}
+    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
+        border: 1px solid #8b5cf6;
+    }}
+    
+    QSplitter::handle {{
+        background-color: #2d313a;
+        width: 2px;
+        height: 2px;
+    }}
+    
+    QProgressBar {{
+        background-color: #1a1d24;
+        border: none;
+        border-radius: 4px;
+        max-height: 8px;
+        text-align: center;
+        color: transparent;
+    }}
+    QProgressBar::chunk {{
+        background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #8b5cf6);
+        border-radius: 4px;
+    }}
     """
 
 

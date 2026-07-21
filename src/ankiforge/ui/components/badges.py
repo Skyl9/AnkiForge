@@ -13,7 +13,7 @@ class Badge(QLabel):
         base_color = color or DesignTokens.ACCENT_PRIMARY
 
         style = """
-            border-radius: 10px;
+            border-radius: 9999px;
             padding: 2px 8px;
             font-size: 11px;
             font-weight: bold;
@@ -27,6 +27,14 @@ class Badge(QLabel):
             style += f"background-color: rgba(99, 102, 241, 0.1); color: {base_color}; border: 1px solid rgba(99, 102, 241, 0.2);"
         elif variant == "glass":
             style += "background-color: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2);"
+        elif variant == "success":
+            style += "background-color: rgba(16, 185, 129, 0.15); color: #10b981;"
+        elif variant == "warning":
+            style += "background-color: rgba(245, 158, 11, 0.15); color: #f59e0b;"
+        elif variant == "info":
+            style += "background-color: rgba(59, 130, 246, 0.15); color: #3b82f6;"
+        elif variant == "danger":
+            style += "background-color: rgba(239, 68, 68, 0.15); color: #ef4444;"
 
         self.setStyleSheet(style)
 

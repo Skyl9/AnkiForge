@@ -360,19 +360,27 @@ class MainWindow(QMainWindow):
 
     from ankiforge.ui.views.dashboard_view import DashboardView
     from ankiforge.ui.views.creation_view import CreationView
+    from ankiforge.ui.views.edition_view import EditionView
+    from ankiforge.ui.views.consultant_view import ConsultantView
+    from ankiforge.ui.views.batch_view import BatchView
+    from ankiforge.ui.views.documents_view import DocumentsView
+    from ankiforge.ui.views.card_models_view import CardModelsView
+    from ankiforge.ui.views.agents_view import AgentsView
+    from ankiforge.ui.views.pipelines_view import PipelinesView
+    from ankiforge.ui.views.ab_tests_view import ABTestsView
 
     VIEW_REGISTRY: Dict[str, Tuple[str, str, str, Type[QWidget]]] = {
         # view_id -> (category, icon, title, WidgetClass)
         "dashboard": ("Général", "squares-four", "Tableau de bord", DashboardView),
         "creation": ("Forge & Outils", "magic-wand", "Studio de Création", CreationView),
-        "edition": ("Forge & Outils", "cards", "Édition / Analyse", DummyView),
-        "consultant": ("Forge & Outils", "robot", "AI Consultant", DummyView),
-        "batch": ("Forge & Outils", "factory", "Batch Factory", DummyView),
-        "documents": ("Bibliothèque", "file-text", "My Documents", DummyView),
-        "card-models": ("Bibliothèque", "swatches", "Card Models", DummyView),
-        "agents": ("Laboratoire IA", "cpu", "Éditeur d'Agents", DummyView),
-        "pipelines": ("Laboratoire IA", "git-merge", "Pipelines", DummyView),
-        "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", DummyView),
+        "edition": ("Forge & Outils", "cards", "Édition / Analyse", EditionView),
+        "consultant": ("Forge & Outils", "robot", "AI Consultant", ConsultantView),
+        "batch": ("Forge & Outils", "factory", "Batch Factory", BatchView),
+        "documents": ("Bibliothèque", "file-text", "My Documents", DocumentsView),
+        "card-models": ("Bibliothèque", "swatches", "Card Models", CardModelsView),
+        "agents": ("Laboratoire IA", "cpu", "Éditeur d'Agents", AgentsView),
+        "pipelines": ("Laboratoire IA", "git-merge", "Pipelines", PipelinesView),
+        "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", ABTestsView),
     }
 
     def __init__(self, ai_manager: Optional[AIManager], profile_name: str = "default") -> None:
@@ -437,14 +445,19 @@ class MainWindow(QMainWindow):
                 categories[cat] = []
             categories[cat].append((view_id, icon, title))
 
-            # Register view
-            # In a real scenario, we would instantiate the class with correct args
-            # For now, we use the DummyView which accepts title as argument
+            # Instantiate view
             if cls == DummyView:
                 widget = cls(title)
             else:
-                # Other views, e.g., DashboardView
-                widget = cast(Any, cls)(ai_manager=self.ai_manager)
+                try:
+                    widget = cast(Any, cls)(ai_manager=self.ai_manager)
+                except TypeError:
+                    widget = cast(Any, cls)()
+
+            # Connect navigation signals if view supports it
+            if hasattr(widget, "request_navigation"):
+                widget.request_navigation.connect(self._on_view_selected)
+
             self._register_view(view_id, widget)
 
         for cat, items in categories.items():

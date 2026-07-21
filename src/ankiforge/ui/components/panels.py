@@ -270,12 +270,12 @@ class IdePanel(QFrame):
 
         # --- Header (ide-tabs) ---
         self.header = QFrame()
-        self.header.setStyleSheet(f"""
-            QFrame {{
-                background-color: transparent;
+        self.header.setStyleSheet("""
+            QFrame {
+                background-color: #16181d;
                 border: none;
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-            }}
+                border-bottom: 1px solid #2d313a;
+            }
         """)
         self.header.setFixedHeight(36)
 
@@ -306,13 +306,26 @@ class IdePanel(QFrame):
         self._extra_widgets_zone.setVisible(False)
         self.header_layout.addWidget(self._extra_widgets_zone)
 
+        action_btn_style = """
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #2d313a;
+            }
+        """
+
         self.menu_btn = IconButton("ph.plus", "Gérer les onglets", 24)
+        self.menu_btn.setStyleSheet(action_btn_style)
         self.menu_btn.clicked.connect(self._show_tabs_menu)
         self.header_layout.addWidget(self.menu_btn)
 
         # Detach button
         if detachable:
             self.detach_btn = IconButton("ph.arrow-up-right", "Détacher", 24)
+            self.detach_btn.setStyleSheet(action_btn_style)
             self.detach_btn.clicked.connect(self.detach_panel)
             self.header_layout.addWidget(self.detach_btn)
 
@@ -794,11 +807,16 @@ class MetricCard(QFrame):
         super().__init__(parent)
         self.setStyleSheet(f"""
             MetricCard {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
+                background-color: #1e2128;
+                border: 1px solid #2d313a;
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
+            MetricCard:hover {{
+                border: 1px solid #8b5cf6;
+                background-color: #252830;
+            }}
         """)
+        apply_shadow(self, blur=12, offset_y=4, color=QColor(139, 92, 246, 40))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
 
