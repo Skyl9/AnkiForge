@@ -407,6 +407,13 @@ class IdePanel(QFrame):
         if active_by_default:
             self.open_tab(title)
 
+    def set_tab_text(self, index: int, text: str) -> None:
+        if hasattr(self, "tabs_bar"):
+            self.tabs_bar.set_tab_text(index, text)
+
+    def set_tab_title(self, index: int, title: str) -> None:
+        self.set_tab_text(index, title)
+
     def open_tab(self, title: str):
         title = title.strip()
         owner, idx = find_tab_owner(title)

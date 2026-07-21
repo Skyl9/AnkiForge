@@ -177,6 +177,13 @@ class SettingsTabBar(QWidget):
 
         return idx
 
+    def set_tab_text(self, index: int, text: str) -> None:
+        if 0 <= index < len(self.tabs):
+            btn = self.tabs[index]
+            icon_name = btn.property("icon_name") or ""
+            display_text = f" {text}" if icon_name else text
+            btn.setText(display_text)
+
 
 class TabButton(QPushButton):
     """Bouton d'onglet draggable."""
@@ -531,6 +538,13 @@ class ScrollableTabBarWidget(QWidget):
 
     def add_tab(self, title: str, icon_name: str = "", closable: bool = False) -> int:
         return self.insert_tab(len(self.tabs), title, icon_name, closable)
+
+    def set_tab_text(self, index: int, text: str) -> None:
+        if 0 <= index < len(self.tabs):
+            btn = self.tabs[index]
+            icon_name = btn.property("icon_name") or ""
+            display_text = f" {text}" if icon_name else text
+            btn.setText(display_text)
 
     def insert_tab(self, index: int, title: str, icon_name: str = "", closable: bool = False) -> int:
         index = max(0, min(index, len(self.tabs)))

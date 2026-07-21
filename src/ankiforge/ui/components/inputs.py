@@ -1,3 +1,4 @@
+import typing
 from PySide6.QtWidgets import QLineEdit, QPlainTextEdit, QWidget, QComboBox
 from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve, Property
 from PySide6.QtGui import QPainter, QColor, QPaintEvent
@@ -156,3 +157,36 @@ class StyledComboBox(QComboBox):
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
+
+
+class DBComboBox(StyledComboBox):
+    """ComboBox peuplée dynamiquement à partir d'un modèle Peewee."""
+
+    def __init__(
+        self,
+        model_class: typing.Any = None,
+        display_field: str = "name",
+        sort_field: str = "name",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.model_class = model_class
+        self.display_field = display_field
+        self.sort_field = sort_field
+        if model_class is not None:
+            self.refresh_from_model()
+
+    def refresh_from_model(self) -> None:
+        self.clear()
+        if self.model_class is None:
+            return
+        try:
+            query = self.model_class.select()
+            if hasattr(self.model_class, self.sort_field):
+                query = query.order_by(getattr(self.model_class, self.sort_field))
+            for item in query:
+                text = getattr(item, self.display_field, str(item))
+                val = getattr(item, "id", text)
+                self.addItem(text, val)
+        except Exception:
+            pass  # nosec B110

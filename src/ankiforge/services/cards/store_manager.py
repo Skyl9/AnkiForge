@@ -423,6 +423,12 @@ class StoreManager:
                 # Remplacement du return par un raise
                 raise ValueError(f"Type de fichier non supporté : {extension}")
 
+    @classmethod
+    def import_apkg(cls, collection_path: str | Path, progress_callback=None) -> None:
+        """Alias de classe pour importer une collection ou paquet (.apkg, .colpkg, .txt)."""
+        instance = cls()
+        instance.store_collection(str(collection_path), progress_callback=progress_callback)
+
     def approve_notes(self, note_ids: list[int]) -> None:
         """Approuve une liste de notes en mettant leur statut à 'new'."""
         with db.atomic():
