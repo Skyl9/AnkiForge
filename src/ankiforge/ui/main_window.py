@@ -514,8 +514,11 @@ class MainWindow(QMainWindow):
         self.sidebar.set_collapsed(not self.sidebar.is_collapsed)
 
     def _open_settings_modal(self) -> None:
-        """Ouvre le SettingsModal (Phase 3)."""
-        print("Settings Modal Requested")
+        """Ouvre le modal de paramètres de l'application."""
+        from ankiforge.ui.widgets.settings_modal import SettingsModal
+
+        modal = SettingsModal(ai_manager=self.ai_manager, parent=self)
+        modal.exec()
 
     def _open_command_palette(self) -> None:
         """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""
