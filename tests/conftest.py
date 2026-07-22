@@ -23,6 +23,8 @@ from ankiforge.database.models import (
 )
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
 
 
 @pytest.fixture(autouse=True)
@@ -62,3 +64,32 @@ def mock_db():
 
     test_db.drop_tables(models)
     test_db.close()
+
+
+@pytest.fixture(autouse=True)
+def cleanup_qt_widgets():
+    """Nettoie les widgets Qt et WebEngine à la fin de chaque test pour éviter les fuites mémoire."""
+    yield
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app:
+        app.processEvents()
+        for widget in list(app.allWidgets()):
+            if hasattr(widget, "cleanup"):
+                try:
+                    widget.cleanup()
+                except Exception:
+                    pass
+            try:
+                widget.deleteLater()
+            except Exception:
+                pass
+        app.processEvents()
+
+
+def pytest_unconfigure(config):
+    """S'assure d'une sortie propre (code 0) sans crash C++ Chromium WebEngine en fin de tests."""
+    import os
+
+    os._exit(0)

@@ -15,16 +15,20 @@ class PrimaryButton(QPushButton):
 
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
+                background-color: #6366f1;
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: none;
                 border-radius: 6px;
                 font-family: "{DesignTokens.FONT_MAIN}";
-                font-weight: bold;
+                font-weight: 600;
                 padding: 8px 16px;
             }}
             QPushButton:hover {{
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f46e5, stop:1 #7c3aed);
+                background-color: #4f46e5;
+            }}
+            QPushButton:disabled {{
+                background-color: #2d313a;
+                color: #64748b;
             }}
         """)
         apply_shadow(self, blur=10, offset_y=0, color="rgba(99,102,241,0.4)")

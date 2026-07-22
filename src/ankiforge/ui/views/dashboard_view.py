@@ -87,7 +87,7 @@ class DashboardActionButton(QFrame):
             }}
             DashboardActionButton:hover {{
                 background-color: #2d313a;
-                border: 1px solid #8b5cf6;
+                border: 1px solid #6366f1;
             }}
         """)
 

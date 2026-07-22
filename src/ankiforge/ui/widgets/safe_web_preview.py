@@ -13,16 +13,25 @@ class SafeWebEngineView(QWebEngineView):
         super().__init__(parent)
         self._load_count = 0
         self._refresh_threshold = 20
-        self._setup_new_page()
+        self._configure_page(self.page())
 
-    def _setup_new_page(self):
+    def _configure_page(self, page: QWebEnginePage | None) -> None:
+        if page is not None:
+            page.setBackgroundColor(Qt.GlobalColor.transparent)
+            self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+
+    def _setup_new_page(self) -> None:
         """Crée une nouvelle page propre et détruit l'ancienne pour libérer la RAM."""
+        old_page = self.page()
         new_page = QWebEnginePage(self)
-        new_page.setBackgroundColor(Qt.GlobalColor.transparent)
+        self._configure_page(new_page)
         self.setPage(new_page)
 
-        # On autorise le chargement des images locales (dossier media)
-        self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        if old_page is not None and old_page != new_page:
+            try:
+                old_page.deleteLater()
+            except RuntimeError:
+                pass  # Nosec B110: PySide6 setPage may already delete old C++ page
 
     def setHtmlSafe(self, html: str, base_url: QUrl | None = None):
         """Remplace setHtml pour inclure une gestion agressive de la mémoire."""
@@ -40,7 +49,15 @@ class SafeWebEngineView(QWebEngineView):
 
         self.setHtml(html, base_url)
 
-    def clear_memory(self):
-        """À appeler quand on quitte la vue ou qu'on n'a plus besoin de l'aperçu."""
-        self.setHtmlSafe("<html><body style='background: transparent;'></body></html>")
-        self._setup_new_page()
+    def cleanup(self):
+        """Détruit proprement la QWebEnginePage lors du démontage du composant."""
+        try:
+            page = self.page()
+            if page is not None:
+                page.deleteLater()
+        except RuntimeError:
+            pass  # Nosec B110
+
+    def closeEvent(self, event):
+        self.cleanup()
+        super().closeEvent(event)

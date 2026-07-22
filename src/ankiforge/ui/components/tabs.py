@@ -223,7 +223,7 @@ class TabButton(QPushButton):
             TabButton:checked {{
                 background-color: #1e2128;
                 color: #f8fafc;
-                border-top: 2px solid #8b5cf6;
+                border-top: 2px solid #6366f1;
                 font-weight: bold;
             }}
         """)

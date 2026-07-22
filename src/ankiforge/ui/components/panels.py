@@ -416,6 +416,32 @@ class IdePanel(QFrame):
 
     def open_tab(self, title: str):
         title = title.strip()
+        if title in self._registered_tabs:
+            info = self._registered_tabs[title]
+
+            # Safety check: verify if the C++ widget has been deleted
+            try:
+                _ = info["widget"].parent()
+            except RuntimeError:
+                # C++ object was deleted. Remove from registration.
+                self._registered_tabs.pop(title, None)
+                self._toggle_placeholder()
+                return
+
+            if info["active"]:
+                for i, btn in enumerate(self.tabs_bar.tabs):
+                    if btn.text().strip() == title:
+                        self.set_active_tab(i)
+                        return
+
+            info["active"] = True
+            idx = self.tabs_bar.add_tab(title, info["icon_name"], info["closable"])
+            self.content_stack.addWidget(info["widget"])
+            info["widget"].show()
+            self._toggle_placeholder()
+            self.set_active_tab(len(self.tabs_bar.tabs) - 1)
+            return
+
         owner, idx = find_tab_owner(title)
         if owner:
             if owner == self:
@@ -423,25 +449,6 @@ class IdePanel(QFrame):
             else:
                 widget, tab_title, closable = owner.remove_tab_widget(idx)
                 self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, closable=closable)
-        else:
-            if title in self._registered_tabs:
-                info = self._registered_tabs[title]
-
-                # Safety check: verify if the C++ widget has been deleted
-                try:
-                    _ = info["widget"].parent()
-                except RuntimeError:
-                    # C++ object was deleted. Remove from registration.
-                    self._registered_tabs.pop(title, None)
-                    self._toggle_placeholder()
-                    return
-
-                info["active"] = True
-                idx = self.tabs_bar.add_tab(title, info["icon_name"], info["closable"])
-                self.content_stack.addWidget(info["widget"])
-                info["widget"].show()
-                self._toggle_placeholder()
-                self.set_active_tab(len(self.tabs_bar.tabs) - 1)
 
     def close_tab(self, title: str):
         title = title.strip()
@@ -819,11 +826,11 @@ class MetricCard(QFrame):
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
             MetricCard:hover {{
-                border: 1px solid #8b5cf6;
+                border: 1px solid #6366f1;
                 background-color: #252830;
             }}
         """)
-        apply_shadow(self, blur=12, offset_y=4, color=QColor(139, 92, 246, 40))
+        apply_shadow(self, blur=12, offset_y=4, color=QColor(99, 102, 241, 40))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
 

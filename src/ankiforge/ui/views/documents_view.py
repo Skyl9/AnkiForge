@@ -159,19 +159,6 @@ class DocumentsView(QWidget):
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
-        self.btn_save.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #10b981, stop:1 #059669);
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: 600;
-                padding: 6px 14px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #059669, stop:1 #047857);
-            }
-        """)
         doc_toolbar.addWidget(self.btn_save)
 
         editor_layout.addWidget(doc_toolbar_widget)

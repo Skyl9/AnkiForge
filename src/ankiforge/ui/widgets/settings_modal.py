@@ -267,7 +267,8 @@ class SettingsModal(QDialog):
 
         self.setWindowTitle("Paramètres AnkiForge")
         self.setFixedSize(900, 600)
-        self.setModal(True)
+        self.setModal(False)
+        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
 
         self._setup_ui()
 
@@ -286,7 +287,7 @@ class SettingsModal(QDialog):
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
 
         btn_close = IconButton("ph.x", tooltip="Fermer", size=22)
-        btn_close.clicked.connect(self.accept)
+        btn_close.clicked.connect(self.close)
 
         header_layout.addWidget(lbl_title)
         header_layout.addStretch()

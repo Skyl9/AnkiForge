@@ -137,7 +137,7 @@ class CardPreviewWidget(QWidget):
             QFrame {{
                 background-color: #1a1d24;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 4px solid qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #8b5cf6);
+                border-top: 4px solid #6366f1;
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
@@ -288,4 +288,9 @@ class CardPreviewWidget(QWidget):
 
     def clear_memory(self) -> None:
         """Nettoie la RAM du moteur web."""
-        self.web_view.clear_memory()
+        self.web_view.cleanup()
+
+    def closeEvent(self, event: Any) -> None:
+        if hasattr(self, "web_view"):
+            self.web_view.cleanup()
+        super().closeEvent(event)

@@ -18,14 +18,14 @@ class DesignTokens:
     BG_PANEL = "#1e2128"
     BG_INPUT = "#1a1d24"
     BG_HOVER = "#2d313a"
-    BG_ACTIVE = "rgba(139, 92, 246, 0.1)"
+    BG_ACTIVE = "rgba(99, 102, 241, 0.12)"
 
     SURFACE_SECONDARY = "#1e2128"
     SURFACE_HOVER = "#2d313a"
 
     # Accent
-    ACCENT_PRIMARY = "#8b5cf6"  # Purple-500 (Violet)
-    ACCENT_HOVER = "#7c3aed"  # Purple-600
+    ACCENT_PRIMARY = "#6366f1"  # Indigo-Violet (#6366f1 - Maquette concept_ide)
+    ACCENT_HOVER = "#4f46e5"  # Indigo Hover (#4f46e5 - Maquette concept_ide)
 
     # Text
     TEXT_PRIMARY = "#f8fafc"
@@ -41,7 +41,7 @@ class DesignTokens:
     COLOR_GREEN = "#10b981"
     COLOR_YELLOW = "#f59e0b"
     COLOR_RED = "#ef4444"
-    COLOR_PURPLE = "#8b5cf6"
+    COLOR_PURPLE = "#6366f1"
 
     # Radius
     RADIUS_SM = 6  # buttons, inputs
@@ -137,41 +137,42 @@ def get_global_stylesheet(is_dark: bool) -> str:
     }}
     
     QMenu {{
-        background-color: {DesignTokens.BG_SIDEBAR};
-        border: 1px solid {DesignTokens.BORDER_COLOR};
-        border-radius: {DesignTokens.RADIUS_MD}px;
-        padding: 6px;
+        background-color: #1e2128;
+        border: 1px solid #2d313a;
+        padding: 4px;
+        border-radius: 6px;
     }}
     QMenu::item {{
-        color: {DesignTokens.TEXT_SECONDARY};
-        padding: 8px 16px 8px 36px;
-        border-radius: {DesignTokens.RADIUS_SM}px;
-        margin: 2px 0px;
+        padding: 6px 20px;
+        border-radius: 4px;
+        color: #f8fafc;
     }}
     QMenu::item:selected {{
-        background-color: {DesignTokens.BG_HOVER};
-        color: {DesignTokens.TEXT_PRIMARY};
-    }}
-    QMenu::icon {{
-        left: 12px;
-    }}
-    QMenu::indicator {{
-        width: 16px;
-        height: 16px;
-        left: 4px;
+        background-color: #2d313a;
+        color: #6366f1;
     }}
     
     QTableWidget, QTableView {{
         background-color: #1e2128;
-        border: none;
+        border: 1px solid #2d313a;
         gridline-color: #2d313a;
+        color: #f8fafc;
+        border-radius: 6px;
+        selection-background-color: #2d313a;
+        selection-color: #f8fafc;
     }}
     QHeaderView::section {{
         background-color: #16181d;
         color: #64748b;
+        font-size: 11px;
         font-weight: bold;
         text-transform: uppercase;
-        padding: 4px;
+        padding: 6px 12px;
+        border: none;
+        border-bottom: 1px solid #2d313a;
+    }}
+    QTableView::item {{
+        padding: 8px 12px;
         border: none;
     }}
     QTableView::item:hover {{
@@ -179,7 +180,7 @@ def get_global_stylesheet(is_dark: bool) -> str:
     }}
     QTableView::item:selected {{
         background-color: #2d313a;
-        border-left: 2px solid #8b5cf6;
+        border-left: 2px solid #6366f1;
     }}
     
     QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{
@@ -190,7 +191,7 @@ def get_global_stylesheet(is_dark: bool) -> str:
         padding: 4px 8px;
     }}
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
-        border: 1px solid #8b5cf6;
+        border: 1px solid #6366f1;
     }}
     
     QSplitter::handle {{
@@ -208,7 +209,7 @@ def get_global_stylesheet(is_dark: bool) -> str:
         color: transparent;
     }}
     QProgressBar::chunk {{
-        background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #8b5cf6);
+        background-color: #6366f1;
         border-radius: 4px;
     }}
     """

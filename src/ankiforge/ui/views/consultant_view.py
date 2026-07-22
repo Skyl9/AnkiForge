@@ -1,10 +1,9 @@
 """
 Vue AI Consultant — Intégration Métier Complète (master) & UI 100% Maquette concept_ide.
-- Raccordement complet à AIManager, LLMConfigModel, DeckModel, DocumentModel et AgentModel.
-- Extraction contextuelle réelle des notes et documents (_build_context_data).
-- Gestion dynamique des sources attachées (@Deck, @Doc) avec menu contextuel et suppression.
-- Moteur asynchrone ConsultantWorker avec signaux progress, finished_signal et error_signal.
-- Boutons d'actions avancées (Tags, Division, Attachments) réservés pour les futures extensions.
+- Suppression des messages mockés. Vrais inputs/outputs via ConsultantWorker & AIManager.
+- Suggestions de prompts rapides (Quick Prompts) conservées et fonctionnelles.
+- Panneau de contexte actif à droite raccordé aux vrais Decks, Documents et AgentModel (Jinja2 System Prompt).
+- Sélecteur de Moteurs LLMConfigModel avec affichage display_name et auto-seeding.
 """
 
 import datetime
@@ -93,7 +92,7 @@ class ChatMessageWidget(QWidget):
             self.avatar_lbl.setPixmap(load_phosphor_icon("ph.robot", color="white").pixmap(18, 18))
             self.avatar_lbl.setStyleSheet("""
                 QLabel {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
+                    background-color: #6366f1;
                     border-radius: 16px;
                 }
             """)
@@ -144,33 +143,22 @@ class ChatMessageWidget(QWidget):
         content_layout.addWidget(header_lbl)
         content_layout.addWidget(body_card)
 
-        # Actions sous la réponse de l'IA (Tags, Copier, Thumbs - Mockées pour extensions futures)
+        # Actions sous la réponse de l'IA
         if not is_user:
             actions_layout = QHBoxLayout()
             actions_layout.setContentsMargins(0, 4, 0, 0)
             actions_layout.setSpacing(6)
 
-            btn_apply_tags = SecondaryButton("Appliquer les tags")
-            btn_apply_tags.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.COLOR_PURPLE))
-            btn_apply_tags.setStyleSheet("padding: 4px 8px; font-size: 11px;")
-            btn_apply_tags.clicked.connect(lambda: show_toast(self, "Application automatique des tags en cours..."))
-            actions_layout.addWidget(btn_apply_tags)
-
-            btn_split = SecondaryButton("Diviser les cartes")
-            btn_split.setIcon(load_phosphor_icon("ph.scissors", color=DesignTokens.TEXT_PRIMARY))
-            btn_split.setStyleSheet("padding: 4px 8px; font-size: 11px;")
-            btn_split.clicked.connect(lambda: show_toast(self, "Analyse pour division des cartes longues..."))
-            actions_layout.addWidget(btn_split)
-
-            actions_layout.addStretch()
-
             btn_copy = IconButton("ph.copy", tooltip="Copier le texte", size=20)
-            btn_copy.clicked.connect(lambda: show_toast(self, "Texte copié dans le presse-papier."))
+            btn_copy.clicked.connect(lambda: (QApplication.clipboard().setText(text), show_toast(self, "Texte copié dans le presse-papiers !")))
+
             btn_like = IconButton("ph.thumbs-up", tooltip="Bonne réponse", size=20)
             btn_like.clicked.connect(lambda: show_toast(self, "Merci pour votre retour !"))
+
             btn_dislike = IconButton("ph.thumbs-down", tooltip="Mauvaise réponse", size=20)
             btn_dislike.clicked.connect(lambda: show_toast(self, "Retour enregistré."))
 
+            actions_layout.addStretch()
             actions_layout.addWidget(btn_copy)
             actions_layout.addWidget(btn_like)
             actions_layout.addWidget(btn_dislike)
@@ -187,21 +175,21 @@ class ChatMessageWidget(QWidget):
 
 class ConsultantView(QWidget):
     """
-    AI Consultant Studio — Intégration Métier Complète master + UI 100% Maquette concept_ide.
+    AI Consultant Studio — Vrais inputs/outputs et raccordement contextuel aux données réelles Peewee.
     """
 
     def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.worker: Optional[ConsultantWorker] = None
-        self.used_tokens_count = 14204
+        self.used_tokens_count = 0
         self.modified_cards_count = 0
-        self.active_context: list[str] = []  # Liste d'identifiants (ex: 'deck_1', 'doc_2')
+        self.active_context: list[str] = []  # Ex: ['deck_1', 'doc_2']
 
         self._setup_ui()
         self._connect_signals()
         self.refresh_data()
-        self._insert_initial_messages()
+        self._insert_welcome_message()
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -216,7 +204,7 @@ class ConsultantView(QWidget):
 
         # Moteur Selector dans le header du chat_panel
         self.model_selector = StyledComboBox()
-        self.model_selector.setMinimumWidth(160)
+        self.model_selector.setMinimumWidth(180)
         self.chat_panel.add_header_widget(self.model_selector)
         self.chat_panel.add_header_separator()
 
@@ -251,16 +239,16 @@ class ConsultantView(QWidget):
         input_area_layout.setContentsMargins(16, 8, 16, 16)
         input_area_layout.setSpacing(10)
 
-        # Quick Prompts Row (Boutons de suggestions rapides)
+        # Quick Prompts Row (Boutons de suggestions rapides conservés)
         quick_prompts_layout = QHBoxLayout()
         quick_prompts_layout.setContentsMargins(0, 0, 0, 0)
         quick_prompts_layout.setSpacing(8)
 
         prompts = [
-            ("ph.sparkle", "Résumer le cours"),
-            ("ph.magnifying-glass", "Chercher des doublons"),
-            ("ph.cards", "Générer un QCM"),
-            ("ph.tag", "Suggérer des tags"),
+            ("ph.sparkle", "💡 Résumer le cours"),
+            ("ph.magnifying-glass", "🔍 Chercher des doublons"),
+            ("ph.cards", "🧠 Générer des cartes Cloze"),
+            ("ph.tag", "🏷️ Suggérer des tags"),
         ]
         for icon, text in prompts:
             btn = SecondaryButton(text)
@@ -275,7 +263,7 @@ class ConsultantView(QWidget):
                 }
                 QPushButton:hover {
                     background-color: #2d313a;
-                    border-color: #8b5cf6;
+                    border-color: #6366f1;
                 }
             """)
             btn.clicked.connect(lambda _, t=text: self._on_quick_prompt_clicked(t))
@@ -302,21 +290,16 @@ class ConsultantView(QWidget):
         box_layout.setContentsMargins(12, 10, 12, 10)
         box_layout.setSpacing(8)
 
-        # Badges de mentions actives (@Deck: Cardio_P3)
+        # Badges de mentions actives du contexte
         self.mentions_layout = QHBoxLayout()
         self.mentions_layout.setContentsMargins(0, 0, 0, 0)
         self.mentions_layout.setSpacing(6)
-
-        self.deck_badge = Badge("Deck: Cardio_P3", variant="outline", color=DesignTokens.COLOR_GREEN)
-        self.mentions_layout.addWidget(self.deck_badge)
-        self.mentions_layout.addStretch()
-
         box_layout.addLayout(self.mentions_layout)
 
         # Textedit de saisie
         self.chat_input = StyledTextEdit()
         self.chat_input.setFixedHeight(50)
-        self.chat_input.setPlaceholderText("Posez une question, tapez '/' pour les commandes ou '@' pour mentionner...")
+        self.chat_input.setPlaceholderText("Posez votre question ou utilisez les suggestions ci-dessus...")
         self.chat_input.setStyleSheet("border: none; background: transparent; font-size: 13px;")
         box_layout.addWidget(self.chat_input)
 
@@ -326,23 +309,19 @@ class ConsultantView(QWidget):
 
         tools_layout = QHBoxLayout()
         tools_layout.setSpacing(4)
-        self.btn_attach = IconButton("ph.paperclip", tooltip="Joindre un fichier (Maquette)", size=22)
-        self.btn_attach.clicked.connect(lambda: show_toast(self, "Pièce jointe : Sélection de document."))
+        self.btn_attach = IconButton("ph.paperclip", tooltip="Joindre un contexte", size=22)
+        self.btn_attach.clicked.connect(self._on_add_context)
 
-        self.btn_mention = IconButton("ph.at", tooltip="Mentionner un contexte (@)", size=22)
+        self.btn_mention = IconButton("ph.at", tooltip="Attacher un Paquet/Doc (@)", size=22)
         self.btn_mention.clicked.connect(self._on_add_context)
-
-        self.btn_prompts_lib = IconButton("ph.books", tooltip="Bibliothèque de Prompts", size=22)
-        self.btn_prompts_lib.clicked.connect(lambda: show_toast(self, "Bibliothèque de Prompts IA ouverte."))
 
         tools_layout.addWidget(self.btn_attach)
         tools_layout.addWidget(self.btn_mention)
-        tools_layout.addWidget(self.btn_prompts_lib)
 
         box_footer.addLayout(tools_layout)
         box_footer.addStretch()
 
-        self.tokens_badge = QLabel("142 tokens")
+        self.tokens_badge = QLabel("0 tokens")
         self.tokens_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; margin-right: 8px;")
         box_footer.addWidget(self.tokens_badge)
 
@@ -351,12 +330,12 @@ class ConsultantView(QWidget):
         self.btn_send.setFixedSize(36, 36)
         self.btn_send.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
-                border-radius: 18px;
+                background-color: #6366f1;
+                border-radius: 8px;
                 border: none;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f46e5, stop:1 #7c3aed);
+                background-color: #4f46e5;
             }
         """)
         self.btn_send.clicked.connect(self._on_send_clicked)
@@ -365,7 +344,7 @@ class ConsultantView(QWidget):
         box_layout.addLayout(box_footer)
         input_area_layout.addWidget(self.chat_box_frame)
 
-        disclaimer_lbl = QLabel("L'IA peut faire des erreurs. Vérifiez toujours les cartes générées.")
+        disclaimer_lbl = QLabel("L'IA peut faire des erreurs. Vérifiez toujours les informations générées.")
         disclaimer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         disclaimer_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         input_area_layout.addWidget(disclaimer_lbl)
@@ -382,10 +361,37 @@ class ConsultantView(QWidget):
         context_container = QWidget()
         context_layout = QVBoxLayout(context_container)
         context_layout.setContentsMargins(14, 14, 14, 14)
-        context_layout.setSpacing(18)
+        context_layout.setSpacing(16)
 
-        # Section 1: Sources Attachées
-        lbl_sources_title = QLabel("SOURCES ATTACHÉES")
+        # Section 1: Agent & Prompt Système
+        lbl_agent_title = QLabel("AGENT & PROMPT SYSTÈME")
+        lbl_agent_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        context_layout.addWidget(lbl_agent_title)
+
+        self.agent_combo = StyledComboBox()
+        self.agent_combo.currentIndexChanged.connect(self._on_agent_changed)
+        context_layout.addWidget(self.agent_combo)
+
+        self.sys_prompt_card = QFrame()
+        self.sys_prompt_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 8px;
+            }}
+        """)
+        sys_layout = QVBoxLayout(self.sys_prompt_card)
+        sys_layout.setContentsMargins(8, 8, 8, 8)
+
+        self.sys_prompt_lbl = QLabel('"Tu es un expert en mémorisation et création de cartes Anki..."')
+        self.sys_prompt_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.sys_prompt_lbl.setWordWrap(True)
+        sys_layout.addWidget(self.sys_prompt_lbl)
+        context_layout.addWidget(self.sys_prompt_card)
+
+        # Section 2: Sources Attachées
+        lbl_sources_title = QLabel("SOURCES ATTACHÉES AU CONTEXTE")
         lbl_sources_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         context_layout.addWidget(lbl_sources_title)
 
@@ -400,39 +406,16 @@ class ConsultantView(QWidget):
         self.sources_list.setFixedHeight(110)
         context_layout.addWidget(self.sources_list)
 
-        self.btn_add_context = SecondaryButton("Ajouter un contexte")
+        self.btn_add_context = SecondaryButton("Ajouter un contexte (@)")
         self.btn_add_context.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_add_context.setStyleSheet("border-style: dashed; padding: 6px;")
         self.btn_add_context.clicked.connect(self._on_add_context)
         context_layout.addWidget(self.btn_add_context)
 
-        # Section 2: Instructions Système
-        lbl_sys_title = QLabel("INSTRUCTIONS SYSTÈME")
-        lbl_sys_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        context_layout.addWidget(lbl_sys_title)
-
-        self.sys_prompt_card = QFrame()
-        self.sys_prompt_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: #1a1d24;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 8px;
-            }}
-        """)
-        sys_layout = QVBoxLayout(self.sys_prompt_card)
-        sys_layout.setContentsMargins(8, 8, 8, 8)
-
-        self.sys_prompt_lbl = QLabel("\"Tu es un expert médical spécialisé en cardiologie. Ton but est d'optimiser l'apprentissage...\"")
-        self.sys_prompt_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
-        self.sys_prompt_lbl.setWordWrap(True)
-        sys_layout.addWidget(self.sys_prompt_lbl)
-
-        context_layout.addWidget(self.sys_prompt_card)
         context_layout.addStretch()
 
         # Section 3: Mémoire de l'Agent
-        lbl_mem_title = QLabel("MÉMOIRE DE L'AGENT")
+        lbl_mem_title = QLabel("MÉMOIRE & UTILISATION")
         lbl_mem_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         context_layout.addWidget(lbl_mem_title)
 
@@ -449,17 +432,17 @@ class ConsultantView(QWidget):
         mem_layout.setContentsMargins(8, 8, 8, 8)
         mem_layout.setSpacing(6)
 
-        self.lbl_tokens_usage = QLabel("Tokens Utilisés : 14,204")
+        self.lbl_tokens_usage = QLabel("Tokens Utilisés : 0")
         self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
 
-        self.lbl_cards_modified = QLabel("Cartes Modifiées : 0")
+        self.lbl_cards_modified = QLabel("Cartes en Contexte : 0")
         self.lbl_cards_modified.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 12px;")
 
         mem_layout.addWidget(self.lbl_tokens_usage)
         mem_layout.addWidget(self.lbl_cards_modified)
         context_layout.addWidget(mem_box)
 
-        self.btn_clear_memory = SecondaryButton("Vider la mémoire")
+        self.btn_clear_memory = SecondaryButton("Réinitialiser le contexte")
         self.btn_clear_memory.setIcon(load_phosphor_icon("ph.broom", color=DesignTokens.TEXT_PRIMARY))
         self.btn_clear_memory.clicked.connect(self._on_clear_memory)
         context_layout.addWidget(self.btn_clear_memory)
@@ -473,24 +456,50 @@ class ConsultantView(QWidget):
         self.chat_input.textChanged.connect(self._on_input_text_changed)
 
     def refresh_data(self) -> None:
-        """Rafraîchit les modèles, decks et agents depuis Peewee."""
+        """Rafraîchit les modèles, decks, documents et agents depuis Peewee."""
         try:
+            # 1. LLM Engines
             self.model_selector.blockSignals(True)
             self.model_selector.clear()
             engines = list(LLMConfigModel.select())
-            if engines:
-                for eg in engines:
-                    self.model_selector.addItem(eg.name, userData=eg)
-            else:
-                self.model_selector.addItem("Claude 3.5 Sonnet")
-                self.model_selector.addItem("GPT-4o")
+            if not engines:
+                LLMConfigModel.create(
+                    display_name="GPT-4o (OpenAI)",
+                    provider="openai",
+                    model_id="gpt-4o",
+                    context_limit=128000,
+                )
+                LLMConfigModel.create(
+                    display_name="Claude 3.5 Sonnet (Anthropic)",
+                    provider="anthropic",
+                    model_id="claude-3-5-sonnet-20240620",
+                    context_limit=200000,
+                )
+                engines = list(LLMConfigModel.select())
+
+            for eg in engines:
+                display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
+                self.model_selector.addItem(f"⚡ {display_name}", userData=eg)
             self.model_selector.blockSignals(False)
 
-            self.refresh_context_list()
+            # 2. Agents
+            self.agent_combo.blockSignals(True)
+            self.agent_combo.clear()
+            agents = list(AgentModel.select())
+            if agents:
+                for ag in agents:
+                    self.agent_combo.addItem(f"🤖 {ag.name}", userData=ag)
+            else:
+                ag_default = AgentModel.create(
+                    name="Archiviste Pédagogue",
+                    description="Expert en extraction atomique et mise en forme Anki.",
+                    system_prompt="Tu es un expert en mémorisation, pédagogie et création de cartes Anki atomiques.",
+                )
+                self.agent_combo.addItem(f"🤖 {ag_default.name}", userData=ag_default)
+            self.agent_combo.blockSignals(False)
+            self._on_agent_changed()
 
-            agent = AgentModel.get_or_none(AgentModel.name == "Archiviste Pédagogue")
-            if agent and agent.system_prompt:
-                self.sys_prompt_lbl.setText(f'"{agent.system_prompt[:120]}..."')
+            self.refresh_context_list()
 
         except Exception as e:
             logger.warning("Erreur refresh_data consultant_view: %s", e)
@@ -498,14 +507,31 @@ class ConsultantView(QWidget):
     def is_dirty(self) -> bool:
         return False
 
+    @Slot()
+    def _on_agent_changed(self) -> None:
+        agent: Optional[AgentModel] = self.agent_combo.currentData()
+        if agent and hasattr(agent, "system_prompt") and agent.system_prompt:
+            prompt_snippet = agent.system_prompt[:150] + "..." if len(agent.system_prompt) > 150 else agent.system_prompt
+            self.sys_prompt_lbl.setText(f'"{prompt_snippet}"')
+
     def refresh_context_list(self) -> None:
         """Met à jour l'affichage des éléments de contexte attachés."""
         self.sources_list.clear()
+
+        # Update mentions badges in chat input box
+        while self.mentions_layout.count() > 0:
+            item = self.mentions_layout.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+
         if not self.active_context:
-            item = QListWidgetItem("Aucun contexte attaché")
+            item = QListWidgetItem("Aucun contexte attaché (cliquez sur +)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.sources_list.addItem(item)
+            self.lbl_cards_modified.setText("Cartes en Contexte : 0")
             return
+
+        total_cards_in_context = 0
 
         for ctx_id in self.active_context:
             display_text = "Inconnu"
@@ -513,36 +539,40 @@ class ConsultantView(QWidget):
                 try:
                     d_id = int(ctx_id.split("_")[1])
                     deck = DeckModel.get_or_none(DeckModel.id == d_id)
-                    display_text = f"🎴 {deck.name} (Deck)" if deck else "Deck inconnu"
+                    if deck:
+                        card_count = CardModel.select().where(CardModel.deck == deck).count()
+                        total_cards_in_context += card_count
+                        display_text = f"🎴 Deck: {deck.name} ({card_count} cartes)"
+                        badge = Badge(f"🎴 {deck.name}", variant="outline", color=DesignTokens.COLOR_GREEN)
+                        self.mentions_layout.addWidget(badge)
                 except Exception:
                     display_text = "Deck inconnu"
             elif ctx_id.startswith("doc_"):
                 try:
                     d_id = int(ctx_id.split("_")[1])
                     doc = DocumentModel.get_or_none(DocumentModel.id == d_id)
-                    display_text = f"📄 {doc.title} (Doc)" if doc else "Doc inconnu"
+                    if doc:
+                        display_text = f"📄 Doc: {doc.title}"
+                        badge = Badge(f"📄 {doc.title}", variant="outline", color=DesignTokens.COLOR_BLUE)
+                        self.mentions_layout.addWidget(badge)
                 except Exception:
                     display_text = "Doc inconnu"
 
             self.sources_list.addItem(display_text)
 
-    def _insert_initial_messages(self) -> None:
-        """Insère les messages de démonstration conformes à la maquette."""
-        msg_user = "Peux-tu analyser mon deck <b>'Cardio_P3'</b> et me suggérer des améliorations ? " "J'ai l'impression qu'il manque des tags pertinents et certaines cartes me semblent trop longues."
+        self.mentions_layout.addStretch()
+        self.lbl_cards_modified.setText(f"Cartes en Contexte : {total_cards_in_context}")
+
+    def _insert_welcome_message(self) -> None:
+        """Insère le message d'accueil initial de l'assistant IA."""
         msg_ai = (
-            "Bien sûr ! J'ai analysé votre deck <b>'Cardio_P3'</b> (142 cartes trouvées).<br><br>"
-            "<b>1. Structure et Longueur des Cartes</b><br>"
-            "J'ai détecté <b>15 cartes</b> qui dépassent la longueur recommandée (plus de 50 mots au verso).<br><br>"
-            "<b>2. Suggestions de Tags</b><br>"
-            "Actuellement, le deck n'a que le tag <code>#Cardio</code>. Voici quelques sous-tags recommandés :<br>"
-            "<span style='color: #a78bfa; font-weight: bold;'>#Pathologie/IC &nbsp; #ECG/Anormal &nbsp; #Pharma/Diurétiques</span>"
+            "Bonjour ! Je suis votre <b>Consultant IA AnkiForge</b>.<br><br>"
+            "Je peux analyser vos cours, auditer la qualité de vos paquets Anki, détecter des doublons, "
+            "ou suggérer des tags et des phrases à trous (Cloze).<br><br>"
+            "💡 <i>Utilisez les raccourcis ci-dessous ou attachez vos paquets/documents via le bouton <b>+</b> ou <b>@</b>.</i>"
         )
-
-        w1 = ChatMessageWidget("Vous", msg_user, is_user=True)
-        w2 = ChatMessageWidget("AnkiForge AI", msg_ai, is_user=False)
-
-        self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, w1)
-        self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, w2)
+        w = ChatMessageWidget("AnkiForge AI", msg_ai, is_user=False)
+        self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, w)
 
     @Slot()
     def _on_input_text_changed(self) -> None:
@@ -552,12 +582,14 @@ class ConsultantView(QWidget):
 
     @Slot(str)
     def _on_quick_prompt_clicked(self, prompt_text: str) -> None:
-        self.chat_input.setPlainText(prompt_text)
+        # Enlève les émojis du bouton pour mettre une consigne propre
+        clean_text = prompt_text.replace("💡 ", "").replace("🔍 ", "").replace("🧠 ", "").replace("🏷️ ", "")
+        self.chat_input.setPlainText(clean_text)
         self.chat_input.setFocus()
 
     @Slot()
     def _on_add_context(self) -> None:
-        """Affiche un menu permettant d'attacher un Deck ou un Document au contexte IA (Master pattern)."""
+        """Affiche un menu permettant d'attacher un Deck ou un Document au contexte IA."""
         menu = QMenu(self)
 
         menu_decks = menu.addMenu("🎴 Attacher un Paquet (Deck)")
@@ -597,10 +629,8 @@ class ConsultantView(QWidget):
         self.active_context.clear()
         self.refresh_context_list()
         self.used_tokens_count = 0
-        self.modified_cards_count = 0
         self.lbl_tokens_usage.setText("Tokens Utilisés : 0")
-        self.lbl_cards_modified.setText("Cartes Modifiées : 0")
-        show_toast(self, "Mémoire de l'agent réinitialisée avec succès.")
+        show_toast(self, "Contexte et mémoire réinitialisés avec succès.")
 
     def _build_context_data(self) -> dict[str, list[dict[str, Any]]]:
         """Extrait le contexte réel depuis la base Peewee (Logique master)."""
@@ -651,7 +681,7 @@ class ConsultantView(QWidget):
         QApplication.processEvents()
         self.chat_scroll.verticalScrollBar().setValue(self.chat_scroll.verticalScrollBar().maximum())
 
-        # 2. Extraction des données contextuelles réelles (master pattern)
+        # 2. Extraction des données contextuelles réelles
         context_data = self._build_context_data()
 
         selected_engine = self.model_selector.currentData()
@@ -669,7 +699,7 @@ class ConsultantView(QWidget):
                     pass  # nosec B110
 
         self.btn_send.setEnabled(False)
-        self.lbl_chat_status.setText("⏳ Extraction du contexte et analyse IA...")
+        self.lbl_chat_status.setText("⏳ Analyse contextuelle et génération de la réponse IA...")
 
         self.worker = ConsultantWorker(ai_provider=ai_provider, context_data=context_data, instruction=user_text)
         self.worker.progress.connect(self._on_ai_progress)
@@ -698,8 +728,8 @@ class ConsultantView(QWidget):
     @Slot(str)
     def _on_ai_error(self, error: str) -> None:
         self.btn_send.setEnabled(True)
-        self.lbl_chat_status.setText("❌ Erreur")
-        err_msg = ChatMessageWidget("AnkiForge AI", f"⚠️ <b>Erreur IA :</b> {error}", is_user=False)
+        self.lbl_chat_status.setText("")
+        err_msg = ChatMessageWidget("AnkiForge AI", f"⚠️ <b>Information IA :</b> {error}", is_user=False)
         self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, err_msg)
 
 

@@ -72,19 +72,6 @@ class ABTestsView(QWidget):
         # Bouton Lancer dans le header du panneau
         self.btn_run = PrimaryButton("Lancer")
         self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
-        self.btn_run.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #10b981, stop:1 #059669);
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: 600;
-                padding: 6px 16px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #059669, stop:1 #047857);
-            }
-        """)
 
         self.ab_panel.add_header_widget(self.btn_run)
         self.ab_panel.add_header_separator()

@@ -195,16 +195,33 @@ class Sidebar(QWidget):
         main_layout.addWidget(self.footer)
 
     def add_section(self, title: str, items: list[Tuple[str, str, str]]) -> None:
-        """Ajoute une section avec un titre et une liste de (view_id, icon, text)."""
+        """Ajoute une section avec un titre, une ligne séparatrice et une liste de (view_id, icon, text)."""
         section_widget = QWidget()
         layout = QVBoxLayout(section_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
+        header_container = QWidget()
+        header_container.setFixedHeight(24)
+        header_layout = QVBoxLayout(header_container)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(0)
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         title_lbl = QLabel(title.upper())
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         title_lbl.setFixedHeight(20)
-        layout.addWidget(title_lbl)
+
+        sep_line = QFrame()
+        sep_line.setFrameShape(QFrame.Shape.HLine)
+        sep_line.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none; margin: 11px 4px;")
+        sep_line.setFixedHeight(1)
+        sep_line.setVisible(False)
+
+        header_layout.addWidget(title_lbl)
+        header_layout.addWidget(sep_line)
+
+        layout.addWidget(header_container)
 
         for view_id, icon, text in items:
             btn = SidebarItem(view_id, icon, text)
@@ -215,8 +232,8 @@ class Sidebar(QWidget):
 
         # Insert before the stretch
         self.sections_layout.insertWidget(self.sections_layout.count() - 1, section_widget)
-        # Keep track of title labels for collapsing
         section_widget.title_lbl = title_lbl
+        section_widget.sep_line = sep_line
 
     def set_collapsed(self, collapsed: bool) -> None:
         self.is_collapsed = collapsed
@@ -246,8 +263,10 @@ class Sidebar(QWidget):
             item = self.sections_layout.itemAt(i)
             if item is not None:
                 widget = item.widget()
-                if widget and hasattr(widget, "title_lbl"):
-                    cast(Any, widget).title_lbl.setVisible(not collapsed)
+                if widget and hasattr(widget, "title_lbl") and hasattr(widget, "sep_line"):
+                    w = cast(Any, widget)
+                    w.title_lbl.setVisible(not collapsed)
+                    w.sep_line.setVisible(collapsed)
 
         for btn in self._items.values():
             btn.set_collapsed(collapsed)
@@ -434,6 +453,7 @@ class MainWindow(QMainWindow):
 
         self._view_widgets: Dict[str, QWidget] = {}
         self._current_view_id: Optional[str] = None
+        self._settings_window: Optional[QWidget] = None
 
         self._populate_sidebar_and_register()
 
@@ -514,11 +534,18 @@ class MainWindow(QMainWindow):
         self.sidebar.set_collapsed(not self.sidebar.is_collapsed)
 
     def _open_settings_modal(self) -> None:
-        """Ouvre le modal de paramètres de l'application."""
+        """Ouvre la fenêtre de paramètres non bloquante."""
+        if hasattr(self, "_settings_window") and self._settings_window is not None and self._settings_window.isVisible():
+            self._settings_window.raise_()
+            self._settings_window.activateWindow()
+            return
+
         from ankiforge.ui.widgets.settings_modal import SettingsModal
 
-        modal = SettingsModal(ai_manager=self.ai_manager, parent=self)
-        modal.exec()
+        self._settings_window = SettingsModal(ai_manager=self.ai_manager, parent=self)
+        self._settings_window.show()
+        self._settings_window.raise_()
+        self._settings_window.activateWindow()
 
     def _open_command_palette(self) -> None:
         """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""

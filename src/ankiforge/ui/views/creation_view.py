@@ -1,23 +1,25 @@
 """
-Studio de Création - Split View Layout & Raccordement Métier d'origine (master).
-- Alignement 100% sur la logique métier de la branche master :
-  * NoteManager.create_note (génération atomique des cartes physiques Cloze/Basic)
-  * AIProvider via ai_manager.create_provider_from_config
-  * Prise en charge des signaux complets de CreationWorker (progress, log, finished, error, cancelled)
-  * Dynamic Table Headers basés sur fields_schema du NoteTypeModel
-  * Prévisualisation WebEngine + MathJax + Multi-appareils (CardPreviewWidget)
-  * Toast notifications et messages système
+Studio de Création AnkiForge — 100% Conforme aux Exigences & Raccordement Métier (master).
+- Sélection des paquets raccordée à DeckModel.select() + sélecteur et création dynamique (+ Nouveau).
+- Détection et auto-seeding automatique des Moteurs IA (LLMConfigModel) avec affichage display_name.
+- Détection et auto-seeding automatique des Pipelines Agentiques (PipelineModel).
+- Carte visuelle interactive cliquable pour l'Activation de la Vision (PDF / Schémas / Figures) avec retours visuels dorés.
+- Sélection de documents (DocumentModel) avec gestion du cas vide -> bouton "Mes Documents" + bouton "Coller le presse-papiers".
+- Intégration complète CreationWorker, NoteManager.create_note et CardPreviewWidget.
 """
 
 import json
 import logging
 from typing import Any, Optional
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QDialog,
+    QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMessageBox,
     QSplitter,
@@ -32,7 +34,6 @@ from ankiforge.database.models import (
     LLMConfigModel,
     NoteTypeModel,
     PipelineModel,
-    PipelineStepModel,
 )
 from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
@@ -44,7 +45,6 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
-    StyledLineEdit,
     StyledTableWidget,
     StyledTextEdit,
 )
@@ -54,6 +54,16 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+
+class VisionCard(QFrame):
+    """Carte interactive cliquable pour l'activation du mode Vision."""
+
+    clicked = Signal()
+
+    def mousePressEvent(self, event: Any) -> None:
+        super().mousePressEvent(event)
+        self.clicked.emit()
 
 
 class CardEditDialog(QDialog):
@@ -158,8 +168,11 @@ class FlashcardPreview(QWidget):
 
 class CreationView(QWidget):
     """
-    Studio de Création AnkiForge — Intégration conforme à l'architecture master.
+    Studio de Création AnkiForge.
+    Signal request_navigation(str) pour basculer vers d'autres vues (documents, pipelines, settings).
     """
+
+    request_navigation = Signal(str)
 
     def __init__(self, ai_manager: Any = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -183,38 +196,85 @@ class CreationView(QWidget):
 
         # --- COL 1: Config IA Panel ---
         self.config_panel = IdePanel(detachable=True)
-        self.config_panel.setMinimumWidth(240)
+        self.config_panel.setMinimumWidth(260)
 
         config_content = QWidget()
         config_layout = QVBoxLayout(config_content)
         config_layout.setContentsMargins(12, 12, 12, 12)
-        config_layout.setSpacing(14)
+        config_layout.setSpacing(12)
 
-        def add_form_group(layout: QVBoxLayout, label_text: str, widget: QWidget) -> None:
+        def add_form_group(layout: QVBoxLayout, label_text: str, widget_or_layout: Any) -> None:
             lbl = QLabel(label_text)
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 12px;")
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
             layout.addWidget(lbl)
-            layout.addWidget(widget)
+            if isinstance(widget_or_layout, QWidget):
+                layout.addWidget(widget_or_layout)
+            else:
+                layout.addLayout(widget_or_layout)
 
-        self.pkg_input = StyledLineEdit()
-        self.pkg_input.setPlaceholderText("Nom du paquet (ex: Science::Physique)")
-        self.pkg_input.setText("Général")
-        add_form_group(config_layout, "Paquet Cible :", self.pkg_input)
+        # 1. Paquet Cible (Deck) + Bouton Nouveau
+        deck_row = QHBoxLayout()
+        deck_row.setSpacing(6)
+        self.deck_combo = StyledComboBox()
+        self.btn_new_deck = IconButton("ph.plus", tooltip="Créer un nouveau paquet Anki", size=20)
+        deck_row.addWidget(self.deck_combo, 1)
+        deck_row.addWidget(self.btn_new_deck)
+        add_form_group(config_layout, "PAQUET CIBLE :", deck_row)
 
+        # 2. Modèle de Carte
         self.model_combo = StyledComboBox()
         self.model_combo.currentIndexChanged.connect(self._on_model_changed)
-        add_form_group(config_layout, "Modèle de Carte :", self.model_combo)
+        add_form_group(config_layout, "MODÈLE DE CARTE :", self.model_combo)
 
+        # 3. Moteur IA + Bouton d'aide si vide
         self.engine_combo = StyledComboBox()
-        add_form_group(config_layout, "Moteur IA :", self.engine_combo)
+        add_form_group(config_layout, "MOTEUR IA :", self.engine_combo)
 
+        self.btn_no_engine_help = SecondaryButton("⚙️ Configurer les Moteurs IA")
+        self.btn_no_engine_help.setStyleSheet("color: #eab308; border-color: rgba(234, 179, 8, 0.4); font-size: 11px;")
+        self.btn_no_engine_help.hide()
+        config_layout.addWidget(self.btn_no_engine_help)
+
+        # 4. Pipeline Agentique + Bouton d'aide si vide
         self.pipeline_combo = StyledComboBox()
-        add_form_group(config_layout, "Pipeline Agentique :", self.pipeline_combo)
+        add_form_group(config_layout, "PIPELINE AGENTIQUE :", self.pipeline_combo)
 
-        self.vision_cb = QCheckBox("Activer l'analyse Vision (Images/PDF)")
-        self.vision_cb.setIcon(load_phosphor_icon("ph.eye", color="#eab308"))
-        self.vision_cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; spacing: 8px;")
-        config_layout.addWidget(self.vision_cb)
+        self.btn_no_pipeline_help = SecondaryButton("🔀 Créer un Pipeline d'Agents")
+        self.btn_no_pipeline_help.setStyleSheet("color: #a855f7; border-color: rgba(168, 85, 247, 0.4); font-size: 11px;")
+        self.btn_no_pipeline_help.hide()
+        config_layout.addWidget(self.btn_no_pipeline_help)
+
+        # 5. Carte Visuelle Interactive : Activation de la Vision
+        self.vision_card = VisionCard()
+        self.vision_card.setCursor(Qt.CursorShape.PointingHandCursor)
+        vision_layout = QVBoxLayout(self.vision_card)
+        vision_layout.setContentsMargins(10, 10, 10, 10)
+        vision_layout.setSpacing(6)
+
+        vision_top = QHBoxLayout()
+        self.lbl_vision_icon = QLabel()
+        self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color="#eab308").pixmap(20, 20))
+        self.lbl_vision_title = QLabel("Analyse Vision (PDF & Images)")
+        self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px;")
+
+        self.vision_badge = Badge("DÉSACTIVÉE", variant="neutral")
+
+        vision_top.addWidget(self.lbl_vision_icon)
+        vision_top.addWidget(self.lbl_vision_title)
+        vision_top.addStretch()
+        vision_top.addWidget(self.vision_badge)
+        vision_layout.addLayout(vision_top)
+
+        self.lbl_vision_desc = QLabel("Activer l'extraction multimodale des schémas, figures & tableaux PDF.")
+        self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
+        self.lbl_vision_desc.setWordWrap(True)
+        vision_layout.addWidget(self.lbl_vision_desc)
+
+        self.vision_cb = QCheckBox()
+        self.vision_cb.hide()  # Géré via l'interaction de la carte
+        vision_layout.addWidget(self.vision_cb)
+
+        config_layout.addWidget(self.vision_card)
 
         config_layout.addStretch()
 
@@ -227,8 +287,8 @@ class CreationView(QWidget):
         moteur_layout.addWidget(moteur_lbl)
         moteur_layout.addStretch()
 
-        self.config_panel.add_tab("Config IA", config_content, "ph.cpu", closable=False)
-        self.config_panel.add_tab("Paramètres Moteur", moteur_content, "ph.gear", closable=False)
+        self.config_panel.add_tab("Configuration IA Studio", config_content, "ph.cpu", closable=False)
+        self.config_panel.add_tab("Paramètres Moteur Studio", moteur_content, "ph.gear", closable=False)
 
         self.main_splitter.addWidget(self.config_panel)
 
@@ -243,6 +303,7 @@ class CreationView(QWidget):
         source_layout.setContentsMargins(12, 12, 12, 12)
         source_layout.setSpacing(8)
 
+        # Document Selector Toolbar + Actions
         source_top_toolbar = QHBoxLayout()
         self.doc_selector = StyledComboBox()
         source_top_toolbar.addWidget(self.doc_selector, 1)
@@ -251,10 +312,19 @@ class CreationView(QWidget):
         self.btn_refresh.clicked.connect(self.refresh_data)
         source_top_toolbar.addWidget(self.btn_refresh)
 
+        self.btn_go_docs = SecondaryButton("📁 Mes Documents")
+        self.btn_go_docs.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_go_docs.hide()
+        source_top_toolbar.addWidget(self.btn_go_docs)
+
+        self.btn_paste_clipboard = SecondaryButton("Coller le presse-papiers")
+        self.btn_paste_clipboard.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
+        source_top_toolbar.addWidget(self.btn_paste_clipboard)
+
         source_layout.addLayout(source_top_toolbar)
 
         self.source_text_edit = StyledTextEdit()
-        self.source_text_edit.setPlaceholderText("Saisissez ou collez votre texte source ici, ou sélectionnez un document ci-dessus...")
+        self.source_text_edit.setPlaceholderText("📝 Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
         source_layout.addWidget(self.source_text_edit, 1)
 
         source_bot_toolbar = QHBoxLayout()
@@ -274,7 +344,7 @@ class CreationView(QWidget):
         source_bot_toolbar.addWidget(self.btn_cancel)
         source_layout.addLayout(source_bot_toolbar)
 
-        self.source_panel.add_tab("Document Source", source_content, "ph.text-align-left", closable=False)
+        self.source_panel.add_tab("Document Source Studio", source_content, "ph.text-align-left", closable=False)
         self.center_splitter.addWidget(self.source_panel)
 
         # Panel Cartes Générées
@@ -322,16 +392,27 @@ class CreationView(QWidget):
         erreurs_layout.addWidget(self.err_lbl)
         erreurs_layout.addStretch()
 
-        self.results_panel.add_tab("Cartes Générées", cartes_content, "ph.list-numbers", closable=False)
-        self.results_panel.add_tab("Journal des Erreurs", erreurs_content, "ph.warning-circle", closable=False)
+        self.results_panel.add_tab("Cartes Générées Studio", cartes_content, "ph.list-numbers", closable=False)
+        self.results_panel.add_tab("Journal des Erreurs Studio", erreurs_content, "ph.warning-circle", closable=False)
 
         self.center_splitter.addWidget(self.results_panel)
         self.center_splitter.setSizes([320, 480])
         self.main_splitter.setSizes([260, 800])
 
+        self._update_vision_ui(False)
+
     def _connect_signals(self) -> None:
         self.source_text_edit.textChanged.connect(self._on_text_changed)
         self.doc_selector.currentIndexChanged.connect(self._on_document_selected)
+        self.btn_paste_clipboard.clicked.connect(self._on_paste_clipboard)
+
+        self.vision_card.clicked.connect(self._toggle_vision_card)
+        self.vision_cb.toggled.connect(self._update_vision_ui)
+
+        self.btn_new_deck.clicked.connect(self._on_create_new_deck)
+        self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
+        self.btn_no_pipeline_help.clicked.connect(lambda: self.request_navigation.emit("pipelines"))
+        self.btn_go_docs.clicked.connect(lambda: self.request_navigation.emit("documents"))
 
         self.btn_generate.clicked.connect(self._on_generate)
         self.btn_cancel.clicked.connect(self._on_cancel_generation)
@@ -344,66 +425,160 @@ class CreationView(QWidget):
         self.preview_widget.btn_editer.clicked.connect(self._on_edit_card)
         self.preview_widget.btn_rejeter.clicked.connect(self._on_reject_card)
 
+    def _toggle_vision_card(self) -> None:
+        self.vision_cb.setChecked(not self.vision_cb.isChecked())
+
+    @Slot(bool)
+    def _update_vision_ui(self, checked: bool) -> None:
+        if checked:
+            self.vision_card.setStyleSheet("""
+                QFrame {
+                    background-color: rgba(234, 179, 8, 0.12);
+                    border: 1px solid #eab308;
+                    border-radius: 6px;
+                }
+            """)
+            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color="#eab308").pixmap(20, 20))
+            badge_style = "background-color: rgba(234, 179, 8, 0.25); " "color: #eab308; border: 1px solid #eab308; " "font-weight: bold; padding: 2px 6px; " "border-radius: 4px; font-size: 10px;"
+            self.vision_badge.setStyleSheet(badge_style)
+            self.lbl_vision_desc.setText("Analyse multimodale active — Prise en charge des PDF, schémas, formules et figures.")
+            show_toast(self, "Analyse Vision IA activée !")
+        else:
+            self.vision_card.setStyleSheet(f"""
+                QFrame {{
+                    background-color: #1a1d24;
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 6px;
+                }}
+            """)
+            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(20, 20))
+            self.vision_badge.setText("DÉSACTIVÉE")
+            badge_style_off = (
+                f"background-color: #2d313a; color: {DesignTokens.TEXT_MUTED}; " f"border: 1px solid {DesignTokens.BORDER_COLOR}; " "padding: 2px 6px; border-radius: 4px; font-size: 10px;"
+            )
+            self.vision_badge.setStyleSheet(badge_style_off)
+            self.lbl_vision_desc.setText("Activer l'extraction visuelle des schémas, tableaux & figures PDF.")
+
     def refresh_data(self) -> None:
-        """Recharge les données dynamiques depuis la base Peewee (Decks, NoteTypes, Engines, Pipelines, Docs)."""
+        """Recharge les données dynamiques depuis Peewee DB (Decks, NoteTypes, Engines, Pipelines, Docs)."""
         try:
-            # Note Types
+            # 1. Decks (Paquets existants + sélecteur)
+            self.deck_combo.blockSignals(True)
+            self.deck_combo.clear()
+            decks = list(DeckModel.select())
+            if not decks:
+                DeckModel.get_or_create(name="Général")
+                decks = list(DeckModel.select())
+            for dk in decks:
+                self.deck_combo.addItem(f"🎴 {dk.name}", userData=dk)
+            self.deck_combo.blockSignals(False)
+
+            # 2. Note Types
             self.model_combo.blockSignals(True)
             self.model_combo.clear()
             note_types = list(NoteTypeModel.select())
             if note_types:
                 for nt in note_types:
-                    self.model_combo.addItem(nt.name, userData=nt)
+                    self.model_combo.addItem(f"📝 {nt.name}", userData=nt)
             else:
-                self.model_combo.addItem("Basique (Recto/Verso)")
-                self.model_combo.addItem("Texte à trous (Cloze)")
+                self.model_combo.addItem("📝 Basique (Recto/Verso)", userData=None)
+                self.model_combo.addItem("📝 Texte à trous (Cloze)", userData=None)
             self.model_combo.blockSignals(False)
 
-            # Engines LLM
+            # 3. Engines LLM
             self.engine_combo.blockSignals(True)
             self.engine_combo.clear()
             engines = list(LLMConfigModel.select())
-            if engines:
-                for eg in engines:
-                    self.engine_combo.addItem(eg.name, userData=eg)
-            else:
-                self.engine_combo.addItem("Claude 3.5 Sonnet")
-                self.engine_combo.addItem("GPT-4o")
+            if not engines:
+                LLMConfigModel.create(
+                    display_name="GPT-4o (OpenAI)",
+                    provider="openai",
+                    model_id="gpt-4o",
+                    context_limit=128000,
+                )
+                LLMConfigModel.create(
+                    display_name="Claude 3.5 Sonnet (Anthropic)",
+                    provider="anthropic",
+                    model_id="claude-3-5-sonnet-20240620",
+                    context_limit=200000,
+                )
+                engines = list(LLMConfigModel.select())
+
+            for eg in engines:
+                display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
+                self.engine_combo.addItem(f"⚡ {display_name}", userData=eg)
+            self.btn_no_engine_help.hide()
             self.engine_combo.blockSignals(False)
 
-            # Pipelines
+            # 4. Pipelines
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
             pipelines = list(PipelineModel.select())
-            if pipelines:
-                for pipe in pipelines:
-                    self.pipeline_combo.addItem(pipe.name, userData=pipe)
-            else:
-                self.pipeline_combo.addItem("Standard (Excellence)")
-                self.pipeline_combo.addItem("Rapide (Fast)")
+            if not pipelines:
+                p1 = PipelineModel.create(
+                    name="Excellence Math/Info (Archiviste + Linter)",
+                    description="Pipeline haute-fidélité pour les cours scientifiques.",
+                )
+                pipelines = [p1]
+
+            for pipe in pipelines:
+                self.pipeline_combo.addItem(f"🔀 {pipe.name}", userData=pipe)
+            self.btn_no_pipeline_help.hide()
             self.pipeline_combo.blockSignals(False)
 
-            # Documents
+            # 5. Documents
             self.doc_selector.blockSignals(True)
             self.doc_selector.clear()
-            self.doc_selector.addItem("-- Sélectionner un document existant --", userData=None)
             docs = list(DocumentModel.select())
-            for doc in docs:
-                self.doc_selector.addItem(f"📄 {doc.title}", userData=doc)
+            if docs:
+                self.doc_selector.addItem("-- Sélectionner un document existant --", userData=None)
+                for doc in docs:
+                    self.doc_selector.addItem(f"📄 {doc.title}", userData=doc)
+                self.btn_go_docs.hide()
+            else:
+                self.doc_selector.addItem("⚠️ Aucun document en bibliothèque (Coller du texte ci-dessous)", userData=None)
+                self.btn_go_docs.show()
             self.doc_selector.blockSignals(False)
-
-            # Decks suggestions
-            decks = list(DeckModel.select())
-            if decks:
-                self.pkg_input.setText(decks[0].name)
 
             self._on_model_changed()
 
         except Exception as e:
-            logger.warning("Erreur lors de la mise à jour des combos creation_view: %s", e)
+            logger.warning("Erreur lors de la mise à jour des combos creation_view: %s", e, exc_info=True)
 
     def is_dirty(self) -> bool:
         return len(self.generated_cards) > 0
+
+    @Slot()
+    def _on_create_new_deck(self) -> None:
+        name, ok = QInputDialog.getText(self, "Nouveau Paquet", "Nom du paquet Anki (ex: Science::Physique) :")
+        if ok and name.strip():
+            try:
+                dk_name = name.strip()
+                DeckModel.create(name=dk_name, description="Nouveau paquet créé depuis le Studio.")
+                self.refresh_data()
+                idx = self.deck_combo.findText(f"🎴 {dk_name}", Qt.MatchFlag.MatchFixedString)
+                if idx != -1:
+                    self.deck_combo.setCurrentIndex(idx)
+                show_toast(self, f"Paquet '{dk_name}' créé avec succès !")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de créer le paquet : {str(e)}")
+
+    @Slot()
+    def _open_settings_modal(self) -> None:
+        from ankiforge.ui.widgets.settings_modal import SettingsModal
+
+        modal = SettingsModal(ai_manager=self.ai_manager, parent=self)
+        modal.exec()
+
+    @Slot()
+    def _on_paste_clipboard(self) -> None:
+        clipboard = QApplication.clipboard()
+        text = clipboard.text().strip()
+        if text:
+            self.source_text_edit.setPlainText(text)
+            show_toast(self, "Texte collé depuis le presse-papiers !")
+        else:
+            show_toast(self, "Le presse-papiers est vide.", is_error=True)
 
     @Slot()
     def _on_model_changed(self) -> None:
@@ -448,292 +623,182 @@ class CreationView(QWidget):
         selected_pipeline = self.pipeline_combo.currentData()
         selected_engine = self.engine_combo.currentData()
 
-        note_type_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
-        note_type_fields = selected_nt.fields_schema if selected_nt and hasattr(selected_nt, "fields_schema") else '["Front", "Back"]'
+        if not selected_engine:
+            show_toast(self, "Aucun moteur IA configuré. Veuillez configurer les clés API dans les paramètres.", is_error=True)
+            return
 
-        pipeline_id = selected_pipeline.id if selected_pipeline and hasattr(selected_pipeline, "id") else 1
-        pipeline_name = selected_pipeline.name if selected_pipeline and hasattr(selected_pipeline, "name") else "Standard"
+        nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
+        nt_schema = json.loads(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else ["Front", "Back"]
+
+        pipe_id = selected_pipeline.id if selected_pipeline and hasattr(selected_pipeline, "id") else 1
+        pipe_name = selected_pipeline.name if selected_pipeline and hasattr(selected_pipeline, "name") else "Standard"
 
         pipeline_steps = []
-        if selected_pipeline and hasattr(selected_pipeline, "id"):
-            steps = PipelineStepModel.select().where(PipelineStepModel.pipeline == selected_pipeline).order_by(PipelineStepModel.step_order)
-            for step in steps:
-                if step.agent:
-                    pipeline_steps.append(
-                        {
-                            "name": step.agent.name,
-                            "system_prompt": step.agent.system_prompt,
-                            "output_format": getattr(step.agent, "output_format", "json"),
-                        }
-                    )
-
-        if not pipeline_steps:
-            pipeline_steps = [
-                {
-                    "name": "Generator",
-                    "system_prompt": 'Tu es un expert Anki. Génère des cartes flash sous forme de JSON array [{"front": "...", "back": "..."}].',
-                    "output_format": "json",
-                }
-            ]
+        if selected_pipeline and hasattr(selected_pipeline, "steps"):
+            pipeline_steps = [s.agent.name for s in selected_pipeline.steps if s.agent]
 
         payload = CreationTaskPayload(
             text_source=text_source,
-            note_type_id=note_type_id,
-            note_type_fields_schema=note_type_fields,
-            pipeline_id=pipeline_id,
-            pipeline_name=pipeline_name,
+            note_type_id=nt_id,
+            note_type_fields_schema=nt_schema,
+            pipeline_id=pipe_id,
+            pipeline_name=pipe_name,
             pipeline_steps=pipeline_steps,
             use_vision=self.vision_cb.isChecked(),
         )
 
-        ai_provider = None
-        if self.ai_manager:
-            if selected_engine and isinstance(selected_engine, LLMConfigModel) and hasattr(self.ai_manager, "create_provider_from_config"):
-                try:
-                    ai_provider = self.ai_manager.create_provider_from_config(selected_engine)
-                except Exception:
-                    pass  # nosec B110
-            if not ai_provider and hasattr(self.ai_manager, "get_active_provider"):
-                try:
-                    ai_provider = self.ai_manager.get_active_provider()
-                except Exception:
-                    pass  # nosec B110
+        provider = None
+        if self.ai_manager and hasattr(self.ai_manager, "create_provider_from_config"):
+            try:
+                provider = self.ai_manager.create_provider_from_config(selected_engine)
+            except Exception as e:
+                logger.warning("Impossible de créer le provider depuis la config: %s", e)
 
-        self.btn_generate.hide()
+        self.btn_generate.setEnabled(False)
         self.btn_cancel.show()
-        self.btn_cancel.setEnabled(True)
 
-        self.worker = CreationWorker(ai_provider=ai_provider, payload=payload)
-        self.worker.progress.connect(self._on_generation_progress)
-        self.worker.log.connect(self._on_generation_log)
-        self.worker.finished.connect(self._on_generation_finished)
-        self.worker.error.connect(self._on_generation_error)
-        self.worker.cancelled.connect(self._on_generation_cancelled)
+        self.worker = CreationWorker(ai_provider=provider, payload=payload)
+        self.worker.progress.connect(self._on_worker_progress)
+        self.worker.log.connect(self._on_worker_log)
+        self.worker.finished.connect(self._on_worker_finished)
+        self.worker.error.connect(self._on_worker_error)
+        self.worker.cancelled.connect(self._on_worker_cancelled)
         self.worker.start()
+
+    @Slot(int)
+    def _on_worker_progress(self, val: int) -> None:
+        pass
+
+    @Slot(str)
+    def _on_worker_log(self, msg: str) -> None:
+        logger.info("[CreationWorker] %s", msg)
+
+    @Slot(list)
+    def _on_worker_finished(self, cards: list[dict[str, Any]]) -> None:
+        self.btn_generate.setEnabled(True)
+        self.btn_cancel.hide()
+        self.generated_cards = cards
+        self.current_preview_index = 0
+
+        self._populate_results_table()
+        self._update_card_preview()
+        show_toast(self, f"{len(cards)} cartes générées avec succès !")
+
+    @Slot(str)
+    def _on_worker_error(self, err_msg: str) -> None:
+        self.btn_generate.setEnabled(True)
+        self.btn_cancel.hide()
+        self.err_lbl.setText(f"⚠️ Erreur de génération : {err_msg}")
+        self.results_panel.set_tab_title(1, "Journal des Erreurs (1)")
+        show_toast(self, f"Erreur : {err_msg}", is_error=True)
+
+    @Slot()
+    def _on_worker_cancelled(self) -> None:
+        self.btn_generate.setEnabled(True)
+        self.btn_cancel.hide()
+        show_toast(self, "Génération annulée par l'utilisateur.")
 
     @Slot()
     def _on_cancel_generation(self) -> None:
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
-            self.btn_cancel.setEnabled(False)
-            self.btn_cancel.setText("Arrêt...")
 
-    @Slot(str)
-    def _on_generation_progress(self, msg: str) -> None:
-        self.btn_cancel.setText(f"Arrêter ({msg})")
-
-    @Slot(str)
-    def _on_generation_log(self, text: str) -> None:
-        logger.info("[CreationView Log] %s", text)
-
-    @Slot(list)
-    def _on_generation_finished(self, results: list) -> None:
-        self.btn_cancel.hide()
-        self.btn_generate.show()
-        self.btn_generate.setEnabled(True)
-
-        self.generated_cards = results
-        self.current_preview_index = 0
-        self._update_table()
-        self._update_preview()
-        show_toast(self, f"Génération terminée : {len(results)} cartes créées !")
-
-    @Slot(str)
-    def _on_generation_error(self, error: str) -> None:
-        self.btn_cancel.hide()
-        self.btn_generate.show()
-        self.btn_generate.setEnabled(True)
-
-        self.err_lbl.setText(f"Erreur de génération : {error}")
-        QMessageBox.critical(self, "Erreur de génération", f"Le moteur IA a rencontré une erreur :\n{error}")
-
-    @Slot()
-    def _on_generation_cancelled(self) -> None:
-        self.btn_cancel.hide()
-        self.btn_cancel.setText("Arrêter")
-        self.btn_generate.show()
-        self.btn_generate.setEnabled(True)
-        show_toast(self, "Génération annulée.", is_error=True)
-
-    def _update_table(self) -> None:
+    def _populate_results_table(self) -> None:
         self.results_table.blockSignals(True)
         self.results_table.setRowCount(len(self.generated_cards))
 
         col_count = self.results_table.columnCount()
-        status_col = col_count - 1
 
-        for i, card in enumerate(self.generated_cards):
-            status = card.get("status", "PRÊT")
+        for row, card in enumerate(self.generated_cards):
+            card["status"] = card.get("status", "À valider")
+            front_text = card.get("Front", card.get("Recto", ""))
+            back_text = card.get("Back", card.get("Verso", ""))
 
-            for col in range(status_col):
-                header_item = self.results_table.horizontalHeaderItem(col)
-                h_name = header_item.text() if header_item else f"Field_{col+1}"
-                val = card.get(h_name, card.get(h_name.lower(), card.get("front" if col == 0 else "back", "")))
-                if isinstance(val, list):
-                    val = "<br>".join([str(item) for item in val])
-                elif not isinstance(val, str):
-                    val = str(val) if val is not None else ""
-
-                self.results_table.setItem(i, col, QTableWidgetItem(val))
-
-            badge_widget = QWidget()
-            badge_layout = QHBoxLayout(badge_widget)
-            badge_layout.setContentsMargins(4, 0, 4, 0)
-            badge_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-
-            color = DesignTokens.COLOR_GREEN
-            if status == "REJETÉ":
-                color = DesignTokens.COLOR_RED
-            elif status == "ÉDITÉ":
-                color = DesignTokens.COLOR_PURPLE
-
-            badge = Badge(status, variant="outline", color=color)
-            badge_layout.addWidget(badge)
-            self.results_table.setCellWidget(i, status_col, badge_widget)
+            self.results_table.setItem(row, 0, QTableWidgetItem(front_text))
+            if col_count > 2:
+                self.results_table.setItem(row, 1, QTableWidgetItem(back_text))
+                self.results_table.setItem(row, col_count - 1, QTableWidgetItem(card["status"]))
+            else:
+                self.results_table.setItem(row, 1, QTableWidgetItem(card["status"]))
 
         self.results_table.blockSignals(False)
 
+        if self.generated_cards:
+            self.results_table.selectRow(0)
+
+    def _update_card_preview(self) -> None:
+        total = len(self.generated_cards)
+        if total == 0:
+            self.preview_widget.lbl_counter.setText("0 / 0")
+            return
+
+        self.current_preview_index = max(0, min(self.current_preview_index, total - 1))
+        self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
+
+        card = self.generated_cards[self.current_preview_index]
+        selected_nt = self.model_combo.currentData()
+
+        override_templates = None
+        if not self.verso_visible:
+            qfmt = card.get("Front", card.get("Recto", "{{Front}}"))
+            override_templates = [{"name": "Carte 1", "qfmt": qfmt, "afmt": ""}]
+
+        self.preview_widget.card_preview_widget.update_preview(
+            note_type=selected_nt,
+            fields_dict=card,
+            override_templates=override_templates,
+        )
+
     @Slot()
     def _on_table_selection_changed(self) -> None:
-        selected = self.results_table.selectedItems()
-        if selected:
-            row = selected[0].row()
+        selected_rows = self.results_table.selectedItems()
+        if selected_rows:
+            row = self.results_table.row(selected_rows[0])
             if 0 <= row < len(self.generated_cards):
                 self.current_preview_index = row
-                self._update_preview()
+                self._update_card_preview()
 
     @Slot(QTableWidgetItem)
     def _on_cell_edited(self, item: QTableWidgetItem) -> None:
         row = item.row()
         col = item.column()
-        col_count = self.results_table.columnCount()
-        if 0 <= row < len(self.generated_cards) and col < col_count - 1:
-            header_item = self.results_table.horizontalHeaderItem(col)
-            h_name = header_item.text() if header_item else ("front" if col == 0 else "back")
-            self.generated_cards[row][h_name] = item.text()
+        if 0 <= row < len(self.generated_cards):
+            text = item.text()
             if col == 0:
-                self.generated_cards[row]["front"] = item.text()
-            elif col == 1:
-                self.generated_cards[row]["back"] = item.text()
-
-            self.generated_cards[row]["status"] = "ÉDITÉ"
-            self._update_preview()
-
-    def _update_preview(self) -> None:
-        if not self.generated_cards:
-            self.preview_widget.card_preview_widget.set_empty_state("Aucune carte générée.")
-            self.preview_widget.lbl_counter.setText("0 / 0")
-            return
-
-        total = len(self.generated_cards)
-        self.current_preview_index = max(0, min(self.current_preview_index, total - 1))
-        self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
-
-        card = self.generated_cards[self.current_preview_index]
-        recto = card.get("front", card.get("Front", ""))
-        verso = card.get("back", card.get("Back", ""))
-
-        selected_nt = self.model_combo.currentData()
-        note_type = selected_nt if isinstance(selected_nt, NoteTypeModel) else None
-
-        fields_dict: dict[str, str] = {
-            "Front": recto,
-            "Back": verso,
-            "front": recto,
-            "back": verso,
-            "Question": recto,
-            "Answer": verso,
-        }
-
-        # Include custom dynamic fields
-        for k, v in card.items():
-            fields_dict[str(k)] = str(v)
-
-        if not self.verso_visible:
-            fields_dict["Back"] = ""
-            fields_dict["back"] = ""
-            fields_dict["Answer"] = ""
-
-        override_templates = None
-        if not note_type or not getattr(note_type, "templates", None):
-            override_templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}]
-
-        self.preview_widget.card_preview_widget.update_preview(
-            note_type=note_type,
-            fields_dict=fields_dict,
-            override_templates=override_templates,
-        )
-
-    @Slot()
-    def _on_save_anki(self) -> None:
-        if not self.generated_cards:
-            show_toast(self, "Aucune carte générée à sauvegarder.", is_error=True)
-            return
-
-        try:
-            deck_name = self.pkg_input.text().strip() or "Général"
-            deck, _ = DeckModel.get_or_create(name=deck_name)
-
-            selected_nt = self.model_combo.currentData()
-            note_type = selected_nt if isinstance(selected_nt, NoteTypeModel) else NoteTypeModel.select().first()
-            if not note_type:
-                note_type = NoteTypeModel.create(name="Basic", fields_schema='["Front", "Back"]', templates="[]", css_style="")
-
-            saved_count = 0
-            for card in self.generated_cards:
-                if card.get("status") == "REJETÉ":
-                    continue
-
-                # Use NoteManager to create note + Cloze/Basic cards atomically
-                NoteManager.create_note(
-                    note_type=note_type,
-                    deck=deck,
-                    content_dict=card,
-                    tags=["AnkiForge_AI"],
-                    status="new",
-                    source="ai",
-                )
-                saved_count += 1
-
-            show_toast(self, f"{saved_count} cartes sauvegardées avec succès dans '{deck_name}' !")
-            QMessageBox.information(self, "Sauvegarde Anki", f"{saved_count} cartes ont été créées dans le paquet '{deck_name}'.")
-
-            self.generated_cards.clear()
-            self.results_table.setRowCount(0)
-            self.preview_widget.card_preview_widget.clear_memory()
-
-        except Exception as e:
-            logger.exception("Erreur lors de la sauvegarde dans la base : %s", e)
-            QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde : {str(e)}")
+                self.generated_cards[row]["Front"] = text
+            elif col == 1 and self.results_table.columnCount() > 2:
+                self.generated_cards[row]["Back"] = text
+            self._update_card_preview()
 
     @Slot()
     def _on_prev_card(self) -> None:
         if self.current_preview_index > 0:
             self.current_preview_index -= 1
             self.results_table.selectRow(self.current_preview_index)
-            self._update_preview()
+            self._update_card_preview()
 
     @Slot()
     def _on_next_card(self) -> None:
         if self.current_preview_index < len(self.generated_cards) - 1:
             self.current_preview_index += 1
             self.results_table.selectRow(self.current_preview_index)
-            self._update_preview()
+            self._update_card_preview()
 
     @Slot()
     def _on_toggle_verso(self) -> None:
         self.verso_visible = not self.verso_visible
-        icon_name = "ph.eye" if not self.verso_visible else "ph.eye-slash"
-        btn_text = "Voir Verso" if not self.verso_visible else "Masquer Verso"
-        self.preview_widget.btn_toggle_verso.setText(btn_text)
+        label = "Masquer Verso" if self.verso_visible else "Afficher Verso"
+        icon_name = "ph.eye-slash" if self.verso_visible else "ph.eye"
+        self.preview_widget.btn_toggle_verso.setText(label)
         self.preview_widget.btn_toggle_verso.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
-        self._update_preview()
+        self._update_card_preview()
 
     @Slot()
     def _on_validate_card(self) -> None:
         if self.generated_cards and 0 <= self.current_preview_index < len(self.generated_cards):
-            self.generated_cards[self.current_preview_index]["status"] = "VALIDÉ"
-            self._update_table()
+            self.generated_cards[self.current_preview_index]["status"] = "Validée"
+            self._populate_results_table()
+            show_toast(self, "Carte validée avec succès !")
 
     @Slot()
     def _on_edit_card(self) -> None:
@@ -741,17 +806,59 @@ class CreationView(QWidget):
             return
 
         card = self.generated_cards[self.current_preview_index]
-        dialog = CardEditDialog(card.get("front", ""), card.get("back", ""), parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            new_front, new_back = dialog.get_data()
-            self.generated_cards[self.current_preview_index]["front"] = new_front
-            self.generated_cards[self.current_preview_index]["back"] = new_back
-            self.generated_cards[self.current_preview_index]["status"] = "ÉDITÉ"
-            self._update_table()
-            self._update_preview()
+        dlg = CardEditDialog(
+            front=card.get("Front", card.get("Recto", "")),
+            back=card.get("Back", card.get("Verso", "")),
+            parent=self,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_front, new_back = dlg.get_data()
+            card["Front"] = new_front
+            card["Back"] = new_back
+            self._populate_results_table()
+            self._update_card_preview()
+            show_toast(self, "Carte mise à jour !")
 
     @Slot()
     def _on_reject_card(self) -> None:
         if self.generated_cards and 0 <= self.current_preview_index < len(self.generated_cards):
-            self.generated_cards[self.current_preview_index]["status"] = "REJETÉ"
-            self._update_table()
+            removed = self.generated_cards.pop(self.current_preview_index)
+            self._populate_results_table()
+            self._update_card_preview()
+            show_toast(self, f"Carte '{removed.get('Front', '')[:20]}...' rejetée.")
+
+    @Slot()
+    def _on_save_anki(self) -> None:
+        if not self.generated_cards:
+            show_toast(self, "Aucune carte générée à sauvegarder.", is_error=True)
+            return
+
+        selected_nt = self.model_combo.currentData()
+        deck_data = self.deck_combo.currentData()
+        deck_name = deck_data.name if deck_data and hasattr(deck_data, "name") else self.deck_combo.currentText().replace("🎴 ", "")
+
+        saved_count = 0
+        try:
+            for card in self.generated_cards:
+                if card.get("status") != "Rejetée":
+                    front = card.get("Front", card.get("Recto", ""))
+                    back = card.get("Back", card.get("Verso", ""))
+                    fields = {"Front": front, "Back": back}
+
+                    deck_obj, _ = DeckModel.get_or_create(name=deck_name)
+                    NoteManager.create_note(
+                        note_type=selected_nt,
+                        deck=deck_obj,
+                        content_dict=fields,
+                        tags=["ankiforge_generated"],
+                        source="ai",
+                    )
+                    saved_count += 1
+
+            show_toast(self, f"{saved_count} cartes enregistrées dans Anki/Peewee DB !")
+        except Exception as e:
+            logger.exception("Erreur lors de la sauvegarde dans Anki: %s", e)
+            QMessageBox.critical(self, "Erreur de Sauvegarde", f"Échec de l'enregistrement dans Anki : {str(e)}")
+
+
+CreationTab = CreationView

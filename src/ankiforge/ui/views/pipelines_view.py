@@ -175,19 +175,6 @@ class PipelinesView(QWidget):
 
         self.btn_save_pipeline = PrimaryButton("Sauvegarder Pipeline")
         self.btn_save_pipeline.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
-        self.btn_save_pipeline.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #10b981, stop:1 #059669);
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: 600;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #059669, stop:1 #047857);
-            }
-        """)
         add_agent_row.addWidget(self.btn_save_pipeline)
 
         content_layout.addLayout(add_agent_row)

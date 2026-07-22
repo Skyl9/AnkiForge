@@ -219,7 +219,7 @@ class BatchView(QWidget):
                 border: none;
             }
             QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #10b981, stop:1 #3b82f6);
+                background-color: #6366f1;
             }
         """)
         terminal_layout.addWidget(self.progress_bar)
@@ -241,19 +241,6 @@ class BatchView(QWidget):
 
         self.btn_start = PrimaryButton("Démarrer l'Usine")
         self.btn_start.setIcon(load_phosphor_icon("ph.rocket-launch", color="white"))
-        self.btn_start.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 8px 18px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-        """)
         self.btn_start.clicked.connect(self._on_start_batch)
         footer_layout.addWidget(self.btn_start)
 

@@ -281,8 +281,8 @@ class ExplorateurDossiersTagsWidget(QWidget):
         self.tag_list.itemClicked.connect(self._on_tag_clicked)
         layout.addWidget(self.tag_list, 1)
 
-    def populate_folders(self, folders: list) -> None:
-        """Construit l'arborescence hiérarchique des dossiers et sous-dossiers (::)."""
+    def populate_folders(self, folders: list, valid_deck_ids: Optional[set[int]] = None) -> None:
+        """Construit l'arborescence hiérarchique des dossiers et sous-dossiers (::). Masque les dossiers vides sous filtrage."""
         self.folder_tree.clear()
 
         root_item = QTreeWidgetItem(self.folder_tree, ["Tous les dossiers"])
@@ -293,6 +293,10 @@ class ExplorateurDossiersTagsWidget(QWidget):
         node_map: dict[str, QTreeWidgetItem] = {}
 
         for f in folders:
+            folder_id = getattr(f, "id", None)
+            if valid_deck_ids is not None and folder_id not in valid_deck_ids:
+                continue
+
             full_name = getattr(f, "name", str(f))
             parts = [p.strip() for p in full_name.split("::") if p.strip()]
             current_parent = root_item
@@ -305,14 +309,14 @@ class ExplorateurDossiersTagsWidget(QWidget):
                 else:
                     item = QTreeWidgetItem(current_parent, [part])
                     item.setIcon(0, load_phosphor_icon("folder", color=DesignTokens.COLOR_BLUE))
-                    # Storing folder ID on leaf / node
-                    folder_id = getattr(f, "id", None) if idx == len(parts) - 1 else None
-                    item.setData(0, Qt.ItemDataRole.UserRole, folder_id)
+                    f_id = folder_id if idx == len(parts) - 1 else None
+                    item.setData(0, Qt.ItemDataRole.UserRole, f_id)
                     item.setExpanded(True)
                     node_map[path_accum] = item
                     current_parent = item
 
-    def populate_tags(self, tags: list) -> None:
+    def populate_tags(self, tags: list, valid_tags: Optional[set[str]] = None) -> None:
+        """Remplit la liste des tags. Masque les tags sans carte sous filtrage."""
         self.tag_list.clear()
         all_item = QListWidgetItem("Tous les tags")
         all_item.setIcon(load_phosphor_icon("tag", color=DesignTokens.COLOR_YELLOW))
@@ -320,9 +324,13 @@ class ExplorateurDossiersTagsWidget(QWidget):
         self.tag_list.addItem(all_item)
 
         for t in tags:
-            item = QListWidgetItem(str(t))
+            tag_name = str(t)
+            if valid_tags is not None and tag_name not in valid_tags:
+                continue
+
+            item = QListWidgetItem(tag_name)
             item.setIcon(load_phosphor_icon("tag", color=DesignTokens.COLOR_YELLOW))
-            item.setData(Qt.ItemDataRole.UserRole, t)
+            item.setData(Qt.ItemDataRole.UserRole, tag_name)
             self.tag_list.addItem(item)
 
     def _on_tree_item_clicked(self, item: QTreeWidgetItem, column: int) -> None:
@@ -466,19 +474,6 @@ class EditionView(QWidget):
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_phosphor_icon("floppy-disk", color="white"))
-        self.btn_save.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #10b981, stop:1 #059669);
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: 600;
-                padding: 6px 14px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #059669, stop:1 #047857);
-            }
-        """)
         self.btn_save.clicked.connect(self._save_card)
 
         self.right_panel.add_header_widget(self.btn_history)
@@ -1002,21 +997,7 @@ class EditionView(QWidget):
         self.right_panel.setVisible(False)
 
         try:
-            # Populate explorer decks/folders (Hierarchical Tree from DeckModel)
-            decks = list(DeckModel.select())
-            self.explorer_widget.populate_folders(decks)
-
-            # Collect unique tags
-            notes_sample = list(NoteModel.select())
-            tags_set = set()
-            for n in notes_sample:
-                if n.tags:
-                    for t in n.tags.split(","):
-                        if t.strip():
-                            tags_set.add(t.strip())
-            self.explorer_widget.populate_tags(sorted(list(tags_set)))
-
-            # Query notes according to filters
+            # 1. Query notes according to active filters
             query = NoteModel.select()
             if self._active_folder_id is not None:
                 from ankiforge.database.models import CardModel
@@ -1029,8 +1010,41 @@ class EditionView(QWidget):
             self._all_notes = list(query)
             self._load_next_card_batch()
 
-        except Exception:
-            pass  # nosec B110
+            # 2. Extract valid deck IDs and tags present in filtered results (if a filter is active)
+            is_filtered = (self._active_folder_id is not None) or (self._active_tag is not None)
+            valid_deck_ids: Optional[set[int]] = None
+            valid_tags: Optional[set[str]] = None
+
+            if is_filtered:
+                from ankiforge.database.models import CardModel
+
+                filtered_note_ids = [n.id for n in self._all_notes]
+                cards_in_filtered = CardModel.select(CardModel.deck).where(CardModel.note.in_(filtered_note_ids))
+                valid_deck_ids = {c.deck_id for c in cards_in_filtered if c.deck_id}
+
+                valid_tags = set()
+                for n in self._all_notes:
+                    if n.tags:
+                        for t in n.tags.split(","):
+                            if t.strip():
+                                valid_tags.add(t.strip())
+
+            # 3. Populate explorer folders & tags with filtering mask
+            decks = list(DeckModel.select())
+            self.explorer_widget.populate_folders(decks, valid_deck_ids=valid_deck_ids)
+
+            all_notes_sample = list(NoteModel.select())
+            all_tags_set = set()
+            for n in all_notes_sample:
+                if n.tags:
+                    for t in n.tags.split(","):
+                        if t.strip():
+                            all_tags_set.add(t.strip())
+
+            self.explorer_widget.populate_tags(sorted(list(all_tags_set)), valid_tags=valid_tags)
+
+        except Exception as e:
+            logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
 
     def is_dirty(self) -> bool:
         return self._dirty
