@@ -7,7 +7,6 @@ Vue Édition / Analyse — 100% Conforme à la Maquette concept_ide + Raccordeme
 """
 
 import logging
-import re
 import json
 from typing import Optional, Any
 
@@ -17,9 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QSplitter,
     QLabel,
-    QScrollArea,
     QFrame,
-    QCheckBox,
     QListWidget,
     QListWidgetItem,
     QTreeWidget,
@@ -33,10 +30,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, Slot, QSettings
 from PySide6.QtGui import QFont, QAction
 
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, IconButton
-from ankiforge.ui.components.inputs import GlowLineEdit, StyledComboBox, StyledTextEdit
+from ankiforge.ui.components.inputs import GlowLineEdit, StyledTextEdit
 from ankiforge.ui.components.badges import Badge
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -50,6 +47,7 @@ from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
+from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 from ankiforge.ui.widgets.linter_dialog import LinterDialog
 from ankiforge.ui.widgets.toast import show_toast
@@ -466,16 +464,6 @@ class EditionView(QWidget):
         self.btn_history.setToolTip("Machine à remonter le temps — Comparateur de versions")
         self.btn_history.clicked.connect(self._open_history_modal)
 
-        self.btn_linter = SecondaryButton("Linter IA")
-        self.btn_linter.setIcon(load_phosphor_icon("sparkle", color=DesignTokens.COLOR_PURPLE))
-        self.btn_linter.setToolTip("Auditer et corriger la carte avec le Linter IA")
-        self.btn_linter.clicked.connect(self._run_linter)
-
-        self.btn_dupes = SecondaryButton("Doublons")
-        self.btn_dupes.setIcon(load_phosphor_icon("copy", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_dupes.setToolTip("Rechercher les cartes similaires / doublons")
-        self.btn_dupes.clicked.connect(self.scan_for_duplicates)
-
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_phosphor_icon("floppy-disk", color="white"))
         self.btn_save.setStyleSheet("""
@@ -494,8 +482,6 @@ class EditionView(QWidget):
         self.btn_save.clicked.connect(self._save_card)
 
         self.right_panel.add_header_widget(self.btn_history)
-        self.right_panel.add_header_widget(self.btn_linter)
-        self.right_panel.add_header_widget(self.btn_dupes)
         self.right_panel.add_header_widget(self.btn_save)
         self.right_panel.add_header_separator()
 
@@ -605,109 +591,15 @@ class EditionView(QWidget):
         fields_layout.addLayout(tags_row)
         self.col2_splitter.addWidget(fields_container)
 
-        # --- Bas : Zone de prévisualisation live ---
+        # --- Bas : Zone de prévisualisation live Anki WebEngine + MathJax ---
         preview_container = QWidget()
-        preview_container.setStyleSheet("background-color: rgba(0, 0, 0, 0.15);")
+        preview_container.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-top: 1px solid {DesignTokens.BORDER_COLOR};")
         preview_layout = QVBoxLayout(preview_container)
-        preview_layout.setContentsMargins(16, 12, 16, 16)
-        preview_layout.setSpacing(12)
+        preview_layout.setContentsMargins(12, 8, 12, 12)
+        preview_layout.setSpacing(8)
 
-        # Barre de contrôles de prévisualisation
-        preview_ctrl = QHBoxLayout()
-        preview_ctrl.setContentsMargins(0, 0, 0, 0)
-        preview_ctrl.setSpacing(12)
-
-        prev_title = QLabel("PRÉVISUALISATION")
-        prev_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
-        preview_ctrl.addWidget(prev_title)
-
-        self.card_combo = StyledComboBox()
-        self.card_combo.addItems(["Carte n°1 (Principale)", "Carte n°2 (Inversée)"])
-        self.card_combo.setFixedWidth(180)
-        preview_ctrl.addWidget(self.card_combo)
-
-        preview_ctrl.addStretch()
-
-        self.verso_cb = QCheckBox("Verso")
-        self.verso_cb.setChecked(True)
-        self.verso_cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: bold;")
-        self.verso_cb.toggled.connect(self._toggle_verso)
-        preview_ctrl.addWidget(self.verso_cb)
-
-        # Appareils (Desktop / Mobile)
-        self.btn_desktop = IconButton("monitor", tooltip="Mode Bureau", size=24)
-        self.btn_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border-radius: 4px;")
-        self.btn_desktop.clicked.connect(lambda: self._set_device("desktop"))
-
-        self.btn_mobile = IconButton("device-mobile", tooltip="Mode Mobile", size=24)
-        self.btn_mobile.clicked.connect(lambda: self._set_device("mobile"))
-
-        preview_ctrl.addWidget(self.btn_desktop)
-        preview_ctrl.addWidget(self.btn_mobile)
-
-        preview_layout.addLayout(preview_ctrl)
-
-        # Zone d'affichage de la carte
-        self.card_preview_scroll = QScrollArea()
-        self.card_preview_scroll.setWidgetResizable(True)
-        self.card_preview_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.card_preview_scroll.setStyleSheet("background: transparent;")
-
-        self.card_wrapper = QWidget()
-        card_wrapper_layout = QVBoxLayout(self.card_wrapper)
-        card_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card_wrapper_layout.setContentsMargins(12, 12, 12, 12)
-
-        # Cadre Premium Flashcard
-        self.flashcard_frame = QFrame()
-        self.flashcard_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #1a1d24;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 4px solid qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #8b5cf6);
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        apply_shadow(self.flashcard_frame, blur=16, offset_y=4)
-
-        card_internal_layout = QVBoxLayout(self.flashcard_frame)
-        card_internal_layout.setContentsMargins(24, 24, 24, 24)
-        card_internal_layout.setSpacing(16)
-
-        # Contenu Recto
-        self.lbl_front = QLabel("Qu'est-ce qu'une <b>fonction de répartition</b> F<sub>X</sub>(t) et quelles sont ses 4 propriétés principales ?")
-        self.lbl_front.setFont(QFont(DesignTokens.FONT_MAIN, 14))
-        self.lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        self.lbl_front.setWordWrap(True)
-        card_internal_layout.addWidget(self.lbl_front)
-
-        # Séparateur VERSO
-        self.divider_container = QWidget()
-        div_layout = QVBoxLayout(self.divider_container)
-        div_layout.setContentsMargins(0, 4, 0, 4)
-
-        self.divider_line = QFrame()
-        self.divider_line.setFrameShape(QFrame.Shape.HLine)
-        self.divider_line.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; border-top: none;")
-        div_layout.addWidget(self.divider_line)
-
-        self.divider_lbl = QLabel("VERSO")
-        self.divider_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
-        self.divider_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        div_layout.addWidget(self.divider_lbl)
-
-        card_internal_layout.addWidget(self.divider_container)
-
-        # Contenu Verso
-        self.lbl_back = QLabel("La fonction de répartition d'une variable aléatoire réelle X est définie par F<sub>X</sub>(t) = P(X ≤ t).")
-        self.lbl_back.setFont(QFont(DesignTokens.FONT_MAIN, 14))
-        self.lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        self.lbl_back.setWordWrap(True)
-        card_internal_layout.addWidget(self.lbl_back)
-
-        card_wrapper_layout.addWidget(self.flashcard_frame)
-        self.card_preview_scroll.setWidget(self.card_wrapper)
-        preview_layout.addWidget(self.card_preview_scroll, 1)
+        self.card_preview = CardPreviewWidget(show_header=True)
+        preview_layout.addWidget(self.card_preview)
 
         self.col2_splitter.addWidget(preview_container)
         self.col2_splitter.setSizes([350, 350])
@@ -812,22 +704,42 @@ class EditionView(QWidget):
         self.right_panel.set_tab_text(0, f"Éditeur (ID: {note.id})")
         self.tag_pill.setText(note.tags if note.tags else "Informatique")
 
-        # Load active version content if present
+        recto = ""
+        verso = ""
+
+        # Query active version or most recent version
         version = NoteVersionModel.get_or_none(note=note, is_active=True)
+        if not version:
+            version = NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()).first()
+
         if version and version.content:
             try:
                 data = json.loads(version.content)
-                recto = data.get("front", "")
-                verso = data.get("back", "")
+                if isinstance(data, dict):
+                    # Flexible lookup matching any field schema (Front, Back, Question, Answer, Text, Extra, Field_1, etc.)
+                    for k, v in data.items():
+                        k_lower = str(k).lower()
+                        if k_lower in ["front", "recto", "question", "text", "texte", "field_1"] and not recto:
+                            recto = str(v)
+                        elif k_lower in ["back", "verso", "answer", "réponse", "reponse", "extra", "field_2"] and not verso:
+                            verso = str(v)
+
+                    # Fallback: 1st field = Recto, 2nd field = Verso
+                    if not recto and len(data) > 0:
+                        vals = list(data.values())
+                        recto = str(vals[0]) if len(vals) > 0 else ""
+                        verso = str(vals[1]) if len(vals) > 1 else ""
+                else:
+                    recto = str(data)
             except Exception:
                 recto = version.content
-                verso = ""
-        else:
-            recto = f"Recto pour la note #{note.id}"
-            verso = f"Verso pour la note #{note.id}"
 
-        self.editor_recto.setText(recto)
-        self.editor_verso.setText(verso)
+        if not recto and not verso:
+            recto = f"Carte #{note.id}"
+            verso = ""
+
+        self.editor_recto.setPlainText(recto)
+        self.editor_verso.setPlainText(verso)
         self._update_preview()
         self._dirty = False
 
@@ -836,44 +748,49 @@ class EditionView(QWidget):
         self._update_preview()
 
     def _update_preview(self) -> None:
-        recto_text = self.editor_recto.toPlainText() or "<i>Saisissez un recto...</i>"
-        verso_text = self.editor_verso.toPlainText() or "<i>Saisissez un verso...</i>"
+        recto_text = self.editor_recto.toPlainText()
+        verso_text = self.editor_verso.toPlainText()
 
-        # Support formatting, Cloze, & LaTeX math rendering in preview
-        def format_content(text: str) -> str:
-            text = re.sub(r"\\\((.*?)\\\)", r"<span style='color: #a78bfa; font-style: italic;'>\1</span>", text)
-            text = re.sub(r"\$(.*?)\$", r"<span style='color: #a78bfa; font-style: italic;'>\1</span>", text)
-            text = re.sub(r"\\\[(.*?)\\\]", r"<div style='text-align: center; color: #a78bfa; margin: 6px 0;'>\1</div>", text, flags=re.DOTALL)
-            text = re.sub(r"\$\$(.*?)\$\$", r"<div style='text-align: center; color: #a78bfa; margin: 6px 0;'>\1</div>", text, flags=re.DOTALL)
-            cloze_style = "color: #c084fc; font-weight: bold; " "background: rgba(192, 132, 252, 0.15); padding: 2px 4px; border-radius: 4px;"
-            text = re.sub(
-                r"\{\{c\d+::(.*?)(?:::.*?)?\}\}",
-                f"<span style='{cloze_style}'>[\\1]</span>",
-                text,
-            )
-            text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
-            text = re.sub(r"\*(.*?)\*", r"<i>\1</i>", text)
-            text = re.sub(r"`(.*?)`", r"<code style='background: #111318; color: #38bdf8; padding: 2px 5px; border-radius: 4px;'>\1</code>", text)
-            return text
+        note_type = getattr(self._current_note, "note_type", None) if self._current_note else None
+        fields_dict: dict[str, str] = {
+            "Front": recto_text,
+            "Back": verso_text,
+            "front": recto_text,
+            "back": verso_text,
+            "Question": recto_text,
+            "Answer": verso_text,
+            "Text": recto_text,
+            "Extra": verso_text,
+            "Field_1": recto_text,
+            "Field_2": verso_text,
+        }
 
-        self.lbl_front.setText(format_content(recto_text))
-        self.lbl_back.setText(format_content(verso_text))
+        if self._current_note:
+            version = NoteVersionModel.get_or_none(note=self._current_note, is_active=True)
+            if version and version.content:
+                try:
+                    v_data = json.loads(version.content)
+                    if isinstance(v_data, dict):
+                        for k, v in v_data.items():
+                            fields_dict[str(k)] = str(v)
+                except Exception:
+                    pass  # nosec B110
 
-    def _toggle_verso(self, checked: bool) -> None:
-        self.divider_container.setVisible(checked)
-        self.lbl_back.setVisible(checked)
+        # Override with current live editor changes
+        fields_dict["Front"] = recto_text
+        fields_dict["Back"] = verso_text
+        fields_dict["front"] = recto_text
+        fields_dict["back"] = verso_text
 
-    def _set_device(self, device: str) -> None:
-        self._preview_device = device
-        if device == "mobile":
-            self.flashcard_frame.setFixedWidth(375)
-            self.btn_mobile.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border-radius: 4px;")
-            self.btn_desktop.setStyleSheet("background-color: transparent;")
-        else:
-            self.flashcard_frame.setMaximumWidth(16777215)
-            self.flashcard_frame.setMinimumWidth(0)
-            self.btn_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border-radius: 4px;")
-            self.btn_mobile.setStyleSheet("background-color: transparent;")
+        override_templates = None
+        if not note_type or not getattr(note_type, "templates", None):
+            override_templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}]
+
+        self.card_preview.update_preview(
+            note_type=note_type,
+            fields_dict=fields_dict,
+            override_templates=override_templates,
+        )
 
     def _insert_format(self, prefix: str, suffix: str) -> None:
         cursor = self.editor_recto.textCursor()

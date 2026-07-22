@@ -45,6 +45,10 @@ class StyledTextEdit(QPlainTextEdit):
             }}
         """)
 
+    def setText(self, text: str) -> None:
+        """Alias pour setPlainText pour compatibilité d'interface."""
+        self.setPlainText(text)
+
 
 class GlowLineEdit(QLineEdit):
     """Input avec glow accentué au focus. Usage: recherche, omnibox."""

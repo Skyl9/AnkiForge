@@ -1,11 +1,20 @@
-import json
-from typing import Any, cast
+"""
+Composant réutilisable encapsulant la prévisualisation d'une carte Anki.
+Multi-appareils : Bureau (100% largeur), Tablette (768px) et Mobile (375px).
+Seule la largeur du conteneur varie selon le mode sélectionné.
+"""
 
-from PySide6.QtCore import QUrl, Slot
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox
+import json
+from typing import Any, cast, Optional
+
+from PySide6.QtCore import QUrl, Slot, Qt, QCoreApplication, QTimer
+from PySide6.QtGui import QResizeEvent
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea, QSizePolicy
 
 from ankiforge.database.models import NoteTypeModel
-from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.theme import DesignTokens, apply_shadow, is_dark_mode
+from ankiforge.ui.components.inputs import StyledComboBox
+from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.widgets.cloze_manager import sync_preview_card_selector, get_preview_template
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import render_anki_card, AnkiFields
@@ -15,15 +24,16 @@ from ankiforge.utils.paths import get_media_dir
 class CardPreviewWidget(QWidget):
     """
     Composant réutilisable encapsulant la prévisualisation d'une carte Anki.
-    Gère de manière autonome la bascule Recto/Verso, la sélection du template
-    et le rendu HTML/MathJax via SafeWebEngineView.
+    Support multi-appareils (Bureau 🖥️ 100%, Tablette 📱 768px, Mobile 📱 375px).
+    La seule différence entre les modes est la largeur du navigateur.
     """
 
-    def __init__(self, parent=None, show_header=True):
+    def __init__(self, parent: Optional[QWidget] = None, show_header: bool = True) -> None:
         super().__init__(parent)
         self.current_fields: dict[str, str] = {}
         self.current_templates: list[dict[str, Any]] = []
         self.current_css: str = ""
+        self._device_mode: str = "desktop"
 
         self._setup_ui(show_header)
         self._connect_signals()
@@ -31,43 +41,185 @@ class CardPreviewWidget(QWidget):
     def _setup_ui(self, show_header: bool) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
 
-        self.controls_layout = QHBoxLayout()
+        # --- En-tête de contrôles (Barre de contrôles conforme maquette) ---
+        self.controls_container = QWidget()
+        self.controls_layout = QHBoxLayout(self.controls_container)
+        self.controls_layout.setContentsMargins(0, 0, 0, 0)
+        self.controls_layout.setSpacing(12)
 
         if show_header:
-            lbl_preview = QLabel("PRÉVISUALISATION :")
-            lbl_preview.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
+            lbl_preview = QLabel("PRÉVISUALISATION")
+            lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; " "font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border: none;")
             self.controls_layout.addWidget(lbl_preview)
 
-        self.card_selector = QComboBox()
-        self.card_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.card_selector.setMinimumWidth(130)
+        # Sélecteur de carte (Carte n°1, Carte n°2)
+        self.card_selector = StyledComboBox()
+        self.card_selector.setMinimumWidth(150)
+        self.card_selector.setFixedHeight(30)
+        self.card_selector.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 0 10px;
+                font-size: 11px;
+            }}
+            QComboBox:focus {{
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
 
-        self.side_selector = QComboBox()
-        self.side_selector.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.side_selector.setMinimumWidth(130)
+        # Sélecteur de face (Voir Recto / Voir Verso)
+        self.side_selector = StyledComboBox()
+        self.side_selector.setMinimumWidth(120)
+        self.side_selector.setFixedHeight(30)
         self.side_selector.addItems(["Voir Recto", "Voir Verso"])
+        self.side_selector.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 0 10px;
+                font-size: 11px;
+            }}
+            QComboBox:focus {{
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
 
         self.controls_layout.addWidget(self.card_selector)
         self.controls_layout.addWidget(self.side_selector)
         self.controls_layout.addStretch()
 
-        layout.addLayout(self.controls_layout)
+        # Boutons de bascule multi-appareils (Bureau / Tablette / Mobile)
+        self.device_container = QWidget()
+        device_layout = QHBoxLayout(self.device_container)
+        device_layout.setContentsMargins(0, 0, 0, 0)
+        device_layout.setSpacing(4)
 
+        self.btn_desktop = IconButton("monitor", tooltip="Mode Bureau (100% largeur)", size=24)
+        self.btn_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;")
+        self.btn_desktop.clicked.connect(lambda: self.set_device_mode("desktop"))
+
+        self.btn_tablet = IconButton("device-tablet", tooltip="Mode Tablette (768px)", size=24)
+        self.btn_tablet.clicked.connect(lambda: self.set_device_mode("tablet"))
+
+        self.btn_mobile = IconButton("device-mobile", tooltip="Mode Mobile (375px)", size=24)
+        self.btn_mobile.clicked.connect(lambda: self.set_device_mode("mobile"))
+
+        device_layout.addWidget(self.btn_desktop)
+        device_layout.addWidget(self.btn_tablet)
+        device_layout.addWidget(self.btn_mobile)
+
+        self.controls_layout.addWidget(self.device_container)
+
+        layout.addWidget(self.controls_container)
+
+        # --- Zone de Prévisualisation Premium Flashcard ---
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet("background: transparent;")
+
+        self.card_wrapper = QWidget()
+        self.card_wrapper_layout = QVBoxLayout(self.card_wrapper)
+        self.card_wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        self.card_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Cadre Flashcard
+        self.flashcard_frame = QFrame()
+        self.flashcard_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.flashcard_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top: 4px solid qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #8b5cf6);
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(self.flashcard_frame, blur=16, offset_y=4)
+
+        frame_layout = QVBoxLayout(self.flashcard_frame)
+        frame_layout.setContentsMargins(8, 8, 8, 8)
+
+        # SafeWebEngineView pour le rendu MathJax + HTML/CSS
         self.web_view = SafeWebEngineView()
-        layout.addWidget(self.web_view)
+        self.web_view.setMinimumHeight(240)
+        frame_layout.addWidget(self.web_view)
+
+        self.card_wrapper_layout.addWidget(self.flashcard_frame)
+        self.scroll_area.setWidget(self.card_wrapper)
+
+        layout.addWidget(self.scroll_area, 1)
 
     def _connect_signals(self) -> None:
         self.card_selector.currentIndexChanged.connect(self._render)
         self.side_selector.currentIndexChanged.connect(self._render)
 
-    def set_empty_state(self, message: str = "Sélectionnez un élément pour le prévisualiser.") -> None:
+    def set_device_mode(self, mode: str) -> None:
+        """Ajuste uniquement la largeur du conteneur selon l'appareil choisi."""
+        self._device_mode = mode
+
+        inactive_style = "background-color: transparent; border-radius: 4px;"
+        active_style = f"background-color: {DesignTokens.BG_HOVER}; " f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;"
+
+        self.btn_desktop.setStyleSheet(inactive_style)
+        self.btn_tablet.setStyleSheet(inactive_style)
+        self.btn_mobile.setStyleSheet(inactive_style)
+
+        if mode == "tablet":
+            self.card_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+            self.flashcard_frame.setFixedWidth(768)
+            self.btn_tablet.setStyleSheet(active_style)
+        elif mode == "mobile":
+            self.card_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+            self.flashcard_frame.setFixedWidth(375)
+            self.btn_mobile.setStyleSheet(active_style)
+        else:  # desktop mode (PC)
+            self.card_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            self.flashcard_frame.setMinimumWidth(0)
+            self.flashcard_frame.setMaximumWidth(16777215)
+            self.btn_desktop.setStyleSheet(active_style)
+
+        # Force QScrollArea & WebEngine layout pass instantly without requiring window resize
+        self.card_wrapper.adjustSize()
+        self.scroll_area.setWidget(self.card_wrapper)
+        self.flashcard_frame.updateGeometry()
+        self.web_view.updateGeometry()
+
+        frame_size = self.flashcard_frame.size()
+        QCoreApplication.sendEvent(self.flashcard_frame, QResizeEvent(frame_size, frame_size))
+        web_size = self.web_view.size()
+        QCoreApplication.sendEvent(self.web_view, QResizeEvent(web_size, web_size))
+
+        self._render()
+        QTimer.singleShot(10, self._render)
+
+    def set_empty_state(self, message: str = "Sélectionnez une carte pour la prévisualiser.") -> None:
         """Affiche un message par défaut quand aucune carte n'est chargée."""
-        text_color = "#8C8C8C" if is_dark_mode() else "#6E6E6E"
-        placeholder = f"<div style='display: flex; height: 100vh; align-items: center; justify-content: center; color: {text_color}; font-family: sans-serif; text-align: center;'>{message}</div>"
+        text_color = "#94a3b8" if is_dark_mode() else "#64748b"
+        placeholder = f"""
+        <html>
+        <body style='background: transparent; margin: 0; display: flex; height: 100vh; align-items: center; justify-content: center;'>
+            <div style='color: {text_color}; font-family: sans-serif; text-align: center; font-size: 13px; font-weight: 500;'>
+                {message}
+            </div>
+        </body>
+        </html>
+        """
         self.web_view.setHtmlSafe(placeholder)
 
-    def update_preview(self, note_type: NoteTypeModel | None, fields_dict: dict[str, str], override_templates: list | None = None, override_css: str | None = None) -> None:
+    def update_preview(
+        self,
+        note_type: NoteTypeModel | None,
+        fields_dict: dict[str, str],
+        override_templates: list | None = None,
+        override_css: str | None = None,
+    ) -> None:
         """Met à jour les données et rafraîchit l'aperçu HTML."""
         if not note_type and not override_templates:
             self.set_empty_state()
@@ -97,7 +249,7 @@ class CardPreviewWidget(QWidget):
 
     @Slot()
     def _render(self, is_cloze: bool = False, selected_tmpl_idx: int = 0) -> None:
-        """Génère le HTML final et l'injecte dans le navigateur WebEngine."""
+        """Génère le HTML final sans modification externe de style."""
         if not self.current_templates:
             return
 
@@ -116,12 +268,12 @@ class CardPreviewWidget(QWidget):
         is_recto = self.side_selector.currentIndex() == 0
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
 
-        cur_fieds = AnkiFields(self.current_fields.copy())
+        cur_fields = AnkiFields(self.current_fields.copy())
 
         final_html = render_anki_card(
             raw_html=raw_html,
             css=self.current_css,
-            fields_dict=cur_fieds,
+            fields_dict=cur_fields,
             is_recto=is_recto,
             front_html=tmpl.get("qfmt", ""),
             is_dark_mode=is_dark_mode(),
