@@ -124,7 +124,7 @@ class Sidebar(QWidget):
         self.logo_text = QLabel("AnkiForge")
         self.logo_text.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 16px; border: none;")
 
-        self.header.setStyleSheet("border: none;")
+        self.header.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; background-color: transparent;")
 
         self.toggle_btn = IconButton("list", tooltip="Toggle Sidebar", size=24)
         self.toggle_btn.clicked.connect(self.toggle_requested.emit)
@@ -203,14 +203,15 @@ class Sidebar(QWidget):
 
         header_container = QWidget()
         header_container.setFixedHeight(24)
-        header_layout = QVBoxLayout(header_container)
-        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout = QHBoxLayout(header_container)
+        header_layout.setContentsMargins(12, 0, 0, 0)
         header_layout.setSpacing(0)
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         title_lbl = QLabel(title.upper())
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
         title_lbl.setFixedHeight(20)
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         sep_line = QFrame()
         sep_line.setFrameShape(QFrame.Shape.HLine)
