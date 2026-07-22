@@ -1,9 +1,9 @@
 """
 Vue Library (My Documents) — 100% Conforme à la Maquette concept_ide.
 - Explorateur d'arborescence à gauche (FolderModel & DocumentModel avec icônes de type PDF/TXT/MD).
-- Éditeur de document pleine page style feuille (.doc-page) centré avec mise en page haut de gamme.
+- Éditeur de document masqué par défaut (QStackedWidget page d'état vide si aucun document sélectionné).
+- Structure d'arborescence directe à la racine (pas de conteneur "Tous les documents").
 - Barre d'outils d'extraction : Import Fichier, Import URL, Analyse Marker IA, Insérer Coupure [SPLIT], Scinder.
-- Extraction asynchrone multi-formats via DocumentWorker (PDF, Word, PPTX, TXT, Web).
 """
 
 import logging
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QScrollArea,
     QSplitter,
+    QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -116,9 +117,38 @@ class DocumentsView(QWidget):
         self.explorer_panel.add_tab("Explorateur de Documents", explorer_content, "ph.files", closable=False)
         self.main_splitter.addWidget(self.explorer_panel)
 
-        # --- PANNEAU DROITE : Éditeur & Lecteur de Document (.doc-page) ---
+        # --- PANNEAU DROITE : Éditeur & Lecteur de Document (.doc-page) via QStackedWidget ---
         self.editor_panel = IdePanel(detachable=True)
 
+        self.editor_stack = QStackedWidget()
+
+        # PAGE 0 : État vide (aucun document sélectionné par défaut)
+        empty_page = QWidget()
+        empty_layout = QVBoxLayout(empty_page)
+        empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.setSpacing(12)
+
+        empty_icon = QLabel()
+        empty_icon.setPixmap(load_phosphor_icon("ph.files", color=DesignTokens.TEXT_MUTED).pixmap(56, 56))
+        empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        empty_title = QLabel("Aucun document sélectionné")
+        empty_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        empty_subtitle = QLabel("Choisissez un document dans l'arborescence à gauche pour afficher son contenu ou importez un nouveau fichier.")
+        empty_subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
+        empty_subtitle.setWordWrap(True)
+        empty_subtitle.setMaximumWidth(420)
+        empty_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        empty_layout.addWidget(empty_icon)
+        empty_layout.addWidget(empty_title)
+        empty_layout.addWidget(empty_subtitle)
+
+        self.editor_stack.addWidget(empty_page)
+
+        # PAGE 1 : Conteneur Éditeur / Lecteur de document
         editor_container = QWidget()
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
@@ -212,13 +242,17 @@ class DocumentsView(QWidget):
 
         page_wrapper_layout.addWidget(self.doc_page_frame)
         self.doc_scroll.setWidget(doc_page_wrapper)
-
         editor_layout.addWidget(self.doc_scroll, 1)
 
-        self.editor_panel.add_tab("Lecteur & Éditeur", editor_container, "ph.file-text", closable=False)
+        self.editor_stack.addWidget(editor_container)
+
+        self.editor_panel.add_tab("Lecteur & Éditeur", self.editor_stack, "ph.file-text", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
         self.main_splitter.setSizes([260, 800])
+
+        # Par défaut, afficher l'état vide
+        self.editor_stack.setCurrentIndex(0)
 
     def _connect_signals(self) -> None:
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
@@ -241,21 +275,21 @@ class DocumentsView(QWidget):
             folder_items: dict[int, QTreeWidgetItem] = {}
             folders = list(FolderModel.select())
 
-            # Racines des dossiers
+            # 1. Racines des dossiers
             for folder in folders:
                 item = QTreeWidgetItem(self.tree_explorer, [folder.name])
                 item.setIcon(0, load_phosphor_icon("ph.folder", color=DesignTokens.COLOR_BLUE))
                 item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
                 folder_items[folder.id] = item
 
-            # Documents
-            root_no_folder = QTreeWidgetItem(self.tree_explorer, ["Tous les documents"])
-            root_no_folder.setIcon(0, load_phosphor_icon("ph.folders", color=DesignTokens.TEXT_MUTED))
-            root_no_folder.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": None})
-
+            # 2. Documents (Fichiers rattachés au dossier parent ou directement à la racine)
             documents = list(DocumentModel.select())
             for doc in documents:
-                parent_item = folder_items.get(doc.folder_id) if hasattr(doc, "folder_id") and doc.folder_id else root_no_folder
+                if hasattr(doc, "folder_id") and doc.folder_id and doc.folder_id in folder_items:
+                    parent_item = folder_items[doc.folder_id]
+                else:
+                    parent_item = self.tree_explorer  # Directement sous la racine sans le header 'Tous les documents'
+
                 item = QTreeWidgetItem(parent_item, [doc.title])
                 item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
 
@@ -263,7 +297,7 @@ class DocumentsView(QWidget):
                 if title_lower.endswith(".pdf"):
                     item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
                 elif title_lower.endswith(".txt"):
-                    item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_MUTED))
+                    item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
                 elif title_lower.endswith(".md"):
                     item.setIcon(0, load_phosphor_icon("ph.file-code", color="#eab308"))
                 else:
@@ -271,6 +305,9 @@ class DocumentsView(QWidget):
 
             self.tree_explorer.expandAll()
             self.tree_explorer.blockSignals(False)
+
+            if not self._current_doc_id:
+                self.editor_stack.setCurrentIndex(0)
 
         except Exception as e:
             logger.warning("Erreur refresh_data documents_view: %s", e)
@@ -282,6 +319,8 @@ class DocumentsView(QWidget):
     def _on_document_selected(self) -> None:
         items = self.tree_explorer.selectedItems()
         if not items:
+            self._current_doc_id = None
+            self.editor_stack.setCurrentIndex(0)
             return
 
         item = items[0]
@@ -296,6 +335,11 @@ class DocumentsView(QWidget):
                 self.text_editor.blockSignals(False)
                 self._dirty = False
                 self._update_word_count()
+                self.editor_stack.setCurrentIndex(1)  # Afficher l'éditeur
+        else:
+            # Si un dossier est sélectionné, basculer sur l'état vide de l'éditeur
+            self._current_doc_id = None
+            self.editor_stack.setCurrentIndex(0)
 
     @Slot()
     def _on_text_changed(self) -> None:
@@ -351,6 +395,7 @@ class DocumentsView(QWidget):
             self._current_doc_id = doc.id
             self.doc_title_lbl.setText(doc.title)
             self.text_editor.setPlainText(content)
+            self.editor_stack.setCurrentIndex(1)
             show_toast(self, f"Document '{title}' importé avec succès !")
         except Exception as e:
             logger.exception("Erreur enregistrement document: %s", e)
@@ -420,3 +465,6 @@ class DocumentsView(QWidget):
                 show_toast(self, f"Document '{doc.title}' enregistré avec succès !")
         except Exception as e:
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible d'enregistrer le document : {str(e)}")
+
+
+DocumentsTab = DocumentsView
