@@ -37,20 +37,20 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineStepRowWidget(QFrame):
-    """Widget représentant une étape de pipeline — fond #1e2128 sur conteneur #16181d."""
+    """Widget représentant une étape de pipeline — fond BG_PANEL sur conteneur BG_SIDEBAR."""
 
     def __init__(self, order: int, agent_name: str, format_str: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("StepRow")
         self.setStyleSheet(f"""
             QFrame#StepRow {{
-                background-color: #1e2128;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
             QFrame#StepRow:hover {{
-                background-color: #232730;
-                border-color: #6366f1;
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
 
@@ -147,7 +147,7 @@ class PipelinesView(QWidget):
         self.steps_container_frame.setObjectName("StepsContainer")
         self.steps_container_frame.setStyleSheet(f"""
             QFrame#StepsContainer {{
-                background-color: #16181d;
+                background-color: {DesignTokens.BG_SIDEBAR};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
@@ -162,10 +162,10 @@ class PipelinesView(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("""
-            QScrollArea { background: transparent; border: none; }
-            QScrollBar:vertical { background: #1a1d24; width: 6px; border-radius: 3px; }
-            QScrollBar::handle:vertical { background: #3d4048; border-radius: 3px; min-height: 20px; }
+        scroll.setStyleSheet(f"""
+            QScrollArea {{ background: transparent; border: none; }}
+            QScrollBar:vertical {{ background: {DesignTokens.BG_INPUT}; width: 6px; border-radius: 3px; }}
+            QScrollBar::handle:vertical {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; min-height: 20px; }}
         """)
 
         # Widget interne du scroll : fond transparent pour laisser voir #16181d

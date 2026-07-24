@@ -539,14 +539,20 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_settings_window") and self._settings_window is not None and self._settings_window.isVisible():
             self._settings_window.raise_()
             self._settings_window.activateWindow()
+            self.sidebar.settings_btn.setChecked(True)
             return
 
         from ankiforge.ui.widgets.settings_modal import SettingsModal
 
         self._settings_window = SettingsModal(ai_manager=self.ai_manager, parent=self)
+        self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
+        self.sidebar.settings_btn.setChecked(True)
         self._settings_window.show()
         self._settings_window.raise_()
         self._settings_window.activateWindow()
+
+    def _on_settings_focus_changed(self, focused: bool) -> None:
+        self.sidebar.settings_btn.setChecked(focused)
 
     def _open_command_palette(self) -> None:
         """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""

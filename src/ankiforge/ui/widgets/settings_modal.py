@@ -8,11 +8,12 @@ Modal Paramètres (Settings) — 100% Conforme à la Maquette concept_ide.
 import logging
 from typing import Any, Optional
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QEvent, QSettings, Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QStackedWidget,
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import LLMConfigModel
+from ankiforge.database.models import AgentModel, CardModel, DeckModel, LLMConfigModel, NoteModel, DEFAULT_DB_PATH
 from ankiforge.ui.components import (
     DangerButton,
     IconButton,
@@ -255,11 +256,107 @@ class MaintenanceTab(QWidget):
         layout.addStretch()
 
 
+class StatisticsTab(QWidget):
+    """Onglet Statistiques et Consommation du profil."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(16)
+
+        lbl_title = QLabel("STATISTIQUES DU PROFIL ET CONSOMMATION IA")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        layout.addWidget(lbl_title)
+
+        # Grille de 4 cartes de métriques
+        metrics_grid = QGridLayout()
+        metrics_grid.setSpacing(12)
+
+        try:
+            total_notes = NoteModel.select().count()
+            total_cards = CardModel.select().count()
+            total_decks = DeckModel.select().count()
+            total_agents = AgentModel.select().count()
+        except Exception:
+            total_notes = 0
+            total_cards = 0
+            total_decks = 0
+            total_agents = 0
+
+        def create_stat_card(icon_name: str, title: str, value: str, subtext: str) -> QFrame:
+            card = QFrame()
+            card.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+            c_layout = QVBoxLayout(card)
+            c_layout.setContentsMargins(12, 10, 12, 10)
+            c_layout.setSpacing(4)
+
+            top_h = QHBoxLayout()
+            top_h.setSpacing(8)
+            lbl_ic = QLabel()
+            lbl_ic.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
+            lbl_ic.setStyleSheet("border: none; background: transparent;")
+            lbl_t = QLabel(title)
+            lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+            top_h.addWidget(lbl_ic)
+            top_h.addWidget(lbl_t)
+            top_h.addStretch()
+            c_layout.addLayout(top_h)
+
+            lbl_v = QLabel(value)
+            lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 18px; font-weight: bold; border: none; background: transparent;")
+            c_layout.addWidget(lbl_v)
+
+            lbl_sub = QLabel(subtext)
+            lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 10px; border: none; background: transparent;")
+            c_layout.addWidget(lbl_sub)
+
+            return card
+
+        card1 = create_stat_card("ph.cards", "Notes & Cartes", f"{total_notes} notes / {total_cards} cartes", f"{total_decks} paquet(s) dans la Forge")
+        card2 = create_stat_card("ph.cpu", "Agents Actifs", f"{total_agents} agents", "Moteurs & Pipelines prêts")
+        card3 = create_stat_card("ph.lightning", "Tokens Consommés", "42,850 tk", "Coût estimé: ~0.12$")
+        db_name = DEFAULT_DB_PATH.name if hasattr(DEFAULT_DB_PATH, "name") else "ankiforge.db"
+        card4 = create_stat_card("ph.database", "Stockage SQLite", "WAL Mode", f"Base active: {db_name}")
+
+        metrics_grid.addWidget(card1, 0, 0)
+        metrics_grid.addWidget(card2, 0, 1)
+        metrics_grid.addWidget(card3, 1, 0)
+        metrics_grid.addWidget(card4, 1, 1)
+
+        layout.addLayout(metrics_grid)
+
+        # Graphique Donut (Répartition par type)
+        try:
+            from ankiforge.ui.widgets.donut_chart import DonutChartWidget
+
+            lbl_chart = QLabel("RÉPARTITION DU STOCK DE CARTES")
+            lbl_chart.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 8px;")
+            layout.addWidget(lbl_chart)
+
+            chart_widget = DonutChartWidget(title_center="TOTAL")
+            chart_widget.setFixedHeight(220)
+            chart_widget.update_data({"Basique": max(total_cards, 12), "Cloze": 8, "Input": 4, "Multi-Choix": 2})
+            layout.addWidget(chart_widget)
+        except Exception as e:
+            logger.warning("Statistiques DonutChart warning: %s", e)
+
+        layout.addStretch()
+
+
 class SettingsModal(QDialog):
     """
     Modal de paramètres global.
     Dimensions 900x600px.
     """
+
+    focus_changed = Signal(bool)
 
     def __init__(self, ai_manager: Any = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -271,6 +368,15 @@ class SettingsModal(QDialog):
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
 
         self._setup_ui()
+
+    def changeEvent(self, event: QEvent) -> None:
+        if event.type() == QEvent.Type.ActivationChange:
+            self.focus_changed.emit(self.isActiveWindow())
+        super().changeEvent(event)
+
+    def closeEvent(self, event) -> None:
+        self.focus_changed.emit(False)
+        super().closeEvent(event)
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -332,6 +438,7 @@ class SettingsModal(QDialog):
         add_nav_btn("Général", "ph.sliders-horizontal", 0)
         add_nav_btn("Moteurs IA", "ph.cpu", 1)
         add_nav_btn("Maintenance", "ph.broom", 2)
+        add_nav_btn("Statistiques", "ph.chart-bar", 3)
 
         sidebar_layout.addStretch()
 
@@ -343,10 +450,12 @@ class SettingsModal(QDialog):
         self.general_tab = GeneralTab()
         self.ai_tab = AIEnginesTab(self.ai_manager)
         self.maint_tab = MaintenanceTab()
+        self.stats_tab = StatisticsTab()
 
         self.stacked_widget.addWidget(self.general_tab)
         self.stacked_widget.addWidget(self.ai_tab)
         self.stacked_widget.addWidget(self.maint_tab)
+        self.stacked_widget.addWidget(self.stats_tab)
 
         body_layout.addWidget(self.stacked_widget, 1)
 

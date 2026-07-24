@@ -27,10 +27,10 @@ from ankiforge.ui.components import (
     IconButton,
     IdePanel,
     PrimaryButton,
-    SecondaryButton,
     StyledComboBox,
     StyledTextEdit,
 )
+from ankiforge.ui.components.tabs import IdeTabBar
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
@@ -155,17 +155,11 @@ class ABTestsView(QWidget):
         toolbar_a.addWidget(self.engine_a_combo, 1)
         layout_a.addLayout(toolbar_a)
 
-        # Sub-tabs A
-        subtabs_a = QHBoxLayout()
-        subtabs_a.setContentsMargins(8, 4, 8, 4)
-        self.btn_tab_render_a = SecondaryButton("Rendu Cartes")
-        self.btn_tab_render_a.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_PURPLE))
-        self.btn_tab_json_a = SecondaryButton("JSON Brut")
-        self.btn_tab_json_a.setIcon(load_phosphor_icon("ph.code", color=DesignTokens.COLOR_BLUE))
-        subtabs_a.addWidget(self.btn_tab_render_a)
-        subtabs_a.addWidget(self.btn_tab_json_a)
-        subtabs_a.addStretch()
-        layout_a.addLayout(subtabs_a)
+        # Sub-tabs A (Onglets stylisés Maquette concept_ide)
+        self.subtabs_a = IdeTabBar()
+        self.subtabs_a.add_tab("Rendu Cartes", "👁️")
+        self.subtabs_a.add_tab("JSON Brut", "💻")
+        layout_a.addWidget(self.subtabs_a)
 
         # Navigation A
         nav_a = QHBoxLayout()
@@ -212,17 +206,11 @@ class ABTestsView(QWidget):
         toolbar_b.addWidget(self.engine_b_combo, 1)
         layout_b.addLayout(toolbar_b)
 
-        # Sub-tabs B
-        subtabs_b = QHBoxLayout()
-        subtabs_b.setContentsMargins(8, 4, 8, 4)
-        self.btn_tab_render_b = SecondaryButton("Rendu Cartes")
-        self.btn_tab_render_b.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_PURPLE))
-        self.btn_tab_json_b = SecondaryButton("JSON Brut")
-        self.btn_tab_json_b.setIcon(load_phosphor_icon("ph.code", color=DesignTokens.COLOR_BLUE))
-        subtabs_b.addWidget(self.btn_tab_render_b)
-        subtabs_b.addWidget(self.btn_tab_json_b)
-        subtabs_b.addStretch()
-        layout_b.addLayout(subtabs_b)
+        # Sub-tabs B (Onglets stylisés Maquette concept_ide)
+        self.subtabs_b = IdeTabBar()
+        self.subtabs_b.add_tab("Rendu Cartes", "👁️")
+        self.subtabs_b.add_tab("JSON Brut", "💻")
+        layout_b.addWidget(self.subtabs_b)
 
         # Navigation B
         nav_b = QHBoxLayout()
@@ -258,11 +246,8 @@ class ABTestsView(QWidget):
     def _connect_signals(self) -> None:
         self.btn_run.clicked.connect(self._on_run_ab_test)
 
-        self.btn_tab_render_a.clicked.connect(lambda: self.stack_a.setCurrentIndex(0))
-        self.btn_tab_json_a.clicked.connect(lambda: self.stack_a.setCurrentIndex(1))
-
-        self.btn_tab_render_b.clicked.connect(lambda: self.stack_b.setCurrentIndex(0))
-        self.btn_tab_json_b.clicked.connect(lambda: self.stack_b.setCurrentIndex(1))
+        self.subtabs_a.tab_changed.connect(self.stack_a.setCurrentIndex)
+        self.subtabs_b.tab_changed.connect(self.stack_b.setCurrentIndex)
 
         self.btn_prev_a.clicked.connect(self._prev_a)
         self.btn_next_a.clicked.connect(self._next_a)
