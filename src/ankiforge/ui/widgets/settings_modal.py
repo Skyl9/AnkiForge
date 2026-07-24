@@ -363,7 +363,8 @@ class SettingsModal(QDialog):
         self.ai_manager = ai_manager
 
         self.setWindowTitle("Paramètres AnkiForge")
-        self.setFixedSize(900, 600)
+        self.setMinimumSize(880, 580)
+        self.resize(960, 640)
         self.setModal(False)
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
 

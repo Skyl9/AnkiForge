@@ -3,7 +3,7 @@ Main Window & Navigation for AnkiForge.
 """
 
 from typing import Dict, Tuple, Optional, Type, Any, cast
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QObject, QEvent
 from PySide6.QtGui import QMouseEvent
 
@@ -408,7 +408,18 @@ class MainWindow(QMainWindow):
         self.ai_manager = ai_manager
         self.profile_name = profile_name
         self.setWindowTitle("AnkiForge")
-        self.resize(1280, 800)
+        self.setMinimumSize(1200, 720)
+
+        # Dimensionner intelligemment pour occuper l'espace nécessaire sans tronquer l'affichage
+        screen = QApplication.primaryScreen()
+        if screen:
+            geom = screen.availableGeometry()
+            w = min(1440, int(geom.width() * 0.90))
+            h = min(900, int(geom.height() * 0.88))
+            self.resize(w, h)
+        else:
+            self.resize(1380, 860)
+
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
 
         # Main layout

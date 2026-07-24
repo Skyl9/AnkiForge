@@ -430,17 +430,17 @@ class DashboardView(QWidget):
 
         splitter.addWidget(right_container)
 
-        right_container.setSizes([180, 300])
+        right_container.setSizes([220, 380])
         right_container.setCollapsible(0, True)
         right_container.setCollapsible(1, True)
         right_container.setStretchFactor(0, 1)
-        right_container.setStretchFactor(1, 1)
+        right_container.setStretchFactor(1, 2)
 
-        splitter.setSizes([800, 320])
+        splitter.setSizes([900, 360])
         splitter.setCollapsible(0, True)
         splitter.setCollapsible(1, True)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 0)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 1)
 
     def refresh_data(self):
         self.worker = StatsWorker()

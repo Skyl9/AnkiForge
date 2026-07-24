@@ -100,6 +100,10 @@ def get_global_stylesheet(is_dark: bool) -> str:
         color: {DesignTokens.TEXT_PRIMARY};
     }}
     
+    QMainWindow, QDialog, QStackedWidget {{
+        background-color: {DesignTokens.BG_MAIN};
+    }}
+    
     QScrollBar:vertical {{
         border: none;
         background: transparent;
