@@ -76,20 +76,27 @@ class AgentsView(QWidget):
         self.agent_list = QListWidget()
         self.agent_list.setStyleSheet(f"""
             QListWidget {{
-                background-color: #1a1d24;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                background-color: transparent;
+                border: none;
                 color: {DesignTokens.TEXT_PRIMARY};
+                outline: none;
             }}
             QListWidget::item {{
-                padding: 10px;
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 10px 12px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                margin-bottom: 3px;
                 font-weight: 500;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QListWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
             }}
             QListWidget::item:selected {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.ACCENT_PRIMARY};
-                border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: rgba(99, 102, 241, 0.14);
+                color: #a5b4fc;
+                font-weight: bold;
+                border-left: 3px solid #8b5cf6;
             }}
         """)
         list_layout.addWidget(self.agent_list, 1)

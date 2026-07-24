@@ -1,8 +1,7 @@
 """
 Vue Pipelines (Éditeur de Chaînes d'Agents) — 100% Conforme à la Maquette concept_ide.
-- Sélecteur de Pipeline actif avec gestion (Nouveau / Supprimer).
-- Liste d'étapes visuelles réordonnables (PipelineStepModel & AgentModel).
-- Ajout dynamique d'agents à la chaîne et sauvegarde atomique en base Peewee.
+- QScrollArea + QVBoxLayout natif (pas de QListWidget) pour un rendu fidèle des cartes #1e2128 sur fond #16181d.
+- Panneau s'étirant sur toute la hauteur de la fenêtre.
 """
 
 import logging
@@ -14,9 +13,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -39,31 +37,36 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineStepRowWidget(QFrame):
-    """Widget personnalisé représentant une étape de pipeline avec contrôles."""
+    """Widget représentant une étape de pipeline — fond #1e2128 sur conteneur #16181d."""
 
     def __init__(self, order: int, agent_name: str, format_str: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setObjectName("StepRow")
         self.setStyleSheet(f"""
-            QFrame {{
-                background-color: #1a1d24;
+            QFrame#StepRow {{
+                background-color: #1e2128;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 8px;
+            }}
+            QFrame#StepRow:hover {{
+                background-color: #232730;
+                border-color: #6366f1;
             }}
         """)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(10)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(12)
 
-        # Handle d'entraînement / déplacement
+        # Handle de réordonnancement
         handle_lbl = QLabel()
-        handle_lbl.setPixmap(load_phosphor_icon("ph.dots-six-vertical", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
+        handle_lbl.setPixmap(load_phosphor_icon("ph.dots-six-vertical", color=DesignTokens.TEXT_MUTED).pixmap(18, 18))
+        handle_lbl.setStyleSheet("background: transparent; border: none;")
         layout.addWidget(handle_lbl)
 
         # Titre et numéro de l'étape
         self.title_lbl = QLabel(f"<b>{order}.</b> {agent_name}")
-        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; border: none;")
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; background: transparent; border: none;")
         layout.addWidget(self.title_lbl)
 
         # Badge de format
@@ -83,15 +86,14 @@ class PipelineStepRowWidget(QFrame):
 
 
 class PipelinesView(QWidget):
-    """
-    Vue Pipelines de Génération — 100% Conforme à la Maquette concept_ide.
-    """
+    """Vue Pipelines de Génération — 100% Conforme à la Maquette concept_ide."""
 
     def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self._current_pipeline: Optional[PipelineModel] = None
         self.current_steps: list[AgentModel] = []
+        self._step_widgets: list[PipelineStepRowWidget] = []
 
         self._setup_ui()
         self._connect_signals()
@@ -99,24 +101,19 @@ class PipelinesView(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(0)
 
-        # Container principal centré (max-width: 820px)
-        self.panel_wrapper = QWidget()
-        self.panel_wrapper.setMaximumWidth(840)
-
-        wrapper_layout = QVBoxLayout(self.panel_wrapper)
-        wrapper_layout.setContentsMargins(0, 0, 0, 0)
-
+        # Panneau IdePanel occupant 100% de la hauteur
         self.pipeline_panel = IdePanel(detachable=True)
+        main_layout.addWidget(self.pipeline_panel, 1)
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(20, 20, 20, 20)
         content_layout.setSpacing(16)
 
-        # Top Control Row : Sélecteur de Pipeline + Boutons Nouveau / Supprimer
+        # ── Sélecteur de Pipeline ──────────────────────────────────────────────
         pipeline_sel_row = QHBoxLayout()
         pipeline_sel_row.setSpacing(10)
 
@@ -125,7 +122,7 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addWidget(lbl_pipe)
 
         self.pipeline_combo = StyledComboBox()
-        self.pipeline_combo.setMinimumWidth(220)
+        self.pipeline_combo.setMinimumWidth(240)
         pipeline_sel_row.addWidget(self.pipeline_combo, 1)
 
         self.btn_new_pipeline = SecondaryButton("Nouveau Pipeline")
@@ -138,35 +135,59 @@ class PipelinesView(QWidget):
 
         content_layout.addLayout(pipeline_sel_row)
 
-        # Zone d'affichage des étapes (Step list area)
+        # ── Label section ──────────────────────────────────────────────────────
         lbl_steps = QLabel("ÉTAPES DE LA CHAÎNE D'AGENTS :")
-        lbl_steps.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        lbl_steps.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         content_layout.addWidget(lbl_steps)
 
-        self.steps_list = QListWidget()
-        self.steps_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self.steps_list.setMinimumHeight(240)
-        self.steps_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: #111318;
+        # ── Zone de liste d'étapes (QScrollArea + fond #16181d) ───────────────
+        # QListWidget est évité intentionnellement : il masque les backgrounds
+        # des widgets internes via sa propre couche de rendu opaque.
+        self.steps_container_frame = QFrame()
+        self.steps_container_frame.setObjectName("StepsContainer")
+        self.steps_container_frame.setStyleSheet(f"""
+            QFrame#StepsContainer {{
+                background-color: #16181d;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 8px;
-            }}
-            QListWidget::item {{
-                margin-bottom: 6px;
-                border: none;
             }}
         """)
-        apply_shadow(self.steps_list, blur=12, offset_y=2)
-        content_layout.addWidget(self.steps_list, 1)
+        apply_shadow(self.steps_container_frame, blur=12, offset_y=2)
 
-        # Bottom Toolbar : Ajouter un agent & Sauvegarder le Pipeline
+        steps_frame_layout = QVBoxLayout(self.steps_container_frame)
+        steps_frame_layout.setContentsMargins(10, 10, 10, 10)
+        steps_frame_layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("""
+            QScrollArea { background: transparent; border: none; }
+            QScrollBar:vertical { background: #1a1d24; width: 6px; border-radius: 3px; }
+            QScrollBar::handle:vertical { background: #3d4048; border-radius: 3px; min-height: 20px; }
+        """)
+
+        # Widget interne du scroll : fond transparent pour laisser voir #16181d
+        self.steps_inner = QWidget()
+        self.steps_inner.setObjectName("StepsInner")
+        self.steps_inner.setStyleSheet("QWidget#StepsInner { background: transparent; }")
+        self.steps_layout = QVBoxLayout(self.steps_inner)
+        self.steps_layout.setContentsMargins(0, 0, 0, 0)
+        self.steps_layout.setSpacing(8)
+        self.steps_layout.addStretch(1)
+
+        scroll.setWidget(self.steps_inner)
+        steps_frame_layout.addWidget(scroll)
+
+        content_layout.addWidget(self.steps_container_frame, 1)
+
+        # ── Toolbar Ajouter & Sauvegarder ─────────────────────────────────────
         add_agent_row = QHBoxLayout()
         add_agent_row.setSpacing(10)
 
         self.agent_combo = StyledComboBox()
-        self.agent_combo.setMinimumWidth(240)
+        self.agent_combo.setMinimumWidth(260)
         add_agent_row.addWidget(self.agent_combo, 1)
 
         self.btn_add_agent = SecondaryButton("Ajouter à la chaîne")
@@ -175,14 +196,26 @@ class PipelinesView(QWidget):
 
         self.btn_save_pipeline = PrimaryButton("Sauvegarder Pipeline")
         self.btn_save_pipeline.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save_pipeline.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
+                border: 1px solid #6366f1;
+                color: white;
+                font-weight: bold;
+                padding: 6px 16px;
+                border-radius: 6px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f46e5, stop:1 #7c3aed);
+            }
+        """)
+        apply_shadow(self.btn_save_pipeline, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
         add_agent_row.addWidget(self.btn_save_pipeline)
 
         content_layout.addLayout(add_agent_row)
 
         self.pipeline_panel.add_tab("Pipelines de Génération", content_widget, "ph.git-merge", closable=False)
-        wrapper_layout.addWidget(self.pipeline_panel)
-
-        main_layout.addWidget(self.panel_wrapper)
 
     def _connect_signals(self) -> None:
         self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
@@ -203,7 +236,6 @@ class PipelinesView(QWidget):
 
             self.pipeline_combo.blockSignals(False)
 
-            # Recharger la liste des agents disponibles dans le combo d'ajout
             self.agent_combo.blockSignals(True)
             self.agent_combo.clear()
             self.agent_combo.addItem("Sélectionnez un Agent à ajouter...", userData=None)
@@ -228,53 +260,61 @@ class PipelinesView(QWidget):
         if not selected_pipe:
             self._current_pipeline = None
             self.current_steps.clear()
-            self._render_steps_list()
+            self._render_steps()
             return
 
         self._current_pipeline = selected_pipe
         self.current_steps.clear()
 
-        # Recharger les étapes depuis Peewee (PipelineStepModel)
         steps_models = PipelineStepModel.select().where(PipelineStepModel.pipeline == selected_pipe).order_by(PipelineStepModel.step_order)
         for s in steps_models:
             if s.agent:
                 self.current_steps.append(s.agent)
 
-        self._render_steps_list()
+        self._render_steps()
 
-    def _render_steps_list(self) -> None:
-        self.steps_list.clear()
+    def _render_steps(self) -> None:
+        """Vide et re-peuple la zone d'étapes via QVBoxLayout natif (pas de QListWidget)."""
+        # Supprimer tous les widgets existants (sauf le spacer final)
+        while self.steps_layout.count() > 1:
+            item = self.steps_layout.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+        self._step_widgets.clear()
 
         if not self.current_steps:
-            item = QListWidgetItem("Aucune étape dans ce pipeline. Ajoutez des agents ci-dessous.")
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.steps_list.addItem(item)
+            empty_lbl = QLabel("Aucune étape dans ce pipeline.\nAjoutez des agents ci-dessous.")
+            empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 13px; background: transparent; border: none; padding: 24px 0;")
+            self.steps_layout.insertWidget(0, empty_lbl)
             return
 
         for idx, agent in enumerate(self.current_steps, start=1):
-            row_widget = PipelineStepRowWidget(
+            row = PipelineStepRowWidget(
                 order=idx,
                 agent_name=agent.name,
                 format_str=getattr(agent, "output_format", "json"),
             )
-            row_widget.btn_up.clicked.connect(lambda _, i=idx - 1: self._move_step(i, -1))
-            row_widget.btn_down.clicked.connect(lambda _, i=idx - 1: self._move_step(i, 1))
-            row_widget.btn_delete.clicked.connect(lambda _, i=idx - 1: self._remove_step(i))
+            row.btn_up.clicked.connect(lambda _, i=idx - 1: self._move_step(i, -1))
+            row.btn_down.clicked.connect(lambda _, i=idx - 1: self._move_step(i, 1))
+            row.btn_delete.clicked.connect(lambda _, i=idx - 1: self._remove_step(i))
 
-            item = QListWidgetItem(self.steps_list)
-            item.setSizeHint(row_widget.sizeHint())
-            self.steps_list.setItemWidget(item, row_widget)
+            self.steps_layout.insertWidget(idx - 1, row)
+            self._step_widgets.append(row)
 
     def _move_step(self, index: int, direction: int) -> None:
         target_idx = index + direction
         if 0 <= target_idx < len(self.current_steps):
-            self.current_steps[index], self.current_steps[target_idx] = self.current_steps[target_idx], self.current_steps[index]
-            self._render_steps_list()
+            self.current_steps[index], self.current_steps[target_idx] = (
+                self.current_steps[target_idx],
+                self.current_steps[index],
+            )
+            self._render_steps()
 
     def _remove_step(self, index: int) -> None:
         if 0 <= index < len(self.current_steps):
             removed = self.current_steps.pop(index)
-            self._render_steps_list()
+            self._render_steps()
             show_toast(self, f"Agent '{removed.name}' retiré de la chaîne.")
 
     @Slot()
@@ -285,7 +325,7 @@ class PipelinesView(QWidget):
             return
 
         self.current_steps.append(selected_agent)
-        self._render_steps_list()
+        self._render_steps()
         show_toast(self, f"Agent '{selected_agent.name}' ajouté à la chaîne !")
 
     @Slot()
@@ -296,7 +336,6 @@ class PipelinesView(QWidget):
                 pipe_name = name.strip()
                 pipe = PipelineModel.create(name=pipe_name, description="Pipeline personnalisé.")
 
-                # Ajouter un agent par défaut si disponible
                 first_agent = AgentModel.select().first()
                 if first_agent:
                     PipelineStepModel.create(pipeline=pipe, agent=first_agent, step_order=1)
@@ -339,10 +378,8 @@ class PipelinesView(QWidget):
 
         try:
             with db.atomic():
-                # Vider les anciennes étapes
                 PipelineStepModel.delete().where(PipelineStepModel.pipeline == self._current_pipeline).execute()
 
-                # Re-créer les étapes ordonnées
                 for idx, agent in enumerate(self.current_steps, start=1):
                     PipelineStepModel.create(
                         pipeline=self._current_pipeline,
