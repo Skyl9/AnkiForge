@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from peewee import fn
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSplitter, QScrollArea, QGridLayout, QSizePolicy, QFileDialog
 from PySide6.QtCore import Qt, QThread, Slot, Signal
@@ -136,12 +136,26 @@ class DashboardActionButton(QFrame):
 
 
 class ActivityItem(QFrame):
-    def __init__(self, title, subtitle, icon_name, bg_color, parent=None):
+    clicked = Signal(int)
+
+    def __init__(self, note_id: int, title: str, subtitle: str, icon_name: str, bg_color: str, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("border: none; background: transparent;")
+        self.note_id = note_id
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(f"""
+            ActivityItem {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            ActivityItem:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 8, 0, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
 
         icon_wrapper = QFrame()
         icon_wrapper.setFixedSize(32, 32)
@@ -149,6 +163,7 @@ class ActivityItem(QFrame):
             QFrame {{
                 background-color: {bg_color};
                 border-radius: 16px;
+                border: none;
             }}
         """)
         icon_layout = QVBoxLayout(icon_wrapper)
@@ -158,6 +173,7 @@ class ActivityItem(QFrame):
         icon_label = QLabel()
         icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY)
         icon_label.setPixmap(icon.pixmap(16, 16))
+        icon_label.setStyleSheet("border: none; background: transparent;")
         icon_layout.addWidget(icon_label)
 
         layout.addWidget(icon_wrapper)
@@ -166,17 +182,22 @@ class ActivityItem(QFrame):
         text_layout.setSpacing(2)
 
         title_label = QLabel(title)
-        title_label.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Medium))
-        title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        title_label.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
+        title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        title_label.setWordWrap(True)
         text_layout.addWidget(title_label)
 
         subtitle_label = QLabel(subtitle)
         subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
-        subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
+        subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         text_layout.addWidget(subtitle_label)
 
-        layout.addLayout(text_layout)
-        layout.addStretch()
+        layout.addLayout(text_layout, 1)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.note_id)
+        super().mouseReleaseEvent(event)
 
 
 class DashboardDropZone(QFrame):
@@ -275,12 +296,15 @@ class StatItem(QFrame):
 
 
 class DashboardView(QWidget):
-    request_navigation = Signal(str)
+    request_navigation = Signal(str, object)
 
     def __init__(self, ai_manager: Any = None, parent: QWidget | None = None):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.setup_ui()
+
+    def _navigate(self, view_id: str, data: Optional[dict] = None) -> None:
+        self.request_navigation.emit(view_id, data)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -327,11 +351,11 @@ class DashboardView(QWidget):
         actions_layout.setSpacing(16)
 
         btn1 = DashboardActionButton("Forger des cartes", "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, "rgba(59, 130, 246, 0.1)")
-        btn1.clicked.connect(lambda: self.request_navigation.emit("creation"))
+        btn1.clicked.connect(lambda: self._navigate("creation"))
         btn2 = DashboardActionButton("Bibliothèque", "Naviguer les paquets", "ph.books", DesignTokens.COLOR_GREEN, "rgba(16, 185, 129, 0.1)")
-        btn2.clicked.connect(lambda: self.request_navigation.emit("documents"))
+        btn2.clicked.connect(lambda: self._navigate("documents"))
         btn3 = DashboardActionButton("Consulter l'IA", "Configurer les agents", "ph.robot", DesignTokens.COLOR_PURPLE, "rgba(139, 92, 246, 0.1)")
-        btn3.clicked.connect(lambda: self.request_navigation.emit("consultant"))
+        btn3.clicked.connect(lambda: self._navigate("consultant"))
 
         actions_layout.addWidget(btn1)
         actions_layout.addWidget(btn2)
@@ -376,16 +400,28 @@ class DashboardView(QWidget):
         activity_panel = IdePanel(detachable=True)
         activity_widget = QWidget()
         activity_layout = QVBoxLayout(activity_widget)
-        activity_layout.setContentsMargins(16, 16, 16, 16)
+        activity_layout.setContentsMargins(12, 12, 12, 12)
         activity_layout.setSpacing(8)
 
-        self.activity_list_layout = QVBoxLayout()
-        self.activity_list_layout.setSpacing(8)
-        activity_layout.addLayout(self.activity_list_layout)
+        # Zone responsive avec scrollarea
+        activity_scroll = QScrollArea()
+        activity_scroll.setWidgetResizable(True)
+        activity_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        activity_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        activity_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
-        activity_layout.addStretch()
+        activity_inner = QWidget()
+        activity_inner.setStyleSheet("background: transparent;")
+        self.activity_list_layout = QVBoxLayout(activity_inner)
+        self.activity_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.activity_list_layout.setSpacing(8)
+        self.activity_list_layout.addStretch(1)
+
+        activity_scroll.setWidget(activity_inner)
+        activity_layout.addWidget(activity_scroll, 1)
 
         view_all_btn = SecondaryButton("Voir tout l'historique")
+        view_all_btn.clicked.connect(lambda: self._navigate("edition"))
         activity_layout.addWidget(view_all_btn)
 
         activity_panel.add_tab("Activité Récente", activity_widget, icon_name="ph.clock-counter-clockwise", closable=True)
@@ -414,7 +450,10 @@ class DashboardView(QWidget):
 
     def _on_file_selected(self, file_path: str):
         # We navigate to creation view and maybe pass the file path later
-        self.request_navigation.emit("creation")
+        self._navigate("creation")
+
+    def _on_activity_card_clicked(self, note_id: int) -> None:
+        self._navigate("edition", {"note_id": note_id})
 
     @Slot(dict)
     def _on_stats_loaded(self, stats: dict) -> None:
@@ -431,20 +470,22 @@ class DashboardView(QWidget):
     @Slot(list)
     def _on_feed_loaded(self, feed: list) -> None:
         try:
-            # Clear previous items
-            while self.activity_list_layout.count():
+            # Vider les éléments précédents sauf le stretch final
+            while self.activity_list_layout.count() > 1:
                 item = self.activity_list_layout.takeAt(0)
-                if item:
-                    widget = item.widget()
-                    if widget:
-                        widget.deleteLater()
+                if item and item.widget():
+                    item.widget().deleteLater()
 
             for item in feed:
-                title = f"Note #{item['note_id']} (v{item['version']})"
+                note_id = item["note_id"]
+                title = f"Note #{note_id} (v{item['version']})"
                 time_desc = f"{item['created_at']} via {item['source']}"
                 icon = "ph.sparkle" if item["source"] == "ai" else "ph.cards"
                 color = DesignTokens.COLOR_BLUE if item["source"] == "ai" else DesignTokens.COLOR_GREEN
-                self.activity_list_layout.addWidget(ActivityItem(title, time_desc, icon, color))
+
+                act_widget = ActivityItem(note_id, title, time_desc, icon, color)
+                act_widget.clicked.connect(self._on_activity_card_clicked)
+                self.activity_list_layout.insertWidget(self.activity_list_layout.count() - 1, act_widget)
         except RuntimeError:
             pass
 

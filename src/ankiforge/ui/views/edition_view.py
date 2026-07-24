@@ -1046,6 +1046,31 @@ class EditionView(QWidget):
         except Exception as e:
             logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
 
+    def select_note_by_id(self, note_id: int) -> None:
+        """Sélectionne et affiche automatiquement la note spécifiée par son ID."""
+        try:
+            for i in range(self.card_list.count()):
+                item = self.card_list.item(i)
+                if item:
+                    note = item.data(Qt.ItemDataRole.UserRole)
+                    if note and note.id == note_id:
+                        self.card_list.setCurrentItem(item)
+                        self._on_card_selected(item)
+                        return
+
+            target_note = NoteModel.get_or_none(NoteModel.id == note_id)
+            if target_note:
+                item = QListWidgetItem()
+                widget = CardListItemWidget(target_note)
+                item.setSizeHint(widget.sizeHint())
+                item.setData(Qt.ItemDataRole.UserRole, target_note)
+                self.card_list.insertItem(0, item)
+                self.card_list.setItemWidget(item, widget)
+                self.card_list.setCurrentItem(item)
+                self._on_card_selected(item)
+        except Exception as e:
+            logger.warning("Impossible de sélectionner la note %s: %s", note_id, e)
+
     def is_dirty(self) -> bool:
         return self._dirty
 

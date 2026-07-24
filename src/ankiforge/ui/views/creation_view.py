@@ -172,7 +172,7 @@ class CreationView(QWidget):
     Signal request_navigation(str) pour basculer vers d'autres vues (documents, pipelines, settings).
     """
 
-    request_navigation = Signal(str)
+    request_navigation = Signal(str, object)
 
     def __init__(self, ai_manager: Any = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -185,6 +185,9 @@ class CreationView(QWidget):
         self._setup_ui()
         self._connect_signals()
         self.refresh_data()
+
+    def _navigate(self, view_id: str, data: Optional[dict] = None) -> None:
+        self.request_navigation.emit(view_id, data)
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -411,8 +414,8 @@ class CreationView(QWidget):
 
         self.btn_new_deck.clicked.connect(self._on_create_new_deck)
         self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
-        self.btn_no_pipeline_help.clicked.connect(lambda: self.request_navigation.emit("pipelines"))
-        self.btn_go_docs.clicked.connect(lambda: self.request_navigation.emit("documents"))
+        self.btn_no_pipeline_help.clicked.connect(lambda: self._navigate("pipelines"))
+        self.btn_go_docs.clicked.connect(lambda: self._navigate("documents"))
 
         self.btn_generate.clicked.connect(self._on_generate)
         self.btn_cancel.clicked.connect(self._on_cancel_generation)

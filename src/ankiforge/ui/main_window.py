@@ -493,16 +493,17 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(widget)
         self._view_widgets[view_id] = widget
 
-    def _on_view_selected(self, view_id: str) -> None:
+    def _on_view_selected(self, view_id: str, data: Optional[dict] = None) -> None:
         """Navigation: vérifie dirty state, switch la vue, appelle refresh_data()."""
-        if self._current_view_id == view_id:
+        if self._current_view_id == view_id and not data:
             return
 
-        if not self._can_switch_view():
-            # Reset sidebar selection visually if rejected
-            if self._current_view_id:
-                self.sidebar.set_active_view(self._current_view_id)
-            return
+        if self._current_view_id != view_id:
+            if not self._can_switch_view():
+                # Reset sidebar selection visually if rejected
+                if self._current_view_id:
+                    self.sidebar.set_active_view(self._current_view_id)
+                return
 
         widget = self._view_widgets.get(view_id)
         if widget:
@@ -512,6 +513,10 @@ class MainWindow(QMainWindow):
 
             if hasattr(widget, "refresh_data"):
                 cast(Any, widget).refresh_data()
+
+            if view_id == "edition" and isinstance(data, dict) and "note_id" in data:
+                if hasattr(widget, "select_note_by_id"):
+                    cast(Any, widget).select_note_by_id(data["note_id"])
 
     def _can_switch_view(self) -> bool:
         """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""
