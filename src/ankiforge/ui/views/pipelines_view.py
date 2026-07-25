@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -55,7 +56,7 @@ class PipelineStepRowWidget(QFrame):
         """)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(12)
 
         # Handle de réordonnancement
@@ -100,12 +101,15 @@ class PipelinesView(QWidget):
         self.refresh_data()
 
     def _setup_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+        main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(0)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # Panneau IdePanel occupant 100% de la hauteur
+        # Panneau IdePanel centré et occupant 100% de la hauteur disponible
         self.pipeline_panel = IdePanel(detachable=True)
+        self.pipeline_panel.setMaximumWidth(960)
+        self.pipeline_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main_layout.addWidget(self.pipeline_panel, 1)
 
         content_widget = QWidget()
@@ -141,8 +145,6 @@ class PipelinesView(QWidget):
         content_layout.addWidget(lbl_steps)
 
         # ── Zone de liste d'étapes (QScrollArea + fond #16181d) ───────────────
-        # QListWidget est évité intentionnellement : il masque les backgrounds
-        # des widgets internes via sa propre couche de rendu opaque.
         self.steps_container_frame = QFrame()
         self.steps_container_frame.setObjectName("StepsContainer")
         self.steps_container_frame.setStyleSheet(f"""
