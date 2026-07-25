@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 
 
 class CicdMetricCard(QFrame):
-    """Stat Card avec Glassmorphism conforme à la maquette concept_ide (L1888-L1916)."""
+    """Stat Card épurée et compacte conforme à la maquette concept_ide (L1888-L1916)."""
 
     def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -72,32 +72,33 @@ class CicdMetricCard(QFrame):
                 background-color: #1e2128;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 12px;
+                padding: 0px;
             }}
         """)
-        apply_shadow(self, blur=10, offset_y=2)
+        apply_shadow(self, blur=8, offset_y=2)
+        self.setFixedHeight(58)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(10)
 
         text_layout = QVBoxLayout()
         text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(4)
+        text_layout.setSpacing(2)
 
         title_lbl = QLabel(title)
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase;")
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
 
         self.val_lbl = QLabel(value)
-        self.val_lbl.setStyleSheet(f"color: {color}; font-size: 16px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
+        self.val_lbl.setStyleSheet(f"color: {color}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
 
         text_layout.addWidget(title_lbl)
         text_layout.addWidget(self.val_lbl)
         layout.addLayout(text_layout, 1)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(28, 28))
-        icon_lbl.setStyleSheet("border: none; background: transparent; opacity: 0.8;")
+        icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(24, 24))
+        icon_lbl.setStyleSheet("border: none; background: transparent; opacity: 0.85;")
         layout.addWidget(icon_lbl)
 
 

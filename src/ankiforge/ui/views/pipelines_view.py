@@ -242,7 +242,7 @@ class PipelinesView(QWidget):
 
             agents = list(AgentModel.select())
             for ag in agents:
-                self.agent_combo.addItem(f"🤖 {ag.name}", userData=ag)
+                self.agent_combo.addItem(ag.name, userData=ag)
             self.agent_combo.blockSignals(False)
 
             if pipelines:

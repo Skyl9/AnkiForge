@@ -180,7 +180,7 @@ class AgentsView(QWidget):
         """)
         editor_layout.addWidget(self.prompt_edit, 1)
 
-        self.editor_panel.add_tab("Éditeur d'Agents IA", editor_content, "ph.robot", closable=False)
+        self.editor_panel.add_tab("Éditeur d'Agents", editor_content, "ph.sparkle", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
         self.main_splitter.setSizes([260, 740])
@@ -199,7 +199,7 @@ class AgentsView(QWidget):
 
             agents = list(AgentModel.select())
             for ag in agents:
-                item = QListWidgetItem(f"🤖 {ag.name}")
+                item = QListWidgetItem(ag.name)
                 item.setData(Qt.ItemDataRole.UserRole, ag)
                 self.agent_list.addItem(item)
 
@@ -254,7 +254,7 @@ class AgentsView(QWidget):
                 # Sélectionner l'agent créé
                 for i in range(self.agent_list.count()):
                     item = self.agent_list.item(i)
-                    if item.text() == f"🤖 {ag_name}":
+                    if item.text() == ag_name:
                         self.agent_list.setCurrentItem(item)
                         break
 

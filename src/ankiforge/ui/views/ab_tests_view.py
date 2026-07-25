@@ -282,7 +282,7 @@ class ABTestsView(QWidget):
             self.agent_combo.blockSignals(True)
             self.agent_combo.clear()
             for ag in AgentModel.select():
-                self.agent_combo.addItem(f"🤖 {ag.name}", userData=ag)
+                self.agent_combo.addItem(ag.name, userData=ag)
             self.agent_combo.blockSignals(False)
 
             self.model_combo.blockSignals(True)

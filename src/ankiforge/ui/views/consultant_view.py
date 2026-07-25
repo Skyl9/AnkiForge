@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChatMessageWidget(QWidget):
-    """Bulle de message conversationnel (Utilisateur ou Assistant IA)."""
+    """Bulle de message conversationnel (Utilisateur ou Assistant IA) conforme à la maquette concept_ide."""
 
     def __init__(
         self,
@@ -68,33 +68,33 @@ class ChatMessageWidget(QWidget):
         self.is_user = is_user
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(12)
 
         # Avatar
         self.avatar_lbl = QLabel()
-        self.avatar_lbl.setFixedSize(32, 32)
+        self.avatar_lbl.setFixedSize(34, 34)
         self.avatar_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if is_user:
             self.avatar_lbl.setText("Vous")
-            self.avatar_lbl.setStyleSheet("""
-                QLabel {
-                    background-color: #3b82f6;
+            self.avatar_lbl.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.ACCENT_PRIMARY};
                     color: white;
-                    font-weight: bold;
+                    font-weight: 700;
                     font-size: 11px;
-                    border-radius: 16px;
-                }
+                    border-radius: 17px;
+                }}
             """)
             layout.addStretch()
         else:
             self.avatar_lbl.setPixmap(load_phosphor_icon("ph.robot", color="white").pixmap(18, 18))
-            self.avatar_lbl.setStyleSheet("""
-                QLabel {
-                    background-color: #6366f1;
-                    border-radius: 16px;
-                }
+            self.avatar_lbl.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: 17px;
+                }}
             """)
 
         # Bulle de contenu
@@ -105,38 +105,45 @@ class ChatMessageWidget(QWidget):
 
         # Header (Auteur + Heure)
         now_str = datetime.datetime.now().strftime("%H:%M")
-        header_lbl = QLabel(f"<b>{sender}</b> <span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'>{now_str}</span>")
+        header_lbl = QLabel(
+            f"<span style='font-weight: 600; color: {DesignTokens.TEXT_PRIMARY};'>{sender}</span> <span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-left: 6px;'>{now_str}</span>"
+        )
         header_lbl.setStyleSheet("border: none; background: transparent;")
 
         # Corps du message
         body_card = QFrame()
         body_layout = QVBoxLayout(body_card)
-        body_layout.setContentsMargins(14, 12, 14, 12)
+        body_layout.setContentsMargins(16, 14, 16, 14)
 
-        msg_body = QLabel(text)
+        msg_body = QLabel()
         msg_body.setWordWrap(True)
         msg_body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        msg_body.setStyleSheet("border: none; background: transparent; font-size: 13px; line-height: 1.4;")
+
+        # Activer le rendu HTML/Markdown propre si présent
+        if "<" in text and ">" in text:
+            msg_body.setText(text)
+        else:
+            msg_body.setText(text.replace("\n", "<br>"))
 
         if is_user:
             body_card.setStyleSheet(f"""
                 QFrame {{
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(99, 102, 241, 0.18), stop:1 rgba(139, 92, 246, 0.18));
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(99, 102, 241, 0.16), stop:1 rgba(139, 92, 246, 0.16));
                     border: 1px solid rgba(139, 92, 246, 0.35);
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
-            msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none;")
+            msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-size: 13px; line-height: 1.5;")
         else:
             body_card.setStyleSheet(f"""
                 QFrame {{
-                    background-color: #1e2128;
+                    background-color: {DesignTokens.BG_PANEL};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
-            msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none;")
-            apply_shadow(body_card, blur=8, offset_y=2)
+            msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-size: 13px; line-height: 1.5;")
+            apply_shadow(body_card, blur=10, offset_y=2)
 
         body_layout.addWidget(msg_body)
 
@@ -146,16 +153,16 @@ class ChatMessageWidget(QWidget):
         # Actions sous la réponse de l'IA
         if not is_user:
             actions_layout = QHBoxLayout()
-            actions_layout.setContentsMargins(0, 4, 0, 0)
+            actions_layout.setContentsMargins(0, 6, 0, 0)
             actions_layout.setSpacing(6)
 
-            btn_copy = IconButton("ph.copy", tooltip="Copier le texte", size=20)
+            btn_copy = IconButton("ph.copy", tooltip="Copier le texte", size=18)
             btn_copy.clicked.connect(lambda: (QApplication.clipboard().setText(text), show_toast(self, "Texte copié dans le presse-papiers !")))
 
-            btn_like = IconButton("ph.thumbs-up", tooltip="Bonne réponse", size=20)
+            btn_like = IconButton("ph.thumbs-up", tooltip="Bonne réponse", size=18)
             btn_like.clicked.connect(lambda: show_toast(self, "Merci pour votre retour !"))
 
-            btn_dislike = IconButton("ph.thumbs-down", tooltip="Mauvaise réponse", size=20)
+            btn_dislike = IconButton("ph.thumbs-down", tooltip="Mauvaise réponse", size=18)
             btn_dislike.clicked.connect(lambda: show_toast(self, "Retour enregistré."))
 
             actions_layout.addStretch()
@@ -247,24 +254,25 @@ class ConsultantView(QWidget):
         prompts = [
             ("ph.sparkle", "💡 Résumer le cours"),
             ("ph.magnifying-glass", "🔍 Chercher des doublons"),
-            ("ph.cards", "🧠 Générer des cartes Cloze"),
+            ("ph.cards", "🧠 Générer un QCM"),
             ("ph.tag", "🏷️ Suggérer des tags"),
         ]
         for icon, text in prompts:
             btn = SecondaryButton(text)
-            btn.setIcon(load_phosphor_icon(icon, color=DesignTokens.COLOR_PURPLE))
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #1a1d24;
-                    border: 1px solid #2d313a;
-                    border-radius: 12px;
-                    padding: 4px 12px;
+            btn.setIcon(load_phosphor_icon(icon, color=DesignTokens.ACCENT_PRIMARY))
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 14px;
+                    padding: 5px 12px;
                     font-size: 11px;
-                }
-                QPushButton:hover {
-                    background-color: #2d313a;
-                    border-color: #6366f1;
-                }
+                    color: {DesignTokens.TEXT_PRIMARY};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                }}
             """)
             btn.clicked.connect(lambda _, t=text: self._on_quick_prompt_clicked(t))
             quick_prompts_layout.addWidget(btn)
@@ -272,22 +280,22 @@ class ConsultantView(QWidget):
         quick_prompts_layout.addStretch()
         input_area_layout.addLayout(quick_prompts_layout)
 
-        # Chat Box Premium Container
+        # Chat Box Premium Container (Maquette concept_ide)
         self.chat_box_frame = QFrame()
         self.chat_box_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius: {DesignTokens.RADIUS_LG}px;
             }}
             QFrame:focus-within {{
                 border: 1px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
-        apply_shadow(self.chat_box_frame, blur=12, offset_y=2)
+        apply_shadow(self.chat_box_frame, blur=14, offset_y=2)
 
         box_layout = QVBoxLayout(self.chat_box_frame)
-        box_layout.setContentsMargins(12, 10, 12, 10)
+        box_layout.setContentsMargins(14, 12, 14, 12)
         box_layout.setSpacing(8)
 
         # Badges de mentions actives du contexte
@@ -299,7 +307,7 @@ class ConsultantView(QWidget):
         # Textedit de saisie
         self.chat_input = StyledTextEdit()
         self.chat_input.setFixedHeight(50)
-        self.chat_input.setPlaceholderText("Posez votre question ou utilisez les suggestions ci-dessus...")
+        self.chat_input.setPlaceholderText("Posez une question, tapez '/' pour les commandes ou '@' pour mentionner...")
         self.chat_input.setStyleSheet("border: none; background: transparent; font-size: 13px;")
         box_layout.addWidget(self.chat_input)
 
@@ -309,34 +317,39 @@ class ConsultantView(QWidget):
 
         tools_layout = QHBoxLayout()
         tools_layout.setSpacing(4)
-        self.btn_attach = IconButton("ph.paperclip", tooltip="Joindre un contexte", size=22)
+        self.btn_attach = IconButton("ph.paperclip", tooltip="Joindre un fichier/contexte", size=22)
         self.btn_attach.clicked.connect(self._on_add_context)
 
         self.btn_mention = IconButton("ph.at", tooltip="Attacher un Paquet/Doc (@)", size=22)
         self.btn_mention.clicked.connect(self._on_add_context)
 
+        self.btn_prompts_lib = IconButton("ph.books", tooltip="Bibliothèque de Prompts", size=22)
+        self.btn_prompts_lib.clicked.connect(lambda: show_toast(self, "Bibliothèque de prompts en développement."))
+
         tools_layout.addWidget(self.btn_attach)
         tools_layout.addWidget(self.btn_mention)
+        tools_layout.addWidget(self.btn_prompts_lib)
 
         box_footer.addLayout(tools_layout)
         box_footer.addStretch()
 
         self.tokens_badge = QLabel("0 tokens")
-        self.tokens_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; margin-right: 8px;")
+        self.tokens_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; margin-right: 10px;")
         box_footer.addWidget(self.tokens_badge)
 
+        # Bouton d'envoi circulaire 36x36px (Maquette concept_ide)
         self.btn_send = PrimaryButton("")
         self.btn_send.setIcon(load_phosphor_icon("ph.arrow-up", color="white"))
         self.btn_send.setFixedSize(36, 36)
-        self.btn_send.setStyleSheet("""
-            QPushButton {
-                background-color: #6366f1;
-                border-radius: 8px;
+        self.btn_send.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 18px;
                 border: none;
-            }
-            QPushButton:hover {
-                background-color: #4f46e5;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.ACCENT_HOVER};
+            }}
         """)
         self.btn_send.clicked.connect(self._on_send_clicked)
         box_footer.addWidget(self.btn_send)
@@ -344,14 +357,14 @@ class ConsultantView(QWidget):
         box_layout.addLayout(box_footer)
         input_area_layout.addWidget(self.chat_box_frame)
 
-        disclaimer_lbl = QLabel("L'IA peut faire des erreurs. Vérifiez toujours les informations générées.")
+        disclaimer_lbl = QLabel("L'IA peut faire des erreurs. Vérifiez toujours les cartes générées.")
         disclaimer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        disclaimer_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        disclaimer_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-top: 4px;")
         input_area_layout.addWidget(disclaimer_lbl)
 
         chat_layout.addWidget(input_area)
 
-        self.chat_panel.add_tab("AI Consultant", chat_container, "ph.chat-centered-text", closable=False)
+        self.chat_panel.add_tab("Chat", chat_container, "ph.chat-centered-text", closable=False)
         self.splitter.addWidget(self.chat_panel)
 
         # --- COL 2: Right Context Panel ---
@@ -364,8 +377,8 @@ class ConsultantView(QWidget):
         context_layout.setSpacing(16)
 
         # Section 1: Agent & Prompt Système
-        lbl_agent_title = QLabel("AGENT & PROMPT SYSTÈME")
-        lbl_agent_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_agent_title = QLabel("INSTRUCTIONS SYSTÈME & AGENT")
+        lbl_agent_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;")
         context_layout.addWidget(lbl_agent_title)
 
         self.agent_combo = StyledComboBox()
@@ -375,74 +388,95 @@ class ConsultantView(QWidget):
         self.sys_prompt_card = QFrame()
         self.sys_prompt_card.setStyleSheet(f"""
             QFrame {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 8px;
+                padding: 10px;
             }}
         """)
         sys_layout = QVBoxLayout(self.sys_prompt_card)
-        sys_layout.setContentsMargins(8, 8, 8, 8)
+        sys_layout.setContentsMargins(4, 4, 4, 4)
 
         self.sys_prompt_lbl = QLabel('"Tu es un expert en mémorisation et création de cartes Anki..."')
-        self.sys_prompt_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.sys_prompt_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; line-height: 1.4;")
         self.sys_prompt_lbl.setWordWrap(True)
         sys_layout.addWidget(self.sys_prompt_lbl)
         context_layout.addWidget(self.sys_prompt_card)
 
-        # Section 2: Sources Attachées
-        lbl_sources_title = QLabel("SOURCES ATTACHÉES AU CONTEXTE")
-        lbl_sources_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        # Section 2: Sources Attachées (Maquette concept_ide)
+        lbl_sources_title = QLabel("SOURCES ATTACHÉES")
+        lbl_sources_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;")
         context_layout.addWidget(lbl_sources_title)
 
         self.sources_list = QListWidget()
         self.sources_list.setStyleSheet(f"""
             QListWidget {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
+                outline: none;
+                padding: 4px;
+            }}
+            QListWidget::item {{
+                background: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                margin-bottom: 4px;
+                padding: 6px;
             }}
         """)
-        self.sources_list.setFixedHeight(110)
+        self.sources_list.setFixedHeight(120)
         context_layout.addWidget(self.sources_list)
 
         self.btn_add_context = SecondaryButton("Ajouter un contexte (@)")
         self.btn_add_context.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_add_context.setStyleSheet("border-style: dashed; padding: 6px;")
+        self.btn_add_context.setStyleSheet(f"border-style: dashed; border-color: {DesignTokens.BORDER_COLOR}; padding: 6px;")
         self.btn_add_context.clicked.connect(self._on_add_context)
         context_layout.addWidget(self.btn_add_context)
 
         context_layout.addStretch()
 
-        # Section 3: Mémoire de l'Agent
-        lbl_mem_title = QLabel("MÉMOIRE & UTILISATION")
-        lbl_mem_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        # Section 3: Mémoire de l'Agent (Maquette concept_ide)
+        lbl_mem_title = QLabel("MÉMOIRE DE L'AGENT")
+        lbl_mem_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;")
         context_layout.addWidget(lbl_mem_title)
 
         mem_box = QFrame()
         mem_box.setStyleSheet(f"""
             QFrame {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 8px;
+                padding: 10px;
             }}
         """)
         mem_layout = QVBoxLayout(mem_box)
-        mem_layout.setContentsMargins(8, 8, 8, 8)
-        mem_layout.setSpacing(6)
+        mem_layout.setContentsMargins(6, 6, 6, 6)
+        mem_layout.setSpacing(8)
 
-        self.lbl_tokens_usage = QLabel("Tokens Utilisés : 0")
-        self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        row_tokens = QHBoxLayout()
+        lbl_tok_title = QLabel("Tokens Utilisés")
+        lbl_tok_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.lbl_tokens_usage = QLabel("0")
+        self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        row_tokens.addWidget(lbl_tok_title)
+        row_tokens.addStretch()
+        row_tokens.addWidget(self.lbl_tokens_usage)
 
-        self.lbl_cards_modified = QLabel("Cartes en Contexte : 0")
-        self.lbl_cards_modified.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 12px;")
+        row_cards = QHBoxLayout()
+        lbl_card_title = QLabel("Cartes Modifiées")
+        lbl_card_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.lbl_cards_modified = QLabel("0")
+        self.lbl_cards_modified.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold;")
+        row_cards.addWidget(lbl_card_title)
+        row_cards.addStretch()
+        row_cards.addWidget(self.lbl_cards_modified)
 
-        mem_layout.addWidget(self.lbl_tokens_usage)
-        mem_layout.addWidget(self.lbl_cards_modified)
+        mem_layout.addLayout(row_tokens)
+        mem_layout.addLayout(row_cards)
         context_layout.addWidget(mem_box)
 
-        self.btn_clear_memory = SecondaryButton("Réinitialiser le contexte")
+        self.btn_clear_memory = SecondaryButton("Vider la mémoire")
         self.btn_clear_memory.setIcon(load_phosphor_icon("ph.broom", color=DesignTokens.TEXT_PRIMARY))
         self.btn_clear_memory.clicked.connect(self._on_clear_memory)
         context_layout.addWidget(self.btn_clear_memory)
@@ -488,14 +522,14 @@ class ConsultantView(QWidget):
             agents = list(AgentModel.select())
             if agents:
                 for ag in agents:
-                    self.agent_combo.addItem(f"🤖 {ag.name}", userData=ag)
+                    self.agent_combo.addItem(ag.name, userData=ag)
             else:
                 ag_default = AgentModel.create(
                     name="Archiviste Pédagogue",
                     description="Expert en extraction atomique et mise en forme Anki.",
                     system_prompt="Tu es un expert en mémorisation, pédagogie et création de cartes Anki atomiques.",
                 )
-                self.agent_combo.addItem(f"🤖 {ag_default.name}", userData=ag_default)
+                self.agent_combo.addItem(ag_default.name, userData=ag_default)
             self.agent_combo.blockSignals(False)
             self._on_agent_changed()
 
@@ -528,7 +562,7 @@ class ConsultantView(QWidget):
             item = QListWidgetItem("Aucun contexte attaché (cliquez sur +)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.sources_list.addItem(item)
-            self.lbl_cards_modified.setText("Cartes en Contexte : 0")
+            self.lbl_cards_modified.setText("0")
             return
 
         total_cards_in_context = 0
@@ -561,7 +595,7 @@ class ConsultantView(QWidget):
             self.sources_list.addItem(display_text)
 
         self.mentions_layout.addStretch()
-        self.lbl_cards_modified.setText(f"Cartes en Contexte : {total_cards_in_context}")
+        self.lbl_cards_modified.setText(str(total_cards_in_context))
 
     def _insert_welcome_message(self) -> None:
         """Insère le message d'accueil initial de l'assistant IA."""
@@ -629,7 +663,7 @@ class ConsultantView(QWidget):
         self.active_context.clear()
         self.refresh_context_list()
         self.used_tokens_count = 0
-        self.lbl_tokens_usage.setText("Tokens Utilisés : 0")
+        self.lbl_tokens_usage.setText("0")
         show_toast(self, "Contexte et mémoire réinitialisés avec succès.")
 
     def _build_context_data(self) -> dict[str, list[dict[str, Any]]]:
@@ -723,7 +757,7 @@ class ConsultantView(QWidget):
         self.chat_scroll.verticalScrollBar().setValue(self.chat_scroll.verticalScrollBar().maximum())
 
         self.used_tokens_count += int(len(response.split()) * 1.3)
-        self.lbl_tokens_usage.setText(f"Tokens Utilisés : {self.used_tokens_count:,}")
+        self.lbl_tokens_usage.setText(f"{self.used_tokens_count:,}")
 
     @Slot(str)
     def _on_ai_error(self, error: str) -> None:

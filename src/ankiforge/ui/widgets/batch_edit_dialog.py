@@ -27,7 +27,7 @@ class BatchEditDialog(QDialog):
         self.cb_agent = QComboBox()
         self.cb_agent.addItem("-- ✍️ Prompt Libre (Saisir ci-dessous) --", userData=None)
         for agent in AgentModel.select().order_by(AgentModel.name):
-            self.cb_agent.addItem(f"🤖 Agent : {agent.name}", userData=agent.id)
+            self.cb_agent.addItem(f"Agent : {agent.name}", userData=agent.id)
         self.cb_agent.currentIndexChanged.connect(self._on_agent_changed)
         layout.addWidget(self.cb_agent)
 
