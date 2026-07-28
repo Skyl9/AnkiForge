@@ -851,7 +851,7 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_click_select_model(self) -> None:
-        dialog = SelectionDialog(title="Sélectionner un modèle de carte", items=self.models_cache, display_func=lambda m: f"📝 {m.name}", parent=self)
+        dialog = SelectionDialog(title="Sélectionner un modèle de carte", items=self.models_cache, display_func=lambda m: m.name, parent=self)
         if dialog.exec():
             selected = dialog.get_selected_item()
             if selected:

@@ -135,9 +135,9 @@ class DeckSelectionDialog(QDialog):
             node_name = parts[-1]
 
             if parent_item:
-                tree_item = QTreeWidgetItem(parent_item, [f"🎴 {node_name}"])
+                tree_item = QTreeWidgetItem(parent_item, [node_name])
             else:
-                tree_item = QTreeWidgetItem(self.tree_widget, [f"🎴 {node_name}"])
+                tree_item = QTreeWidgetItem(self.tree_widget, [node_name])
 
             tree_item.setData(0, Qt.ItemDataRole.UserRole, item)
             nodes[name] = tree_item
