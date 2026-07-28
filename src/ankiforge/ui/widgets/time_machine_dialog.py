@@ -234,7 +234,7 @@ class TimeMachineDialog(QDialog):
         return lines
 
     def _render_diff(self, diff_lines: list[DiffLine]) -> None:
-        html = ["<table style='width: 100%; border-collapse: collapse; font-family: monospace;'>"]
+        html = ["<table style='width: 100%; border-collapse: collapse; font-family: Menlo;'>"]
 
         for d in diff_lines:
             bg_color = "transparent"

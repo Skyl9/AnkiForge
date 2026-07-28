@@ -181,7 +181,7 @@ class ABTestsView(QWidget):
         self.preview_a = CardPreviewWidget(show_header=False)
         self.json_edit_a = StyledTextEdit()
         self.json_edit_a.setReadOnly(True)
-        self.json_edit_a.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: monospace; border: none; padding: 10px; }")
+        self.json_edit_a.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: Menlo; border: none; padding: 10px; }")
 
         self.stack_a.addWidget(self.preview_a)
         self.stack_a.addWidget(self.json_edit_a)
@@ -232,7 +232,7 @@ class ABTestsView(QWidget):
         self.preview_b = CardPreviewWidget(show_header=False)
         self.json_edit_b = StyledTextEdit()
         self.json_edit_b.setReadOnly(True)
-        self.json_edit_b.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: monospace; border: none; padding: 10px; }")
+        self.json_edit_b.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: Menlo; border: none; padding: 10px; }")
 
         self.stack_b.addWidget(self.preview_b)
         self.stack_b.addWidget(self.json_edit_b)
@@ -268,8 +268,8 @@ class ABTestsView(QWidget):
             engines = list(LLMConfigModel.select())
             if engines:
                 for eg in engines:
-                    self.engine_a_combo.addItem(eg.name, userData=eg)
-                    self.engine_b_combo.addItem(eg.name, userData=eg)
+                    self.engine_a_combo.addItem(eg.display_name, userData=eg)
+                    self.engine_b_combo.addItem(eg.display_name, userData=eg)
                 if len(engines) > 1:
                     self.engine_b_combo.setCurrentIndex(1)
             else:

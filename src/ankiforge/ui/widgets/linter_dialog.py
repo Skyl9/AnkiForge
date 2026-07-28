@@ -91,7 +91,7 @@ class LinterDialog(QDialog):
 
                 if suggestion:
                     sugg_lbl = QLabel(f"Suggestion : {json.dumps(suggestion, ensure_ascii=False, indent=2)}")
-                    sugg_lbl.setStyleSheet("background: palette(alternate-base); padding: 5px; border-radius: 4px; font-family: monospace;")
+                    sugg_lbl.setStyleSheet("background: palette(alternate-base); padding: 5px; border-radius: 4px; font-family: Menlo;")
                     sugg_lbl.setWordWrap(True)
                     p_layout.addWidget(sugg_lbl)
 

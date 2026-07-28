@@ -191,7 +191,7 @@ class TabButton(QPushButton):
     close_requested = Signal()
     detach_requested = Signal()
 
-    def __init__(self, title: str, icon_name: str = "", closable: bool = False, parent: QWidget | None = None):
+    def __init__(self, title: str, icon_name: str = "", closable: bool = False, variant: str = "ide", icon_color: str = "", parent: QWidget | None = None):
         super().__init__(parent)
         self.closable = closable
         text = f" {title}" if icon_name else title
@@ -199,34 +199,64 @@ class TabButton(QPushButton):
 
         if icon_name:
             self.setProperty("icon_name", icon_name)
-            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
+            color = icon_color if icon_color else DesignTokens.TEXT_SECONDARY
+            self.setIcon(load_phosphor_icon(icon_name, color=color))
 
         self.setCheckable(True)
         self.setFixedHeight(36)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         padding_right = 28 if closable else 12
-        self.setStyleSheet(f"""
-            TabButton {{
-                background-color: #16181d;
-                color: #94a3b8;
-                border: none;
-                border-top: 2px solid transparent;
-                padding: 0 {padding_right}px 0 12px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-                font-size: {DesignTokens.FONT_SIZE_BASE}px;
-                text-align: left;
-            }}
-            TabButton:hover {{
-                color: #f8fafc;
-                background-color: #2d313a;
-            }}
-            TabButton:checked {{
-                background-color: #1e2128;
-                color: #f8fafc;
-                border-top: 2px solid #6366f1;
-                font-weight: bold;
-            }}
-        """)
+        if variant == "document":
+            self.setStyleSheet(f"""
+                TabButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    border: none;
+                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-top: 2px solid transparent;
+                    border-top-left-radius: {DesignTokens.RADIUS_SM}px;
+                    border-top-right-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 0 {padding_right}px 0 12px;
+                    font-family: "{DesignTokens.FONT_MAIN}";
+                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                    text-align: left;
+                }}
+                TabButton:hover {{
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+                TabButton:checked {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border-bottom: 1px solid {DesignTokens.BG_INPUT};
+                    border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                TabButton {{
+                    background-color: #16181d;
+                    color: #94a3b8;
+                    border: none;
+                    border-top: 2px solid transparent;
+                    padding: 0 {padding_right}px 0 12px;
+                    font-family: "{DesignTokens.FONT_MAIN}";
+                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                    text-align: left;
+                }}
+                TabButton:hover {{
+                    color: #f8fafc;
+                    background-color: #2d313a;
+                }}
+                TabButton:checked {{
+                    background-color: #1e2128;
+                    color: #f8fafc;
+                    border-top: 2px solid #6366f1;
+                    font-weight: bold;
+                }}
+            """)
         if self.closable:
             self.close_btn = QPushButton(self)
             self.close_btn.setFixedSize(16, 16)
@@ -490,8 +520,9 @@ class ScrollableTabBarWidget(QWidget):
     tab_reordered = Signal(int, int)
     tab_close_requested = Signal(int)
 
-    def __init__(self, parent=None):
+    def __init__(self, variant: str = "ide", parent=None):
         super().__init__(parent)
+        self.variant = variant
         self.setFixedHeight(36)
 
         self.layout_main = QHBoxLayout(self)
@@ -536,8 +567,8 @@ class ScrollableTabBarWidget(QWidget):
         self.scroll_area.horizontalScrollBar().rangeChanged.connect(self._update_scroll_buttons)
         self.scroll_area.horizontalScrollBar().valueChanged.connect(self._update_scroll_buttons)
 
-    def add_tab(self, title: str, icon_name: str = "", closable: bool = False) -> int:
-        return self.insert_tab(len(self.tabs), title, icon_name, closable)
+    def add_tab(self, title: str, icon_name: str = "", closable: bool = False, icon_color: str = "") -> int:
+        return self.insert_tab(len(self.tabs), title, icon_name, closable, icon_color)
 
     def set_tab_text(self, index: int, text: str) -> None:
         if 0 <= index < len(self.tabs):
@@ -546,9 +577,9 @@ class ScrollableTabBarWidget(QWidget):
             display_text = f" {text}" if icon_name else text
             btn.setText(display_text)
 
-    def insert_tab(self, index: int, title: str, icon_name: str = "", closable: bool = False) -> int:
+    def insert_tab(self, index: int, title: str, icon_name: str = "", closable: bool = False, icon_color: str = "") -> int:
         index = max(0, min(index, len(self.tabs)))
-        btn = TabButton(title, icon_name, closable)
+        btn = TabButton(title, icon_name, closable, self.variant, icon_color)
 
         self.btn_group.addButton(btn)
         self.tabs.insert(index, btn)

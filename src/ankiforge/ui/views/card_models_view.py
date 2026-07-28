@@ -65,7 +65,7 @@ class TagPillButton(QPushButton):
                 border: 1px solid {border_color};
                 border-radius: 12px;
                 color: {text_color};
-                font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                font-family: 'JetBrains Mono', 'Fira Code', Menlo;
                 font-size: 11px;
                 font-weight: bold;
                 padding: 4px 10px;
@@ -104,7 +104,7 @@ class CodeEditorWithGutter(QWidget):
             QLabel {
                 background-color: #121419;
                 color: #4b5563;
-                font-family: 'Fira Code', 'JetBrains Mono', monospace;
+                font-family: 'Fira Code', 'JetBrains Mono', Menlo;
                 font-size: 13px;
                 line-height: 1.5;
                 padding: 12px 10px;
@@ -122,7 +122,7 @@ class CodeEditorWithGutter(QWidget):
             QPlainTextEdit {
                 background-color: #0d0f12;
                 color: #e2e8f0;
-                font-family: 'Fira Code', 'JetBrains Mono', monospace;
+                font-family: 'Fira Code', 'JetBrains Mono', Menlo;
                 font-size: 13px;
                 line-height: 1.5;
                 padding: 12px;

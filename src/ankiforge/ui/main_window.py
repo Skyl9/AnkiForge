@@ -5,7 +5,7 @@ Main Window & Navigation for AnkiForge.
 from typing import Dict, Tuple, Optional, Type, Any, cast
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QObject, QEvent
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QKeySequence, QShortcut
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -468,6 +468,24 @@ class MainWindow(QMainWindow):
         self._settings_window: Optional[QWidget] = None
 
         self._populate_sidebar_and_register()
+        self._setup_debug_shortcuts()
+
+    def _setup_debug_shortcuts(self) -> None:
+        """Configure les raccourcis de debug (ex: Capture d'écran)."""
+        screenshot_shortcut = QShortcut(QKeySequence("Ctrl+F12"), self)
+        screenshot_shortcut.activated.connect(self._take_debug_screenshot)
+
+    def _take_debug_screenshot(self) -> None:
+        """Capture l'état actuel de la fenêtre et le sauvegarde."""
+        from ankiforge.utils.paths import get_project_root
+
+        output_dir = get_project_root() / "temp"
+        output_dir.mkdir(exist_ok=True)
+
+        output_path = output_dir / "app_screenshot.png"
+        pixmap = self.grab()
+        pixmap.save(str(output_path))
+        print(f"[Debug] Capture d'écran de l'UI enregistrée dans : {output_path}")
 
     def _populate_sidebar_and_register(self) -> None:
         # Group by category

@@ -4,13 +4,17 @@ from ankiforge.utils.paths import get_project_root
 from ankiforge.ui.theme import DesignTokens
 
 
-def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY) -> QIcon:
+def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weight: str = "regular") -> QIcon:
     """Load a Phosphor SVG icon and replace currentColor with the specified color."""
     # Handle the prefix 'ph.' if it was passed
     if name.startswith("ph."):
         name = name[3:]
 
-    svg_path = get_project_root() / "src" / "ankiforge" / "ressources" / "phosphor-icons" / "SVGs" / "Regular" / f"{name}.svg"
+    weight = weight.lower()
+    suffix = f"-{weight}" if weight != "regular" else ""
+    filename = f"{name}{suffix}.svg"
+
+    svg_path = get_project_root() / "src" / "ankiforge" / "ressources" / "phosphor-icons" / "SVGs" / weight / filename
 
     if not svg_path.exists():
         print(f"[Warning] Icon not found: {svg_path}")

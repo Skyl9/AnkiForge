@@ -14,7 +14,6 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QDialog,
     QFrame,
@@ -22,6 +21,8 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMessageBox,
+    QPushButton,
+    QSlider,
     QSplitter,
     QTableWidgetItem,
     QVBoxLayout,
@@ -31,6 +32,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     DeckModel,
     DocumentModel,
+    FolderModel,
     LLMConfigModel,
     NoteTypeModel,
     PipelineModel,
@@ -52,6 +54,9 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
+from ankiforge.ui.dialogs.deck_selection_dialog import DeckSelectionDialog
+from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
 logger = logging.getLogger(__name__)
 
@@ -138,32 +143,88 @@ class FlashcardPreview(QWidget):
         top_toolbar.addWidget(self.btn_next)
         top_toolbar.addStretch()
 
-        self.btn_toggle_verso = SecondaryButton("Masquer Verso")
-        self.btn_toggle_verso.setIcon(load_phosphor_icon("ph.eye-slash", color=DesignTokens.TEXT_PRIMARY))
-        top_toolbar.addWidget(self.btn_toggle_verso)
-
         layout.addLayout(top_toolbar)
 
         # Intégration de CardPreviewWidget (Moteur WebEngine + MathJax + multi-appareils)
         self.card_preview_widget = CardPreviewWidget(show_header=False)
         layout.addWidget(self.card_preview_widget, 1)
 
-        # Barre d'actions en bas de carte
-        bot_toolbar = QHBoxLayout()
-        self.btn_valider = PrimaryButton("Valider")
-        self.btn_valider.setIcon(load_phosphor_icon("ph.check", color="white"))
+        # Les boutons ont été déplacés dans la vue principale (CreationView) pour être globaux au panneau.
+        layout.addWidget(self.card_preview_widget, 1)
 
-        self.btn_editer = SecondaryButton("Éditer")
-        self.btn_editer.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
 
-        self.btn_rejeter = DangerButton("Rejeter", ghost=True)
-        self.btn_rejeter.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+class DocumentEditorWidget(QWidget):
+    """Conteneur pour l'éditeur de texte source et la barre d'outils de génération associée."""
 
-        bot_toolbar.addWidget(self.btn_valider, 1)
-        bot_toolbar.addWidget(self.btn_editer, 1)
-        bot_toolbar.addWidget(self.btn_rejeter, 1)
+    generate_requested = Signal(str)
+    cancel_requested = Signal()
 
-        layout.addLayout(bot_toolbar)
+    def __init__(self, content: str = "", parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        self.editor = StyledTextEdit()
+        self.editor.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}';")
+        self.editor.setPlaceholderText("📝 Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
+        self.editor.setPlainText(content)
+        self.editor.textChanged.connect(self._on_text_changed)
+        layout.addWidget(self.editor, 1)
+
+        bot_widget = QWidget()
+        bot_widget.setStyleSheet("background: transparent;")
+        bot_layout = QHBoxLayout(bot_widget)
+        bot_layout.setContentsMargins(0, 8, 0, 0)
+
+        self.tokens_lbl = QLabel("Aa 0 chars  |  ~0 Tokens")
+        self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
+        bot_layout.addWidget(self.tokens_lbl)
+        bot_layout.addStretch()
+
+        self.btn_paste = SecondaryButton("Coller")
+        self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_paste.clicked.connect(self.editor.paste)
+
+        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)")
+        self.btn_generate.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_generate.clicked.connect(self._on_generate_clicked)
+
+        self.btn_cancel = DangerButton("Arrêter", ghost=True)
+        self.btn_cancel.setIcon(load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED))
+        self.btn_cancel.hide()
+        self.btn_cancel.clicked.connect(self.cancel_requested.emit)
+
+        bot_layout.addWidget(self.btn_paste)
+        bot_layout.addWidget(self.btn_generate)
+        bot_layout.addWidget(self.btn_cancel)
+        layout.addWidget(bot_widget)
+
+        self._on_text_changed()
+
+    @Slot()
+    def _on_text_changed(self) -> None:
+        text = self.editor.toPlainText()
+        chars = len(text)
+        words = len(text.split())
+        estimated_tokens = int(words * 1.3)
+        self.tokens_lbl.setText(f"Aa {chars} chars  |  ~{estimated_tokens} Tokens")
+
+    @Slot()
+    def _on_generate_clicked(self) -> None:
+        self.generate_requested.emit(self.editor.toPlainText().strip())
+
+    def get_text(self) -> str:
+        return self.editor.toPlainText().strip()
+
+    def set_generation_state(self, is_generating: bool) -> None:
+        self.btn_generate.setEnabled(not is_generating)
+        if is_generating:
+            self.btn_generate.hide()
+            self.btn_cancel.show()
+        else:
+            self.btn_generate.show()
+            self.btn_cancel.hide()
 
 
 class CreationView(QWidget):
@@ -179,8 +240,13 @@ class CreationView(QWidget):
         self.ai_manager = ai_manager
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
-        self.verso_visible = True
         self.worker: Optional[CreationWorker] = None
+        self.current_deck: Optional[DeckModel] = None
+        self.current_model: Optional[NoteTypeModel] = None
+
+        self.decks_cache: list[DeckModel] = []
+        self.models_cache: list[NoteTypeModel] = []
+        self.open_editors: dict[str, DocumentEditorWidget] = {}
 
         self._setup_ui()
         self._connect_signals()
@@ -197,14 +263,49 @@ class CreationView(QWidget):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(self.main_splitter)
 
-        # --- COL 1: Config IA Panel ---
+        # --- COL 1: Left Tool Window (Explorateur + Config IA) ---
         self.config_panel = IdePanel(detachable=True)
         self.config_panel.setMinimumWidth(260)
+        self.config_panel.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
+        # Tab 1: Explorateur
+        explorer_content = QWidget()
+        explorer_layout = QVBoxLayout(explorer_content)
+        explorer_layout.setContentsMargins(10, 10, 10, 10)
+        explorer_layout.setSpacing(8)
+
+        self.btn_new_free_input = SecondaryButton("Nouvelle Saisie Libre")
+        self.btn_new_free_input.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
+        explorer_layout.addWidget(self.btn_new_free_input)
+
+        self.file_tree = QTreeWidget()
+        self.file_tree.setHeaderHidden(True)
+        self.file_tree.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: transparent;
+                border: none;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QTreeWidget::item {{
+                padding: 4px;
+                border-radius: 4px;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-left: 2px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        explorer_layout.addWidget(self.file_tree)
+
+        # Tab 2: Config IA
         config_content = QWidget()
         config_layout = QVBoxLayout(config_content)
         config_layout.setContentsMargins(12, 12, 12, 12)
-        config_layout.setSpacing(12)
+        config_layout.setSpacing(16)
 
         def add_form_group(layout: QVBoxLayout, label_text: str, widget_or_layout: Any) -> None:
             lbl = QLabel(label_text)
@@ -215,19 +316,21 @@ class CreationView(QWidget):
             else:
                 layout.addLayout(widget_or_layout)
 
-        # 1. Paquet Cible (Deck) + Bouton Nouveau
-        deck_row = QHBoxLayout()
-        deck_row.setSpacing(6)
-        self.deck_combo = StyledComboBox()
-        self.btn_new_deck = IconButton("ph.plus", tooltip="Créer un nouveau paquet Anki", size=20)
-        deck_row.addWidget(self.deck_combo, 1)
-        deck_row.addWidget(self.btn_new_deck)
-        add_form_group(config_layout, "PAQUET CIBLE :", deck_row)
+        # 1. Paquet Cible (Bouton Sélecteur)
+        self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
+        self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_deck.setStyleSheet(
+            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+        )
+        add_form_group(config_layout, "PAQUET CIBLE", self.btn_select_deck)
 
-        # 2. Modèle de Carte
-        self.model_combo = StyledComboBox()
-        self.model_combo.currentIndexChanged.connect(self._on_model_changed)
-        add_form_group(config_layout, "MODÈLE DE CARTE :", self.model_combo)
+        # 2. Modèle de Carte (Bouton Sélecteur)
+        self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
+        self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_model.setStyleSheet(
+            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+        )
+        add_form_group(config_layout, "MODÈLE DE CARTE", self.btn_select_model)
 
         # 3. Moteur IA + Bouton d'aide si vide
         self.engine_combo = StyledComboBox()
@@ -249,18 +352,29 @@ class CreationView(QWidget):
 
         # 5. Carte Visuelle Interactive : Activation de la Vision
         self.vision_card = VisionCard()
+        self.vision_card.setObjectName("visionCard")
+        self.vision_card.setStyleSheet(f"""
+            QFrame#visionCard {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+            QFrame#visionCard:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
         self.vision_card.setCursor(Qt.CursorShape.PointingHandCursor)
         vision_layout = QVBoxLayout(self.vision_card)
-        vision_layout.setContentsMargins(10, 10, 10, 10)
+        vision_layout.setContentsMargins(12, 12, 12, 12)
         vision_layout.setSpacing(6)
 
         vision_top = QHBoxLayout()
         self.lbl_vision_icon = QLabel()
-        self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color="#eab308").pixmap(20, 20))
-        self.lbl_vision_title = QLabel("Analyse Vision (PDF & Images)")
-        self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px;")
+        self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
+        self.lbl_vision_title = QLabel("Vision (PDF)")
+        self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
 
-        self.vision_badge = Badge("DÉSACTIVÉE", variant="neutral")
+        self.vision_badge = Badge("OFF", variant="neutral")
 
         vision_top.addWidget(self.lbl_vision_icon)
         vision_top.addWidget(self.lbl_vision_title)
@@ -268,7 +382,7 @@ class CreationView(QWidget):
         vision_top.addWidget(self.vision_badge)
         vision_layout.addLayout(vision_top)
 
-        self.lbl_vision_desc = QLabel("Activer l'extraction multimodale des schémas, figures & tableaux PDF.")
+        self.lbl_vision_desc = QLabel("Extraction multimodale des schémas & figures.")
         self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
         self.lbl_vision_desc.setWordWrap(True)
         vision_layout.addWidget(self.lbl_vision_desc)
@@ -279,19 +393,122 @@ class CreationView(QWidget):
 
         config_layout.addWidget(self.vision_card)
 
+        # Separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
+        config_layout.addWidget(separator)
+
+        # Paramètres Avancés
+        self.btn_toggle_advanced = QPushButton()
+        self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 0;")
+        self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        advanced_header = QHBoxLayout(self.btn_toggle_advanced)
+        advanced_header.setContentsMargins(0, 0, 0, 0)
+        advanced_lbl = QLabel("Paramètres Avancés")
+        advanced_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
+
+        self.advanced_icon = QLabel()
+        self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        self.advanced_icon.setStyleSheet("background: transparent;")
+
+        advanced_header.addWidget(advanced_lbl)
+        advanced_header.addStretch()
+        advanced_header.addWidget(self.advanced_icon)
+
+        config_layout.addWidget(self.btn_toggle_advanced)
+
+        self.advanced_container = QFrame()
+        self.advanced_container.setObjectName("advancedContainer")
+        self.advanced_container.setVisible(False)
+        self.advanced_container.setStyleSheet(f"""
+            QFrame#advancedContainer {{
+                background: rgba(0,0,0,0.1);
+                padding: 12px;
+                border-radius: 4px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        advanced_layout = QVBoxLayout(self.advanced_container)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(12)
+
+        # Style partagé des sliders
+        slider_style = f"""
+            QSlider::groove:horizontal {{
+                border-radius: 2px;
+                height: 4px;
+                margin: 0px;
+                background-color: rgba(255, 255, 255, 0.1);
+            }}
+            QSlider::sub-page:horizontal {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border: none;
+                height: 12px;
+                width: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background-color: {DesignTokens.ACCENT_HOVER};
+            }}
+        """
+
+        # Température
+        temp_layout = QVBoxLayout()
+        temp_header = QHBoxLayout()
+        temp_lbl = QLabel("Température")
+        temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.val_temp_lbl = QLabel("0.7")
+        self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        temp_header.addWidget(temp_lbl)
+        temp_header.addStretch()
+        temp_header.addWidget(self.val_temp_lbl)
+
+        self.slider_temp = QSlider(Qt.Orientation.Horizontal)
+        self.slider_temp.setMinimum(0)
+        self.slider_temp.setMaximum(10)
+        self.slider_temp.setValue(7)
+        self.slider_temp.setStyleSheet(slider_style)
+        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v/10:.1f}"))
+
+        temp_layout.addLayout(temp_header)
+        temp_layout.addWidget(self.slider_temp)
+        advanced_layout.addLayout(temp_layout)
+
+        # Max Tokens
+        tokens_layout = QVBoxLayout()
+        tokens_header = QHBoxLayout()
+        tokens_lbl = QLabel("Max Tokens")
+        tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.val_tokens_lbl = QLabel("4096")
+        self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        tokens_header.addWidget(tokens_lbl)
+        tokens_header.addStretch()
+        tokens_header.addWidget(self.val_tokens_lbl)
+
+        self.slider_tokens = QSlider(Qt.Orientation.Horizontal)
+        self.slider_tokens.setMinimum(1)
+        self.slider_tokens.setMaximum(32)
+        self.slider_tokens.setValue(16)
+        self.slider_tokens.setStyleSheet(slider_style)
+        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 256}"))
+
+        tokens_layout.addLayout(tokens_header)
+        tokens_layout.addWidget(self.slider_tokens)
+        advanced_layout.addLayout(tokens_layout)
+
+        config_layout.addWidget(self.advanced_container)
         config_layout.addStretch()
 
-        moteur_content = QWidget()
-        moteur_layout = QVBoxLayout(moteur_content)
-        moteur_layout.setContentsMargins(12, 12, 12, 12)
-        moteur_lbl = QLabel("Configuration avancée du LLM (Température, Top P, Max Tokens).")
-        moteur_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
-        moteur_lbl.setWordWrap(True)
-        moteur_layout.addWidget(moteur_lbl)
-        moteur_layout.addStretch()
-
-        self.config_panel.add_tab("Configuration IA Studio", config_content, "ph.cpu", closable=False)
-        self.config_panel.add_tab("Paramètres Moteur Studio", moteur_content, "ph.gear", closable=False)
+        self.config_panel.add_tab("Explorateur", explorer_content, "ph.files", closable=False)
+        self.config_panel.add_tab("Config IA", config_content, "ph.cpu", closable=False)
 
         self.main_splitter.addWidget(self.config_panel)
 
@@ -300,55 +517,14 @@ class CreationView(QWidget):
         self.main_splitter.addWidget(self.center_splitter)
 
         # Panel Document Source
-        self.source_panel = IdePanel(detachable=True)
-        source_content = QWidget()
-        source_layout = QVBoxLayout(source_content)
-        source_layout.setContentsMargins(12, 12, 12, 12)
-        source_layout.setSpacing(8)
+        source_container = QWidget()
+        source_layout = QVBoxLayout(source_container)
+        source_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Document Selector Toolbar + Actions
-        source_top_toolbar = QHBoxLayout()
-        self.doc_selector = StyledComboBox()
-        source_top_toolbar.addWidget(self.doc_selector, 1)
+        self.source_panel = IdePanel(detachable=True, tab_variant="document")
+        source_layout.addWidget(self.source_panel)
 
-        self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip="Actualiser la liste des documents", size=24)
-        self.btn_refresh.clicked.connect(self.refresh_data)
-        source_top_toolbar.addWidget(self.btn_refresh)
-
-        self.btn_go_docs = SecondaryButton("📁 Mes Documents")
-        self.btn_go_docs.setIcon(load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_go_docs.hide()
-        source_top_toolbar.addWidget(self.btn_go_docs)
-
-        self.btn_paste_clipboard = SecondaryButton("Coller le presse-papiers")
-        self.btn_paste_clipboard.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
-        source_top_toolbar.addWidget(self.btn_paste_clipboard)
-
-        source_layout.addLayout(source_top_toolbar)
-
-        self.source_text_edit = StyledTextEdit()
-        self.source_text_edit.setPlaceholderText("📝 Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
-        source_layout.addWidget(self.source_text_edit, 1)
-
-        source_bot_toolbar = QHBoxLayout()
-        self.tokens_lbl = QLabel("Tokens estimés : 0")
-        self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
-        source_bot_toolbar.addWidget(self.tokens_lbl)
-        source_bot_toolbar.addStretch()
-
-        self.btn_generate = PrimaryButton("Générer les Cartes")
-        self.btn_generate.setIcon(load_phosphor_icon("ph.magic-wand", color="white"))
-
-        self.btn_cancel = DangerButton("Arrêter", ghost=True)
-        self.btn_cancel.setIcon(load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED))
-        self.btn_cancel.hide()
-
-        source_bot_toolbar.addWidget(self.btn_generate)
-        source_bot_toolbar.addWidget(self.btn_cancel)
-        source_layout.addLayout(source_bot_toolbar)
-
-        self.source_panel.add_tab("Document Source Studio", source_content, "ph.text-align-left", closable=False)
-        self.center_splitter.addWidget(self.source_panel)
+        self.center_splitter.addWidget(source_container)
 
         # Panel Cartes Générées
         self.results_panel = IdePanel(detachable=True)
@@ -367,17 +543,11 @@ class CreationView(QWidget):
         table_container.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
         self.results_table = StyledTableWidget(["Recto", "Verso", "Statut"])
+        # Bouton Sauvegarder retiré d'ici, déplacé dans la barre globale
         self.results_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
         self.results_table.itemSelectionChanged.connect(self._on_table_selection_changed)
         self.results_table.itemChanged.connect(self._on_cell_edited)
         table_layout.addWidget(self.results_table, 1)
-
-        table_bot_toolbar = QHBoxLayout()
-        table_bot_toolbar.addStretch()
-        self.btn_save_anki = PrimaryButton("Sauvegarder dans Anki")
-        self.btn_save_anki.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
-        table_bot_toolbar.addWidget(self.btn_save_anki)
-        table_layout.addLayout(table_bot_toolbar)
 
         self.results_splitter.addWidget(table_container)
 
@@ -385,7 +555,32 @@ class CreationView(QWidget):
         self.preview_widget = FlashcardPreview()
         self.results_splitter.addWidget(self.preview_widget)
 
-        cartes_layout.addWidget(self.results_splitter)
+        cartes_layout.addWidget(self.results_splitter, 1)
+
+        # Barre d'actions globale (Footer du panneau Cartes Générées)
+        main_bot_toolbar = QHBoxLayout()
+        main_bot_toolbar.setContentsMargins(12, 0, 12, 12)
+
+        self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge")
+        self.btn_save_anki.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        main_bot_toolbar.addWidget(self.btn_save_anki)
+
+        main_bot_toolbar.addStretch()
+
+        self.btn_rejeter = DangerButton("Rejeter", ghost=True)
+        self.btn_rejeter.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+
+        self.btn_editer = SecondaryButton("Éditer")
+        self.btn_editer.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+
+        self.btn_valider = PrimaryButton("Garder")
+        self.btn_valider.setIcon(load_phosphor_icon("ph.check", color="white"))
+
+        main_bot_toolbar.addWidget(self.btn_rejeter)
+        main_bot_toolbar.addWidget(self.btn_editer)
+        main_bot_toolbar.addWidget(self.btn_valider)
+
+        cartes_layout.addLayout(main_bot_toolbar)
 
         erreurs_content = QWidget()
         erreurs_layout = QVBoxLayout(erreurs_content)
@@ -395,98 +590,100 @@ class CreationView(QWidget):
         erreurs_layout.addWidget(self.err_lbl)
         erreurs_layout.addStretch()
 
-        self.results_panel.add_tab("Cartes Générées Studio", cartes_content, "ph.list-numbers", closable=False)
-        self.results_panel.add_tab("Journal des Erreurs Studio", erreurs_content, "ph.warning-circle", closable=False)
+        self.results_panel.add_tab("Cartes Générées (0)", cartes_content, "ph.list-numbers", closable=False)
+        self.results_panel.add_tab("Journal des Erreurs", erreurs_content, "ph.warning-circle", closable=False)
 
         self.center_splitter.addWidget(self.results_panel)
         self.center_splitter.setSizes([320, 480])
         self.main_splitter.setSizes([260, 800])
 
+        # Creation du tab initial
+        self._open_document_tab("Saisie Libre")
         self._update_vision_ui(False)
 
     def _connect_signals(self) -> None:
-        self.source_text_edit.textChanged.connect(self._on_text_changed)
-        self.doc_selector.currentIndexChanged.connect(self._on_document_selected)
-        self.btn_paste_clipboard.clicked.connect(self._on_paste_clipboard)
+        self.btn_new_free_input.clicked.connect(lambda: self._open_document_tab("Nouvelle Saisie"))
+        self.file_tree.itemDoubleClicked.connect(self._on_explorer_item_double_clicked)
+
+        self.btn_select_deck.clicked.connect(self._on_click_select_deck)
+        self.btn_select_model.clicked.connect(self._on_click_select_model)
 
         self.vision_card.clicked.connect(self._toggle_vision_card)
         self.vision_cb.toggled.connect(self._update_vision_ui)
+        self.btn_toggle_advanced.clicked.connect(self._toggle_advanced_settings)
 
-        self.btn_new_deck.clicked.connect(self._on_create_new_deck)
         self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
         self.btn_no_pipeline_help.clicked.connect(lambda: self._navigate("pipelines"))
-        self.btn_go_docs.clicked.connect(lambda: self._navigate("documents"))
-
-        self.btn_generate.clicked.connect(self._on_generate)
-        self.btn_cancel.clicked.connect(self._on_cancel_generation)
         self.btn_save_anki.clicked.connect(self._on_save_anki)
-
         self.preview_widget.btn_prev.clicked.connect(self._on_prev_card)
         self.preview_widget.btn_next.clicked.connect(self._on_next_card)
-        self.preview_widget.btn_toggle_verso.clicked.connect(self._on_toggle_verso)
-        self.preview_widget.btn_valider.clicked.connect(self._on_validate_card)
-        self.preview_widget.btn_editer.clicked.connect(self._on_edit_card)
-        self.preview_widget.btn_rejeter.clicked.connect(self._on_reject_card)
+
+        self.btn_valider.clicked.connect(self._on_validate_card)
+        self.btn_editer.clicked.connect(self._on_edit_card)
+        self.btn_rejeter.clicked.connect(self._on_reject_card)
 
     def _toggle_vision_card(self) -> None:
         self.vision_cb.setChecked(not self.vision_cb.isChecked())
 
+    def _toggle_advanced_settings(self) -> None:
+        is_visible = not self.advanced_container.isVisible()
+        self.advanced_container.setVisible(is_visible)
+        icon_name = "ph.caret-down" if is_visible else "ph.caret-right"
+        self.advanced_icon.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+
     @Slot(bool)
     def _update_vision_ui(self, checked: bool) -> None:
         if checked:
+            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color="#eab308").pixmap(16, 16))
+            self.vision_badge.setText("ON")
+            self.vision_badge.set_variant("warning")
             self.vision_card.setStyleSheet("""
-                QFrame {
-                    background-color: rgba(234, 179, 8, 0.12);
+                QFrame#visionCard {
+                    background-color: rgba(234, 179, 8, 0.1);
                     border: 1px solid #eab308;
                     border-radius: 6px;
                 }
             """)
-            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color="#eab308").pixmap(20, 20))
-            badge_style = "background-color: rgba(234, 179, 8, 0.25); " "color: #eab308; border: 1px solid #eab308; " "font-weight: bold; padding: 2px 6px; " "border-radius: 4px; font-size: 10px;"
-            self.vision_badge.setStyleSheet(badge_style)
-            self.lbl_vision_desc.setText("Analyse multimodale active — Prise en charge des PDF, schémas, formules et figures.")
-            show_toast(self, "Analyse Vision IA activée !")
         else:
+            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
+            self.vision_badge.setText("OFF")
+            self.vision_badge.set_variant("neutral")
             self.vision_card.setStyleSheet(f"""
-                QFrame {{
-                    background-color: #1a1d24;
+                QFrame#visionCard {{
+                    background-color: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: 6px;
                 }}
+                QFrame#visionCard:hover {{
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                }}
             """)
-            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(20, 20))
-            self.vision_badge.setText("DÉSACTIVÉE")
-            badge_style_off = (
-                f"background-color: #2d313a; color: {DesignTokens.TEXT_MUTED}; " f"border: 1px solid {DesignTokens.BORDER_COLOR}; " "padding: 2px 6px; border-radius: 4px; font-size: 10px;"
-            )
-            self.vision_badge.setStyleSheet(badge_style_off)
-            self.lbl_vision_desc.setText("Activer l'extraction visuelle des schémas, tableaux & figures PDF.")
 
     def refresh_data(self) -> None:
         """Recharge les données dynamiques depuis Peewee DB (Decks, NoteTypes, Engines, Pipelines, Docs)."""
         try:
             # 1. Decks (Paquets existants + sélecteur)
-            self.deck_combo.blockSignals(True)
-            self.deck_combo.clear()
             decks = list(DeckModel.select())
             if not decks:
                 DeckModel.get_or_create(name="Général")
                 decks = list(DeckModel.select())
-            for dk in decks:
-                self.deck_combo.addItem(f"🎴 {dk.name}", userData=dk)
-            self.deck_combo.blockSignals(False)
+            self.decks_cache = decks
+            if self.current_deck is None and self.decks_cache:
+                self._set_current_deck(self.decks_cache[0])
 
             # 2. Note Types
-            self.model_combo.blockSignals(True)
-            self.model_combo.clear()
             note_types = list(NoteTypeModel.select())
-            if note_types:
-                for nt in note_types:
-                    self.model_combo.addItem(f"📝 {nt.name}", userData=nt)
-            else:
-                self.model_combo.addItem("📝 Basique (Recto/Verso)", userData=None)
-                self.model_combo.addItem("📝 Texte à trous (Cloze)", userData=None)
-            self.model_combo.blockSignals(False)
+            if not note_types:
+                # Add default models if empty in cache for selection dialog
+                class DummyModel:
+                    def __init__(self, name: str):
+                        self.name = name
+                        self.fields_schema = ""
+
+                note_types = [DummyModel("Basique (Recto/Verso)"), DummyModel("Texte à trous (Cloze)")]
+            self.models_cache = note_types
+            if self.current_model is None and self.models_cache:
+                self._set_current_model(self.models_cache[0])
 
             # 3. Engines LLM
             self.engine_combo.blockSignals(True)
@@ -529,19 +726,42 @@ class CreationView(QWidget):
             self.btn_no_pipeline_help.hide()
             self.pipeline_combo.blockSignals(False)
 
-            # 5. Documents
-            self.doc_selector.blockSignals(True)
-            self.doc_selector.clear()
+            # 5. Documents in Explorer Tree
+            self.file_tree.clear()
+
+            folders = list(FolderModel.select())
             docs = list(DocumentModel.select())
-            if docs:
-                self.doc_selector.addItem("-- Sélectionner un document existant --", userData=None)
-                for doc in docs:
-                    self.doc_selector.addItem(f"📄 {doc.title}", userData=doc)
-                self.btn_go_docs.hide()
+
+            folder_items: dict[int, QTreeWidgetItem] = {}
+            for folder in folders:
+                f_item = QTreeWidgetItem(self.file_tree)
+                f_item.setText(0, folder.name)
+                f_item.setIcon(0, load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY, weight="fill"))
+                f_item.setData(0, Qt.ItemDataRole.UserRole, folder)
+                folder_items[folder.id] = f_item
+                f_item.setExpanded(True)
+
+            if not docs and not folders:
+                item = QTreeWidgetItem(self.file_tree)
+                item.setText(0, "Aucun document")
+                item.setIcon(0, load_phosphor_icon("ph.warning-circle", color=DesignTokens.TEXT_MUTED))
             else:
-                self.doc_selector.addItem("⚠️ Aucun document en bibliothèque (Coller du texte ci-dessous)", userData=None)
-                self.btn_go_docs.show()
-            self.doc_selector.blockSignals(False)
+                for doc in docs:
+                    parent_item: Any = self.file_tree
+                    if doc.folder_id and doc.folder_id in folder_items:
+                        parent_item = folder_items[doc.folder_id]
+
+                    item = QTreeWidgetItem(parent_item)
+                    item.setText(0, doc.title)
+
+                    if doc.title.lower().endswith(".pdf"):
+                        item.setIcon(0, load_phosphor_icon("file-pdf", color=DesignTokens.COLOR_RED, weight="fill"))
+                    elif doc.title.lower().endswith((".md", ".txt", ".json", ".csv")):
+                        item.setIcon(0, load_phosphor_icon("file-code", color=DesignTokens.COLOR_YELLOW, weight="fill"))
+                    else:
+                        item.setIcon(0, load_phosphor_icon("file-text", color=DesignTokens.COLOR_GREEN, weight="fill"))
+
+                    item.setData(0, Qt.ItemDataRole.UserRole, doc)
 
             self._on_model_changed()
 
@@ -557,11 +777,9 @@ class CreationView(QWidget):
         if ok and name.strip():
             try:
                 dk_name = name.strip()
-                DeckModel.create(name=dk_name, description="Nouveau paquet créé depuis le Studio.")
+                new_deck, _ = DeckModel.get_or_create(name=dk_name, description="Nouveau paquet créé depuis le Studio.")
                 self.refresh_data()
-                idx = self.deck_combo.findText(f"🎴 {dk_name}", Qt.MatchFlag.MatchFixedString)
-                if idx != -1:
-                    self.deck_combo.setCurrentIndex(idx)
+                self._set_current_deck(new_deck)
                 show_toast(self, f"Paquet '{dk_name}' créé avec succès !")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Impossible de créer le paquet : {str(e)}")
@@ -573,23 +791,85 @@ class CreationView(QWidget):
         modal = SettingsModal(ai_manager=self.ai_manager, parent=self)
         modal.exec()
 
+    def _open_document_tab(self, title: str, content: str = "", doc_model: Optional[Any] = None) -> None:
+        # Create a unique title if multiple Saisie Libres are opened
+        base_title = title
+        counter = 1
+        while title in self.open_editors:
+            title = f"{base_title} {counter}"
+            counter += 1
+
+        editor_widget = DocumentEditorWidget(content, parent=self)
+        editor_widget.generate_requested.connect(self._on_generate)
+        editor_widget.cancel_requested.connect(self._on_cancel_generation)
+
+        self.open_editors[title] = editor_widget
+        icon = "ph.text-t"
+        icon_color = DesignTokens.TEXT_SECONDARY
+
+        if doc_model:
+            title_lower = title.lower()
+            if title_lower.endswith(".pdf"):
+                icon = "ph.file-pdf"
+                icon_color = DesignTokens.COLOR_RED
+            elif title_lower.endswith((".md", ".txt", ".json", ".csv")):
+                icon = "ph.file-code"
+                icon_color = DesignTokens.COLOR_BLUE
+            else:
+                icon = "ph.file-text"
+                icon_color = DesignTokens.COLOR_BLUE
+
+        self.source_panel.register_tab(title, editor_widget, icon, closable=True, icon_color=icon_color)
+
+    @Slot(QTreeWidgetItem, int)
+    def _on_explorer_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
+        doc = item.data(0, Qt.ItemDataRole.UserRole)
+        if doc and hasattr(doc, "content"):
+            title = doc.title if hasattr(doc, "title") else "Document"
+            # Prevent opening the same document twice
+            if title in self.open_editors:
+                self.source_panel.open_tab(title)
+            else:
+                self._open_document_tab(title, doc.content, doc)
+
+    def _set_all_generation_states(self, is_generating: bool) -> None:
+        for editor in self.open_editors.values():
+            editor.set_generation_state(is_generating)
+
     @Slot()
-    def _on_paste_clipboard(self) -> None:
-        clipboard = QApplication.clipboard()
-        text = clipboard.text().strip()
-        if text:
-            self.source_text_edit.setPlainText(text)
-            show_toast(self, "Texte collé depuis le presse-papiers !")
-        else:
-            show_toast(self, "Le presse-papiers est vide.", is_error=True)
+    def _on_click_select_deck(self) -> None:
+        dialog = DeckSelectionDialog(title="Sélectionner un paquet cible", items=self.decks_cache, parent=self)
+        if dialog.exec():
+            selected = dialog.get_selected_item()
+            if selected:
+                self._set_current_deck(selected)
+
+    def _set_current_deck(self, deck: Any) -> None:
+        self.current_deck = deck
+        name = getattr(deck, "name", str(deck))
+        self.btn_select_deck.setText(name)
+
+    @Slot()
+    def _on_click_select_model(self) -> None:
+        dialog = SelectionDialog(title="Sélectionner un modèle de carte", items=self.models_cache, display_func=lambda m: f"📝 {m.name}", parent=self)
+        if dialog.exec():
+            selected = dialog.get_selected_item()
+            if selected:
+                self._set_current_model(selected)
+
+    def _set_current_model(self, model: Any) -> None:
+        self.current_model = model
+        name = getattr(model, "name", str(model))
+        self.btn_select_model.setText(name)
+        self._on_model_changed()
 
     @Slot()
     def _on_model_changed(self) -> None:
-        selected_nt = self.model_combo.currentData()
+        selected_nt = self.current_model
         fields = ["Recto", "Verso", "Statut"]
         if selected_nt and isinstance(selected_nt, NoteTypeModel) and selected_nt.fields_schema:
             try:
-                schema_fields = json.loads(selected_nt.fields_schema)
+                schema_fields = json.loads(str(selected_nt.fields_schema))
                 if isinstance(schema_fields, list) and schema_fields:
                     fields = schema_fields + ["Statut"]
             except Exception:
@@ -602,27 +882,13 @@ class CreationView(QWidget):
         self.results_table.setRowCount(0)
         self.results_table.blockSignals(False)
 
-    @Slot()
-    def _on_text_changed(self) -> None:
-        text = self.source_text_edit.toPlainText()
-        words = len(text.split())
-        estimated_tokens = int(words * 1.3)
-        self.tokens_lbl.setText(f"Tokens estimés : ~{estimated_tokens} ({words} mots)")
-
-    @Slot(int)
-    def _on_document_selected(self, index: int) -> None:
-        doc: Optional[DocumentModel] = self.doc_selector.currentData()
-        if doc and hasattr(doc, "content") and doc.content:
-            self.source_text_edit.setPlainText(doc.content)
-
-    @Slot()
-    def _on_generate(self) -> None:
-        text_source = self.source_text_edit.toPlainText().strip()
+    @Slot(str)
+    def _on_generate(self, text_source: str = "") -> None:
         if not text_source:
             show_toast(self, "Veuillez saisir un texte source ou sélectionner un document.", is_error=True)
             return
 
-        selected_nt = self.model_combo.currentData()
+        selected_nt = self.current_model
         selected_pipeline = self.pipeline_combo.currentData()
         selected_engine = self.engine_combo.currentData()
 
@@ -631,7 +897,7 @@ class CreationView(QWidget):
             return
 
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
-        nt_schema = json.loads(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else ["Front", "Back"]
+        nt_schema = str(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else '["Front", "Back"]'
 
         pipe_id = selected_pipeline.id if selected_pipeline and hasattr(selected_pipeline, "id") else 1
         pipe_name = selected_pipeline.name if selected_pipeline and hasattr(selected_pipeline, "name") else "Standard"
@@ -657,8 +923,7 @@ class CreationView(QWidget):
             except Exception as e:
                 logger.warning("Impossible de créer le provider depuis la config: %s", e)
 
-        self.btn_generate.setEnabled(False)
-        self.btn_cancel.show()
+        self._set_all_generation_states(True)
 
         self.worker = CreationWorker(ai_provider=provider, payload=payload)
         self.worker.progress.connect(self._on_worker_progress)
@@ -678,8 +943,7 @@ class CreationView(QWidget):
 
     @Slot(list)
     def _on_worker_finished(self, cards: list[dict[str, Any]]) -> None:
-        self.btn_generate.setEnabled(True)
-        self.btn_cancel.hide()
+        self._set_all_generation_states(False)
         self.generated_cards = cards
         self.current_preview_index = 0
 
@@ -689,16 +953,14 @@ class CreationView(QWidget):
 
     @Slot(str)
     def _on_worker_error(self, err_msg: str) -> None:
-        self.btn_generate.setEnabled(True)
-        self.btn_cancel.hide()
+        self._set_all_generation_states(False)
         self.err_lbl.setText(f"⚠️ Erreur de génération : {err_msg}")
         self.results_panel.set_tab_title(1, "Journal des Erreurs (1)")
         show_toast(self, f"Erreur : {err_msg}", is_error=True)
 
     @Slot()
     def _on_worker_cancelled(self) -> None:
-        self.btn_generate.setEnabled(True)
-        self.btn_cancel.hide()
+        self._set_all_generation_states(False)
         show_toast(self, "Génération annulée par l'utilisateur.")
 
     @Slot()
@@ -709,6 +971,7 @@ class CreationView(QWidget):
     def _populate_results_table(self) -> None:
         self.results_table.blockSignals(True)
         self.results_table.setRowCount(len(self.generated_cards))
+        self.results_panel.set_tab_title(0, f"Cartes Générées ({len(self.generated_cards)})")
 
         col_count = self.results_table.columnCount()
 
@@ -718,11 +981,27 @@ class CreationView(QWidget):
             back_text = card.get("Back", card.get("Verso", ""))
 
             self.results_table.setItem(row, 0, QTableWidgetItem(front_text))
+
+            badge_container = QWidget()
+            badge_layout = QHBoxLayout(badge_container)
+            badge_layout.setContentsMargins(8, 2, 8, 2)
+
+            status_text = card["status"]
+            variant = "warning" if status_text == "À valider" or status_text == "En attente" else "success"
+            if status_text == "Rejetée":
+                variant = "error"
+
+            badge = Badge(status_text, variant=variant)
+            badge_layout.addWidget(badge)
+            badge_layout.addStretch()
+
             if col_count > 2:
                 self.results_table.setItem(row, 1, QTableWidgetItem(back_text))
-                self.results_table.setItem(row, col_count - 1, QTableWidgetItem(card["status"]))
+                self.results_table.setItem(row, col_count - 1, QTableWidgetItem())
+                self.results_table.setCellWidget(row, col_count - 1, badge_container)
             else:
-                self.results_table.setItem(row, 1, QTableWidgetItem(card["status"]))
+                self.results_table.setItem(row, 1, QTableWidgetItem())
+                self.results_table.setCellWidget(row, 1, badge_container)
 
         self.results_table.blockSignals(False)
 
@@ -739,17 +1018,12 @@ class CreationView(QWidget):
         self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
 
         card = self.generated_cards[self.current_preview_index]
-        selected_nt = self.model_combo.currentData()
-
-        override_templates = None
-        if not self.verso_visible:
-            qfmt = card.get("Front", card.get("Recto", "{{Front}}"))
-            override_templates = [{"name": "Carte 1", "qfmt": qfmt, "afmt": ""}]
+        selected_nt = self.current_model
 
         self.preview_widget.card_preview_widget.update_preview(
             note_type=selected_nt,
             fields_dict=card,
-            override_templates=override_templates,
+            override_templates=None,
         )
 
     @Slot()
@@ -786,15 +1060,6 @@ class CreationView(QWidget):
             self.current_preview_index += 1
             self.results_table.selectRow(self.current_preview_index)
             self._update_card_preview()
-
-    @Slot()
-    def _on_toggle_verso(self) -> None:
-        self.verso_visible = not self.verso_visible
-        label = "Masquer Verso" if self.verso_visible else "Afficher Verso"
-        icon_name = "ph.eye-slash" if self.verso_visible else "ph.eye"
-        self.preview_widget.btn_toggle_verso.setText(label)
-        self.preview_widget.btn_toggle_verso.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
-        self._update_card_preview()
 
     @Slot()
     def _on_validate_card(self) -> None:
@@ -836,9 +1101,13 @@ class CreationView(QWidget):
             show_toast(self, "Aucune carte générée à sauvegarder.", is_error=True)
             return
 
-        selected_nt = self.model_combo.currentData()
-        deck_data = self.deck_combo.currentData()
-        deck_name = deck_data.name if deck_data and hasattr(deck_data, "name") else self.deck_combo.currentText().replace("🎴 ", "")
+        selected_nt = self.current_model
+        if not selected_nt:
+            show_toast(self, "Aucun type de note (modèle) sélectionné.", is_error=True)
+            return
+
+        deck_data = self.current_deck
+        deck_name = deck_data.name if deck_data and hasattr(deck_data, "name") else "Général"
 
         saved_count = 0
         try:

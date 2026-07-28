@@ -170,7 +170,7 @@ class AgentsView(QWidget):
             QPlainTextEdit {
                 background-color: #090a0f;
                 color: #a5b4fc;
-                font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                font-family: 'JetBrains Mono', 'Fira Code', Menlo;
                 font-size: 13px;
                 line-height: 1.5;
                 border: 1px solid #2d313a;

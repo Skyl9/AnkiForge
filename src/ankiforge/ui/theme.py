@@ -4,7 +4,7 @@ Single point of truth for all visual values.
 """
 
 import re
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QWidget, QMenu
 
@@ -54,8 +54,8 @@ class DesignTokens:
     SHADOW_GLASS_BLUR = 32
 
     # Typography
-    FONT_MAIN = "Inter"
-    FONT_CODE = "Fira Code"
+    FONT_MAIN = ".AppleSystemUIFont"
+    FONT_CODE = "Menlo"
     FONT_SIZE_BASE = 13
     FONT_SIZE_SMALL = 11
     FONT_SIZE_CODE = 12
@@ -223,9 +223,9 @@ def setup_dynamic_theme(app: QApplication) -> None:
     """Configures the theme, fonts, and palette for the given QApplication."""
     app.setStyle("Fusion")
 
-    # Load fonts
-    QFontDatabase.addApplicationFont(":/fonts/Inter-Regular.ttf")
-    QFontDatabase.addApplicationFont(":/fonts/FiraCode-Regular.ttf")
+    # Load fonts (disabled missing resources)
+    # QFontDatabase.addApplicationFont(":/fonts/Inter-Regular.ttf")
+    # QFontDatabase.addApplicationFont(":/fonts/FiraCode-Regular.ttf")
 
     default_font = QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE)
     app.setFont(default_font)

@@ -9,9 +9,10 @@ class Badge(QLabel):
     def __init__(self, text: str, variant: str = "filled", color: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.base_color = color or DesignTokens.ACCENT_PRIMARY
+        self.set_variant(variant)
 
-        base_color = color or DesignTokens.ACCENT_PRIMARY
-
+    def set_variant(self, variant: str) -> None:
         style = """
             border-radius: 9999px;
             padding: 2px 8px;
@@ -20,11 +21,11 @@ class Badge(QLabel):
         """
 
         if variant == "filled":
-            style += f"background-color: {base_color}; color: #ffffff;"
+            style += f"background-color: {self.base_color}; color: #ffffff;"
         elif variant == "outline":
-            style += f"background-color: transparent; border: 1px solid {base_color}; color: {base_color};"
+            style += f"background-color: transparent; border: 1px solid {self.base_color}; color: {self.base_color};"
         elif variant == "status":
-            style += f"background-color: rgba(99, 102, 241, 0.1); color: {base_color}; border: 1px solid rgba(99, 102, 241, 0.2);"
+            style += f"background-color: rgba(99, 102, 241, 0.1); color: {self.base_color}; border: 1px solid rgba(99, 102, 241, 0.2);"
         elif variant == "glass":
             style += "background-color: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2);"
         elif variant == "success":
@@ -35,6 +36,8 @@ class Badge(QLabel):
             style += "background-color: rgba(59, 130, 246, 0.15); color: #3b82f6;"
         elif variant == "danger":
             style += "background-color: rgba(239, 68, 68, 0.15); color: #ef4444;"
+        elif variant == "neutral":
+            style += f"background-color: #2d313a; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR};"
 
         self.setStyleSheet(style)
 

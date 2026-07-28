@@ -21,7 +21,7 @@ class DiffViewer(QTextBrowser):
                 color: #d4d4d4;
                 border: 1px solid #333333;
                 border-radius: 4px;
-                font-family: monospace;
+                font-family: Menlo;
                 font-size: 13px;
                 padding: 8px;
             }

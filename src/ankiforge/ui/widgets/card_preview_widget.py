@@ -14,7 +14,8 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.ui.theme import DesignTokens, apply_shadow, is_dark_mode
 from ankiforge.ui.components.inputs import StyledComboBox
-from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.components.buttons import IconButton, SecondaryButton
+from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.widgets.cloze_manager import sync_preview_card_selector, get_preview_template
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import render_anki_card, AnkiFields
@@ -34,6 +35,7 @@ class CardPreviewWidget(QWidget):
         self.current_templates: list[dict[str, Any]] = []
         self.current_css: str = ""
         self._device_mode: str = "desktop"
+        self.is_recto: bool = True
 
         self._setup_ui(show_header)
         self._connect_signals()
@@ -72,27 +74,13 @@ class CardPreviewWidget(QWidget):
             }}
         """)
 
-        # Sélecteur de face (Voir Recto / Voir Verso)
-        self.side_selector = StyledComboBox()
-        self.side_selector.setMinimumWidth(120)
-        self.side_selector.setFixedHeight(30)
-        self.side_selector.addItems(["Voir Recto", "Voir Verso"])
-        self.side_selector.setStyleSheet(f"""
-            QComboBox {{
-                background-color: #1a1d24;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 10px;
-                font-size: 11px;
-            }}
-            QComboBox:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+        # Bouton pour basculer Recto/Verso
+        self.btn_toggle_side = SecondaryButton("Voir Verso")
+        self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_toggle_side.clicked.connect(self._on_toggle_side)
 
         self.controls_layout.addWidget(self.card_selector)
-        self.controls_layout.addWidget(self.side_selector)
+        self.controls_layout.addWidget(self.btn_toggle_side)
         self.controls_layout.addStretch()
 
         # Boutons de bascule multi-appareils (Bureau / Tablette / Mobile)
@@ -158,7 +146,17 @@ class CardPreviewWidget(QWidget):
 
     def _connect_signals(self) -> None:
         self.card_selector.currentIndexChanged.connect(self._render)
-        self.side_selector.currentIndexChanged.connect(self._render)
+
+    @Slot()
+    def _on_toggle_side(self) -> None:
+        self.is_recto = not self.is_recto
+        if self.is_recto:
+            self.btn_toggle_side.setText("Voir Verso")
+            self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        else:
+            self.btn_toggle_side.setText("Masquer Verso")
+            self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye-slash", color=DesignTokens.TEXT_PRIMARY))
+        self._render()
 
     def set_device_mode(self, mode: str) -> None:
         """Ajuste uniquement la largeur du conteneur selon l'appareil choisi."""
@@ -265,7 +263,7 @@ class CardPreviewWidget(QWidget):
             selected_index=selected_tmpl_idx,
         )
 
-        is_recto = self.side_selector.currentIndex() == 0
+        is_recto = self.is_recto
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
 
         cur_fields = AnkiFields(self.current_fields.copy())

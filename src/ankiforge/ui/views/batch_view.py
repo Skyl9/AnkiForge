@@ -406,7 +406,7 @@ class BatchView(QWidget):
             QPlainTextEdit {
                 background-color: #0c0c0c;
                 color: #10b981;
-                font-family: 'Fira Code', 'JetBrains Mono', monospace;
+                font-family: 'Fira Code', 'JetBrains Mono', Menlo;
                 font-size: 12px;
                 line-height: 1.6;
                 padding: 14px;

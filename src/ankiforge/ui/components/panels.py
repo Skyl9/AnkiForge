@@ -108,7 +108,7 @@ class PanelPlaceholderWidget(QFrame):
         center_layout.setSpacing(12)
 
         self.icon_lbl = QLabel()
-        self.icon_lbl.setPixmap(load_phosphor_icon("ph.squares-down", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
+        self.icon_lbl.setPixmap(load_phosphor_icon("ph.squares-four", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
         self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_lbl.setStyleSheet("border: none; background: transparent;")
         center_layout.addWidget(self.icon_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -250,7 +250,7 @@ class IdePanel(QFrame):
     detach_requested = Signal()
     tab_changed = Signal(int)
 
-    def __init__(self, title: str = "", detachable: bool = False, parent: QWidget | None = None) -> None:
+    def __init__(self, title: str = "", detachable: bool = False, tab_variant: str = "ide", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setStyleSheet(f"""
             IdePanel {{
@@ -290,9 +290,9 @@ class IdePanel(QFrame):
             self._static_title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; padding-left: 16px;")
             self.header_layout.addWidget(self._static_title_label)
 
-        # Tabs container (ide-tabs-list) — scrollable horizontally
-        self.tabs_bar = ScrollableTabBarWidget()
-        self.tabs_bar.tab_changed.connect(self._on_tab_clicked)
+        # Tab Bar
+        self.tabs_bar = ScrollableTabBarWidget(variant=tab_variant)
+        self.tabs_bar.tab_changed.connect(self._on_tab_changed)
         self.tabs_bar.tab_reordered.connect(self._on_tab_reordered)
         self.tabs_bar.tab_close_requested.connect(self._on_tab_close_requested)
         self.header_layout.addWidget(self.tabs_bar, stretch=1)
@@ -402,8 +402,8 @@ class IdePanel(QFrame):
             if self._static_title_label is not None:
                 self._static_title_label.setVisible(False)
 
-    def register_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = True, active_by_default: bool = True):
-        self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": False}
+    def register_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = True, active_by_default: bool = True, icon_color: str = ""):
+        self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": False, "icon_color": icon_color}
         if active_by_default:
             self.open_tab(title)
 
@@ -435,7 +435,7 @@ class IdePanel(QFrame):
                         return
 
             info["active"] = True
-            idx = self.tabs_bar.add_tab(title, info["icon_name"], info["closable"])
+            idx = self.tabs_bar.add_tab(title, info["icon_name"], info["closable"], info.get("icon_color", ""))
             self.content_stack.addWidget(info["widget"])
             info["widget"].show()
             self._toggle_placeholder()
@@ -561,9 +561,9 @@ class IdePanel(QFrame):
         tabs_mod._floating_windows.append(fw)
         fw.show()
 
-    def add_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = False) -> int:
+    def add_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = False, icon_color: str = "") -> int:
         """Ajoute un onglet avec titre, contenu et icône optionnelle."""
-        self.register_tab(title, widget, icon_name, closable, active_by_default=True)
+        self.register_tab(title, widget, icon_name, closable, active_by_default=True, icon_color=icon_color)
         return len(self.tabs_bar.tabs) - 1
 
     def remove_tab_widget(self, index: int) -> Tuple[QWidget, str, bool]:
@@ -624,7 +624,7 @@ class IdePanel(QFrame):
         self._extra_widgets_zone.setVisible(True)
         self._extra_layout.addWidget(sep)
 
-    def _on_tab_clicked(self, idx: int) -> None:
+    def _on_tab_changed(self, idx: int) -> None:
         self.content_stack.setCurrentIndex(idx)
         # Update icons for active/inactive state
         for i, btn in enumerate(self.tabs_bar.tabs):
@@ -759,7 +759,7 @@ class IdePanel(QFrame):
         if not parent:
             return
 
-        new_panel = IdePanel(detachable=self._detachable)
+        new_panel = IdePanel(detachable=self._detachable, tab_variant=self.tabs_bar.variant)
         new_panel.add_tab(title, widget, icon_name, closable)
 
         is_horizontal = direction in ("left", "right")
