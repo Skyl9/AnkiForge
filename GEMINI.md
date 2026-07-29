@@ -31,3 +31,5 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
    - *Web :* Scraping statique propre (`trafilatura`/`BeautifulSoup`). Si JS lourd, demander un copier-coller manuel.
 6. **Synchro Anki & Conflits :** Mode automatique configurable OU résolution manuelle par défaut via une **boîte de dialogue de fusion (Merge Dialog) à 3 panneaux inspirée d'IntelliJ** (Local, Fusion, Distant).
 7. **Extension C :** Distribution de binaires Levenshtein précompilés avec **fallback transparent en Python pur** si le chargement échoue.
+8. **Parité Web <-> Qt (`RULE_QT_WEB_PARITY`) :** Tout composant HTML créé dans la maquette doit comporter un commentaire d'en-tête indiquant la classe Qt PySide6 équivalente (ex: `<!-- Qt Equivalent: QSplitter / GlowLineEdit -->`). La translatabilité est validée via `validate_qt_translatability`.
+9. **Politique d'Auto-nettoyage des Brouillons (`RULE_DRAFT_AUTOCLEAN`) :** À la fin d'une session de travail, tout brouillon `.draft-vX` doit être soit promu en version officielle (`commit_draft`), soit nettoyé (`discard_draft`).

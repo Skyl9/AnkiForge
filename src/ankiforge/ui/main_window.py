@@ -402,6 +402,7 @@ class MainWindow(QMainWindow):
     from ankiforge.ui.views.dashboard_view import DashboardView
     from ankiforge.ui.views.creation_view import CreationView
     from ankiforge.ui.views.edition_view import EditionView
+    from ankiforge.ui.views.analysis_view import AnalysisView
     from ankiforge.ui.views.consultant_view import ConsultantView
     from ankiforge.ui.views.batch_view import BatchView
     from ankiforge.ui.views.documents_view import DocumentsView
@@ -414,7 +415,8 @@ class MainWindow(QMainWindow):
         # view_id -> (category, icon, title, WidgetClass)
         "dashboard": ("Général", "squares-four", "Tableau de bord", DashboardView),
         "creation": ("Forge & Outils", "magic-wand", "Studio de Création", CreationView),
-        "edition": ("Forge & Outils", "cards", "Édition / Analyse", EditionView),
+        "edition": ("Forge & Outils", "cards", "Édition & Navigateur", EditionView),
+        "analysis": ("Forge & Outils", "chart-line-up", "Analyse & Audit IA", AnalysisView),
         "consultant": ("Forge & Outils", "robot", "AI Consultant", ConsultantView),
         "batch": ("Forge & Outils", "factory", "Batch Factory", BatchView),
         "documents": ("Bibliothèque", "file-text", "My Documents", DocumentsView),
@@ -511,31 +513,20 @@ class MainWindow(QMainWindow):
     def _populate_sidebar_and_register(self) -> None:
         # Group by category
         categories: Dict[str, list[Tuple[str, str, str]]] = {}
-        for view_id, (cat, icon, title, cls) in self.VIEW_REGISTRY.items():
+        for view_id, (cat, icon, title, _cls) in self.VIEW_REGISTRY.items():
             if cat not in categories:
                 categories[cat] = []
             categories[cat].append((view_id, icon, title))
 
-            # Instantiate view
-            if cls == DummyView:
-                widget = cls(title)
-            else:
-                try:
-                    widget = cast(Any, cls)(ai_manager=self.ai_manager)
-                except TypeError:
-                    widget = cast(Any, cls)()
-
-            # Connect navigation signals if view supports it
-            if hasattr(widget, "request_navigation"):
-                widget.request_navigation.connect(self._on_view_selected)
-
-            self._register_view(view_id, widget)
+            # Enregistrement initial avec un placeholder léger (Lazy Loading)
+            placeholder = DummyView(title)
+            self._register_view(view_id, placeholder)
 
         for cat, items in categories.items():
             self.sidebar.add_section(cat, items)
 
-        # Set default view
-        if "dashboard" in self._view_widgets:
+        # Activer la vue par défaut (déclenche l'instanciation de dashboard)
+        if "dashboard" in self.VIEW_REGISTRY:
             self._on_view_selected("dashboard")
 
     def _register_view(self, view_id: str, widget: QWidget) -> None:
@@ -544,7 +535,7 @@ class MainWindow(QMainWindow):
         self._view_widgets[view_id] = widget
 
     def _on_view_selected(self, view_id: str, data: Optional[dict] = None) -> None:
-        """Navigation: vérifie dirty state, switch la vue, appelle refresh_data()."""
+        """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
         if self._current_view_id == view_id and not data:
             return
 
@@ -554,6 +545,27 @@ class MainWindow(QMainWindow):
                 if self._current_view_id:
                     self.sidebar.set_active_view(self._current_view_id)
                 return
+
+        # Lazy Instantiation de la vue réelle si c'est encore un DummyView
+        if view_id in self.VIEW_REGISTRY:
+            cat, icon, title, cls = self.VIEW_REGISTRY[view_id]
+            current_widget = self._view_widgets.get(view_id)
+            if isinstance(current_widget, DummyView) and cls != DummyView:
+                try:
+                    real_widget = cast(Any, cls)(ai_manager=self.ai_manager)
+                except TypeError:
+                    real_widget = cast(Any, cls)()
+
+                if hasattr(real_widget, "request_navigation"):
+                    real_widget.request_navigation.connect(self._on_view_selected)
+
+                # Remplacer le placeholder par la vraie vue dans QStackedWidget
+                idx = self.stacked_widget.indexOf(current_widget)
+                if idx != -1:
+                    self.stacked_widget.removeWidget(current_widget)
+                    current_widget.deleteLater()
+                    self.stacked_widget.insertWidget(idx, real_widget)
+                    self._view_widgets[view_id] = real_widget
 
         widget = self._view_widgets.get(view_id)
         if widget:

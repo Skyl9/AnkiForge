@@ -134,13 +134,14 @@ class CardListItemWidget(QFrame):
         folder_icon.setPixmap(load_phosphor_icon("folder", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         folder_icon.setStyleSheet("border: none; background: transparent;")
 
-        folder_name = "Par défaut"
-        if hasattr(note, "cards") and note.cards.count() > 0:
-            first_card = note.cards.first()
-            if first_card and first_card.deck:
-                folder_name = first_card.deck.name
-        elif hasattr(note, "folder") and note.folder:
-            folder_name = note.folder.name
+        folder_name = getattr(note, "_deck_name", "Par défaut")
+        if folder_name == "Par défaut" and hasattr(note, "cards"):
+            try:
+                cards_list = list(note.cards)
+                if cards_list and cards_list[0].deck:
+                    folder_name = cards_list[0].deck.name
+            except Exception:
+                pass  # nosec B110
 
         folder_lbl = QLabel(folder_name)
         folder_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
