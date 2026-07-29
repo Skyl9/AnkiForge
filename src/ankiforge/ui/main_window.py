@@ -4,14 +4,14 @@ Main Window & Navigation for AnkiForge.
 
 from typing import Dict, Tuple, Optional, Type, Any, cast
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
-from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QSize, QObject, QEvent
+from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
 from PySide6.QtGui import QMouseEvent, QKeySequence, QShortcut
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.components.misc import DaemonStatusWidget, UserAvatar
+from ankiforge.ui.components.misc import DaemonStatusWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
 
@@ -183,10 +183,14 @@ class Sidebar(QWidget):
         self.user_widget.setCursor(Qt.CursorShape.PointingHandCursor)
         user_layout = QHBoxLayout(self.user_widget)
         user_layout.setContentsMargins(8, 8, 8, 8)
-        self.avatar = UserAvatar("U", size=24)
-        self.user_name = QLabel(f"Tristan R.<br><span style='color: {DesignTokens.TEXT_MUTED}; font-weight: normal; font-size: 10px;'>{profile_name}</span>")
+
+        cards_icon = QLabel()
+        cards_icon.setPixmap(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
+        cards_icon.setStyleSheet("border: none; background: transparent;")
+
+        self.user_name = QLabel(f"Profil: {profile_name}<br><span style='color: {DesignTokens.COLOR_GREEN}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
         self.user_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-weight: bold; font-size: 12px;")
-        user_layout.addWidget(self.avatar)
+        user_layout.addWidget(cards_icon)
         user_layout.addWidget(self.user_name)
         user_layout.addStretch()
 
@@ -209,7 +213,7 @@ class Sidebar(QWidget):
         header_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         title_lbl = QLabel(title.upper())
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none;")
         title_lbl.setFixedHeight(20)
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
@@ -240,15 +244,8 @@ class Sidebar(QWidget):
         self.is_collapsed = collapsed
         width = DesignTokens.SIDEBAR_WIDTH_COLLAPSED if collapsed else DesignTokens.SIDEBAR_WIDTH_EXPANDED
 
-        # Animate width
-        self.anim = QPropertyAnimation(self, b"minimumWidth")
-        self.anim.setDuration(200)
-        self.anim.setStartValue(self.width())
-        self.anim.setEndValue(width)
-        self.anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.anim.start()
-
-        self.setMaximumWidth(width)
+        # Direct fixed width update (prevents 16ms layout thrashing reflow loop)
+        self.setFixedWidth(width)
 
         # Toggle visibility
         self.logo_text.setVisible(not collapsed)
@@ -298,26 +295,49 @@ class TopBar(QWidget):
 
         # Omnibox
         self.omnibox = GlowLineEdit()
-        self.omnibox.setPlaceholderText("Rechercher... (Ctrl+K)")
-        self.omnibox.setFixedWidth(400)
+        self.omnibox.setPlaceholderText("Rechercher cartes, paquets ou commandes... (Ctrl+K)")
+        self.omnibox.setMaximumWidth(500)
         self.omnibox.installEventFilter(self)
         layout.addWidget(self.omnibox)
 
         layout.addStretch()
 
-        # Token tracker
-        self.token_lbl = QLabel("0 tk | 0.00$")
-        self.token_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-family: {DesignTokens.FONT_CODE};")
-        layout.addWidget(self.token_lbl)
+        # Token cost tracker pill (28px compact height, vertically centered)
+        self.token_container = QWidget()
+        self.token_container.setFixedHeight(28)
+        self.token_container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.token_container.setStyleSheet(f"""
+            QWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        token_layout = QHBoxLayout(self.token_container)
+        token_layout.setContentsMargins(8, 0, 10, 0)
+        token_layout.setSpacing(6)
+        token_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        self.dollar_icon = QLabel()
+        self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
+        self.dollar_icon.setStyleSheet("border: none; background: transparent;")
+
+        self.token_lbl = QLabel("Dépenses : 0.00 $ (0 tk)")
+        self.token_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; border: none; background: transparent;")
+
+        token_layout.addWidget(self.dollar_icon)
+        token_layout.addWidget(self.token_lbl)
+
+        layout.addWidget(self.token_container, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Daemon Status
         self.daemon_status = DaemonStatusWidget()
         self.daemon_status.set_status("idle", "Daemon en attente")
-        layout.addWidget(self.daemon_status)
+        layout.addWidget(self.daemon_status, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Notifications
         self.notif_btn = IconButton("bell", tooltip="Notifications", size=24)
-        layout.addWidget(self.notif_btn)
+        layout.addWidget(self.notif_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if obj == self.omnibox and event.type() == QEvent.Type.MouseButtonPress:
@@ -332,7 +352,8 @@ class TopBar(QWidget):
         self.daemon_status.set_status(status, text)
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
-        self.token_lbl.setText(f"{tokens} tk | {cost}$")
+        clean_cost = str(cost).replace("$", "").strip()
+        self.token_lbl.setText(f"Dépenses : {clean_cost} $ ({tokens} tk)")
 
 
 class GlobalTitleBar(QFrame):

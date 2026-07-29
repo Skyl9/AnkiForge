@@ -84,8 +84,7 @@ class SelectionDialog(QDialog):
                 background-color: {DesignTokens.BG_HOVER};
             }}
             QListWidget::item:selected {{
-                background-color: {DesignTokens.BG_HOVER};
-                border-left: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_ACTIVE};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)

@@ -58,6 +58,7 @@ class DesignTokens:
     FONT_CODE = "Menlo"
     FONT_SIZE_BASE = 13
     FONT_SIZE_SMALL = 11
+    FONT_SIZE_XS = 11
     FONT_SIZE_CODE = 12
 
     # Sidebar
@@ -183,8 +184,8 @@ def get_global_stylesheet(is_dark: bool) -> str:
         background-color: #2d313a;
     }}
     QTableView::item:selected {{
-        background-color: #2d313a;
-        border-left: 2px solid #6366f1;
+        background-color: rgba(99, 102, 241, 0.18);
+        color: #f8fafc;
     }}
     
     QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{

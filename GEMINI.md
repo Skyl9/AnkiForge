@@ -9,20 +9,25 @@ Ton rôle est d'analyser les requêtes, planifier les tâches (Plan-and-Execute)
 2. **JIT Retrieval (Skills) :** NE CODE PAS à l'aveugle. Lis les instructions des Skills pertinents listés ci-dessous en utilisant tes outils de lecture de fichiers.
 3. **Garde-fous :** Limite-toi à des itérations courtes. Résume systématiquement tes actions à l'utilisateur pour éviter la saturation du contexte (Context Compaction).
 
-## 🧰 Skills Techniques (Progressive Disclosure)
+## 🧰 Skills Techniques & Maquettage (Progressive Disclosure)
 Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` correspondant avant d'agir :
 
+- 🎨 **Orchestrateur Maquettes (Maquette Studio Hub)** : `~/.gemini/skills/maquette-studio/SKILL.md`
+- 🧪 **A/B Testing & Variantes (Composants/Vues)** : `~/.gemini/skills/maquette-ab-tester/SKILL.md`
+- ⚡ **Traduction Web `af-*` -> PySide6 Qt** : `~/.gemini/skills/ankiforge-qt-translator/SKILL.md`
+- 🛡️ **Audit Qualité & Accessibilité WCAG** : `~/.gemini/skills/maquette-qa-auditor/SKILL.md`
 - 🖥️ **UI & Frontend (PySide6)** : `~/.gemini/skills/technologies/application/python/qt/pyside6-modern-ui.md`
 - 💾 **Base de Données (Peewee ORM)** : `~/.gemini/skills/technologies/peewee-orm-standards.md`
 - 🧪 **Tests & QA (pytest-qt)** : `~/.gemini/skills/technologies/pytest-qt-headless.md`
 
 ## 🗺️ Règles Métier & Périmètre Cible (AnkiForge)
-1. **Périmètre d'Étude :** C'est une **Forge pure**. L'étude et les révisions (SRS) se font exclusivement dans l'application officielle Anki. AnkiForge gère la génération, l'édition enrichie, le versionnage et le contrôle qualité.
-2. **Interface & Éditeur (Forge Editor) :** Multi-fenêtrage détachable JetBrains-style. L'éditeur de notes doit être **100% natif Qt** (pour l'efficience et les performances) avec rendu LaTeX KaTeX en direct et IntelliSense/autocomplétion des macros mathématiques usuelles, HTML et Jinja2.
-3. **Espaces de travail :** Support multi-profils isolés. Chaque profil possède sa base SQLite sous `~/.ankiforge/profiles/<profile_name>/ankiforge.db` et ses médias isolés.
-4. **Parsing IA :**
+1. **Flux de Travail par Brouillons (`create_draft`) :** Toute modification de layout ou maquette doit démarrer dans un brouillon éphémère `.draft-vX` avant d'être validée par `commit_draft()` (qui incrémente automatiquement la version).
+2. **Périmètre d'Étude :** C'est une **Forge pure**. L'étude et les révisions (SRS) se font exclusivement dans l'application officielle Anki. AnkiForge gère la génération, l'édition enrichie, le versionnage et le contrôle qualité.
+3. **Interface & Éditeur (Forge Editor) :** Multi-fenêtrage détachable JetBrains-style. L'éditeur de notes doit être **100% natif Qt** (pour l'efficience et les performances) avec rendu LaTeX KaTeX en direct et IntelliSense/autocomplétion des macros mathématiques usuelles, HTML et Jinja2.
+4. **Espaces de travail :** Support multi-profils isolés. Chaque profil possède sa base SQLite sous `~/.ankiforge/profiles/<profile_name>/ankiforge.db` et ses médias isolés.
+5. **Parsing IA :**
    - *PDF :* Extraction locale (Marker) avec fallback d'analyse de vision Cloud (Gemini/OpenAI) pour les configurations légères.
    - *YouTube :* Récupération des sous-titres via API, avec repli par téléchargement de l'audio (`yt-dlp`) + transcription par IA.
    - *Web :* Scraping statique propre (`trafilatura`/`BeautifulSoup`). Si JS lourd, demander un copier-coller manuel.
-5. **Synchro Anki & Conflits :** Mode automatique configurable OU résolution manuelle par défaut via une **boîte de dialogue de fusion (Merge Dialog) à 3 panneaux inspirée d'IntelliJ** (Local, Fusion, Distant).
-6. **Extension C :** Distribution de binaires Levenshtein précompilés avec **fallback transparent en Python pur** si le chargement échoue.
+6. **Synchro Anki & Conflits :** Mode automatique configurable OU résolution manuelle par défaut via une **boîte de dialogue de fusion (Merge Dialog) à 3 panneaux inspirée d'IntelliJ** (Local, Fusion, Distant).
+7. **Extension C :** Distribution de binaires Levenshtein précompilés avec **fallback transparent en Python pur** si le chargement échoue.

@@ -294,9 +294,8 @@ class CreationView(QWidget):
                 background-color: {DesignTokens.BG_HOVER};
             }}
             QTreeWidget::item:selected {{
-                background-color: {DesignTokens.BG_HOVER};
+                background-color: {DesignTokens.BG_ACTIVE};
                 color: {DesignTokens.TEXT_PRIMARY};
-                border-left: 2px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
         explorer_layout.addWidget(self.file_tree)
@@ -383,7 +382,7 @@ class CreationView(QWidget):
         vision_layout.addLayout(vision_top)
 
         self.lbl_vision_desc = QLabel("Extraction multimodale des schémas & figures.")
-        self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
+        self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         self.lbl_vision_desc.setWordWrap(True)
         vision_layout.addWidget(self.lbl_vision_desc)
 
