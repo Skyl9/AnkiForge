@@ -1,17 +1,38 @@
-# Services IA et Analyse (Brouillon)
+# Services IA et Analyse (AnkiForge)
 
-## Diagnostic & Traçabilité des Sources
+## 1. Agnosticisme et Stratégie des Modèles
+L'application adopte une stratégie **Agnostique et Local-First** pour protéger les données de l'utilisateur tout en garantissant des performances maximales.
+* **Le Pattern Adapter :** Le code d'AnkiForge n'est pas lié à un SDK spécifique (OpenAI, Anthropic). Il utilise une couche d'abstraction (ex: API compatible OpenAI) permettant de brancher n'importe quel modèle.
+* **Ollama (Local) :** Par défaut, pour des raisons de confidentialité (ex: cours de médecine, documents internes), l'application pointe vers un daemon local (Ollama) sur `localhost:11434`.
+* **Cloud API :** Si l'utilisateur manque de puissance GPU pour des tâches massives, il peut renseigner une clé API (OpenAI, Anthropic, Gemini) dans les paramètres.
 
-### Stratégie d'implémentation hybride (Modèle Source-First + Moteur d'Audit LLM)
+## 2. Agentique vs Pipeline One-Shot
+La philosophie d'AnkiForge est d'utiliser le bon paradigme IA pour le bon cas d'usage, car ils ne répondent pas aux mêmes contraintes UX.
 
-Pour assurer une traçabilité parfaite des sources et garantir l'exactitude des cartes générées, nous combinons deux approches :
+### A. Les Pipelines One-Shot (Déterministes)
+* **Cas d'usage :** Les vues `creation_view.py`, `pipelines_view.py` et `analysis_view.py`.
+* **Philosophie :** Le travail à la chaîne (ex: génération depuis un PDF de 50 pages, ou audit Linter Wozniak de 500 cartes).
+* **Mécanique :** Un flux strict et prédictible : *Chunking du texte* ➔ *RAG (Retrieval-Augmented Generation) pour le contexte* ➔ *Prompt contraint (Output JSON)* ➔ *Mise à jour de l'UI (Barre de progression)*.
+* **Avantage :** Pas d'hallucination "comportementale" d'un agent qui se perd. C'est rapide, parallélisable dans des QThreads, et parfait pour le Human-in-the-loop où l'on veut juste relire des résultats finaux.
 
-**1. Traçabilité Structurelle (Peewee ORM)**
-- **SourceDocumentModel :** Une table dédiée pour stocker l'historique de chaque document ingéré (titre, type `.pdf/.md`, date, taille, moteur d'extraction utilisé comme Marker).
-- **CardSourceLinkModel :** Une table de liaison qui connecte chaque carte générée à son document d'origine (ou via une Foreign Key sur `NoteModel`).
-- **Indicateur de Couverture :** Calcul du ratio entre la densité de la source (nombre de tokens ou de concepts clés extraits) et le nombre de cartes générées, afin d'alerter si une source riche a généré très peu de cartes.
+### B. Le Système Agentique (Le Consultant)
+* **Cas d'usage :** La vue `consultant_view.py`.
+* **Philosophie :** L'exploration et la requête complexe. C'est un copilote conversationnel intelligent intégré à l'IDE.
+* **Mécanique :** Basé sur le *Tool Calling*. L'Agent IA reçoit une panoplie d'outils Python (ex: `execute_peewee_query()`, `get_cards_by_tag()`).
+* **Avantage :** L'utilisateur peut faire des requêtes en langage naturel comme : *"Trouve toutes mes cartes d'anatomie qui ont plus de 15 révisions (Sangsues) et propose-moi de les scinder en deux"*. L'agent génère le SQL, récupère les données, analyse et propose une UI de validation.
 
-**2. Moteur d'Audit Anti-Hallucination (IA)**
-- **Vérification Sémantique :** Lors de l'analyse, le système effectue un "batch" comparant les textes originaux (via des embeddings locaux) avec le contenu des cartes générées.
-- **Score de Précision :** Ce score, affiché dans l'interface, est pénalisé s'il y a des déviations factuelles ou des informations inventées par l'IA (hallucinations). Si 5% des cartes d'une source contiennent des affirmations non sourcées, le score de précision tombe à 95%.
-- **Action de l'utilisateur :** Permet à l'utilisateur d'inspecter visuellement les cartes incriminées et de les corriger via l'inspecteur.
+## 3. Cartographie des Fonctionnalités IA
+
+### Dans Création & Pipelines (Génération)
+* **Génération Hiérarchique :** L'IA ne recrache pas des cartes en vrac. Elle génère d'abord un plan/squelette du document source, puis génère des cartes accrochées à cette hiérarchie pour éviter la "connaissance orpheline".
+* **Auto-Tagging :** Classification automatique des nouvelles cartes dans les bons sous-paquets avec les tags appropriés.
+
+### Dans Analyse & Audit (Maintenance)
+* **Linter Wozniak :** Détection des mauvaises pratiques (Cloze trop long, texte surchargé) et proposition de reformulation atomique.
+* **Détection Sémantique de Doublons :** Au-delà du Levenshtein (en C natif pour le texte), l'IA via embeddings permet de trouver les doublons de *sens* (ex: "Rôle de la mitochondrie" vs "À quoi sert la centrale énergétique ?").
+* **Diagnostic et Traçabilité des Sources :** 
+  * *Traçabilité Structurelle :* Liaison via l'ORM (Peewee) entre les cartes et leur document d'origine. Calcul d'un indicateur de couverture (densité de la source vs nombre de cartes générées).
+  * *Moteur Anti-Hallucination :* L'IA vérifie si le verso des cartes ne contredit pas ou n'invente pas des faits par rapport au document source.
+
+### Dans Modèles de Cartes (Stylisation)
+* **Génération de Snippets :** Le Consultant peut être appelé pour générer du code CSS/HTML (ex: "Crée-moi un bloc d'alerte rouge arrondi") afin d'enrichir l'inventaire de styles de l'utilisateur.

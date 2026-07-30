@@ -10,13 +10,13 @@ L'application rejette le paradigme de l'"IA boîte noire" qui générerait des m
 * **Human-in-the-loop par défaut :** L'IA agit comme un copilote. Elle prépare le terrain (extraction, audit, reformulation), mais l'interface est pensée pour que l'utilisateur valide et affine le travail.
 * **Bulk-Action :** Pour s'adapter aux volumes importants, une option de validation par lot ("Select All -> Valider") existe, mais elle ne sera jamais le comportement poussé par défaut.
 
-## 3. Les Trois Piliers (Cas d'usage principaux)
-AnkiForge est une application polyvalente, prête à accueillir de nombreuses fonctionnalités autour de trois grands pôles :
+## 3. Les Cas d'Usage Principaux (Les Vues de l'Application)
+AnkiForge est une application polyvalente, prête à accueillir de nombreuses fonctionnalités réparties dans ses différents modules :
 
-1. **L'Usine (Création ex nihilo) :** La chaîne de production. Outils pour ingérer des sources documentaires ou multimédias et sculpter de nouvelles cartes efficacement avec l'assistance de l'IA.
-2. **L'Hôpital (Maintenance au long cours) :** Principalement pensé pour les *Power Users*. C'est ici que l'on diagnostique, reformule (Linter Wozniak) et fusionne (algorithme Levenshtein) les vieux paquets chaotiques. La philosophie centrale est la recherche de la **connaissance profonde** : l'application vise à réparer et sublimer le savoir, jamais à supprimer, enterrer ou archiver des cartes sous prétexte de superficialité.
-3. **L'Atelier de Modèles (Customisation avancée et Stylisation) :** Un espace dédié au design et à l'ergonomie. Il permet de modifier individuellement les cartes mais surtout de forger des **Modèles de cartes** complets. Il se distingue par une approche hybride :
-   * *Édition manuelle (IDE) :* Accès brut au code (HTML/CSS/Jinja) pour créer et modifier les cartes et leurs modèles avec un contrôle absolu.
+1. **Création & Pipelines (Génération de connaissances) :** Outils pour ingérer des sources documentaires (`documents_view.py`) ou multimédias et sculpter de nouvelles cartes efficacement avec l'assistance de l'IA au travers de pipelines automatisés (`creation_view.py`, `pipelines_view.py`).
+2. **Analyse, Audit & Édition (Maintenance au long cours) :** Principalement pensé pour les *Power Users*. C'est ici que l'on diagnostique, reformule (Linter Wozniak) et fusionne (algorithme Levenshtein) les paquets chaotiques (`analysis_view.py`, `edition_view.py`). La philosophie centrale est la recherche de la **connaissance profonde** : l'application vise à réparer et sublimer le savoir, jamais à supprimer, enterrer ou archiver des cartes sous prétexte de superficialité.
+3. **Modèles de Cartes (Customisation avancée et Stylisation) :** Un espace dédié au design et à l'ergonomie (`card_models_view.py`). Il permet de forger des **Modèles de cartes** complets. Il se distingue par une approche hybride :
+   * *Édition manuelle (IDE) :* Accès brut au code (HTML/CSS/Jinja) pour créer et modifier les modèles avec un contrôle absolu.
    * *L'Inventaire de Styles :* Un répertoire de classes, de composants CSS et de templates pré-conçus. L'objectif n'est pas de faire du glisser-déposer basique, mais d'appliquer et de combiner ces styles sur un modèle. L'utilisateur peut ajouter ses propres styles à l'inventaire pour les réutiliser à l'infini et en faire de véritables templates dynamiques.
 
 ## 4. Utilisateurs Cibles et UX Adaptative
