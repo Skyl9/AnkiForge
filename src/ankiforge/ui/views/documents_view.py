@@ -82,10 +82,16 @@ class DocumentsView(QWidget):
 
         self.btn_import = SecondaryButton("Importer")
         self.btn_import.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import.clicked.connect(self._on_import_file)
+
+        self.btn_import_url = IconButton("ph.link", tooltip="Importer depuis le Web (ex: YouTube)", size=24)
+        self.btn_import_url.clicked.connect(self._on_import_url)
 
         self.btn_new_folder = IconButton("ph.folder-plus", tooltip="Nouveau dossier", size=24)
+        self.btn_new_folder.clicked.connect(self._on_new_folder)
 
         explorer_toolbar.addWidget(self.btn_import, 1)
+        explorer_toolbar.addWidget(self.btn_import_url)
         explorer_toolbar.addWidget(self.btn_new_folder)
         explorer_layout.addLayout(explorer_toolbar)
 
@@ -370,7 +376,9 @@ class DocumentsView(QWidget):
 
     def _start_document_worker(self, path_or_url: str) -> None:
         self.btn_import.setEnabled(False)
-        self.btn_url.setEnabled(False)
+        self.btn_import_url.setEnabled(False)
+        if hasattr(self, "btn_url"):
+            self.btn_url.setEnabled(False)
         show_toast(self, "Extraction et analyse du document en cours...")
 
         self.worker = DocumentWorker(path_or_url)
@@ -381,7 +389,8 @@ class DocumentsView(QWidget):
     @Slot(str, str)
     def _on_worker_finished(self, title: str, content: str) -> None:
         self.btn_import.setEnabled(True)
-        self.btn_url.setEnabled(True)
+        if hasattr(self, "btn_url"):
+            self.btn_url.setEnabled(True)
 
         try:
             doc = DocumentModel.create(
@@ -404,7 +413,8 @@ class DocumentsView(QWidget):
     @Slot(str)
     def _on_worker_error(self, error: str) -> None:
         self.btn_import.setEnabled(True)
-        self.btn_url.setEnabled(True)
+        if hasattr(self, "btn_url"):
+            self.btn_url.setEnabled(True)
         QMessageBox.critical(self, "Erreur d'importation", f"Impossible d'extraire le document :\n{error}")
 
     @Slot()

@@ -41,7 +41,6 @@ from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
-from PySide6.QtCore import QThreadPool
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
@@ -921,7 +920,7 @@ class CreationView(QWidget):
 
         pipeline_steps = []
         if selected_pipeline and hasattr(selected_pipeline, "steps"):
-            pipeline_steps = [s.persona.name for s in selected_pipeline.steps if s.persona]
+            pipeline_steps = [{"name": s.persona.name, "system_prompt": s.persona.system_prompt} for s in selected_pipeline.steps if s.persona]
 
         payload = CreationTaskPayload(
             text_source=text_source,
@@ -942,29 +941,14 @@ class CreationView(QWidget):
 
         self._set_all_generation_states(True)
 
-        if pipe_id:
-            # Nouveau Moteur d'Orchestration (DAG)
-            initial_state = PipelineRunState(document_id=0)
-            initial_state.set_variable("text_source", text_source)
-            self.orchestrator = PipelineOrchestrator(pipeline_id=pipe_id, initial_state=initial_state)
-
-            # Connexion des signaux du Pipeline
-            self.orchestrator.signals.step_started.connect(self._on_orchestrator_step_started)
-            self.orchestrator.signals.step_completed.connect(self._on_orchestrator_step_completed)
-            self.orchestrator.signals.human_validation_required.connect(self._on_human_validation)
-            self.orchestrator.signals.pipeline_finished.connect(self._on_orchestrator_finished)
-            self.orchestrator.signals.error_occurred.connect(self._on_worker_error)
-
-            QThreadPool.globalInstance().start(self.orchestrator)
-        else:
-            # Fallback Legacy
-            self.worker = CreationWorker(ai_provider=provider, payload=payload)
-            self.worker.progress.connect(self._on_worker_progress)
-            self.worker.log.connect(self._on_worker_log)
-            self.worker.finished.connect(self._on_worker_finished)
-            self.worker.error.connect(self._on_worker_error)
-            self.worker.cancelled.connect(self._on_worker_cancelled)
-            self.worker.start()
+        # Fallback Legacy (On force CreationWorker car l'Orchestrateur est encore en stub)
+        self.worker = CreationWorker(ai_provider=provider, payload=payload)
+        self.worker.progress.connect(self._on_worker_progress)
+        self.worker.log.connect(self._on_worker_log)
+        self.worker.finished.connect(self._on_worker_finished)
+        self.worker.error.connect(self._on_worker_error)
+        self.worker.cancelled.connect(self._on_worker_cancelled)
+        self.worker.start()
 
     @Slot(int, str)
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:

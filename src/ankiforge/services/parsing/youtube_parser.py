@@ -32,8 +32,11 @@ class YouTubeParser:
             return None
 
         try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[language, "en"])
-            return " ".join([item["text"] for item in transcript])
+            ytt_api = YouTubeTranscriptApi()
+            transcript_list = ytt_api.list(video_id)
+            transcript = transcript_list.find_transcript([language, "en"])
+            data = transcript.fetch()
+            return " ".join([item.text for item in data])
         except (NoTranscriptFound, TranscriptsDisabled, Exception):
             return None
 

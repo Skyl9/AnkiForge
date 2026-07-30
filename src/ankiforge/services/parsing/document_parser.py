@@ -87,13 +87,20 @@ class DocumentParser:
     def _parse_web(self, url: str) -> str:
         """
         Télécharge et extrait le contenu principal d'une page Web.
-
-        Args:
-            url (str): L'URL à analyser.
-
-        Returns:
-            str: Le contenu utile de la page (sans publicités ni menus).
         """
+        if "youtube.com/watch" in url or "youtu.be/" in url:
+            from ankiforge.services.parsing.youtube_parser import YouTubeParser
+
+            try:
+                parser = YouTubeParser()
+                # Extraction basique des sous-titres sans l'agent IA (l'IA interviendra lors du batching dans CreationView)
+                result = parser.parse(url, ai_manager=None)
+                if result:
+                    return result
+                raise ValueError("Impossible de récupérer les sous-titres YouTube pour cette vidéo.")
+            except Exception as e:
+                raise ValueError(f"Erreur d'extraction YouTube : {e}") from e
+
         if trafilatura is None:
             raise RuntimeError("Le module trafilatura n'est pas installé. Lancez 'uv add trafilatura'")
         if "wikipedia.org/wiki/" in url:
