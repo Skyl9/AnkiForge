@@ -15,9 +15,9 @@ AnkiForge est une application polyvalente, prête à accueillir de nombreuses fo
 
 1. **L'Usine (Création ex nihilo) :** La chaîne de production. Outils pour ingérer des sources documentaires ou multimédias et sculpter de nouvelles cartes efficacement avec l'assistance de l'IA.
 2. **L'Hôpital (Maintenance au long cours) :** Principalement pensé pour les *Power Users*. C'est ici que l'on diagnostique, reformule (Linter Wozniak) et fusionne (algorithme Levenshtein) les vieux paquets chaotiques. La philosophie centrale est la recherche de la **connaissance profonde** : l'application vise à réparer et sublimer le savoir, jamais à supprimer, enterrer ou archiver des cartes sous prétexte de superficialité.
-3. **L'Atelier de Modèles (Dualité IDE / No-Code) :** Un espace dédié au design et à l'ergonomie des cartes. Il se distingue par une approche hybride :
-   * *Mode IDE :* Accès brut au code (HTML/CSS, etc.) pour un contrôle total.
-   * *Mode No-Code :* Un **inventaire de composants** (et non une simple boutique) où l'utilisateur peut piocher des éléments visuels et structurels réutilisables pour assembler ses cartes confortablement sans coder.
+3. **L'Atelier de Modèles (Customisation avancée et Stylisation) :** Un espace dédié au design et à l'ergonomie. Il permet de modifier individuellement les cartes mais surtout de forger des **Modèles de cartes** complets. Il se distingue par une approche hybride :
+   * *Édition manuelle (IDE) :* Accès brut au code (HTML/CSS/Jinja) pour créer et modifier les cartes et leurs modèles avec un contrôle absolu.
+   * *L'Inventaire de Styles :* Un répertoire de classes, de composants CSS et de templates pré-conçus. L'objectif n'est pas de faire du glisser-déposer basique, mais d'appliquer et de combiner ces styles sur un modèle. L'utilisateur peut ajouter ses propres styles à l'inventaire pour les réutiliser à l'infini et en faire de véritables templates dynamiques.
 
 ## 4. Utilisateurs Cibles et UX Adaptative
 L'application s'adresse à un spectre allant de l'utilisateur cherchant la simplicité au puriste voulant une maîtrise totale de sa base de connaissance.
