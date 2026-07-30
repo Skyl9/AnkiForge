@@ -1,8 +1,12 @@
+import asyncio
 import json
 import logging
 from typing import Any
 
 from PySide6.QtCore import QThread, Signal
+
+from ankiforge.database.models import LLMConfigModel
+from ankiforge.services.ai.consultant_engine import ConsultantEngine
 
 logger = logging.getLogger(__name__)
 
@@ -10,58 +14,62 @@ logger = logging.getLogger(__name__)
 class ConsultantWorker(QThread):
     """
     Expert IA interactif pour l'analyse de collection.
-
-    Envoie une synthèse massive de la base de données (notes, docs) à l'IA
-    pour obtenir des audits pédagogiques ou des conseils personnalisés.
+    Utilise ConsultantEngine pour le Tool Calling (MCP) en arrière-plan.
     """
 
     progress = Signal(str)
     finished_signal = Signal(str)
     error_signal = Signal(str)
 
-    def __init__(self, ai_provider: Any, context_data: dict[str, Any], instruction: str):
+    def __init__(self, llm_config: LLMConfigModel, persona: Any, context_data: dict[str, Any], instruction: str):
         """
         Initialise le consultant IA.
 
         Args:
-            ai_provider (Any): Le moteur IA.
+            llm_config (LLMConfigModel): La configuration de l'IA sélectionnée.
+            persona (Any): L'agent IA (PersonaModel) sélectionné.
             context_data (dict[str, Any]): Synthèse des données Anki (notes, doublons).
             instruction (str): La question ou commande de l'utilisateur.
         """
         super().__init__()
-        self.ai_provider = ai_provider
+        self.llm_config = llm_config
+        self.persona = persona
         self.context_data = context_data
         self.instruction = instruction
 
     def run(self):
-        """Prépare le payload contextuel et récupère la réponse de l'IA."""
+        """Prépare le payload contextuel et lance le moteur ReAct via asyncio."""
         try:
-            self.progress.emit("Extraction et structuration du contexte...")
+            self.progress.emit("Initialisation du moteur IA et connexion aux outils...")
 
-            system_prompt = (
-                "Tu es un expert en mémorisation, pédagogie et création de flashcards Anki.\n"
-                "Ton rôle est d'analyser les documents et les paquets de cartes fournis en contexte.\n"
-                "Réponds aux questions de l'utilisateur pour l'aider à améliorer son apprentissage.\n"
-                "RÈGLES :\n"
-                "1. Réponds en Markdown avec une structure claire.\n"
-                "2. Si l'utilisateur demande un audit (/audit), cherche les incohérences ou les cartes trop complexes.\n"
-                "3. Sois direct, pédagogique et critique si nécessaire."
-            )
+            # Construire un prompt augmenté avec le contexte si besoin
+            if self.context_data and (self.context_data.get("documents") or self.context_data.get("paquets")):
+                context_str = json.dumps(self.context_data, ensure_ascii=False, indent=2)
+                full_prompt = f"Contexte actuel :\n```json\n{context_str}\n```\n\nRequête de l'utilisateur :\n{self.instruction}"
+            else:
+                full_prompt = self.instruction
 
-            user_payload = {"contexte_fourni": self.context_data, "requete_utilisateur": self.instruction}
+            model_name = getattr(self.llm_config, "model_id", "l'IA")
+            self.progress.emit(f"Exécution de la requête via {model_name}...")
 
-            user_prompt = json.dumps(user_payload, ensure_ascii=False, indent=2)
+            async def _run_engine():
+                engine = ConsultantEngine(self.llm_config, persona=self.persona)
+                final_response = []
+                async for chunk in engine.chat_stream(full_prompt):
+                    if isinstance(chunk, str):
+                        # On pourrait émettre en direct si on le souhaitait, mais ici on concatène
+                        # ou on émet des messages intermédiaires.
+                        if chunk.startswith("🔄") or chunk.startswith("✅") or chunk.startswith("❌"):
+                            self.progress.emit(chunk.strip())
+                        else:
+                            final_response.append(chunk)
+                return "".join(final_response)
 
-            # On récupère le nom du modèle de manière sécurisée pour l'affichage
-            model_name = getattr(self.ai_provider, "model_name", "l'IA")
-            self.progress.emit(f"Envoi des données au modèle {model_name}...")
+            final_text = asyncio.run(_run_engine())
 
-            # Appel API
-            raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="text")
-
-            self.progress.emit("Réponse reçue, formatage en cours...")
-            self.finished_signal.emit(raw_response)
+            self.progress.emit("Réponse finalisée.")
+            self.finished_signal.emit(final_text)
 
         except Exception as e:
-            logger.exception("Erreur dans le ChatConsultantThread :")
+            logger.exception("Erreur dans le ConsultantWorker :")
             self.error_signal.emit(str(e))

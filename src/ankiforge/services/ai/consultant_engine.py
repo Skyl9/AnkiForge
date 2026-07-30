@@ -2,7 +2,7 @@ import json
 import logging
 import sys
 import os
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator, Any, cast
 
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client, StdioServerParameters
@@ -14,18 +14,25 @@ logger = logging.getLogger(__name__)
 
 
 class ConsultantEngine:
-    """
-    Le Consultant est un agent ReAct (Reason & Act) qui résout des problèmes complexes
-    en dialoguant avec le Serveur MCP d'AnkiForge pour obtenir des informations et
-    agir sur la base de données de l'utilisateur.
-    """
+    """Moteur IA autonome pour le Consultant."""
 
-    def __init__(self, llm_config: LLMConfigModel):
+    def __init__(self, llm_config: LLMConfigModel, persona: Any = None):
         self.llm_config = llm_config
+        self.persona = persona
+
+        provider_name = str(llm_config.provider).lower() if llm_config.provider else "openai"
+        base_url = "https://api.openai.com/v1"
+        if provider_name == "ollama":
+            base_url = "http://localhost:11434/v1"
+        elif provider_name == "groq":
+            base_url = "https://api.groq.com/openai/v1"
+        elif provider_name == "gemini":
+            base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
         self.provider = OpenAICompatibleProvider(
-            base_url=llm_config.api_base,
-            model_name=llm_config.model_name,
-            api_key=llm_config.api_key or "dummy_key",
+            base_url=base_url,
+            model_name=str(llm_config.model_id) if llm_config.model_id else "default",
+            api_key=str(llm_config.api_key) if llm_config.api_key else "dummy_key",
         )
         # On pointe vers notre serveur MCP local
         server_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp_server.py")
@@ -45,61 +52,150 @@ class ConsultantEngine:
                 tools_result = await session.list_tools()
                 tools_list = tools_result.tools
 
-                # Formater les outils pour le LLM (ReAct textuel très basique pour Ollama/OpenAI standard)
-                tools_description = "\n".join([f"- {t.name}: {t.description}\n  Schéma: {json.dumps(t.inputSchema)}" for t in tools_list])
+                # Formater les outils pour le LLM au format OpenAI
+                openai_tools: list[Any] = []
+                tools_description_lines = []
+                for t in tools_list:
+                    schema = t.inputSchema if hasattr(t, "inputSchema") else getattr(t, "input_schema", {})
+                    openai_tools.append({"type": "function", "function": {"name": t.name, "description": t.description, "parameters": schema}})
+                    tools_description_lines.append(f"- {t.name}: {t.description}\n  Schéma: {json.dumps(schema)}")
 
-                system_prompt = f"""Tu es l'Assistant Consultant AnkiForge. 
-Tu peux utiliser les outils suivants pour aider l'utilisateur :
+                tools_description = "\n".join(tools_description_lines)
+
+                persona_prompt = "Tu es un Agent Data Analyst ultra-technique connecté en direct à une base de données."
+                if self.persona and hasattr(self.persona, "system_prompt") and self.persona.system_prompt:
+                    persona_prompt = f"Tu es l'agent nommé '{self.persona.name}'. Ton rôle est défini comme suit :\n{self.persona.system_prompt}\n"
+
+                # nosec B608 car c'est un prompt envoyé à l'IA, pas une vraie requête exécutée ici
+                system_prompt = f"""{persona_prompt}
+Ton UNIQUE but est de récupérer des données réelles et factuelles en utilisant tes outils si nécessaire, et de répondre en respectant ta personnalité.
+Ne propose JAMAIS de créer des cartes ou des flashcards (même si le projet s'appelle AnkiForge) SAUF si on te le demande explicitement.
+
+Voici les outils disponibles :
 {tools_description}
 
-Si tu dois utiliser un outil, renvoie STRICTEMENT ce format JSON (et rien d'autre) :
-{{"tool": "nom_de_l_outil", "args": {{"arg1": "val1"}}}}
+RÈGLE ABSOLUE DE SURVIE :
+Tu ne possèdes AUCUNE donnée en mémoire. Dès que l'utilisateur pose une question sur les données, TU DOIS OBLIGATOIREMENT appeler l'outil SQL `query_peewee`. 
+Ne donne jamais la commande SQL directement à l'utilisateur, c'est à TOI de l'exécuter via l'outil.
 
-Si tu as la réponse finale, réponds normalement en texte.
-"""
+INFO SCHÉMA : Les tables principales sont `personas` (les agents IA), `pipelines`, `deckmodel`, `notemodel`, `cardmodel`, `llm_configs`. N'utilise jamais "personamodel", utilise `personas`.
 
-                messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_query}]
+RÈGLE D'AUTO-CORRECTION :
+Si l'outil te renvoie une "Erreur" (ex: table inexistante, syntaxe SQL incorrecte), NE RÉPONDS PAS à l'utilisateur ! 
+Tu dois immédiatement faire un NOUVEL APPEL D'OUTIL avec la requête corrigée. Tu as le droit de faire jusqu'à 10 tentatives.
+
+Si ton client API ne supporte pas l'appel natif d'outils, tu dois renvoyer UNIQUEMENT un bloc JSON valide avec cette structure exacte :
+```json
+{{
+    "tool": "nom_de_l_outil",
+    "args": {{
+        "nom_argument": "valeur"
+    }}
+}}
+```
+
+EXEMPLE D'APPEL (pour "Combien d'agents y a-t-il ?") :
+```json
+{{
+    "tool": "query_peewee",
+    "args": {{
+        "sql_query": "SELECT count(*) FROM agents;"
+    }}
+}}
+```
+
+Répète après moi : "Je n'inventerai aucune donnée. Je n'écrirai pas de flashcard. J'appellerai toujours mon outil JSON."
+"""  # nosec B608
+                messages: list[Any] = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_query}]
 
                 max_steps = 5
                 for _ in range(max_steps):
-                    # Génération via le LLM (ici on triche un peu en utilisant generate() qui est conçu pour du texte)
-                    # Dans une vraie implémentation, on utiliserait le paramètre `tools` natif d'OpenAI.
-                    # Mais pour la flexibilité (Ollama), le parsing JSON manuel ReAct est robuste.
-                    response_text = self.provider.client.chat.completions.create(model=self.provider.model_name, messages=messages, temperature=0.0).choices[0].message.content
+                    # Génération via le LLM avec le support natif des outils (OpenAI / Ollama)
+                    response = self.provider.client.chat.completions.create(model=self.provider.model_name, messages=messages, tools=openai_tools, temperature=0.0)
 
-                    # Vérifier si c'est un appel d'outil (basé sur le format JSON demandé)
-                    is_tool_call = False
-                    tool_call_data: dict[str, Any] = {}
-                    try:
-                        if response_text:
-                            parsed = json.loads(response_text)
-                            if isinstance(parsed, dict) and "tool" in parsed and "args" in parsed:
-                                is_tool_call = True
-                                tool_call_data = parsed
-                    except Exception as parse_error:
-                        logger.debug("Le LLM n'a pas renvoyé de JSON valide pour l'outil: %s", parse_error)
+                    response_message = response.choices[0].message
 
-                    if is_tool_call:
-                        tool_name = str(tool_call_data.get("tool", ""))
-                        tool_args = tool_call_data.get("args", {})
-                        yield f"🔄 J'utilise l'outil `{tool_name}`...\n"
+                    if response_message.tool_calls:
+                        messages.append(response_message)  # Ajouter l'appel d'outil à l'historique
+
+                        for tool_call in response_message.tool_calls:
+                            try:
+                                tc = cast(Any, tool_call)
+                                tool_name = getattr(tc.function, "name", str(getattr(tc, "name", "")))
+                                tool_args = json.loads(getattr(tc.function, "arguments", "{}"))
+                            except Exception:
+                                tool_name = "unknown"
+                                tool_args = {}
+
+                            yield f"🔄 J'utilise l'outil `{tool_name}` (Natif)...\n"
+
+                            try:
+                                result = await session.call_tool(tool_name, arguments=tool_args)
+                                observation = "\n".join([r.text for r in result.content if r.type == "text"])
+                                yield "✅ Résultat obtenu.\n"
+                            except Exception as e:
+                                observation = f"Erreur de l'outil : {e}"
+                                yield "❌ Erreur avec l'outil.\n"
+
+                            messages.append({"role": "tool", "tool_call_id": tool_call.id, "name": tool_name, "content": observation})
+                    else:
+                        # Fallback pour les modèles locaux qui renvoient du texte (JSON manuel) au lieu d'un appel natif
+                        content_text = response_message.content or ""
+                        is_manual_tool_call = False
+                        tool_name = ""
+                        tool_args = {}
+
+                        import re
+
+                        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content_text, re.DOTALL)
+                        if match:
+                            clean_json = match.group(1).strip()
+                        else:
+                            clean_json = content_text.strip()
 
                         try:
-                            # 3. Exécuter l'outil via le client MCP !
-                            result = await session.call_tool(tool_name, arguments=tool_args)
-                            observation = "\n".join([r.text for r in result.content if r.type == "text"])
-                            yield "✅ Résultat obtenu.\n"
-                        except Exception as e:
-                            observation = f"Erreur lors de l'exécution de l'outil : {e}"
-                            yield "❌ Erreur avec l'outil.\n"
+                            parsed = json.loads(clean_json)
+                            if not isinstance(parsed, dict) or "tool" not in parsed:
+                                parsed = None
+                        except Exception:
+                            parsed = None
 
-                        # Ajouter l'observation dans l'historique pour le LLM
-                        messages.append({"role": "assistant", "content": response_text})
-                        messages.append({"role": "user", "content": f"Résultat de l'outil:\n{observation}\nMaintenant donne ta réponse finale ou utilise un autre outil."})
+                        if not parsed:
+                            # Sécurité 3 : Chercher la première accolade ouverte et la dernière fermée
+                            start = content_text.find("{")
+                            end = content_text.rfind("}")
+                            if start != -1 and end != -1 and start < end:
+                                try:
+                                    parsed = json.loads(content_text[start : end + 1])
+                                    if not isinstance(parsed, dict) or "tool" not in parsed:
+                                        parsed = None
+                                except Exception as parse_err:
+                                    logger.debug("Échec du fallback de parsing JSON de la dernière chance: %s", parse_err)
 
-                    else:
-                        # C'est la réponse finale !
-                        yield response_text
-                        break
+                        if parsed and "tool" in parsed:
+                            is_manual_tool_call = True
+                            tool_name = parsed.get("tool", "")
+                            tool_args = parsed.get("args", {})
+                        else:
+                            # Ce n'est pas un JSON valide ou ça a échoué.
+                            pass
+
+                        if is_manual_tool_call:
+                            yield f"🔄 J'utilise l'outil `{tool_name}` (Manuel)...\n"
+                            try:
+                                result = await session.call_tool(tool_name, arguments=tool_args)
+                                observation = "\n".join([r.text for r in result.content if r.type == "text"])
+                                yield "✅ Résultat obtenu.\n"
+                            except Exception as e:
+                                observation = f"Erreur de l'outil : {e}"
+                                yield "❌ Erreur avec l'outil.\n"
+
+                            messages.append({"role": "assistant", "content": content_text})
+                            messages.append({"role": "user", "content": f"Résultat de l'outil:\n{observation}\nDonne ta réponse finale."})
+                        else:
+                            # C'est la réponse finale !
+                            if content_text:
+                                yield content_text
+                            break
 
         yield "\n\n(Consultation terminée)"

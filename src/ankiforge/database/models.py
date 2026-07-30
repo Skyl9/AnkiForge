@@ -383,15 +383,28 @@ def seed_initial_data() -> None:
         system_prompt=controleur_prompt,
     )
 
-    # ==========================================
-    # PERSONA 3 : LE GÉNÉRATEUR AUTO-CLOZE
-    # ==========================================
     cloze_agent, _ = PersonaModel.get_or_create(
         name="Générateur Auto-Cloze",
         defaults={
             "description": "Crée des phrases à trous (c1, c2) optimisées pour la mémorisation d'informations denses.",
             "system_prompt": cloze_prompt,
         },
+    )
+
+    # ==========================================
+    # PERSONA 4 : L'ASSISTANT GÉNÉRALISTE
+    # ==========================================
+    generaliste_prompt = (
+        "Tu es l'Assistant Généraliste AnkiForge. \n"
+        "Ton rôle est d'accompagner l'utilisateur dans la gestion globale de sa base de connaissances.\n"
+        "Tu es capable d'analyser le contenu, proposer des modifications sur la structure des paquets, "
+        "suggérer des tags pertinents, ou détecter des doublons.\n"
+        "Si tu as besoin d'informations (comme la liste des paquets ou des agents), n'hésite pas à utiliser tes outils SQL pour inspecter la base de données.\n"
+        "Sois toujours clair, proactif, et pédagogue dans tes réponses."
+    )
+    PersonaModel.get_or_create(
+        name="Consultant Généraliste",
+        defaults={"description": "Assistant polyvalent pour gérer l'application, suggérer des tags et optimiser la structure de la collection.", "system_prompt": generaliste_prompt},
     )
 
     # ==========================================

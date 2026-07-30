@@ -719,23 +719,12 @@ class ConsultantView(QWidget):
         context_data = self._build_context_data()
 
         selected_engine = self.model_selector.currentData()
-        ai_provider = None
-        if self.ai_manager:
-            if selected_engine and isinstance(selected_engine, LLMConfigModel) and hasattr(self.ai_manager, "create_provider_from_config"):
-                try:
-                    ai_provider = self.ai_manager.create_provider_from_config(selected_engine)
-                except Exception:
-                    pass  # nosec B110
-            if not ai_provider and hasattr(self.ai_manager, "get_active_provider"):
-                try:
-                    ai_provider = self.ai_manager.get_active_provider()
-                except Exception:
-                    pass  # nosec B110
+        selected_persona = self.persona_combo.currentData()
 
         self.btn_send.setEnabled(False)
         self.lbl_chat_status.setText("⏳ Analyse contextuelle et génération de la réponse IA...")
 
-        self.worker = ConsultantWorker(ai_provider=ai_provider, context_data=context_data, instruction=user_text)
+        self.worker = ConsultantWorker(llm_config=selected_engine, persona=selected_persona, context_data=context_data, instruction=user_text)
         self.worker.progress.connect(self._on_ai_progress)
         self.worker.finished_signal.connect(self._on_ai_response)
         self.worker.error_signal.connect(self._on_ai_error)

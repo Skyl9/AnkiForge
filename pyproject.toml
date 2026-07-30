@@ -27,6 +27,8 @@ dependencies = [
     "peewee-migrate>=1.15.0",
     "youtube-transcript-api>=0.6.0",
     "mcp>=2.0.0",
+    "faiss-cpu>=1.14.3",
+    "numpy>=2.4.4",
 ]
 
 [project.gui-scripts]

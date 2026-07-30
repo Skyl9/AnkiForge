@@ -1,7 +1,8 @@
 import logging
 import asyncio
 from mcp.server.mcpserver import MCPServer
-from ankiforge.database.models import db
+from ankiforge.database.models import db, LLMConfigModel
+from ankiforge.services.ai.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +48,26 @@ def query_peewee(sql_query: str) -> str:
 @mcp.tool()
 def search_document(query: str, document_id: int) -> str:
     """
-    (Bouchon) Recherche une information précise dans un document spécifique via FAISS ou recherche textuelle.
+    Recherche une information précise dans un document spécifique via FAISS.
     """
     logger.info(f"Recherche dans le document {document_id} avec la requête : {query}")
-    return f"Résultats simulés pour la recherche '{query}' dans le document {document_id}. (RAG non initialisé)."
+
+    llm_config = LLMConfigModel.select().first()
+    if not llm_config:
+        return "Erreur : Aucun moteur IA configuré. Impossible d'effectuer la recherche vectorielle."
+
+    try:
+        rag = RAGService(llm_config)
+        results = rag.search(str(document_id), query, top_k=3)
+
+        if not results:
+            return "Aucune information pertinente trouvée dans ce document."
+
+        formatted = "Extraits trouvés :\n" + "\n---\n".join(results)
+        return formatted
+    except Exception as e:
+        logger.error(f"Erreur lors de la recherche RAG : {e}")
+        return f"Erreur lors de la recherche : {e}"
 
 
 @mcp.resource("ankiforge://database/schema")

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QMessageBox,
 )
 
 from ankiforge.database.models import PersonaModel, CardModel, DeckModel, LLMConfigModel, NoteModel, DEFAULT_DB_PATH
@@ -190,7 +191,32 @@ class AIEnginesTab(QWidget):
         layout.addWidget(lbl_models)
 
         self.table_engines = StyledTableWidget(["Nom", "Fournisseur", "Identifiant Modèle"])
+        self.table_engines.itemChanged.connect(self._on_table_item_changed)
         layout.addWidget(self.table_engines, 1)
+
+        toolbar_engines = QHBoxLayout()
+        self.btn_add_ollama = SecondaryButton("Ajouter Ollama")
+        self.btn_add_ollama.setIcon(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN))
+        self.btn_add_ollama.clicked.connect(self._add_ollama_engine)
+        toolbar_engines.addWidget(self.btn_add_ollama)
+
+        self.btn_add_gemini = SecondaryButton("Ajouter Gemini")
+        self.btn_add_gemini.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE))
+        self.btn_add_gemini.clicked.connect(self._add_gemini_engine)
+        toolbar_engines.addWidget(self.btn_add_gemini)
+
+        self.btn_add_openai = SecondaryButton("Ajouter OpenAI")
+        self.btn_add_openai.setIcon(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_add_openai.clicked.connect(self._add_openai_engine)
+        toolbar_engines.addWidget(self.btn_add_openai)
+
+        self.btn_del_engine = DangerButton("Supprimer", ghost=True)
+        self.btn_del_engine.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+        self.btn_del_engine.clicked.connect(self._del_engine)
+        toolbar_engines.addWidget(self.btn_del_engine)
+
+        toolbar_engines.addStretch()
+        layout.addLayout(toolbar_engines)
 
         self.refresh_data()
 
@@ -202,13 +228,119 @@ class AIEnginesTab(QWidget):
             self.table_engines.setRowCount(len(engines))
 
             for i, eg in enumerate(engines):
-                self.table_engines.setItem(i, 0, QTableWidgetItem(eg.name))
-                self.table_engines.setItem(i, 1, QTableWidgetItem(getattr(eg, "provider_type", "openai").upper()))
+                # Les champs réels sont display_name, provider et model_id
+                item_name = QTableWidgetItem(getattr(eg, "display_name", "Inconnu"))
+                # Stocker l'ID de base de données dans la ligne pour pouvoir supprimer
+                item_name.setData(Qt.ItemDataRole.UserRole, eg.id)
+
+                self.table_engines.setItem(i, 0, item_name)
+                self.table_engines.setItem(i, 1, QTableWidgetItem(getattr(eg, "provider", "inconnu").upper()))
                 self.table_engines.setItem(i, 2, QTableWidgetItem(getattr(eg, "model_id", "default")))
 
             self.table_engines.blockSignals(False)
         except Exception as e:
             logger.warning("Erreur refresh_data ai_engines_tab: %s", e)
+
+    def _add_ollama_engine(self) -> None:
+        try:
+            existing = LLMConfigModel.select().where(LLMConfigModel.provider == "ollama").first()
+            if existing:
+                show_toast(self, "Ollama est déjà configuré dans le catalogue.", is_error=True)
+                return
+
+            LLMConfigModel.create(display_name="Ollama Local", provider="ollama", model_id="llama3", context_limit=8192, api_key="")
+            self.refresh_data()
+            if self.ai_manager:
+                self.ai_manager.reload_provider()
+            show_toast(self, "Moteur Ollama local ajouté avec succès !")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Impossible d'ajouter Ollama : {e}")
+
+    def _add_gemini_engine(self) -> None:
+        try:
+            existing = LLMConfigModel.select().where(LLMConfigModel.provider == "gemini").first()
+            if existing:
+                show_toast(self, "Gemini est déjà configuré dans le catalogue.", is_error=True)
+                return
+
+            # Vérifier si la clé est déjà saisie
+            api_key = str(self.settings.value("keys/gemini", ""))
+
+            LLMConfigModel.create(display_name="Google Gemini", provider="gemini", model_id="gemini-2.5-flash", context_limit=1000000, api_key=api_key)
+            self.refresh_data()
+            if self.ai_manager:
+                self.ai_manager.reload_provider()
+            show_toast(self, "Gemini ajouté avec succès !")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'ajout de Gemini: {e}")
+            show_toast(self, f"Erreur: {e}", is_error=True)
+
+    def _add_openai_engine(self) -> None:
+        try:
+            existing = LLMConfigModel.select().where(LLMConfigModel.provider == "openai").first()
+            if existing:
+                show_toast(self, "OpenAI est déjà configuré dans le catalogue.", is_error=True)
+                return
+
+            api_key = str(self.settings.value("keys/openai", ""))
+
+            LLMConfigModel.create(display_name="OpenAI GPT", provider="openai", model_id="gpt-4o-mini", context_limit=128000, api_key=api_key)
+            self.refresh_data()
+            if self.ai_manager:
+                self.ai_manager.reload_provider()
+            show_toast(self, "OpenAI ajouté avec succès !")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'ajout d'OpenAI: {e}")
+            show_toast(self, f"Erreur: {e}", is_error=True)
+
+    def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
+        """Sauvegarde automatiquement les modifications faites dans le tableau."""
+        first_item = self.table_engines.item(item.row(), 0)
+        if not first_item:
+            return
+
+        engine_id = first_item.data(Qt.ItemDataRole.UserRole)
+        if not engine_id:
+            return
+
+        try:
+            config = LLMConfigModel.get_by_id(engine_id)
+            if item.column() == 0:
+                config.display_name = item.text().strip()
+            elif item.column() == 1:
+                config.provider = item.text().strip().lower()
+            elif item.column() == 2:
+                config.model_id = item.text().strip()
+            config.save()
+
+            if self.ai_manager:
+                self.ai_manager.reload_provider()
+
+            show_toast(self, f"Moteur IA '{config.display_name}' mis à jour !")
+        except Exception as e:
+            logger.error(f"Erreur mise à jour moteur IA : {e}")
+
+    def _del_engine(self) -> None:
+        selected = self.table_engines.selectedItems()
+        if not selected:
+            show_toast(self, "Veuillez sélectionner un moteur IA à supprimer.", is_error=True)
+            return
+
+        row = selected[0].row()
+        item = self.table_engines.item(row, 0)
+        if not item:
+            return
+
+        engine_id = item.data(Qt.ItemDataRole.UserRole)
+
+        try:
+            LLMConfigModel.delete_by_id(engine_id)
+            self.refresh_data()
+            if self.ai_manager:
+                self.ai_manager.reload_provider()
+            show_toast(self, "Moteur supprimé avec succès.")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le moteur : {e}")
 
     def _save_api_keys(self) -> None:
         self.settings.setValue("keys/openai", self.edit_openai.text().strip())

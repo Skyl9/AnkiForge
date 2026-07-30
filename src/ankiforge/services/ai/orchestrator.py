@@ -2,8 +2,9 @@ import time
 from typing import Optional
 from PySide6.QtCore import QObject, Signal, QRunnable, Slot
 
-from ankiforge.database.models import PipelineStepModel
+from ankiforge.database.models import PipelineStepModel, LLMConfigModel
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.ai.rag_service import RAGService
 
 
 class PipelineWorkerSignals(QObject):
@@ -89,8 +90,27 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_rag_retrieval(self, step: PipelineStepModel) -> None:
         """Fouille l'index FAISS du document."""
-        # Implémentation réelle : Recherche Vectorielle FAISS pour self.state.document_id
-        time.sleep(1)
+        doc_id = str(self.state.document_id)
+        if not doc_id or doc_id == "0":
+            # Si pas de doc_id, on crée un index temporaire avec le text_source
+            text_source = self.state.get_variable("text_source")
+            if text_source:
+                doc_id = "temp_doc"
+
+                llm_config = LLMConfigModel.select().first()
+                if not llm_config:
+                    self.state.retrieved_chunks.append("Erreur: Aucun moteur IA configuré pour le RAG.")
+                    return
+
+                rag = RAGService(llm_config)
+                rag.create_index(doc_id, text_source)
+
+                # Requête = persona system prompt ou une variable
+                query = step.persona.system_prompt if step.persona else "Résumé"
+                results = rag.search(doc_id, query, top_k=3)
+                self.state.retrieved_chunks.extend(results)
+                return
+
         self.state.retrieved_chunks.append("Chunk de texte pertinent depuis FAISS.")
 
     def _execute_map_reduce(self, step: PipelineStepModel) -> None:
