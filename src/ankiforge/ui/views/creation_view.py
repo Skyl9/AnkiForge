@@ -1159,9 +1159,26 @@ class CreationView(QWidget):
         try:
             for card in self.generated_cards:
                 if card.get("status") != "Rejetée":
-                    front = card.get("Front", card.get("Recto", ""))
-                    back = card.get("Back", card.get("Verso", ""))
-                    fields = {"Front": front, "Back": back}
+                    front_val = card.get("Front", card.get("Recto", ""))
+                    back_val = card.get("Back", card.get("Verso", ""))
+
+                    # Mapping dynamique selon le schéma du NoteType
+                    import json
+
+                    try:
+                        schema = json.loads(str(selected_nt.fields_schema)) if selected_nt.fields_schema else ["Front", "Back"]
+                    except Exception:
+                        schema = ["Front", "Back"]
+
+                    fields = {}
+                    if len(schema) >= 1:
+                        fields[schema[0]] = front_val
+                    if len(schema) >= 2:
+                        fields[schema[1]] = back_val
+
+                    # Pour les champs supplémentaires (ex: Notes additionnelles)
+                    for f_name in schema[2:]:
+                        fields[f_name] = card.get(f_name, "")
 
                     deck_obj, _ = DeckModel.get_or_create(name=deck_name)
                     NoteManager.create_note(

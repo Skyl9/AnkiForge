@@ -2,10 +2,10 @@ import json
 import logging
 import dataclasses
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, QObject
+from typing import Optional
 
-from ankiforge.database.models import NoteModel, NoteVersionModel
-from ankiforge.services.ai.flexible_service import AIManager
+from ankiforge.database.models import NoteModel, NoteVersionModel, PersonaModel
 from ankiforge.services.ai.utils import AIReponseParser
 
 logger = logging.getLogger(__name__)
@@ -45,16 +45,24 @@ class LinterWorker(QThread):
     error_occurred = Signal(str)
     progress_update = Signal(str)
 
-    def __init__(self, note_ids: list[int]):
-        super().__init__()
+    def __init__(self, note_ids: list[int], llm_config_id: int | None = None, parent: Optional[QObject] = None):
+        super().__init__(parent)
         self.note_ids = note_ids
-        # Flexible AIManager initialization (uses active config in DB)
-        self.ai_manager = AIManager()
+        self.llm_config_id = llm_config_id
 
     def run(self):
         try:
             self.progress_update.emit("Initialisation de l'agent linter...")
-            llm_provider = self.ai_manager.provider
+
+            from ankiforge.database.models import LLMConfigModel
+            from ankiforge.services.ai.flexible_service import AIManager
+
+            if self.llm_config_id:
+                config = LLMConfigModel.get_by_id(self.llm_config_id)
+                llm_provider = AIManager.create_provider_from_config(config)
+            else:
+                self.ai_manager = AIManager()
+                llm_provider = self.ai_manager.provider
 
             # Retrieve notes
             notes_data = []
@@ -72,8 +80,14 @@ class LinterWorker(QThread):
 
             user_prompt = f"Voici les cartes à auditer :\n{json.dumps(notes_data, ensure_ascii=False)}"
 
+            wozniak_persona = PersonaModel.get_or_none(PersonaModel.name == "Auditeur Wozniak")
+            if not wozniak_persona:
+                self.error_occurred.emit("L'Auditeur Wozniak n'est pas configuré dans la base de données.")
+                return
+            system_prompt = wozniak_persona.system_prompt
+
             # Using JSON response format
-            raw_response = llm_provider.generate(system_prompt=LINTER_SYSTEM_PROMPT, user_prompt=user_prompt, response_format="json")
+            raw_response = llm_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="json")
 
             # Parse using the new AIReponseParser
             results = AIReponseParser.parse(raw_response)

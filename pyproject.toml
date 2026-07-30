@@ -29,6 +29,7 @@ dependencies = [
     "mcp>=2.0.0",
     "faiss-cpu>=1.14.3",
     "numpy>=2.4.4",
+    "chromadb>=1.5.9",
 ]
 
 [project.gui-scripts]

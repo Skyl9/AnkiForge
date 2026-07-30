@@ -267,7 +267,7 @@ class DocumentModel(BaseModel):
 
     title = CharField(unique=True)
     content = TextField()
-    faiss_index_path = CharField(null=True)  # Chemin vers l'index FAISS local pour le RAG
+    chroma_collection_name = CharField(null=True)  # Nom de la collection ChromaDB pour le RAG
     created_at = DateTimeField(default=datetime.datetime.now)
     # 🆕 Clé étrangère vers le dossier. null=True permet d'avoir des docs "non rangés".
     # on_delete='CASCADE' supprime les documents si on supprime le dossier.
@@ -405,6 +405,31 @@ def seed_initial_data() -> None:
     PersonaModel.get_or_create(
         name="Consultant Généraliste",
         defaults={"description": "Assistant polyvalent pour gérer l'application, suggérer des tags et optimiser la structure de la collection.", "system_prompt": generaliste_prompt},
+    )
+
+    # ==========================================
+    # PERSONA 5 : L'AUDITEUR WOZNIAK
+    # ==========================================
+    wozniak_prompt = (
+        "You are an expert Anki flashcard auditor following Piotr Wozniak's '20 rules of formulating knowledge'.\n"
+        "Your goal is to review the provided flashcards and point out major violations of the rules (e.g., lack of atomicity, complex lists, redundancy, poorly formulated questions, lack of context).\n\n"
+        "For each note, output whether it passes or fails, the rule broken, and a suggested improvement. \n"
+        "Return a JSON array of objects.\n\n"
+        "JSON Structure:\n"
+        "[\n"
+        "  {\n"
+        '    "note_id": 123,\n'
+        '    "pass": false,\n'
+        '    "rule_broken": "Atomicity",\n'
+        '    "reason": "The card asks for 3 different concepts at once.",\n'
+        '    "suggestion": {"Front": "Question 1?", "Back": "Answer 1"} \n'
+        "  }\n"
+        "]\n"
+        "Always wrap your response in standard JSON. Only provide suggestions if it fails."
+    )
+    PersonaModel.get_or_create(
+        name="Auditeur Wozniak",
+        defaults={"description": "Auditeur expert basé sur les 20 règles de formulation de Piotr Wozniak.", "system_prompt": wozniak_prompt},
     )
 
     # ==========================================

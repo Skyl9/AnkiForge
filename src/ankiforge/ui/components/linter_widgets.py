@@ -183,6 +183,9 @@ class FieldInspectorWidget(QFrame):
 class WozniakCardItemWidget(QFrame):
     """Widget de carte problème complet pour le linter Wozniak avec inspecteur déroulant et barre d'action."""
 
+    ignored = Signal()
+    applied = Signal(int, dict)
+
     def __init__(self, item_data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.item_data = item_data
@@ -283,22 +286,35 @@ class WozniakCardItemWidget(QFrame):
         chk_synthese.setChecked(True)
         chk_synthese.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 10px;")
 
-        btn_ignore = SecondaryButton("Ignorer")
-        btn_ignore.setFixedHeight(24)
+        self.btn_ignore = SecondaryButton("Ignorer")
+        self.btn_ignore.setFixedHeight(24)
+        self.btn_ignore.clicked.connect(self.on_ignore)
 
-        btn_apply = PrimaryButton("Valider la génération MCP")
-        btn_apply.setFixedHeight(24)
+        self.btn_apply = PrimaryButton("Valider la génération MCP")
+        self.btn_apply.setFixedHeight(24)
+        self.btn_apply.clicked.connect(self.on_apply)
 
         ab_layout.addWidget(chk_synthese)
         ab_layout.addStretch()
-        ab_layout.addWidget(btn_ignore)
-        ab_layout.addWidget(btn_apply)
+        ab_layout.addWidget(self.btn_ignore)
+        ab_layout.addWidget(self.btn_apply)
         layout.addWidget(act_bar)
 
     def toggle_inspector(self) -> None:
         self.inspector_visible = not self.inspector_visible
         self.inspector_widget.setVisible(self.inspector_visible)
         self.btn_inspect.setText("Fermer l'inspecteur" if self.inspector_visible else "Inspecter les 5 champs")
+
+    def on_ignore(self) -> None:
+        self.setVisible(False)
+        self.ignored.emit()
+
+    def on_apply(self) -> None:
+        nid = self.item_data.get("note_id")
+        proposal = self.item_data.get("proposal", {})
+        if nid:
+            self.applied.emit(nid, proposal)
+        self.setVisible(False)
 
 
 class KatexLivePreviewWidget(QFrame):

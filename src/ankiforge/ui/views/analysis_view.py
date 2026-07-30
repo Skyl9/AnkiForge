@@ -31,13 +31,13 @@ from ankiforge.ui.components.linter_widgets import (
     RetentionCurveCanvas,
 )
 from ankiforge.services.ai.linter import (
-    WozniakLinterEngine,
     SourcesDiagnosticService,
     TokenSrsFinancialService,
 )
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.services.workers.linter_worker import LinterWorker
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ class AIWozniakLinterTab(QWidget):
         self.selected_deck_id: Optional[int] = None
         self.selected_deck_name: Optional[str] = None
         self.active_category: str = "cat-atomicite"
+        self._cached_deck_results: dict[int, list] = {}  # Cache par deck_id
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -74,7 +75,7 @@ class AIWozniakLinterTab(QWidget):
 
         self.btn_analyze = PrimaryButton("Analyser ce paquet")
         self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
-        self.btn_analyze.clicked.connect(self.refresh_audit)
+        self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
 
         self.search_input = GlowLineEdit()
         self.search_input.setPlaceholderText("Rechercher une carte...")
@@ -87,8 +88,38 @@ class AIWozniakLinterTab(QWidget):
             f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 3px 8px;"
         )
 
+        self.engine_combo = QComboBox()
+        self.engine_combo.setFixedWidth(220)
+        self.engine_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 4px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+
+        # Remplissage du sélecteur
+        from ankiforge.database.models import LLMConfigModel
+
+        configs = list(LLMConfigModel.select())
+        if not configs:
+            LLMConfigModel.create(
+                display_name="Ollama (Local)",
+                provider="ollama",
+                model_id="qwen2.5:7b",
+                context_limit=32000,
+            )
+            configs = list(LLMConfigModel.select())
+
+        for c in configs:
+            display_name = getattr(c, "display_name", getattr(c, "name", str(c)))
+            self.engine_combo.addItem(f"⚡ {display_name}", userData=c)
+
         h_layout.addWidget(lbl_title)
         h_layout.addWidget(self.btn_deck)
+        h_layout.addWidget(self.engine_combo)
         h_layout.addWidget(self.btn_analyze)
         h_layout.addStretch()
         h_layout.addWidget(self.search_input)
@@ -201,31 +232,140 @@ class AIWozniakLinterTab(QWidget):
 
         self.cloze_banner.setVisible(cat_id == "cat-cloze" and self.selected_deck_id is not None)
         if self.selected_deck_id is not None:
-            self.refresh_audit()
+            self.refresh_audit(force=False)
 
     def on_cloze_toggle_changed(self, state: int) -> None:
         """Active/désactive dynamiquement l'audit de catégorie Cloze."""
         is_enabled = state == Qt.CheckState.Checked.value
         self.toggle_cloze.setText("Audit Cloze : Activé (Recommandé)" if is_enabled else "Audit Cloze : Désactivé (Conserver Cloze)")
         if self.selected_deck_id is not None:
-            self.refresh_audit()
+            self.refresh_audit(force=False)
 
-    def refresh_audit(self) -> None:
-        """Exécute l'audit uniquement sur demande de l'utilisateur."""
+    def refresh_audit(self, force: bool = False) -> None:
+        """Exécute l'audit via IA uniquement sur demande de l'utilisateur ou depuis le cache."""
         if self.selected_deck_id is None:
             self.show_empty_state("Veuillez d'abord choisir un paquet avec le bouton 'Sélectionner un paquet...'")
             return
 
-        audit_res = WozniakLinterEngine.audit_deck(
-            deck_id=self.selected_deck_id,
-            enable_cloze_audit=self.toggle_cloze.isChecked(),
-        )
+        if not force and self.selected_deck_id in self._cached_deck_results:
+            self._on_linter_finished(self._cached_deck_results[self.selected_deck_id])
+            return
 
-        self.score_badge.setText(f"Score : {audit_res['score_global']} / 100")
+        from ankiforge.database.models import NoteModel, CardModel
+
+        # Un Note n'a pas de deck direct, on passe par ses cartes
+        note_ids = [n.id for n in NoteModel.select().join(CardModel).where(CardModel.deck == self.selected_deck_id).distinct()]
+        if not note_ids:
+            self.show_empty_state("Aucune carte trouvée dans ce paquet.")
+            return
+
+        self.show_empty_state("Analyse IA en cours (Linter Wozniak)...")
+        self.btn_analyze.setEnabled(False)
+
+        selected_config = self.engine_combo.currentData()
+        config_id = selected_config.id if selected_config else None
+
+        self.worker = LinterWorker(note_ids=note_ids, llm_config_id=config_id, parent=self)
+        self.worker.progress_update.connect(lambda msg: self.show_empty_state(msg))
+        self.worker.error_occurred.connect(self._on_linter_error)
+        self.worker.finished_processing.connect(self._on_linter_finished)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.start()
+
+    def _on_linter_error(self, err: str) -> None:
+        self.btn_analyze.setEnabled(True)
+        self.show_empty_state(f"Erreur lors de l'audit IA : {err}")
+
+    def _on_linter_finished(self, results: list) -> None:
+        self.btn_analyze.setEnabled(True)
+        if self.selected_deck_id is not None:
+            self._cached_deck_results[self.selected_deck_id] = results
+
+        from ankiforge.database.models import NoteModel, NoteVersionModel
+        import json
+
+        # Mapping results to our categories
+        cat_atomicite_items = []
+        cat_katex_items = []
+        cat_interference_items = []
+        cat_cloze_items = []
+
+        for res in results:
+            if res.get("pass") or res.get("pass_"):
+                continue
+
+            nid = res.get("note_id")
+            if not nid:
+                continue
+
+            note = NoteModel.get_or_none(NoteModel.id == nid)
+            if not note:
+                continue
+
+            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active)
+            if not active_ver:
+                continue
+
+            try:
+                content = json.loads(active_ver.content)
+            except Exception:
+                content = {"Text": str(active_ver.content)}
+
+            recto = content.get("Recto", content.get("Text", ""))
+            verso = content.get("Verso", "")
+
+            rule = res.get("rule_broken", "Règle Inconnue")
+            reason = res.get("reason", "Pas de raison fournie.")
+            sug = res.get("suggestion", {})
+
+            item = {
+                "note_id": nid,
+                "title": f"Note #{nid} - Problème d'atomicité",
+                "badge": "Atomicité",
+                "badge_color": "#f87171",
+                "rule": f"{rule}: {reason}",
+                "original": {"Recto": recto, "Verso": verso},
+                "proposal": sug,
+                "proposal_summary": "PROPOSITION IA (MCP) :",
+            }
+
+            rule_lower = rule.lower()
+            if "atomic" in rule_lower or "list" in rule_lower:
+                item["badge"] = "Atomicité"
+                item["badge_color"] = "#f87171"
+                cat_atomicite_items.append(item)
+            elif "cloze" in rule_lower or "question" in rule_lower:
+                item["badge"] = "Questions Univoques"
+                item["badge_color"] = "#f59e0b"
+                cat_cloze_items.append(item)
+            elif "context" in rule_lower or "interf" in rule_lower:
+                item["badge"] = "Interférence"
+                item["badge_color"] = "#3b82f6"
+                cat_interference_items.append(item)
+            else:
+                item["badge"] = "Formulation"
+                item["badge_color"] = "#c084fc"
+                cat_katex_items.append(item)
+
+        # Update KPI score based on found issues (heuristic fallback to make UI look alive)
+        score_atomicite = max(0, 100 - len(cat_atomicite_items) * 7)
+        score_katex = max(0, 100 - len(cat_katex_items) * 5)
+        score_cloze = max(0, 100 - len(cat_cloze_items) * 6)
+        score_interference = max(0, 100 - len(cat_interference_items) * 4)
+
+        score_global = int((score_atomicite + score_katex + score_cloze + score_interference) / 4)
+
+        categories = {
+            "cat-atomicite": {"score": score_atomicite, "items": cat_atomicite_items},
+            "cat-katex": {"score": score_katex, "items": cat_katex_items},
+            "cat-interference": {"score": score_interference, "items": cat_interference_items},
+            "cat-cloze": {"score": score_cloze, "items": cat_cloze_items},
+        }
+
+        self.score_badge.setText(f"Score : {score_global} / 100")
         self.score_badge.setStyleSheet(f"background-color: rgba(245,158,11,0.12); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 3px 8px;")
 
         # Mise à jour des KPI cards
-        categories = audit_res.get("categories", {})
         for cat_id, cat_data in categories.items():
             if cat_id in self.kpi_cards:
                 kpi = self.kpi_cards[cat_id]
@@ -233,23 +373,59 @@ class AIWozniakLinterTab(QWidget):
 
         # Vider les cartes précédentes
         while self.cards_layout.count():
-            item = self.cards_layout.takeAt(0)
-            widget = item.widget() if item is not None else None
+            item_widget = self.cards_layout.takeAt(0)
+            widget = item_widget.widget() if item_widget is not None else None
             if widget is not None:
                 widget.deleteLater()
 
         # Remplir dynamiquement la catégorie active
         current_cat_data = categories.get(self.active_category, {})
-        items = current_cat_data.get("items", [])
+        from typing import cast, List, Dict, Any
+
+        items = cast(List[Dict[str, Any]], current_cat_data.get("items", []))
 
         for item_data in items:
             card_widget = WozniakCardItemWidget(item_data)
+            card_widget.applied.connect(self._on_card_applied)
             self.cards_layout.addWidget(card_widget)
 
-            # Si c'est la catégorie KaTeX, on injecte aussi le widget Live Preview
             if self.active_category == "cat-katex" and "formula" in item_data:
                 preview = KatexLivePreviewWidget(initial_formula=item_data["formula"])
                 self.cards_layout.addWidget(preview)
+
+    def _on_card_applied(self, note_id: int, proposal: dict) -> None:
+        """Applique la proposition de l'IA à la base de données."""
+        from ankiforge.database.models import NoteModel, NoteVersionModel
+        import json
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            note = NoteModel.get_or_none(NoteModel.id == note_id)
+            if not note:
+                return
+
+            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active)
+            if active_ver:
+                try:
+                    content = json.loads(active_ver.content)
+                except Exception:
+                    content = {}
+
+                # Appliquer la proposition (en map les clés standard)
+                if "Front" in proposal and "Recto" not in proposal:
+                    proposal["Recto"] = proposal.pop("Front")
+                if "Back" in proposal and "Verso" not in proposal:
+                    proposal["Verso"] = proposal.pop("Back")
+
+                for k, v in proposal.items():
+                    content[k] = v
+
+                note.add_version(new_content_dict=content, source="ai")
+                logger.info(f"Proposition appliquée avec succès pour la note #{note_id}")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'application de la proposition pour la note #{note_id}: {e}")
 
     def filter_items_by_search(self, query: str) -> None:
         """Filtre dynamiquement les cartes affichées selon le texte de recherche."""
@@ -601,24 +777,6 @@ class AITokensSrsTab(QWidget):
 
 
 # =====================================================================================
-# ONGLET 4 : MODÈLES DE CARTES & PROMPTS
-# =====================================================================================
-class AIModelsTab(QWidget):
-    """Onglet de gestion des modèles de cartes et prompts."""
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-
-        lbl = QLabel("Modèles de Cartes & System Prompts AnkiForge")
-        lbl.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
-        lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-        layout.addWidget(lbl)
-        layout.addStretch()
-
-
-# =====================================================================================
 # ONGLET 5 : FUSIONS & DOUBLONS
 # =====================================================================================
 class AIDuplicatesMergeTab(QWidget):
@@ -626,6 +784,12 @@ class AIDuplicatesMergeTab(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.selected_deck_id: Optional[int] = None
+        self.conflicts: list = []
+        from ankiforge.services.workers.duplicate_worker import DuplicateWorker
+
+        self.worker: Optional[DuplicateWorker] = None
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(14)
@@ -637,6 +801,143 @@ class AIDuplicatesMergeTab(QWidget):
         # 2. Inspecteur de fusion (Bottom)
         self.merge_inspector = DuplicateMergeInspector()
         layout.addWidget(self.merge_inspector, stretch=1)
+
+        # Connexions
+        self.matrix_table.btn_deck.clicked.connect(self.open_deck_select_dialog)
+        self.matrix_table.btn_reanalyze.clicked.connect(self.run_duplicate_scan)
+        self.matrix_table.table.itemSelectionChanged.connect(self.on_table_selection_changed)
+
+        self.merge_inspector.merge_requested.connect(self.on_merge_requested)
+        self.merge_inspector.ignore_requested.connect(self.on_ignore_requested)
+
+    def open_deck_select_dialog(self) -> None:
+        from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+
+        self._deck_dialog = DeckSelectWindow(parent=self)
+        self._deck_dialog.deck_selected.connect(self._on_deck_selected)
+        self._deck_dialog.show()
+
+    def _on_deck_selected(self, deck_id: int, deck_name: str) -> None:
+        self.selected_deck_id = deck_id
+        self.matrix_table.btn_deck.setText(deck_name)
+        self.run_duplicate_scan()
+        if hasattr(self, "_deck_dialog") and self._deck_dialog:
+            self._deck_dialog.close()
+
+    def run_duplicate_scan(self) -> None:
+        if self.selected_deck_id is None:
+            return
+
+        self.matrix_table.btn_reanalyze.setEnabled(False)
+        self.matrix_table.btn_reanalyze.setText("Recherche...")
+        self.matrix_table.table.setRowCount(0)
+
+        from ankiforge.services.workers.duplicate_worker import DuplicateWorker
+
+        self.worker = DuplicateWorker(deck_id=self.selected_deck_id, parent=self)
+        self.worker.finished_processing.connect(self.on_scan_finished)
+        self.worker.error_occurred.connect(self.on_scan_error)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.start()
+
+    def on_scan_finished(self, conflicts: list) -> None:
+        self.matrix_table.btn_reanalyze.setEnabled(True)
+        self.matrix_table.btn_reanalyze.setText("Relancer l'analyse")
+        self.conflicts = conflicts
+
+        # Update badge
+        from PySide6.QtWidgets import QLabel
+
+        for child in self.matrix_table.findChildren(QLabel):
+            if "paires à examiner" in child.text() or "0" in child.text():
+                child.setText(f"{len(conflicts)} paires à examiner")
+
+        self.matrix_table.table.setRowCount(0)
+        for idx, (note_a, content_a, note_b, content_b, sim) in enumerate(conflicts):
+            row_data = {
+                "idx": idx,
+                "note_a": note_a,
+                "content_a": content_a,
+                "note_b": note_b,
+                "content_b": content_b,
+                "sim": sim,
+            }
+            self.matrix_table.add_row(note_a, content_a, note_b, content_b, sim, row_data)
+
+    def on_scan_error(self, err: str) -> None:
+        self.matrix_table.btn_reanalyze.setEnabled(True)
+        self.matrix_table.btn_reanalyze.setText("Relancer l'analyse")
+        logger.error(f"Duplicate scan error: {err}")
+
+    def on_table_selection_changed(self) -> None:
+        selected = self.matrix_table.table.selectedItems()
+        if not selected:
+            return
+
+        row = selected[0].row()
+        item = self.matrix_table.table.item(row, 2)
+        if not item:
+            return
+
+        row_data = item.data(Qt.ItemDataRole.UserRole)
+        if not row_data:
+            return
+
+        self.merge_inspector.load_conflict(row_data)
+
+    def on_merge_requested(self, note_keep, note_del, merged_content) -> None:
+        # Business logic for merging
+        # 1. Update note_keep's active version content
+        # 2. Delete note_del
+        from ankiforge.database.models import NoteVersionModel, db
+        import json
+
+        try:
+            with db.atomic():
+                # Créer une nouvelle version pour note_keep
+                active_ver = NoteVersionModel.get_or_none(note=note_keep, is_active=True)
+                if active_ver:
+                    active_ver.is_active = False
+                    active_ver.save()
+                    NoteVersionModel.create(
+                        note=note_keep, version_number=active_ver.version_number + 1, content=json.dumps(merged_content), is_active=True, change_reason="Fusion avec doublon", author_type="human"
+                    )
+                # Supprimer la note dupliquée (note_del)
+                note_del.delete_instance(recursive=True)
+
+            # Remove row from table
+            self.remove_current_conflict()
+        except Exception as e:
+            logger.error(f"Erreur fusion: {e}", exc_info=True)
+
+    def on_ignore_requested(self, note_a, note_b) -> None:
+        from ankiforge.database.models import IgnoredDuplicateModel
+
+        try:
+            id_1, id_2 = min(note_a.id, note_b.id), max(note_a.id, note_b.id)
+            IgnoredDuplicateModel.get_or_create(note_a_id=id_1, note_b_id=id_2)
+            self.remove_current_conflict()
+        except Exception as e:
+            logger.error(f"Erreur ignore: {e}", exc_info=True)
+
+    def remove_current_conflict(self):
+        selected = self.matrix_table.table.selectedItems()
+        if selected:
+            row = selected[0].row()
+            self.matrix_table.table.removeRow(row)
+            self.merge_inspector.current_conflict = None
+            self.merge_inspector.lbl_title_a.setText("CARTE #1")
+            self.merge_inspector.lbl_title_b.setText("CARTE #2")
+            self.merge_inspector.lbl_content_a.setText("...")
+            self.merge_inspector.lbl_content_b.setText("...")
+            self.merge_inspector.lbl_merged.setText("...")
+
+            # Update badge
+            from PySide6.QtWidgets import QLabel
+
+            for child in self.matrix_table.findChildren(QLabel):
+                if "paires à examiner" in child.text() or "0" in child.text():
+                    child.setText(f"{self.matrix_table.table.rowCount()} paires à examiner")
 
 
 # =====================================================================================
@@ -661,13 +962,11 @@ class AnalysisView(QWidget):
         self.tab_sources = AISourcesDiagnosticTab()
         self.tab_tokens = AITokensSrsTab()
         self.tab_duplicates = AIDuplicatesMergeTab()
-        self.tab_models = AIModelsTab()
 
         self.main_panel.add_tab("Audit && Linter Wozniak", self.tab_wozniak, icon_name="sparkle")
         self.main_panel.add_tab("Diagnostic Sources", self.tab_sources, icon_name="file-text")
         self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar")
         self.main_panel.add_tab("Fusions && Doublons", self.tab_duplicates, icon_name="git-merge")
-        self.main_panel.add_tab("Modèles && Prompts", self.tab_models, icon_name="swatches")
 
         # Bouton de paramètres ajouté au header
         btn_settings = IconButton("gear", "Paramètres de l'Analyse", 24)

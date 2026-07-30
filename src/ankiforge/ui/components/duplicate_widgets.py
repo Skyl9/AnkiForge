@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor
 
 from ankiforge.ui.theme import DesignTokens
@@ -114,30 +114,7 @@ class DuplicateMatrixTable(QFrame):
 
         layout.addWidget(self.table)
 
-        # Mock Data
-        self.add_mock_row(
-            "94.2 % C",
-            "std::unique_ptr vs std::shared_ptr en C++20...",
-            "Quelles différences entre unique_ptr et shared_ptr ?",
-            "🟢 Maîtrisée vs 🟡 En apprentissage",
-            "En révision ▼",
-            "#f87171",
-            rgba_bg="rgba(239,68,68,0.25)",
-        )
-        self.add_mock_row(
-            "98.0 % C", "Enoncer la formule de Bayes...", "Calculer P(A|B) avec le théorème de Bayes.", "🟢 Maîtrisée vs 🟡 En apprentissage", "En attente", "#f87171", rgba_bg="rgba(239,68,68,0.25)"
-        )
-        self.add_mock_row(
-            "91.5 % C",
-            "Complexité temporelle pire cas du tri Quicksort.",
-            "Pire cas Quicksort O(N^2) et choix du pivot.",
-            "🟡 12 révisions vs 🟡 15 révisions",
-            "En attente",
-            DesignTokens.COLOR_YELLOW,
-            rgba_bg="rgba(245,158,11,0.25)",
-        )
-
-    def add_mock_row(self, sim: str, cardA: str, cardB: str, srs: str, status: str, color: str, rgba_bg: str):
+    def add_row(self, note_a, content_a, note_b, content_b, similarity, row_data):
         row = self.table.rowCount()
         self.table.insertRow(row)
 
@@ -150,7 +127,15 @@ class DuplicateMatrixTable(QFrame):
         cb_layout.setContentsMargins(0, 0, 0, 0)
         self.table.setCellWidget(row, 0, cb_widget)
 
-        lbl_sim = QLabel(sim)
+        sim_str = f"{similarity*100:.1f} % C"
+        if similarity > 0.95:
+            rgba_bg = "rgba(239,68,68,0.25)"
+            color = "#f87171"
+        else:
+            rgba_bg = "rgba(245,158,11,0.25)"
+            color = DesignTokens.COLOR_YELLOW
+
+        lbl_sim = QLabel(sim_str)
         lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         lbl_sim.setStyleSheet(f"background: {rgba_bg}; color: {color}; padding: 3px 9px; border-radius: 5px;")
         sim_widget = QWidget()
@@ -159,29 +144,38 @@ class DuplicateMatrixTable(QFrame):
         sim_layout.setContentsMargins(5, 5, 5, 5)
         self.table.setCellWidget(row, 1, sim_widget)
 
-        item_a = QTableWidgetItem(cardA)
+        cardA = content_a.get("Recto", content_a.get("Text", str(note_a.id)))
+        item_a = QTableWidgetItem(cardA[:100] + "..." if len(cardA) > 100 else cardA)
         item_a.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+        item_a.setData(Qt.ItemDataRole.UserRole, row_data)
         self.table.setItem(row, 2, item_a)
 
-        item_b = QTableWidgetItem(cardB)
+        cardB = content_b.get("Recto", content_b.get("Text", str(note_b.id)))
+        item_b = QTableWidgetItem(cardB[:100] + "..." if len(cardB) > 100 else cardB)
         item_b.setForeground(QColor(DesignTokens.TEXT_SECONDARY))
         self.table.setItem(row, 3, item_b)
 
+        srs = "🟡 À examiner"
         item_srs = QTableWidgetItem(srs)
         self.table.setItem(row, 4, item_srs)
 
+        status = "En attente"
         item_status = QTableWidgetItem(status)
         item_status.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        if "révision" in status:
-            item_status.setForeground(QColor(DesignTokens.ACCENT_PRIMARY))
         self.table.setItem(row, 5, item_status)
 
 
 class DuplicateMergeInspector(QFrame):
     """Inspecteur de fusion à 3 colonnes (Bottom section)."""
 
+    merge_requested = Signal(object, object, dict)  # note_keep, note_delete, merged_content
+    ignore_requested = Signal(object, object)  # note_a, note_b
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        from typing import Dict, Any
+
+        self.current_conflict: Optional[Dict[str, Any]] = None
         self.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 8px;")
 
         layout = QVBoxLayout(self)
@@ -215,17 +209,17 @@ class DuplicateMergeInspector(QFrame):
         nav_layout.addWidget(btn_next)
         h_header.addWidget(nav_widget)
 
-        btn_swap = SecondaryButton("Permuter A ↔ B")
-        btn_swap.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.COLOR_PURPLE))
-        btn_swap.setStyleSheet(f"background: rgba(168,85,247,0.15); border-color: {DesignTokens.COLOR_PURPLE}; color: {DesignTokens.COLOR_PURPLE};")
-        h_header.addWidget(btn_swap)
+        self.btn_swap = SecondaryButton("Permuter A ↔ B")
+        self.btn_swap.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.COLOR_PURPLE))
+        self.btn_swap.setStyleSheet(f"background: rgba(168,85,247,0.15); border-color: {DesignTokens.COLOR_PURPLE}; color: {DesignTokens.COLOR_PURPLE};")
+        h_header.addWidget(self.btn_swap)
 
         h_header.addStretch()
 
-        lbl_sim = QLabel("Indice de similitude C : 94.2%")
-        lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        lbl_sim.setStyleSheet("background: rgba(239,68,68,0.2); color: #f87171; padding: 3px 9px; border-radius: 5px;")
-        h_header.addWidget(lbl_sim)
+        self.lbl_sim = QLabel("Indice de similitude C : --%")
+        self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        self.lbl_sim.setStyleSheet("background: rgba(239,68,68,0.2); color: #f87171; padding: 3px 9px; border-radius: 5px;")
+        h_header.addWidget(self.lbl_sim)
 
         layout.addLayout(h_header)
 
@@ -234,13 +228,13 @@ class DuplicateMergeInspector(QFrame):
         h_cols.setSpacing(14)
 
         # Col 1: Card A
-        col_a = self._create_card_col("CARTE #1 (Originale #4012)", DesignTokens.COLOR_BLUE, "std::unique_ptr vs std::shared_ptr en C++20...", "➔ Injecter", "Conserver Carte #1 (Originale)")
-        h_cols.addWidget(col_a)
+        self.col_a, self.lbl_title_a, self.lbl_content_a, self.btn_keep_a = self._create_card_col("CARTE #1", DesignTokens.COLOR_BLUE, "...", "➔ Injecter", "Conserver Carte #1 (Originale)")
+        h_cols.addWidget(self.col_a)
 
         # Col 2: Fusion
-        col_fusion = QFrame()
-        col_fusion.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; border: 2px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 6px;")
-        f_layout = QVBoxLayout(col_fusion)
+        self.col_fusion = QFrame()
+        self.col_fusion.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; border: 2px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 6px;")
+        f_layout = QVBoxLayout(self.col_fusion)
         f_layout.setContentsMargins(12, 12, 12, 12)
 
         f_header = QHBoxLayout()
@@ -256,31 +250,43 @@ class DuplicateMergeInspector(QFrame):
         f_header.addWidget(btn_source)
         f_layout.addLayout(f_header)
 
-        f_body = QFrame()
-        f_body.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
-        f_layout.addWidget(f_body, 1)
+        self.f_body = QFrame()
+        self.f_body.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        f_layout.addWidget(self.f_body, 1)
+
+        self.merged_content_layout = QVBoxLayout(self.f_body)
+        self.lbl_merged = QLabel("...")
+        self.lbl_merged.setWordWrap(True)
+        self.lbl_merged.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        self.merged_content_layout.addWidget(self.lbl_merged)
 
         # Actions
         f_actions = QHBoxLayout()
-        btn_valid = PrimaryButton("Valider la fusion")
-        btn_valid.setIcon(load_phosphor_icon("check", color="#ffffff"))
-        btn_ignore = SecondaryButton("Ignorer")
-        btn_false = SecondaryButton("Faux Doublon")
-        btn_false.setStyleSheet("border-color: rgba(239,68,68,0.5); color: #f87171;")
-        f_actions.addWidget(btn_valid, 1)
-        f_actions.addWidget(btn_ignore)
-        f_actions.addWidget(btn_false)
+        self.btn_valid = PrimaryButton("Valider la fusion")
+        self.btn_valid.setIcon(load_phosphor_icon("check", color="#ffffff"))
+        self.btn_ignore = SecondaryButton("Ignorer")
+        self.btn_false = SecondaryButton("Faux Doublon")
+        self.btn_false.setStyleSheet("border-color: rgba(239,68,68,0.5); color: #f87171;")
+        f_actions.addWidget(self.btn_valid, 1)
+        f_actions.addWidget(self.btn_ignore)
+        f_actions.addWidget(self.btn_false)
         f_layout.addLayout(f_actions)
 
-        h_cols.addWidget(col_fusion, 1)
+        h_cols.addWidget(self.col_fusion, 1)
 
         # Col 3: Card B
-        col_b = self._create_card_col("CARTE #2 (Duplicata #4088)", DesignTokens.COLOR_PURPLE, "Quelles différences entre unique_ptr et shared_ptr ?", "⬅ Injecter", "Conserver Carte #2 (Duplicata)")
-        h_cols.addWidget(col_b)
+        self.col_b, self.lbl_title_b, self.lbl_content_b, self.btn_keep_b = self._create_card_col("CARTE #2", DesignTokens.COLOR_PURPLE, "...", "⬅ Injecter", "Conserver Carte #2 (Duplicata)")
+        h_cols.addWidget(self.col_b)
 
         layout.addLayout(h_cols)
 
-    def _create_card_col(self, title: str, color: str, content: str, btn_text: str, action_text: str) -> QFrame:
+        self.btn_keep_a.clicked.connect(lambda: self.set_merged_content("A"))
+        self.btn_keep_b.clicked.connect(lambda: self.set_merged_content("B"))
+        self.btn_valid.clicked.connect(self.on_validate)
+        self.btn_ignore.clicked.connect(self.on_ignore)
+        self.btn_false.clicked.connect(self.on_ignore)
+
+    def _create_card_col(self, title: str, color: str, content: str, btn_text: str, action_text: str):
         col = QFrame()
         col.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px;")
         layout_col = QVBoxLayout(col)
@@ -318,4 +324,42 @@ class DuplicateMergeInspector(QFrame):
 
         layout_col.addWidget(body, 1)
         layout_col.addWidget(btn_action)
-        return col
+        return col, lbl_title, lbl_content, btn_action
+
+    def load_conflict(self, row_data: dict) -> None:
+        self.current_conflict = row_data
+        sim = row_data.get("sim", 0.0)
+        self.lbl_sim.setText(f"Indice de similitude C : {sim*100:.1f}%")
+
+        note_a = row_data["note_a"]
+        content_a = row_data["content_a"]
+        note_b = row_data["note_b"]
+        content_b = row_data["content_b"]
+
+        self.lbl_title_a.setText(f"CARTE #1 (Originale #{note_a.id})")
+        self.lbl_content_a.setText(content_a.get("Recto", content_a.get("Text", "")))
+
+        self.lbl_title_b.setText(f"CARTE #2 (Duplicata #{note_b.id})")
+        self.lbl_content_b.setText(content_b.get("Recto", content_b.get("Text", "")))
+
+        self.set_merged_content("A")
+
+    def set_merged_content(self, source: str) -> None:
+        if not self.current_conflict:
+            return
+        content = self.current_conflict["content_a"] if source == "A" else self.current_conflict["content_b"]
+        self.lbl_merged.setText(content.get("Recto", content.get("Text", "")))
+        self.current_conflict["merged_content"] = content
+
+    def on_validate(self) -> None:
+        if not self.current_conflict:
+            return
+        note_keep = self.current_conflict["note_a"]
+        note_del = self.current_conflict["note_b"]
+        merged = self.current_conflict.get("merged_content", self.current_conflict["content_a"])
+        self.merge_requested.emit(note_keep, note_del, merged)
+
+    def on_ignore(self) -> None:
+        if not self.current_conflict:
+            return
+        self.ignore_requested.emit(self.current_conflict["note_a"], self.current_conflict["note_b"])

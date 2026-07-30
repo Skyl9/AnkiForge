@@ -183,10 +183,16 @@ class DocumentsView(QWidget):
         self.btn_split_sections.setIcon(load_phosphor_icon("ph.split-horizontal", color=DesignTokens.TEXT_PRIMARY))
         self.btn_split_sections.setToolTip("Découper le document en plusieurs chapitres aux balises [SPLIT]")
 
+        self.btn_rag = SecondaryButton("Vectoriser (RAG)")
+        self.btn_rag.setIcon(load_phosphor_icon("ph.database", color="#10b981"))
+        self.btn_rag.setToolTip("Indexer ce document dans la base vectorielle ChromaDB")
+        self.btn_rag.clicked.connect(self._on_vectorize_rag)
+
         doc_toolbar.addWidget(self.btn_marker)
         doc_toolbar.addWidget(self.btn_url)
         doc_toolbar.addWidget(self.btn_insert_split)
         doc_toolbar.addWidget(self.btn_split_sections)
+        doc_toolbar.addWidget(self.btn_rag)
         doc_toolbar.addStretch()
 
         self.lbl_word_count = QLabel("0 mots")
