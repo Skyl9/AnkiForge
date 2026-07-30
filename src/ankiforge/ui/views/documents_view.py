@@ -482,5 +482,40 @@ class DocumentsView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible d'enregistrer le document : {str(e)}")
 
+    @Slot()
+    def _on_vectorize_rag(self) -> None:
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document à vectoriser.", is_error=True)
+            return
+
+        doc = DocumentModel.get_by_id(self._current_doc_id)
+        if doc.chroma_collection_name:
+            reply = QMessageBox.question(self, "Déjà indexé", "Ce document est déjà indexé dans ChromaDB.\nVoulez-vous le ré-indexer ?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self.btn_rag.setEnabled(False)
+        self.btn_rag.setText("Vectorisation...")
+
+        from ankiforge.services.workers.vector_worker import VectorWorker
+
+        self._vector_worker = VectorWorker(document_id=self._current_doc_id, parent=self)
+        self._vector_worker.finished_indexing.connect(self._on_vectorization_success)
+        self._vector_worker.error_occurred.connect(self._on_vectorization_error)
+        self._vector_worker.finished.connect(self._vector_worker.deleteLater)
+        self._vector_worker.start()
+
+    @Slot(str)
+    def _on_vectorization_success(self, collection_name: str) -> None:
+        self.btn_rag.setEnabled(True)
+        self.btn_rag.setText("Vectoriser (RAG)")
+        show_toast(self, f"Document indexé dans ChromaDB : {collection_name}")
+
+    @Slot(str)
+    def _on_vectorization_error(self, err: str) -> None:
+        self.btn_rag.setEnabled(True)
+        self.btn_rag.setText("Vectoriser (RAG)")
+        show_toast(self, f"Échec de la vectorisation : {err}", is_error=True)
+
 
 DocumentsTab = DocumentsView

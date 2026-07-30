@@ -158,11 +158,12 @@ class FlashcardPreview(QWidget):
 class DocumentEditorWidget(QWidget):
     """Conteneur pour l'éditeur de texte source et la barre d'outils de génération associée."""
 
-    generate_requested = Signal(str)
+    generate_requested = Signal(str, str)  # text_source, source_title
     cancel_requested = Signal()
 
-    def __init__(self, content: str = "", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, content: str = "", source_title: str = "Saisie Libre", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.source_title = source_title
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
@@ -214,7 +215,7 @@ class DocumentEditorWidget(QWidget):
 
     @Slot()
     def _on_generate_clicked(self) -> None:
-        self.generate_requested.emit(self.editor.toPlainText().strip())
+        self.generate_requested.emit(self.editor.toPlainText().strip(), getattr(self, "source_title", "Saisie Libre"))
 
     def get_text(self) -> str:
         return self.editor.toPlainText().strip()
@@ -246,6 +247,7 @@ class CreationView(QWidget):
         self.orchestrator: Optional[PipelineOrchestrator] = None
         self.current_deck: Optional[DeckModel] = None
         self.current_model: Optional[NoteTypeModel] = None
+        self.current_source_title: str = "Saisie Libre"
         self.decks_cache: list[DeckModel] = []
         self._deck_modal: Optional[DeckSelectWindow] = None
         self.models_cache: list[NoteTypeModel] = []
@@ -801,7 +803,7 @@ class CreationView(QWidget):
             title = f"{base_title} {counter}"
             counter += 1
 
-        editor_widget = DocumentEditorWidget(content, parent=self)
+        editor_widget = DocumentEditorWidget(content, source_title=title, parent=self)
         editor_widget.generate_requested.connect(self._on_generate)
         editor_widget.cancel_requested.connect(self._on_cancel_generation)
 
@@ -898,8 +900,10 @@ class CreationView(QWidget):
         self.results_table.setRowCount(0)
         self.results_table.blockSignals(False)
 
-    @Slot(str)
-    def _on_generate(self, text_source: str = "") -> None:
+    @Slot(str, str)
+    def _on_generate(self, text_source: str = "", source_title: str = "Saisie Libre") -> None:
+        self.current_source_title = source_title
+
         if not text_source:
             show_toast(self, "Veuillez saisir un texte source ou sélectionner un document.", is_error=True)
             return
@@ -953,7 +957,9 @@ class CreationView(QWidget):
     @Slot(int, str)
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
         logger.info("[Orchestrateur] Démarrage de %s", desc)
-        self.editor.setPlaceholderText(f"⏳ {desc}...")
+        active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
+        if active_editor:
+            active_editor.editor.setPlaceholderText(f"⏳ {desc}...")
 
     @Slot(int, object)
     def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
@@ -1180,12 +1186,21 @@ class CreationView(QWidget):
                     for f_name in schema[2:]:
                         fields[f_name] = card.get(f_name, "")
 
+                    tags = ["ankiforge_generated"]
+                    if getattr(self, "current_source_title", None) and self.current_source_title != "Saisie Libre":
+                        # Nettoyage du titre pour créer un tag Anki valide (pas d'espaces)
+                        clean_title = self.current_source_title.replace(" ", "_").replace("-", "_").lower()
+                        # Enlever les extensions éventuelles (.pdf, .md)
+                        if clean_title.endswith((".pdf", ".md", ".txt")):
+                            clean_title = clean_title.rsplit(".", 1)[0]
+                        tags.append(f"source:{clean_title}")
+
                     deck_obj, _ = DeckModel.get_or_create(name=deck_name)
                     NoteManager.create_note(
                         note_type=selected_nt,
                         deck=deck_obj,
                         content_dict=fields,
-                        tags=["ankiforge_generated"],
+                        tags=tags,
                         source="ai",
                     )
                     saved_count += 1

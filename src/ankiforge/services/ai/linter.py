@@ -23,9 +23,11 @@ class WozniakLinterEngine:
         """
         notes_with_version = []
         try:
+            from ankiforge.database.models import CardModel
+
             query = NoteModel.select()
             if deck_id:
-                query = query.where(NoteModel.deck == deck_id)
+                query = query.join(CardModel, on=(NoteModel.id == CardModel.note_id)).where(CardModel.deck_id == deck_id).distinct()
 
             for note in query:
                 active_ver = NoteVersionModel.get_or_none(note=note, is_active=True)
@@ -353,89 +355,42 @@ class SourcesDiagnosticService:
 
     @staticmethod
     def get_sources_report(deck_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Retourne la liste des sources indexées et leurs scores de précision."""
-        return [
-            {
-                "name": "Thermodynamique.pdf",
-                "extension": "pdf",
-                "score": 98.4,
-                "cards_generated": 86,
-                "parser": "Marker PDF (Local)",
-                "details": "42 pages, 18 équations KaTeX extraites",
-                "code": ".pdf · Marker AST",
-                "inspect_action": "Inspecter le rapport .md",
-            },
-            {
-                "name": "Architecture_Clean_Code.md",
-                "extension": "md",
-                "score": 99.1,
-                "cards_generated": 45,
-                "parser": "Native Markdown AST Parser",
-                "details": "1 450 lignes, 12 sections, 14 exemples C++",
-                "code": ".md · Obsidian Native",
-                "inspect_action": "Voir l'AST Markdown",
-            },
-            {
-                "name": "Diagramme_Raft_Consensus.png",
-                "extension": "png",
-                "score": 94.5,
-                "cards_generated": 12,
-                "parser": "Gemini Vision OCR & Schemas",
-                "details": "1920x1080 px, 14 nœuds extraits",
-                "code": ".png · OCR Vision",
-                "inspect_action": "Inspecter OCR .png",
-            },
-            {
-                "name": "C++20 Smart Pointers",
-                "extension": "yt",
-                "score": 96.1,
-                "cards_generated": 48,
-                "parser": "Whisper Local (yt-dlp)",
-                "details": "18 min 45 sec, 3 200 mots transcris",
-                "code": "YouTube · Whisper AI",
-                "inspect_action": "Inspecter sous-titres",
-            },
-            {
-                "name": "Algorithms_Sedgewick_Ch4.pdf",
-                "extension": "pdf",
-                "score": 97.2,
-                "cards_generated": 64,
-                "parser": "Marker PDF (Local)",
-                "details": "88 pages, 32 schémas",
-                "code": ".pdf · Marker AST",
-                "inspect_action": "Inspecter le rapport .md",
-            },
-            {
-                "name": "Notes_Revision_SOLID.md",
-                "extension": "md",
-                "score": 100.0,
-                "cards_generated": 25,
-                "parser": "Obsidian Vault Synced Parser",
-                "details": "380 lignes, 5 principes, 8 backlinks",
-                "code": ".md · Obsidian Sync",
-                "inspect_action": "Voir note .md",
-            },
-            {
-                "name": "Schema_Reseau_OSI.png",
-                "extension": "png",
-                "score": 92.0,
-                "cards_generated": 14,
-                "parser": "OpenAI Vision OCR Fallback",
-                "details": "2048x1536 px, 7 couches OSI",
-                "code": ".png · OCR Vision",
-                "inspect_action": "Inspecter OCR .png",
-            },
-            {
-                "name": "cppreference.com (std::vector)",
-                "extension": "web",
-                "score": 89.0,
-                "cards_generated": 18,
-                "parser": "Trafilatura Clean",
-                "details": "89% densité utile, 2 100 mots",
-                "code": "Web · Trafilatura",
-                "inspect_action": "Voir HTML nettoyé",
-            },
-        ]
+        """Retourne la liste des sources indexées et leurs scores de précision (en bdd)."""
+        from ankiforge.database.models import DocumentModel, NoteModel
+
+        reports = []
+        documents = DocumentModel.select()
+
+        for doc in documents:
+            clean_title = doc.title.replace(" ", "_").replace("-", "_").lower()
+            if clean_title.endswith((".pdf", ".md", ".txt")):
+                clean_title = clean_title.rsplit(".", 1)[0]
+            tag_name = f"source:{clean_title}"
+
+            # Count cards generated for this source
+            # On SQLite tags are separated by spaces or commas
+            card_count = NoteModel.select().where(NoteModel.tags.contains(tag_name)).count()
+
+            ext = doc.title.split(".")[-1].lower() if "." in doc.title else "txt"
+            if ext not in ["pdf", "md", "png", "yt", "web"]:
+                ext = "txt"
+
+            reports.append(
+                {
+                    "id": doc.id,
+                    "name": doc.title,
+                    "extension": ext,
+                    "score": 0.0,  # À calculer via un vrai LLM Gap Analysis plus tard
+                    "cards_generated": card_count,
+                    "parser": "AnkiForge Ingestion",
+                    "details": f"{len(doc.content.split())} mots",
+                    "code": "Source · En BDD",
+                    "inspect_action": "Analyser les trous (Gap Analysis)",
+                    "raw_content": doc.content,
+                }
+            )
+
+        return reports
 
 
 class TokenSrsFinancialService:
