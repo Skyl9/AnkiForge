@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QScrollArea,
     QGridLayout,
-    QInputDialog,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -36,8 +35,9 @@ from ankiforge.services.ai.linter import (
     SourcesDiagnosticService,
     TokenSrsFinancialService,
 )
-from ankiforge.database.models import DeckModel, NoteModel
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 
 logger = logging.getLogger(__name__)
 
@@ -183,28 +183,15 @@ class AIWozniakLinterTab(QWidget):
 
     def open_deck_select_dialog(self) -> None:
         """Ouvre un dialogue de sélection de paquet."""
-        decks = []
-        try:
-            for d in DeckModel.select():
-                count = NoteModel.select().where(NoteModel.deck == d.id).count() if hasattr(NoteModel, "deck") else 0
-                decks.append((d.id, d.name, count))
-        except Exception:
-            pass  # nosec B110
+        self._deck_window = DeckSelectWindow(parent=self)
+        self._deck_window.deck_selected.connect(self._on_deck_selected)
+        self._deck_window.show()
 
-        if not decks:
-            # Option fallback par défaut
-            decks = [(1, "Informatique::C++", 142), (2, "Médecine::Anatomie", 85)]
-
-        options = [f"{name} ({count} cartes)" for d_id, name, count in decks]
-        item, ok = QInputDialog.getItem(self, "Choix du paquet", "Sélectionnez le paquet à analyser :", options, 0, False)
-
-        if ok and item:
-            idx = options.index(item)
-            selected = decks[idx]
-            self.selected_deck_id = selected[0]
-            self.selected_deck_name = selected[1]
-            self.btn_deck.setText(f"{selected[1]} ({selected[2]} cartes)")
-            logger.info(f"Paquet sélectionné pour audit : {selected[1]}")
+    def _on_deck_selected(self, deck_id: int, deck_name: str) -> None:
+        self.selected_deck_id = deck_id
+        self.selected_deck_name = deck_name
+        self.btn_deck.setText(deck_name)
+        logger.info(f"Paquet sélectionné pour audit : {deck_name}")
 
     def on_category_kpi_clicked(self, cat_id: str) -> None:
         """Bascule activement la catégorie affichée lors du clic sur une puce KPI."""
@@ -286,7 +273,6 @@ class AISourcesDiagnosticTab(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.selected_deck_id: Optional[int] = None
         self.selected_ext_filter: str = "all"
 
         layout = QVBoxLayout(self)
@@ -303,10 +289,6 @@ class AISourcesDiagnosticTab(QWidget):
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
-        self.btn_deck = SecondaryButton("Sélectionner un paquet...")
-        self.btn_deck.setIcon(load_phosphor_icon("folder", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_deck.clicked.connect(self.open_deck_select_dialog)
-
         self.lbl_score = QLabel("Score Global Précision : -- %")
         self.lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         self.lbl_score.setStyleSheet(
@@ -314,7 +296,7 @@ class AISourcesDiagnosticTab(QWidget):
         )
 
         # Bouton placé à droite dans le header
-        self.btn_analyze = PrimaryButton("Analyser ce paquet")
+        self.btn_analyze = PrimaryButton("Analyser tous les documents")
         self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
         self.btn_analyze.clicked.connect(self.refresh_sources)
 
@@ -324,7 +306,6 @@ class AISourcesDiagnosticTab(QWidget):
         self.search_input.textChanged.connect(self.apply_sources_filter)
 
         h_layout.addWidget(lbl_title)
-        h_layout.addWidget(self.btn_deck)
         h_layout.addWidget(self.lbl_score)
         h_layout.addStretch()
         h_layout.addWidget(self.search_input)
@@ -386,7 +367,7 @@ class AISourcesDiagnosticTab(QWidget):
         self.scroll_area.setWidget(self.grid_widget)
         layout.addWidget(self.scroll_area)
 
-        self.show_empty_state("Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer le diagnostic.")
+        self.show_empty_state("Veuillez cliquer sur 'Analyser tous les documents' pour démarrer le diagnostic global des sources.")
 
     def show_empty_state(self, message: str) -> None:
         """Affiche un état d'attente neutre dans la grille."""
@@ -414,39 +395,21 @@ class AISourcesDiagnosticTab(QWidget):
         eb_layout.addWidget(lbl_text)
         self.grid.addWidget(empty_box, 0, 0, 1, 3)
 
-    def open_deck_select_dialog(self) -> None:
-        """Ouvre un dialogue de sélection de paquet."""
-        decks = [(1, "Informatique::C++", 142), (2, "Médecine::Anatomie", 85)]
-        options = [f"{name} ({count} cartes)" for d_id, name, count in decks]
-        item, ok = QInputDialog.getItem(self, "Choix du paquet", "Sélectionnez le paquet à analyser :", options, 0, False)
-
-        if ok and item:
-            idx = options.index(item)
-            selected = decks[idx]
-            self.selected_deck_id = selected[0]
-            self.btn_deck.setText(f"{selected[1]} ({selected[2]} cartes)")
-
     def on_ext_filter_clicked(self, ext_key: str) -> None:
         """Sélectionne dynamiquement le filtre par puce d'extension."""
         self.selected_ext_filter = ext_key
         self.apply_sources_filter()
 
     def refresh_sources(self) -> None:
-        """Recharge les sources uniquement sur demande de l'utilisateur."""
-        if self.selected_deck_id is None:
-            self.show_empty_state("Veuillez d'abord choisir un paquet avec le bouton 'Sélectionner un paquet...'")
-            return
-
-        self.raw_sources = SourcesDiagnosticService.get_sources_report(deck_id=self.selected_deck_id)
+        """Recharge toutes les sources uniquement sur demande de l'utilisateur."""
+        # deck_id=None permet de récupérer l'ensemble des documents
+        self.raw_sources = SourcesDiagnosticService.get_sources_report(deck_id=None)
         self.lbl_score.setText("Score Global Précision : 95.8%")
         self.lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.12); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 3px 8px;")
         self.apply_sources_filter()
 
     def apply_sources_filter(self) -> None:
         """Filtre et trie dynamiquement les cartes de la grille de sources."""
-        if self.selected_deck_id is None:
-            return
-
         while self.grid.count():
             item = self.grid.takeAt(0)
             widget = item.widget() if item is not None else None
@@ -656,6 +619,27 @@ class AIModelsTab(QWidget):
 
 
 # =====================================================================================
+# ONGLET 5 : FUSIONS & DOUBLONS
+# =====================================================================================
+class AIDuplicatesMergeTab(QWidget):
+    """Onglet de gestion des fusions et faux doublons."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(14)
+
+        # 1. Matrice des doublons (Upper)
+        self.matrix_table = DuplicateMatrixTable()
+        layout.addWidget(self.matrix_table, stretch=1)
+
+        # 2. Inspecteur de fusion (Bottom)
+        self.merge_inspector = DuplicateMergeInspector()
+        layout.addWidget(self.merge_inspector, stretch=1)
+
+
+# =====================================================================================
 # VUE PRINCIPALE : ANALYSISVIEW (CONTENEUR AVEC TAB BAR ET STACKED WIDGET)
 # =====================================================================================
 class AnalysisView(QWidget):
@@ -676,11 +660,13 @@ class AnalysisView(QWidget):
         self.tab_wozniak = AIWozniakLinterTab()
         self.tab_sources = AISourcesDiagnosticTab()
         self.tab_tokens = AITokensSrsTab()
+        self.tab_duplicates = AIDuplicatesMergeTab()
         self.tab_models = AIModelsTab()
 
         self.main_panel.add_tab("Audit && Linter Wozniak", self.tab_wozniak, icon_name="sparkle")
         self.main_panel.add_tab("Diagnostic Sources", self.tab_sources, icon_name="file-text")
         self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar")
+        self.main_panel.add_tab("Fusions && Doublons", self.tab_duplicates, icon_name="git-merge")
         self.main_panel.add_tab("Modèles && Prompts", self.tab_models, icon_name="swatches")
 
         # Bouton de paramètres ajouté au header

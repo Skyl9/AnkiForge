@@ -2,7 +2,7 @@
 Vue AI Consultant — Intégration Métier Complète (master) & UI 100% Maquette concept_ide.
 - Suppression des messages mockés. Vrais inputs/outputs via ConsultantWorker & AIManager.
 - Suggestions de prompts rapides (Quick Prompts) conservées et fonctionnelles.
-- Panneau de contexte actif à droite raccordé aux vrais Decks, Documents et AgentModel (Jinja2 System Prompt).
+- Panneau de contexte actif à droite raccordé aux vrais Decks, Documents et PersonaModel (Jinja2 System Prompt).
 - Sélecteur de Moteurs LLMConfigModel avec affichage display_name et auto-seeding.
 """
 
@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import (
-    AgentModel,
+    PersonaModel,
     CardModel,
     DeckModel,
     DocumentModel,
@@ -381,9 +381,9 @@ class ConsultantView(QWidget):
         lbl_agent_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;")
         context_layout.addWidget(lbl_agent_title)
 
-        self.agent_combo = StyledComboBox()
-        self.agent_combo.currentIndexChanged.connect(self._on_agent_changed)
-        context_layout.addWidget(self.agent_combo)
+        self.persona_combo = StyledComboBox()
+        self.persona_combo.currentIndexChanged.connect(self._on_agent_changed)
+        context_layout.addWidget(self.persona_combo)
 
         self.sys_prompt_card = QFrame()
         self.sys_prompt_card.setStyleSheet(f"""
@@ -517,20 +517,20 @@ class ConsultantView(QWidget):
             self.model_selector.blockSignals(False)
 
             # 2. Agents
-            self.agent_combo.blockSignals(True)
-            self.agent_combo.clear()
-            agents = list(AgentModel.select())
+            self.persona_combo.blockSignals(True)
+            self.persona_combo.clear()
+            agents = list(PersonaModel.select())
             if agents:
                 for ag in agents:
-                    self.agent_combo.addItem(ag.name, userData=ag)
+                    self.persona_combo.addItem(ag.name, userData=ag)
             else:
-                ag_default = AgentModel.create(
+                ag_default = PersonaModel.create(
                     name="Archiviste Pédagogue",
                     description="Expert en extraction atomique et mise en forme Anki.",
                     system_prompt="Tu es un expert en mémorisation, pédagogie et création de cartes Anki atomiques.",
                 )
-                self.agent_combo.addItem(ag_default.name, userData=ag_default)
-            self.agent_combo.blockSignals(False)
+                self.persona_combo.addItem(ag_default.name, userData=ag_default)
+            self.persona_combo.blockSignals(False)
             self._on_agent_changed()
 
             self.refresh_context_list()
@@ -543,7 +543,7 @@ class ConsultantView(QWidget):
 
     @Slot()
     def _on_agent_changed(self) -> None:
-        agent: Optional[AgentModel] = self.agent_combo.currentData()
+        agent: Optional[PersonaModel] = self.persona_combo.currentData()
         if agent and hasattr(agent, "system_prompt") and agent.system_prompt:
             prompt_snippet = agent.system_prompt[:150] + "..." if len(agent.system_prompt) > 150 else agent.system_prompt
             self.sys_prompt_lbl.setText(f'"{prompt_snippet}"')

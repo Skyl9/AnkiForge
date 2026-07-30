@@ -215,17 +215,18 @@ class TokenUsageModel(BaseModel):
         table_name = "token_usage"
 
 
-class AgentModel(BaseModel):
-    """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur)."""
+class PersonaModel(BaseModel):
+    """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur) augmenté de capacités."""
 
     name = CharField(unique=True)
     description = TextField(null=True)
     system_prompt = TextField()  # Stockera le contenu du prompt Jinja2
     output_format = CharField(default="json")
+    allowed_tools = TextField(default="[]")  # JSON: ["query_peewee", "rag_retrieval"]
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
     class Meta:
-        table_name = "agents"
+        table_name = "personas"
 
 
 class PipelineModel(BaseModel):
@@ -239,11 +240,12 @@ class PipelineModel(BaseModel):
 
 
 class PipelineStepModel(BaseModel):
-    """Table de liaison : Associe un Agent à un Pipeline avec un ordre précis."""
+    """Table de liaison : Associe une Persona ou une Action à un Pipeline avec un ordre précis."""
 
     pipeline = ForeignKeyField(PipelineModel, backref="steps", on_delete="CASCADE")
-    agent = ForeignKeyField(AgentModel, backref="pipeline_steps", on_delete="CASCADE")
+    persona = ForeignKeyField(PersonaModel, backref="pipeline_steps", null=True, on_delete="CASCADE")
     step_order = IntegerField()  # 1, 2, 3... l'ordre d'exécution
+    step_type = CharField(default="LLM_PROMPT")  # LLM_PROMPT, RAG_RETRIEVAL, MAP_REDUCE, HUMAN_VALIDATION
     on_success_step = ForeignKeyField("self", null=True, backref="success_successors", on_delete="SET NULL")
     on_failure_step = ForeignKeyField("self", null=True, backref="failure_successors", on_delete="SET NULL")
     failure_behavior = CharField(default="stop")  # 'stop', 'continue', 'goto_failure_step'
@@ -261,10 +263,11 @@ class FolderModel(BaseModel):
 
 
 class DocumentModel(BaseModel):
-    """Stocke les cours après extraction par Marker."""
+    """Stocke les cours après extraction par Marker et leur lien vers la BDD Vectorielle."""
 
     title = CharField(unique=True)
     content = TextField()
+    faiss_index_path = CharField(null=True)  # Chemin vers l'index FAISS local pour le RAG
     created_at = DateTimeField(default=datetime.datetime.now)
     # 🆕 Clé étrangère vers le dossier. null=True permet d'avoir des docs "non rangés".
     # on_delete='CASCADE' supprime les documents si on supprime le dossier.
@@ -334,7 +337,7 @@ def seed_initial_data() -> None:
     Peuple la base avec les données métier (Modèles, Prompts, Pipelines).
     Utilise get_or_create pour être idempotent et permettre les mises à jour sans purger la BDD.
     """
-    if AgentModel.select().count() > 0:
+    if PersonaModel.select().count() > 0:
         return
 
     # Chemin vers les ressources de prompts (dossier src/ankiforge/ressources/prompts)
@@ -363,27 +366,27 @@ def seed_initial_data() -> None:
     cloze_prompt = (prompts_dir / "cloze.jinja2").read_text(encoding="utf-8")
 
     # ==========================================
-    # AGENT 1 : L'ARCHIVISTE PÉDAGOGUE (Extracteur)
+    # PERSONA 1 : L'ARCHIVISTE PÉDAGOGUE (Extracteur)
     # ==========================================
-    extracteur = AgentModel.create(
+    extracteur = PersonaModel.create(
         name="Archiviste Pédagogue",
         description="Extrait le cours en respectant l'atomicité, la dissimulation des hypothèses et le tout-LaTeX.",
         system_prompt=extracteur_prompt,
     )
 
     # ==========================================
-    # AGENT 2 : LE CONTRÔLEUR QUALITÉ (Linter)
+    # PERSONA 2 : LE CONTRÔLEUR QUALITÉ (Linter)
     # ==========================================
-    controleur = AgentModel.create(
+    controleur = PersonaModel.create(
         name="Linter & Contrôleur Qualité",
         description="Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
         system_prompt=controleur_prompt,
     )
 
     # ==========================================
-    # AGENT 3 : LE GÉNÉRATEUR AUTO-CLOZE
+    # PERSONA 3 : LE GÉNÉRATEUR AUTO-CLOZE
     # ==========================================
-    cloze_agent, _ = AgentModel.get_or_create(
+    cloze_agent, _ = PersonaModel.get_or_create(
         name="Générateur Auto-Cloze",
         defaults={
             "description": "Crée des phrases à trous (c1, c2) optimisées pour la mémorisation d'informations denses.",
@@ -398,14 +401,14 @@ def seed_initial_data() -> None:
         name="Excellence Math/Info (Archiviste + Linter)",
         description="Pipeline haute-fidélité pour les cours scientifiques. Extrait intelligemment puis formate le LaTeX, les balises CSS et le code.",
     )
-    PipelineStepModel.create(pipeline=pipeline_complet, agent=extracteur, step_order=1)
-    PipelineStepModel.create(pipeline=pipeline_complet, agent=controleur, step_order=2)
+    PipelineStepModel.create(pipeline=pipeline_complet, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
+    PipelineStepModel.create(pipeline=pipeline_complet, persona=controleur, step_type="LLM_PROMPT", step_order=2)
 
     pipeline_rapide = PipelineModel.create(
         name="Extraction Simple (Brouillon)",
         description="Utilise uniquement l'Archiviste. Rapide et économe, mais sans vérification du formatage HTML/LaTeX.",
     )
-    PipelineStepModel.create(pipeline=pipeline_rapide, agent=extracteur, step_order=1)
+    PipelineStepModel.create(pipeline=pipeline_rapide, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
 
     # ==========================================
     # CRÉATION DES MOTEURS IA

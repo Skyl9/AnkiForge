@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QAbstractItemView,
-    QInputDialog,
+    QScrollArea,
 )
 from PySide6.QtCore import Qt, Slot, QSettings
 from PySide6.QtGui import QFont, QAction, QColor, QBrush
@@ -53,6 +53,8 @@ from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
 from ankiforge.ui.dialogs.history_modal import HistoryModal
 from ankiforge.ui.widgets.katex_editor import KaTeXHighlighter
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.components.tag_select_window import TagSelectWindow
+from ankiforge.database.models import NoteTypeModel
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +82,16 @@ class EditionView(QWidget):
         self._current_note: Optional[NoteModel] = None
         self._preview_device = "desktop"
         self._active_folder_id: Optional[int] = None
-        self._active_tag: Optional[str] = None
+        self._active_tags: list[str] = []
+        self._active_model_id: Optional[int] = None
+        self._current_table_fields: Optional[list[str]] = None
+        self._original_content: dict[str, str] = {}
+
+        self.dynamic_editors: dict[str, StyledTextEdit] = {}
+        self.dynamic_highlighters: dict[str, KaTeXHighlighter] = {}
+
         self._deck_modal: Optional[DeckSelectWindow] = None
+        self._tag_modal: Optional[TagSelectWindow] = None
 
         # Optimization state for large collections (>2000 cards)
         self._all_notes: list[NoteModel] = []
@@ -109,24 +119,43 @@ class EditionView(QWidget):
         filter_layout.setContentsMargins(10, 6, 10, 6)
         filter_layout.setSpacing(8)
 
-        self.btn_open_folder = QPushButton("Dossier : Informatique ▾")
-        self.btn_open_folder.setIcon(load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_open_folder = QPushButton("Dossier : Tous ▾")
+        self.btn_open_folder.setIcon(load_phosphor_icon("folders", color=DesignTokens.TEXT_SECONDARY))
         self.btn_open_folder.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
                 padding: 4px 10px;
                 font-size: 11px;
                 font-weight: bold;
-                color: {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_SECONDARY};
             }}
             QPushButton:hover {{
-                background-color: rgba(99, 102, 241, 0.1);
+                background-color: {DesignTokens.BG_HOVER};
             }}
         """)
         self.btn_open_folder.clicked.connect(self._show_folder_modal)
         filter_layout.addWidget(self.btn_open_folder)
+
+        self.btn_open_model = QPushButton("Modèle : Tous ▾")
+        self.btn_open_model.setIcon(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_open_model.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: bold;
+                color: {DesignTokens.TEXT_SECONDARY};
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.05);
+            }}
+        """)
+        self.btn_open_model.clicked.connect(self._show_model_menu)
+        filter_layout.addWidget(self.btn_open_model)
 
         separator = QFrame()
         separator.setFixedSize(1, 14)
@@ -136,6 +165,12 @@ class EditionView(QWidget):
         tags_lbl = QLabel("TAGS SÉLECTIONNÉS :")
         tags_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; text-transform: uppercase; text-decoration: none;")
         filter_layout.addWidget(tags_lbl)
+
+        self.tags_container = QWidget()
+        self.tags_layout = QHBoxLayout(self.tags_container)
+        self.tags_layout.setContentsMargins(0, 0, 0, 0)
+        self.tags_layout.setSpacing(4)
+        filter_layout.addWidget(self.tags_container)
 
         self.btn_open_tag = QPushButton("Ajouter tag")
         self.btn_open_tag.setIcon(load_phosphor_icon("plus", color=DesignTokens.TEXT_SECONDARY))
@@ -165,20 +200,13 @@ class EditionView(QWidget):
 
         # TABLEAU ANKI DE CARTES
         self.card_table = QTableWidget()
-        self.card_table.setColumnCount(6)
-        self.card_table.setHorizontalHeaderLabels(["", "Question / Recto", "Réponse / Verso", "Deck", "Tags", "Rétention"])
+        self._update_table_headers()
+
         self.card_table.verticalHeader().setVisible(False)
         self.card_table.setShowGrid(False)
         self.card_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.card_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.card_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.card_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.card_table.setColumnWidth(0, 36)
-        self.card_table.setColumnWidth(3, 140)
-        self.card_table.setColumnWidth(4, 140)
-        self.card_table.setColumnWidth(5, 90)
 
         self.card_table.setStyleSheet(f"""
             QTableWidget {{
@@ -246,69 +274,38 @@ class EditionView(QWidget):
         editor_layout.addLayout(toolbar_layout)
 
         # Champs + Prévisualisation
-        fields_layout = QHBoxLayout()
-        fields_layout.setSpacing(6)
+        self.fields_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.fields_splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DesignTokens.BORDER_COLOR}; width: 4px; }}")
 
-        # Recto
-        recto_widget = QWidget()
-        recto_layout = QVBoxLayout(recto_widget)
-        recto_layout.setContentsMargins(6, 6, 6, 6)
-        recto_lbl = QLabel("RECTO (Question)")
-        recto_lbl.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
-        recto_layout.addWidget(recto_lbl)
-        self.editor_recto = StyledTextEdit()
-        self.editor_recto.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: {DesignTokens.BG_MAIN} !important;
-                border: 1px solid {DesignTokens.BORDER_COLOR} !important;
-                border-radius: 4px;
-                color: {DesignTokens.TEXT_PRIMARY} !important;
-                font-family: '{DesignTokens.FONT_CODE}';
-                font-size: 12px;
-                padding: 10px;
-            }}
-        """)
-        self.editor_recto.textChanged.connect(self._on_text_changed)
-        self.recto_highlighter = KaTeXHighlighter(self.editor_recto.document())
-        recto_layout.addWidget(self.editor_recto)
-        fields_layout.addWidget(recto_widget)
+        # Left side: ScrollArea for fields
+        self.fields_scroll_area = QScrollArea()
+        self.fields_scroll_area.setWidgetResizable(True)
+        self.fields_scroll_area.setStyleSheet(f"QScrollArea {{ border: none; background-color: {DesignTokens.BG_SIDEBAR}; }}")
 
-        # Verso
-        verso_widget = QWidget()
-        verso_layout = QVBoxLayout(verso_widget)
-        verso_layout.setContentsMargins(6, 6, 6, 6)
-        verso_lbl = QLabel("VERSO (Réponse)")
-        verso_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
-        verso_layout.addWidget(verso_lbl)
-        self.editor_verso = StyledTextEdit()
-        self.editor_verso.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: {DesignTokens.BG_MAIN} !important;
-                border: 1px solid {DesignTokens.BORDER_COLOR} !important;
-                border-radius: 4px;
-                color: {DesignTokens.TEXT_PRIMARY} !important;
-                font-family: '{DesignTokens.FONT_CODE}';
-                font-size: 12px;
-                padding: 10px;
-            }}
-        """)
-        self.editor_verso.textChanged.connect(self._on_text_changed)
-        self.verso_highlighter = KaTeXHighlighter(self.editor_verso.document())
-        verso_layout.addWidget(self.editor_verso)
-        fields_layout.addWidget(verso_widget)
+        self.fields_container = QWidget()
+        self.fields_container.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR};")
+        self.fields_layout = QVBoxLayout(self.fields_container)
+        self.fields_layout.setContentsMargins(0, 0, 0, 0)
+        self.fields_layout.setSpacing(6)
+        self.fields_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Live Preview (KaTeX)
+        self.fields_scroll_area.setWidget(self.fields_container)
+        self.fields_splitter.addWidget(self.fields_scroll_area)
+
+        # Right side: Live Preview
         preview_widget = QWidget()
         preview_layout = QVBoxLayout(preview_widget)
         preview_layout.setContentsMargins(6, 6, 6, 6)
-        preview_lbl = QLabel("Rendu Live KaTeX")
-        preview_lbl.setStyleSheet("color: #c084fc; font-size: 11px; font-weight: bold;")
+        preview_lbl = QLabel("PRÉVISUALISATION")
+        preview_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         preview_layout.addWidget(preview_lbl)
         self.card_preview = CardPreviewWidget(show_header=False)
         preview_layout.addWidget(self.card_preview)
-        fields_layout.addWidget(preview_widget)
 
-        editor_layout.addLayout(fields_layout)
+        self.fields_splitter.addWidget(preview_widget)
+        self.fields_splitter.setSizes([400, 400])
+
+        editor_layout.addWidget(self.fields_splitter)
 
         self.main_splitter.addWidget(self.editor_container)
         self.main_splitter.setSizes([450, 550])
@@ -377,8 +374,96 @@ class EditionView(QWidget):
         self.refresh_data()
 
     def _on_filter_tag(self, tag_name: Optional[str]) -> None:
-        self._active_tag = tag_name
+        if tag_name:
+            self._active_tags = [tag_name]
+        else:
+            self._active_tags = []
+        self._rebuild_tag_chips()
         self.refresh_data()
+
+    def _build_dynamic_editors(self, note: NoteModel, data: dict[str, str]) -> None:
+        while self.fields_layout.count():
+            item = self.fields_layout.takeAt(0)
+            if item is not None:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+
+        self.dynamic_editors.clear()
+        self.dynamic_highlighters.clear()
+        self._original_content.clear()
+
+        fields = ["Front", "Back"]
+        if note.note_type and note.note_type.fields_schema:
+            try:
+                import json
+
+                fields = json.loads(note.note_type.fields_schema)
+            except Exception as e:
+                import logging
+
+                logging.warning(f"Failed to load fields_schema: {e}")
+
+        for i, field_name in enumerate(fields):
+            val = data.get(field_name, data.get(field_name.lower(), ""))
+
+            group = QWidget()
+            group_layout = QVBoxLayout(group)
+            group_layout.setContentsMargins(0, 0, 0, 0)
+            group_layout.setSpacing(0)
+
+            btn_toggle = QPushButton(f"▼ {field_name.upper()}")
+            btn_toggle.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.ACCENT_PRIMARY if i == 0 else DesignTokens.TEXT_PRIMARY};
+                    text-align: left;
+                    font-size: 11px;
+                    font-weight: bold;
+                    padding: 6px 10px;
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+
+            editor = StyledTextEdit()
+            editor.setPlainText(val)
+            editor.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: {DesignTokens.BG_MAIN} !important;
+                    border: 1px solid {DesignTokens.BORDER_COLOR} !important;
+                    border-top: none !important;
+                    border-bottom-left-radius: 4px;
+                    border-bottom-right-radius: 4px;
+                    color: {DesignTokens.TEXT_PRIMARY} !important;
+                    font-family: '{DesignTokens.FONT_CODE}';
+                    font-size: 12px;
+                    padding: 10px;
+                }}
+            """)
+            editor.textChanged.connect(self._on_text_changed)
+            highlighter = KaTeXHighlighter(editor.document())
+
+            self.dynamic_editors[field_name] = editor
+            self.dynamic_highlighters[field_name] = highlighter
+            self._original_content[field_name] = val
+
+            btn_toggle.clicked.connect(lambda checked=False, e=editor, b=btn_toggle, f=field_name: self._toggle_editor(b, e, f))
+
+            group_layout.addWidget(btn_toggle)
+            group_layout.addWidget(editor)
+            self.fields_layout.addWidget(group)
+
+    def _toggle_editor(self, btn: QPushButton, editor: StyledTextEdit, field_name: str) -> None:
+        if editor.isVisible():
+            editor.hide()
+            btn.setText(f"▶ {field_name.upper()}")
+        else:
+            editor.show()
+            btn.setText(f"▼ {field_name.upper()}")
 
     def _on_card_selected(self, item: QTableWidgetItem) -> None:
         row = item.row()
@@ -393,73 +478,34 @@ class EditionView(QWidget):
         if not self.editor_container.isVisible():
             self.editor_container.setVisible(True)
 
-        recto = ""
-        verso = ""
-        version = NoteVersionModel.get_or_none(note=note, is_active=True)
-        if not version:
-            version = NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()).first()
+        data = self._get_note_content_dynamic(note)
+        self._build_dynamic_editors(note, data)
 
-        if version and version.content:
-            try:
-                data = json.loads(version.content)
-                if isinstance(data, dict):
-                    for k, v in data.items():
-                        k_lower = str(k).lower()
-                        if k_lower in ["front", "recto", "question", "text", "texte", "field_1"] and not recto:
-                            recto = str(v)
-                        elif k_lower in ["back", "verso", "answer", "réponse", "reponse", "extra", "field_2"] and not verso:
-                            verso = str(v)
-                    if not recto and len(data) > 0:
-                        vals = list(data.values())
-                        recto = str(vals[0]) if len(vals) > 0 else ""
-                        verso = str(vals[1]) if len(vals) > 1 else ""
-                else:
-                    recto = str(data)
-            except Exception:
-                recto = version.content
-
-        if not recto and not verso:
-            recto = f"Carte #{note.id}"
-            verso = ""
-
-        self.editor_recto.setPlainText(recto)
-        self.editor_verso.setPlainText(verso)
         self._update_preview()
         self._dirty = False
 
     def _on_text_changed(self) -> None:
-        self._dirty = True
+        is_modified = False
+        for field_name, editor in self.dynamic_editors.items():
+            if editor.toPlainText() != self._original_content.get(field_name, ""):
+                is_modified = True
+                break
+
+        self._dirty = is_modified
         self._update_preview()
 
     def _update_preview(self) -> None:
-        recto_text = self.editor_recto.toPlainText()
-        verso_text = self.editor_verso.toPlainText()
+        fields_dict: dict[str, str] = {}
+        for field_name, editor in self.dynamic_editors.items():
+            fields_dict[field_name] = editor.toPlainText()
 
         note_type = getattr(self._current_note, "note_type", None) if self._current_note else None
-        fields_dict: dict[str, str] = {
-            "Front": recto_text,
-            "Back": verso_text,
-            "front": recto_text,
-            "back": verso_text,
-            "Question": recto_text,
-            "Answer": verso_text,
-        }
 
-        if self._current_note:
-            version = NoteVersionModel.get_or_none(note=self._current_note, is_active=True)
-            if version and version.content:
-                try:
-                    v_data = json.loads(version.content)
-                    if isinstance(v_data, dict):
-                        for k, v in v_data.items():
-                            fields_dict[str(k)] = str(v)
-                except Exception as e:
-                    logger.debug(f"Erreur de parsing JSON pour le contenu de la note: {e}")
-
-        fields_dict["Front"] = recto_text
-        fields_dict["Back"] = verso_text
-        fields_dict["front"] = recto_text
-        fields_dict["back"] = verso_text
+        # Fallbacks for old basic templates referencing Front/Back
+        if "Front" not in fields_dict and len(fields_dict) > 0:
+            fields_dict["Front"] = list(fields_dict.values())[0]
+        if "Back" not in fields_dict and len(fields_dict) > 1:
+            fields_dict["Back"] = list(fields_dict.values())[1]
 
         override_templates = None
         if not note_type or not getattr(note_type, "templates", None):
@@ -472,9 +518,12 @@ class EditionView(QWidget):
         )
 
     def _insert_format(self, prefix: str, suffix: str) -> None:
-        cursor = self.editor_recto.textCursor()
-        selected = cursor.selectedText()
-        cursor.insertText(f"{prefix}{selected}{suffix}")
+        for editor in self.dynamic_editors.values():
+            if editor.hasFocus():
+                cursor = editor.textCursor()
+                selected = cursor.selectedText()
+                cursor.insertText(f"{prefix}{selected}{suffix}")
+                return
 
     def _open_history_modal(self) -> None:
         if self._current_note:
@@ -483,10 +532,13 @@ class EditionView(QWidget):
 
     @Slot()
     def _show_folder_modal(self) -> None:
-        if self._deck_modal and self._deck_modal.isVisible():
-            self._deck_modal.raise_()
-            self._deck_modal.activateWindow()
-            return
+        try:
+            if self._deck_modal and self._deck_modal.isVisible():
+                self._deck_modal.raise_()
+                self._deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._deck_modal = None
 
         self._deck_modal = DeckSelectWindow(parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
@@ -494,16 +546,212 @@ class EditionView(QWidget):
 
     @Slot(int, str)
     def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
-        self.btn_open_folder.setText(f"Dossier : {deck_name} ▾")
-        self._active_folder_id = deck_id
+        if deck_id == -1:
+            self.btn_open_folder.setText("Dossier : Tous ▾")
+            self.btn_open_folder.setIcon(load_phosphor_icon("folders", color=DesignTokens.TEXT_SECONDARY))
+            self.btn_open_folder.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+            self._active_folder_id = None
+        else:
+            self.btn_open_folder.setText(f"Dossier : {deck_name} ▾")
+            self.btn_open_folder.setIcon(load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY))
+            self.btn_open_folder.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(99, 102, 241, 0.15);
+                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: 4px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {DesignTokens.ACCENT_PRIMARY};
+                }}
+            """)
+            self._active_folder_id = deck_id
+
         # Reload cards to apply filter
         self.refresh_data()
 
     @Slot()
     def _show_tag_modal(self) -> None:
-        text, ok = QInputDialog.getText(self, "Ajouter un tag", "Rechercher ou ajouter un tag :")
-        if ok and text:
-            show_toast(self, f"Tag {text} ajouté au filtre")
+        try:
+            if self._tag_modal and self._tag_modal.isVisible():
+                self._tag_modal.raise_()
+                self._tag_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._tag_modal = None
+
+        current_tags = set()
+        import json
+
+        for note in self._all_notes:
+            if note.tags:
+                try:
+                    tags = json.loads(str(note.tags))
+                    if isinstance(tags, list):
+                        for t in tags:
+                            if t.strip():
+                                current_tags.add(t.strip())
+                except Exception as e:
+                    import logging
+
+                    logging.warning(f"Failed to parse tags: {e}")
+
+        self._tag_modal = TagSelectWindow(allowed_tags=current_tags, parent=self)
+        self._tag_modal.tag_selected.connect(self._on_tag_selected_from_modal)
+        self._tag_modal.show()
+
+    @Slot(str)
+    def _on_tag_selected_from_modal(self, tag: str) -> None:
+        if tag not in self._active_tags:
+            self._active_tags.append(tag)
+            self._rebuild_tag_chips()
+            show_toast(self, f"Tag {tag} ajouté au filtre")
+            self.refresh_data()
+
+    def _rebuild_tag_chips(self) -> None:
+        while self.tags_layout.count():
+            item = self.tags_layout.takeAt(0)
+            if item is not None:
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+
+        for tag in self._active_tags:
+            chip = QPushButton(f"{tag}")
+            chip.setIcon(load_phosphor_icon("x", color="#c084fc"))
+            chip.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(192, 132, 252, 0.15);
+                    border: 1px solid #c084fc;
+                    border-radius: 12px;
+                    padding: 2px 10px 2px 8px;
+                    min-height: 20px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: #c084fc;
+                }
+                QPushButton:hover {
+                    background-color: rgba(192, 132, 252, 0.3);
+                }
+            """)
+            chip.clicked.connect(lambda checked=False, t=tag: self._remove_tag_filter(t))
+            self.tags_layout.addWidget(chip)
+
+    def _remove_tag_filter(self, tag: str) -> None:
+        if tag in self._active_tags:
+            self._active_tags.remove(tag)
+            self._rebuild_tag_chips()
+            self.refresh_data()
+
+    @Slot()
+    def _show_model_menu(self) -> None:
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}
+            QMenu::item {{ color: {DesignTokens.TEXT_PRIMARY}; padding: 6px 24px; font-size: 12px; }}
+            QMenu::item:selected {{ background-color: {DesignTokens.BG_HOVER}; }}
+        """)
+
+        all_action = menu.addAction("Tous les modèles")
+        all_action.triggered.connect(lambda: self._on_model_selected(None, "Tous les modèles"))
+
+        menu.addSeparator()
+
+        try:
+            for m in NoteTypeModel.select():
+                action = menu.addAction(m.name)
+                action.triggered.connect(lambda checked=False, mid=m.id, mname=m.name: self._on_model_selected(mid, mname))
+        except Exception as e:
+            logger.warning(f"Erreur chargement modèles: {e}")
+
+        menu.exec(self.btn_open_model.mapToGlobal(self.btn_open_model.rect().bottomLeft()))
+
+    def _on_model_selected(self, model_id: Optional[int], model_name: str) -> None:
+        self._active_model_id = model_id
+        if model_id is None:
+            self.btn_open_model.setText("Modèle : Tous ▾")
+            self.btn_open_model.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                }}
+            """)
+        else:
+            self.btn_open_model.setText(f"Modèle : {model_name} ▾")
+            self.btn_open_model.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(99, 102, 241, 0.15);
+                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: 4px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {DesignTokens.ACCENT_PRIMARY};
+                }}
+            """)
+        self._update_table_headers()
+        self.refresh_data()
+
+    def _update_table_headers(self) -> None:
+        self.card_table.clear()
+        if self._active_model_id:
+            try:
+                model = NoteTypeModel.get_or_none(NoteTypeModel.id == self._active_model_id)
+                if model and model.fields_schema:
+                    import json
+
+                    fields = json.loads(model.fields_schema)
+                    current_fields = fields[:3]
+                    self._current_table_fields = current_fields
+                    headers = [""] + current_fields + ["Deck", "Tags", "Rétention"]
+                    self.card_table.setColumnCount(len(headers))
+                    self.card_table.setHorizontalHeaderLabels(headers)
+                    self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+                    for i in range(1, len(current_fields) + 1):
+                        self.card_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+
+                    deck_col = len(current_fields) + 1
+                    self.card_table.setColumnWidth(0, 36)
+                    self.card_table.setColumnWidth(deck_col, 140)
+                    self.card_table.setColumnWidth(deck_col + 1, 140)
+                    self.card_table.setColumnWidth(deck_col + 2, 90)
+                    return
+            except Exception as e:
+                import logging
+
+                logging.warning(f"An error occurred: {e}")
+
+        # Default (Mixed / All Models)
+        self._current_table_fields = None
+        headers = ["", "Champ 1 (Tri)", "Autres champs", "Modèle", "Deck", "Tags", "Rétention"]
+        self.card_table.setColumnCount(7)
+        self.card_table.setHorizontalHeaderLabels(headers)
+        self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.card_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.card_table.setColumnWidth(0, 36)
+        self.card_table.setColumnWidth(3, 100)  # Modèle
+        self.card_table.setColumnWidth(4, 140)
+        self.card_table.setColumnWidth(5, 140)
+        self.card_table.setColumnWidth(6, 90)
 
     @Slot()
     def _run_linter(self) -> None:
@@ -516,11 +764,32 @@ class EditionView(QWidget):
             return
 
         try:
-            new_content = {"front": self.editor_recto.toPlainText(), "back": self.editor_verso.toPlainText()}
+            note_id = self._current_note.id
+            new_content = {field: editor.toPlainText() for field, editor in self.dynamic_editors.items()}
             self._current_note.add_version(new_content, source="manual")
+            self._original_content = new_content.copy()
             self._dirty = False
-            self.refresh_data()
-            show_toast(self, f"Carte #{self._current_note.id} sauvegardée avec succès.")
+
+            # Update the table row without closing the editor
+            for row in range(self.card_table.rowCount()):
+                item = self.card_table.item(row, 0)
+                if item and item.data(Qt.ItemDataRole.UserRole) == note_id:
+                    vals = list(new_content.values())
+                    recto = vals[0] if vals else ""
+                    verso = " | ".join(vals[1:]) if len(vals) > 1 else ""
+
+                    if self._current_table_fields:
+                        if len(self._current_table_fields) > 0:
+                            item_recto = self.card_table.item(row, 1)
+                            if item_recto:
+                                item_recto.setText(recto[:100] + ("..." if len(recto) > 100 else ""))
+                        if len(self._current_table_fields) > 1:
+                            item_verso = self.card_table.item(row, 2)
+                            if item_verso:
+                                item_verso.setText(verso[:100] + ("..." if len(verso) > 100 else ""))
+                    break
+
+            show_toast(self, f"Carte #{note_id} sauvegardée avec succès.")
         except Exception as e:
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible de sauvegarder la carte : {str(e)}")
 
@@ -632,32 +901,22 @@ class EditionView(QWidget):
         if scrollbar.maximum() > 0 and value >= int(scrollbar.maximum() * 0.85):
             self._load_next_card_batch()
 
-    def _get_note_content_fields(self, note: NoteModel) -> tuple[str, str]:
-        recto = ""
-        verso = ""
+    def _get_note_content_dynamic(self, note: NoteModel) -> dict[str, str]:
+        data = {}
         version = NoteVersionModel.get_or_none(note=note, is_active=True)
         if not version:
             version = NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()).first()
 
         if version and version.content:
             try:
-                data = json.loads(version.content)
-                if isinstance(data, dict):
-                    for k, v in data.items():
-                        k_lower = str(k).lower()
-                        if k_lower in ["front", "recto", "question", "text", "texte", "field_1"] and not recto:
-                            recto = str(v)
-                        elif k_lower in ["back", "verso", "answer", "réponse", "reponse", "extra", "field_2"] and not verso:
-                            verso = str(v)
-                    if not recto and len(data) > 0:
-                        vals = list(data.values())
-                        recto = str(vals[0]) if len(vals) > 0 else ""
-                        verso = str(vals[1]) if len(vals) > 1 else ""
-                else:
-                    recto = str(data)
-            except Exception:
-                recto = version.content
-        return recto, verso
+                parsed = json.loads(version.content)
+                if isinstance(parsed, dict):
+                    data = {str(k): str(v) for k, v in parsed.items()}
+            except Exception as e:
+                import logging
+
+                logging.warning(f"An error occurred: {e}")
+        return data
 
     def _load_next_card_batch(self) -> None:
         if self._displayed_count >= len(self._all_notes):
@@ -676,17 +935,39 @@ class EditionView(QWidget):
             chk.setData(Qt.ItemDataRole.UserRole, note)
             self.card_table.setItem(row, 0, chk)
 
-            recto, verso = self._get_note_content_fields(note)
+            data = self._get_note_content_dynamic(note)
 
-            # Question / Recto
-            item_recto = QTableWidgetItem(str(recto)[:100] + ("..." if len(str(recto)) > 100 else ""))
-            item_recto.setFont(QFont(DesignTokens.FONT_CODE, 10))
-            self.card_table.setItem(row, 1, item_recto)
+            col_offset = 1
+            if self._current_table_fields:
+                for idx, field in enumerate(self._current_table_fields):
+                    val = data.get(field, "")
+                    item = QTableWidgetItem(val[:100] + ("..." if len(val) > 100 else ""))
+                    if idx == 0:
+                        item.setFont(QFont(DesignTokens.FONT_CODE, 10))
+                    else:
+                        item.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
+                    self.card_table.setItem(row, col_offset + idx, item)
 
-            # Réponse / Verso
-            item_verso = QTableWidgetItem(str(verso)[:100] + ("..." if len(str(verso)) > 100 else ""))
-            item_verso.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
-            self.card_table.setItem(row, 2, item_verso)
+                col_offset += len(self._current_table_fields)
+            else:
+                vals = list(data.values())
+                recto = vals[0] if vals else ""
+                verso = " | ".join(vals[1:]) if len(vals) > 1 else ""
+
+                item_recto = QTableWidgetItem(recto[:100] + ("..." if len(recto) > 100 else ""))
+                item_recto.setFont(QFont(DesignTokens.FONT_CODE, 10))
+                self.card_table.setItem(row, 1, item_recto)
+
+                item_verso = QTableWidgetItem(verso[:100] + ("..." if len(verso) > 100 else ""))
+                item_verso.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
+                self.card_table.setItem(row, 2, item_verso)
+
+                model_name = note.note_type.name if note.note_type else "Inconnu"
+                item_model = QTableWidgetItem(model_name)
+                item_model.setForeground(QBrush(QColor(DesignTokens.TEXT_MUTED)))
+                self.card_table.setItem(row, 3, item_model)
+
+                col_offset = 4
 
             # Deck
             folder_name = getattr(note, "_deck_name", "Par défaut")
@@ -699,17 +980,17 @@ class EditionView(QWidget):
                     logger.debug(f"Impossible de récupérer le nom du dossier pour la note: {e}")
             item_deck = QTableWidgetItem(folder_name)
             item_deck.setForeground(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
-            self.card_table.setItem(row, 3, item_deck)
+            self.card_table.setItem(row, col_offset, item_deck)
 
             # Tags
             item_tags = QTableWidgetItem(str(note.tags) if note.tags else "")
             item_tags.setForeground(QBrush(QColor("#c084fc")))
-            self.card_table.setItem(row, 4, item_tags)
+            self.card_table.setItem(row, col_offset + 1, item_tags)
 
             # Rétention
             item_ret = QTableWidgetItem("N/A")
             item_ret.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.card_table.setItem(row, 5, item_ret)
+            self.card_table.setItem(row, col_offset + 2, item_ret)
 
         self._displayed_count += len(next_batch)
 
@@ -724,12 +1005,19 @@ class EditionView(QWidget):
         try:
             query = NoteModel.select()
             if self._active_folder_id is not None:
-                from ankiforge.database.models import CardModel
+                from ankiforge.database.models import CardModel, DeckModel
 
-                matching_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.deck == self._active_folder_id)]
-                query = query.where(NoteModel.id.in_(matching_note_ids))
-            if self._active_tag is not None:
-                query = query.where(NoteModel.tags.contains(self._active_tag))
+                active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
+                if active_deck:
+                    deck_name = active_deck.name
+                    descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(f"{deck_name}::")))
+                    deck_ids = [d.id for d in descendant_decks]
+                    matching_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.deck.in_(deck_ids))]
+                    query = query.where(NoteModel.id.in_(matching_note_ids))
+            for tag in self._active_tags:
+                query = query.where(NoteModel.tags.contains(tag))
+            if self._active_model_id is not None:
+                query = query.where(NoteModel.note_type == self._active_model_id)
 
             self._all_notes = list(query)
             self._load_next_card_batch()

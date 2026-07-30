@@ -12,7 +12,7 @@ from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea, QSizePolicy
 
 from ankiforge.database.models import NoteTypeModel
-from ankiforge.ui.theme import DesignTokens, apply_shadow, is_dark_mode
+from ankiforge.ui.theme import DesignTokens, is_dark_mode
 from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.components.buttons import IconButton, SecondaryButton
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -36,6 +36,7 @@ class CardPreviewWidget(QWidget):
         self.current_css: str = ""
         self._device_mode: str = "desktop"
         self.is_recto: bool = True
+        self._is_preview_dark: bool = is_dark_mode()
 
         self._setup_ui(show_header)
         self._connect_signals()
@@ -105,6 +106,10 @@ class CardPreviewWidget(QWidget):
 
         self.controls_layout.addWidget(self.device_container)
 
+        self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip="Basculer le thème", size=24)
+        self.btn_theme_toggle.clicked.connect(self._toggle_theme)
+        self.controls_layout.addWidget(self.btn_theme_toggle)
+
         layout.addWidget(self.controls_container)
 
         # --- Zone de Prévisualisation Premium Flashcard ---
@@ -118,18 +123,16 @@ class CardPreviewWidget(QWidget):
         self.card_wrapper_layout.setContentsMargins(0, 0, 0, 0)
         self.card_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Cadre Flashcard
+        # Cadre Flashcard (Sans bordure pour prendre tout l'espace)
         self.flashcard_frame = QFrame()
         self.flashcard_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.flashcard_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #1a1d24;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 4px solid #6366f1;
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
+        self.flashcard_frame.setStyleSheet("""
+            QFrame {
+                background-color: transparent;
+                border: none;
+                border-radius: 0px;
+            }
         """)
-        apply_shadow(self.flashcard_frame, blur=16, offset_y=4)
 
         frame_layout = QVBoxLayout(self.flashcard_frame)
         frame_layout.setContentsMargins(8, 8, 8, 8)
@@ -145,7 +148,18 @@ class CardPreviewWidget(QWidget):
         layout.addWidget(self.scroll_area, 1)
 
     def _connect_signals(self) -> None:
-        self.card_selector.currentIndexChanged.connect(self._render)
+        self.card_selector.currentIndexChanged.connect(self._on_card_selected)
+
+    @Slot(int)
+    def _on_card_selected(self, index: int) -> None:
+        self._render()
+
+    @Slot()
+    def _toggle_theme(self) -> None:
+        self._is_preview_dark = not self._is_preview_dark
+        icon_name = "sun" if self._is_preview_dark else "moon"
+        self.btn_theme_toggle.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+        self._render()
 
     @Slot()
     def _on_toggle_side(self) -> None:
@@ -236,26 +250,25 @@ class CardPreviewWidget(QWidget):
             self.current_css = getattr(note_type, "css_style", "") or ""
 
         self.card_selector.blockSignals(True)
-        is_cloze, selected_tmpl_idx = sync_preview_card_selector(
+        sync_preview_card_selector(
             selector=self.card_selector,
             templates=self.current_templates,
             current_fields=self.current_fields,
         )
         self.card_selector.blockSignals(False)
 
-        self._render(is_cloze=is_cloze, selected_tmpl_idx=selected_tmpl_idx)
+        self._render()
 
     @Slot()
-    def _render(self, is_cloze: bool = False, selected_tmpl_idx: int = 0) -> None:
+    def _render(self) -> None:
         """Génère le HTML final sans modification externe de style."""
         if not self.current_templates:
             return
 
-        if is_cloze is None or selected_tmpl_idx is None:
-            from ankiforge.ui.widgets.cloze_manager import is_template_cloze
+        from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 
-            is_cloze = is_template_cloze(self.current_templates)
-            selected_tmpl_idx = max(0, self.card_selector.currentIndex())
+        is_cloze = is_template_cloze(self.current_templates)
+        selected_tmpl_idx = max(0, self.card_selector.currentIndex())
 
         tmpl, card_idx = get_preview_template(
             templates=self.current_templates,
@@ -274,7 +287,7 @@ class CardPreviewWidget(QWidget):
             fields_dict=cur_fields,
             is_recto=is_recto,
             front_html=tmpl.get("qfmt", ""),
-            is_dark_mode=is_dark_mode(),
+            is_dark_mode=self._is_preview_dark,
             template_index=card_idx,
         )
 

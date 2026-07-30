@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import AgentModel, LLMConfigModel, NoteTypeModel
+from ankiforge.database.models import PersonaModel, LLMConfigModel, NoteTypeModel
 from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
 from ankiforge.ui.components import (
     IconButton,
@@ -101,8 +101,8 @@ class ABTestsView(QWidget):
         self.mode_combo.addItems(["Comparer deux Moteurs IA", "Comparer deux Prompts"])
         add_cfg("Mode :", self.mode_combo)
 
-        self.agent_combo = StyledComboBox()
-        add_cfg("Prompt/Pipe :", self.agent_combo)
+        self.persona_combo = StyledComboBox()
+        add_cfg("Prompt/Pipe :", self.persona_combo)
 
         self.model_combo = StyledComboBox()
         add_cfg("Modèle :", self.model_combo)
@@ -279,11 +279,11 @@ class ABTestsView(QWidget):
             self.engine_a_combo.blockSignals(False)
             self.engine_b_combo.blockSignals(False)
 
-            self.agent_combo.blockSignals(True)
-            self.agent_combo.clear()
-            for ag in AgentModel.select():
-                self.agent_combo.addItem(ag.name, userData=ag)
-            self.agent_combo.blockSignals(False)
+            self.persona_combo.blockSignals(True)
+            self.persona_combo.clear()
+            for ag in PersonaModel.select():
+                self.persona_combo.addItem(ag.name, userData=ag)
+            self.persona_combo.blockSignals(False)
 
             self.model_combo.blockSignals(True)
             self.model_combo.clear()

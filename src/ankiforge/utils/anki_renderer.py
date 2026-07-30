@@ -104,17 +104,24 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
 
 def get_mathjax_script() -> str:
     return r"""
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
     <script>
-        window.MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']],
-                processEscapes: true
-            },
-            svg: { fontCache: 'global' }
-        };
+        var katexInterval = setInterval(function() {
+            if (window.renderMathInElement) {
+                clearInterval(katexInterval);
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }, 50);
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
     """
 
 
@@ -155,12 +162,15 @@ def render_anki_card(
     if not is_recto:
         html = _process_front_side(html, front_html, safe_fields)
 
+    # Conversion des balises math Anki historiques
+    html = html.replace("[$]", "\\(").replace("[/$]", "\\)")
+    html = html.replace("[$$]", "\\[").replace("[/$$]", "\\]")
+
     body_class = "nightMode" if is_dark_mode else ""
-    final_html = f"""
+    final_html = f"""<!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                {get_mathjax_script()}
                 <style>
                     body {{ background-color: transparent; margin: 0; padding: 15px; }}
                     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
@@ -170,7 +180,10 @@ def render_anki_card(
                     {css}
                 </style>
             </head>
-            <body class="{body_class}"> <div class="card">{html}</div></body>
+            <body class="{body_class}"> 
+                <div class="card">{html}</div>
+                {get_mathjax_script()}
+            </body>
             </html>
             """
     return final_html

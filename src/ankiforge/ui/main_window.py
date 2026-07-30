@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
 from PySide6.QtGui import QMouseEvent, QKeySequence, QShortcut
 
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.agents_view import AgentsView
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.components.buttons import IconButton
@@ -407,7 +408,6 @@ class MainWindow(QMainWindow):
     from ankiforge.ui.views.batch_view import BatchView
     from ankiforge.ui.views.documents_view import DocumentsView
     from ankiforge.ui.views.card_models_view import CardModelsView
-    from ankiforge.ui.views.agents_view import AgentsView
     from ankiforge.ui.views.pipelines_view import PipelinesView
     from ankiforge.ui.views.ab_tests_view import ABTestsView
 

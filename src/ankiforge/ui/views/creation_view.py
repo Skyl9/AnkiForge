@@ -837,10 +837,13 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_click_select_deck(self) -> None:
-        if self._deck_modal and self._deck_modal.isVisible():
-            self._deck_modal.raise_()
-            self._deck_modal.activateWindow()
-            return
+        try:
+            if self._deck_modal and self._deck_modal.isVisible():
+                self._deck_modal.raise_()
+                self._deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._deck_modal = None
 
         self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", parent=self)
         self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
@@ -914,7 +917,7 @@ class CreationView(QWidget):
 
         pipeline_steps = []
         if selected_pipeline and hasattr(selected_pipeline, "steps"):
-            pipeline_steps = [s.agent.name for s in selected_pipeline.steps if s.agent]
+            pipeline_steps = [s.persona.name for s in selected_pipeline.steps if s.persona]
 
         payload = CreationTaskPayload(
             text_source=text_source,

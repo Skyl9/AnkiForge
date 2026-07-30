@@ -1,7 +1,7 @@
 import qtawesome as qta
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QSpinBox
 
-from ankiforge.database.models import LLMConfigModel, AgentModel
+from ankiforge.database.models import LLMConfigModel, PersonaModel
 from ankiforge.ui.components.components import PrimaryButton, ActionButton
 
 
@@ -26,7 +26,7 @@ class BatchEditDialog(QDialog):
         layout.addWidget(QLabel("<b>2. Instruction (Agent ou Prompt libre) :</b>"))
         self.cb_agent = QComboBox()
         self.cb_agent.addItem("-- ✍️ Prompt Libre (Saisir ci-dessous) --", userData=None)
-        for agent in AgentModel.select().order_by(AgentModel.name):
+        for agent in PersonaModel.select().order_by(PersonaModel.name):
             self.cb_agent.addItem(f"Agent : {agent.name}", userData=agent.id)
         self.cb_agent.currentIndexChanged.connect(self._on_agent_changed)
         layout.addWidget(self.cb_agent)
@@ -68,7 +68,7 @@ class BatchEditDialog(QDialog):
     def _on_agent_changed(self):
         agent_id = self.cb_agent.currentData()
         if agent_id:
-            agent = AgentModel.get_by_id(agent_id)
+            agent = PersonaModel.get_by_id(agent_id)
             self.text_prompt.setPlainText(agent.system_prompt)
             self.text_prompt.setReadOnly(True)
             self.text_prompt.setStyleSheet("background-color: palette(alternate-base); color: palette(placeholder-text);")

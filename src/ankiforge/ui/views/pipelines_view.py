@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import AgentModel, PipelineModel, PipelineStepModel, db
+from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel, db
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
@@ -93,7 +93,7 @@ class PipelinesView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self._current_pipeline: Optional[PipelineModel] = None
-        self.current_steps: list[AgentModel] = []
+        self.current_steps: list[PersonaModel] = []
         self._step_widgets: list[PipelineStepRowWidget] = []
 
         self._setup_ui()
@@ -188,9 +188,9 @@ class PipelinesView(QWidget):
         add_agent_row = QHBoxLayout()
         add_agent_row.setSpacing(10)
 
-        self.agent_combo = StyledComboBox()
-        self.agent_combo.setMinimumWidth(260)
-        add_agent_row.addWidget(self.agent_combo, 1)
+        self.persona_combo = StyledComboBox()
+        self.persona_combo.setMinimumWidth(260)
+        add_agent_row.addWidget(self.persona_combo, 1)
 
         self.btn_add_agent = SecondaryButton("Ajouter à la chaîne")
         self.btn_add_agent.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
@@ -238,14 +238,14 @@ class PipelinesView(QWidget):
 
             self.pipeline_combo.blockSignals(False)
 
-            self.agent_combo.blockSignals(True)
-            self.agent_combo.clear()
-            self.agent_combo.addItem("Sélectionnez un Agent à ajouter...", userData=None)
+            self.persona_combo.blockSignals(True)
+            self.persona_combo.clear()
+            self.persona_combo.addItem("Sélectionnez un Agent à ajouter...", userData=None)
 
-            agents = list(AgentModel.select())
+            agents = list(PersonaModel.select())
             for ag in agents:
-                self.agent_combo.addItem(ag.name, userData=ag)
-            self.agent_combo.blockSignals(False)
+                self.persona_combo.addItem(ag.name, userData=ag)
+            self.persona_combo.blockSignals(False)
 
             if pipelines:
                 self._on_pipeline_changed()
@@ -270,8 +270,8 @@ class PipelinesView(QWidget):
 
         steps_models = PipelineStepModel.select().where(PipelineStepModel.pipeline == selected_pipe).order_by(PipelineStepModel.step_order)
         for s in steps_models:
-            if s.agent:
-                self.current_steps.append(s.agent)
+            if s.persona:
+                self.current_steps.append(s.persona)
 
         self._render_steps()
 
@@ -321,7 +321,7 @@ class PipelinesView(QWidget):
 
     @Slot()
     def _on_add_agent_to_pipeline(self) -> None:
-        selected_agent: Optional[AgentModel] = self.agent_combo.currentData()
+        selected_agent: Optional[PersonaModel] = self.persona_combo.currentData()
         if not selected_agent:
             show_toast(self, "Veuillez sélectionner un agent à ajouter.", is_error=True)
             return
@@ -338,9 +338,9 @@ class PipelinesView(QWidget):
                 pipe_name = name.strip()
                 pipe = PipelineModel.create(name=pipe_name, description="Pipeline personnalisé.")
 
-                first_agent = AgentModel.select().first()
+                first_agent = PersonaModel.select().first()
                 if first_agent:
-                    PipelineStepModel.create(pipeline=pipe, agent=first_agent, step_order=1)
+                    PipelineStepModel.create(pipeline=pipe, persona=first_agent, step_order=1)
 
                 self.refresh_data()
                 idx = self.pipeline_combo.findText(pipe_name, Qt.MatchFlag.MatchExactly)
@@ -385,7 +385,7 @@ class PipelinesView(QWidget):
                 for idx, agent in enumerate(self.current_steps, start=1):
                     PipelineStepModel.create(
                         pipeline=self._current_pipeline,
-                        agent=agent,
+                        persona=agent,
                         step_order=idx,
                     )
 

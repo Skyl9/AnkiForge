@@ -10,7 +10,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     FolderModel,
     DocumentModel,
-    AgentModel,
+    PersonaModel,
     PipelineModel,
     PipelineStepModel,
     MediaModel,
@@ -68,13 +68,13 @@ def test_seed_initial_data_is_idempotent():
     from ankiforge.database.models import seed_initial_data, LLMConfigModel
 
     # Vidons les tables pour le test
-    AgentModel.delete().execute()
+    PersonaModel.delete().execute()
     PipelineModel.delete().execute()
     LLMConfigModel.delete().execute()
 
     # Premier appel
     seed_initial_data()
-    agent_count = AgentModel.select().count()
+    agent_count = PersonaModel.select().count()
     assert agent_count > 0
 
     llm_count = LLMConfigModel.select().count()
@@ -82,7 +82,7 @@ def test_seed_initial_data_is_idempotent():
 
     # Deuxième appel
     seed_initial_data()
-    assert AgentModel.select().count() == agent_count
+    assert PersonaModel.select().count() == agent_count
     assert LLMConfigModel.select().count() == llm_count
 
 
@@ -168,8 +168,8 @@ def test_cascade_deletion_note_versions():
 def test_cascade_deletion_agent_pipeline_step():
     """Vérifie que la suppression d'un Agent supprime ses étapes dans le pipeline."""
     pipeline = PipelineModel.create(name="Pipe Test Agent Cascade")
-    agent = AgentModel.create(name="Agent à supprimer", system_prompt="Prompt")
-    PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=1)
+    agent = PersonaModel.create(name="Agent à supprimer", system_prompt="Prompt")
+    PipelineStepModel.create(pipeline=pipeline, persona=agent, step_order=1)
 
     assert PipelineStepModel.select().count() == 1
 
@@ -181,15 +181,15 @@ def test_cascade_deletion_agent_pipeline_step():
 def test_cascade_deletion_pipeline_steps():
     """Vérifie que la suppression d'un Pipeline supprime toutes ses étapes."""
     pipeline = PipelineModel.create(name="Pipe à supprimer")
-    agent = AgentModel.create(name="Agent survivant", system_prompt="Prompt")
-    PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=1)
+    agent = PersonaModel.create(name="Agent survivant", system_prompt="Prompt")
+    PipelineStepModel.create(pipeline=pipeline, persona=agent, step_order=1)
 
     assert PipelineStepModel.select().count() == 1
 
     pipeline.delete_instance()
 
     assert PipelineStepModel.select().count() == 0, "L'étape du pipeline n'a pas été supprimée en cascade !"
-    assert AgentModel.select().where(AgentModel.id == agent.id).exists(), "L'Agent aurait dû survivre à la suppression du Pipeline."
+    assert PersonaModel.select().where(PersonaModel.id == agent.id).exists(), "L'Agent aurait dû survivre à la suppression du Pipeline."
 
 
 def test_ignored_duplicate_unique_constraint():
@@ -240,15 +240,15 @@ def test_pipeline_step_unique_constraint():
 
     # 1. PRÉPARATION
     pipeline = PipelineModel.create(name="Génération Standard")
-    agent_extract = AgentModel.create(name="Extracteur", system_prompt="Test")
-    agent_control = AgentModel.create(name="Controleur", system_prompt="Test")
+    agent_extract = PersonaModel.create(name="Extracteur", system_prompt="Test")
+    agent_control = PersonaModel.create(name="Controleur", system_prompt="Test")
 
     # 2. ACTION - On assigne l'extracteur à l'étape 1 (Succès)
-    PipelineStepModel.create(pipeline=pipeline, agent=agent_extract, step_order=1)
+    PipelineStepModel.create(pipeline=pipeline, persona=agent_extract, step_order=1)
 
     # 3. VÉRIFICATION - Tenter d'assigner le contrôleur à l'étape 1 doit faire crasher la base
     with pytest.raises(IntegrityError):
-        PipelineStepModel.create(pipeline=pipeline, agent=agent_control, step_order=1)
+        PipelineStepModel.create(pipeline=pipeline, persona=agent_control, step_order=1)
 
 
 def test_purge_old_versions():
@@ -306,15 +306,15 @@ def test_media_version_cascade_and_restrict():
 def test_pipeline_conditional_steps():
     """Vérifie que les étapes de pipeline supportent les branchements conditionnels."""
     pipeline = PipelineModel.create(name="Conditional Pipeline")
-    agent_gen = AgentModel.create(name="Générateur", system_prompt="Prompt")
-    agent_ok = AgentModel.create(name="Succès", system_prompt="Prompt")
-    agent_err = AgentModel.create(name="Erreur", system_prompt="Prompt")
+    agent_gen = PersonaModel.create(name="Générateur", system_prompt="Prompt")
+    agent_ok = PersonaModel.create(name="Succès", system_prompt="Prompt")
+    agent_err = PersonaModel.create(name="Erreur", system_prompt="Prompt")
 
-    step_ok = PipelineStepModel.create(pipeline=pipeline, agent=agent_ok, step_order=2)
-    step_err = PipelineStepModel.create(pipeline=pipeline, agent=agent_err, step_order=3)
+    step_ok = PipelineStepModel.create(pipeline=pipeline, persona=agent_ok, step_order=2)
+    step_err = PipelineStepModel.create(pipeline=pipeline, persona=agent_err, step_order=3)
 
     # Étape principale qui branche vers step_ok en cas de succès et step_err en cas d'échec
-    step_gen = PipelineStepModel.create(pipeline=pipeline, agent=agent_gen, step_order=1, on_success_step=step_ok, on_failure_step=step_err, failure_behavior="goto_failure_step")
+    step_gen = PipelineStepModel.create(pipeline=pipeline, persona=agent_gen, step_order=1, on_success_step=step_ok, on_failure_step=step_err, failure_behavior="goto_failure_step")
 
     # Recharger et vérifier
     step_gen_reloaded = PipelineStepModel.get_by_id(step_gen.id)

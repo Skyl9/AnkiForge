@@ -1,6 +1,6 @@
 """
 Vue Éditeur d'Agents — 100% Conforme à la Maquette concept_ide.
-- Panneau gauche (260px) : Liste des agents IA disponibles depuis AgentModel (Peewee).
+- Panneau gauche (260px) : Liste des agents IA disponibles depuis PersonaModel (Peewee).
 - Panneau droit (Flex-1) : Éditeur complet d'agent (Nom, Description, Format de sortie JSON/Cloze/Markdown, Prompt Jinja2).
 - Persistance atomique dans la base de données Peewee.
 """
@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import AgentModel
+from ankiforge.database.models import PersonaModel
 from ankiforge.ui.components import (
     DangerButton,
     IdePanel,
@@ -46,7 +46,7 @@ class AgentsView(QWidget):
     def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
-        self._current_agent: Optional[AgentModel] = None
+        self._current_agent: Optional[PersonaModel] = None
 
         self._setup_ui()
         self._connect_signals()
@@ -73,8 +73,8 @@ class AgentsView(QWidget):
         lbl_list_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         list_layout.addWidget(lbl_list_title)
 
-        self.agent_list = QListWidget()
-        self.agent_list.setStyleSheet(f"""
+        self.persona_list = QListWidget()
+        self.persona_list.setStyleSheet(f"""
             QListWidget {{
                 background-color: transparent;
                 border: none;
@@ -99,7 +99,7 @@ class AgentsView(QWidget):
                 border-left: 3px solid #8b5cf6;
             }}
         """)
-        list_layout.addWidget(self.agent_list, 1)
+        list_layout.addWidget(self.persona_list, 1)
 
         # Toolbar inférieure (Nouveau & Supprimer)
         list_toolbar = QHBoxLayout()
@@ -186,7 +186,7 @@ class AgentsView(QWidget):
         self.main_splitter.setSizes([260, 740])
 
     def _connect_signals(self) -> None:
-        self.agent_list.currentItemChanged.connect(self._on_item_selected)
+        self.persona_list.currentItemChanged.connect(self._on_item_selected)
         self.btn_new.clicked.connect(self._on_new_agent)
         self.btn_del.clicked.connect(self._on_delete_agent)
         self.btn_save.clicked.connect(self._on_save_agent)
@@ -194,19 +194,19 @@ class AgentsView(QWidget):
     def refresh_data(self) -> None:
         """Recharge la liste des agents depuis Peewee DB."""
         try:
-            self.agent_list.blockSignals(True)
-            self.agent_list.clear()
+            self.persona_list.blockSignals(True)
+            self.persona_list.clear()
 
-            agents = list(AgentModel.select())
+            agents = list(PersonaModel.select())
             for ag in agents:
                 item = QListWidgetItem(ag.name)
                 item.setData(Qt.ItemDataRole.UserRole, ag)
-                self.agent_list.addItem(item)
+                self.persona_list.addItem(item)
 
-            self.agent_list.blockSignals(False)
+            self.persona_list.blockSignals(False)
 
             if agents and not self._current_agent:
-                self.agent_list.setCurrentRow(0)
+                self.persona_list.setCurrentRow(0)
 
         except Exception as e:
             logger.warning("Erreur refresh_data agents_view: %s", e)
@@ -220,7 +220,7 @@ class AgentsView(QWidget):
             self._current_agent = None
             return
 
-        ag: Optional[AgentModel] = current.data(Qt.ItemDataRole.UserRole)
+        ag: Optional[PersonaModel] = current.data(Qt.ItemDataRole.UserRole)
         if not ag:
             return
 
@@ -243,7 +243,7 @@ class AgentsView(QWidget):
             try:
                 ag_name = name.strip()
                 default_prompt = "Tu es un agent IA spécialisé dans l'optimisation des cartes de révision Anki."
-                AgentModel.create(
+                PersonaModel.create(
                     name=ag_name,
                     description="Nouvel agent IA configuré par l'utilisateur.",
                     system_prompt=default_prompt,
@@ -252,10 +252,10 @@ class AgentsView(QWidget):
                 self.refresh_data()
 
                 # Sélectionner l'agent créé
-                for i in range(self.agent_list.count()):
-                    item = self.agent_list.item(i)
+                for i in range(self.persona_list.count()):
+                    item = self.persona_list.item(i)
                     if item.text() == ag_name:
-                        self.agent_list.setCurrentItem(item)
+                        self.persona_list.setCurrentItem(item)
                         break
 
                 show_toast(self, f"Agent '{ag_name}' créé avec succès !")

@@ -1,5 +1,5 @@
 import json
-from ankiforge.database.models import AgentModel, NoteTypeModel, PipelineModel, PipelineStepModel
+from ankiforge.database.models import PersonaModel, NoteTypeModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.workers.creation_worker import CreationWorker, CreationTaskPayload
 
@@ -10,8 +10,8 @@ def test_creation_worker_success(mock_db):
     # 1. PRÉPARATION DE LA BASE DE DONNÉES
     nt = NoteTypeModel.create(name="Test", fields_schema=json.dumps(["Front", "Back"]), templates="[]", css_style="")
     pipe = PipelineModel.create(name="Test Pipe")
-    agent = AgentModel.create(name="Test Agent", system_prompt="Prompt test", output_format="json")
-    PipelineStepModel.create(pipeline=pipe, agent=agent, step_order=1)
+    agent = PersonaModel.create(name="Test Agent", system_prompt="Prompt test", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=agent, step_order=1)
 
     # 2. PRÉPARATION DU PAYLOAD (MAIN THREAD STYLE)
     payload = CreationTaskPayload(

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import AgentModel, CardModel, DeckModel, LLMConfigModel, NoteModel, DEFAULT_DB_PATH
+from ankiforge.database.models import PersonaModel, CardModel, DeckModel, LLMConfigModel, NoteModel, DEFAULT_DB_PATH
 from ankiforge.ui.components import (
     DangerButton,
     IconButton,
@@ -277,7 +277,7 @@ class StatisticsTab(QWidget):
             total_notes = NoteModel.select().count()
             total_cards = CardModel.select().count()
             total_decks = DeckModel.select().count()
-            total_agents = AgentModel.select().count()
+            total_agents = PersonaModel.select().count()
         except Exception:
             total_notes = 0
             total_cards = 0

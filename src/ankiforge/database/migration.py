@@ -21,8 +21,8 @@ def run_migrations() -> None:
     router = Router(db, migrate_dir=MIGRATIONS_DIR)
 
     # 2. Gestion de la transition depuis l'ancien système manuel
-    # Si la table 'agents' existe, c'est que l'utilisateur a au moins la v1 (créée via l'ancien init_db)
-    is_legacy = db.table_exists("agents")
+    # Si la table 'agents' ou 'personas' existe, c'est que l'utilisateur a au moins la v1
+    is_legacy = db.table_exists("agents") or db.table_exists("personas")
     done_migrations = router.done
 
     if is_legacy:
@@ -52,6 +52,12 @@ def run_migrations() -> None:
             if db.table_exists("ai_cache"):
                 router.model.create(name="004_ai_cache")
                 logging.info("Legacy DB detected: faking migration 004_ai_cache.")
+
+        # Si la table personas existe, l'utilisateur a déjà la structure de la v5
+        if "005_persona_engine" not in done_migrations:
+            if db.table_exists("personas"):
+                router.model.create(name="005_persona_engine")
+                logging.info("Legacy DB detected: faking migration 005_persona_engine.")
 
     logging.info("Lancement des migrations via peewee-migrate...")
     try:
