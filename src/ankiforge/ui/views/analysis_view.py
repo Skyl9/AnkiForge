@@ -4,7 +4,7 @@ Workflow conforme : Aucun paquet par défaut -> Choix du paquet -> Clic 'Analyse
 """
 
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, cast
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -16,8 +16,11 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QScrollArea,
     QGridLayout,
+    QMessageBox,
+    QDialog,
+    QPushButton,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont
 
 from ankiforge.ui.theme import DesignTokens
@@ -628,11 +631,102 @@ class AISourcesDiagnosticTab(QWidget):
 
             btn_inspect = SecondaryButton(src["inspect_action"])
             btn_inspect.setFixedHeight(24)
+            btn_inspect.clicked.connect(lambda checked=False, s=src: self.on_gap_analysis(s))
             c_layout.addWidget(btn_inspect)
 
             row = idx // 3
             col = idx % 3
             self.grid.addWidget(card, row, col)
+
+    @Slot(object)
+    def on_gap_analysis(self, src: dict) -> None:
+        self._btn = cast(SecondaryButton, self.sender())
+        if self._btn:
+            self._btn.setEnabled(False)
+            self._btn.setText("Analyse en cours...")
+
+        doc_title = src.get("name", "")
+        doc_content = src.get("raw_content", "")
+
+        # Obtenir les cartes générées pour ce document
+        clean_title = doc_title.replace(" ", "_").replace("-", "_").lower()
+        if clean_title.endswith((".pdf", ".md", ".txt")):
+            clean_title = clean_title.rsplit(".", 1)[0]
+        tag_name = f"source:{clean_title}"
+
+        from ankiforge.database.models import NoteModel, NoteVersionModel, LLMConfigModel
+        import json
+
+        notes = NoteModel.select().where(NoteModel.tags.contains(tag_name))
+        existing_cards = []
+        for n in notes:
+            active_ver = NoteVersionModel.get_or_none(note=n, is_active=True)
+            if active_ver and active_ver.content:
+                try:
+                    c = json.loads(active_ver.content)
+                    front = c.get("Front", c.get("Recto", ""))
+                    back = c.get("Back", c.get("Verso", ""))
+                    if front or back:
+                        existing_cards.append(f"Q: {front}\nR: {back}")
+                except Exception:
+                    logger.error("une erreur de parsing s'est produite dans analysis_view")
+
+        cards_text = "\\n---\\n".join(existing_cards) if existing_cards else "Aucune carte n'a encore été générée."
+
+        llm_config = LLMConfigModel.select().first()
+        if not llm_config:
+            QMessageBox.critical(self, "Erreur", "Veuillez configurer un moteur IA dans les paramètres.")
+            if self._btn:
+                self._btn.setEnabled(True)
+                self._btn.setText("Analyser les trous (Gap Analysis)")
+            return
+
+        instruction = (
+            "Tu es un auditeur pédagogique expert.\\n"
+            "Ton rôle est de comparer un Document Source avec les Cartes de révision existantes générées depuis ce document, "
+            "et d'identifier les 'trous' : les concepts importants présents dans le document mais qui ne font l'objet d'aucune flashcard.\\n\\n"
+            f"DOCUMENT SOURCE ({doc_title}) :\\n{doc_content[:15000]}\\n\\n"
+            f"CARTES EXISTANTES :\\n{cards_text}\\n\\n"
+            "Analyse minutieusement la couverture. Liste sous forme de bullet points les concepts manquants et propose pour chacun une nouvelle flashcard."
+        )
+
+        from ankiforge.services.workers.consultant_worker import ConsultantWorker
+
+        self.worker = ConsultantWorker(llm_config=llm_config, persona=None, context_data={}, instruction=instruction)
+        self.worker.finished_signal.connect(self._on_gap_finished)
+        self.worker.error_signal.connect(self._on_gap_error)
+        self.worker.start()
+
+    @Slot(str)
+    def _on_gap_finished(self, response: str) -> None:
+        if hasattr(self, "_btn") and self._btn:
+            self._btn.setEnabled(True)
+            self._btn.setText("Analyser les trous (Gap Analysis)")
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Résultat de l'analyse (Gap Analysis)")
+        dialog.resize(900, 700)
+
+        layout = QVBoxLayout(dialog)
+        from PySide6.QtWidgets import QTextBrowser
+
+        text_edit = QTextBrowser()
+        text_edit.setOpenExternalLinks(True)
+        text_edit.setMarkdown(response)
+        layout.addWidget(text_edit)
+
+        btn_close = QPushButton("Fermer")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+
+        dialog.exec()
+
+    @Slot(str)
+    def _on_gap_error(self, err: str) -> None:
+        if hasattr(self, "_btn") and self._btn:
+            self._btn.setEnabled(True)
+            self._btn.setText("Analyser les trous (Gap Analysis)")
+        QMessageBox.critical(self, "Erreur", str(err))
 
 
 # =====================================================================================

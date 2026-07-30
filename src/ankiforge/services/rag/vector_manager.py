@@ -8,11 +8,11 @@ from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 
 from ankiforge.database.models import DocumentModel
-from ankiforge.config import APP_DIR
+from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
 
-VECTOR_DB_DIR = os.path.join(APP_DIR, "vectors")
+VECTOR_DB_DIR = os.path.join(get_app_data_dir(), "vectors")
 
 
 class VectorManager:
