@@ -39,7 +39,7 @@ Ce document confronte le code actuel du projet avec la nouvelle vision définie 
 * **Cible (Dossier 05) :** Pattern ReAct, Copilote autonome.
 * **Actions Métier :**
   1. Coder le moteur de boucle ReAct (Thought -> Action -> Observation -> Response).
-  2. Créer un registre de `Tools` Python sécurisés (ex: `query_peewee(sql)`, `update_card_style(css)`).
+  2. Implémenter un **Serveur MCP (Model Context Protocol)** natif embarqué qui expose les `Tools` Python sécurisés (ex: `query_peewee(sql)`, `update_card_style(css)`). L'Agent interrogera le backend via ce protocole standardisé.
   3. L'UI doit gérer l'affichage de ces actions (ex: au lieu de juste répondre du texte, le Chat affiche un composant `QTableView` contenant les cartes trouvées par la requête SQL du Consultant).
 
 ## 6. L'Atelier : Édition & Modèles (`edition_view.py` & `card_models_view.py`)

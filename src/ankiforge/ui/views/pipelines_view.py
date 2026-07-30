@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class PipelineStepRowWidget(QFrame):
     """Widget représentant une étape de pipeline — fond BG_PANEL sur conteneur BG_SIDEBAR."""
 
-    def __init__(self, order: int, agent_name: str, format_str: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, order: int, step_data: dict[str, Any], parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("StepRow")
         self.setStyleSheet(f"""
@@ -66,11 +66,21 @@ class PipelineStepRowWidget(QFrame):
         layout.addWidget(handle_lbl)
 
         # Titre et numéro de l'étape
+        agent_name = step_data["persona"].name if step_data.get("persona") else "Agent Inconnu"
         self.title_lbl = QLabel(f"<b>{order}.</b> {agent_name}")
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; background: transparent; border: none;")
         layout.addWidget(self.title_lbl)
 
+        # Combobox du Type d'Étape (DAG)
+        self.type_combo = StyledComboBox()
+        self.type_combo.addItems(["LLM_PROMPT", "RAG_RETRIEVAL", "HUMAN_VALIDATION", "MAP_REDUCE"])
+        self.type_combo.setCurrentText(step_data.get("type", "LLM_PROMPT"))
+        self.type_combo.currentTextChanged.connect(lambda t: step_data.update({"type": t}))
+        self.type_combo.setFixedWidth(160)
+        layout.addWidget(self.type_combo)
+
         # Badge de format
+        format_str = getattr(step_data.get("persona"), "output_format", "json")
         badge = Badge(format_str.upper(), variant="outline", color=DesignTokens.COLOR_PURPLE)
         layout.addWidget(badge)
 
@@ -93,7 +103,7 @@ class PipelinesView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self._current_pipeline: Optional[PipelineModel] = None
-        self.current_steps: list[PersonaModel] = []
+        self.current_steps: list[dict[str, Any]] = []
         self._step_widgets: list[PipelineStepRowWidget] = []
 
         self._setup_ui()
@@ -271,7 +281,7 @@ class PipelinesView(QWidget):
         steps_models = PipelineStepModel.select().where(PipelineStepModel.pipeline == selected_pipe).order_by(PipelineStepModel.step_order)
         for s in steps_models:
             if s.persona:
-                self.current_steps.append(s.persona)
+                self.current_steps.append({"persona": s.persona, "type": s.step_type or "LLM_PROMPT"})
 
         self._render_steps()
 
@@ -291,11 +301,10 @@ class PipelinesView(QWidget):
             self.steps_layout.insertWidget(0, empty_lbl)
             return
 
-        for idx, agent in enumerate(self.current_steps, start=1):
+        for idx, step_data in enumerate(self.current_steps, start=1):
             row = PipelineStepRowWidget(
                 order=idx,
-                agent_name=agent.name,
-                format_str=getattr(agent, "output_format", "json"),
+                step_data=step_data,
             )
             row.btn_up.clicked.connect(lambda _, i=idx - 1: self._move_step(i, -1))
             row.btn_down.clicked.connect(lambda _, i=idx - 1: self._move_step(i, 1))
@@ -317,7 +326,8 @@ class PipelinesView(QWidget):
         if 0 <= index < len(self.current_steps):
             removed = self.current_steps.pop(index)
             self._render_steps()
-            show_toast(self, f"Agent '{removed.name}' retiré de la chaîne.")
+            agent_name = removed["persona"].name if removed.get("persona") else "Agent"
+            show_toast(self, f"Étape '{agent_name}' retirée de la chaîne.")
 
     @Slot()
     def _on_add_agent_to_pipeline(self) -> None:
@@ -326,7 +336,7 @@ class PipelinesView(QWidget):
             show_toast(self, "Veuillez sélectionner un agent à ajouter.", is_error=True)
             return
 
-        self.current_steps.append(selected_agent)
+        self.current_steps.append({"persona": selected_agent, "type": "LLM_PROMPT"})
         self._render_steps()
         show_toast(self, f"Agent '{selected_agent.name}' ajouté à la chaîne !")
 
@@ -340,7 +350,7 @@ class PipelinesView(QWidget):
 
                 first_agent = PersonaModel.select().first()
                 if first_agent:
-                    PipelineStepModel.create(pipeline=pipe, persona=first_agent, step_order=1)
+                    PipelineStepModel.create(pipeline=pipe, persona=first_agent, step_type="LLM_PROMPT", step_order=1)
 
                 self.refresh_data()
                 idx = self.pipeline_combo.findText(pipe_name, Qt.MatchFlag.MatchExactly)
@@ -382,10 +392,11 @@ class PipelinesView(QWidget):
             with db.atomic():
                 PipelineStepModel.delete().where(PipelineStepModel.pipeline == self._current_pipeline).execute()
 
-                for idx, agent in enumerate(self.current_steps, start=1):
+                for idx, step_data in enumerate(self.current_steps, start=1):
                     PipelineStepModel.create(
                         pipeline=self._current_pipeline,
-                        persona=agent,
+                        persona=step_data["persona"],
+                        step_type=step_data.get("type", "LLM_PROMPT"),
                         step_order=idx,
                     )
 

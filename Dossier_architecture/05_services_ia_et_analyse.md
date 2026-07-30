@@ -18,7 +18,7 @@ La philosophie d'AnkiForge est d'utiliser le bon paradigme IA pour le bon cas d'
 ### B. Le Système Agentique (Le Consultant)
 * **Cas d'usage :** La vue `consultant_view.py`.
 * **Philosophie :** L'exploration et la requête complexe. C'est un copilote conversationnel intelligent intégré à l'IDE.
-* **Mécanique :** Basé sur le *Tool Calling*. L'Agent IA reçoit une panoplie d'outils Python (ex: `execute_peewee_query()`, `get_cards_by_tag()`).
+* **Mécanique :** Basé sur le **Model Context Protocol (MCP)**. L'Agent IA agit comme un Client MCP. AnkiForge embarque un Serveur MCP natif qui expose les outils (ex: `execute_peewee_query()`, `get_cards_by_tag()`) de manière standardisée.
 * **Avantage :** L'utilisateur peut faire des requêtes en langage naturel comme : *"Trouve toutes mes cartes d'anatomie qui ont plus de 15 révisions (Sangsues) et propose-moi de les scinder en deux"*. L'agent génère le SQL, récupère les données, analyse et propose une UI de validation.
 
 ## 3. Cartographie des Fonctionnalités IA

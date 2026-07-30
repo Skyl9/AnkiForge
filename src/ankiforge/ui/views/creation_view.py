@@ -39,6 +39,9 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
+from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+from ankiforge.services.ai.state import PipelineRunState
+from PySide6.QtCore import QThreadPool
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
@@ -241,6 +244,7 @@ class CreationView(QWidget):
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
         self.worker: Optional[CreationWorker] = None
+        self.orchestrator: Optional[PipelineOrchestrator] = None
         self.current_deck: Optional[DeckModel] = None
         self.current_model: Optional[NoteTypeModel] = None
         self.decks_cache: list[DeckModel] = []
@@ -938,13 +942,53 @@ class CreationView(QWidget):
 
         self._set_all_generation_states(True)
 
-        self.worker = CreationWorker(ai_provider=provider, payload=payload)
-        self.worker.progress.connect(self._on_worker_progress)
-        self.worker.log.connect(self._on_worker_log)
-        self.worker.finished.connect(self._on_worker_finished)
-        self.worker.error.connect(self._on_worker_error)
-        self.worker.cancelled.connect(self._on_worker_cancelled)
-        self.worker.start()
+        if pipe_id:
+            # Nouveau Moteur d'Orchestration (DAG)
+            initial_state = PipelineRunState(document_id=0)
+            initial_state.set_variable("text_source", text_source)
+            self.orchestrator = PipelineOrchestrator(pipeline_id=pipe_id, initial_state=initial_state)
+
+            # Connexion des signaux du Pipeline
+            self.orchestrator.signals.step_started.connect(self._on_orchestrator_step_started)
+            self.orchestrator.signals.step_completed.connect(self._on_orchestrator_step_completed)
+            self.orchestrator.signals.human_validation_required.connect(self._on_human_validation)
+            self.orchestrator.signals.pipeline_finished.connect(self._on_orchestrator_finished)
+            self.orchestrator.signals.error_occurred.connect(self._on_worker_error)
+
+            QThreadPool.globalInstance().start(self.orchestrator)
+        else:
+            # Fallback Legacy
+            self.worker = CreationWorker(ai_provider=provider, payload=payload)
+            self.worker.progress.connect(self._on_worker_progress)
+            self.worker.log.connect(self._on_worker_log)
+            self.worker.finished.connect(self._on_worker_finished)
+            self.worker.error.connect(self._on_worker_error)
+            self.worker.cancelled.connect(self._on_worker_cancelled)
+            self.worker.start()
+
+    @Slot(int, str)
+    def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
+        logger.info("[Orchestrateur] Démarrage de %s", desc)
+        self.editor.setPlaceholderText(f"⏳ {desc}...")
+
+    @Slot(int, object)
+    def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
+        logger.info("[Orchestrateur] Étape %d terminée.", step_order)
+
+    @Slot(object)
+    def _on_human_validation(self, state: PipelineRunState) -> None:
+        logger.info("[Orchestrateur] PAUSE INTERACTIVE : Validation Humaine Requise.")
+        # L'UI affiche une boîte de dialogue ou déverrouille le bouton "Continuer"
+        QMessageBox.information(self, "Validation Requise", "L'IA a terminé une étape critique (ex: Plan du cours).\nVérifiez et validez pour continuer.")
+        # On simule l'acceptation de l'utilisateur pour relancer le thread
+        if self.orchestrator:
+            self.orchestrator.resume()
+
+    @Slot(object)
+    def _on_orchestrator_finished(self, state: PipelineRunState) -> None:
+        self._set_all_generation_states(False)
+        show_toast(self, "Pipeline terminé avec succès !", is_error=False)
+        logger.info("[Orchestrateur] Fin du Pipeline. État final: %s", state.variables)
 
     @Slot(int)
     def _on_worker_progress(self, val: int) -> None:
@@ -974,10 +1018,15 @@ class CreationView(QWidget):
     @Slot()
     def _on_worker_cancelled(self) -> None:
         self._set_all_generation_states(False)
-        show_toast(self, "Génération annulée par l'utilisateur.")
+        show_toast(self, "Génération annulée.", is_error=False)
 
     @Slot()
     def _on_cancel_generation(self) -> None:
+        if self.orchestrator:
+            self.orchestrator.cancel()
+            self._set_all_generation_states(False)
+            show_toast(self, "Pipeline annulé.", is_error=False)
+
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
 

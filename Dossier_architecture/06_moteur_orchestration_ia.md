@@ -110,8 +110,8 @@ Pour éviter le gaspillage de ressources sur de gros documents, l'IHM effectue d
 1. Le Consultant n'utilise *pas* de PipelineStepModel. Il tourne dans une boucle infinie de réflexion.
 2. **Input Utilisateur :** *"Quels sont mes pires concepts en biologie ?"*
 3. **Thought (LLM) :** "Je dois interroger la BDD Peewee pour trouver les cartes taguées biologie avec le plus bas taux de rétention."
-4. **Action (Tool Call) :** Le Consultant appelle la fonction Python `execute_sql(query)`.
-5. **Observation :** La fonction renvoie une liste JSON de cartes.
+4. **Action (MCP Tool Call) :** Le Consultant en tant que Client MCP appelle la ressource/l'outil exposé par le Serveur MCP interne d'AnkiForge (ex: `execute_sql(query)`).
+5. **Observation :** Le Serveur MCP exécute la fonction et renvoie une liste JSON de cartes.
 6. **Response (LLM) :** L'Agent formate la réponse dans le Chat et affiche les cartes cliquables dans l'UI (`consultant_view.py`).
 
 ### 🎨 E. Module Modèles de Cartes (Atelier)
@@ -120,5 +120,5 @@ Pour éviter le gaspillage de ressources sur de gros documents, l'IHM effectue d
 Le Consultant dispose de l'outil `update_model_css(model_id, new_css)`. 
 1. L'utilisateur demande "Fais des bordures violettes arrondies".
 2. Le LLM génère le code.
-3. Il déclenche le Tool Call.
+3. Il déclenche le Tool Call via le protocole MCP.
 4. PySide6 intercepte l'appel, met à jour la base Peewee, et recharge la *WebEngineView* (Aperçu de la carte) instantanément.
