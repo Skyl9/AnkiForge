@@ -4,7 +4,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 
 if TYPE_CHECKING:
-    from ankiforge.services.ai.ai_manager import AIManager
+    from ankiforge.services.ai.flexible_service import AIManager
 
 
 class YouTubeParser:

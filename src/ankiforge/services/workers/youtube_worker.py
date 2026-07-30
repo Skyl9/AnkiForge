@@ -3,7 +3,7 @@ from typing import Optional, TYPE_CHECKING
 from ankiforge.services.parsing.youtube_parser import YouTubeParser
 
 if TYPE_CHECKING:
-    from ankiforge.services.ai.ai_manager import AIManager
+    from ankiforge.services.ai.flexible_service import AIManager
 
 
 class YouTubeWorkerSignals(QObject):
