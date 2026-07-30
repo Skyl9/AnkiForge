@@ -29,7 +29,12 @@ class IdeTabBar(QWidget):
 
     def add_tab(self, title: str, icon_name: str = "", closable: bool = False) -> int:
         idx = len(self.tabs)
-        btn = QPushButton(f"{icon_name} {title}".strip())
+        btn = QPushButton(f" {title}" if icon_name else title)
+
+        if icon_name:
+            btn.setProperty("icon_name", icon_name)
+            btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
+
         btn.setCheckable(True)
         btn.setFixedHeight(36)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -204,6 +209,13 @@ class TabButton(QPushButton):
 
         self.setCheckable(True)
         self.setFixedHeight(36)
+
+        from PySide6.QtWidgets import QSizePolicy
+
+        sizePolicy = self.sizePolicy()
+        sizePolicy.setHorizontalPolicy(QSizePolicy.Policy.Minimum)
+        self.setSizePolicy(sizePolicy)
+
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         padding_right = 28 if closable else 12
         if variant == "document":

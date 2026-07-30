@@ -1,9 +1,9 @@
 """
 Vue Édition / Analyse — 100% Conforme à la Maquette concept_ide + Raccordement Métier Avancé.
-- Arborescence hiérarchique des sous-dossiers (QTreeWidget).
-- Rendu ultra-rapide sans lag pour les grandes collections (>2000 cartes) via chargement virtuel par lots (Batching / Lazy Loading).
+- Barre de filtre (Dossier, Tags)
+- QTableWidget multicolonnes pour liste des cartes.
 - Éditeur masqué par défaut si aucune carte n'est sélectionnée.
-- Redimensionnement interactif libre de l'explorateur et de l'éditeur via QSplitter.
+- Redimensionnement interactif libre de la table et de l'éditeur via QSplitter vertical.
 """
 
 import logging
@@ -17,30 +17,28 @@ from PySide6.QtWidgets import (
     QSplitter,
     QLabel,
     QFrame,
-    QListWidget,
-    QListWidgetItem,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QFileDialog,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
     QMessageBox,
     QProgressDialog,
-    QInputDialog,
     QMenu,
+    QPushButton,
+    QAbstractItemView,
+    QInputDialog,
 )
-from PySide6.QtCore import Qt, Signal, Slot, QSettings
-from PySide6.QtGui import QFont, QAction
+from PySide6.QtCore import Qt, Slot, QSettings
+from PySide6.QtGui import QFont, QAction, QColor, QBrush
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, IconButton
-from ankiforge.ui.components.inputs import GlowLineEdit, StyledTextEdit
-from ankiforge.ui.components.badges import Badge
+from ankiforge.ui.components.inputs import StyledTextEdit
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
-from ankiforge.database.models import NoteModel, NoteVersionModel, DeckModel, LLMConfigModel
+from ankiforge.database.models import NoteModel, NoteVersionModel, LLMConfigModel
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
-from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
@@ -54,293 +52,9 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
 from ankiforge.ui.dialogs.history_modal import HistoryModal
 from ankiforge.ui.widgets.katex_editor import KaTeXHighlighter
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 
 logger = logging.getLogger(__name__)
-
-
-class CardListItemWidget(QFrame):
-    """Widget d'item de carte personnalisé conforme à la maquette concept_ide."""
-
-    def __init__(self, note: NoteModel, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.note = note
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"""
-            CardListItemWidget {{
-                background-color: {DesignTokens.BG_PANEL};
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 0px;
-            }}
-            CardListItemWidget:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(6)
-
-        # Rangée 1 : ID (tech font bleu) + Badge Carte n°1 / Status
-        row1 = QHBoxLayout()
-        row1.setContentsMargins(0, 0, 0, 0)
-
-        id_lbl = QLabel(f"ID: {note.id}")
-        id_font = QFont(DesignTokens.FONT_CODE, 11, QFont.Weight.Bold)
-        id_lbl.setFont(id_font)
-        id_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; border: none; background: transparent;")
-
-        status = note.status or "new"
-        variant_color = DesignTokens.COLOR_GREEN if status in ["new", "imported"] else DesignTokens.COLOR_YELLOW
-        badge = Badge(f"Carte #{note.id}", variant="outline", color=variant_color)
-        badge.setStyleSheet(f"""
-            color: {variant_color};
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            background-color: rgba(16, 185, 129, 0.15);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 600;
-        """)
-
-        row1.addWidget(id_lbl)
-        row1.addStretch()
-        row1.addWidget(badge)
-        layout.addLayout(row1)
-
-        # Rangée 2 : Type de note (icône swatches)
-        row2 = QHBoxLayout()
-        row2.setContentsMargins(0, 0, 0, 0)
-        row2.setSpacing(6)
-
-        swatches_icon = QLabel()
-        swatches_icon.setPixmap(load_phosphor_icon("swatches", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
-        swatches_icon.setStyleSheet("border: none; background: transparent;")
-
-        note_type_name = note.note_type.name if hasattr(note, "note_type") and note.note_type else "Informatique"
-        type_lbl = QLabel(note_type_name)
-        type_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 500; font-size: 12px; border: none; background: transparent;")
-
-        row2.addWidget(swatches_icon)
-        row2.addWidget(type_lbl)
-        row2.addStretch()
-        layout.addLayout(row2)
-
-        # Rangée 3 : Dossier (icône folder)
-        row3 = QHBoxLayout()
-        row3.setContentsMargins(0, 0, 0, 0)
-        row3.setSpacing(6)
-
-        folder_icon = QLabel()
-        folder_icon.setPixmap(load_phosphor_icon("folder", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
-        folder_icon.setStyleSheet("border: none; background: transparent;")
-
-        folder_name = getattr(note, "_deck_name", "Par défaut")
-        if folder_name == "Par défaut" and hasattr(note, "cards"):
-            try:
-                cards_list = list(note.cards)
-                if cards_list and cards_list[0].deck:
-                    folder_name = cards_list[0].deck.name
-            except Exception:
-                pass  # nosec B110
-
-        folder_lbl = QLabel(folder_name)
-        folder_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-
-        row3.addWidget(folder_icon)
-        row3.addWidget(folder_lbl)
-        row3.addStretch()
-        layout.addLayout(row3)
-
-        # Rangée 4 : Tags pills
-        row4 = QHBoxLayout()
-        row4.setContentsMargins(0, 4, 0, 0)
-        row4.setSpacing(4)
-
-        raw_tags = note.tags if hasattr(note, "tags") and note.tags else "Informatique"
-        tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()] if isinstance(raw_tags, str) else ["Informatique"]
-
-        for tag in tags_list[:3]:
-            tag_pill = QLabel(tag)
-            tag_pill.setStyleSheet(f"""
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_SECONDARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
-                padding: 2px 8px;
-                font-size: 11px;
-            """)
-            row4.addWidget(tag_pill)
-
-        row4.addStretch()
-        layout.addLayout(row4)
-
-
-class ExplorateurDossiersTagsWidget(QWidget):
-    """Panneau d'explorateur dossiers (QTreeWidget hiérarchique) et filtres par tags."""
-
-    folder_selected = Signal(object)
-    tag_selected = Signal(object)
-    import_requested = Signal()
-    export_requested = Signal()
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
-
-        # Actions de Collection (Import / Export) au-dessus des dossiers
-        coll_toolbar = QHBoxLayout()
-        coll_toolbar.setContentsMargins(0, 0, 0, 0)
-        coll_toolbar.setSpacing(6)
-
-        self.btn_import_collection = SecondaryButton("Importer")
-        self.btn_import_collection.setIcon(load_phosphor_icon("download-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_collection.setToolTip("Importer un paquet ou une collection (.apkg, .colpkg, .txt)")
-        self.btn_import_collection.clicked.connect(self.import_requested.emit)
-
-        self.btn_export_collection = SecondaryButton("Exporter")
-        self.btn_export_collection.setIcon(load_phosphor_icon("export", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_export_collection.setToolTip("Exporter le paquet au format Anki (.apkg)")
-        self.btn_export_collection.clicked.connect(self.export_requested.emit)
-
-        coll_toolbar.addWidget(self.btn_import_collection, 1)
-        coll_toolbar.addWidget(self.btn_export_collection, 1)
-        layout.addLayout(coll_toolbar)
-
-        # Section Dossiers Hiérarchique (QTreeWidget)
-        self.folder_area = QWidget()
-        folder_layout = QVBoxLayout(self.folder_area)
-        folder_layout.setContentsMargins(0, 0, 0, 0)
-        folder_layout.setSpacing(4)
-
-        self.folder_tree = QTreeWidget()
-        self.folder_tree.setHeaderHidden(True)
-        self.folder_tree.setFrameShape(QFrame.Shape.NoFrame)
-        self.folder_tree.setStyleSheet(f"""
-            QTreeWidget {{
-                background: transparent;
-                border: none;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QTreeWidget::item {{
-                padding: 4px 6px;
-                border-radius: 4px;
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignTokens.BG_HOVER};
-                font-weight: bold;
-            }}
-        """)
-        self.folder_tree.itemClicked.connect(self._on_tree_item_clicked)
-
-        folder_layout.addWidget(self.folder_tree)
-        layout.addWidget(self.folder_area, 1)
-
-        # Séparateur / En-tête Filtres Tags
-        tags_header_layout = QHBoxLayout()
-        tags_header_layout.setContentsMargins(0, 4, 0, 0)
-        tags_header_layout.setSpacing(6)
-
-        tag_icon = QLabel()
-        tag_icon.setPixmap(load_phosphor_icon("tag", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
-
-        tags_hdr_lbl = QLabel("FILTRES (TAGS)")
-        tags_hdr_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none;")
-
-        tags_header_layout.addWidget(tag_icon)
-        tags_header_layout.addWidget(tags_hdr_lbl)
-        tags_header_layout.addStretch()
-        layout.addLayout(tags_header_layout)
-
-        # Section Tags
-        self.tag_list = QListWidget()
-        self.tag_list.setFrameShape(QFrame.Shape.NoFrame)
-        self.tag_list.setStyleSheet("""
-            QListWidget {
-                background: transparent;
-                border: none;
-            }
-            QListWidget::item {
-                padding: 4px 8px;
-                border-radius: 6px;
-                color: #94a3b8;
-            }
-            QListWidget::item:hover {
-                background-color: #2d313a;
-                color: #f8fafc;
-            }
-            QListWidget::item:selected {
-                background-color: #2d313a;
-                color: #f8fafc;
-                font-weight: bold;
-            }
-        """)
-        self.tag_list.itemClicked.connect(self._on_tag_clicked)
-        layout.addWidget(self.tag_list, 1)
-
-    def populate_folders(self, folders: list, valid_deck_ids: Optional[set[int]] = None) -> None:
-        """Construit l'arborescence hiérarchique des dossiers et sous-dossiers (::). Masque les dossiers vides sous filtrage."""
-        self.folder_tree.clear()
-
-        root_item = QTreeWidgetItem(self.folder_tree, ["Tous les dossiers"])
-        root_item.setIcon(0, load_phosphor_icon("folder", color=DesignTokens.COLOR_BLUE))
-        root_item.setData(0, Qt.ItemDataRole.UserRole, None)
-        root_item.setExpanded(True)
-
-        node_map: dict[str, QTreeWidgetItem] = {}
-
-        for f in folders:
-            folder_id = getattr(f, "id", None)
-            if valid_deck_ids is not None and folder_id not in valid_deck_ids:
-                continue
-
-            full_name = getattr(f, "name", str(f))
-            parts = [p.strip() for p in full_name.split("::") if p.strip()]
-            current_parent = root_item
-            path_accum = ""
-
-            for idx, part in enumerate(parts):
-                path_accum = f"{path_accum}::{part}" if path_accum else part
-                if path_accum in node_map:
-                    current_parent = node_map[path_accum]
-                else:
-                    item = QTreeWidgetItem(current_parent, [part])
-                    item.setIcon(0, load_phosphor_icon("folder", color=DesignTokens.COLOR_BLUE))
-                    f_id = folder_id if idx == len(parts) - 1 else None
-                    item.setData(0, Qt.ItemDataRole.UserRole, f_id)
-                    item.setExpanded(True)
-                    node_map[path_accum] = item
-                    current_parent = item
-
-    def populate_tags(self, tags: list, valid_tags: Optional[set[str]] = None) -> None:
-        """Remplit la liste des tags. Masque les tags sans carte sous filtrage."""
-        self.tag_list.clear()
-        all_item = QListWidgetItem("Tous les tags")
-        all_item.setIcon(load_phosphor_icon("tag", color=DesignTokens.COLOR_YELLOW))
-        all_item.setData(Qt.ItemDataRole.UserRole, None)
-        self.tag_list.addItem(all_item)
-
-        for t in tags:
-            tag_name = str(t)
-            if valid_tags is not None and tag_name not in valid_tags:
-                continue
-
-            item = QListWidgetItem(tag_name)
-            item.setIcon(load_phosphor_icon("tag", color=DesignTokens.COLOR_YELLOW))
-            item.setData(Qt.ItemDataRole.UserRole, tag_name)
-            self.tag_list.addItem(item)
-
-    def _on_tree_item_clicked(self, item: QTreeWidgetItem, column: int) -> None:
-        folder_id = item.data(0, Qt.ItemDataRole.UserRole)
-        self.folder_selected.emit(folder_id)
-
-    def _on_tag_clicked(self, item: QListWidgetItem) -> None:
-        tag_name = item.data(Qt.ItemDataRole.UserRole)
-        self.tag_selected.emit(tag_name)
 
 
 class EditionView(QWidget):
@@ -367,6 +81,7 @@ class EditionView(QWidget):
         self._preview_device = "desktop"
         self._active_folder_id: Optional[int] = None
         self._active_tag: Optional[str] = None
+        self._deck_modal: Optional[DeckSelectWindow] = None
 
         # Optimization state for large collections (>2000 cards)
         self._all_notes: list[NoteModel] = []
@@ -375,251 +90,245 @@ class EditionView(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        main_layout = QHBoxLayout(self)
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(16, 16, 16, 16)
         main_layout.setSpacing(12)
 
-        # QSplitter principal (Explorateur principal | Éditeur secondaire rétractable)
-        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.main_splitter.setStyleSheet("QSplitter::handle { background: transparent; }")
-        main_layout.addWidget(self.main_splitter)
+        # Panneau unifié (IdePanel)
+        self.main_panel = IdePanel(detachable=True)
 
-        # ==========================================
-        # FENÊTRE PRINCIPALE : Explorateur & Liste des Cartes
-        # ==========================================
-        self.left_panel = IdePanel(detachable=True)
-        self.left_panel.setMinimumWidth(320)
+        panel_content = QWidget()
+        panel_layout = QVBoxLayout(panel_content)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.setSpacing(0)
 
-        left_content = QWidget()
-        left_layout = QVBoxLayout(left_content)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(0)
+        # --- BARRE DE SÉLECTION DE DOSSIER & BULLES DE TAGS ---
+        filter_bar = QWidget()
+        filter_bar.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
+        filter_layout = QHBoxLayout(filter_bar)
+        filter_layout.setContentsMargins(10, 6, 10, 6)
+        filter_layout.setSpacing(8)
 
-        # Splitter vertical dans la colonne de gauche (Arborescence Dossiers 35% | Liste cartes Flex-1)
-        self.col1_splitter = QSplitter(Qt.Orientation.Vertical)
-        self.col1_splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DesignTokens.BORDER_COLOR}; height: 1px; }}")
-
-        # Haut : Explorateur hiérarchique dossiers & tags
-        self.explorer_widget = ExplorateurDossiersTagsWidget()
-        self.explorer_widget.import_requested.connect(self._on_import_collection)
-        self.explorer_widget.export_requested.connect(self._on_export_collection)
-        self.explorer_widget.folder_selected.connect(self._on_filter_folder)
-        self.explorer_widget.tag_selected.connect(self._on_filter_tag)
-        self.col1_splitter.addWidget(self.explorer_widget)
-
-        # Bas : Recherche + Liste de cartes
-        card_list_container = QWidget()
-        card_list_layout = QVBoxLayout(card_list_container)
-        card_list_layout.setContentsMargins(0, 0, 0, 0)
-        card_list_layout.setSpacing(0)
-
-        # Toolbar recherche
-        search_toolbar = QWidget()
-        search_toolbar.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
-        search_layout = QHBoxLayout(search_toolbar)
-        search_layout.setContentsMargins(10, 8, 10, 8)
-        search_layout.setSpacing(8)
-
-        self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Rechercher...")
-        self.search_input.textChanged.connect(self._on_search_text_changed)
-        search_layout.addWidget(self.search_input, 1)
-
-        self.btn_filter = IconButton("funnel", tooltip="Filtres avancés", size=24)
-        search_layout.addWidget(self.btn_filter)
-
-        card_list_layout.addWidget(search_toolbar)
-
-        # QListWidget pour les cartes avec chargement virtuel asynchrone par défilement
-        self.card_list = QListWidget()
-        self.card_list.setFrameShape(QFrame.Shape.NoFrame)
-        self.card_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.card_list.customContextMenuRequested.connect(self._show_card_context_menu)
-        self.card_list.verticalScrollBar().valueChanged.connect(self._on_card_list_scrolled)
-        self.card_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: none;
+        self.btn_open_folder = QPushButton("Dossier : Informatique ▾")
+        self.btn_open_folder.setIcon(load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_open_folder.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: bold;
+                color: {DesignTokens.ACCENT_PRIMARY};
             }}
-            QListWidget::item {{
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                padding: 0px;
+            QPushButton:hover {{
+                background-color: rgba(99, 102, 241, 0.1);
             }}
-            QListWidget::item:selected {{
+        """)
+        self.btn_open_folder.clicked.connect(self._show_folder_modal)
+        filter_layout.addWidget(self.btn_open_folder)
+
+        separator = QFrame()
+        separator.setFixedSize(1, 14)
+        separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
+        filter_layout.addWidget(separator)
+
+        tags_lbl = QLabel("TAGS SÉLECTIONNÉS :")
+        tags_lbl.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; text-transform: uppercase; text-decoration: none;")
+        filter_layout.addWidget(tags_lbl)
+
+        self.btn_open_tag = QPushButton("Ajouter tag")
+        self.btn_open_tag.setIcon(load_phosphor_icon("plus", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_open_tag.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border-radius: 12px;
+                padding: 2px 10px;
+                min-height: 20px;
+                font-size: 11px;
+                color: {DesignTokens.TEXT_SECONDARY};
+            }}
+            QPushButton:hover {{
                 background-color: {DesignTokens.BG_HOVER};
             }}
         """)
-        self.card_list.itemClicked.connect(self._on_card_selected)
-        card_list_layout.addWidget(self.card_list, 1)
+        self.btn_open_tag.clicked.connect(self._show_tag_modal)
+        filter_layout.addWidget(self.btn_open_tag)
+        filter_layout.addStretch()
 
-        self.col1_splitter.addWidget(card_list_container)
-        self.col1_splitter.setSizes([220, 480])
-        self.col1_splitter.setCollapsible(0, True)
-        self.col1_splitter.setCollapsible(1, False)
+        panel_layout.addWidget(filter_bar)
 
-        left_layout.addWidget(self.col1_splitter)
-        self.left_panel.add_tab("Explorateur", left_content, icon_name="ph.compass", closable=False)
-        self.main_splitter.addWidget(self.left_panel)
+        # --- QSplitter Vertical (Table 45% + Éditeur 55%) ---
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DesignTokens.BORDER_COLOR}; height: 4px; }}")
 
-        # ==========================================
-        # FENÊTRE SECONDAIRE : Éditeur & Prévisualisation (Caché par défaut si pas de sélection)
-        # ==========================================
-        self.right_panel = IdePanel(detachable=True)
-        self.right_panel.setMinimumWidth(380)
+        # TABLEAU ANKI DE CARTES
+        self.card_table = QTableWidget()
+        self.card_table.setColumnCount(6)
+        self.card_table.setHorizontalHeaderLabels(["", "Question / Recto", "Réponse / Verso", "Deck", "Tags", "Rétention"])
+        self.card_table.verticalHeader().setVisible(False)
+        self.card_table.setShowGrid(False)
+        self.card_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.card_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.card_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.card_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.card_table.setColumnWidth(0, 36)
+        self.card_table.setColumnWidth(3, 140)
+        self.card_table.setColumnWidth(4, 140)
+        self.card_table.setColumnWidth(5, 90)
 
-        # Boutons d'en-tête (Outillage Métier + Sauvegarder)
-        self.btn_history = SecondaryButton("Historique")
-        self.btn_history.setIcon(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_history.setToolTip("Machine à remonter le temps — Comparateur de versions")
-        self.btn_history.clicked.connect(self._open_history_modal)
+        self.card_table.setStyleSheet(f"""
+            QTableWidget {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: none;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 12px;
+                font-family: '{DesignTokens.FONT_MAIN}';
+            }}
+            QHeaderView::section {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_MUTED};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                font-size: 11px;
+                font-weight: bold;
+                text-transform: uppercase;
+                padding: 6px;
+            }}
+            QTableWidget::item {{
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 8px 10px;
+            }}
+            QTableWidget::item:selected {{
+                background-color: rgba(99, 102, 241, 0.12);
+            }}
+        """)
+        self.card_table.itemClicked.connect(self._on_card_selected)
+        self.card_table.verticalScrollBar().valueChanged.connect(self._on_card_list_scrolled)
+        self.card_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.card_table.customContextMenuRequested.connect(self._show_card_context_menu)
 
-        self.btn_save = PrimaryButton("Sauvegarder")
-        self.btn_save.setIcon(load_phosphor_icon("floppy-disk", color="white"))
-        self.btn_save.clicked.connect(self._save_card)
+        self.main_splitter.addWidget(self.card_table)
 
-        self.right_panel.add_header_widget(self.btn_history)
-        self.right_panel.add_header_widget(self.btn_save)
-        self.right_panel.add_header_separator()
+        # BLOC ÉDITION RECTO/VERSO (Éditeur)
+        self.editor_container = QWidget()
+        self.editor_container.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR};")
+        editor_layout = QVBoxLayout(self.editor_container)
+        editor_layout.setContentsMargins(6, 6, 6, 6)
+        editor_layout.setSpacing(6)
 
-        editor_content = QWidget()
-        editor_content_layout = QVBoxLayout(editor_content)
-        editor_content_layout.setContentsMargins(0, 0, 0, 0)
-        editor_content_layout.setSpacing(0)
-
-        # Splitter vertical entre Éditeur (Haut) et Prévisualisation (Bas)
-        self.col2_splitter = QSplitter(Qt.Orientation.Vertical)
-        self.col2_splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DesignTokens.BORDER_COLOR}; height: 1px; }}")
-
-        # --- Haut : Zone de saisie (Recto & Verso) ---
-        fields_container = QWidget()
-        fields_layout = QVBoxLayout(fields_container)
-        fields_layout.setContentsMargins(16, 16, 16, 16)
-        fields_layout.setSpacing(14)
-
-        # Champ Recto
-        recto_hdr = QHBoxLayout()
-        recto_lbl = QLabel("RECTO")
-        recto_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none;")
-        recto_hdr.addWidget(recto_lbl)
-        recto_hdr.addStretch()
-
+        # Barre d'Outils + Sauvegarder
+        toolbar_layout = QHBoxLayout()
         self.btn_bold = IconButton("text-b", tooltip="Gras", size=24)
         self.btn_bold.clicked.connect(lambda: self._insert_format("**", "**"))
         self.btn_italic = IconButton("text-italic", tooltip="Italique", size=24)
         self.btn_italic.clicked.connect(lambda: self._insert_format("*", "*"))
         self.btn_code = IconButton("code", tooltip="Code", size=24)
         self.btn_code.clicked.connect(lambda: self._insert_format("`", "`"))
+        toolbar_layout.addWidget(self.btn_bold)
+        toolbar_layout.addWidget(self.btn_italic)
+        toolbar_layout.addWidget(self.btn_code)
 
-        recto_hdr.addWidget(self.btn_bold)
-        recto_hdr.addWidget(self.btn_italic)
-        recto_hdr.addWidget(self.btn_code)
-        fields_layout.addLayout(recto_hdr)
+        toolbar_layout.addStretch()
 
+        self.btn_history = SecondaryButton("Historique")
+        self.btn_history.setIcon(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_history.clicked.connect(self._open_history_modal)
+        toolbar_layout.addWidget(self.btn_history)
+
+        self.btn_save = PrimaryButton("Sauvegarder")
+        self.btn_save.setIcon(load_phosphor_icon("floppy-disk", color="white"))
+        self.btn_save.clicked.connect(self._save_card)
+        toolbar_layout.addWidget(self.btn_save)
+
+        editor_layout.addLayout(toolbar_layout)
+
+        # Champs + Prévisualisation
+        fields_layout = QHBoxLayout()
+        fields_layout.setSpacing(6)
+
+        # Recto
+        recto_widget = QWidget()
+        recto_layout = QVBoxLayout(recto_widget)
+        recto_layout.setContentsMargins(6, 6, 6, 6)
+        recto_lbl = QLabel("RECTO (Question)")
+        recto_lbl.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        recto_layout.addWidget(recto_lbl)
         self.editor_recto = StyledTextEdit()
         self.editor_recto.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {DesignTokens.BG_MAIN} !important;
+                border: 1px solid {DesignTokens.BORDER_COLOR} !important;
+                border-radius: 4px;
+                color: {DesignTokens.TEXT_PRIMARY} !important;
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 padding: 10px;
             }}
-            QTextEdit:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
         """)
-        self.editor_recto.setPlaceholderText("Entrez le recto de la carte (support Markdown, LaTeX & Cloze {{c1::...}})...")
         self.editor_recto.textChanged.connect(self._on_text_changed)
         self.recto_highlighter = KaTeXHighlighter(self.editor_recto.document())
-        fields_layout.addWidget(self.editor_recto, 1)
+        recto_layout.addWidget(self.editor_recto)
+        fields_layout.addWidget(recto_widget)
 
-        # Champ Verso
-        verso_hdr = QHBoxLayout()
-        verso_lbl = QLabel("VERSO")
-        verso_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none;")
-        verso_hdr.addWidget(verso_lbl)
-        verso_hdr.addStretch()
-        fields_layout.addLayout(verso_hdr)
-
+        # Verso
+        verso_widget = QWidget()
+        verso_layout = QVBoxLayout(verso_widget)
+        verso_layout.setContentsMargins(6, 6, 6, 6)
+        verso_lbl = QLabel("VERSO (Réponse)")
+        verso_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
+        verso_layout.addWidget(verso_lbl)
         self.editor_verso = StyledTextEdit()
         self.editor_verso.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {DesignTokens.BG_MAIN} !important;
+                border: 1px solid {DesignTokens.BORDER_COLOR} !important;
+                border-radius: 4px;
+                color: {DesignTokens.TEXT_PRIMARY} !important;
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 padding: 10px;
             }}
-            QTextEdit:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
         """)
-        self.editor_verso.setPlaceholderText("Entrez le verso de la carte...")
         self.editor_verso.textChanged.connect(self._on_text_changed)
         self.verso_highlighter = KaTeXHighlighter(self.editor_verso.document())
-        fields_layout.addWidget(self.editor_verso, 1)
+        verso_layout.addWidget(self.editor_verso)
+        fields_layout.addWidget(verso_widget)
 
-        # Ligne de Tags
-        tags_row = QHBoxLayout()
-        tags_row.setContentsMargins(0, 4, 0, 0)
-        tags_row.setSpacing(8)
-
-        self.tag_pill = QLabel("Informatique")
-        self.tag_pill.setStyleSheet(f"""
-            background-color: {DesignTokens.BG_INPUT};
-            color: {DesignTokens.TEXT_SECONDARY};
-            border: 1px solid {DesignTokens.BORDER_COLOR};
-            border-radius: 4px;
-            padding: 4px 10px;
-            font-size: 11px;
-        """)
-        tags_row.addWidget(self.tag_pill)
-
-        self.btn_add_tag = IconButton("plus", tooltip="Ajouter un tag", size=24)
-        self.btn_add_tag.clicked.connect(self._on_add_tag)
-        tags_row.addWidget(self.btn_add_tag)
-        tags_row.addStretch()
-
-        fields_layout.addLayout(tags_row)
-        self.col2_splitter.addWidget(fields_container)
-
-        # --- Bas : Zone de prévisualisation live Anki WebEngine + MathJax ---
-        preview_container = QWidget()
-        preview_container.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-top: 1px solid {DesignTokens.BORDER_COLOR};")
-        preview_layout = QVBoxLayout(preview_container)
-        preview_layout.setContentsMargins(12, 8, 12, 12)
-        preview_layout.setSpacing(8)
-
-        self.card_preview = CardPreviewWidget(show_header=True)
+        # Live Preview (KaTeX)
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setContentsMargins(6, 6, 6, 6)
+        preview_lbl = QLabel("Rendu Live KaTeX")
+        preview_lbl.setStyleSheet("color: #c084fc; font-size: 11px; font-weight: bold;")
+        preview_layout.addWidget(preview_lbl)
+        self.card_preview = CardPreviewWidget(show_header=False)
         preview_layout.addWidget(self.card_preview)
+        fields_layout.addWidget(preview_widget)
 
-        self.col2_splitter.addWidget(preview_container)
-        self.col2_splitter.setSizes([350, 350])
-        self.col2_splitter.setCollapsible(0, False)
-        self.col2_splitter.setCollapsible(1, False)
+        editor_layout.addLayout(fields_layout)
 
-        editor_content_layout.addWidget(self.col2_splitter)
+        self.main_splitter.addWidget(self.editor_container)
+        self.main_splitter.setSizes([450, 550])
 
-        self.right_panel.add_tab("Éditeur", editor_content, icon_name="ph.pencil-simple", closable=False)
-        self.main_splitter.addWidget(self.right_panel)
+        panel_layout.addWidget(self.main_splitter)
 
-        # 1. Éditeur masqué par défaut si aucune carte n'est sélectionnée
-        self.right_panel.setVisible(False)
+        self.main_panel.add_tab("Éditeur & Navigateur de Cartes (Style Anki Desktop)", panel_content, icon_name="ph.cards", closable=False)
+        main_layout.addWidget(self.main_panel)
 
-        # 2. Séparateurs entièrement redimensionnables par l'utilisateur
-        self.main_splitter.setSizes([800, 0])
-        self.main_splitter.setCollapsible(0, False)
-        self.main_splitter.setCollapsible(1, True)
+        self.editor_container.setVisible(False)
 
     def _show_card_context_menu(self, pos) -> None:
-        item = self.card_list.itemAt(pos)
+        item = self.card_table.itemAt(pos)
         if not item:
             return
-        note: Optional[NoteModel] = item.data(Qt.ItemDataRole.UserRole)
+        row = item.row()
+        checkbox_item = self.card_table.item(row, 0)
+        if not checkbox_item:
+            return
+        note = checkbox_item.data(Qt.ItemDataRole.UserRole)
         if not note:
             return
 
@@ -661,7 +370,7 @@ class EditionView(QWidget):
         act_history.triggered.connect(lambda: self.show_version_history(note.id))
         menu.addAction(act_history)
 
-        menu.exec(self.card_list.mapToGlobal(pos))
+        menu.exec(self.card_table.mapToGlobal(pos))
 
     def _on_filter_folder(self, folder_id: Optional[int]) -> None:
         self._active_folder_id = folder_id
@@ -671,39 +380,21 @@ class EditionView(QWidget):
         self._active_tag = tag_name
         self.refresh_data()
 
-    def _on_add_tag(self) -> None:
-        if not self._current_note:
+    def _on_card_selected(self, item: QTableWidgetItem) -> None:
+        row = item.row()
+        checkbox_item = self.card_table.item(row, 0)
+        if not checkbox_item:
             return
-        tag_name, ok = QInputDialog.getText(self, "Nouveau Tag", "Entrez le nom du tag:")
-        if ok and tag_name.strip():
-            t = tag_name.strip()
-            existing = [x.strip() for x in (self._current_note.tags or "").split(",") if x.strip()]
-            if t not in existing:
-                existing.append(t)
-                self._current_note.tags = ", ".join(existing)
-                self._current_note.save()
-                self.tag_pill.setText(self._current_note.tags)
-                self.refresh_data()
-
-    def _on_card_selected(self, item: QListWidgetItem) -> None:
-        note: Optional[NoteModel] = item.data(Qt.ItemDataRole.UserRole)
+        note: Optional[NoteModel] = checkbox_item.data(Qt.ItemDataRole.UserRole)
         if not note:
             return
         self._current_note = note
 
-        # Afficher le panneau d'édition lors de la sélection
-        if not self.right_panel.isVisible():
-            self.right_panel.setVisible(True)
-            self.main_splitter.setSizes([450, 750])
-
-        # Update tab title
-        self.right_panel.set_tab_text(0, f"Éditeur (ID: {note.id})")
-        self.tag_pill.setText(note.tags if note.tags else "Informatique")
+        if not self.editor_container.isVisible():
+            self.editor_container.setVisible(True)
 
         recto = ""
         verso = ""
-
-        # Query active version or most recent version
         version = NoteVersionModel.get_or_none(note=note, is_active=True)
         if not version:
             version = NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()).first()
@@ -712,15 +403,12 @@ class EditionView(QWidget):
             try:
                 data = json.loads(version.content)
                 if isinstance(data, dict):
-                    # Flexible lookup matching any field schema (Front, Back, Question, Answer, Text, Extra, Field_1, etc.)
                     for k, v in data.items():
                         k_lower = str(k).lower()
                         if k_lower in ["front", "recto", "question", "text", "texte", "field_1"] and not recto:
                             recto = str(v)
                         elif k_lower in ["back", "verso", "answer", "réponse", "reponse", "extra", "field_2"] and not verso:
                             verso = str(v)
-
-                    # Fallback: 1st field = Recto, 2nd field = Verso
                     if not recto and len(data) > 0:
                         vals = list(data.values())
                         recto = str(vals[0]) if len(vals) > 0 else ""
@@ -755,10 +443,6 @@ class EditionView(QWidget):
             "back": verso_text,
             "Question": recto_text,
             "Answer": verso_text,
-            "Text": recto_text,
-            "Extra": verso_text,
-            "Field_1": recto_text,
-            "Field_2": verso_text,
         }
 
         if self._current_note:
@@ -769,10 +453,9 @@ class EditionView(QWidget):
                     if isinstance(v_data, dict):
                         for k, v in v_data.items():
                             fields_dict[str(k)] = str(v)
-                except Exception:
-                    pass  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Erreur de parsing JSON pour le contenu de la note: {e}")
 
-        # Override with current live editor changes
         fields_dict["Front"] = recto_text
         fields_dict["Back"] = verso_text
         fields_dict["front"] = recto_text
@@ -793,19 +476,34 @@ class EditionView(QWidget):
         selected = cursor.selectedText()
         cursor.insertText(f"{prefix}{selected}{suffix}")
 
-    def _on_search_text_changed(self, text: str) -> None:
-        text = text.lower()
-        for i in range(self.card_list.count()):
-            item = self.card_list.item(i)
-            note = item.data(Qt.ItemDataRole.UserRole)
-            if note:
-                match = text in str(note.id).lower() or text in (note.tags or "").lower()
-                item.setHidden(not match)
-
     def _open_history_modal(self) -> None:
         if self._current_note:
             modal = HistoryModal(self._current_note, self)
             modal.exec()
+
+    @Slot()
+    def _show_folder_modal(self) -> None:
+        if self._deck_modal and self._deck_modal.isVisible():
+            self._deck_modal.raise_()
+            self._deck_modal.activateWindow()
+            return
+
+        self._deck_modal = DeckSelectWindow(parent=self)
+        self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
+        self._deck_modal.show()
+
+    @Slot(int, str)
+    def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
+        self.btn_open_folder.setText(f"Dossier : {deck_name} ▾")
+        self._active_folder_id = deck_id
+        # Reload cards to apply filter
+        self.refresh_data()
+
+    @Slot()
+    def _show_tag_modal(self) -> None:
+        text, ok = QInputDialog.getText(self, "Ajouter un tag", "Rechercher ou ajouter un tag :")
+        if ok and text:
+            show_toast(self, f"Tag {text} ajouté au filtre")
 
     @Slot()
     def _run_linter(self) -> None:
@@ -929,76 +627,101 @@ class EditionView(QWidget):
                 logger.exception("Erreur lors de la suppression des notes")
                 QMessageBox.critical(self, "Erreur", str(e))
 
-    def _on_import_collection(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(self, "Importer une collection ou paquet Anki", "", "Fichiers Anki (*.apkg *.colpkg *.txt);;Tous les fichiers (*)")
-        if not file_path:
-            return
-
-        self.progress_dialog = QProgressDialog("Importation en cours...", "Annuler", 0, 0, self)
-        self.progress_dialog.show()
-
-        self.import_thread = ImportCardsWorker(self.store, file_path)
-        self.import_thread.progress.connect(self.progress_dialog.setLabelText)
-        self.import_thread.finished_signal.connect(self._on_import_success)
-        self.import_thread.error_signal.connect(self._on_import_error)
-        self.import_thread.start()
-
-    def _on_import_success(self) -> None:
-        if self.progress_dialog:
-            self.progress_dialog.close()
-        show_toast(self, "Paquet importé avec succès !")
-        self.refresh_data()
-
-    def _on_import_error(self, error_msg: str) -> None:
-        if self.progress_dialog:
-            self.progress_dialog.close()
-        QMessageBox.critical(self, "Erreur d'import", error_msg)
-
-    def _on_export_collection(self) -> None:
-        file_path, _ = QFileDialog.getSaveFileName(self, "Exporter la collection Anki", "AnkiForge_Collection.apkg", "Paquet Anki (*.apkg)")
-        if not file_path:
-            return
-        try:
-            decks = list(DeckModel.select())
-            if not decks:
-                QMessageBox.warning(self, "Export impossible", "Aucun paquet trouvé dans la collection.")
-                return
-            ExportManager().export_deck(decks[0].id, file_path)
-            show_toast(self, "Export terminé avec succès !")
-        except Exception as e:
-            QMessageBox.critical(self, "Erreur d'export", f"Erreur lors de l'export : {str(e)}")
-
     def _on_card_list_scrolled(self, value: int) -> None:
-        scrollbar = self.card_list.verticalScrollBar()
+        scrollbar = self.card_table.verticalScrollBar()
         if scrollbar.maximum() > 0 and value >= int(scrollbar.maximum() * 0.85):
             self._load_next_card_batch()
+
+    def _get_note_content_fields(self, note: NoteModel) -> tuple[str, str]:
+        recto = ""
+        verso = ""
+        version = NoteVersionModel.get_or_none(note=note, is_active=True)
+        if not version:
+            version = NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()).first()
+
+        if version and version.content:
+            try:
+                data = json.loads(version.content)
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        k_lower = str(k).lower()
+                        if k_lower in ["front", "recto", "question", "text", "texte", "field_1"] and not recto:
+                            recto = str(v)
+                        elif k_lower in ["back", "verso", "answer", "réponse", "reponse", "extra", "field_2"] and not verso:
+                            verso = str(v)
+                    if not recto and len(data) > 0:
+                        vals = list(data.values())
+                        recto = str(vals[0]) if len(vals) > 0 else ""
+                        verso = str(vals[1]) if len(vals) > 1 else ""
+                else:
+                    recto = str(data)
+            except Exception:
+                recto = version.content
+        return recto, verso
 
     def _load_next_card_batch(self) -> None:
         if self._displayed_count >= len(self._all_notes):
             return
 
         next_batch = self._all_notes[self._displayed_count : self._displayed_count + self.BATCH_SIZE]
+
         for note in next_batch:
-            item = QListWidgetItem()
-            widget = CardListItemWidget(note)
-            item.setSizeHint(widget.sizeHint())
-            item.setData(Qt.ItemDataRole.UserRole, note)
-            self.card_list.addItem(item)
-            self.card_list.setItemWidget(item, widget)
+            row = self.card_table.rowCount()
+            self.card_table.insertRow(row)
+
+            # Checkbox
+            chk = QTableWidgetItem()
+            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            chk.setCheckState(Qt.CheckState.Unchecked)
+            chk.setData(Qt.ItemDataRole.UserRole, note)
+            self.card_table.setItem(row, 0, chk)
+
+            recto, verso = self._get_note_content_fields(note)
+
+            # Question / Recto
+            item_recto = QTableWidgetItem(str(recto)[:100] + ("..." if len(str(recto)) > 100 else ""))
+            item_recto.setFont(QFont(DesignTokens.FONT_CODE, 10))
+            self.card_table.setItem(row, 1, item_recto)
+
+            # Réponse / Verso
+            item_verso = QTableWidgetItem(str(verso)[:100] + ("..." if len(str(verso)) > 100 else ""))
+            item_verso.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
+            self.card_table.setItem(row, 2, item_verso)
+
+            # Deck
+            folder_name = getattr(note, "_deck_name", "Par défaut")
+            if folder_name == "Par défaut" and hasattr(note, "cards"):
+                try:
+                    cards_list = list(note.cards)
+                    if cards_list and cards_list[0].deck:
+                        folder_name = cards_list[0].deck.name
+                except Exception as e:
+                    logger.debug(f"Impossible de récupérer le nom du dossier pour la note: {e}")
+            item_deck = QTableWidgetItem(folder_name)
+            item_deck.setForeground(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
+            self.card_table.setItem(row, 3, item_deck)
+
+            # Tags
+            item_tags = QTableWidgetItem(str(note.tags) if note.tags else "")
+            item_tags.setForeground(QBrush(QColor("#c084fc")))
+            self.card_table.setItem(row, 4, item_tags)
+
+            # Rétention
+            item_ret = QTableWidgetItem("N/A")
+            item_ret.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.card_table.setItem(row, 5, item_ret)
 
         self._displayed_count += len(next_batch)
 
     def refresh_data(self) -> None:
-        self.card_list.clear()
+        self.card_table.setRowCount(0)
         self._all_notes = []
         self._displayed_count = 0
 
-        # Masquer l'éditeur par défaut s'il n'y a pas de sélection active
         self._current_note = None
-        self.right_panel.setVisible(False)
+        self.editor_container.setVisible(False)
 
         try:
-            # 1. Query notes according to active filters
             query = NoteModel.select()
             if self._active_folder_id is not None:
                 from ankiforge.database.models import CardModel
@@ -1011,64 +734,30 @@ class EditionView(QWidget):
             self._all_notes = list(query)
             self._load_next_card_batch()
 
-            # 2. Extract valid deck IDs and tags present in filtered results (if a filter is active)
-            is_filtered = (self._active_folder_id is not None) or (self._active_tag is not None)
-            valid_deck_ids: Optional[set[int]] = None
-            valid_tags: Optional[set[str]] = None
-
-            if is_filtered:
-                from ankiforge.database.models import CardModel
-
-                filtered_note_ids = [n.id for n in self._all_notes]
-                cards_in_filtered = CardModel.select(CardModel.deck).where(CardModel.note.in_(filtered_note_ids))
-                valid_deck_ids = {c.deck_id for c in cards_in_filtered if c.deck_id}
-
-                valid_tags = set()
-                for n in self._all_notes:
-                    if n.tags:
-                        for t in n.tags.split(","):
-                            if t.strip():
-                                valid_tags.add(t.strip())
-
-            # 3. Populate explorer folders & tags with filtering mask
-            decks = list(DeckModel.select())
-            self.explorer_widget.populate_folders(decks, valid_deck_ids=valid_deck_ids)
-
-            all_notes_sample = list(NoteModel.select())
-            all_tags_set = set()
-            for n in all_notes_sample:
-                if n.tags:
-                    for t in n.tags.split(","):
-                        if t.strip():
-                            all_tags_set.add(t.strip())
-
-            self.explorer_widget.populate_tags(sorted(list(all_tags_set)), valid_tags=valid_tags)
-
         except Exception as e:
             logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
 
     def select_note_by_id(self, note_id: int) -> None:
-        """Sélectionne et affiche automatiquement la note spécifiée par son ID."""
         try:
-            for i in range(self.card_list.count()):
-                item = self.card_list.item(i)
+            for row in range(self.card_table.rowCount()):
+                item = self.card_table.item(row, 0)
                 if item:
                     note = item.data(Qt.ItemDataRole.UserRole)
                     if note and note.id == note_id:
-                        self.card_list.setCurrentItem(item)
+                        self.card_table.setCurrentItem(item)
                         self._on_card_selected(item)
                         return
 
             target_note = NoteModel.get_or_none(NoteModel.id == note_id)
             if target_note:
-                item = QListWidgetItem()
-                widget = CardListItemWidget(target_note)
-                item.setSizeHint(widget.sizeHint())
-                item.setData(Qt.ItemDataRole.UserRole, target_note)
-                self.card_list.insertItem(0, item)
-                self.card_list.setItemWidget(item, widget)
-                self.card_list.setCurrentItem(item)
-                self._on_card_selected(item)
+                self._all_notes.insert(0, target_note)
+                self.card_table.setRowCount(0)
+                self._displayed_count = 0
+                self._load_next_card_batch()
+                item = self.card_table.item(0, 0)
+                if item:
+                    self.card_table.setCurrentItem(item)
+                    self._on_card_selected(item)
         except Exception as e:
             logger.warning("Impossible de sélectionner la note %s: %s", note_id, e)
 

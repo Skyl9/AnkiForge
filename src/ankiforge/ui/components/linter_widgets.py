@@ -17,6 +17,7 @@ from PySide6.QtGui import QFont, QPainter, QPen, QColor, QBrush, QPainterPath
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class WozniakKpiCard(QFrame):
@@ -24,7 +25,7 @@ class WozniakKpiCard(QFrame):
 
     clicked = Signal(str)
 
-    def __init__(self, cat_id: str, title: str, pct: int, subtitle: str, color: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, cat_id: str, title: str, pct: int, subtitle: str, color: str, icon_name: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.cat_id = cat_id
         self.color = color
@@ -35,10 +36,15 @@ class WozniakKpiCard(QFrame):
         self.update_style()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(6)
 
         row1 = QHBoxLayout()
+        row1.setSpacing(6)
+
+        lbl_icon = QLabel()
+        lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=self.color).pixmap(16, 16))
+
         lbl_title = QLabel(title)
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none;")
@@ -47,30 +53,44 @@ class WozniakKpiCard(QFrame):
         self.lbl_pct.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.lbl_pct.setStyleSheet(f"color: {self.color}; border: none;")
 
+        row1.addWidget(lbl_icon)
         row1.addWidget(lbl_title)
         row1.addStretch()
         row1.addWidget(self.lbl_pct)
         layout.addLayout(row1)
 
+        self.lbl_sub = QLabel(subtitle)
+        self.lbl_sub.setFont(QFont(DesignTokens.FONT_MAIN, 9))
+        self.lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none;")
+        layout.addWidget(self.lbl_sub)
+
         # Progress bar
-        bar_bg = QFrame()
-        bar_bg.setFixedHeight(4)
-        bar_bg.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-radius: 2px; border: none;")
-        bar_layout = QHBoxLayout(bar_bg)
-        bar_layout.setContentsMargins(0, 0, 0, 0)
+        from PySide6.QtWidgets import QProgressBar
 
-        bar_fill = QFrame()
-        bar_fill.setFixedHeight(4)
-        bar_fill.setStyleSheet(f"background-color: {self.color}; border-radius: 2px; border: none;")
-        bar_fill.setFixedWidth(int(pct * 1.5))
-        bar_layout.addWidget(bar_fill)
-        bar_layout.addStretch()
-        layout.addWidget(bar_bg)
+        self.progress = QProgressBar()
+        self.progress.setFixedHeight(4)
+        self.progress.setTextVisible(False)
+        self.progress.setMinimum(0)
+        self.progress.setMaximum(100)
+        self.progress.setValue(pct)
+        self.progress.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {DesignTokens.BG_MAIN};
+                border-radius: 2px;
+                border: none;
+            }}
+            QProgressBar::chunk {{
+                background-color: {self.color};
+                border-radius: 2px;
+            }}
+        """)
+        layout.addWidget(self.progress)
 
-        lbl_sub = QLabel(subtitle)
-        lbl_sub.setFont(QFont(DesignTokens.FONT_MAIN, 9))
-        lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none;")
-        layout.addWidget(lbl_sub)
+    def update_pct(self, pct: int, subtitle: str = "") -> None:
+        self.lbl_pct.setText(f"{pct}%")
+        self.progress.setValue(pct)
+        if subtitle:
+            self.lbl_sub.setText(subtitle)
 
     def set_active(self, active: bool) -> None:
         self._is_active = active

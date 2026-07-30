@@ -4,7 +4,7 @@ Workflow conforme : Aucun paquet par défaut -> Choix du paquet -> Clic 'Analyse
 """
 
 import logging
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -12,10 +12,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QFrame,
-    QPushButton,
     QComboBox,
     QCheckBox,
-    QStackedWidget,
     QScrollArea,
     QGridLayout,
     QInputDialog,
@@ -24,7 +22,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, IconButton
+from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.components.linter_widgets import (
     WozniakKpiCard,
@@ -70,9 +69,11 @@ class AIWozniakLinterTab(QWidget):
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
         self.btn_deck = SecondaryButton("Sélectionner un paquet...")
+        self.btn_deck.setIcon(load_phosphor_icon("folder", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
         self.btn_analyze = PrimaryButton("Analyser ce paquet")
+        self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
         self.btn_analyze.clicked.connect(self.refresh_audit)
 
         self.search_input = GlowLineEdit()
@@ -99,10 +100,10 @@ class AIWozniakLinterTab(QWidget):
         self.kpi_layout.setSpacing(10)
 
         self.kpi_cards: Dict[str, WozniakKpiCard] = {
-            "cat-atomicite": WozniakKpiCard("cat-atomicite", "Atomicité & Listes", 0, "Sélectionnez un paquet", "#f87171"),
-            "cat-katex": WozniakKpiCard("cat-katex", "Formules & Clarté", 0, "Sélectionnez un paquet", "#c084fc"),
-            "cat-interference": WozniakKpiCard("cat-interference", "Non-Interférence", 0, "Sélectionnez un paquet", DesignTokens.COLOR_BLUE),
-            "cat-cloze": WozniakKpiCard("cat-cloze", "Questions Univoques Q/R", 0, "Sélectionnez un paquet", DesignTokens.COLOR_YELLOW),
+            "cat-atomicite": WozniakKpiCard("cat-atomicite", "Atomicité & Listes", 0, "Sélectionnez un paquet", "#f87171", "squares-four"),
+            "cat-katex": WozniakKpiCard("cat-katex", "Formules & Clarté", 0, "Sélectionnez un paquet", "#c084fc", "function"),
+            "cat-interference": WozniakKpiCard("cat-interference", "Non-Interférence", 0, "Sélectionnez un paquet", DesignTokens.COLOR_BLUE, "circles-three"),
+            "cat-cloze": WozniakKpiCard("cat-cloze", "Questions Univoques Q/R", 0, "Sélectionnez un paquet", DesignTokens.COLOR_YELLOW, "question"),
         }
 
         for _cat_id, card in self.kpi_cards.items():
@@ -111,9 +112,9 @@ class AIWozniakLinterTab(QWidget):
         layout.addLayout(self.kpi_layout)
 
         # 3. Main Scroll Container for Dynamic Problem Items
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
 
         self.scroll_content = QWidget()
         self.items_layout = QVBoxLayout(self.scroll_content)
@@ -148,8 +149,8 @@ class AIWozniakLinterTab(QWidget):
         self.items_layout.addWidget(self.items_container)
 
         self.items_layout.addStretch()
-        self.scroll.setWidget(self.scroll_content)
-        layout.addWidget(self.scroll)
+        self.scroll_area.setWidget(self.scroll_content)
+        layout.addWidget(self.scroll_area)
 
         self.kpi_cards["cat-atomicite"].set_active(True)
         self.show_empty_state("Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer l'audit Wozniak.")
@@ -158,8 +159,9 @@ class AIWozniakLinterTab(QWidget):
         """Affiche un état d'attente neutre dans le conteneur principal."""
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
 
         empty_box = QFrame()
         empty_box.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px dashed {DesignTokens.BORDER_COLOR}; border-radius: 8px; padding: 40px;")
@@ -245,8 +247,9 @@ class AIWozniakLinterTab(QWidget):
         # Vider les cartes précédentes
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
 
         # Remplir dynamiquement la catégorie active
         current_cat_data = categories.get(self.active_category, {})
@@ -265,7 +268,8 @@ class AIWozniakLinterTab(QWidget):
         """Filtre dynamiquement les cartes affichées selon le texte de recherche."""
         q = query.lower().strip()
         for i in range(self.cards_layout.count()):
-            w = self.cards_layout.itemAt(i).widget()
+            item = self.cards_layout.itemAt(i)
+            w = item.widget() if item is not None else None
             if w:
                 if not q:
                     w.setVisible(True)
@@ -300,6 +304,7 @@ class AISourcesDiagnosticTab(QWidget):
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
         self.btn_deck = SecondaryButton("Sélectionner un paquet...")
+        self.btn_deck.setIcon(load_phosphor_icon("folder", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
         self.lbl_score = QLabel("Score Global Précision : -- %")
@@ -310,6 +315,7 @@ class AISourcesDiagnosticTab(QWidget):
 
         # Bouton placé à droite dans le header
         self.btn_analyze = PrimaryButton("Analyser ce paquet")
+        self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
         self.btn_analyze.clicked.connect(self.refresh_sources)
 
         self.search_input = GlowLineEdit()
@@ -368,17 +374,17 @@ class AISourcesDiagnosticTab(QWidget):
         layout.addWidget(filter_bar)
 
         # 3. 3-Column Dynamic Sources Grid
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
 
         self.grid_widget = QWidget()
         self.grid = QGridLayout(self.grid_widget)
         self.grid.setContentsMargins(0, 0, 0, 0)
         self.grid.setSpacing(10)
 
-        self.scroll.setWidget(self.grid_widget)
-        layout.addWidget(self.scroll)
+        self.scroll_area.setWidget(self.grid_widget)
+        layout.addWidget(self.scroll_area)
 
         self.show_empty_state("Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer le diagnostic.")
 
@@ -386,8 +392,9 @@ class AISourcesDiagnosticTab(QWidget):
         """Affiche un état d'attente neutre dans la grille."""
         while self.grid.count():
             item = self.grid.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
 
         empty_box = QFrame()
         empty_box.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px dashed {DesignTokens.BORDER_COLOR}; border-radius: 8px; padding: 40px;")
@@ -442,8 +449,9 @@ class AISourcesDiagnosticTab(QWidget):
 
         while self.grid.count():
             item = self.grid.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
 
         query = self.search_input.text().lower().strip()
         filtered = []
@@ -662,73 +670,31 @@ class AnalysisView(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 1. Tab Bar Navigation
-        tab_bar_frame = QFrame()
-        tab_bar_frame.setFixedHeight(40)
-        tab_bar_frame.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
-        tb_layout = QHBoxLayout(tab_bar_frame)
-        tb_layout.setContentsMargins(12, 0, 12, 0)
-        tb_layout.setSpacing(6)
+        # 1. Utilisation de IdePanel (Onglets et StackedWidget intégrés)
+        self.main_panel = IdePanel(detachable=True, parent=self)
 
-        self.tabs_buttons: List[QPushButton] = []
-        tab_names = [
-            ("Audit Ergonomique Wozniak", "sparkle"),
-            ("Diagnostic Sources", "file-text"),
-            ("Suivi Jetons & SRS", "currency-dollar"),
-            ("Modèles & Prompts", "swatches"),
-        ]
-
-        for idx, (name, icon_name) in enumerate(tab_names):
-            btn = QPushButton(name)
-            btn.setCheckable(True)
-            btn.setFixedHeight(30)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    color: {DesignTokens.TEXT_SECONDARY};
-                    border: none;
-                    border-bottom: 2px solid transparent;
-                    padding: 0 12px;
-                    font-size: 12px;
-                    font-weight: 500;
-                }}
-                QPushButton:checked {{
-                    color: {DesignTokens.ACCENT_PRIMARY};
-                    border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                    font-weight: bold;
-                }}
-                QPushButton:hover {{
-                    color: {DesignTokens.TEXT_PRIMARY};
-                }}
-            """)
-            btn.clicked.connect(lambda checked=False, i=idx: self.set_current_tab(i))
-            tb_layout.addWidget(btn)
-            self.tabs_buttons.append(btn)
-
-        tb_layout.addStretch()
-        layout.addWidget(tab_bar_frame)
-
-        # 2. QStackedWidget pour les 4 onglets
-        self.stack = QStackedWidget()
         self.tab_wozniak = AIWozniakLinterTab()
         self.tab_sources = AISourcesDiagnosticTab()
         self.tab_tokens = AITokensSrsTab()
         self.tab_models = AIModelsTab()
 
-        self.stack.addWidget(self.tab_wozniak)
-        self.stack.addWidget(self.tab_sources)
-        self.stack.addWidget(self.tab_tokens)
-        self.stack.addWidget(self.tab_models)
+        self.main_panel.add_tab("Audit && Linter Wozniak", self.tab_wozniak, icon_name="sparkle")
+        self.main_panel.add_tab("Diagnostic Sources", self.tab_sources, icon_name="file-text")
+        self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar")
+        self.main_panel.add_tab("Modèles && Prompts", self.tab_models, icon_name="swatches")
 
-        layout.addWidget(self.stack)
+        # Bouton de paramètres ajouté au header
+        btn_settings = IconButton("gear", "Paramètres de l'Analyse", 24)
+        btn_settings.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #2d313a;
+            }
+        """)
+        self.main_panel.add_header_widget(btn_settings)
 
-        # Activer le premier onglet par défaut (sans calcul automatique)
-        self.set_current_tab(0)
-
-    def set_current_tab(self, index: int) -> None:
-        """Bascule l'onglet actif dans la navigation."""
-        for idx, btn in enumerate(self.tabs_buttons):
-            btn.setChecked(idx == index)
-        self.stack.setCurrentIndex(index)
+        layout.addWidget(self.main_panel)

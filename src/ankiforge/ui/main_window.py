@@ -505,7 +505,7 @@ class MainWindow(QMainWindow):
         output_dir = get_project_root() / "temp"
         output_dir.mkdir(exist_ok=True)
 
-        output_path = output_dir / "app_screenshot.png"
+        output_path = output_dir / "analyse_screenshot.png"
         pixmap = self.grab()
         pixmap.save(str(output_path))
         print(f"[Debug] Capture d'écran de l'UI enregistrée dans : {output_path}")

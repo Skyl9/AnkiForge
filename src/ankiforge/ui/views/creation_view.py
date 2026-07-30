@@ -55,7 +55,7 @@ from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
-from ankiforge.ui.dialogs.deck_selection_dialog import DeckSelectionDialog
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
 logger = logging.getLogger(__name__)
@@ -243,8 +243,8 @@ class CreationView(QWidget):
         self.worker: Optional[CreationWorker] = None
         self.current_deck: Optional[DeckModel] = None
         self.current_model: Optional[NoteTypeModel] = None
-
         self.decks_cache: list[DeckModel] = []
+        self._deck_modal: Optional[DeckSelectWindow] = None
         self.models_cache: list[NoteTypeModel] = []
         self.open_editors: dict[str, DocumentEditorWidget] = {}
 
@@ -837,11 +837,22 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_click_select_deck(self) -> None:
-        dialog = DeckSelectionDialog(title="Sélectionner un paquet cible", items=self.decks_cache, parent=self)
-        if dialog.exec():
-            selected = dialog.get_selected_item()
-            if selected:
-                self._set_current_deck(selected)
+        if self._deck_modal and self._deck_modal.isVisible():
+            self._deck_modal.raise_()
+            self._deck_modal.activateWindow()
+            return
+
+        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", parent=self)
+        self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
+        self._deck_modal.show()
+
+    @Slot(int, str)
+    def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
+        try:
+            deck = DeckModel.get_by_id(deck_id)
+            self._set_current_deck(deck)
+        except Exception as e:
+            logger.error(f"Impossible de trouver le paquet {deck_name}: {e}")
 
     def _set_current_deck(self, deck: Any) -> None:
         self.current_deck = deck
