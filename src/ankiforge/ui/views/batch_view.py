@@ -19,11 +19,12 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QProgressBar,
+    QPushButton,
+    QSlider,
     QSplitter,
     QTableWidgetItem,
     QVBoxLayout,
@@ -49,7 +50,6 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
-    StyledLineEdit,
     StyledTableWidget,
     StyledTextEdit,
 )
@@ -57,6 +57,8 @@ from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +174,12 @@ class BatchView(QWidget):
         self.queue_tasks_data: list[dict[str, Any]] = []
         self.cell_widgets_map: dict[int, ProgressTableCellWidget] = {}
         self.start_timestamp = 0.0
+        # Sélections courantes (alignées sur creation_view)
+        self.current_deck: Optional[DeckModel] = None
+        self.current_model: Optional[NoteTypeModel] = None
+        self.decks_cache: list[DeckModel] = []
+        self.models_cache: list[NoteTypeModel] = []
+        self._deck_modal: Optional[DeckSelectWindow] = None
 
         self._setup_ui()
         self._connect_signals()
@@ -220,10 +228,16 @@ class BatchView(QWidget):
         build_layout.setContentsMargins(16, 16, 16, 16)
         build_layout.setSpacing(14)
 
+        def add_form_group(layout: QVBoxLayout, label_text: str, widget: QWidget) -> None:
+            lbl = QLabel(label_text)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
+            layout.addWidget(lbl)
+            layout.addWidget(widget)
+
         # 1. Source (Fichiers/Dossiers)
         grp_src = QVBoxLayout()
         grp_src.setSpacing(4)
-        lbl_src = QLabel("Source (Fichiers/Dossiers) :")
+        lbl_src = QLabel("SOURCE (FICHIERS/DOSSIERS) :")
         lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
 
         src_row = QHBoxLayout()
@@ -241,46 +255,41 @@ class BatchView(QWidget):
         grp_src.addLayout(src_row)
         build_layout.addLayout(grp_src)
 
-        # 2. Paquet Cible
-        grp_pkg = QVBoxLayout()
-        grp_pkg.setSpacing(4)
-        lbl_pkg = QLabel("Paquet Cible :")
-        lbl_pkg.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        self.pkg_input = StyledLineEdit()
-        self.pkg_input.setPlaceholderText("Ex: Médecine::Cardio")
-        grp_pkg.addWidget(lbl_pkg)
-        grp_pkg.addWidget(self.pkg_input)
-        build_layout.addLayout(grp_pkg)
+        # 2. Paquet Cible — Bouton sélecteur modal (comme creation_view)
+        self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
+        self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_deck.setStyleSheet(
+            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+        )
+        add_form_group(build_layout, "PAQUET CIBLE", self.btn_select_deck)
 
-        # 3. Grid Modèle & Moteur IA (grid-2 gap-10)
-        grid_model_eng = QGridLayout()
-        grid_model_eng.setSpacing(10)
+        # 3. Modèle de Carte — Bouton sélecteur modal (comme creation_view)
+        self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
+        self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_model.setStyleSheet(
+            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+        )
+        add_form_group(build_layout, "MODÈLE DE CARTE", self.btn_select_model)
 
-        lbl_mod = QLabel("Modèle :")
-        lbl_mod.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        self.model_combo = StyledComboBox()
-        grid_model_eng.addWidget(lbl_mod, 0, 0)
-        grid_model_eng.addWidget(self.model_combo, 1, 0)
-
-        lbl_eng = QLabel("Moteur IA :")
-        lbl_eng.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
+        # 4. Moteur IA + bouton d'aide si vide
         self.engine_combo = StyledComboBox()
-        grid_model_eng.addWidget(lbl_eng, 0, 1)
-        grid_model_eng.addWidget(self.engine_combo, 1, 1)
+        add_form_group(build_layout, "MOTEUR IA :", self.engine_combo)
 
-        build_layout.addLayout(grid_model_eng)
+        self.btn_no_engine_help = SecondaryButton("⚙️ Configurer les Moteurs IA")
+        self.btn_no_engine_help.setStyleSheet("color: #eab308; border-color: rgba(234, 179, 8, 0.4); font-size: 11px;")
+        self.btn_no_engine_help.hide()
+        build_layout.addWidget(self.btn_no_engine_help)
 
-        # 4. Pipeline
-        grp_pipe = QVBoxLayout()
-        grp_pipe.setSpacing(4)
-        lbl_pipe = QLabel("Pipeline :")
-        lbl_pipe.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
+        # 5. Pipeline Agentique + bouton d'aide si vide
         self.pipeline_combo = StyledComboBox()
-        grp_pipe.addWidget(lbl_pipe)
-        grp_pipe.addWidget(self.pipeline_combo)
-        build_layout.addLayout(grp_pipe)
+        add_form_group(build_layout, "PIPELINE AGÉNTIQUE :", self.pipeline_combo)
 
-        # 5. Options Checkboxes
+        self.btn_no_pipeline_help = SecondaryButton("🔀 Créer un Pipeline d'Agents")
+        self.btn_no_pipeline_help.setStyleSheet("color: #a855f7; border-color: rgba(168, 85, 247, 0.4); font-size: 11px;")
+        self.btn_no_pipeline_help.hide()
+        build_layout.addWidget(self.btn_no_pipeline_help)
+
+        # 6. Options
         self.cb_vision = QCheckBox("Vision (Images/PDF)")
         self.cb_vision.setChecked(True)
         self.cb_vision.setIcon(load_phosphor_icon("ph.eye", color="#eab308"))
@@ -294,9 +303,102 @@ class BatchView(QWidget):
         build_layout.addWidget(self.cb_vision)
         build_layout.addWidget(self.cb_autoval)
 
+        # 7. Séparateur + Paramètres Avancés pliables (Température + Max Tokens)
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 6px 0;")
+        build_layout.addWidget(sep)
+
+        self.btn_toggle_advanced = QPushButton()
+        self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 0;")
+        self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
+        adv_header = QHBoxLayout(self.btn_toggle_advanced)
+        adv_header.setContentsMargins(0, 0, 0, 0)
+        adv_lbl = QLabel("Paramètres Avancés")
+        adv_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
+        self.advanced_icon = QLabel()
+        self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        self.advanced_icon.setStyleSheet("background: transparent;")
+        adv_header.addWidget(adv_lbl)
+        adv_header.addStretch()
+        adv_header.addWidget(self.advanced_icon)
+        build_layout.addWidget(self.btn_toggle_advanced)
+
+        self.advanced_container = QFrame()
+        self.advanced_container.setObjectName("batchAdvancedContainer")
+        self.advanced_container.setVisible(False)
+        self.advanced_container.setStyleSheet(f"""
+            QFrame#batchAdvancedContainer {{
+                background: rgba(0,0,0,0.1);
+                padding: 10px;
+                border-radius: 4px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        adv_layout = QVBoxLayout(self.advanced_container)
+        adv_layout.setContentsMargins(0, 0, 0, 0)
+        adv_layout.setSpacing(12)
+
+        slider_style = f"""
+            QSlider::groove:horizontal {{
+                border-radius: 2px; height: 4px; margin: 0px;
+                background-color: rgba(255, 255, 255, 0.1);
+            }}
+            QSlider::sub-page:horizontal {{
+                background-color: {DesignTokens.ACCENT_PRIMARY}; border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background-color: {DesignTokens.ACCENT_PRIMARY}; border: none;
+                height: 12px; width: 12px; margin: -4px 0; border-radius: 6px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background-color: {DesignTokens.ACCENT_HOVER};
+            }}
+        """
+
+        # Température
+        temp_layout = QVBoxLayout()
+        temp_header = QHBoxLayout()
+        temp_lbl = QLabel("Température")
+        temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.val_temp_lbl = QLabel("0.7")
+        self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        temp_header.addWidget(temp_lbl)
+        temp_header.addStretch()
+        temp_header.addWidget(self.val_temp_lbl)
+        self.slider_temp = QSlider(Qt.Orientation.Horizontal)
+        self.slider_temp.setRange(0, 10)
+        self.slider_temp.setValue(7)
+        self.slider_temp.setStyleSheet(slider_style)
+        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v/10:.1f}"))
+        temp_layout.addLayout(temp_header)
+        temp_layout.addWidget(self.slider_temp)
+        adv_layout.addLayout(temp_layout)
+
+        # Max Tokens
+        tokens_layout = QVBoxLayout()
+        tokens_header = QHBoxLayout()
+        tokens_lbl = QLabel("Max Tokens")
+        tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.val_tokens_lbl = QLabel("4096")
+        self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        tokens_header.addWidget(tokens_lbl)
+        tokens_header.addStretch()
+        tokens_header.addWidget(self.val_tokens_lbl)
+        self.slider_tokens = QSlider(Qt.Orientation.Horizontal)
+        self.slider_tokens.setRange(1, 32)
+        self.slider_tokens.setValue(16)
+        self.slider_tokens.setStyleSheet(slider_style)
+        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 256}"))
+        tokens_layout.addLayout(tokens_header)
+        tokens_layout.addWidget(self.slider_tokens)
+        adv_layout.addLayout(tokens_layout)
+
+        build_layout.addWidget(self.advanced_container)
         build_layout.addStretch()
 
-        # 6. Bouton 'Ajouter à la Queue' (glow-btn-primary full width)
+        # 8. Bouton 'Ajouter à la Queue'
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue")
         self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
         self.btn_add_to_queue.setStyleSheet("""
@@ -425,10 +527,14 @@ class BatchView(QWidget):
         self._update_queue_table()
 
     def _connect_signals(self) -> None:
-        pass
+        self.btn_select_deck.clicked.connect(self._on_click_select_deck)
+        self.btn_select_model.clicked.connect(self._on_click_select_model)
+        self.btn_toggle_advanced.clicked.connect(self._toggle_advanced_settings)
+        self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
+        self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, "Créez un pipeline dans l'onglet Pipelines."))
 
     def refresh_data(self) -> None:
-        """Recharge les données dynamiques depuis Peewee DB."""
+        """Recharge les données dynamiques depuis Peewee DB (aligné sur creation_view)."""
         try:
             # 1. Documents combo
             self.doc_combo.blockSignals(True)
@@ -441,48 +547,120 @@ class BatchView(QWidget):
                 self.doc_combo.addItem("Aucun document disponible")
             self.doc_combo.blockSignals(False)
 
-            # 2. Modèles de cartes
-            self.model_combo.blockSignals(True)
-            self.model_combo.clear()
-            for nt in NoteTypeModel.select():
-                self.model_combo.addItem(nt.name, userData=nt)
-            self.model_combo.blockSignals(False)
+            # 2. Paquets (cache + sélection par défaut)
+            decks = list(DeckModel.select())
+            if not decks:
+                DeckModel.get_or_create(name="Général")
+                decks = list(DeckModel.select())
+            self.decks_cache = decks
+            if self.current_deck is None and self.decks_cache:
+                self._set_current_deck(self.decks_cache[0])
 
-            # 3. Moteurs IA (avec display_name et icône ⚡)
+            # 3. Modèles de cartes (cache + sélection par défaut)
+            note_types = list(NoteTypeModel.select())
+            self.models_cache = note_types
+            if self.current_model is None and self.models_cache:
+                self._set_current_model(self.models_cache[0])
+
+            # 4. Moteurs IA
             self.engine_combo.blockSignals(True)
             self.engine_combo.clear()
             engines = list(LLMConfigModel.select())
             if not engines:
-                LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet-20240620")
-                LLMConfigModel.create(display_name="GPT-4o", provider="openai", model_id="gpt-4o")
+                LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet-20240620", context_limit=200000)
+                LLMConfigModel.create(display_name="GPT-4o", provider="openai", model_id="gpt-4o", context_limit=128000)
                 engines = list(LLMConfigModel.select())
-
-            for eg in engines:
-                display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
-                self.engine_combo.addItem(f"⚡ {display_name}", userData=eg)
+            if engines:
+                for eg in engines:
+                    display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
+                    self.engine_combo.addItem(f"⚡ {display_name}", userData=eg)
+                self.btn_no_engine_help.hide()
+            else:
+                self.btn_no_engine_help.show()
             self.engine_combo.blockSignals(False)
 
-            # 4. Pipelines
+            # 5. Pipelines
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
             pipelines = list(PipelineModel.select())
             if not pipelines:
                 PipelineModel.create(name="Excellence (Standard)", description="Archiviste + Linter")
                 pipelines = list(PipelineModel.select())
-
-            for pipe in pipelines:
-                self.pipeline_combo.addItem(f"🔀 {pipe.name}", userData=pipe)
+            if pipelines:
+                for pipe in pipelines:
+                    self.pipeline_combo.addItem(f"🔀 {pipe.name}", userData=pipe)
+                self.btn_no_pipeline_help.hide()
+            else:
+                self.btn_no_pipeline_help.show()
             self.pipeline_combo.blockSignals(False)
-
-            decks = list(DeckModel.select())
-            if decks:
-                self.pkg_input.setText(decks[0].name)
 
         except Exception as e:
             logger.warning("Erreur refresh_data batch_view: %s", e)
 
     def is_dirty(self) -> bool:
         return len(self.queue_tasks_data) > 0
+
+    # ------------------------------------------------------------------
+    # Slots de sélection Paquet / Modèle (alignés sur creation_view)
+    # ------------------------------------------------------------------
+
+    @Slot()
+    def _on_click_select_deck(self) -> None:
+        try:
+            if self._deck_modal and self._deck_modal.isVisible():
+                self._deck_modal.raise_()
+                self._deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._deck_modal = None
+        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", parent=self)
+        self._deck_modal.deck_selected.connect(self._on_deck_selected)
+        self._deck_modal.show()
+
+    @Slot(int, str)
+    def _on_deck_selected(self, deck_id: int, deck_name: str) -> None:
+        try:
+            deck = DeckModel.get_by_id(deck_id)
+            self._set_current_deck(deck)
+        except Exception as e:
+            logger.error("Impossible de trouver le paquet %s : %s", deck_name, e)
+
+    def _set_current_deck(self, deck: Any) -> None:
+        self.current_deck = deck
+        name = getattr(deck, "name", str(deck))
+        self.btn_select_deck.setText(name)
+
+    @Slot()
+    def _on_click_select_model(self) -> None:
+        dialog = SelectionDialog(
+            title="Sélectionner un modèle de carte",
+            items=self.models_cache,
+            display_func=lambda m: m.name,
+            parent=self,
+        )
+        if dialog.exec():
+            selected = dialog.get_selected_item()
+            if selected:
+                self._set_current_model(selected)
+
+    def _set_current_model(self, model: Any) -> None:
+        self.current_model = model
+        name = getattr(model, "name", str(model))
+        self.btn_select_model.setText(name)
+
+    @Slot()
+    def _toggle_advanced_settings(self) -> None:
+        is_visible = not self.advanced_container.isVisible()
+        self.advanced_container.setVisible(is_visible)
+        icon_name = "ph.caret-down" if is_visible else "ph.caret-right"
+        self.advanced_icon.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+
+    @Slot()
+    def _open_settings_modal(self) -> None:
+        from ankiforge.ui.widgets.settings_modal import SettingsModal
+
+        modal = SettingsModal(ai_manager=self.ai_manager, parent=self)
+        modal.exec()
 
     def _log_formatted_line(self, level: str, msg: str) -> None:
         """Génère une ligne de log formatée avec horodatage et niveau coloré conforme au terminal (L2052-L2059)."""
@@ -523,7 +701,10 @@ class BatchView(QWidget):
             show_toast(self, "Veuillez sélectionner un document source valide.", is_error=True)
             return
 
-        selected_nt = self.model_combo.currentData()
+        if self.current_deck is None:
+            show_toast(self, "Veuillez sélectionner un paquet cible.", is_error=True)
+            return
+
         selected_engine = self.engine_combo.currentData()
         selected_pipeline = self.pipeline_combo.currentData()
 
@@ -534,12 +715,14 @@ class BatchView(QWidget):
 
         task_data = {
             "doc": doc,
-            "deck_name": self.pkg_input.text().strip() or "Médecine::Cardio",
-            "note_type": selected_nt,
+            "deck_name": getattr(self.current_deck, "name", "Général"),
+            "note_type": self.current_model,
             "engine": selected_engine,
             "pipeline": selected_pipeline,
             "use_vision": self.cb_vision.isChecked(),
             "auto_val": self.cb_autoval.isChecked(),
+            "temperature": self.slider_temp.value() / 10.0,
+            "max_tokens": self.slider_tokens.value() * 256,
             "status": "En attente",
             "tokens_est": tokens_est,
             "progress_pct": 0,
