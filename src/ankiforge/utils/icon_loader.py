@@ -14,7 +14,7 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
     suffix = f"-{weight}" if weight != "regular" else ""
     filename = f"{name}{suffix}.svg"
 
-    svg_path = get_project_root() / "src" / "ankiforge" / "ressources" / "phosphor-icons" / "SVGs" / weight / filename
+    svg_path = get_project_root() / "src" / "ressources" / "phosphor-icons" / "SVGs" / weight / filename
 
     if not svg_path.exists():
         print(f"[Warning] Icon not found: {svg_path}")
@@ -35,7 +35,7 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
 
 def load_logo_icon(color: str = DesignTokens.ACCENT_PRIMARY) -> QIcon:
     """Load the AnkiForge logo SVG and color it with the specified color."""
-    logo_path = get_project_root() / "src" / "ankiforge" / "ressources" / "icons" / "logo.svg"
+    logo_path = get_project_root() / "src" / "ressources" / "icons" / "logo.svg"
     if not logo_path.exists():
         print(f"[Warning] Logo icon not found: {logo_path}")
         return QIcon()

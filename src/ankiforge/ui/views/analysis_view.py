@@ -4,43 +4,43 @@ Workflow conforme : Aucun paquet par défaut -> Choix du paquet -> Clic 'Analyse
 """
 
 import logging
-from typing import Optional, Dict, cast
+from typing import Dict, Optional, cast
 
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QFrame,
-    QComboBox,
-    QCheckBox,
-    QScrollArea,
-    QGridLayout,
-    QMessageBox,
-    QDialog,
-    QPushButton,
-)
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont
-
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, IconButton
-from ankiforge.ui.components.panels import IdePanel
-from ankiforge.ui.components.inputs import GlowLineEdit
-from ankiforge.ui.components.linter_widgets import (
-    WozniakKpiCard,
-    WozniakCardItemWidget,
-    KatexLivePreviewWidget,
-    RetentionCurveCanvas,
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
+
 from ankiforge.services.ai.linter import (
     SourcesDiagnosticService,
     TokenSrsFinancialService,
 )
-from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.services.workers.linter_worker import LinterWorker
+from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
+from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.components.linter_widgets import (
+    KatexLivePreviewWidget,
+    RetentionCurveCanvas,
+    WozniakCardItemWidget,
+    WozniakKpiCard,
+)
+from ankiforge.ui.components.panels import IdePanel
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +254,7 @@ class AIWozniakLinterTab(QWidget):
             self._on_linter_finished(self._cached_deck_results[self.selected_deck_id])
             return
 
-        from ankiforge.database.models import NoteModel, CardModel
+        from ankiforge.database.models import CardModel, NoteModel
 
         # Un Note n'a pas de deck direct, on passe par ses cartes
         note_ids = [n.id for n in NoteModel.select().join(CardModel).where(CardModel.deck == self.selected_deck_id).distinct()]
@@ -262,13 +262,15 @@ class AIWozniakLinterTab(QWidget):
             self.show_empty_state("Aucune carte trouvée dans ce paquet.")
             return
 
-        self.show_empty_state("Analyse IA en cours (Linter Wozniak)...")
+        mode_text = "Complet (Hard)" if force else "Incrémental (Soft)"
+        self.show_empty_state(f"Analyse IA {mode_text} en cours (Linter Wozniak)...")
         self.btn_analyze.setEnabled(False)
 
         selected_config = self.engine_combo.currentData()
         config_id = selected_config.id if selected_config else None
 
-        self.worker = LinterWorker(note_ids=note_ids, llm_config_id=config_id, parent=self)
+        # Injection du paramètre force_recheck=force
+        self.worker = LinterWorker(note_ids=note_ids, llm_config_id=config_id, force_recheck=force, parent=self)
         self.worker.progress_update.connect(lambda msg: self.show_empty_state(msg))
         self.worker.error_occurred.connect(self._on_linter_error)
         self.worker.finished_processing.connect(self._on_linter_finished)
@@ -284,8 +286,9 @@ class AIWozniakLinterTab(QWidget):
         if self.selected_deck_id is not None:
             self._cached_deck_results[self.selected_deck_id] = results
 
-        from ankiforge.database.models import NoteModel, NoteVersionModel
         import json
+
+        from ankiforge.database.models import NoteModel, NoteVersionModel
 
         # Mapping results to our categories
         cat_atomicite_items = []
@@ -319,7 +322,24 @@ class AIWozniakLinterTab(QWidget):
 
             rule = res.get("rule_broken", "Règle Inconnue")
             reason = res.get("reason", "Pas de raison fournie.")
-            sug = res.get("suggestion", {})
+
+            raw_sug = res.get("suggestion", {})
+
+            # Si la suggestion est une chaîne de caractères (erreur de l'IA ou double sérialisation)
+            if isinstance(raw_sug, str):
+                import json
+
+                try:
+                    sug = json.loads(raw_sug)
+                except Exception:
+                    # Fallback de survie si l'IA a juste craché du texte brut au lieu d'un JSON
+                    sug = {"Recto": raw_sug, "Verso": ""}
+            else:
+                sug = raw_sug
+
+            # Sécurité finale : s'assurer que c'est bien un dictionnaire
+            if not isinstance(sug, dict):
+                sug = {}
 
             item = {
                 "note_id": nid,
@@ -383,40 +403,46 @@ class AIWozniakLinterTab(QWidget):
 
         # Remplir dynamiquement la catégorie active
         current_cat_data = categories.get(self.active_category, {})
-        from typing import cast, List, Dict, Any
+        from typing import Any, Dict, List, cast
 
         items = cast(List[Dict[str, Any]], current_cat_data.get("items", []))
 
         for item_data in items:
             card_widget = WozniakCardItemWidget(item_data)
-            card_widget.applied.connect(self._on_card_applied)
+            card_widget.applied.connect(lambda nid, prop, w=card_widget: self._on_card_applied(nid, prop, w))
+
+            if hasattr(card_widget, "ignored"):
+                card_widget.ignored.connect(lambda nid, w=card_widget: self._on_card_ignored(nid, w))
+
             self.cards_layout.addWidget(card_widget)
 
             if self.active_category == "cat-katex" and "formula" in item_data:
                 preview = KatexLivePreviewWidget(initial_formula=item_data["formula"])
                 self.cards_layout.addWidget(preview)
 
-    def _on_card_applied(self, note_id: int, proposal: dict) -> None:
-        """Applique la proposition de l'IA à la base de données."""
-        from ankiforge.database.models import NoteModel, NoteVersionModel
+    @Slot(int, dict, QWidget)
+    def _on_card_applied(self, note_id: int, proposal: dict, widget_to_remove: QWidget) -> None:
+        """Applique la proposition de l'IA, valide l'audit en BDD et supprime le widget."""
         import json
-        import logging
 
-        logger = logging.getLogger(__name__)
+        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel, db
 
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
             if not note:
                 return
 
-            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active)
-            if active_ver:
+            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
+
+            if not active_ver:
+                return
+
+            with db.atomic():
                 try:
                     content = json.loads(active_ver.content)
                 except Exception:
                     content = {}
 
-                # Appliquer la proposition (en map les clés standard)
                 if "Front" in proposal and "Recto" not in proposal:
                     proposal["Recto"] = proposal.pop("Front")
                 if "Back" in proposal and "Verso" not in proposal:
@@ -425,10 +451,46 @@ class AIWozniakLinterTab(QWidget):
                 for k, v in proposal.items():
                     content[k] = v
 
-                note.add_version(new_content_dict=content, source="ai")
-                logger.info(f"Proposition appliquée avec succès pour la note #{note_id}")
+                # 1. Création de la nouvelle version
+                new_version = note.add_version(new_content_dict=content, source="Linter AI")
+
+                # 2. Nettoyage de l'ancien audit et validation du nouveau
+                AuditRecordModel.delete().where(AuditRecordModel.note == note).execute()
+                AuditRecordModel.create(note=note, note_version=new_version, is_compliant=True, rule_broken=None, reason="Corrigé manuellement via Linter")
+
+            logger.info(f"Proposition appliquée avec succès pour la note #{note_id}")
+
+            # 3. Disparition de l'interface
+            widget_to_remove.deleteLater()
+
         except Exception as e:
             logger.error(f"Erreur lors de l'application de la proposition pour la note #{note_id}: {e}")
+
+    @Slot(int, QWidget)
+    def _on_card_ignored(self, note_id: int, widget_to_remove: QWidget) -> None:
+        """Marque la carte comme conforme (faux positif) pour qu'elle soit ignorée au prochain Soft Analysis."""
+        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel, db
+
+        try:
+            note = NoteModel.get_or_none(NoteModel.id == note_id)
+            if not note:
+                return
+            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
+            if not active_ver:
+                return
+
+            with db.atomic():
+                # On efface l'ancien record d'échec
+                AuditRecordModel.delete().where(AuditRecordModel.note == note, AuditRecordModel.note_version == active_ver).execute()
+
+                # On crée un record de succès
+                AuditRecordModel.create(note=note, note_version=active_ver, is_compliant=True, reason="Ignoré par l'utilisateur (Faux positif)")
+
+            widget_to_remove.deleteLater()
+            logger.info(f"Note #{note_id} ignorée et marquée comme conforme.")
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'ignorance de la note #{note_id}: {e}")
 
     def filter_items_by_search(self, query: str) -> None:
         """Filtre dynamiquement les cartes affichées selon le texte de recherche."""
@@ -654,8 +716,9 @@ class AISourcesDiagnosticTab(QWidget):
             clean_title = clean_title.rsplit(".", 1)[0]
         tag_name = f"source:{clean_title}"
 
-        from ankiforge.database.models import NoteModel, NoteVersionModel, LLMConfigModel
         import json
+
+        from ankiforge.database.models import LLMConfigModel, NoteModel, NoteVersionModel
 
         notes = NoteModel.select().where(NoteModel.tags.contains(tag_name))
         existing_cards = []
@@ -983,8 +1046,9 @@ class AIDuplicatesMergeTab(QWidget):
         # Business logic for merging
         # 1. Update note_keep's active version content
         # 2. Delete note_del
-        from ankiforge.database.models import NoteVersionModel, db
         import json
+
+        from ankiforge.database.models import NoteVersionModel, db
 
         try:
             with db.atomic():

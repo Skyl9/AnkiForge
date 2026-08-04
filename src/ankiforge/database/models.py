@@ -27,6 +27,7 @@ DB_PATH = DEFAULT_DB_PATH
 # Base de données SQLite (initialisation différée possible pour le multi-profils)
 db = SqliteDatabase(
     None,
+    timeout=30,
     pragmas={
         "journal_mode": "wal",  # Permet la lecture et l'écriture simultanées !
         "cache_size": -1024 * 64,  # Alloue 64MB de RAM pour accélérer les requêtes
@@ -298,6 +299,49 @@ class JobModel(BaseModel):
     def save(self, *args, **kwargs):
         self.updated_at = datetime.datetime.now()
         return super().save(*args, **kwargs)
+
+
+class LinterRuleModel(BaseModel):
+    """
+    Définit une règle d'audit personnalisable par l'utilisateur.
+    Ces règles seront injectées dynamiquement dans le prompt du Linter.
+    """
+
+    name = CharField(unique=True)  # Ex: "Atomicité"
+    description = TextField(null=True)  # Ex: "Une carte ne doit traiter que d'un seul concept."
+    is_active = BooleanField(default=True)  # Permet au Power User d'activer/désactiver à la volée
+
+    # L'instruction système stricte à passer à Qwen
+    prompt_injection = TextField()
+
+    # Few-Shot Prompting (Exemples Avant/Après pour guider l'IA)
+    example_bad = TextField(null=True)  # JSON d'une mauvaise carte
+    example_good = TextField(null=True)  # JSON de la carte corrigée
+
+    class Meta:
+        table_name = "linter_rules"
+
+
+class AuditRecordModel(BaseModel):
+    """
+    Stocke le résultat de l'audit IA pour une version SPÉCIFIQUE d'une note.
+    Permet le 'Soft Analysis' (ne pas ré-auditer ce qui l'a déjà été).
+    """
+
+    note = ForeignKeyField(NoteModel, backref="audits", on_delete="CASCADE")
+    note_version = ForeignKeyField(NoteVersionModel, backref="audit_record", on_delete="CASCADE")
+
+    is_compliant = BooleanField(default=True)
+    rule_broken = CharField(null=True)  # Nom de la règle brisée (ex: "Atomicité")
+    reason = TextField(null=True)  # Explication textuelle de Qwen
+    suggestion = TextField(null=True)  # JSON de la suggestion de l'IA (Front/Back)
+
+    analyzed_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "audit_records"
+        # On s'assure qu'une version de note n'a qu'un seul record d'audit actif
+        indexes = ((("note", "note_version"), True),)
 
 
 def init_db() -> None:
