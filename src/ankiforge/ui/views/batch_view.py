@@ -223,16 +223,35 @@ class BatchView(QWidget):
         self.build_panel.setMinimumWidth(320)
         self.build_panel.setMaximumWidth(380)
 
+        from PySide6.QtWidgets import QScrollArea
+
         build_content = QWidget()
-        build_layout = QVBoxLayout(build_content)
+        build_main_layout = QVBoxLayout(build_content)
+        build_main_layout.setContentsMargins(0, 0, 0, 0)
+        build_main_layout.setSpacing(0)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; } QWidget#scrollContent { background: transparent; border: none; }")
+
+        scroll_content = QWidget()
+        scroll_content.setObjectName("scrollContent")
+        build_layout = QVBoxLayout(scroll_content)
         build_layout.setContentsMargins(16, 16, 16, 16)
         build_layout.setSpacing(14)
 
+        scroll_area.setWidget(scroll_content)
+        build_main_layout.addWidget(scroll_area)
+
         def add_form_group(layout: QVBoxLayout, label_text: str, widget: QWidget) -> None:
+            grp = QVBoxLayout()
+            grp.setSpacing(4)
             lbl = QLabel(label_text)
             lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
-            layout.addWidget(lbl)
-            layout.addWidget(widget)
+            grp.addWidget(lbl)
+            grp.addWidget(widget)
+            layout.addLayout(grp)
 
         # 1. Source (Fichiers/Dossiers)
         grp_src = QVBoxLayout()
@@ -244,12 +263,6 @@ class BatchView(QWidget):
         src_row.setSpacing(6)
         self.doc_combo = StyledComboBox()
         src_row.addWidget(self.doc_combo, 1)
-
-        self.btn_browse_doc = SecondaryButton("")
-        self.btn_browse_doc.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_browse_doc.setToolTip("Parcourir et charger un fichier local")
-        self.btn_browse_doc.clicked.connect(self._on_browse_local_file)
-        src_row.addWidget(self.btn_browse_doc)
 
         grp_src.addWidget(lbl_src)
         grp_src.addLayout(src_row)
@@ -340,17 +353,28 @@ class BatchView(QWidget):
         adv_layout.setContentsMargins(0, 0, 0, 0)
         adv_layout.setSpacing(12)
 
+        # Style partagé des sliders
         slider_style = f"""
+            QSlider {{
+                min-height: 24px;
+            }}
             QSlider::groove:horizontal {{
-                border-radius: 2px; height: 4px; margin: 0px;
+                border-radius: 2px;
+                height: 4px;
+                margin: 0px;
                 background-color: rgba(255, 255, 255, 0.1);
             }}
             QSlider::sub-page:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY}; border-radius: 2px;
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY}; border: none;
-                height: 12px; width: 12px; margin: -4px 0; border-radius: 6px;
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border: none;
+                height: 12px;
+                width: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
             }}
             QSlider::handle:horizontal:hover {{
                 background-color: {DesignTokens.ACCENT_HOVER};
@@ -367,11 +391,15 @@ class BatchView(QWidget):
         temp_header.addWidget(temp_lbl)
         temp_header.addStretch()
         temp_header.addWidget(self.val_temp_lbl)
+
         self.slider_temp = QSlider(Qt.Orientation.Horizontal)
-        self.slider_temp.setRange(0, 10)
+        self.slider_temp.setMinimum(0)
+        self.slider_temp.setMaximum(10)
         self.slider_temp.setValue(7)
+        self.slider_temp.setCursor(Qt.CursorShape.PointingHandCursor)
         self.slider_temp.setStyleSheet(slider_style)
         self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v/10:.1f}"))
+
         temp_layout.addLayout(temp_header)
         temp_layout.addWidget(self.slider_temp)
         adv_layout.addLayout(temp_layout)
@@ -386,11 +414,15 @@ class BatchView(QWidget):
         tokens_header.addWidget(tokens_lbl)
         tokens_header.addStretch()
         tokens_header.addWidget(self.val_tokens_lbl)
+
         self.slider_tokens = QSlider(Qt.Orientation.Horizontal)
-        self.slider_tokens.setRange(1, 32)
+        self.slider_tokens.setMinimum(1)
+        self.slider_tokens.setMaximum(32)
         self.slider_tokens.setValue(16)
+        self.slider_tokens.setCursor(Qt.CursorShape.PointingHandCursor)
         self.slider_tokens.setStyleSheet(slider_style)
         self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 256}"))
+
         tokens_layout.addLayout(tokens_header)
         tokens_layout.addWidget(self.slider_tokens)
         adv_layout.addLayout(tokens_layout)
@@ -417,7 +449,12 @@ class BatchView(QWidget):
         """)
         apply_shadow(self.btn_add_to_queue, blur=20, offset_y=0, color="rgba(99, 102, 241, 0.75)")
         self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
-        build_layout.addWidget(self.btn_add_to_queue)
+
+        btn_container = QWidget()
+        btn_layout = QVBoxLayout(btn_container)
+        btn_layout.setContentsMargins(16, 8, 16, 16)
+        btn_layout.addWidget(self.btn_add_to_queue)
+        build_main_layout.addWidget(btn_container)
 
         self.build_panel.add_tab("Paramètres du Build", build_content, "ph.sliders-horizontal", closable=False)
         self.middle_splitter.addWidget(self.build_panel)

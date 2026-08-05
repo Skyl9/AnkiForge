@@ -60,6 +60,28 @@
                         </div>
                       </div>
 
+                      <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 10px 0; padding-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                          <h4 class="muted uppercase small m-0"><i class="ph ph-caret-down"></i> Paramètres Avancés</h4>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                          <div class="form-group mb-10">
+                            <div style="display: flex; justify-content: space-between;">
+                              <label style="color: var(--text-muted); font-size: 11px;">Température</label>
+                              <span style="color: var(--text-primary); font-family: var(--font-code); font-size: 11px;">0.7</span>
+                            </div>
+                            <input type="range" min="0" max="1" step="0.1" value="0.7" style="width: 100%; accent-color: var(--accent-primary);" />
+                          </div>
+                          <div class="form-group">
+                            <div style="display: flex; justify-content: space-between;">
+                              <label style="color: var(--text-muted); font-size: 11px;">Max Tokens</label>
+                              <span style="color: var(--text-primary); font-family: var(--font-code); font-size: 11px;">4096</span>
+                            </div>
+                            <input type="range" min="256" max="8192" step="256" value="4096" style="width: 100%; accent-color: var(--accent-primary);" />
+                          </div>
+                        </div>
+                      </div>
+
                       <h4 class="muted uppercase small mb-10">2. File d'attente</h4>
                       <div class="table-container flex-grow outline" style="border-radius: var(--radius-sm); background: rgba(0,0,0,0.15);">
                         <table>

@@ -4,29 +4,29 @@ Workflow conforme : Aucun paquet par défaut -> Choix du paquet -> Clic 'Analyse
 """
 
 import logging
-from typing import Dict, Optional, cast
+from typing import Dict, Optional, Any, cast
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
+from ankiforge.database.models import ChunkFacetRequirementModel, DocumentChunkModel, DocumentModel, NoteChunkLinkModel, db
 from ankiforge.services.ai.linter import (
-    SourcesDiagnosticService,
     TokenSrsFinancialService,
 )
+from ankiforge.services.workers.coverage_worker import CoverageWorker
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
@@ -403,7 +403,7 @@ class AIWozniakLinterTab(QWidget):
 
         # Remplir dynamiquement la catégorie active
         current_cat_data = categories.get(self.active_category, {})
-        from typing import Any, Dict, List, cast
+        from typing import Any, Dict, List
 
         items = cast(List[Dict[str, Any]], current_cat_data.get("items", []))
 
@@ -425,7 +425,7 @@ class AIWozniakLinterTab(QWidget):
         """Applique la proposition de l'IA, valide l'audit en BDD et supprime le widget."""
         import json
 
-        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel, db
+        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel
 
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
@@ -469,7 +469,7 @@ class AIWozniakLinterTab(QWidget):
     @Slot(int, QWidget)
     def _on_card_ignored(self, note_id: int, widget_to_remove: QWidget) -> None:
         """Marque la carte comme conforme (faux positif) pour qu'elle soit ignorée au prochain Soft Analysis."""
-        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel, db
+        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel
 
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
@@ -507,289 +507,338 @@ class AIWozniakLinterTab(QWidget):
 
 
 # =====================================================================================
-# ONGLET 2 : DIAGNOSTIC & TRAÇABILITÉ DES SOURCES (WORKFLOW À LA DEMANDE)
+# ONGLET 2 : DIAGNOSTIC & COUVERTURE COGNITIVE (SMART COVERAGE)
 # =====================================================================================
+
+
+class ClickableChunkWidget(QFrame):
+    """Un paragraphe du document, cliquable, avec un indicateur visuel de couverture."""
+
+    clicked = Signal(int)  # Renvoie l'ID du Chunk
+
+    def __init__(self, chunk_id: int, text: str, status: str = "unprofiled", parent=None):
+        super().__init__(parent)
+        self.chunk_id = chunk_id
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Statut visuel (Bordure gauche)
+        color_map = {
+            "unprofiled": "transparent",
+            "gap": DesignTokens.COLOR_YELLOW,  # Des facettes manquent
+            "covered": DesignTokens.COLOR_GREEN,  # Toutes les facettes sont couvertes
+            "hallucination": DesignTokens.COLOR_RED,
+        }
+        border_color = color_map.get(status, "transparent")
+
+        self.setStyleSheet(f"""
+            ClickableChunkWidget {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-left: 3px solid {border_color};
+                border-radius: 4px;
+                margin-bottom: 4px;
+            }}
+            ClickableChunkWidget:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+
+        self.lbl_text = QLabel(text)
+        self.lbl_text.setWordWrap(True)
+        self.lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; line-height: 1.4;")
+        layout.addWidget(self.lbl_text)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.chunk_id)
+        super().mousePressEvent(event)
+
+
 class AISourcesDiagnosticTab(QWidget):
-    """Onglet de diagnostic des sources : Aucun paquet par défaut -> Choix -> Clic Analyser."""
+    """Onglet de diagnostic des sources : Heatmap Documentaire et Checklist Cognitive."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.selected_ext_filter: str = "all"
+        self.selected_doc_id: Optional[int] = None
+        self.worker: Optional[CoverageWorker] = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        # 1. Header (Bouton Analyser placé à droite)
+        # 1. HEADER (Sélecteur de Document et Lancement Profilage)
         header = QFrame()
         header.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px;")
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(12, 8, 12, 8)
 
-        lbl_title = QLabel("Diagnostic & Traçabilité des Sources")
+        lbl_title = QLabel("Couverture Cognitive & Diagnostic Sources")
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
-        self.lbl_score = QLabel("Score Global Précision : -- %")
-        self.lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        self.lbl_score.setStyleSheet(
-            f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 3px 8px;"
+        self.doc_combo = QComboBox()
+        self.doc_combo.setFixedWidth(250)
+        self.doc_combo.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 4px; color: {DesignTokens.TEXT_PRIMARY};")
+        self.doc_combo.currentIndexChanged.connect(self._on_doc_selected)
+
+        self.engine_combo = QComboBox()
+        self.engine_combo.setFixedWidth(200)
+        self.engine_combo.setStyleSheet(
+            f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 4px; color: {DesignTokens.TEXT_PRIMARY};"
         )
 
-        # Bouton placé à droite dans le header
-        self.btn_analyze = PrimaryButton("Analyser tous les documents")
-        self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
-        self.btn_analyze.clicked.connect(self.refresh_sources)
+        from ankiforge.database.models import LLMConfigModel
 
-        self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Rechercher une source (.md, .pdf, .png)...")
-        self.search_input.setFixedWidth(200)
-        self.search_input.textChanged.connect(self.apply_sources_filter)
+        for c in LLMConfigModel.select():
+            display_name = getattr(c, "display_name", getattr(c, "name", str(c)))
+            self.engine_combo.addItem(f"⚡ {display_name}", userData=c)
+
+        self.btn_profile = PrimaryButton("Lancer le Profilage Cognitif IA")
+        self.btn_profile.setIcon(load_phosphor_icon("brain", color="#ffffff"))
+        self.btn_profile.clicked.connect(self.run_profiling)
 
         h_layout.addWidget(lbl_title)
-        h_layout.addWidget(self.lbl_score)
         h_layout.addStretch()
-        h_layout.addWidget(self.search_input)
-        h_layout.addWidget(self.btn_analyze)
+        h_layout.addWidget(QLabel("Moteur :"))
+        h_layout.addWidget(self.engine_combo)
+        h_layout.addWidget(QLabel("Document :"))
+        h_layout.addWidget(self.doc_combo)
+        h_layout.addWidget(self.btn_profile)
         layout.addWidget(header)
 
-        # 2. Filter Toolbar Underneath (Puces interactives .md, .pdf, .png, YT, Web)
-        filter_bar = QFrame()
-        filter_bar.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px;")
-        fb_layout = QHBoxLayout(filter_bar)
-        fb_layout.setContentsMargins(12, 6, 12, 6)
-        fb_layout.setSpacing(6)
+        # 2. SPLIT VIEW MAIN AREA
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        lbl_filter = QLabel("Filtrer par Format / Extension :")
-        lbl_filter.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        lbl_filter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
-        fb_layout.addWidget(lbl_filter)
+        # --- PANNEAU GAUCHE : LE DOCUMENT (HEATMAP) ---
+        self.left_panel = QFrame()
+        self.left_panel.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px;")
+        left_layout = QVBoxLayout(self.left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.ext_buttons: Dict[str, SecondaryButton] = {}
-        ext_map = [
-            ("all", "Toutes (8)"),
-            ("pdf", ".pdf Documents (2)"),
-            ("md", ".md Markdown (2)"),
-            ("png", ".png Schemas (2)"),
-            ("yt", "YouTube & Audio (1)"),
-            ("web", "Web & HTML (1)"),
-        ]
+        panel_title = QLabel("📄 Document Source (Heatmap)")
+        panel_title.setStyleSheet(f"padding: 10px; font-weight: bold; color: {DesignTokens.TEXT_SECONDARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
+        left_layout.addWidget(panel_title)
 
-        for ext_key, label in ext_map:
-            btn = SecondaryButton(label)
-            btn.setFixedHeight(24)
-            btn.clicked.connect(lambda checked=False, k=ext_key: self.on_ext_filter_clicked(k))
-            fb_layout.addWidget(btn)
-            self.ext_buttons[ext_key] = btn
+        self.scroll_docs = QScrollArea()
+        self.scroll_docs.setWidgetResizable(True)
+        self.scroll_docs.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_content = QWidget()
+        self.scroll_content.setStyleSheet("background: transparent;")
+        self.chunks_layout = QVBoxLayout(self.scroll_content)
+        self.chunks_layout.setContentsMargins(10, 10, 10, 10)
+        self.chunks_layout.setSpacing(4)
+        self.chunks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.scroll_docs.setWidget(self.scroll_content)
 
-        fb_layout.addStretch()
+        left_layout.addWidget(self.scroll_docs)
+        self.splitter.addWidget(self.left_panel)
 
-        lbl_sort = QLabel("Trier par :")
-        lbl_sort.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        lbl_sort.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
-        self.combo_sort = QComboBox()
-        self.combo_sort.addItems(["Score de Précision ↓", "Cartes générées", "Nom du fichier", "Date"])
-        self.combo_sort.currentIndexChanged.connect(self.apply_sources_filter)
-        fb_layout.addWidget(lbl_sort)
-        fb_layout.addWidget(self.combo_sort)
+        # --- PANNEAU DROIT : INSPECTEUR COGNITIF ---
+        self.right_panel = QFrame()
+        self.right_panel.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px;")
+        right_layout = QVBoxLayout(self.right_panel)
+        right_layout.setContentsMargins(12, 12, 12, 12)
+        right_layout.setSpacing(12)
 
-        layout.addWidget(filter_bar)
+        lbl_insp = QLabel("🔍 Inspecteur de Couverture")
+        lbl_insp.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        lbl_insp.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY};")
+        right_layout.addWidget(lbl_insp)
 
-        # 3. 3-Column Dynamic Sources Grid
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        # Affichage du texte du chunk sélectionné
+        self.lbl_chunk_preview = QLabel("Sélectionnez un paragraphe à gauche pour inspecter sa couverture cognitive.")
+        self.lbl_chunk_preview.setWordWrap(True)
+        self.lbl_chunk_preview.setStyleSheet(
+            f"background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; \
+            border-radius: 4px; padding: 10px; color: {DesignTokens.TEXT_MUTED}; font-style: italic; font-size: 11px;"
+        )
+        right_layout.addWidget(self.lbl_chunk_preview)
 
-        self.grid_widget = QWidget()
-        self.grid = QGridLayout(self.grid_widget)
-        self.grid.setContentsMargins(0, 0, 0, 0)
-        self.grid.setSpacing(10)
+        right_layout.addWidget(QLabel("<b>CHECKLIST COGNITIVE (Facettes Requises) :</b>"))
 
-        self.scroll_area.setWidget(self.grid_widget)
-        layout.addWidget(self.scroll_area)
+        # Conteneur des boutons de facettes
+        self.facets_container = QWidget()
+        self.facets_layout = QVBoxLayout(self.facets_container)
+        self.facets_layout.setContentsMargins(0, 0, 0, 0)
+        self.facets_layout.setSpacing(8)
+        right_layout.addWidget(self.facets_container)
 
-        self.show_empty_state("Veuillez cliquer sur 'Analyser tous les documents' pour démarrer le diagnostic global des sources.")
+        right_layout.addStretch()
+        self.splitter.addWidget(self.right_panel)
 
-    def show_empty_state(self, message: str) -> None:
-        """Affiche un état d'attente neutre dans la grille."""
-        while self.grid.count():
-            item = self.grid.takeAt(0)
-            widget = item.widget() if item is not None else None
-            if widget is not None:
-                widget.deleteLater()
+        # Ratio 60% / 40%
+        self.splitter.setSizes([600, 400])
+        layout.addWidget(self.splitter)
+        self.refresh_doc_list()
 
-        empty_box = QFrame()
-        empty_box.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px dashed {DesignTokens.BORDER_COLOR}; border-radius: 8px; padding: 40px;")
-        eb_layout = QVBoxLayout(empty_box)
-        eb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    def refresh_doc_list(self):
+        self.doc_combo.blockSignals(True)
+        self.doc_combo.clear()
+        docs = list(DocumentModel.select())
+        if docs:
+            for d in docs:
+                self.doc_combo.addItem(d.title, userData=d.id)
+            self.selected_doc_id = docs[0].id
+            self.load_document_heatmap()
+        else:
+            self.doc_combo.addItem("Aucun document disponible")
+        self.doc_combo.blockSignals(False)
 
-        lbl_icon = QLabel()
-        lbl_icon.setPixmap(load_phosphor_icon("file-text", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
-        lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    @Slot()
+    def _on_doc_selected(self):
+        self.selected_doc_id = self.doc_combo.currentData()
+        self.load_document_heatmap()
 
-        lbl_text = QLabel(message)
-        lbl_text.setFont(QFont(DesignTokens.FONT_MAIN, 11))
-        lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
-        lbl_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    def load_document_heatmap(self):
+        """Charge les paragraphes du document et applique les couleurs de couverture."""
+        # Vider la liste
+        while self.chunks_layout.count():
+            item = self.chunks_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-        eb_layout.addWidget(lbl_icon)
-        eb_layout.addWidget(lbl_text)
-        self.grid.addWidget(empty_box, 0, 0, 1, 3)
+        # Réinitialiser l'inspecteur
+        self.lbl_chunk_preview.setText("Sélectionnez un paragraphe à gauche...")
+        while self.facets_layout.count():
+            item = self.facets_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-    def on_ext_filter_clicked(self, ext_key: str) -> None:
-        """Sélectionne dynamiquement le filtre par puce d'extension."""
-        self.selected_ext_filter = ext_key
-        self.apply_sources_filter()
-
-    def refresh_sources(self) -> None:
-        """Recharge toutes les sources uniquement sur demande de l'utilisateur."""
-        # deck_id=None permet de récupérer l'ensemble des documents
-        self.raw_sources = SourcesDiagnosticService.get_sources_report(deck_id=None)
-        self.lbl_score.setText("Score Global Précision : 95.8%")
-        self.lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.12); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 3px 8px;")
-        self.apply_sources_filter()
-
-    def apply_sources_filter(self) -> None:
-        """Filtre et trie dynamiquement les cartes de la grille de sources."""
-        while self.grid.count():
-            item = self.grid.takeAt(0)
-            widget = item.widget() if item is not None else None
-            if widget is not None:
-                widget.deleteLater()
-
-        query = self.search_input.text().lower().strip()
-        filtered = []
-
-        for src in getattr(self, "raw_sources", []):
-            match_ext = self.selected_ext_filter == "all" or src["extension"] == self.selected_ext_filter
-            match_q = not query or query in src["name"].lower()
-            if match_ext and match_q:
-                filtered.append(src)
-
-        for idx, src in enumerate(filtered):
-            card = QFrame()
-            card.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 10px;")
-            c_layout = QVBoxLayout(card)
-            c_layout.setSpacing(6)
-
-            h_row = QHBoxLayout()
-            title = QLabel(src["name"])
-            title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-            title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-
-            score = QLabel(f"{src['score']}%")
-            score.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-            score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; padding: 1px 6px; border-radius: 4px;")
-
-            h_row.addWidget(title)
-            h_row.addStretch()
-            h_row.addWidget(score)
-            c_layout.addLayout(h_row)
-
-            info = QLabel(f"Moteur : {src['parser']}\nDetails : {src['details']}\nCartes générées : {src['cards_generated']}")
-            info.setFont(QFont(DesignTokens.FONT_MAIN, 10))
-            info.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
-            c_layout.addWidget(info)
-
-            btn_inspect = SecondaryButton(src["inspect_action"])
-            btn_inspect.setFixedHeight(24)
-            btn_inspect.clicked.connect(lambda checked=False, s=src: self.on_gap_analysis(s))
-            c_layout.addWidget(btn_inspect)
-
-            row = idx // 3
-            col = idx % 3
-            self.grid.addWidget(card, row, col)
-
-    @Slot(object)
-    def on_gap_analysis(self, src: dict) -> None:
-        self._btn = cast(SecondaryButton, self.sender())
-        if self._btn:
-            self._btn.setEnabled(False)
-            self._btn.setText("Analyse en cours...")
-
-        doc_title = src.get("name", "")
-        doc_content = src.get("raw_content", "")
-
-        # Obtenir les cartes générées pour ce document
-        clean_title = doc_title.replace(" ", "_").replace("-", "_").lower()
-        if clean_title.endswith((".pdf", ".md", ".txt")):
-            clean_title = clean_title.rsplit(".", 1)[0]
-        tag_name = f"source:{clean_title}"
-
-        import json
-
-        from ankiforge.database.models import LLMConfigModel, NoteModel, NoteVersionModel
-
-        notes = NoteModel.select().where(NoteModel.tags.contains(tag_name))
-        existing_cards = []
-        for n in notes:
-            active_ver = NoteVersionModel.get_or_none(note=n, is_active=True)
-            if active_ver and active_ver.content:
-                try:
-                    c = json.loads(active_ver.content)
-                    front = c.get("Front", c.get("Recto", ""))
-                    back = c.get("Back", c.get("Verso", ""))
-                    if front or back:
-                        existing_cards.append(f"Q: {front}\nR: {back}")
-                except Exception:
-                    logger.error("une erreur de parsing s'est produite dans analysis_view")
-
-        cards_text = "\\n---\\n".join(existing_cards) if existing_cards else "Aucune carte n'a encore été générée."
-
-        llm_config = LLMConfigModel.select().first()
-        if not llm_config:
-            QMessageBox.critical(self, "Erreur", "Veuillez configurer un moteur IA dans les paramètres.")
-            if self._btn:
-                self._btn.setEnabled(True)
-                self._btn.setText("Analyser les trous (Gap Analysis)")
+        if not self.selected_doc_id:
             return
 
-        instruction = (
-            "Tu es un auditeur pédagogique expert.\\n"
-            "Ton rôle est de comparer un Document Source avec les Cartes de révision existantes générées depuis ce document, "
-            "et d'identifier les 'trous' : les concepts importants présents dans le document mais qui ne font l'objet d'aucune flashcard.\\n\\n"
-            f"DOCUMENT SOURCE ({doc_title}) :\\n{doc_content[:15000]}\\n\\n"
-            f"CARTES EXISTANTES :\\n{cards_text}\\n\\n"
-            "Analyse minutieusement la couverture. Liste sous forme de bullet points les concepts manquants et propose pour chacun une nouvelle flashcard."
+        doc = DocumentModel.get_by_id(self.selected_doc_id)
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
+
+        if not chunks:
+            lbl = QLabel("Document non découpé. Veuillez lancer le profilage.")
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
+            self.chunks_layout.addWidget(lbl)
+            return
+
+        for chunk in chunks:
+            status = "unprofiled"
+            if chunk.is_profiled:
+                # Vérifier si toutes les facettes requises ont une carte liée
+                req_count = ChunkFacetRequirementModel.select().where(ChunkFacetRequirementModel.chunk == chunk).count()
+                if req_count == 0:
+                    status = "covered"  # S'il ne requiert rien, c'est vert par défaut
+                else:
+                    covered_count = NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk).count()
+                    if covered_count >= req_count:
+                        status = "covered"
+                    else:
+                        status = "gap"  # Il manque des cartes !
+
+            chunk_widget = ClickableChunkWidget(chunk.id, chunk.content, status)
+            chunk_widget.clicked.connect(self.inspect_chunk)
+            self.chunks_layout.addWidget(chunk_widget)
+
+    @Slot(int)
+    def inspect_chunk(self, chunk_id: int):
+        """Affiche les facettes requises pour le chunk sélectionné."""
+        chunk = DocumentChunkModel.get_by_id(chunk_id)
+
+        # Mettre à jour l'aperçu du texte
+        self.lbl_chunk_preview.setText(chunk.content)
+        self.lbl_chunk_preview.setStyleSheet(
+            f"background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 10px; color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;"
         )
 
-        from ankiforge.services.workers.consultant_worker import ConsultantWorker
+        # Vider la checklist
+        while self.facets_layout.count():
+            item = self.facets_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-        self.worker = ConsultantWorker(llm_config=llm_config, persona=None, context_data={}, instruction=instruction)
-        self.worker.finished_signal.connect(self._on_gap_finished)
-        self.worker.error_signal.connect(self._on_gap_error)
+        if not chunk.is_profiled:
+            lbl = QLabel("⚠️ Ce paragraphe n'a pas encore été analysé par l'IA.")
+            lbl.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-weight: bold; font-size: 11px;")
+            self.facets_layout.addWidget(lbl)
+            return
+
+        # Récupérer les facettes exigées
+        requirements = ChunkFacetRequirementModel.select().where(ChunkFacetRequirementModel.chunk == chunk)
+
+        if requirements.count() == 0:
+            lbl = QLabel("✅ L'IA estime qu'aucune carte n'est nécessaire pour ce passage.")
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+            self.facets_layout.addWidget(lbl)
+            return
+
+        for req in requirements:
+            # Vérifier si une carte couvre cette facette
+            link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.chunk == chunk, NoteChunkLinkModel.facet == req.facet)
+
+            btn = QPushButton()
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            if link:
+                # Facette couverte (Vert)
+                btn.setText(f"✓ {req.facet.name} (Couvert)")
+                btn.setStyleSheet(f"""
+                    QPushButton {{ background-color: rgba(16, 185, 129, 0.15); color: {DesignTokens.COLOR_GREEN};\
+                     border: 1px solid {DesignTokens.COLOR_GREEN}; border-radius: 4px; padding: 8px; \
+                     text-align: left; font-weight: bold; font-size: 11px; }}
+                    QPushButton:hover {{ background-color: rgba(16, 185, 129, 0.25); }}
+                """)
+                # Clic -> Ouvre l'éditeur existant
+                btn.clicked.connect(lambda checked=False, nid=link.note.id: self._open_editor_for_existing(nid))
+            else:
+                # Facette manquante (Orange + Génération)
+                btn.setText(f"+ {req.facet.name} (Créer la carte)")
+                btn.setStyleSheet(f"""
+                    QPushButton {{ background-color: rgba(245, 158, 11, 0.15); color: {DesignTokens.COLOR_YELLOW};\
+                     border: 1px dashed {DesignTokens.COLOR_YELLOW}; border-radius: 4px; padding: 8px; \
+                     text-align: left; font-weight: bold; font-size: 11px; }}
+                    QPushButton:hover {{ background-color: rgba(245, 158, 11, 0.25); }}
+                """)
+                # Clic -> Ouvre l'éditeur avec un pré-prompt IA
+                btn.clicked.connect(lambda checked=False, cid=chunk.id, fid=req.facet.id: self._generate_missing_facet(cid, fid))
+
+            self.facets_layout.addWidget(btn)
+
+    def run_profiling(self):
+        """Lance le CoverageWorker asynchrone pour profiler le document."""
+        if not self.selected_doc_id:
+            return
+
+        self.btn_profile.setEnabled(False)
+        self.btn_profile.setText("Profilage en cours...")
+
+        selected_config = self.engine_combo.currentData()
+        config_id = selected_config.id if selected_config else None
+        # -----------------------------------------
+
+        self.worker = CoverageWorker(document_id=self.selected_doc_id, llm_config_id=config_id, parent=self)
+        self.worker.progress_update.connect(lambda msg: self.btn_profile.setText(msg))
+        self.worker.error_occurred.connect(self._on_profiling_error)
+        self.worker.finished_processing.connect(self._on_profiling_finished)
+        self.worker.finished.connect(self.worker.deleteLater)
         self.worker.start()
 
     @Slot(str)
-    def _on_gap_finished(self, response: str) -> None:
-        if hasattr(self, "_btn") and self._btn:
-            self._btn.setEnabled(True)
-            self._btn.setText("Analyser les trous (Gap Analysis)")
+    def _on_profiling_error(self, err: str):
+        self.btn_profile.setEnabled(True)
+        self.btn_profile.setText("Lancer le Profilage Cognitif IA")
+        QMessageBox.critical(self, "Erreur de Profilage", err)
 
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Résultat de l'analyse (Gap Analysis)")
-        dialog.resize(900, 700)
+    @Slot()
+    def _on_profiling_finished(self):
+        self.btn_profile.setEnabled(True)
+        self.btn_profile.setText("Lancer le Profilage Cognitif IA")
+        self.load_document_heatmap()  # Rafraîchir les couleurs !
 
-        layout = QVBoxLayout(dialog)
-        from PySide6.QtWidgets import QTextBrowser
+    # --- Actions de Création ---
+    def _open_editor_for_existing(self, note_id: int):
+        QMessageBox.information(self, "Action", f"Ouvrir la note existante #{note_id} dans l'éditeur (À câbler).")
 
-        text_edit = QTextBrowser()
-        text_edit.setOpenExternalLinks(True)
-        text_edit.setMarkdown(response)
-        layout.addWidget(text_edit)
-
-        btn_close = QPushButton("Fermer")
-        btn_close.clicked.connect(dialog.accept)
-        layout.addWidget(btn_close)
-
-        dialog.exec()
-
-    @Slot(str)
-    def _on_gap_error(self, err: str) -> None:
-        if hasattr(self, "_btn") and self._btn:
-            self._btn.setEnabled(True)
-            self._btn.setText("Analyser les trous (Gap Analysis)")
-        QMessageBox.critical(self, "Erreur", str(err))
+    def _generate_missing_facet(self, chunk_id: int, facet_id: int):
+        QMessageBox.information(self, "Action", f"Ouvrir l'éditeur pour générer une nouvelle carte ciblant la facette #{facet_id} basée sur le chunk #{chunk_id} (À câbler).")
 
 
 # =====================================================================================
@@ -1048,7 +1097,7 @@ class AIDuplicatesMergeTab(QWidget):
         # 2. Delete note_del
         import json
 
-        from ankiforge.database.models import NoteVersionModel, db
+        from ankiforge.database.models import NoteVersionModel
 
         try:
             with db.atomic():
@@ -1104,8 +1153,10 @@ class AIDuplicatesMergeTab(QWidget):
 class AnalysisView(QWidget):
     """Vue Principale Analyse & Audit IA avec barre d'onglets JetBrains-style."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    # Ajout du paramètre ai_manager
+    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.ai_manager = ai_manager
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
 

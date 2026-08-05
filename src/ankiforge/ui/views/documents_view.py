@@ -10,8 +10,10 @@ import logging
 import pathlib
 from typing import Any, Optional
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, Signal
+from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -41,6 +43,39 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+
+class DocumentTreeWidget(QTreeWidget):
+    """QTreeWidget customisé pour supporter le Drag & Drop."""
+
+    itemMoved = Signal(object, object)  # source_data, target_data
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        source_item = self.currentItem()
+        if not source_item:
+            event.ignore()
+            return
+
+        source_data = source_item.data(0, Qt.ItemDataRole.UserRole)
+
+        target_item = self.itemAt(event.position().toPoint())
+        target_data = target_item.data(0, Qt.ItemDataRole.UserRole) if target_item else None
+
+        event.ignore()
+
+        if source_item == target_item:
+            return
+
+        if source_data:
+            self.itemMoved.emit(source_data, target_data)
 
 
 class DocumentsView(QWidget):
@@ -90,13 +125,18 @@ class DocumentsView(QWidget):
         self.btn_new_folder = IconButton("ph.folder-plus", tooltip="Nouveau dossier", size=24)
         self.btn_new_folder.clicked.connect(self._on_new_folder)
 
+        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer", size=24)
+        self.btn_delete.setEnabled(False)
+        self.btn_delete.clicked.connect(self._on_delete_item)
+
         explorer_toolbar.addWidget(self.btn_import, 1)
         explorer_toolbar.addWidget(self.btn_import_url)
         explorer_toolbar.addWidget(self.btn_new_folder)
+        explorer_toolbar.addWidget(self.btn_delete)
         explorer_layout.addLayout(explorer_toolbar)
 
         # Tree Widget pour l'arborescence des dossiers & documents
-        self.tree_explorer = QTreeWidget()
+        self.tree_explorer = DocumentTreeWidget()
         self.tree_explorer.setHeaderHidden(True)
         self.tree_explorer.setStyleSheet(f"""
             QTreeWidget {{
@@ -268,6 +308,7 @@ class DocumentsView(QWidget):
 
     def _connect_signals(self) -> None:
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
+        self.tree_explorer.itemMoved.connect(self._on_item_moved)
         self.text_editor.textChanged.connect(self._on_text_changed)
 
         self.btn_import.clicked.connect(self._on_import_file)
@@ -278,6 +319,77 @@ class DocumentsView(QWidget):
         self.btn_split_sections.clicked.connect(self._on_split_sections)
         self.btn_save.clicked.connect(self._on_save_document)
 
+    def _on_item_moved(self, source_data: dict, target_data: Optional[dict]) -> None:
+        """Gère le déplacement (drag and drop) d'un document ou d'un dossier."""
+        if not source_data:
+            return
+
+        source_type = source_data.get("type")
+        source_id = source_data.get("id")
+
+        target_type = target_data.get("type") if target_data else None
+        target_id = target_data.get("id") if target_data else None
+
+        # Si la cible est un document, on utilise le dossier de ce document comme cible réelle
+        if target_type == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == target_id)
+            if doc and doc.folder:
+                target_id = doc.folder.id
+            else:
+                target_id = None
+            target_type = "folder" if target_id else None
+
+        if source_type == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == source_id)
+            if doc:
+                current_folder_id = doc.folder.id if doc.folder else None
+                if current_folder_id == target_id:
+                    return
+                doc.folder = target_id
+                doc.save()
+                self.refresh_data()
+
+        elif source_type == "folder":
+            folder = FolderModel.get_or_none(FolderModel.id == source_id)
+            if not folder:
+                return
+
+            target_folder = FolderModel.get_or_none(FolderModel.id == target_id) if target_id else None
+
+            old_name = folder.name
+            old_parts = old_name.split("::")
+            base_name = old_parts[-1]
+
+            if target_folder:
+                new_name = target_folder.name + "::" + base_name
+            else:
+                new_name = base_name
+
+            if new_name == old_name:
+                return
+
+            # Vérifier qu'on ne déplace pas un dossier dans lui-même ou un de ses enfants
+            if target_folder and (target_folder.name == old_name or target_folder.name.startswith(old_name + "::")):
+                show_toast(self, "Vous ne pouvez pas déplacer un dossier dans lui-même.", is_error=True)
+                return
+
+            try:
+                with FolderModel._meta.database.atomic():
+                    folders_to_update = FolderModel.select().where((FolderModel.name == old_name) | (FolderModel.name.startswith(old_name + "::")))
+
+                    for f in folders_to_update:
+                        if f.name == old_name:
+                            f.name = new_name
+                        else:
+                            suffix = f.name[len(old_name) :]
+                            f.name = new_name + suffix
+                        f.save()
+
+                self.refresh_data()
+            except Exception as e:
+                logger.error(f"Erreur déplacement dossier: {e}")
+                show_toast(self, "Un dossier avec ce nom existe déjà à cet emplacement.", is_error=True)
+
     def refresh_data(self) -> None:
         """Recharge l'arborescence des dossiers et documents depuis Peewee."""
         try:
@@ -285,14 +397,41 @@ class DocumentsView(QWidget):
             self.tree_explorer.clear()
 
             folder_items: dict[int, QTreeWidgetItem] = {}
+            path_items: dict[str, QTreeWidgetItem] = {}
             folders = list(FolderModel.select())
 
-            # 1. Racines des dossiers
-            for folder in folders:
-                item = QTreeWidgetItem(self.tree_explorer, [folder.name])
-                item.setIcon(0, load_phosphor_icon("ph.folder", color=DesignTokens.COLOR_BLUE))
+            # Trier par nom alphabétiquement pour gérer les dossiers parents d'abord
+            sorted_folders = sorted(folders, key=lambda f: f.name)
+
+            # 1. Hiérarchie des dossiers
+            for folder in sorted_folders:
+                parts = folder.name.split("::")
+                parent_item = None
+
+                # Créer/retrouver les noeuds parents intermédiaires
+                for i in range(1, len(parts)):
+                    parent_path = "::".join(parts[:i])
+                    if parent_path in path_items:
+                        parent_item = path_items[parent_path]
+                    else:
+                        if parent_item:
+                            new_item = QTreeWidgetItem(parent_item, [parts[i - 1]])
+                        else:
+                            new_item = QTreeWidgetItem(self.tree_explorer, [parts[i - 1]])
+                        new_item.setIcon(0, load_phosphor_icon("ph.folder", weight="fill", color=DesignTokens.COLOR_BLUE))
+                        path_items[parent_path] = new_item
+                        parent_item = new_item
+
+                node_name = parts[-1]
+                if parent_item:
+                    item = QTreeWidgetItem(parent_item, [node_name])
+                else:
+                    item = QTreeWidgetItem(self.tree_explorer, [node_name])
+
+                item.setIcon(0, load_phosphor_icon("ph.folder", weight="fill", color=DesignTokens.COLOR_BLUE))
                 item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
                 folder_items[folder.id] = item
+                path_items[folder.name] = item
 
             # 2. Documents (Fichiers rattachés au dossier parent ou directement à la racine)
             documents = list(DocumentModel.select())
@@ -331,10 +470,12 @@ class DocumentsView(QWidget):
     def _on_document_selected(self) -> None:
         items = self.tree_explorer.selectedItems()
         if not items:
+            self.btn_delete.setEnabled(False)
             self._current_doc_id = None
             self.editor_stack.setCurrentIndex(0)
             return
 
+        self.btn_delete.setEnabled(True)
         item = items[0]
         data = item.data(0, Qt.ItemDataRole.UserRole)
         if data and data.get("type") == "doc":
@@ -427,12 +568,81 @@ class DocumentsView(QWidget):
     def _on_new_folder(self) -> None:
         folder_name, ok = QInputDialog.getText(self, "Nouveau dossier", "Nom du dossier :")
         if ok and folder_name.strip():
+            target_name = folder_name.strip()
+
+            # Si un dossier ou document est sélectionné, on le crée dedans
+            items = self.tree_explorer.selectedItems()
+            if items:
+                data = items[0].data(0, Qt.ItemDataRole.UserRole)
+                if data:
+                    item_type = data.get("type")
+                    item_id = data.get("id")
+
+                    target_folder_id = None
+                    if item_type == "folder":
+                        target_folder_id = item_id
+                    elif item_type == "doc":
+                        doc = DocumentModel.get_or_none(DocumentModel.id == item_id)
+                        if doc and doc.folder:
+                            target_folder_id = doc.folder.id
+
+                    if target_folder_id:
+                        folder = FolderModel.get_or_none(FolderModel.id == target_folder_id)
+                        if folder:
+                            target_name = f"{folder.name}::{target_name}"
+
             try:
-                FolderModel.create(name=folder_name.strip())
+                FolderModel.create(name=target_name)
                 self.refresh_data()
-                show_toast(self, f"Dossier '{folder_name.strip()}' créé.")
+                show_toast(self, f"Dossier '{target_name}' créé.")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Impossible de créer le dossier : {str(e)}")
+
+    @Slot()
+    def _on_delete_item(self) -> None:
+        items = self.tree_explorer.selectedItems()
+        if not items:
+            return
+
+        item = items[0]
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
+        item_type = data.get("type")
+        item_id = data.get("id")
+
+        if item_type == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == item_id)
+            if doc:
+                reply = QMessageBox.question(
+                    self,
+                    "Confirmer la suppression",
+                    f"Voulez-vous vraiment supprimer le document '{doc.title}' ?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    doc.delete_instance()
+                    self.refresh_data()
+                    self.editor_stack.setCurrentIndex(0)
+                    show_toast(self, "Document supprimé.")
+        elif item_type == "folder":
+            folder = FolderModel.get_or_none(FolderModel.id == item_id)
+            if folder:
+                reply = QMessageBox.question(
+                    self,
+                    "Confirmer la suppression",
+                    f"Voulez-vous vraiment supprimer le dossier '{folder.name}' et tout son contenu (sous-dossiers et documents) ?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    with FolderModel._meta.database.atomic():
+                        folders_to_delete = FolderModel.select().where((FolderModel.name == folder.name) | (FolderModel.name.startswith(folder.name + "::")))
+                        for f in folders_to_delete:
+                            f.delete_instance()
+                    self.refresh_data()
+                    self.editor_stack.setCurrentIndex(0)
+                    show_toast(self, "Dossier supprimé.")
 
     @Slot()
     def _on_run_marker_analysis(self) -> None:
