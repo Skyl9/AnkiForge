@@ -47,15 +47,22 @@ class CardPreviewWidget(QWidget):
         layout.setSpacing(10)
 
         # --- En-tête de contrôles (Barre de contrôles conforme maquette) ---
+        # --- En-tête de contrôles (Barre de contrôles) ---
         self.controls_container = QWidget()
-        self.controls_layout = QHBoxLayout(self.controls_container)
-        self.controls_layout.setContentsMargins(0, 0, 0, 0)
-        self.controls_layout.setSpacing(12)
+        self.controls_layout = QVBoxLayout(self.controls_container)
+        self.controls_layout.setContentsMargins(12, 12, 12, 12)
+        self.controls_layout.setSpacing(8)
+
+        # Ligne 1 : Titre et thèmes / mode
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(12)
 
         if show_header:
             lbl_preview = QLabel("PRÉVISUALISATION")
             lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; " "font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border: none;")
-            self.controls_layout.addWidget(lbl_preview)
+            row1_layout.addWidget(lbl_preview)
+
+        row1_layout.addStretch()
 
         # Sélecteur de carte (Carte n°1, Carte n°2)
         self.card_selector = StyledComboBox()
@@ -80,9 +87,13 @@ class CardPreviewWidget(QWidget):
         self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_toggle_side.clicked.connect(self._on_toggle_side)
 
-        self.controls_layout.addWidget(self.card_selector)
-        self.controls_layout.addWidget(self.btn_toggle_side)
-        self.controls_layout.addStretch()
+        # Ligne 2 : Sélecteur de carte et bouton recto/verso
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(12)
+
+        row2_layout.addWidget(self.card_selector)
+        row2_layout.addWidget(self.btn_toggle_side)
+        row2_layout.addStretch()
 
         # Boutons de bascule multi-appareils (Bureau / Tablette / Mobile)
         self.device_container = QWidget()
@@ -104,11 +115,14 @@ class CardPreviewWidget(QWidget):
         device_layout.addWidget(self.btn_tablet)
         device_layout.addWidget(self.btn_mobile)
 
-        self.controls_layout.addWidget(self.device_container)
+        row1_layout.addWidget(self.device_container)
 
         self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip="Basculer le thème", size=24)
         self.btn_theme_toggle.clicked.connect(self._toggle_theme)
-        self.controls_layout.addWidget(self.btn_theme_toggle)
+        row1_layout.addWidget(self.btn_theme_toggle)
+
+        self.controls_layout.addLayout(row1_layout)
+        self.controls_layout.addLayout(row2_layout)
 
         layout.addWidget(self.controls_container)
 

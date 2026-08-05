@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QVBoxLayout,
     QWidget,
+    QSlider,
 )
 
 from ankiforge.database.models import PersonaModel, LLMConfigModel, NoteTypeModel
@@ -62,6 +63,73 @@ class ABTestsView(QWidget):
         self.refresh_data()
         self._insert_mock_initial_data()
 
+    def _build_advanced_settings(self) -> tuple[QWidget, QSlider, QSlider]:
+        adv_widget = QWidget()
+        adv_layout = QHBoxLayout(adv_widget)
+        adv_layout.setContentsMargins(12, 4, 12, 4)
+        adv_layout.setSpacing(16)
+
+        lbl_temp = QLabel("Température :")
+        lbl_temp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+
+        temp_slider = QSlider(Qt.Orientation.Horizontal)
+        temp_slider.setRange(0, 200)
+        temp_slider.setValue(70)
+        temp_slider.setFixedWidth(120)
+
+        slider_style = f"""
+            QSlider::groove:horizontal {{
+                border: 1px solid #333;
+                height: 4px;
+                background: #1e1e1e;
+                margin: 0px 0;
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {DesignTokens.ACCENT_PRIMARY};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                width: 12px;
+                height: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
+            }}
+            QSlider::add-page:horizontal {{
+                background: #1e1e1e;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+        temp_slider.setStyleSheet(slider_style)
+
+        lbl_temp_val = QLabel("0.70")
+        lbl_temp_val.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        temp_slider.valueChanged.connect(lambda v, lbl=lbl_temp_val: lbl.setText(f"{v/100:.2f}"))
+
+        adv_layout.addWidget(lbl_temp)
+        adv_layout.addWidget(temp_slider)
+        adv_layout.addWidget(lbl_temp_val)
+
+        lbl_tok = QLabel("Max Tokens :")
+        lbl_tok.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+
+        tok_slider = QSlider(Qt.Orientation.Horizontal)
+        tok_slider.setRange(256, 8192)
+        tok_slider.setValue(4096)
+        tok_slider.setFixedWidth(120)
+        tok_slider.setStyleSheet(slider_style)
+
+        lbl_tok_val = QLabel("4096")
+        lbl_tok_val.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        tok_slider.valueChanged.connect(lambda v, lbl=lbl_tok_val: lbl.setText(str(v)))
+
+        adv_layout.addWidget(lbl_tok)
+        adv_layout.addWidget(tok_slider)
+        adv_layout.addWidget(lbl_tok_val)
+        adv_layout.addStretch()
+
+        return adv_widget, temp_slider, tok_slider
+
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
@@ -69,12 +137,9 @@ class ABTestsView(QWidget):
 
         self.ab_panel = IdePanel(detachable=True)
 
-        # Bouton Lancer dans le header du panneau
+        # Bouton Lancer déplacé dans la barre de configuration
         self.btn_run = PrimaryButton("Lancer")
         self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
-
-        self.ab_panel.add_header_widget(self.btn_run)
-        self.ab_panel.add_header_separator()
 
         ab_content = QWidget()
         ab_layout = QVBoxLayout(ab_content)
@@ -83,7 +148,10 @@ class ABTestsView(QWidget):
 
         # Toolbar de configuration globale (Mode, Prompt, Modèle, Voir Recto/Verso)
         config_bar_widget = QWidget()
-        config_bar_widget.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
+        config_bar_widget.setObjectName("ConfigBarWidget")
+        config_bar_widget.setStyleSheet(
+            f"QWidget#ConfigBarWidget {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}"
+        )
         config_bar = QHBoxLayout(config_bar_widget)
         config_bar.setContentsMargins(12, 8, 12, 8)
         config_bar.setSpacing(10)
@@ -101,24 +169,49 @@ class ABTestsView(QWidget):
         self.mode_combo.addItems(["Comparer deux Moteurs IA", "Comparer deux Prompts"])
         add_cfg("Mode :", self.mode_combo)
 
+        # Global Persona (used when comparing engines)
+        self.global_persona_widget = QWidget()
+        gp_layout = QHBoxLayout(self.global_persona_widget)
+        gp_layout.setContentsMargins(0, 0, 0, 0)
+        gp_layout.setSpacing(6)
+        lbl_gp = QLabel("Prompt/Pipe :")
+        lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.persona_combo = StyledComboBox()
-        add_cfg("Prompt/Pipe :", self.persona_combo)
+        gp_layout.addWidget(lbl_gp)
+        gp_layout.addWidget(self.persona_combo)
+        config_bar.addWidget(self.global_persona_widget)
+
+        # Global Engine (used when comparing prompts)
+        self.global_engine_widget = QWidget()
+        ge_layout = QHBoxLayout(self.global_engine_widget)
+        ge_layout.setContentsMargins(0, 0, 0, 0)
+        ge_layout.setSpacing(6)
+        lbl_ge = QLabel("Moteur :")
+        lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.global_engine_combo = StyledComboBox()
+        ge_layout.addWidget(lbl_ge)
+        ge_layout.addWidget(self.global_engine_combo)
+        config_bar.addWidget(self.global_engine_widget)
+        self.global_engine_widget.hide()
 
         self.model_combo = StyledComboBox()
         add_cfg("Modèle :", self.model_combo)
 
         config_bar.addStretch()
-
-        self.view_side_combo = StyledComboBox()
-        self.view_side_combo.addItems(["Voir Recto", "Voir Verso"])
-        config_bar.addWidget(self.view_side_combo)
+        config_bar.addWidget(self.btn_run)
 
         ab_layout.addWidget(config_bar_widget)
 
+        # Paramètres Avancés Globaux (visibles en mode Comparer deux Prompts)
+        self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_advanced_settings()
+        self.global_adv_widget.hide()
+        ab_layout.addWidget(self.global_adv_widget)
+
         # Section Texte Source
         source_box = QFrame()
+        source_box.setObjectName("SourceBox")
         source_box.setFixedHeight(120)
-        source_box.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
+        source_box.setStyleSheet(f"QFrame#SourceBox {{ background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         source_layout = QVBoxLayout(source_box)
         source_layout.setContentsMargins(12, 8, 12, 8)
         source_layout.setSpacing(4)
@@ -136,24 +229,37 @@ class ABTestsView(QWidget):
 
         # Comparaison côte-à-côte (Splitter Horizontal Moteur A / Moteur B)
         self.compare_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.compare_splitter.setStyleSheet(f"""
+            QSplitter::handle {{
+                background-color: {DesignTokens.BORDER_COLOR};
+                width: 2px;
+            }}
+        """)
         ab_layout.addWidget(self.compare_splitter, 1)
 
         # --- PANNEAU A (Moteur A) ---
         self.panel_a = QFrame()
-        self.panel_a.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
+        self.panel_a.setObjectName("PanelA")
+        self.panel_a.setStyleSheet(f"QFrame#PanelA {{ background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         layout_a = QVBoxLayout(self.panel_a)
         layout_a.setContentsMargins(0, 0, 0, 0)
         layout_a.setSpacing(0)
 
-        # Header Moteur A
+        # Header Panel A
         toolbar_a = QHBoxLayout()
         toolbar_a.setContentsMargins(10, 8, 10, 8)
-        lbl_a = QLabel("Moteur A :")
-        lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.lbl_a = QLabel("Moteur A :")
+        self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.engine_a_combo = StyledComboBox()
-        toolbar_a.addWidget(lbl_a)
+        self.persona_a_combo = StyledComboBox()
+        self.persona_a_combo.hide()
+        toolbar_a.addWidget(self.lbl_a)
         toolbar_a.addWidget(self.engine_a_combo, 1)
+        toolbar_a.addWidget(self.persona_a_combo, 1)
         layout_a.addLayout(toolbar_a)
+
+        self.adv_widget_a, self.temp_slider_a, self.tok_slider_a = self._build_advanced_settings()
+        layout_a.addWidget(self.adv_widget_a)
 
         # Sub-tabs A (Onglets stylisés Maquette concept_ide)
         self.subtabs_a = IdeTabBar()
@@ -178,7 +284,7 @@ class ABTestsView(QWidget):
 
         # Content Stack A (Page 0: CardPreviewWidget, Page 1: Raw JSON)
         self.stack_a = QStackedWidget()
-        self.preview_a = CardPreviewWidget(show_header=False)
+        self.preview_a = CardPreviewWidget(show_header=True)
         self.json_edit_a = StyledTextEdit()
         self.json_edit_a.setReadOnly(True)
         self.json_edit_a.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: Menlo; border: none; padding: 10px; }")
@@ -191,20 +297,27 @@ class ABTestsView(QWidget):
 
         # --- PANNEAU B (Moteur B) ---
         self.panel_b = QFrame()
-        self.panel_b.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
+        self.panel_b.setObjectName("PanelB")
+        self.panel_b.setStyleSheet(f"QFrame#PanelB {{ background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         layout_b = QVBoxLayout(self.panel_b)
         layout_b.setContentsMargins(0, 0, 0, 0)
         layout_b.setSpacing(0)
 
-        # Header Moteur B
+        # Header Panel B
         toolbar_b = QHBoxLayout()
         toolbar_b.setContentsMargins(10, 8, 10, 8)
-        lbl_b = QLabel("Moteur B :")
-        lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.lbl_b = QLabel("Moteur B :")
+        self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.engine_b_combo = StyledComboBox()
-        toolbar_b.addWidget(lbl_b)
+        self.persona_b_combo = StyledComboBox()
+        self.persona_b_combo.hide()
+        toolbar_b.addWidget(self.lbl_b)
         toolbar_b.addWidget(self.engine_b_combo, 1)
+        toolbar_b.addWidget(self.persona_b_combo, 1)
         layout_b.addLayout(toolbar_b)
+
+        self.adv_widget_b, self.temp_slider_b, self.tok_slider_b = self._build_advanced_settings()
+        layout_b.addWidget(self.adv_widget_b)
 
         # Sub-tabs B (Onglets stylisés Maquette concept_ide)
         self.subtabs_b = IdeTabBar()
@@ -229,7 +342,7 @@ class ABTestsView(QWidget):
 
         # Content Stack B (Page 0: CardPreviewWidget, Page 1: Raw JSON)
         self.stack_b = QStackedWidget()
-        self.preview_b = CardPreviewWidget(show_header=False)
+        self.preview_b = CardPreviewWidget(show_header=True)
         self.json_edit_b = StyledTextEdit()
         self.json_edit_b.setReadOnly(True)
         self.json_edit_b.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: Menlo; border: none; padding: 10px; }")
@@ -255,7 +368,40 @@ class ABTestsView(QWidget):
         self.btn_prev_b.clicked.connect(self._prev_b)
         self.btn_next_b.clicked.connect(self._next_b)
 
-        self.view_side_combo.currentIndexChanged.connect(self._update_views)
+        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+
+    @Slot()
+    def _on_mode_changed(self) -> None:
+        if self.mode_combo.currentIndex() == 0:
+            # Mode "Comparer deux Moteurs IA"
+            self.global_persona_widget.show()
+            self.global_engine_widget.hide()
+            self.global_adv_widget.hide()
+
+            self.lbl_a.setText("Moteur A :")
+            self.engine_a_combo.show()
+            self.persona_a_combo.hide()
+            self.adv_widget_a.show()
+
+            self.lbl_b.setText("Moteur B :")
+            self.engine_b_combo.show()
+            self.persona_b_combo.hide()
+            self.adv_widget_b.show()
+        else:
+            # Mode "Comparer deux Prompts"
+            self.global_persona_widget.hide()
+            self.global_engine_widget.show()
+            self.global_adv_widget.show()
+
+            self.lbl_a.setText("Prompt A :")
+            self.engine_a_combo.hide()
+            self.persona_a_combo.show()
+            self.adv_widget_a.hide()
+
+            self.lbl_b.setText("Prompt B :")
+            self.engine_b_combo.hide()
+            self.persona_b_combo.show()
+            self.adv_widget_b.hide()
 
     def refresh_data(self) -> None:
         """Recharge les moteurs, agents et modèles depuis Peewee DB."""
@@ -270,20 +416,31 @@ class ABTestsView(QWidget):
                 for eg in engines:
                     self.engine_a_combo.addItem(eg.display_name, userData=eg)
                     self.engine_b_combo.addItem(eg.display_name, userData=eg)
+                    self.global_engine_combo.addItem(eg.display_name, userData=eg)
                 if len(engines) > 1:
                     self.engine_b_combo.setCurrentIndex(1)
             else:
                 self.engine_a_combo.addItem("Claude 3.5 Sonnet")
                 self.engine_b_combo.addItem("GPT-4o")
+                self.global_engine_combo.addItem("Claude 3.5 Sonnet")
 
             self.engine_a_combo.blockSignals(False)
             self.engine_b_combo.blockSignals(False)
+            self.global_engine_combo.blockSignals(False)
 
             self.persona_combo.blockSignals(True)
+            self.persona_a_combo.blockSignals(True)
+            self.persona_b_combo.blockSignals(True)
             self.persona_combo.clear()
+            self.persona_a_combo.clear()
+            self.persona_b_combo.clear()
             for ag in PersonaModel.select():
                 self.persona_combo.addItem(ag.name, userData=ag)
+                self.persona_a_combo.addItem(ag.name, userData=ag)
+                self.persona_b_combo.addItem(ag.name, userData=ag)
             self.persona_combo.blockSignals(False)
+            self.persona_a_combo.blockSignals(False)
+            self.persona_b_combo.blockSignals(False)
 
             self.model_combo.blockSignals(True)
             self.model_combo.clear()
@@ -317,6 +474,15 @@ class ABTestsView(QWidget):
 
     def _update_views(self) -> None:
         selected_nt = self.model_combo.currentData()
+        fields = ["Front", "Back"]
+        if selected_nt and getattr(selected_nt, "fields_schema", None):
+            try:
+                fields = json.loads(selected_nt.fields_schema)
+            except Exception:
+                pass
+
+        f_front = fields[0] if len(fields) > 0 else "Front"
+        f_back = fields[1] if len(fields) > 1 else "Back"
 
         # Side A
         if self.cards_a:
@@ -324,9 +490,10 @@ class ABTestsView(QWidget):
             current_card_a = self.cards_a[self.index_a]
             self.json_edit_a.setPlainText(json.dumps(current_card_a, ensure_ascii=False, indent=2))
 
-            tmpl_a = {"name": "Carte 1", "qfmt": current_card_a.get("Front", "{{Front}}")}
-            if self.view_side_combo.currentIndex() == 1:
-                tmpl_a["afmt"] = current_card_a.get("Back", "{{Back}}")
+            qfmt_a = current_card_a.get(f_front) or current_card_a.get(f_front.lower()) or f"{{{{{f_front}}}}}"
+            back_val_a = current_card_a.get(f_back) or current_card_a.get(f_back.lower()) or f"{{{{{f_back}}}}}"
+            afmt_a = f'{{{{FrontSide}}}}<br><hr id="answer"><br>{back_val_a}'
+            tmpl_a = {"name": "Carte 1", "qfmt": qfmt_a, "afmt": afmt_a}
 
             self.preview_a.update_preview(
                 note_type=selected_nt,
@@ -342,9 +509,10 @@ class ABTestsView(QWidget):
             current_card_b = self.cards_b[self.index_b]
             self.json_edit_b.setPlainText(json.dumps(current_card_b, ensure_ascii=False, indent=2))
 
-            tmpl_b = {"name": "Carte 1", "qfmt": current_card_b.get("Front", "{{Front}}")}
-            if self.view_side_combo.currentIndex() == 1:
-                tmpl_b["afmt"] = current_card_b.get("Back", "{{Back}}")
+            qfmt_b = current_card_b.get(f_front) or current_card_b.get(f_front.lower()) or f"{{{{{f_front}}}}}"
+            back_val_b = current_card_b.get(f_back) or current_card_b.get(f_back.lower()) or f"{{{{{f_back}}}}}"
+            afmt_b = f'{{{{FrontSide}}}}<br><hr id="answer"><br>{back_val_b}'
+            tmpl_b = {"name": "Carte 1", "qfmt": qfmt_b, "afmt": afmt_b}
 
             self.preview_b.update_preview(
                 note_type=selected_nt,
@@ -389,11 +557,30 @@ class ABTestsView(QWidget):
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
         nt_schema = json.loads(selected_nt.fields_schema) if selected_nt and selected_nt.fields_schema else ["Front", "Back"]
 
-        engine_a = self.engine_a_combo.currentData()
-        engine_b = self.engine_b_combo.currentData()
+        is_engine_mode = self.mode_combo.currentIndex() == 0
+
+        engine_a = self.engine_a_combo.currentData() if is_engine_mode else self.global_engine_combo.currentData()
+        engine_b = self.engine_b_combo.currentData() if is_engine_mode else self.global_engine_combo.currentData()
+
+        persona_a = self.persona_combo.currentData() if is_engine_mode else self.persona_a_combo.currentData()
+        persona_b = self.persona_combo.currentData() if is_engine_mode else self.persona_b_combo.currentData()
+
+        if not persona_a or not persona_b:
+            show_toast(self, "Il manque un prompt/agent configuré !", is_error=True)
+            return
 
         show_toast(self, "Lancement du test A/B en parallèle...")
         self.btn_run.setEnabled(False)
+
+        # Application des paramètres avancés (température et max_tokens)
+        if is_engine_mode:
+            temp_a = self.temp_slider_a.value() / 100.0
+            tok_a = self.tok_slider_a.value()
+            temp_b = self.temp_slider_b.value() / 100.0
+            tok_b = self.tok_slider_b.value()
+        else:
+            temp_a = temp_b = self.global_temp_slider.value() / 100.0
+            tok_a = tok_b = self.global_tok_slider.value()
 
         provider_a = None
         provider_b = None
@@ -401,40 +588,51 @@ class ABTestsView(QWidget):
         if self.ai_manager:
             if engine_a and hasattr(self.ai_manager, "create_provider_from_config"):
                 try:
+                    engine_a.temperature = temp_a
+                    engine_a.context_limit = tok_a
                     provider_a = self.ai_manager.create_provider_from_config(engine_a)
                 except Exception:
                     pass  # nosec B110
             if engine_b and hasattr(self.ai_manager, "create_provider_from_config"):
                 try:
+                    engine_b.temperature = temp_b
+                    engine_b.context_limit = tok_b
                     provider_b = self.ai_manager.create_provider_from_config(engine_b)
                 except Exception:
                     pass  # nosec B110
 
+        # Construct pipeline steps from Personas
+        steps_a = [{"name": persona_a.name, "system_prompt": persona_a.system_prompt, "output_format": getattr(persona_a, "output_format", "json")}]
+
+        steps_b = [{"name": persona_b.name, "system_prompt": persona_b.system_prompt, "output_format": getattr(persona_b, "output_format", "json")}]
+
         payload_a = CreationTaskPayload(
             text_source=text_source,
             note_type_id=nt_id,
-            note_type_fields_schema=nt_schema,
+            note_type_fields_schema=json.dumps(nt_schema, ensure_ascii=False),
             pipeline_id=1,
             pipeline_name="AB_Test_A",
-            pipeline_steps=[],
+            pipeline_steps=steps_a,
             use_vision=False,
         )
 
         payload_b = CreationTaskPayload(
             text_source=text_source,
             note_type_id=nt_id,
-            note_type_fields_schema=nt_schema,
+            note_type_fields_schema=json.dumps(nt_schema, ensure_ascii=False),
             pipeline_id=1,
             pipeline_name="AB_Test_B",
-            pipeline_steps=[],
+            pipeline_steps=steps_b,
             use_vision=False,
         )
 
         self.worker_a = CreationWorker(ai_provider=provider_a, payload=payload_a)
         self.worker_a.finished.connect(self._on_finished_a)
+        self.worker_a.error.connect(lambda msg: show_toast(self, f"Erreur Moteur A: {msg}", is_error=True))
 
         self.worker_b = CreationWorker(ai_provider=provider_b, payload=payload_b)
         self.worker_b.finished.connect(self._on_finished_b)
+        self.worker_b.error.connect(lambda msg: show_toast(self, f"Erreur Moteur B: {msg}", is_error=True))
 
         self.worker_a.start()
         self.worker_b.start()

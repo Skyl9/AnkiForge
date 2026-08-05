@@ -24,7 +24,12 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
         svg_content = f.read()
 
     # Replace currentColor with our target color
-    svg_content = svg_content.replace("currentColor", color)
+    if "currentColor" in svg_content:
+        svg_content = svg_content.replace("currentColor", color)
+    else:
+        # In case the SVG doesn't use currentColor (e.g. many fill icons default to black paths),
+        # inject the fill color into the root SVG tag to cascade downwards.
+        svg_content = svg_content.replace("<svg ", f'<svg fill="{color}" ')
 
     # Load into QPixmap
     pixmap = QPixmap()

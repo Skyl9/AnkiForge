@@ -1006,6 +1006,7 @@ class AIDuplicatesMergeTab(QWidget):
 
         # 2. Inspecteur de fusion (Bottom)
         self.merge_inspector = DuplicateMergeInspector()
+        self.merge_inspector.hide()
         layout.addWidget(self.merge_inspector, stretch=1)
 
         # Connexions
@@ -1078,18 +1079,22 @@ class AIDuplicatesMergeTab(QWidget):
     def on_table_selection_changed(self) -> None:
         selected = self.matrix_table.table.selectedItems()
         if not selected:
+            self.merge_inspector.hide()
             return
 
         row = selected[0].row()
         item = self.matrix_table.table.item(row, 2)
         if not item:
+            self.merge_inspector.hide()
             return
 
         row_data = item.data(Qt.ItemDataRole.UserRole)
         if not row_data:
+            self.merge_inspector.hide()
             return
 
         self.merge_inspector.load_conflict(row_data)
+        self.merge_inspector.show()
 
     def on_merge_requested(self, note_keep, note_del, merged_content) -> None:
         # Business logic for merging

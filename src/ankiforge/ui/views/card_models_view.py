@@ -395,36 +395,6 @@ class CardModelsView(QWidget):
         preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(0)
 
-        # Toolbar supérieure de Live Preview
-        prev_controls_widget = QWidget()
-        prev_controls_widget.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
-        prev_controls = QHBoxLayout(prev_controls_widget)
-        prev_controls.setContentsMargins(12, 8, 12, 8)
-        prev_controls.setSpacing(8)
-
-        lbl_prev_icon = QLabel()
-        lbl_prev_icon.setPixmap(load_phosphor_icon("ph.monitor", color=DesignTokens.COLOR_BLUE).pixmap(18, 18))
-        lbl_prev = QLabel("LIVE PREVIEW")
-        lbl_prev.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-
-        prev_controls.addWidget(lbl_prev_icon)
-        prev_controls.addWidget(lbl_prev)
-        prev_controls.addStretch()
-
-        lbl_card_num = QLabel("Carte :")
-        lbl_card_num.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        prev_controls.addWidget(lbl_card_num)
-
-        self.card_index_combo = StyledComboBox()
-        self.card_index_combo.addItems(["1/1"])
-        prev_controls.addWidget(self.card_index_combo)
-
-        self.view_side_combo = StyledComboBox()
-        self.view_side_combo.addItems(["Voir Recto", "Voir Verso"])
-        prev_controls.addWidget(self.view_side_combo)
-
-        preview_layout.addWidget(prev_controls_widget)
-
         # Cadre d'arrière-plan sombre avec halo lumineux radial (#0f111a)
         preview_canvas = QFrame()
         preview_canvas.setStyleSheet("""
@@ -469,7 +439,6 @@ class CardModelsView(QWidget):
         self.css_editor_wrapper.editor.textChanged.connect(self._update_preview)
         self.front_html_wrapper.editor.textChanged.connect(self._update_preview)
         self.back_html_wrapper.editor.textChanged.connect(self._update_preview)
-        self.view_side_combo.currentIndexChanged.connect(self._update_preview)
 
     def _switch_subtab(self, index: int) -> None:
         self.editor_stack.setCurrentIndex(index)
@@ -620,10 +589,7 @@ class CardModelsView(QWidget):
         afmt = self.back_html_wrapper.toPlainText()
         css = self.css_editor_wrapper.toPlainText()
 
-        tmpl = {"name": "Carte 1", "qfmt": qfmt}
-        is_verso = self.view_side_combo.currentIndex() == 1
-        if is_verso:
-            tmpl["afmt"] = afmt
+        tmpl = {"name": "Carte 1", "qfmt": qfmt, "afmt": afmt}
 
         self.card_preview_widget.update_preview(
             note_type=self._current_model,
