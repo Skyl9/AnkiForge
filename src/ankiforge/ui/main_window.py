@@ -580,6 +580,10 @@ class MainWindow(QMainWindow):
                 if hasattr(widget, "select_note_by_id"):
                     cast(Any, widget).select_note_by_id(data["note_id"])
 
+            if view_id == "creation" and isinstance(data, dict) and "prompt" in data:
+                if hasattr(widget, "_open_document_tab"):
+                    cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+
     def _can_switch_view(self) -> bool:
         """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""
         if not self._current_view_id:

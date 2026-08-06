@@ -190,7 +190,7 @@ class AIEnginesTab(QWidget):
         lbl_models.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(lbl_models)
 
-        self.table_engines = StyledTableWidget(["Nom", "Fournisseur", "Identifiant Modèle"])
+        self.table_engines = StyledTableWidget(["Nom", "Fournisseur", "Identifiant Modèle", "Gratuit"])
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
         layout.addWidget(self.table_engines, 1)
 
@@ -237,6 +237,11 @@ class AIEnginesTab(QWidget):
                 self.table_engines.setItem(i, 1, QTableWidgetItem(getattr(eg, "provider", "inconnu").upper()))
                 self.table_engines.setItem(i, 2, QTableWidgetItem(getattr(eg, "model_id", "default")))
 
+                item_free = QTableWidgetItem()
+                item_free.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+                item_free.setCheckState(Qt.CheckState.Checked if getattr(eg, "is_free", False) else Qt.CheckState.Unchecked)
+                self.table_engines.setItem(i, 3, item_free)
+
             self.table_engines.blockSignals(False)
         except Exception as e:
             logger.warning("Erreur refresh_data ai_engines_tab: %s", e)
@@ -248,7 +253,7 @@ class AIEnginesTab(QWidget):
                 show_toast(self, "Ollama est déjà configuré dans le catalogue.", is_error=True)
                 return
 
-            LLMConfigModel.create(display_name="Ollama Local", provider="ollama", model_id="llama3", context_limit=8192, api_key="")
+            LLMConfigModel.create(display_name="Ollama Local", provider="ollama", model_id="llama3", context_limit=8192, api_key="", is_free=True)
             self.refresh_data()
             if self.ai_manager:
                 self.ai_manager.reload_provider()
@@ -311,6 +316,8 @@ class AIEnginesTab(QWidget):
                 config.provider = item.text().strip().lower()
             elif item.column() == 2:
                 config.model_id = item.text().strip()
+            elif item.column() == 3:
+                config.is_free = item.checkState() == Qt.CheckState.Checked
             config.save()
 
             if self.ai_manager:

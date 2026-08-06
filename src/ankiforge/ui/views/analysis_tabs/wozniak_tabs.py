@@ -56,14 +56,14 @@ class WozniakKpiCard(QFrame):
         # Barre de progression
         progress_bg = QFrame()
         progress_bg.setFixedHeight(4)
-        progress_bg.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-radius: 2px;")
+        progress_bg.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border-radius: 2px; }}")
         prog_layout = QHBoxLayout(progress_bg)
         prog_layout.setContentsMargins(0, 0, 0, 0)
 
         progress_bar = QFrame()
         # On convertit le score "85%" en un flex stretch (très basique pour l'UI)
         pct = int(score.replace("%", ""))
-        progress_bar.setStyleSheet(f"background-color: {self.base_color}; border-radius: 2px;")
+        progress_bar.setStyleSheet(f".QFrame {{ background-color: {self.base_color}; border-radius: 2px; }}")
         prog_layout.addWidget(progress_bar, stretch=pct)
         prog_layout.addStretch(100 - pct)
 
@@ -254,7 +254,7 @@ class AIWozniakLinterTab(QWidget):
 
     def _build_header(self) -> QWidget:
         header = QFrame()
-        header.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
+        header.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         header.setFixedHeight(48)
 
         h_layout = QHBoxLayout(header)
@@ -263,7 +263,7 @@ class AIWozniakLinterTab(QWidget):
         # Left
         title = QLabel("Audit Ergonomique Wozniak")
         title.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        btn_deck = SecondaryButton("Informatique::C++")
+        btn_deck = SecondaryButton("L'ensemble des paquets")
         btn_analyze = PrimaryButton("Analyser ce paquet")
 
         h_layout.addWidget(title)
@@ -343,7 +343,7 @@ class AIWozniakLinterTab(QWidget):
 
         # --- STICKY BANNER (Ne scrolle pas !) ---
         banner = QFrame()
-        banner.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px;")
+        banner.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         b_layout = QVBoxLayout(banner)
 
         top_h = QHBoxLayout()

@@ -175,6 +175,14 @@ class CardModel(BaseModel):
     deck = ForeignKeyField(DeckModel, backref="cards", on_delete="CASCADE")
     template_index = IntegerField(default=0)  # Index du template (Recto=0, Verso=1)
 
+    # --- Statistiques FSRS synchronisées depuis Anki ---
+    ivl = IntegerField(default=0)
+    reps = IntegerField(default=0)
+    lapses = IntegerField(default=0)
+    stability = FloatField(default=0.0)
+    difficulty = FloatField(default=0.0)
+    retrievability = FloatField(default=0.0)
+
 
 class PromptModel(BaseModel):
     """Stocke les templates Jinja2 personnalisés"""
@@ -196,6 +204,7 @@ class LLMConfigModel(BaseModel):
     api_key = CharField(null=True)
     prompt_pricing = FloatField(default=0.0)
     completion_pricing = FloatField(default=0.0)
+    is_free = BooleanField(default=False)
 
     class Meta:
         table_name = "llm_configs"
@@ -210,6 +219,7 @@ class TokenUsageModel(BaseModel):
     completion_tokens = IntegerField(default=0)
     total_tokens = IntegerField(default=0)
     estimated_cost_usd = FloatField(default=0.0)  # On le calculera grossièrement
+    task_type = CharField(default="1. Reformulation & Génération Wozniak")  # Type de tâche IA pour répartition
     created_at = DateTimeField(default=datetime.datetime.now)
 
     class Meta:
@@ -273,6 +283,12 @@ class DocumentModel(BaseModel):
     # 🆕 Clé étrangère vers le dossier. null=True permet d'avoir des docs "non rangés".
     # on_delete='CASCADE' supprime les documents si on supprime le dossier.
     folder = ForeignKeyField(FolderModel, backref="documents", null=True, on_delete="CASCADE")
+    # Média original importé (ex: PDF source avant passage dans Marker)
+    original_media = ForeignKeyField(MediaModel, backref="parsed_documents", null=True, on_delete="SET NULL")
+    # Type de fichier d'origine (pdf, md, png, youtube, web)
+    file_type = CharField(default="md")
+    # Pour les documents issus du Web ou YouTube
+    source_url = CharField(null=True)
 
 
 class JobModel(BaseModel):
@@ -376,12 +392,26 @@ class AICacheModel(BaseModel):
         indexes = ((("prompt_hash", "system_prompt_hash", "model_id", "temperature"), True),)
 
 
+class FacetProfileModel(BaseModel):
+    """
+    Stocker les grilles de facettes personnalisées de l'utilisateur.
+    """
+
+    name = CharField(unique=True)
+    description = TextField(null=True)
+    is_active = BooleanField(default=False)
+
+    class Meta:
+        table_name = "facet_profiles"
+
+
 class CognitiveFacetModel(BaseModel):
     """
     Définit une facette d'apprentissage (ex: Quoi, Pourquoi, Comment).
     Totalement modulaire : l'utilisateur peut créer ses propres facettes.
     """
 
+    profile = ForeignKeyField(FacetProfileModel, backref="facets", null=True, on_delete="CASCADE")
     name = CharField(unique=True)  # Ex: "Pourquoi (Cause)"
     description = TextField(null=True)  # Ex: "Explique l'origine ou la raison du concept."
     is_active = BooleanField(default=True)
@@ -450,6 +480,8 @@ def seed_initial_data() -> None:
     # 1. NOUVEAUTÉ : FACETTES & PROFILEUR
     # (À placer TOUT EN HAUT pour contourner le "return" prématuré)
     # ==========================================
+    profile_default, _ = FacetProfileModel.get_or_create(name="Profil Étudiant Universel", defaults={"description": "Grille de facettes standard pour les cours théoriques.", "is_active": True})
+
     facets = [
         {"name": "Quoi (Définition)", "desc": "Définit le concept, sa nature ou sa structure de base."},
         {"name": "Pourquoi (Cause)", "desc": "Explique l'origine, la raison d'être ou la cause d'un phénomène."},
@@ -458,7 +490,7 @@ def seed_initial_data() -> None:
         {"name": "Exemple (Application)", "desc": "Fournit un cas d'usage concret, clinique ou pratique."},
     ]
     for f in facets:
-        CognitiveFacetModel.get_or_create(name=f["name"], defaults={"description": f["desc"]})
+        CognitiveFacetModel.get_or_create(name=f["name"], defaults={"description": f["desc"], "profile": profile_default})
 
     profileur_prompt = (
         "Tu es un ingénieur pédagogique expert en neurosciences de l'apprentissage.\n"
@@ -484,7 +516,22 @@ def seed_initial_data() -> None:
         defaults={"description": "Analyse un texte et détermine les angles d'apprentissage requis (Facettes).", "system_prompt": profileur_prompt},
     )
 
-    if PersonaModel.select().where(PersonaModel.name != "Profileur Cognitif").count() > 0:
+    juge_prompt = (
+        "Tu es l'Agent Juge d'AnkiForge, un fact-checker impitoyable contre les hallucinations.\n"
+        "Je vais te fournir le contenu d'une carte d'apprentissage (Anki) et le fragment de cours (Chunk) dont elle est issue.\n"
+        "Ta mission est de vérifier que la carte ne contredit pas le cours et n'invente aucune information.\n\n"
+        "Format de réponse JSON strict :\n"
+        "{\n"
+        '  "is_hallucinating": false,\n'
+        '  "reason": "La carte reprend exactement la définition du cours sans rien ajouter."\n'
+        "}"
+    )
+    PersonaModel.get_or_create(
+        name="Juge Fact-Checker",
+        defaults={"description": "Vérifie qu'une carte ne dit pas le contraire de son cours source (Anti-Hallucination).", "system_prompt": juge_prompt},
+    )
+
+    if PersonaModel.select().where(PersonaModel.name == "Archiviste Pédagogue").count() > 0:
         return
 
     # Chemin vers les ressources de prompts (dossier src/ankiforge/ressources/prompts)

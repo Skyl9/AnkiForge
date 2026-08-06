@@ -143,7 +143,7 @@ class FieldInspectorWidget(QFrame):
 
         # Original Panel
         orig_box = QFrame()
-        orig_box.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px;")
+        orig_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
         orig_layout = QVBoxLayout(orig_box)
         orig_title = QLabel("CARTE ACTUELLE EN BASE (SQLite)")
         orig_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
@@ -160,7 +160,7 @@ class FieldInspectorWidget(QFrame):
 
         # Proposal Panel
         prop_box = QFrame()
-        prop_box.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 8px;")
+        prop_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 8px; }}")
         prop_layout = QVBoxLayout(prop_box)
         prop_title = QLabel("PROPOSITION MUTÉE IA MCP")
         prop_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
@@ -232,7 +232,7 @@ class WozniakCardItemWidget(QFrame):
 
         # Gauche (Actuelle)
         orig_panel = QFrame()
-        orig_panel.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px;")
+        orig_panel.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
         op_layout = QVBoxLayout(orig_panel)
         op_title = QLabel("CARTE ACTUELLE EN BASE :")
         op_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
@@ -249,7 +249,7 @@ class WozniakCardItemWidget(QFrame):
 
         # Droite (Proposition)
         prop_panel = QFrame()
-        prop_panel.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px;")
+        prop_panel.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
         pp_layout = QVBoxLayout(prop_panel)
         pp_title = QLabel(item_data.get("proposal_summary", "PROPOSITION MCP :"))
         pp_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
@@ -278,7 +278,7 @@ class WozniakCardItemWidget(QFrame):
 
         # Barre d'action inférieure
         act_bar = QFrame()
-        act_bar.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        act_bar.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}")
         ab_layout = QHBoxLayout(act_bar)
         ab_layout.setContentsMargins(8, 4, 8, 4)
 
@@ -431,3 +431,126 @@ class RetentionCurveCanvas(QWidget):
         painter.drawEllipse(120 - 3, 33 - 3, 6, 6)
         painter.setBrush(QBrush(QColor(DesignTokens.COLOR_GREEN)))
         painter.drawEllipse(w - 20 - 3, 52 - 3, 6, 6)
+
+
+class SourceDiagnosticCardWidget(QFrame):
+    """Carte de diagnostic pour une source (.pdf, .md, etc.) dans l'onglet Sources."""
+
+    inspect_requested = Signal(int)
+
+    def __init__(self, data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.data = data
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(f"""
+            SourceDiagnosticCardWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        # Header: Icon + Title and Score
+        h_header = QHBoxLayout()
+        ext = data.get("extension", "md").lower()
+        title = data.get("title", "Document")
+        score = data.get("score", 0.0)
+
+        icon_name = "file-text"
+        icon_color = "#9ca3af"
+        if ext == "pdf":
+            icon_name = "file-pdf"
+            icon_color = "#f87171"
+        elif ext == "md":
+            icon_name = "file-md"
+            icon_color = "#c084fc"
+        elif ext == "png":
+            icon_name = "image"
+            icon_color = DesignTokens.COLOR_YELLOW
+        elif ext == "yt":
+            icon_name = "youtube-logo"
+            icon_color = "#ef4444"
+        elif ext == "web":
+            icon_name = "globe"
+            icon_color = DesignTokens.COLOR_BLUE
+
+        lbl_icon = QLabel()
+        lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(14, 14))
+
+        lbl_title = QLabel(title)
+        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+
+        lbl_score = QLabel(f"{score:.1f}%")
+        lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+        if score >= 95:
+            lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 2px 6px;")
+        elif score >= 80:
+            lbl_score.setStyleSheet(f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px;")
+        else:
+            lbl_score.setStyleSheet("background-color: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;")
+
+        h_header.addWidget(lbl_icon)
+        h_header.addWidget(lbl_title)
+        h_header.addStretch()
+        h_header.addWidget(lbl_score)
+        layout.addLayout(h_header)
+
+        # Body: Stats
+        grid_stats = QVBoxLayout()
+        grid_stats.setSpacing(4)
+
+        stats = [
+            ("Moteur Parser :", data.get("engine", "N/A"), False),
+            ("Volume Source :", data.get("volume", "N/A"), False),
+            (data.get("metric_name", "Eléments :"), data.get("metric_val", "N/A"), True),
+            ("Cartes Générées :", f"{data.get('cards', 0)} cartes", True),
+        ]
+
+        for i, (label, val, highlight) in enumerate(stats):
+            row = QHBoxLayout()
+            lbl_k = QLabel(label)
+            lbl_k.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+            lbl_k.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
+
+            lbl_v = QLabel(val)
+            lbl_v.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+            if i == len(stats) - 1:
+                lbl_v.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY};")
+            elif highlight:
+                lbl_v.setStyleSheet(f"color: {icon_color};")
+            else:
+                lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+
+            row.addWidget(lbl_k)
+            row.addStretch()
+            row.addWidget(lbl_v)
+            grid_stats.addLayout(row)
+
+        layout.addLayout(grid_stats)
+
+        # Divider
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR};")
+        layout.addWidget(line)
+
+        # Footer
+        h_foot = QHBoxLayout()
+        lbl_foot = QLabel(f".{ext} · {data.get('footer_sub', 'AST')}")
+        lbl_foot.setFont(QFont(DesignTokens.FONT_CODE, 9))
+        lbl_foot.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
+
+        btn_inspect = SecondaryButton(data.get("action_text", "Inspecter"))
+        btn_inspect.setFixedHeight(24)
+        doc_id = data.get("doc_id", -1)
+        btn_inspect.clicked.connect(lambda: self.inspect_requested.emit(doc_id))
+
+        h_foot.addWidget(lbl_foot)
+        h_foot.addStretch()
+        h_foot.addWidget(btn_inspect)
+        layout.addLayout(h_foot)

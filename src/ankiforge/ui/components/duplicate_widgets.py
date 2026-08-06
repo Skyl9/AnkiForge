@@ -36,7 +36,7 @@ class DuplicateMatrixTable(QFrame):
             QCheckBox::indicator:checked {{
                 background-color: {DesignTokens.COLOR_BLUE};
                 border: 1px solid {DesignTokens.COLOR_BLUE};
-                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nbm9uZScgc3Ryb2tlPSd3aGl0ZScgc3Ryb2tlLXdpZHRoPSc0JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwb2x5bGluZSBwb2ludHM9JzIwIDYgOSAxNyA0IDEyJz48L3BvbHlsaW5lPjwvc3ZnPg==); # noqa: E501
+                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nbm9uZScgc3Ryb2tlPSd3aGl0ZScgc3Ryb2tlLXdpZHRoPSc0JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwb2x5bGluZSBwb2ludHM9JzIwIDYgOSAxNyA0IDEyJz48L3BvbHlsaW5lPjwvc3ZnPg==);
             }}
         """)  # noqa: E501
 
@@ -68,7 +68,7 @@ class DuplicateMatrixTable(QFrame):
         # 1.5 Divider
         divider = QFrame()
         divider.setFixedHeight(1)
-        divider.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
+        divider.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BORDER_COLOR}; border: none; }}")
         layout.addWidget(divider)
 
         # 2. Action Bar - Ligne 1
@@ -80,7 +80,7 @@ class DuplicateMatrixTable(QFrame):
         lbl_target.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
 
-        self.btn_deck = SecondaryButton("Informatique::C++")
+        self.btn_deck = SecondaryButton("L'ensemble des paquets")
         self.btn_deck.setIcon(load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY))
 
         h_line1.addWidget(lbl_target)

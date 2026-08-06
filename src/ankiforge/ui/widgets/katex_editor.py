@@ -3,7 +3,7 @@ import io
 import base64
 from typing import Optional
 
-from PySide6.QtWidgets import QWidget, QPlainTextEdit, QTextBrowser, QSplitter, QVBoxLayout, QCompleter
+from PySide6.QtWidgets import QWidget, QPlainTextEdit, QTextBrowser, QSplitter, QVBoxLayout, QCompleter, QFrame, QPushButton, QHBoxLayout
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QKeyEvent, QTextCursor
 from PySide6.QtCore import Qt, QRegularExpression, Signal, QStringListModel, QTimer
 
@@ -216,6 +216,58 @@ class KaTeXEditor(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # Slider stylisé (Toggle)
+
+        self.mode_toggle_frame = QFrame()
+        self.mode_toggle_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 16px;
+            }}
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                color: {DesignTokens.TEXT_MUTED};
+                font-weight: bold;
+                border-radius: 14px;
+                padding: 6px 16px;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.COLOR_PURPLE};
+                color: white;
+            }}
+        """)
+        toggle_layout = QHBoxLayout(self.mode_toggle_frame)
+        toggle_layout.setContentsMargins(2, 2, 2, 2)
+        toggle_layout.setSpacing(0)
+
+        self.btn_mode_raw = QPushButton("Texte Brut")
+        self.btn_mode_raw.setCheckable(True)
+
+        self.btn_mode_split = QPushButton("Mixte")
+        self.btn_mode_split.setCheckable(True)
+        self.btn_mode_split.setChecked(True)
+
+        self.btn_mode_preview = QPushButton("Aperçu (KaTeX)")
+        self.btn_mode_preview.setCheckable(True)
+
+        toggle_layout.addWidget(self.btn_mode_raw)
+        toggle_layout.addWidget(self.btn_mode_split)
+        toggle_layout.addWidget(self.btn_mode_preview)
+
+        self.btn_mode_raw.clicked.connect(lambda: self._on_mode_toggled("raw"))
+        self.btn_mode_split.clicked.connect(lambda: self._on_mode_toggled("split"))
+        self.btn_mode_preview.clicked.connect(lambda: self._on_mode_toggled("preview"))
+
+        toggle_container = QWidget()
+        tc_layout = QHBoxLayout(toggle_container)
+        tc_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tc_layout.addWidget(self.mode_toggle_frame)
+        tc_layout.setContentsMargins(0, 0, 0, 8)
+
+        layout.addWidget(toggle_container)
+
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Éditeur
@@ -234,12 +286,24 @@ class KaTeXEditor(QWidget):
         self.splitter.addWidget(self.preview)
         self.splitter.setSizes([400, 400])
 
-        layout.addWidget(self.splitter)
+        layout.addWidget(self.splitter, 1)
 
         # Timer pour le debouncing du rendu live
         self.render_timer = QTimer(self)
         self.render_timer.setSingleShot(True)
-        self.render_timer.setInterval(300)  # 300ms de debounce
+        self.render_timer.setInterval(500)  # 500ms de debounce
+
+    def _on_mode_toggled(self, mode: str):
+        self.btn_mode_raw.setChecked(mode == "raw")
+        self.btn_mode_split.setChecked(mode == "split")
+        self.btn_mode_preview.setChecked(mode == "preview")
+
+        if mode == "raw":
+            self.splitter.setSizes([1, 0])
+        elif mode == "preview":
+            self.splitter.setSizes([0, 1])
+        else:
+            self.splitter.setSizes([400, 400])
 
     def _setup_connections(self):
         self.editor.textChanged.connect(self._on_text_changed)
@@ -277,15 +341,11 @@ class KaTeXEditor(QWidget):
             return '<span style="color: red;">[Math Error]</span>'
 
     def _update_preview(self):
+        import markdown
+
         text = self.editor.toPlainText()
 
-        # On protège d'abord le HTML brut (basique)
-        # Mais l'utilisateur peut entrer de vraies balises HTML.
-        # On va éviter un échappement complet pour laisser passer <b>, <i>, etc.
-        # Remplacement manuel basique pour les sauts de ligne
-        text = text.replace("\n", "<br>")
-
-        # On remplace les blocs LaTeX par les images
+        # On remplace les blocs LaTeX par les images HTML
         # 1. $...$ (non-greedy)
         text = re.sub(r"\$(.*?)\$", lambda m: self._render_math(m.group(1)), text)
         # 2. \(...\)
@@ -295,10 +355,33 @@ class KaTeXEditor(QWidget):
         # 4. $$...$$
         text = re.sub(r"\$\$(.*?)\$\$", lambda m: f"<div align='center'>{self._render_math(m.group(1))}</div>", text)
 
+        # Conversion Markdown vers HTML
+        # On utilise nl2br pour préserver les retours à la ligne simples
+        html_body = markdown.markdown(text, extensions=["tables", "fenced_code", "nl2br", "sane_lists"])
+
         html_content = f"""
         <html>
-        <body style="font-family: {DesignTokens.FONT_MAIN}; font-size: {DesignTokens.FONT_SIZE_BASE}px; color: {DesignTokens.TEXT_PRIMARY}; background-color: {DesignTokens.BG_MAIN}; margin: 10px;">
-            {text}
+        <head>
+        <style>
+            body {{
+                font-family: {DesignTokens.FONT_MAIN};
+                font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {DesignTokens.BG_MAIN};
+                margin: 10px;
+                line-height: 1.6;
+            }}
+            h1, h2, h3 {{ color: {DesignTokens.ACCENT_PRIMARY}; }}
+            code {{ background-color: {DesignTokens.BG_HOVER}; padding: 2px 4px; border-radius: 4px; }}
+            pre {{ background-color: {DesignTokens.BG_HOVER}; padding: 10px; border-radius: 6px; overflow-x: auto; }}
+            blockquote {{ border-left: 4px solid {DesignTokens.ACCENT_PRIMARY}; margin: 0; padding-left: 10px; color: {DesignTokens.TEXT_MUTED}; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 8px; text-align: left; }}
+            th {{ background-color: {DesignTokens.BG_HOVER}; }}
+        </style>
+        </head>
+        <body>
+            {html_body}
         </body>
         </html>
         """

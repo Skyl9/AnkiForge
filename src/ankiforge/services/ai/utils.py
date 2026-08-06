@@ -10,14 +10,17 @@ from jinja2 import Template
 from ankiforge.database.models import TokenUsageModel, LLMConfigModel
 
 
-def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
+def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int, task_type: str) -> None:
     """Fonction interne qui écrit réellement dans la BDD (strictement sur le Main Thread)."""
     cost = 0.0
 
     # On cherche la config du modèle pour obtenir les tarifs dynamiques
     config = LLMConfigModel.get_or_none(LLMConfigModel.model_id == model_id)
     if config:
-        cost = (prompt_tokens / 1_000_000 * config.prompt_pricing) + (completion_tokens / 1_000_000 * config.completion_pricing)
+        if getattr(config, "is_free", False):
+            cost = 0.0
+        else:
+            cost = (prompt_tokens / 1_000_000 * config.prompt_pricing) + (completion_tokens / 1_000_000 * config.completion_pricing)
 
     TokenUsageModel.create(
         provider=provider,
@@ -26,10 +29,11 @@ def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, comple
         completion_tokens=completion_tokens,
         total_tokens=prompt_tokens + completion_tokens,
         estimated_cost_usd=cost,
+        task_type=task_type,
     )
 
 
-def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int) -> None:
+def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int, task_type: str = "1. Reformulation & Génération Wozniak") -> None:
     """
     Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
 
@@ -38,14 +42,15 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
         model_id (str): Identifiant du modèle utilisé.
         prompt_tokens (int): Nombre de jetons envoyés en entrée.
         completion_tokens (int): Nombre de jetons générés en sortie.
+        task_type (str): Type de tâche IA pour répartition dans le suivi.
     """
     app = QCoreApplication.instance()
     if app:
         # Téléportation vers l'Event Loop du thread principal de l'UI
-        QTimer.singleShot(0, app, lambda: _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens))
+        QTimer.singleShot(0, app, lambda: _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens, task_type))
     else:
         # Fallback si pas d'interface graphique (ex: pendant les tests unitaires via pytest)
-        _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens)
+        _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens, task_type)
 
 
 T = TypeVar("T")

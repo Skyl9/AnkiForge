@@ -20,7 +20,9 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMessageBox,
+    QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTreeWidget,
@@ -36,7 +38,6 @@ from ankiforge.ui.components import (
     IdePanel,
     PrimaryButton,
     SecondaryButton,
-    StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.toast import show_toast
@@ -245,7 +246,63 @@ class DocumentsView(QWidget):
 
         editor_layout.addWidget(doc_toolbar_widget)
 
-        # Zone centrale d'affichage style Feuille de Document (.doc-page)
+        # Slider stylisé (Toggle)
+        self.view_toggle_frame = QFrame()
+        self.view_toggle_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 16px;
+            }}
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                color: {DesignTokens.TEXT_MUTED};
+                font-weight: bold;
+                border-radius: 14px;
+                padding: 6px 16px;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.COLOR_PURPLE};
+                color: white;
+            }}
+        """)
+        toggle_layout = QHBoxLayout(self.view_toggle_frame)
+        toggle_layout.setContentsMargins(2, 2, 2, 2)
+        toggle_layout.setSpacing(0)
+
+        self.btn_view_pdf = QPushButton("PDF")
+        self.btn_view_pdf.setCheckable(True)
+        self.btn_view_pdf.setChecked(True)
+
+        self.btn_view_md = QPushButton("Markdown (KaTeX)")
+        self.btn_view_md.setCheckable(True)
+
+        toggle_layout.addWidget(self.btn_view_pdf)
+        toggle_layout.addWidget(self.btn_view_md)
+
+        self.btn_view_pdf.clicked.connect(lambda: self._on_view_toggled("pdf"))
+        self.btn_view_md.clicked.connect(lambda: self._on_view_toggled("md"))
+
+        # Center the toggle
+        toggle_container = QWidget()
+        tc_layout = QHBoxLayout(toggle_container)
+        tc_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tc_layout.addWidget(self.view_toggle_frame)
+        editor_layout.addWidget(toggle_container)
+
+        self.inner_editor_stack = QStackedWidget()
+
+        from PySide6.QtPdfWidgets import QPdfView
+        from PySide6.QtPdf import QPdfDocument
+
+        self.pdf_document = QPdfDocument(self)
+        self.pdf_viewer = QPdfView()
+        self.pdf_viewer.setDocument(self.pdf_document)
+        self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
+        self.inner_editor_stack.addWidget(self.pdf_viewer)
+
+        # Zone centrale d'affichage style Feuille de Document (.doc-page) pour le Markdown
         self.doc_scroll = QScrollArea()
         self.doc_scroll.setWidgetResizable(True)
         self.doc_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -258,8 +315,8 @@ class DocumentsView(QWidget):
 
         # Cadre style Feuille A4 / Document (.doc-page)
         self.doc_page_frame = QFrame()
-        self.doc_page_frame.setMaximumWidth(840)
-        self.doc_page_frame.setMinimumWidth(500)
+        self.doc_page_frame.setMaximumWidth(1200)
+        self.doc_page_frame.setMinimumWidth(800)
         self.doc_page_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: #1a1d24;
@@ -278,23 +335,19 @@ class DocumentsView(QWidget):
         self.doc_title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 20px; font-weight: bold; border-bottom: 2px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 8px;")
         frame_layout.addWidget(self.doc_title_lbl)
 
-        # Textedit d'édition du document
-        self.text_editor = StyledTextEdit()
-        self.text_editor.setPlaceholderText("Le contenu du document apparaîtra ici...")
-        self.text_editor.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background: transparent;
-                border: none;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 14px;
-                line-height: 1.6;
-            }}
-        """)
+        # Textedit d'édition du document (KaTeXEditor)
+        from ankiforge.ui.widgets.katex_editor import KaTeXEditor
+
+        self.text_editor = KaTeXEditor()
+        # Ensure KaTeXEditor expands to fill vertical space
+        self.text_editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         frame_layout.addWidget(self.text_editor, 1)
 
         page_wrapper_layout.addWidget(self.doc_page_frame)
         self.doc_scroll.setWidget(doc_page_wrapper)
-        editor_layout.addWidget(self.doc_scroll, 1)
+
+        self.inner_editor_stack.addWidget(self.doc_scroll)
+        editor_layout.addWidget(self.inner_editor_stack, 1)
 
         self.editor_stack.addWidget(editor_container)
 
@@ -309,7 +362,7 @@ class DocumentsView(QWidget):
     def _connect_signals(self) -> None:
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
         self.tree_explorer.itemMoved.connect(self._on_item_moved)
-        self.text_editor.textChanged.connect(self._on_text_changed)
+        self.text_editor.content_changed.connect(self._on_document_text_changed)
 
         self.btn_import.clicked.connect(self._on_import_file)
         self.btn_new_folder.clicked.connect(self._on_new_folder)
@@ -441,7 +494,8 @@ class DocumentsView(QWidget):
                 else:
                     parent_item = self.tree_explorer  # Directement sous la racine sans le header 'Tous les documents'
 
-                item = QTreeWidgetItem(parent_item, [doc.title])
+                title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+                item = QTreeWidgetItem(parent_item, [title_to_display])
                 item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
 
                 title_lower = doc.title.lower()
@@ -482,12 +536,30 @@ class DocumentsView(QWidget):
             doc = DocumentModel.get_or_none(DocumentModel.id == data["id"])
             if doc:
                 self._current_doc_id = doc.id
-                self.doc_title_lbl.setText(doc.title)
+                title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+                self.doc_title_lbl.setText(title_to_display)
                 self.text_editor.blockSignals(True)
-                self.text_editor.setPlainText(doc.content if hasattr(doc, "content") else "")
+                self.text_editor.set_content(doc.content if hasattr(doc, "content") else "")
                 self.text_editor.blockSignals(False)
                 self._dirty = False
                 self._update_word_count()
+
+                # Show PDF if available
+                if doc.file_type == "pdf" and doc.original_media:
+                    from ankiforge.utils.paths import get_app_data_dir
+
+                    pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
+                    if pdf_path.exists():
+                        self.pdf_document.load(str(pdf_path))
+                        self.view_toggle_frame.show()
+                        self._on_view_toggled("pdf")
+                    else:
+                        self.view_toggle_frame.hide()
+                        self._on_view_toggled("md")
+                else:
+                    self.view_toggle_frame.hide()
+                    self._on_view_toggled("md")
+
                 self.editor_stack.setCurrentIndex(1)  # Afficher l'éditeur
         else:
             # Si un dossier est sélectionné, basculer sur l'état vide de l'éditeur
@@ -495,12 +567,13 @@ class DocumentsView(QWidget):
             self.editor_stack.setCurrentIndex(0)
 
     @Slot()
-    def _on_text_changed(self) -> None:
+    def _on_document_text_changed(self) -> None:
         self._dirty = True
+        self.btn_save.setStyleSheet(f"background-color: {DesignTokens.ACCENT_PRIMARY}; color: white;")
         self._update_word_count()
 
     def _update_word_count(self) -> None:
-        text = self.text_editor.toPlainText()
+        text = self.text_editor.get_content()
         words = len(text.split())
         self.lbl_word_count.setText(f"{words:,} mots")
 
@@ -513,7 +586,11 @@ class DocumentsView(QWidget):
             "Documents (*.pdf *.txt *.md *.docx *.pptx);;Tous les fichiers (*.*)",
         )
         if file_path:
-            self._start_document_worker(file_path)
+            ext = pathlib.Path(file_path).suffix.lower()
+            if ext == ".pdf":
+                self._import_pdf_directly(file_path)
+            else:
+                self._start_document_worker(file_path)
 
     @Slot()
     def _on_import_url(self) -> None:
@@ -521,7 +598,65 @@ class DocumentsView(QWidget):
         if ok and url.strip():
             self._start_document_worker(url.strip())
 
-    def _start_document_worker(self, path_or_url: str) -> None:
+    @Slot(str)
+    def _on_view_toggled(self, mode: str) -> None:
+        if mode == "pdf":
+            self.btn_view_pdf.setChecked(True)
+            self.btn_view_md.setChecked(False)
+            self.inner_editor_stack.setCurrentIndex(0)
+        else:
+            self.btn_view_pdf.setChecked(False)
+            self.btn_view_md.setChecked(True)
+            self.inner_editor_stack.setCurrentIndex(1)
+
+    def _import_pdf_directly(self, file_path: str) -> None:
+        from ankiforge.services.cards.media_manager import MediaManager
+
+        media_manager = MediaManager()
+        media = media_manager.store_document_source(file_path)
+        if not media:
+            show_toast(self, "Erreur lors de l'import du PDF.", is_error=True)
+            return
+
+        file_path_obj = pathlib.Path(file_path)
+        doc = DocumentModel.create(
+            title=file_path_obj.stem,
+            content="",
+            original_media_id=media.id,
+            file_type="pdf",
+            source_url=None,
+        )
+
+        self.refresh_data()
+        self._current_doc_id = doc.id
+        title_to_display = media.original_name
+        self.doc_title_lbl.setText(title_to_display)
+        self.text_editor.set_content("Cliquer sur Analyser (Marker) pour extraire le texte...")
+        self.editor_stack.setCurrentIndex(1)
+
+        # Load PDF in viewer
+        from ankiforge.utils.paths import get_app_data_dir
+
+        pdf_path = get_app_data_dir() / "media" / media.filename
+        if pdf_path.exists():
+            self.pdf_document.load(str(pdf_path))
+            self.view_toggle_frame.show()
+            self._on_view_toggled("pdf")
+        else:
+            self.view_toggle_frame.hide()
+            self._on_view_toggled("md")
+
+        # Select in tree
+        items = self.tree_explorer.findItems(title_to_display, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive)
+        for item in items:
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data.get("type") == "doc" and data.get("id") == doc.id:
+                self.tree_explorer.setCurrentItem(item)
+                break
+
+        show_toast(self, f"PDF '{title_to_display}' importé sans extraction immédiate.")
+
+    def _start_document_worker(self, path_or_url: str, doc_id: Optional[int] = None) -> None:
         self.btn_import.setEnabled(False)
         self.btn_import_url.setEnabled(False)
         if hasattr(self, "btn_url"):
@@ -529,6 +664,7 @@ class DocumentsView(QWidget):
         show_toast(self, "Extraction et analyse du document en cours...")
 
         self.worker = DocumentWorker(path_or_url)
+        self.worker.doc_id_to_update = doc_id
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.worker.error_signal.connect(self._on_worker_error)
         self.worker.start()
@@ -540,19 +676,58 @@ class DocumentsView(QWidget):
             self.btn_url.setEnabled(True)
 
         try:
-            doc = DocumentModel.create(
-                title=title,
-                content=content,
-                file_path=self.worker.file_path if self.worker else "",
-                doc_type=pathlib.Path(title).suffix.replace(".", "") or "txt",
-                word_count=len(content.split()),
-            )
+            doc_id_to_update = getattr(self.worker, "doc_id_to_update", None)
+
+            if doc_id_to_update:
+                doc = DocumentModel.get_by_id(doc_id_to_update)
+                doc.content = content
+                doc.save()
+            else:
+                from ankiforge.services.cards.media_manager import MediaManager
+
+                original_media_id = None
+                file_type = "md"
+                source_url = None
+
+                if self.worker and self.worker.file_path:
+                    path_or_url = self.worker.file_path
+                    if path_or_url.startswith("http"):
+                        source_url = path_or_url
+                        file_type = "web"
+                    else:
+                        media_manager = MediaManager()
+                        media = media_manager.store_document_source(path_or_url)
+                        if media:
+                            original_media_id = media.id
+                        import pathlib
+
+                        file_type = pathlib.Path(path_or_url).suffix.replace(".", "") or "txt"
+
+                doc = DocumentModel.create(
+                    title=title,
+                    content=content,
+                    original_media_id=original_media_id,
+                    file_type=file_type,
+                    source_url=source_url,
+                )
+
             self.refresh_data()
             self._current_doc_id = doc.id
-            self.doc_title_lbl.setText(doc.title)
-            self.text_editor.setPlainText(content)
+
+            title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+            self.doc_title_lbl.setText(title_to_display)
+            self.text_editor.set_content(content)
             self.editor_stack.setCurrentIndex(1)
-            show_toast(self, f"Document '{title}' importé avec succès !")
+
+            # Auto-select the newly created document in the tree
+            items = self.tree_explorer.findItems(title_to_display, Qt.MatchFlag.MatchExactly | Qt.MatchFlag.MatchRecursive)
+            for item in items:
+                data = item.data(0, Qt.ItemDataRole.UserRole)
+                if data and data.get("type") == "doc" and data.get("id") == doc.id:
+                    self.tree_explorer.setCurrentItem(item)
+                    break
+
+            show_toast(self, f"Document '{title_to_display}' importé avec succès !")
         except Exception as e:
             logger.exception("Erreur enregistrement document: %s", e)
             QMessageBox.critical(self, "Erreur", f"Échec de l'enregistrement du document : {str(e)}")
@@ -646,7 +821,20 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_run_marker_analysis(self) -> None:
-        text = self.text_editor.toPlainText()
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
+            return
+
+        doc = DocumentModel.get_by_id(self._current_doc_id)
+        if doc.file_type == "pdf" and doc.original_media and not doc.content:
+            from ankiforge.utils.paths import get_app_data_dir
+
+            pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
+            if pdf_path.exists():
+                self._start_document_worker(str(pdf_path), doc_id=doc.id)
+                return
+
+        text = self.text_editor.get_content()
         if not text:
             show_toast(self, "Veuillez d'abord charger un document.", is_error=True)
             return
@@ -654,18 +842,18 @@ class DocumentsView(QWidget):
         show_toast(self, "Analyse Marker IA : Détection des concepts denses terminée.")
         # Insertion visuelle d'un bloc d'analyse Marker
         marker_block = "\n\n> 🔮 **ANALYSE MARKER (IA)** : Section clé identifiée pour la forge de cartes.\n\n"
-        cursor = self.text_editor.textCursor()
+        cursor = self.text_editor.editor.textCursor()
         cursor.insertText(marker_block)
 
     @Slot()
     def _on_insert_split(self) -> None:
-        cursor = self.text_editor.textCursor()
+        cursor = self.text_editor.editor.textCursor()
         cursor.insertText("\n\n[SPLIT] — Coupure insérée (Ctrl+D)\n\n")
         show_toast(self, "Balise [SPLIT] insérée à la position du curseur.")
 
     @Slot()
     def _on_split_sections(self) -> None:
-        text = self.text_editor.toPlainText()
+        text = self.text_editor.get_content()
         if "[SPLIT]" not in text:
             show_toast(self, "Aucune balise [SPLIT] trouvée dans ce document.", is_error=True)
             return
@@ -683,7 +871,8 @@ class DocumentsView(QWidget):
         try:
             doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
             if doc:
-                content = self.text_editor.toPlainText()
+                doc.title = self.doc_title_lbl.text()
+                content = self.text_editor.get_content()
                 doc.content = content
                 doc.word_count = len(content.split())
                 doc.save()

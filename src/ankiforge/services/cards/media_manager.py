@@ -2,6 +2,7 @@ import hashlib
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -23,6 +24,28 @@ class MediaManager:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
+
+    def store_document_source(self, file_path: str) -> Any:
+        """Copie le fichier source dans media/ et retourne son MediaModel."""
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            return None
+
+        file_hash = self._calculate_md5(str(file_path_obj))
+        new_filename = f"{file_hash}{file_path_obj.suffix.lower()}"
+        destination_path = self.media_dir / new_filename
+
+        if not destination_path.exists():
+            shutil.copy2(str(file_path_obj), destination_path)
+
+        import mimetypes
+        from ankiforge.database.models import MediaModel
+
+        mime_type, _ = mimetypes.guess_type(str(file_path_obj))
+        mime_type = mime_type or "application/octet-stream"
+
+        media, _ = MediaModel.get_or_create(checksum=file_hash, defaults={"filename": new_filename, "original_name": file_path_obj.name, "mime_type": mime_type})
+        return media
 
     def process_extracted_folder(self, source_folder: str, markdown_content: str) -> str:
         """
