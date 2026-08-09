@@ -203,7 +203,7 @@ class DocumentParser:
             if not executable:
                 raise FileNotFoundError("L'outil Marker n'est pas installé ou introuvable dans le PATH.")
 
-            cmd = [executable, str(file_path), "--output_dir", str(temp_dir)]
+            cmd = [executable, str(file_path), "--output_dir", str(temp_dir), "--paginate_output"]
 
             if progress_callback:
                 progress_callback("Lancement du moteur de Deep Learning (Marker)...")

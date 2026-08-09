@@ -392,32 +392,31 @@ class AICacheModel(BaseModel):
         indexes = ((("prompt_hash", "system_prompt_hash", "model_id", "temperature"), True),)
 
 
-class FacetProfileModel(BaseModel):
-    """
-    Stocker les grilles de facettes personnalisées de l'utilisateur.
-    """
-
-    name = CharField(unique=True)
-    description = TextField(null=True)
-    is_active = BooleanField(default=False)
-
-    class Meta:
-        table_name = "facet_profiles"
-
-
 class CognitiveFacetModel(BaseModel):
     """
     Définit une facette d'apprentissage (ex: Quoi, Pourquoi, Comment).
     Totalement modulaire : l'utilisateur peut créer ses propres facettes.
     """
 
-    profile = ForeignKeyField(FacetProfileModel, backref="facets", null=True, on_delete="CASCADE")
     name = CharField(unique=True)  # Ex: "Pourquoi (Cause)"
     description = TextField(null=True)  # Ex: "Explique l'origine ou la raison du concept."
     is_active = BooleanField(default=True)
 
     class Meta:
         table_name = "cognitive_facets"
+
+
+class DocumentActiveFacetModel(BaseModel):
+    """
+    Associe un document aux facettes qui lui sont appliquées.
+    """
+
+    document = ForeignKeyField(DocumentModel, backref="active_facets", on_delete="CASCADE")
+    facet = ForeignKeyField(CognitiveFacetModel, on_delete="CASCADE")
+
+    class Meta:
+        table_name = "document_active_facets"
+        indexes = ((("document", "facet"), True),)
 
 
 class DocumentChunkModel(BaseModel):
@@ -430,6 +429,8 @@ class DocumentChunkModel(BaseModel):
     chunk_index = IntegerField()  # Pour garder l'ordre du texte (0, 1, 2...)
     content = TextField()
     content_hash = CharField(index=True)  # Hash MD5/SHA-256 du texte brut
+    page_number = IntegerField(null=True)
+    heading_path = CharField(null=True)
 
     # Si True, l'Agent "Profileur" a déjà analysé ce chunk
     is_profiled = BooleanField(default=False)
@@ -461,7 +462,7 @@ class NoteChunkLinkModel(BaseModel):
 
     note = ForeignKeyField(NoteModel, backref="chunk_links", on_delete="CASCADE")
     chunk = ForeignKeyField(DocumentChunkModel, on_delete="CASCADE")
-    facet = ForeignKeyField(CognitiveFacetModel, null=True, on_delete="SET NULL")
+    facet = ForeignKeyField(CognitiveFacetModel, on_delete="CASCADE")
 
     # Optionnel : score de fact-checking anti-hallucination
     is_hallucinating = BooleanField(default=False)
@@ -480,8 +481,6 @@ def seed_initial_data() -> None:
     # 1. NOUVEAUTÉ : FACETTES & PROFILEUR
     # (À placer TOUT EN HAUT pour contourner le "return" prématuré)
     # ==========================================
-    profile_default, _ = FacetProfileModel.get_or_create(name="Profil Étudiant Universel", defaults={"description": "Grille de facettes standard pour les cours théoriques.", "is_active": True})
-
     facets = [
         {"name": "Quoi (Définition)", "desc": "Définit le concept, sa nature ou sa structure de base."},
         {"name": "Pourquoi (Cause)", "desc": "Explique l'origine, la raison d'être ou la cause d'un phénomène."},
@@ -490,7 +489,7 @@ def seed_initial_data() -> None:
         {"name": "Exemple (Application)", "desc": "Fournit un cas d'usage concret, clinique ou pratique."},
     ]
     for f in facets:
-        CognitiveFacetModel.get_or_create(name=f["name"], defaults={"description": f["desc"], "profile": profile_default})
+        CognitiveFacetModel.get_or_create(name=f["name"], defaults={"description": f["desc"]})
 
     profileur_prompt = (
         "Tu es un ingénieur pédagogique expert en neurosciences de l'apprentissage.\n"

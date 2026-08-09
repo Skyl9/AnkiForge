@@ -11,7 +11,7 @@ import pathlib
 from typing import Any, Optional
 
 from PySide6.QtCore import Qt, Slot, Signal
-from PySide6.QtGui import QDropEvent
+from PySide6.QtGui import QDropEvent, QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
@@ -208,21 +208,9 @@ class DocumentsView(QWidget):
         doc_toolbar.setContentsMargins(12, 8, 12, 8)
         doc_toolbar.setSpacing(8)
 
-        self.btn_marker = SecondaryButton("Analyser (Marker)")
+        self.btn_marker = SecondaryButton("Forcer Analyse (Marker)")
         self.btn_marker.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.COLOR_PURPLE))
-        self.btn_marker.setToolTip("IA : Identifier les zones denses et extraire le contenu")
-
-        self.btn_url = SecondaryButton("Depuis le Web (URL)")
-        self.btn_url.setIcon(load_phosphor_icon("ph.globe", color=DesignTokens.COLOR_BLUE))
-        self.btn_url.setToolTip("Importer un article ou cours depuis une URL Web")
-
-        self.btn_insert_split = SecondaryButton("Insérer Coupure")
-        self.btn_insert_split.setIcon(load_phosphor_icon("ph.scissors", color="#eab308"))
-        self.btn_insert_split.setToolTip("Insérer une balise [SPLIT] à la position du curseur (Ctrl+D)")
-
-        self.btn_split_sections = SecondaryButton("Scinder [SPLIT]")
-        self.btn_split_sections.setIcon(load_phosphor_icon("ph.split-horizontal", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_split_sections.setToolTip("Découper le document en plusieurs chapitres aux balises [SPLIT]")
+        self.btn_marker.setToolTip("IA : Forcer une nouvelle extraction PDF vers Markdown via Marker")
 
         self.btn_rag = SecondaryButton("Vectoriser (RAG)")
         self.btn_rag.setIcon(load_phosphor_icon("ph.database", color="#10b981"))
@@ -230,9 +218,6 @@ class DocumentsView(QWidget):
         self.btn_rag.clicked.connect(self._on_vectorize_rag)
 
         doc_toolbar.addWidget(self.btn_marker)
-        doc_toolbar.addWidget(self.btn_url)
-        doc_toolbar.addWidget(self.btn_insert_split)
-        doc_toolbar.addWidget(self.btn_split_sections)
         doc_toolbar.addWidget(self.btn_rag)
         doc_toolbar.addStretch()
 
@@ -278,11 +263,16 @@ class DocumentsView(QWidget):
         self.btn_view_md = QPushButton("Markdown (KaTeX)")
         self.btn_view_md.setCheckable(True)
 
+        self.btn_view_term = QPushButton("Terminal / Marker")
+        self.btn_view_term.setCheckable(True)
+
         toggle_layout.addWidget(self.btn_view_pdf)
         toggle_layout.addWidget(self.btn_view_md)
+        toggle_layout.addWidget(self.btn_view_term)
 
         self.btn_view_pdf.clicked.connect(lambda: self._on_view_toggled("pdf"))
         self.btn_view_md.clicked.connect(lambda: self._on_view_toggled("md"))
+        self.btn_view_term.clicked.connect(lambda: self._on_view_toggled("term"))
 
         # Center the toggle
         toggle_container = QWidget()
@@ -339,14 +329,32 @@ class DocumentsView(QWidget):
         from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 
         self.text_editor = KaTeXEditor()
-        # Ensure KaTeXEditor expands to fill vertical space
         self.text_editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        if hasattr(self.text_editor, "editor"):
+            self.text_editor.editor.setReadOnly(True)  # Sécurité pour ne pas casser la pagination
         frame_layout.addWidget(self.text_editor, 1)
 
         page_wrapper_layout.addWidget(self.doc_page_frame)
         self.doc_scroll.setWidget(doc_page_wrapper)
 
         self.inner_editor_stack.addWidget(self.doc_scroll)
+
+        # [Index 2] Terminal View
+        from PySide6.QtWidgets import QTextBrowser
+
+        self.terminal_view = QTextBrowser()
+        self.terminal_view.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-family: 'Courier New', Courier, monospace;
+                padding: 12px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        self.inner_editor_stack.addWidget(self.terminal_view)
+
         editor_layout.addWidget(self.inner_editor_stack, 1)
 
         self.editor_stack.addWidget(editor_container)
@@ -364,13 +372,15 @@ class DocumentsView(QWidget):
         self.tree_explorer.itemMoved.connect(self._on_item_moved)
         self.text_editor.content_changed.connect(self._on_document_text_changed)
 
+        # Actions de la barre latérale gauche (Explorateur)
         self.btn_import.clicked.connect(self._on_import_file)
+        self.btn_import_url.clicked.connect(self._on_import_url)
         self.btn_new_folder.clicked.connect(self._on_new_folder)
-        self.btn_url.clicked.connect(self._on_import_url)
-        self.btn_marker.clicked.connect(self._on_run_marker_analysis)
-        self.btn_insert_split.clicked.connect(self._on_insert_split)
-        self.btn_split_sections.clicked.connect(self._on_split_sections)
+        self.btn_delete.clicked.connect(self._on_delete_item)
+
+        # Actions de la barre du haut (Document)
         self.btn_save.clicked.connect(self._on_save_document)
+        self.btn_marker.clicked.connect(self._on_run_marker_analysis)
 
     def _on_item_moved(self, source_data: dict, target_data: Optional[dict]) -> None:
         """Gère le déplacement (drag and drop) d'un document ou d'un dossier."""
@@ -499,11 +509,20 @@ class DocumentsView(QWidget):
                 item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
 
                 title_lower = doc.title.lower()
-                if title_lower.endswith(".pdf"):
-                    item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
-                elif title_lower.endswith(".txt"):
+                is_pdf = getattr(doc, "file_type", "") == "pdf"
+                has_content = bool(doc.content and doc.content.strip())
+
+                if is_pdf:
+                    if has_content:
+                        item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
+                    else:
+                        item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
+                        item.setText(0, f"{title_to_display} (Non extrait)")
+                        item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+                        item.setToolTip(0, "PDF non extrait. Double-cliquez puis cliquez sur 'Forcer Analyse (Marker)'.")
+                elif getattr(doc, "file_type", "") == "txt" or title_lower.endswith(".txt"):
                     item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
-                elif title_lower.endswith(".md"):
+                elif getattr(doc, "file_type", "") == "md" or title_lower.endswith(".md"):
                     item.setIcon(0, load_phosphor_icon("ph.file-code", color="#eab308"))
                 else:
                     item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
@@ -600,14 +619,16 @@ class DocumentsView(QWidget):
 
     @Slot(str)
     def _on_view_toggled(self, mode: str) -> None:
+        self.btn_view_pdf.setChecked(mode == "pdf")
+        self.btn_view_md.setChecked(mode == "md")
+        self.btn_view_term.setChecked(mode == "term")
+
         if mode == "pdf":
-            self.btn_view_pdf.setChecked(True)
-            self.btn_view_md.setChecked(False)
             self.inner_editor_stack.setCurrentIndex(0)
-        else:
-            self.btn_view_pdf.setChecked(False)
-            self.btn_view_md.setChecked(True)
+        elif mode == "md":
             self.inner_editor_stack.setCurrentIndex(1)
+        else:
+            self.inner_editor_stack.setCurrentIndex(2)
 
     def _import_pdf_directly(self, file_path: str) -> None:
         from ankiforge.services.cards.media_manager import MediaManager
@@ -654,7 +675,9 @@ class DocumentsView(QWidget):
                 self.tree_explorer.setCurrentItem(item)
                 break
 
-        show_toast(self, f"PDF '{title_to_display}' importé sans extraction immédiate.")
+        show_toast(self, f"PDF '{title_to_display}' importé. Démarrage automatique de l'analyse Marker...")
+        if pdf_path.exists():
+            self._start_document_worker(str(pdf_path), doc_id=doc.id)
 
     def _start_document_worker(self, path_or_url: str, doc_id: Optional[int] = None) -> None:
         self.btn_import.setEnabled(False)
@@ -667,10 +690,28 @@ class DocumentsView(QWidget):
         self.worker.doc_id_to_update = doc_id
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.worker.error_signal.connect(self._on_worker_error)
+        self.worker.log_signal.connect(self._on_worker_log)
+
+        # On bascule automatiquement sur le terminal
+        self._on_view_toggled("term")
+        self.terminal_view.clear()
+        self.terminal_view.append("--- Démarrage de l'analyse Marker ---")
+
         self.worker.start()
+
+    @Slot(str)
+    def _on_worker_log(self, msg: str) -> None:
+        if hasattr(self, "terminal_view"):
+            self.terminal_view.append(msg)
 
     @Slot(str, str)
     def _on_worker_finished(self, title: str, content: str) -> None:
+        if hasattr(self, "terminal_view"):
+            self.terminal_view.append("--- Extraction terminée ! ---")
+
+        # Bascule automatiquement sur la vue Markdown KaTeX une fois l'analyse terminée
+        self._on_view_toggled("md")
+
         self.btn_import.setEnabled(True)
         if hasattr(self, "btn_url"):
             self.btn_url.setEnabled(True)
@@ -710,6 +751,25 @@ class DocumentsView(QWidget):
                     file_type=file_type,
                     source_url=source_url,
                 )
+
+            # --- Génération immédiate des chunks en BDD ---
+            from ankiforge.services.parsing.chunking_service import ChunkingService
+            from ankiforge.database.models import DocumentChunkModel
+
+            extracted_chunks = ChunkingService.extract_chunks(content)
+
+            with DocumentChunkModel._meta.database.atomic():
+                DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
+                for idx, chunk_data in enumerate(extracted_chunks):
+                    DocumentChunkModel.create(
+                        document=doc,
+                        chunk_index=idx,
+                        content=chunk_data["content"],
+                        page_number=chunk_data["page_number"],
+                        heading_path=chunk_data["heading_path"],
+                        content_hash=chunk_data["content_hash"],
+                    )
+            # ----------------------------------------------
 
             self.refresh_data()
             self._current_doc_id = doc.id
@@ -826,7 +886,7 @@ class DocumentsView(QWidget):
             return
 
         doc = DocumentModel.get_by_id(self._current_doc_id)
-        if doc.file_type == "pdf" and doc.original_media and not doc.content:
+        if doc.file_type == "pdf" and doc.original_media:
             from ankiforge.utils.paths import get_app_data_dir
 
             pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
@@ -844,23 +904,6 @@ class DocumentsView(QWidget):
         marker_block = "\n\n> 🔮 **ANALYSE MARKER (IA)** : Section clé identifiée pour la forge de cartes.\n\n"
         cursor = self.text_editor.editor.textCursor()
         cursor.insertText(marker_block)
-
-    @Slot()
-    def _on_insert_split(self) -> None:
-        cursor = self.text_editor.editor.textCursor()
-        cursor.insertText("\n\n[SPLIT] — Coupure insérée (Ctrl+D)\n\n")
-        show_toast(self, "Balise [SPLIT] insérée à la position du curseur.")
-
-    @Slot()
-    def _on_split_sections(self) -> None:
-        text = self.text_editor.get_content()
-        if "[SPLIT]" not in text:
-            show_toast(self, "Aucune balise [SPLIT] trouvée dans ce document.", is_error=True)
-            return
-
-        parts = text.split("[SPLIT]")
-        valid_parts = [p.strip() for p in parts if p.strip()]
-        show_toast(self, f"Document scindé en {len(valid_parts)} sections distinctes.")
 
     @Slot()
     def _on_save_document(self) -> None:

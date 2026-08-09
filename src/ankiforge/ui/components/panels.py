@@ -403,6 +403,7 @@ class IdePanel(QFrame):
                 self._static_title_label.setVisible(False)
 
     def register_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = True, active_by_default: bool = True, icon_color: str = ""):
+        title = title.strip()
         self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": False, "icon_color": icon_color}
         if active_by_default:
             self.open_tab(title)
@@ -585,6 +586,7 @@ class IdePanel(QFrame):
 
     def insert_tab_widget(self, index: int, title: str, widget: QWidget, icon_name: str = "", closable: bool = True) -> int:
         """Insère un onglet à un index spécifique."""
+        title = title.strip()
         self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": True}
         self.tabs_bar.insert_tab(index, title, icon_name)
         self.content_stack.insertWidget(index, widget)

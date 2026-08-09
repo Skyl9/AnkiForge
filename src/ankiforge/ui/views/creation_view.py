@@ -10,10 +10,11 @@ Studio de Création AnkiForge — 100% Conforme aux Exigences & Raccordement Mé
 
 import json
 import logging
+import markdown
 from typing import Any, Optional
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -25,14 +26,18 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSlider,
+    QSpinBox,
     QSplitter,
+    QStackedWidget,
     QTableWidgetItem,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
 from ankiforge.database.models import (
     DeckModel,
+    DocumentChunkModel,
     DocumentModel,
     FolderModel,
     LLMConfigModel,
@@ -153,9 +158,6 @@ class FlashcardPreview(QWidget):
         self.card_preview_widget = CardPreviewWidget(show_header=False)
         layout.addWidget(self.card_preview_widget, 1)
 
-        # Les boutons ont été déplacés dans la vue principale (CreationView) pour être globaux au panneau.
-        layout.addWidget(self.card_preview_widget, 1)
-
 
 class DocumentEditorWidget(QWidget):
     """Conteneur pour l'éditeur de texte source et la barre d'outils de génération associée."""
@@ -163,19 +165,110 @@ class DocumentEditorWidget(QWidget):
     generate_requested = Signal(str, str)  # text_source, source_title
     cancel_requested = Signal()
 
-    def __init__(self, content: str = "", source_title: str = "Saisie Libre", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.source_title = source_title
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        self.editor = StyledTextEdit()
-        self.editor.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}';")
-        self.editor.setPlaceholderText("📝 Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
-        self.editor.setPlainText(content)
-        self.editor.textChanged.connect(self._on_text_changed)
-        layout.addWidget(self.editor, 1)
+        self.doc_model = doc_model
+        self.pdf_document = None
+
+        # --- Segmented Control pour vue PDF / Markdown ---
+        self.view_toggle_frame = QFrame()
+        self.view_toggle_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 2px;
+            }}
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 12px;
+                color: {DesignTokens.TEXT_MUTED};
+                font-weight: 500;
+            }}
+            QPushButton:checked {{
+                background: {DesignTokens.COLOR_PURPLE};
+                color: white;
+            }}
+        """)
+        toggle_layout = QHBoxLayout(self.view_toggle_frame)
+        toggle_layout.setContentsMargins(2, 2, 2, 2)
+        toggle_layout.setSpacing(0)
+
+        self.btn_view_pdf = QPushButton("PDF")
+        self.btn_view_pdf.setCheckable(True)
+        self.btn_view_pdf.setChecked(True)
+
+        self.btn_view_md = QPushButton("Markdown Stylisé")
+        self.btn_view_md.setCheckable(True)
+
+        toggle_layout.addWidget(self.btn_view_pdf)
+        toggle_layout.addWidget(self.btn_view_md)
+
+        self.btn_view_pdf.clicked.connect(lambda: self._on_view_toggled("pdf"))
+        self.btn_view_md.clicked.connect(lambda: self._on_view_toggled("md"))
+
+        # Center the toggle horizontally
+        toggle_container = QHBoxLayout()
+        toggle_container.addStretch()
+        toggle_container.addWidget(self.view_toggle_frame)
+        toggle_container.addStretch()
+        layout.addLayout(toggle_container)
+
+        # Hide by default, show only if it's a PDF
+        self.view_toggle_frame.hide()
+
+        self.editor_stack = QStackedWidget()
+
+        # PDF Viewer
+        try:
+            from PySide6.QtPdf import QPdfDocument
+            from PySide6.QtPdfWidgets import QPdfView
+
+            self.pdf_document = QPdfDocument(self)
+            self.pdf_view = QPdfView()
+            self.pdf_view.setDocument(self.pdf_document)
+            self.pdf_view.setPageMode(QPdfView.PageMode.MultiPage)
+            self.editor_stack.addWidget(self.pdf_view)
+        except ImportError:
+            self.pdf_view = QWidget()  # Fallback
+            self.editor_stack.addWidget(self.pdf_view)
+
+        self.raw_editor = StyledTextEdit()
+        self.raw_editor.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}';")
+        self.raw_editor.setPlaceholderText("📝 Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
+        self.raw_editor.textChanged.connect(self._on_text_changed)
+
+        self.markdown_viewer = QTextBrowser()
+        self.markdown_viewer.setOpenExternalLinks(True)
+        self.markdown_viewer.setStyleSheet(
+            f"background-color: {DesignTokens.BG_INPUT}; "
+            f"color: {DesignTokens.TEXT_PRIMARY}; "
+            f"border: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-radius: {DesignTokens.RADIUS_SM}px; "
+            f"padding: 12px; "
+            f"font-family: '{DesignTokens.FONT_MAIN}';"
+        )
+
+        self.editor_stack.addWidget(self.raw_editor)
+        self.editor_stack.addWidget(self.markdown_viewer)
+
+        # Load PDF if applicable
+        if self.doc_model and getattr(self.doc_model, "file_type", "") == "pdf" and getattr(self.doc_model, "original_media", None):
+            from ankiforge.utils.paths import get_app_data_dir
+
+            pdf_path = get_app_data_dir() / "media" / self.doc_model.original_media.filename
+            if pdf_path.exists() and self.pdf_document is not None:
+                self.pdf_document.load(str(pdf_path))
+                self.view_toggle_frame.show()
+                self._on_view_toggled("md")  # Default to Markdown
+        layout.addWidget(self.editor_stack, 1)
 
         bot_widget = QWidget()
         bot_widget.setStyleSheet("background: transparent;")
@@ -189,7 +282,7 @@ class DocumentEditorWidget(QWidget):
 
         self.btn_paste = SecondaryButton("Coller")
         self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_paste.clicked.connect(self.editor.paste)
+        self.btn_paste.clicked.connect(self.raw_editor.paste)
 
         self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)")
         self.btn_generate.setIcon(load_phosphor_icon("ph.play", color="white"))
@@ -205,11 +298,40 @@ class DocumentEditorWidget(QWidget):
         bot_layout.addWidget(self.btn_cancel)
         layout.addWidget(bot_widget)
 
+        self.set_content(content)
+
+    @Slot(str)
+    def _on_view_toggled(self, mode: str) -> None:
+        self.btn_view_pdf.setChecked(mode == "pdf")
+        self.btn_view_md.setChecked(mode == "md")
+
+        if mode == "pdf":
+            self.editor_stack.setCurrentWidget(self.pdf_view)
+        else:
+            self.editor_stack.setCurrentWidget(self.markdown_viewer)
+
+    def jump_pdf_to_page(self, page_index: int) -> None:
+        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "pageNavigator"):
+            from PySide6.QtCore import QPointF
+
+            self.pdf_view.pageNavigator().jump(page_index, QPointF(0, 0), self.pdf_view.zoomFactor())
+
+    def set_content(self, content: str) -> None:
+        if self.source_title == "Saisie Libre":
+            self.editor_stack.setCurrentWidget(self.raw_editor)
+            self.raw_editor.setPlainText(content)
+        else:
+            if hasattr(self, "btn_view_md") and not self.btn_view_md.isChecked():
+                self.btn_view_md.setChecked(True)
+                self.btn_view_pdf.setChecked(False)
+            self.editor_stack.setCurrentWidget(self.markdown_viewer)
+            html = markdown.markdown(content, extensions=["fenced_code", "tables"])
+            self.markdown_viewer.setHtml(html)
         self._on_text_changed()
 
     @Slot()
     def _on_text_changed(self) -> None:
-        text = self.editor.toPlainText()
+        text = self.get_text()
         chars = len(text)
         words = len(text.split())
         estimated_tokens = int(words * 1.3)
@@ -217,10 +339,13 @@ class DocumentEditorWidget(QWidget):
 
     @Slot()
     def _on_generate_clicked(self) -> None:
-        self.generate_requested.emit(self.editor.toPlainText().strip(), getattr(self, "source_title", "Saisie Libre"))
+        self.generate_requested.emit(self.get_text(), getattr(self, "source_title", "Saisie Libre"))
 
     def get_text(self) -> str:
-        return self.editor.toPlainText().strip()
+        if self.source_title == "Saisie Libre":
+            return self.raw_editor.toPlainText().strip()
+        else:
+            return self.markdown_viewer.toPlainText().strip()
 
     def set_generation_state(self, is_generating: bool) -> None:
         self.btn_generate.setEnabled(not is_generating)
@@ -406,6 +531,86 @@ class CreationView(QWidget):
         separator.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
         config_layout.addWidget(separator)
 
+        # Scope Selector (Portée de Génération)
+        scope_lbl = QLabel("PORTÉE DE GÉNÉRATION")
+        scope_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
+        config_layout.addWidget(scope_lbl)
+
+        self.scope_stack = QStackedWidget()
+
+        # Page 1: Sliders for pages
+        self.scope_pages_widget = QWidget()
+        scope_pages_layout = QVBoxLayout(self.scope_pages_widget)
+        scope_pages_layout.setContentsMargins(0, 0, 0, 0)
+
+        pages_header = QHBoxLayout()
+        pages_lbl = QLabel("Plage de pages:")
+        pages_header.addWidget(pages_lbl)
+        pages_header.addStretch()
+        scope_pages_layout.addLayout(pages_header)
+
+        pages_input_frame = QFrame()
+        pages_input_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 2px 6px;
+            }}
+            QSpinBox {{
+                background: transparent;
+                border: none;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-weight: bold;
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                width: 0px;
+            }}
+        """)
+        pages_input_layout = QHBoxLayout(pages_input_frame)
+        pages_input_layout.setContentsMargins(4, 2, 4, 2)
+        pages_input_layout.setSpacing(4)
+
+        self.spin_page_start = QSpinBox()
+        self.spin_page_start.setMinimum(1)
+        self.spin_page_start.setMaximum(9999)
+        self.spin_page_start.setValue(1)
+
+        lbl_to = QLabel("à")
+        lbl_to.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; background: transparent; border: none;")
+        lbl_to.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.spin_page_end = QSpinBox()
+        self.spin_page_end.setMinimum(1)
+        self.spin_page_end.setMaximum(9999)
+        self.spin_page_end.setValue(10)
+
+        pages_input_layout.addWidget(self.spin_page_start)
+        pages_input_layout.addWidget(lbl_to)
+        pages_input_layout.addWidget(self.spin_page_end)
+
+        scope_pages_layout.addWidget(pages_input_frame)
+        self.scope_stack.addWidget(self.scope_pages_widget)
+
+        self.spin_page_start.valueChanged.connect(self._on_page_scope_changed)
+        self.spin_page_end.valueChanged.connect(self._on_page_scope_changed)
+
+        # Page 2: QTreeView for headings
+        self.scope_headings_tree = QTreeWidget()
+        self.scope_headings_tree.setHeaderHidden(True)
+        self.scope_headings_tree.setStyleSheet(f"background-color: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY};")
+        self.scope_stack.addWidget(self.scope_headings_tree)
+
+        config_layout.addWidget(self.scope_stack)
+
+        # The Generate button has been moved to the bottom of the config panel
+        # Separator 2
+        separator2 = QFrame()
+        separator2.setFrameShape(QFrame.Shape.HLine)
+        separator2.setFrameShadow(QFrame.Shadow.Sunken)
+        separator2.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
+        config_layout.addWidget(separator2)
+
         # Paramètres Avancés
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 0;")
@@ -511,6 +716,19 @@ class CreationView(QWidget):
         advanced_layout.addLayout(tokens_layout)
 
         config_layout.addWidget(self.advanced_container)
+
+        # Separator for the bottom
+        separator3 = QFrame()
+        separator3.setFrameShape(QFrame.Shape.HLine)
+        separator3.setFrameShadow(QFrame.Shadow.Sunken)
+        separator3.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
+        config_layout.addWidget(separator3)
+
+        # Generate Button (moved from above)
+        self.btn_generate_cards = PrimaryButton("Générer les Cartes")
+        self.btn_generate_cards.setIcon(load_phosphor_icon("ph.magic-wand", color="white"))
+        config_layout.addWidget(self.btn_generate_cards)
+
         config_layout.addStretch()
 
         self.config_panel.add_tab("Explorateur", explorer_content, "ph.files", closable=False)
@@ -615,6 +833,7 @@ class CreationView(QWidget):
     def _connect_signals(self) -> None:
         self.btn_new_free_input.clicked.connect(lambda: self._open_document_tab("Nouvelle Saisie"))
         self.file_tree.itemDoubleClicked.connect(self._on_explorer_item_double_clicked)
+        self.btn_generate_cards.clicked.connect(self._on_generate_from_tree)
 
         self.btn_select_deck.clicked.connect(self._on_click_select_deck)
         self.btn_select_model.clicked.connect(self._on_click_select_model)
@@ -747,7 +966,7 @@ class CreationView(QWidget):
             for folder in folders:
                 f_item = QTreeWidgetItem(self.file_tree)
                 f_item.setText(0, folder.name)
-                f_item.setIcon(0, load_phosphor_icon("folder", color=DesignTokens.ACCENT_PRIMARY, weight="fill"))
+                f_item.setIcon(0, load_phosphor_icon("ph.folder", color=DesignTokens.ACCENT_PRIMARY, weight="fill"))
                 f_item.setData(0, Qt.ItemDataRole.UserRole, folder)
                 folder_items[folder.id] = f_item
                 f_item.setExpanded(True)
@@ -765,12 +984,22 @@ class CreationView(QWidget):
                     item = QTreeWidgetItem(parent_item)
                     item.setText(0, doc.title)
 
-                    if doc.title.lower().endswith(".pdf"):
-                        item.setIcon(0, load_phosphor_icon("file-pdf", color=DesignTokens.COLOR_RED, weight="fill"))
-                    elif doc.title.lower().endswith((".md", ".txt", ".json", ".csv")):
-                        item.setIcon(0, load_phosphor_icon("file-code", color=DesignTokens.COLOR_YELLOW, weight="fill"))
+                    title_lower = doc.title.lower()
+                    is_pdf = getattr(doc, "file_type", "") == "pdf"
+                    has_content = bool(doc.content and doc.content.strip())
+
+                    if is_pdf:
+                        if has_content:
+                            item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED, weight="fill"))
+                        else:
+                            item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
+                            item.setText(0, f"{doc.title} (Non extrait)")
+                            item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+                            item.setToolTip(0, "Ce PDF n'a pas encore été analysé par Marker. Allez dans 'Mes Documents' pour l'extraire.")
+                    elif getattr(doc, "file_type", "") in ("md", "txt", "json", "csv") or title_lower.endswith((".md", ".txt", ".json", ".csv")):
+                        item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW, weight="fill"))
                     else:
-                        item.setIcon(0, load_phosphor_icon("file-text", color=DesignTokens.COLOR_GREEN, weight="fill"))
+                        item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_GREEN, weight="fill"))
 
                     item.setData(0, Qt.ItemDataRole.UserRole, doc)
 
@@ -816,7 +1045,7 @@ class CreationView(QWidget):
             title = f"{base_title} {counter}"
             counter += 1
 
-        editor_widget = DocumentEditorWidget(content, source_title=title, parent=self)
+        editor_widget = DocumentEditorWidget(content, source_title=title, doc_model=doc_model, parent=self)
         editor_widget.generate_requested.connect(self._on_generate)
         editor_widget.cancel_requested.connect(self._on_cancel_generation)
 
@@ -843,15 +1072,96 @@ class CreationView(QWidget):
         doc = item.data(0, Qt.ItemDataRole.UserRole)
         if doc and hasattr(doc, "content"):
             title = doc.title if hasattr(doc, "title") else "Document"
-            # Prevent opening the same document twice
+            is_pdf = getattr(doc, "file_type", "") == "pdf"
+            has_content = bool(doc.content and doc.content.strip())
+
+            if is_pdf and not has_content:
+                show_toast(self, "Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte.", is_error=True)
+                return
+
+            # Prevent opening the same document twice, but recreate if the tab was closed
             if title in self.open_editors:
-                self.source_panel.open_tab(title)
+                try:
+                    _ = self.open_editors[title].parent()
+                    self.source_panel.open_tab(title)
+                except RuntimeError:
+                    # Widget was deleted (tab closed). Remove it and recreate.
+                    self.open_editors.pop(title, None)
+                    self._open_document_tab(title, doc.content, doc)
             else:
                 self._open_document_tab(title, doc.content, doc)
 
     def _set_all_generation_states(self, is_generating: bool) -> None:
         for editor in self.open_editors.values():
             editor.set_generation_state(is_generating)
+
+    @Slot()
+    def _on_page_scope_changed(self) -> None:
+        start = self.spin_page_start.value()
+        end = self.spin_page_end.value()
+
+        if start > end:
+            self.spin_page_end.blockSignals(True)
+            self.spin_page_end.setValue(start)
+            self.spin_page_end.blockSignals(False)
+            end = start
+
+        selected_items = self.file_tree.selectedItems()
+        if not selected_items:
+            return
+
+        doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+        if not doc or not hasattr(doc, "title"):
+            return
+
+        editor = self.open_editors.get(doc.title)
+        if not editor:
+            return
+
+        has_pages = DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.is_null(False)).exists()
+
+        if has_pages:
+            chunks = list(
+                DocumentChunkModel.select()
+                .where((DocumentChunkModel.document == doc) & (DocumentChunkModel.page_number >= start) & (DocumentChunkModel.page_number <= end))
+                .order_by(DocumentChunkModel.page_number, DocumentChunkModel.chunk_index)
+            )
+        else:
+            chunks = list(
+                DocumentChunkModel.select()
+                .where((DocumentChunkModel.document == doc) & (DocumentChunkModel.chunk_index >= start - 1) & (DocumentChunkModel.chunk_index <= end - 1))
+                .order_by(DocumentChunkModel.chunk_index)
+            )
+
+        if not chunks:
+            msg = f"_Aucun contenu trouvé pour les pages {start} à {end}_" if has_pages else f"_Aucun contenu trouvé pour les sections {start} à {end}_"
+            editor.set_content(msg)
+            return
+
+        content = "\n\n".join([c.content for c in chunks])
+        editor.set_content(content)
+        editor.jump_pdf_to_page(start - 1)
+
+    @Slot()
+    def _on_generate_from_tree(self) -> None:
+        selected_items = self.file_tree.selectedItems()
+        if not selected_items:
+            show_toast(self, "Veuillez sélectionner un document dans l'arborescence.", is_error=True)
+            return
+
+        doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+        if not doc or not hasattr(doc, "content"):
+            show_toast(self, "Veuillez sélectionner un document valide.", is_error=True)
+            return
+
+        if not doc.content or not doc.content.strip():
+            show_toast(self, "Ce document est vide ou n'a pas encore été extrait.", is_error=True)
+            return
+
+        editor = self.open_editors.get(doc.title)
+        content_to_use = editor.get_text() if editor else doc.content
+
+        self._on_generate(content_to_use, doc.title)
 
     @Slot()
     def _on_click_select_deck(self) -> None:

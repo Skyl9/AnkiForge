@@ -34,11 +34,12 @@ class CoverageWorker(QThread):
             self.progress_update.emit("Initialisation de l'analyse documentaire...")
             doc = DocumentModel.get_by_id(self.document_id)
 
-            # 1. DÉCOUPAGE DU DOCUMENT (Basique par paragraphes pour l'exemple)
-            # Dans un cas réel, tu peux utiliser ton `smart_chunk_text` existant
-            raw_chunks = [p.strip() for p in doc.content.split("\n\n") if len(p.strip()) > 20]
+            # 1. DÉCOUPAGE DU DOCUMENT via ChunkingService
+            from ankiforge.services.parsing.chunking_service import ChunkingService
 
-            if not raw_chunks:
+            extracted_chunks = ChunkingService.extract_chunks(doc.content)
+
+            if not extracted_chunks:
                 self.progress_update.emit("Document vide ou trop court.")
                 self.finished_processing.emit()
                 return
@@ -47,19 +48,37 @@ class CoverageWorker(QThread):
             chunks_to_profile = []
 
             with db.atomic():
-                for idx, text in enumerate(raw_chunks):
-                    content_hash = self._hash_content(text)
+                for chunk_data in extracted_chunks:
+                    idx = chunk_data["index"]
+                    text = chunk_data["content"]
+                    content_hash = chunk_data["content_hash"]
+                    page_number = chunk_data["page_number"]
+                    heading_path = chunk_data["heading_path"]
 
                     # Vérifier si ce chunk exact existe déjà en base
                     existing_chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.document == doc, DocumentChunkModel.content_hash == content_hash)
 
                     if not existing_chunk:
                         # Nouveau chunk ! On l'insère.
-                        new_chunk = DocumentChunkModel.create(document=doc, chunk_index=idx, content=text, content_hash=content_hash, is_profiled=False)
+                        new_chunk = DocumentChunkModel.create(
+                            document=doc, chunk_index=idx, content=text, content_hash=content_hash, is_profiled=False, page_number=page_number, heading_path=heading_path
+                        )
                         chunks_to_profile.append({"id": new_chunk.id, "index": idx, "text": text})
                     elif not existing_chunk.is_profiled:
                         # Il existe mais l'IA a planté avant de le profiler la dernière fois
+                        # MAJ de la page et heading au cas où l'ordre a changé
+                        existing_chunk.page_number = page_number
+                        existing_chunk.heading_path = heading_path
+                        existing_chunk.chunk_index = idx
+                        existing_chunk.save()
                         chunks_to_profile.append({"id": existing_chunk.id, "index": existing_chunk.chunk_index, "text": existing_chunk.content})
+                    else:
+                        # Si le chunk existe et est déjà profilé, on met quand même à jour son index et sa position
+                        if existing_chunk.chunk_index != idx or existing_chunk.page_number != page_number or existing_chunk.heading_path != heading_path:
+                            existing_chunk.page_number = page_number
+                            existing_chunk.heading_path = heading_path
+                            existing_chunk.chunk_index = idx
+                            existing_chunk.save()
 
             # S'il n'y a rien de nouveau, on a fini instantanément !
             if not chunks_to_profile:

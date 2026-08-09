@@ -11,6 +11,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -40,8 +41,59 @@ from ankiforge.ui.components.linter_widgets import (
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.ui.widgets.toast import show_toast
 
 logger = logging.getLogger(__name__)
+
+
+class DiscoveryAIDialog(QDialog):
+    """
+    Popup "Profilage initial" d'IA Découverte pour un Document.
+    """
+
+    def __init__(self, doc: Any, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.doc = doc
+        self.setWindowTitle("IA Découverte - Profilage Initial")
+        self.resize(400, 300)
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+
+        lbl_info = QLabel("L'IA suggère ces facettes pour ce document. Cochez/décochez :")
+        lbl_info.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_info.setWordWrap(True)
+        layout.addWidget(lbl_info)
+
+        # Placeholder for Checkboxes
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        container = QWidget()
+        vbox = QVBoxLayout(container)
+
+        # Mock Data
+        mock_facets = ["Définition", "Théorème", "Exemple", "Historique"]
+        for facet in mock_facets:
+            cb = QCheckBox(facet)
+            cb.setChecked(True)
+            cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+            vbox.addWidget(cb)
+
+        vbox.addStretch()
+        self.scroll_area.setWidget(container)
+        layout.addWidget(self.scroll_area)
+
+        btn_box = QHBoxLayout()
+        btn_box.addStretch()
+
+        btn_ok = PrimaryButton("Valider les facettes")
+        btn_ok.clicked.connect(self.accept)
+        btn_box.addWidget(btn_ok)
+
+        layout.addLayout(btn_box)
 
 
 # =====================================================================================
@@ -1232,7 +1284,7 @@ class AnalysisView(QWidget):
         self.tab_duplicates = AIDuplicatesMergeTab()
 
         self.main_panel.add_tab("Audit && Linter Wozniak", self.tab_wozniak, icon_name="sparkle")
-        self.main_panel.add_tab("Diagnostic Sources", self.tab_sources, icon_name="file-text")
+        self.main_panel.add_tab("Documents", self.tab_sources, icon_name="file-text")
         self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar")
         self.main_panel.add_tab("Fusions && Doublons", self.tab_duplicates, icon_name="git-merge")
 
@@ -1282,10 +1334,16 @@ class DocumentInspectorPanel(QWidget):
         btn_analyze = PrimaryButton("Analyser ce document (Marker)")
         btn_analyze.setIcon(load_phosphor_icon("ph.magic-wand", color="#ffffff"))
 
+        self.btn_profile = PrimaryButton("Profiler (Smart Coverage)")
+        self.btn_profile.setIcon(load_phosphor_icon("ph.brain", color="white"))
+        self.btn_profile.setToolTip("Lancer l'IA Découverte pour profiler ce document")
+        self.btn_profile.clicked.connect(self._on_profile_document)
+
         header_layout.addWidget(btn_back)
         header_layout.addSpacing(16)
         header_layout.addWidget(header_lbl)
         header_layout.addStretch()
+        header_layout.addWidget(self.btn_profile)
         header_layout.addWidget(btn_analyze)
 
         layout.addLayout(header_layout)
@@ -1482,3 +1540,9 @@ class DocumentInspectorPanel(QWidget):
 
         pre_prompt = f"Génère des flashcards d'apprentissage concernant la facette cognitive : {facet.name}.\n\nVoici le document source :\n\n{chunk.content}\n\nConcentre-toi sur cette facette en ignorant le reste du texte."  # noqa: E501
         self.request_navigation.emit("creation", {"prompt": pre_prompt, "title": f"Forge: {facet.name}"})
+
+    def _on_profile_document(self) -> None:
+        """Affiche la popup d'IA Découverte (Scaffolding)."""
+        show_toast(self, "Lancement du profilage Smart Coverage...")
+        dialog = DiscoveryAIDialog(self.doc, self)
+        dialog.exec()
