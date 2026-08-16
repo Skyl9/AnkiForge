@@ -46,6 +46,100 @@ def query_peewee(sql_query: str) -> str:
 
 
 @mcp.tool()
+def get_deck_stats(deck_name: str) -> str:
+    """
+    Récupère les statistiques détaillées d'un paquet Anki (nombre total de cartes, révisions et difficultés).
+    """
+    from peewee import fn
+    from ankiforge.database.models import DeckModel, CardModel
+
+    try:
+        deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
+        if not deck:
+            return f"Erreur : Le paquet '{deck_name}' n'existe pas."
+
+        total_cards = CardModel.select().where(CardModel.deck == deck).count()
+        avg_reps = CardModel.select(fn.AVG(CardModel.reps)).where(CardModel.deck == deck).scalar() or 0.0
+        total_lapses = CardModel.select(fn.SUM(CardModel.lapses)).where(CardModel.deck == deck).scalar() or 0
+
+        return (
+            f"Statistiques du Paquet '{deck.name}' :\n"
+            f"- Nombre total de cartes : {total_cards}\n"
+            f"- Nombre moyen de révisions : {float(avg_reps):.1f}\n"
+            f"- Nombre total d'oublis (lapses) : {total_lapses}\n"
+        )
+    except Exception as e:
+        logger.error(f"Erreur get_deck_stats: {e}")
+        return f"Erreur lors de la récupération des statistiques : {e}"
+
+
+@mcp.tool()
+def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20) -> str:
+    """
+    Récupère une liste de cartes filtrée par nom de paquet ou par tag.
+    """
+    import json
+    from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteVersionModel
+
+    try:
+        query = NoteModel.select().join(CardModel).distinct()
+        if deck_name:
+            deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
+            if deck:
+                query = query.where(CardModel.deck == deck)
+        if tag:
+            query = query.where(NoteModel.tags.contains(tag.strip()))
+
+        notes = list(query.limit(min(limit, 50)))
+        if not notes:
+            return "Aucune carte trouvée avec ces critères."
+
+        result_cards = []
+        for n in notes:
+            active_version = NoteVersionModel.get_or_none(note=n, is_active=True)
+            content = {}
+            if active_version and active_version.content:
+                try:
+                    content = json.loads(active_version.content)
+                except Exception:
+                    content = {"raw": active_version.content}
+            result_cards.append(
+                {
+                    "note_id": n.id,
+                    "tags": n.tags,
+                    "fields": content,
+                }
+            )
+
+        return json.dumps(result_cards, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Erreur get_cards_by_deck_or_tag: {e}")
+        return f"Erreur lors de la recherche des cartes : {e}"
+
+
+@mcp.tool()
+def update_card_model_css(note_type_name: str, css_rule: str) -> str:
+    """
+    Met à jour les styles CSS d'un modèle de carte (NoteTypeModel) dans la base de données.
+    """
+    from ankiforge.database.models import NoteTypeModel
+
+    try:
+        nt = NoteTypeModel.get_or_none(NoteTypeModel.name == note_type_name.strip())
+        if not nt:
+            return f"Erreur : Le modèle de carte '{note_type_name}' n'existe pas."
+
+        with db.atomic():
+            nt.css_style = (nt.css_style or "") + f"\n\n/* Ajouté par le Consultant IA */\n{css_rule}"
+            nt.save()
+
+        return f"Succès : Le style CSS du modèle '{nt.name}' a été enrichi avec succès !"
+    except Exception as e:
+        logger.error(f"Erreur update_card_model_css: {e}")
+        return f"Erreur lors de la mise à jour CSS : {e}"
+
+
+@mcp.tool()
 def search_document(query: str, document_id: int) -> str:
     """
     Recherche une information précise dans un document spécifique via FAISS.

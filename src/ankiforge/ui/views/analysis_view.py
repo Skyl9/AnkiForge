@@ -914,9 +914,11 @@ class AITokensSrsTab(QWidget):
         eq_data = []
         tot = summary["total_cards"]
         if tot > 0:
-            eq_data.append(("NOUVELLES", str(summary["maturity_distribution"]["new"]), f"{summary['maturity_distribution']['new']/tot*100:.1f}% du paquet", DesignTokens.COLOR_BLUE))
-            eq_data.append(("APPRENTISSAGE", str(summary["maturity_distribution"]["learning"]), f"{summary['maturity_distribution']['learning']/tot*100:.1f}% du paquet", DesignTokens.COLOR_YELLOW))
-            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing']/tot*100:.1f}% (Ancrées)", "#c084fc"))
+            eq_data.append(("NOUVELLES", str(summary["maturity_distribution"]["new"]), f"{summary['maturity_distribution']['new'] / tot * 100:.1f}% du paquet", DesignTokens.COLOR_BLUE))
+            eq_data.append(
+                ("APPRENTISSAGE", str(summary["maturity_distribution"]["learning"]), f"{summary['maturity_distribution']['learning'] / tot * 100:.1f}% du paquet", DesignTokens.COLOR_YELLOW)
+            )
+            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing'] / tot * 100:.1f}% (Ancrées)", "#c084fc"))
         else:
             eq_data = [("NOUVELLES", "0", "0% du paquet", DesignTokens.COLOR_BLUE), ("APPRENTISSAGE", "0", "0% du paquet", DesignTokens.COLOR_YELLOW), ("MÛRES (>21j)", "0", "0% (Ancrées)", "#c084fc")]
 

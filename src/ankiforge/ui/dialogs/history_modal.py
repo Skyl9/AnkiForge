@@ -52,15 +52,11 @@ class DiffViewer(QTextBrowser):
                 new_line_num += 1
             elif code == "- ":
                 del_style = "background-color: rgba(239, 68, 68, 0.2);"
-                html.append(
-                    f"<tr style='{del_style}'>" f"<td style='color: #ef4444; width: 30px;'>{old_line_num}</td>" f"<td style='width: 30px;'></td>" f"<td style='color: #ef4444;'>- {text}</td></tr>"
-                )
+                html.append(f"<tr style='{del_style}'><td style='color: #ef4444; width: 30px;'>{old_line_num}</td><td style='width: 30px;'></td><td style='color: #ef4444;'>- {text}</td></tr>")
                 old_line_num += 1
             elif code == "+ ":
                 add_style = "background-color: rgba(16, 185, 129, 0.2);"
-                html.append(
-                    f"<tr style='{add_style}'>" f"<td style='width: 30px;'></td>" f"<td style='color: #10b981; width: 30px;'>{new_line_num}</td>" f"<td style='color: #10b981;'>+ {text}</td></tr>"
-                )
+                html.append(f"<tr style='{add_style}'><td style='width: 30px;'></td><td style='color: #10b981; width: 30px;'>{new_line_num}</td><td style='color: #10b981;'>+ {text}</td></tr>")
                 new_line_num += 1
 
         html.append("</table>")

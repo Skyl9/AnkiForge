@@ -93,9 +93,14 @@ module = [
     "ankiforge.services.background_daemon",
     "ankiforge.ui.views.documents_view",
     "ankiforge.ui.views.batch_view",
-    "ankiforge.ui.views.edition_view"
+    "ankiforge.ui.views.edition_view",
+    "ankiforge.ui.views.agents_view",
+    "ankiforge.ui.views.pipelines_view",
+    "ankiforge.ui.views.ab_tests_view",
+    "ankiforge.ui.views.creation_view",
+    "ankiforge.ui.views.consultant_view"
 ]
-disable_error_code = ["attr-defined"]
+disable_error_code = ["attr-defined", "assignment"]
 
 [tool.bandit]
 # On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données

@@ -157,7 +157,14 @@ class ChatMessageWidget(QWidget):
             actions_layout.setSpacing(6)
 
             btn_copy = IconButton("ph.copy", tooltip="Copier le texte", size=18)
-            btn_copy.clicked.connect(lambda: (QApplication.clipboard().setText(text), show_toast(self, "Texte copié dans le presse-papiers !")))
+
+            def _copy_msg() -> None:
+                cb = QApplication.clipboard()
+                if cb:
+                    cb.setText(text)
+                show_toast(self, "Texte copié dans le presse-papiers !")
+
+            btn_copy.clicked.connect(_copy_msg)
 
             btn_like = IconButton("ph.thumbs-up", tooltip="Bonne réponse", size=18)
             btn_like.clicked.connect(lambda: show_toast(self, "Merci pour votre retour !"))
@@ -529,7 +536,7 @@ class ConsultantView(QWidget):
                     description="Expert en extraction atomique et mise en forme Anki.",
                     system_prompt="Tu es un expert en mémorisation, pédagogie et création de cartes Anki atomiques.",
                 )
-                self.persona_combo.addItem(ag_default.name, userData=ag_default)
+                self.persona_combo.addItem(str(ag_default.name), userData=ag_default)
             self.persona_combo.blockSignals(False)
             self._on_agent_changed()
 
@@ -545,7 +552,8 @@ class ConsultantView(QWidget):
     def _on_agent_changed(self) -> None:
         agent: Optional[PersonaModel] = self.persona_combo.currentData()
         if agent and hasattr(agent, "system_prompt") and agent.system_prompt:
-            prompt_snippet = agent.system_prompt[:150] + "..." if len(agent.system_prompt) > 150 else agent.system_prompt
+            prompt_str = str(agent.system_prompt)
+            prompt_snippet = prompt_str[:150] + "..." if len(prompt_str) > 150 else prompt_str
             self.sys_prompt_lbl.setText(f'"{prompt_snippet}"')
 
     def refresh_context_list(self) -> None:
@@ -554,14 +562,16 @@ class ConsultantView(QWidget):
 
         # Update mentions badges in chat input box
         while self.mentions_layout.count() > 0:
-            item = self.mentions_layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
+            layout_item = self.mentions_layout.takeAt(0)
+            if layout_item:
+                w = layout_item.widget()
+                if w:
+                    w.deleteLater()
 
         if not self.active_context:
-            item = QListWidgetItem("Aucun contexte attaché (cliquez sur +)")
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.sources_list.addItem(item)
+            empty_item = QListWidgetItem("Aucun contexte attaché (cliquez sur +)")
+            empty_item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.sources_list.addItem(empty_item)
             self.lbl_cards_modified.setText("0")
             return
 

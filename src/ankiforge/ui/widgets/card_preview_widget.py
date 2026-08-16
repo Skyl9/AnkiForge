@@ -59,7 +59,7 @@ class CardPreviewWidget(QWidget):
 
         if show_header:
             lbl_preview = QLabel("PRÉVISUALISATION")
-            lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; " "font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border: none;")
+            lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border: none;")
             row1_layout.addWidget(lbl_preview)
 
         row1_layout.addStretch()
@@ -191,7 +191,7 @@ class CardPreviewWidget(QWidget):
         self._device_mode = mode
 
         inactive_style = "background-color: transparent; border-radius: 4px;"
-        active_style = f"background-color: {DesignTokens.BG_HOVER}; " f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;"
+        active_style = f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;"
 
         self.btn_desktop.setStyleSheet(inactive_style)
         self.btn_tablet.setStyleSheet(inactive_style)

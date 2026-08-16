@@ -30,4 +30,4 @@ def test_parse_with_fallback():
     parser = YouTubeParser()
     with patch.object(parser, "extract_subtitles", return_value=None):
         with patch.object(parser, "download_and_transcribe", return_value="fallback audio"):
-            assert parser.parse("https://youtu.be/test", "fake_ai") == "fallback audio"
+            assert parser.parse("https://youtu.be/test", None) == "fallback audio"

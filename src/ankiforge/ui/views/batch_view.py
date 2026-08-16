@@ -398,7 +398,7 @@ class BatchView(QWidget):
         self.slider_temp.setValue(7)
         self.slider_temp.setCursor(Qt.CursorShape.PointingHandCursor)
         self.slider_temp.setStyleSheet(slider_style)
-        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v/10:.1f}"))
+        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v / 10:.1f}"))
 
         temp_layout.addLayout(temp_header)
         temp_layout.addWidget(self.slider_temp)

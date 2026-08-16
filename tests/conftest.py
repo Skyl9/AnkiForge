@@ -30,8 +30,8 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu --disable
 @pytest.fixture(autouse=True)
 def mock_db():
     """Cette base fantôme en RAM sera automatiquement utilisée pour TOUS les tests."""
-    # On crée une base en mémoire (ultra-rapide, vidée à chaque test)
-    test_db = SqliteDatabase(":memory:")
+    # On crée une base en mémoire partagée entre threads pour supporter QThreadPool
+    test_db = SqliteDatabase("file:memdb_test?mode=memory&cache=shared", uri=True)
 
     # On liste TOUTES les tables de l'application
     models = [

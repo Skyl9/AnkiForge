@@ -495,9 +495,7 @@ class CardModelsView(QWidget):
             self.fields_input.setText("Front, Back")
 
         default_css = (
-            ".card {\n  font-family: arial;\n  font-size: 20px;\n  text-align: center;\n"
-            "  color: #1e293b;\n  background-color: #ffffff;\n}\n\n.cloze {\n"
-            "  font-weight: bold;\n  color: #3b82f6;\n}"
+            ".card {\n  font-family: arial;\n  font-size: 20px;\n  text-align: center;\n  color: #1e293b;\n  background-color: #ffffff;\n}\n\n.cloze {\n  font-weight: bold;\n  color: #3b82f6;\n}"
         )
         self.css_editor_wrapper.setPlainText(model.css_style or default_css)
 

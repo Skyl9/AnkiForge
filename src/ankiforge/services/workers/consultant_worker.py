@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from PySide6.QtCore import QThread, Signal
 
@@ -21,21 +21,23 @@ class ConsultantWorker(QThread):
     finished_signal = Signal(str)
     error_signal = Signal(str)
 
-    def __init__(self, llm_config: LLMConfigModel, persona: Any, context_data: dict[str, Any], instruction: str):
+    def __init__(
+        self,
+        llm_config: Optional[LLMConfigModel] = None,
+        persona: Any = None,
+        context_data: Optional[dict[str, Any]] = None,
+        instruction: str = "",
+        ai_provider: Any = None,
+    ):
         """
         Initialise le consultant IA.
-
-        Args:
-            llm_config (LLMConfigModel): La configuration de l'IA sélectionnée.
-            persona (Any): L'agent IA (PersonaModel) sélectionné.
-            context_data (dict[str, Any]): Synthèse des données Anki (notes, doublons).
-            instruction (str): La question ou commande de l'utilisateur.
         """
         super().__init__()
         self.llm_config = llm_config
         self.persona = persona
-        self.context_data = context_data
+        self.context_data = context_data or {}
         self.instruction = instruction
+        self.ai_provider = ai_provider
 
     def run(self):
         """Prépare le payload contextuel et lance le moteur ReAct via asyncio."""
@@ -49,11 +51,23 @@ class ConsultantWorker(QThread):
             else:
                 full_prompt = self.instruction
 
-            model_name = getattr(self.llm_config, "model_id", "l'IA")
+            if self.ai_provider is not None:
+                self.progress.emit("Extraction et structuration des éléments du contexte...")
+                sys_prompt = self.persona.system_prompt if self.persona and hasattr(self.persona, "system_prompt") else "Tu es un consultant IA."
+                res = self.ai_provider.generate(system_prompt=sys_prompt, user_prompt=full_prompt, response_format="text")
+                self.progress.emit("Réponse finalisée.")
+                self.finished_signal.emit(res)
+                return
+
+            model_name = getattr(self.llm_config, "model_id", "l'IA") if self.llm_config else "l'IA"
             self.progress.emit(f"Exécution de la requête via {model_name}...")
 
+            active_config = self.llm_config or LLMConfigModel.select().first()
+            if not active_config:
+                active_config = LLMConfigModel(provider="openai", model_id="gpt-4o")
+
             async def _run_engine():
-                engine = ConsultantEngine(self.llm_config, persona=self.persona)
+                engine = ConsultantEngine(active_config, persona=self.persona)
                 final_response = []
                 async for chunk in engine.chat_stream(full_prompt):
                     if isinstance(chunk, str):

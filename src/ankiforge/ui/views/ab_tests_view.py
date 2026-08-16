@@ -1,29 +1,39 @@
 """
-Vue Laboratoire A/B (Tests A/B) — 100% Conforme à la Maquette concept_ide.
-- Panneau de configuration supérieure (Mode de comparaison, Agent/Prompt, Modèle Anki, Recto/Verso).
+Vue Laboratoire A/B (Tests A/B) — Conforme au Design System et au Moteur DAG.
+- Panneau de configuration supérieure :
+  * Mode 1 : Comparer deux Moteurs IA (Modèle A vs Modèle B).
+  * Mode 2 : Comparer deux Prompts (Persona A vs Persona B).
+  * Mode 3 : Comparer deux Pipelines DAG (Pipeline A vs Pipeline B).
 - Zone de saisie du Texte Source à tester.
-- Comparaison symétrique côte-à-côte (Moteur A vs Moteur B) avec sélecteurs de modèles IA, sous-onglets Rendu Cartes / JSON Brut, et navigation 1/N.
-- Exécution asynchrone via CreationWorker et rendu réactif via CardPreviewWidget.
+- Comparaison symétrique côte-à-côte (Branche A vs Branche B) avec sélecteurs réactifs, sous-onglets Rendu Cartes / JSON Brut, et navigation 1/N.
+- Exécution asynchrone multithread via deux instances concurrentes de PipelineOrchestrator dans QThreadPool.
 """
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QThreadPool
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSlider,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
-    QSlider,
 )
 
-from ankiforge.database.models import PersonaModel, LLMConfigModel, NoteTypeModel
-from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
+from ankiforge.database.models import (
+    LLMConfigModel,
+    NoteTypeModel,
+    PersonaModel,
+    PipelineModel,
+    PipelineStepModel,
+)
+from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.ui.components import (
     IconButton,
     IdePanel,
@@ -42,21 +52,23 @@ logger = logging.getLogger(__name__)
 
 class ABTestsView(QWidget):
     """
-    Vue Laboratoire A/B — 100% Conforme à la Maquette concept_ide.
+    Vue Laboratoire A/B — Comparateur de Moteurs, Prompts et Pipelines DAG.
     """
 
     def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
 
-        self.cards_a: list[dict[str, Any]] = []
+        self.cards_a: List[Dict[str, Any]] = []
         self.index_a: int = 0
 
-        self.cards_b: list[dict[str, Any]] = []
+        self.cards_b: List[Dict[str, Any]] = []
         self.index_b: int = 0
 
-        self.worker_a: Optional[CreationWorker] = None
-        self.worker_b: Optional[CreationWorker] = None
+        self.orchestrator_a: Optional[PipelineOrchestrator] = None
+        self.orchestrator_b: Optional[PipelineOrchestrator] = None
+        self._completed_a: bool = False
+        self._completed_b: bool = False
 
         self._setup_ui()
         self._connect_signals()
@@ -104,7 +116,7 @@ class ABTestsView(QWidget):
 
         lbl_temp_val = QLabel("0.70")
         lbl_temp_val.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
-        temp_slider.valueChanged.connect(lambda v, lbl=lbl_temp_val: lbl.setText(f"{v/100:.2f}"))
+        temp_slider.valueChanged.connect(lambda v, lbl=lbl_temp_val: lbl.setText(f"{v / 100:.2f}"))
 
         adv_layout.addWidget(lbl_temp)
         adv_layout.addWidget(temp_slider)
@@ -137,8 +149,7 @@ class ABTestsView(QWidget):
 
         self.ab_panel = IdePanel(detachable=True)
 
-        # Bouton Lancer déplacé dans la barre de configuration
-        self.btn_run = PrimaryButton("Lancer")
+        self.btn_run = PrimaryButton("Lancer le Test A/B")
         self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
 
         ab_content = QWidget()
@@ -146,7 +157,7 @@ class ABTestsView(QWidget):
         ab_layout.setContentsMargins(12, 12, 12, 12)
         ab_layout.setSpacing(12)
 
-        # Toolbar de configuration globale (Mode, Prompt, Modèle, Voir Recto/Verso)
+        # Toolbar de configuration globale (Mode, Prompt, Modèle, Pipelines)
         config_bar_widget = QWidget()
         config_bar_widget.setObjectName("ConfigBarWidget")
         config_bar_widget.setStyleSheet(
@@ -166,7 +177,13 @@ class ABTestsView(QWidget):
             config_bar.addLayout(grp)
 
         self.mode_combo = StyledComboBox()
-        self.mode_combo.addItems(["Comparer deux Moteurs IA", "Comparer deux Prompts"])
+        self.mode_combo.addItems(
+            [
+                "1. Comparer deux Moteurs IA",
+                "2. Comparer deux Prompts",
+                "3. Comparer deux Pipelines DAG",
+            ]
+        )
         add_cfg("Mode :", self.mode_combo)
 
         # Global Persona (used when comparing engines)
@@ -174,19 +191,19 @@ class ABTestsView(QWidget):
         gp_layout = QHBoxLayout(self.global_persona_widget)
         gp_layout.setContentsMargins(0, 0, 0, 0)
         gp_layout.setSpacing(6)
-        lbl_gp = QLabel("Prompt/Pipe :")
+        lbl_gp = QLabel("Agent Commun :")
         lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.persona_combo = StyledComboBox()
         gp_layout.addWidget(lbl_gp)
         gp_layout.addWidget(self.persona_combo)
         config_bar.addWidget(self.global_persona_widget)
 
-        # Global Engine (used when comparing prompts)
+        # Global Engine (used when comparing prompts or pipelines)
         self.global_engine_widget = QWidget()
         ge_layout = QHBoxLayout(self.global_engine_widget)
         ge_layout.setContentsMargins(0, 0, 0, 0)
         ge_layout.setSpacing(6)
-        lbl_ge = QLabel("Moteur :")
+        lbl_ge = QLabel("Moteur Commun :")
         lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.global_engine_combo = StyledComboBox()
         ge_layout.addWidget(lbl_ge)
@@ -195,14 +212,14 @@ class ABTestsView(QWidget):
         self.global_engine_widget.hide()
 
         self.model_combo = StyledComboBox()
-        add_cfg("Modèle :", self.model_combo)
+        add_cfg("Modèle NoteType :", self.model_combo)
 
         config_bar.addStretch()
         config_bar.addWidget(self.btn_run)
 
         ab_layout.addWidget(config_bar_widget)
 
-        # Paramètres Avancés Globaux (visibles en mode Comparer deux Prompts)
+        # Paramètres Avancés Globaux
         self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_advanced_settings()
         self.global_adv_widget.hide()
         ab_layout.addWidget(self.global_adv_widget)
@@ -210,13 +227,13 @@ class ABTestsView(QWidget):
         # Section Texte Source
         source_box = QFrame()
         source_box.setObjectName("SourceBox")
-        source_box.setFixedHeight(120)
-        source_box.setStyleSheet(f"QFrame#SourceBox {{ background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
+        source_box.setFixedHeight(110)
+        source_box.setStyleSheet(f"QFrame#SourceBox {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         source_layout = QVBoxLayout(source_box)
         source_layout.setContentsMargins(12, 8, 12, 8)
         source_layout.setSpacing(4)
 
-        lbl_src_title = QLabel("TEXTE SOURCE :")
+        lbl_src_title = QLabel("TEXTE SOURCE DE TEST :")
         lbl_src_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         source_layout.addWidget(lbl_src_title)
 
@@ -227,7 +244,7 @@ class ABTestsView(QWidget):
 
         ab_layout.addWidget(source_box)
 
-        # Comparaison côte-à-côte (Splitter Horizontal Moteur A / Moteur B)
+        # Comparaison côte-à-côte (Splitter Horizontal Branche A / Branche B)
         self.compare_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.compare_splitter.setStyleSheet(f"""
             QSplitter::handle {{
@@ -237,15 +254,14 @@ class ABTestsView(QWidget):
         """)
         ab_layout.addWidget(self.compare_splitter, 1)
 
-        # --- PANNEAU A (Moteur A) ---
+        # ── PANNEAU A ─────────────────────────────────────────────────────────
         self.panel_a = QFrame()
         self.panel_a.setObjectName("PanelA")
-        self.panel_a.setStyleSheet(f"QFrame#PanelA {{ background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
+        self.panel_a.setStyleSheet(f"QFrame#PanelA {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         layout_a = QVBoxLayout(self.panel_a)
         layout_a.setContentsMargins(0, 0, 0, 0)
         layout_a.setSpacing(0)
 
-        # Header Panel A
         toolbar_a = QHBoxLayout()
         toolbar_a.setContentsMargins(10, 8, 10, 8)
         self.lbl_a = QLabel("Moteur A :")
@@ -253,18 +269,22 @@ class ABTestsView(QWidget):
         self.engine_a_combo = StyledComboBox()
         self.persona_a_combo = StyledComboBox()
         self.persona_a_combo.hide()
+        self.pipeline_a_combo = StyledComboBox()
+        self.pipeline_a_combo.hide()
+
         toolbar_a.addWidget(self.lbl_a)
         toolbar_a.addWidget(self.engine_a_combo, 1)
         toolbar_a.addWidget(self.persona_a_combo, 1)
+        toolbar_a.addWidget(self.pipeline_a_combo, 1)
         layout_a.addLayout(toolbar_a)
 
         self.adv_widget_a, self.temp_slider_a, self.tok_slider_a = self._build_advanced_settings()
         layout_a.addWidget(self.adv_widget_a)
 
-        # Sub-tabs A (Onglets stylisés Maquette concept_ide)
+        # Sub-tabs A
         self.subtabs_a = IdeTabBar()
-        self.subtabs_a.add_tab("Rendu Cartes", "👁️")
-        self.subtabs_a.add_tab("JSON Brut", "💻")
+        self.subtabs_a.add_tab("Rendu Cartes", "ph.eye")
+        self.subtabs_a.add_tab("JSON Brut", "ph.code")
         layout_a.addWidget(self.subtabs_a)
 
         # Navigation A
@@ -282,7 +302,6 @@ class ABTestsView(QWidget):
         nav_a.addWidget(self.btn_next_a)
         layout_a.addLayout(nav_a)
 
-        # Content Stack A (Page 0: CardPreviewWidget, Page 1: Raw JSON)
         self.stack_a = QStackedWidget()
         self.preview_a = CardPreviewWidget(show_header=True)
         self.json_edit_a = StyledTextEdit()
@@ -295,15 +314,14 @@ class ABTestsView(QWidget):
 
         self.compare_splitter.addWidget(self.panel_a)
 
-        # --- PANNEAU B (Moteur B) ---
+        # ── PANNEAU B ─────────────────────────────────────────────────────────
         self.panel_b = QFrame()
         self.panel_b.setObjectName("PanelB")
-        self.panel_b.setStyleSheet(f"QFrame#PanelB {{ background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
+        self.panel_b.setStyleSheet(f"QFrame#PanelB {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         layout_b = QVBoxLayout(self.panel_b)
         layout_b.setContentsMargins(0, 0, 0, 0)
         layout_b.setSpacing(0)
 
-        # Header Panel B
         toolbar_b = QHBoxLayout()
         toolbar_b.setContentsMargins(10, 8, 10, 8)
         self.lbl_b = QLabel("Moteur B :")
@@ -311,18 +329,22 @@ class ABTestsView(QWidget):
         self.engine_b_combo = StyledComboBox()
         self.persona_b_combo = StyledComboBox()
         self.persona_b_combo.hide()
+        self.pipeline_b_combo = StyledComboBox()
+        self.pipeline_b_combo.hide()
+
         toolbar_b.addWidget(self.lbl_b)
         toolbar_b.addWidget(self.engine_b_combo, 1)
         toolbar_b.addWidget(self.persona_b_combo, 1)
+        toolbar_b.addWidget(self.pipeline_b_combo, 1)
         layout_b.addLayout(toolbar_b)
 
         self.adv_widget_b, self.temp_slider_b, self.tok_slider_b = self._build_advanced_settings()
         layout_b.addWidget(self.adv_widget_b)
 
-        # Sub-tabs B (Onglets stylisés Maquette concept_ide)
+        # Sub-tabs B
         self.subtabs_b = IdeTabBar()
-        self.subtabs_b.add_tab("Rendu Cartes", "👁️")
-        self.subtabs_b.add_tab("JSON Brut", "💻")
+        self.subtabs_b.add_tab("Rendu Cartes", "ph.eye")
+        self.subtabs_b.add_tab("JSON Brut", "ph.code")
         layout_b.addWidget(self.subtabs_b)
 
         # Navigation B
@@ -340,7 +362,6 @@ class ABTestsView(QWidget):
         nav_b.addWidget(self.btn_next_b)
         layout_b.addLayout(nav_b)
 
-        # Content Stack B (Page 0: CardPreviewWidget, Page 1: Raw JSON)
         self.stack_b = QStackedWidget()
         self.preview_b = CardPreviewWidget(show_header=True)
         self.json_edit_b = StyledTextEdit()
@@ -372,7 +393,8 @@ class ABTestsView(QWidget):
 
     @Slot()
     def _on_mode_changed(self) -> None:
-        if self.mode_combo.currentIndex() == 0:
+        idx = self.mode_combo.currentIndex()
+        if idx == 0:
             # Mode "Comparer deux Moteurs IA"
             self.global_persona_widget.show()
             self.global_engine_widget.hide()
@@ -381,13 +403,15 @@ class ABTestsView(QWidget):
             self.lbl_a.setText("Moteur A :")
             self.engine_a_combo.show()
             self.persona_a_combo.hide()
+            self.pipeline_a_combo.hide()
             self.adv_widget_a.show()
 
             self.lbl_b.setText("Moteur B :")
             self.engine_b_combo.show()
             self.persona_b_combo.hide()
+            self.pipeline_b_combo.hide()
             self.adv_widget_b.show()
-        else:
+        elif idx == 1:
             # Mode "Comparer deux Prompts"
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
@@ -396,33 +420,49 @@ class ABTestsView(QWidget):
             self.lbl_a.setText("Prompt A :")
             self.engine_a_combo.hide()
             self.persona_a_combo.show()
+            self.pipeline_a_combo.hide()
             self.adv_widget_a.hide()
 
             self.lbl_b.setText("Prompt B :")
             self.engine_b_combo.hide()
             self.persona_b_combo.show()
+            self.pipeline_b_combo.hide()
+            self.adv_widget_b.hide()
+        else:
+            # Mode "Comparer deux Pipelines DAG"
+            self.global_persona_widget.hide()
+            self.global_engine_widget.show()
+            self.global_adv_widget.show()
+
+            self.lbl_a.setText("Pipeline A :")
+            self.engine_a_combo.hide()
+            self.persona_a_combo.hide()
+            self.pipeline_a_combo.show()
+            self.adv_widget_a.hide()
+
+            self.lbl_b.setText("Pipeline B :")
+            self.engine_b_combo.hide()
+            self.persona_b_combo.hide()
+            self.pipeline_b_combo.show()
             self.adv_widget_b.hide()
 
     def refresh_data(self) -> None:
-        """Recharge les moteurs, agents et modèles depuis Peewee DB."""
+        """Recharge les moteurs, agents, pipelines et modèles depuis Peewee DB."""
         try:
             self.engine_a_combo.blockSignals(True)
             self.engine_b_combo.blockSignals(True)
+            self.global_engine_combo.blockSignals(True)
             self.engine_a_combo.clear()
             self.engine_b_combo.clear()
+            self.global_engine_combo.clear()
 
             engines = list(LLMConfigModel.select())
-            if engines:
-                for eg in engines:
-                    self.engine_a_combo.addItem(eg.display_name, userData=eg)
-                    self.engine_b_combo.addItem(eg.display_name, userData=eg)
-                    self.global_engine_combo.addItem(eg.display_name, userData=eg)
-                if len(engines) > 1:
-                    self.engine_b_combo.setCurrentIndex(1)
-            else:
-                self.engine_a_combo.addItem("Claude 3.5 Sonnet")
-                self.engine_b_combo.addItem("GPT-4o")
-                self.global_engine_combo.addItem("Claude 3.5 Sonnet")
+            for eg in engines:
+                self.engine_a_combo.addItem(eg.display_name or eg.provider, userData=eg)
+                self.engine_b_combo.addItem(eg.display_name or eg.provider, userData=eg)
+                self.global_engine_combo.addItem(eg.display_name or eg.provider, userData=eg)
+            if len(engines) > 1:
+                self.engine_b_combo.setCurrentIndex(1)
 
             self.engine_a_combo.blockSignals(False)
             self.engine_b_combo.blockSignals(False)
@@ -434,13 +474,29 @@ class ABTestsView(QWidget):
             self.persona_combo.clear()
             self.persona_a_combo.clear()
             self.persona_b_combo.clear()
-            for ag in PersonaModel.select():
+            personas = list(PersonaModel.select())
+            for ag in personas:
                 self.persona_combo.addItem(ag.name, userData=ag)
                 self.persona_a_combo.addItem(ag.name, userData=ag)
                 self.persona_b_combo.addItem(ag.name, userData=ag)
+            if len(personas) > 1:
+                self.persona_b_combo.setCurrentIndex(1)
             self.persona_combo.blockSignals(False)
             self.persona_a_combo.blockSignals(False)
             self.persona_b_combo.blockSignals(False)
+
+            self.pipeline_a_combo.blockSignals(True)
+            self.pipeline_b_combo.blockSignals(True)
+            self.pipeline_a_combo.clear()
+            self.pipeline_b_combo.clear()
+            pipelines = list(PipelineModel.select())
+            for pipe in pipelines:
+                self.pipeline_a_combo.addItem(pipe.name, userData=pipe)
+                self.pipeline_b_combo.addItem(pipe.name, userData=pipe)
+            if len(pipelines) > 1:
+                self.pipeline_b_combo.setCurrentIndex(1)
+            self.pipeline_a_combo.blockSignals(False)
+            self.pipeline_b_combo.blockSignals(False)
 
             self.model_combo.blockSignals(True)
             self.model_combo.clear()
@@ -455,7 +511,7 @@ class ABTestsView(QWidget):
         return False
 
     def _insert_mock_initial_data(self) -> None:
-        """Données de démonstration initiales conformes à la maquette."""
+        """Données initiales conformes à la maquette."""
         self.source_text_edit.setPlainText("L'insuffisance cardiaque droite est caractérisée par l'incapacité du ventricule droit à assurer un débit sanguin suffisant.")
 
         self.cards_a = [
@@ -557,100 +613,127 @@ class ABTestsView(QWidget):
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
         nt_schema = json.loads(selected_nt.fields_schema) if selected_nt and selected_nt.fields_schema else ["Front", "Back"]
 
-        is_engine_mode = self.mode_combo.currentIndex() == 0
+        mode_idx = self.mode_combo.currentIndex()
 
-        engine_a = self.engine_a_combo.currentData() if is_engine_mode else self.global_engine_combo.currentData()
-        engine_b = self.engine_b_combo.currentData() if is_engine_mode else self.global_engine_combo.currentData()
+        # Détermination des moteurs, prompts et pipelines selon le mode
+        steps_a = None
+        steps_b = None
 
-        persona_a = self.persona_combo.currentData() if is_engine_mode else self.persona_a_combo.currentData()
-        persona_b = self.persona_combo.currentData() if is_engine_mode else self.persona_b_combo.currentData()
+        if mode_idx == 0:
+            # Moteur A vs Moteur B
+            engine_a = self.engine_a_combo.currentData()
+            engine_b = self.engine_b_combo.currentData()
+            pipe_id_a = None
+            pipe_id_b = None
+            common_persona = self.persona_combo.currentData()
+            if common_persona:
+                steps_a = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1)]
+                steps_b = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1)]
 
-        if not persona_a or not persona_b:
-            show_toast(self, "Il manque un prompt/agent configuré !", is_error=True)
-            return
+        elif mode_idx == 1:
+            # Prompt A vs Prompt B
+            engine_a = self.global_engine_combo.currentData()
+            engine_b = self.global_engine_combo.currentData()
+            pipe_id_a = None
+            pipe_id_b = None
+            p_a = self.persona_a_combo.currentData()
+            p_b = self.persona_b_combo.currentData()
+            if p_a:
+                steps_a = [PipelineStepModel(persona=p_a, step_type="LLM_PROMPT", step_order=1)]
+            if p_b:
+                steps_b = [PipelineStepModel(persona=p_b, step_type="LLM_PROMPT", step_order=1)]
 
-        show_toast(self, "Lancement du test A/B en parallèle...")
-        self.btn_run.setEnabled(False)
-
-        # Application des paramètres avancés (température et max_tokens)
-        if is_engine_mode:
-            temp_a = self.temp_slider_a.value() / 100.0
-            tok_a = self.tok_slider_a.value()
-            temp_b = self.temp_slider_b.value() / 100.0
-            tok_b = self.tok_slider_b.value()
         else:
-            temp_a = temp_b = self.global_temp_slider.value() / 100.0
-            tok_a = tok_b = self.global_tok_slider.value()
+            # Pipeline A vs Pipeline B
+            engine_a = self.global_engine_combo.currentData()
+            engine_b = self.global_engine_combo.currentData()
+            pipe_a = self.pipeline_a_combo.currentData()
+            pipe_b = self.pipeline_b_combo.currentData()
+            pipe_id_a = pipe_a.id if pipe_a else None
+            pipe_id_b = pipe_b.id if pipe_b else None
+
+        show_toast(self, "Lancement du test A/B en parallèle via le Moteur DAG...")
+        self.btn_run.setEnabled(False)
+        self._completed_a = False
+        self._completed_b = False
 
         provider_a = None
         provider_b = None
-
-        if self.ai_manager:
-            if engine_a and hasattr(self.ai_manager, "create_provider_from_config"):
-                try:
-                    engine_a.temperature = temp_a
-                    engine_a.context_limit = tok_a
+        if self.ai_manager and hasattr(self.ai_manager, "create_provider_from_config"):
+            try:
+                if engine_a:
                     provider_a = self.ai_manager.create_provider_from_config(engine_a)
-                except Exception:
-                    pass  # nosec B110
-            if engine_b and hasattr(self.ai_manager, "create_provider_from_config"):
-                try:
-                    engine_b.temperature = temp_b
-                    engine_b.context_limit = tok_b
+                if engine_b:
                     provider_b = self.ai_manager.create_provider_from_config(engine_b)
-                except Exception:
-                    pass  # nosec B110
+            except Exception as e:
+                logger.warning("Erreur instanciation providers A/B: %s", e)
 
-        # Construct pipeline steps from Personas
-        steps_a = [{"name": persona_a.name, "system_prompt": persona_a.system_prompt, "output_format": getattr(persona_a, "output_format", "json")}]
+        # Initialisation des états partagés
+        state_a = PipelineRunState(initial_prompt=text_source[:120])
+        state_a.set_variable("text_source", text_source)
+        state_a.set_variable("fields", nt_schema)
+        state_a.set_variable("note_type_id", nt_id)
 
-        steps_b = [{"name": persona_b.name, "system_prompt": persona_b.system_prompt, "output_format": getattr(persona_b, "output_format", "json")}]
+        state_b = PipelineRunState(initial_prompt=text_source[:120])
+        state_b.set_variable("text_source", text_source)
+        state_b.set_variable("fields", nt_schema)
+        state_b.set_variable("note_type_id", nt_id)
 
-        payload_a = CreationTaskPayload(
-            text_source=text_source,
-            note_type_id=nt_id,
-            note_type_fields_schema=json.dumps(nt_schema, ensure_ascii=False),
-            pipeline_id=1,
-            pipeline_name="AB_Test_A",
-            pipeline_steps=steps_a,
-            use_vision=False,
+        self.orchestrator_a = PipelineOrchestrator(
+            pipeline_id=pipe_id_a,
+            initial_state=state_a,
+            steps=steps_a,
+            ai_provider=provider_a,
         )
+        self.orchestrator_a.signals.pipeline_finished.connect(self._on_finished_a)
+        self.orchestrator_a.signals.error_occurred.connect(lambda err: self._on_error_a(err))
 
-        payload_b = CreationTaskPayload(
-            text_source=text_source,
-            note_type_id=nt_id,
-            note_type_fields_schema=json.dumps(nt_schema, ensure_ascii=False),
-            pipeline_id=1,
-            pipeline_name="AB_Test_B",
-            pipeline_steps=steps_b,
-            use_vision=False,
+        self.orchestrator_b = PipelineOrchestrator(
+            pipeline_id=pipe_id_b,
+            initial_state=state_b,
+            steps=steps_b,
+            ai_provider=provider_b,
         )
+        self.orchestrator_b.signals.pipeline_finished.connect(self._on_finished_b)
+        self.orchestrator_b.signals.error_occurred.connect(lambda err: self._on_error_b(err))
 
-        self.worker_a = CreationWorker(ai_provider=provider_a, payload=payload_a)
-        self.worker_a.finished.connect(self._on_finished_a)
-        self.worker_a.error.connect(lambda msg: show_toast(self, f"Erreur Moteur A: {msg}", is_error=True))
+        QThreadPool.globalInstance().start(self.orchestrator_a)
+        QThreadPool.globalInstance().start(self.orchestrator_b)
 
-        self.worker_b = CreationWorker(ai_provider=provider_b, payload=payload_b)
-        self.worker_b.finished.connect(self._on_finished_b)
-        self.worker_b.error.connect(lambda msg: show_toast(self, f"Erreur Moteur B: {msg}", is_error=True))
+    def _extract_cards_from_state(self, state: PipelineRunState) -> List[Dict[str, Any]]:
+        raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
+        if isinstance(raw_cards, list):
+            return [c for c in raw_cards if isinstance(c, dict)]
+        elif isinstance(raw_cards, dict) and "cards" in raw_cards and isinstance(raw_cards["cards"], list):
+            return [c for c in raw_cards["cards"] if isinstance(c, dict)]
+        return []
 
-        self.worker_a.start()
-        self.worker_b.start()
-
-    @Slot(list)
-    def _on_finished_a(self, cards: list[dict[str, Any]]) -> None:
-        self.cards_a = cards
+    @Slot(object)
+    def _on_finished_a(self, state: PipelineRunState) -> None:
+        self.cards_a = self._extract_cards_from_state(state)
         self.index_a = 0
+        self._completed_a = True
         self._check_test_complete()
 
-    @Slot(list)
-    def _on_finished_b(self, cards: list[dict[str, Any]]) -> None:
-        self.cards_b = cards
+    @Slot(object)
+    def _on_finished_b(self, state: PipelineRunState) -> None:
+        self.cards_b = self._extract_cards_from_state(state)
         self.index_b = 0
+        self._completed_b = True
+        self._check_test_complete()
+
+    def _on_error_a(self, err: str) -> None:
+        self._completed_a = True
+        show_toast(self, f"Erreur Branche A: {err}", is_error=True)
+        self._check_test_complete()
+
+    def _on_error_b(self, err: str) -> None:
+        self._completed_b = True
+        show_toast(self, f"Erreur Branche B: {err}", is_error=True)
         self._check_test_complete()
 
     def _check_test_complete(self) -> None:
-        if (not self.worker_a or not self.worker_a.isRunning()) and (not self.worker_b or not self.worker_b.isRunning()):
+        if self._completed_a and self._completed_b:
             self.btn_run.setEnabled(True)
             self._update_views()
             show_toast(self, "Test A/B terminé avec succès !")

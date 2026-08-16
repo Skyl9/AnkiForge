@@ -219,7 +219,7 @@ class DuplicateMatrixTable(QFrame):
         cb_layout.setContentsMargins(0, 0, 0, 0)
         self.table.setCellWidget(row, 0, cb_widget)
 
-        sim_str = f"{similarity*100:.1f} % C"
+        sim_str = f"{similarity * 100:.1f} % C"
         if similarity > 0.95:
             rgba_bg = "rgba(239,68,68,0.25)"
             color = "#f87171"
@@ -644,7 +644,7 @@ class DuplicateMergeInspector(QFrame):
     def load_conflict(self, row_data: dict) -> None:
         self.current_conflict = row_data
         sim = row_data.get("sim", 0.0)
-        self.lbl_sim.setText(f"Indice de similitude C : {sim*100:.1f}%")
+        self.lbl_sim.setText(f"Indice de similitude C : {sim * 100:.1f}%")
 
         note_a = row_data["note_a"]
         content_a = row_data["content_a"]

@@ -234,6 +234,7 @@ class PersonaModel(BaseModel):
     system_prompt = TextField()  # Stockera le contenu du prompt Jinja2
     output_format = CharField(default="json")
     allowed_tools = TextField(default="[]")  # JSON: ["query_peewee", "rag_retrieval"]
+    llm_config = ForeignKeyField(LLMConfigModel, null=True, on_delete="SET NULL")
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
     class Meta:

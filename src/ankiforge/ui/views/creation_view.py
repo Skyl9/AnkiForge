@@ -13,7 +13,7 @@ import logging
 import markdown
 from typing import Any, Optional
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot, QThreadPool
 from PySide6.QtGui import QCloseEvent, QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -45,9 +45,10 @@ from ankiforge.database.models import (
     PipelineModel,
 )
 from ankiforge.services.cards.note_manager import NoteManager
-from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
+from ankiforge.services.workers.creation_worker import CreationWorker
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
@@ -687,7 +688,7 @@ class CreationView(QWidget):
         self.slider_temp.setMaximum(10)
         self.slider_temp.setValue(7)
         self.slider_temp.setStyleSheet(slider_style)
-        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v/10:.1f}"))
+        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v / 10:.1f}"))
 
         temp_layout.addLayout(temp_header)
         temp_layout.addWidget(self.slider_temp)
@@ -1241,23 +1242,9 @@ class CreationView(QWidget):
 
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
         nt_schema = str(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else '["Front", "Back"]'
+        fields = json.loads(nt_schema) if nt_schema else ["Front", "Back"]
 
-        pipe_id = selected_pipeline.id if selected_pipeline and hasattr(selected_pipeline, "id") else 1
-        pipe_name = selected_pipeline.name if selected_pipeline and hasattr(selected_pipeline, "name") else "Standard"
-
-        pipeline_steps = []
-        if selected_pipeline and hasattr(selected_pipeline, "steps"):
-            pipeline_steps = [{"name": s.persona.name, "system_prompt": s.persona.system_prompt} for s in selected_pipeline.steps if s.persona]
-
-        payload = CreationTaskPayload(
-            text_source=text_source,
-            note_type_id=nt_id,
-            note_type_fields_schema=nt_schema,
-            pipeline_id=pipe_id,
-            pipeline_name=pipe_name,
-            pipeline_steps=pipeline_steps,
-            use_vision=self.vision_cb.isChecked(),
-        )
+        pipe_id = selected_pipeline.id if selected_pipeline and hasattr(selected_pipeline, "id") else None
 
         provider = None
         if self.ai_manager and hasattr(self.ai_manager, "create_provider_from_config"):
@@ -1266,16 +1253,30 @@ class CreationView(QWidget):
             except Exception as e:
                 logger.warning("Impossible de créer le provider depuis la config: %s", e)
 
+        # 1. Initialiser le Contexte d'Exécution DAG (PipelineRunState)
+        initial_state = PipelineRunState(initial_prompt=text_source[:120])
+        initial_state.set_variable("text_source", text_source)
+        initial_state.set_variable("fields", fields)
+        initial_state.set_variable("note_type_id", nt_id)
+        initial_state.set_variable("note_type_fields_schema", nt_schema)
+
+        # 2. Configurer et démarrer le PipelineOrchestrator dans QThreadPool
         self._set_all_generation_states(True)
 
-        # Fallback Legacy (On force CreationWorker car l'Orchestrateur est encore en stub)
-        self.worker = CreationWorker(ai_provider=provider, payload=payload)
-        self.worker.progress.connect(self._on_worker_progress)
-        self.worker.log.connect(self._on_worker_log)
-        self.worker.finished.connect(self._on_worker_finished)
-        self.worker.error.connect(self._on_worker_error)
-        self.worker.cancelled.connect(self._on_worker_cancelled)
-        self.worker.start()
+        self.orchestrator = PipelineOrchestrator(
+            pipeline_id=pipe_id,
+            initial_state=initial_state,
+            ai_provider=provider,
+        )
+        self.orchestrator.signals.step_started.connect(self._on_orchestrator_step_started)
+        self.orchestrator.signals.step_progress.connect(self._on_orchestrator_step_progress)
+        self.orchestrator.signals.step_completed.connect(self._on_orchestrator_step_completed)
+        self.orchestrator.signals.human_validation_required.connect(self._on_human_validation)
+        self.orchestrator.signals.pipeline_finished.connect(self._on_orchestrator_finished)
+        self.orchestrator.signals.error_occurred.connect(self._on_worker_error)
+        self.orchestrator.signals.cancelled.connect(self._on_worker_cancelled)
+
+        QThreadPool.globalInstance().start(self.orchestrator)
 
     @Slot(int, str)
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
@@ -1284,6 +1285,13 @@ class CreationView(QWidget):
         if active_editor:
             active_editor.editor.setPlaceholderText(f"⏳ {desc}...")
 
+    @Slot(int, int, str)
+    def _on_orchestrator_step_progress(self, current: int, total: int, detail: str) -> None:
+        logger.info("[Orchestrateur] Progression : %s", detail)
+        active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
+        if active_editor:
+            active_editor.editor.setPlaceholderText(f"⏳ {detail}...")
+
     @Slot(int, object)
     def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
         logger.info("[Orchestrateur] Étape %d terminée.", step_order)
@@ -1291,17 +1299,56 @@ class CreationView(QWidget):
     @Slot(object)
     def _on_human_validation(self, state: PipelineRunState) -> None:
         logger.info("[Orchestrateur] PAUSE INTERACTIVE : Validation Humaine Requise.")
-        # L'UI affiche une boîte de dialogue ou déverrouille le bouton "Continuer"
-        QMessageBox.information(self, "Validation Requise", "L'IA a terminé une étape critique (ex: Plan du cours).\nVérifiez et validez pour continuer.")
-        # On simule l'acceptation de l'utilisateur pour relancer le thread
-        if self.orchestrator:
-            self.orchestrator.resume()
+        dialog = HumanValidationDialog(state, self)
+        res = dialog.exec()
+        if res == QDialog.DialogCode.Accepted:
+            show_toast(self, "Plan validé ! Poursuite du pipeline...", is_error=False)
+            if self.orchestrator:
+                self.orchestrator.resume(state)
+        else:
+            show_toast(self, "Génération interrompue.", is_error=False)
+            if self.orchestrator:
+                self.orchestrator.cancel()
 
     @Slot(object)
     def _on_orchestrator_finished(self, state: PipelineRunState) -> None:
         self._set_all_generation_states(False)
-        show_toast(self, "Pipeline terminé avec succès !", is_error=False)
-        logger.info("[Orchestrateur] Fin du Pipeline. État final: %s", state.variables)
+
+        # Récupération des cartes produites par les étapes DAG
+        cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
+
+        selected_nt = self.current_model
+        nt_schema = str(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else '["Front", "Back"]'
+        fields = json.loads(nt_schema) if nt_schema else ["Front", "Back"]
+
+        cleaned_notes: list[dict[str, Any]] = []
+        if isinstance(cards, list):
+            for item in cards:
+                if isinstance(item, dict):
+                    lower_item = {str(k).lower().strip(): v for k, v in item.items()}
+                    raw_values = list(item.values())
+                    note_fields: dict[str, Any] = {}
+                    for i, field_name in enumerate(fields):
+                        f_lower = field_name.lower().strip()
+                        if f_lower in lower_item:
+                            val = lower_item[f_lower]
+                        elif i < len(raw_values):
+                            val = raw_values[i]
+                        else:
+                            val = ""
+
+                        if isinstance(val, list):
+                            val = "<br>".join([str(v) for v in val])
+                        else:
+                            val = str(val) if val is not None else ""
+                        note_fields[field_name] = val
+                    cleaned_notes.append(note_fields)
+
+        if cleaned_notes:
+            self._on_worker_finished(cleaned_notes)
+        else:
+            show_toast(self, "Pipeline terminé.", is_error=False)
+        logger.info("[Orchestrateur] Fin du Pipeline. %d cartes obtenues.", len(cleaned_notes))
 
     @Slot(int)
     def _on_worker_progress(self, val: int) -> None:
