@@ -1,84 +1,198 @@
-import re
 import hashlib
-from typing import List, Dict, Any
+import re
+from typing import Any, Dict, List, Optional
 
 
 class ChunkingService:
-    """
-    Service to convert raw Markdown text into semantic chunks while
-    tracking the active page number and heading path.
+    """Service de découpage documentaire intelligent et sémantique.
+
+    Prend en charge :
+    - Découpage par page pour les PDFs et documents paginés (Marker, PyMuPDF, PPTX).
+    - Découpage par section hiérarchique pour les documents Markdown / Web / Textes.
+    - Élimination garantie des fragments orphelins (titres isolés sans contenu).
     """
 
-    # Matches either AnkiForge's HTML comment or Marker's default pagination format: {1}------------------------------------------------
-    PAGE_MARKER_REGEX = re.compile(r"<!--\s*PAGE:\s*(\d+)\s*-->|\{(\d+)\}-{10,}", re.IGNORECASE)
+    PAGE_MARKER_REGEX = re.compile(
+        r"<!--\s*PAGE:\s*(\d+)\s*-->|\{(\d+)\}-{5,}|\x0c|\[SPLIT\]",
+        re.IGNORECASE,
+    )
     HEADING_REGEX = re.compile(r"^(#{1,6})\s+(.*)", re.MULTILINE)
 
     @classmethod
     def hash_content(cls, text: str) -> str:
-        """Generates MD5 hash for content"""
+        """Génère un hash MD5 du texte pour la déduplication et le suivi."""
         return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     @classmethod
-    def extract_chunks(cls, content: str) -> List[Dict[str, Any]]:
-        """
-        Splits Markdown content into paragraphs and tracks page numbers and headings.
+    def extract_chunks(cls, content: str, file_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Découpe un document en chunks cohérents et exploitables pour la Forge et le RAG.
+
+        Si le document est paginé (PDF, PPTX, ou marqueurs de page présents),
+        le découpage s'effectue par page.
+        Sinon (Markdown brut, Web, texte), le découpage s'effectue par section logique (Titre + Corps).
+
+        Args:
+            content (str): Le contenu Markdown brut du document.
+            file_type (str | None): Extension/type du fichier ('pdf', 'pptx', 'md', etc.).
 
         Returns:
-            List of dicts containing:
+            List[Dict[str, Any]]: Liste des fragments avec :
             - index: int
-            - content: str
+            - content: str (texte complet de la page ou de la section)
             - page_number: int | None
             - heading_path: str | None
             - content_hash: str
         """
-        chunks = []
+        if not content or not content.strip():
+            return []
 
-        # Split strictly by double newline for paragraph-level chunking
-        raw_blocks = content.split("\n\n")
+        markers = list(cls.PAGE_MARKER_REGEX.finditer(content))
+        is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx"))
 
-        current_page = None
+        if is_paginated and markers:
+            return cls._extract_by_page(content, markers)
+        else:
+            return cls._extract_by_section(content)
+
+    @classmethod
+    def _extract_by_page(cls, content: str, markers: List[re.Match]) -> List[Dict[str, Any]]:
+        """Découpe un document page par page à partir des marqueurs détectés."""
+        chunks: List[Dict[str, Any]] = []
+        pages: List[tuple[int, str]] = []
+
+        # Si du texte précède le premier marqueur
+        if markers[0].start() > 0:
+            prefix = content[: markers[0].start()].strip()
+            if prefix:
+                pages.append((1, prefix))
+
+        for i, m in enumerate(markers):
+            start = m.end()
+            end = markers[i + 1].start() if i + 1 < len(markers) else len(content)
+            page_text = content[start:end].strip()
+            page_num = int(m.group(1) or m.group(2)) if (m.group(1) or m.group(2)) else (i + 1)
+            pages.append((page_num, page_text))
+
         current_heading_stack: List[str] = []
+        chunk_idx = 0
 
-        chunk_index = 0
-        for block in raw_blocks:
-            block = block.strip()
-            if not block:
+        for p_num, p_text in pages:
+            clean_text = cls.PAGE_MARKER_REGEX.sub("", p_text).strip()
+            if not clean_text or len(clean_text) < 15:
                 continue
 
-            # Check for page markers inside the block
-            page_matches = list(cls.PAGE_MARKER_REGEX.finditer(block))
-            if page_matches:
-                # Update current page to the last page marker found in this block
-                last_match = page_matches[-1]
-                current_page = int(last_match.group(1) or last_match.group(2))
+            # Mettre à jour la hiérarchie des titres trouvés sur cette page
+            heading_matches = list(cls.HEADING_REGEX.finditer(clean_text))
+            for h_match in heading_matches:
+                level = len(h_match.group(1))
+                title = h_match.group(2).strip()
+                current_heading_stack = current_heading_stack[: level - 1]
+                while len(current_heading_stack) < level - 1:
+                    current_heading_stack.append("Section")
+                current_heading_stack.append(title)
 
-                # Remove the page markers from the block content so it's clean for hashing/display
-                block = cls.PAGE_MARKER_REGEX.sub("", block).strip()
-                if not block:
-                    continue  # Block was only a page marker
+            heading_path_str = " > ".join(current_heading_stack) if current_heading_stack else f"Page {p_num}"
 
-            # Check for headings
-            heading_matches = list(cls.HEADING_REGEX.finditer(block))
-            if heading_matches:
-                for h_match in heading_matches:
-                    level = len(h_match.group(1))
-                    title = h_match.group(2).strip()
+            chunks.append(
+                {
+                    "index": chunk_idx,
+                    "content": clean_text,
+                    "page_number": p_num,
+                    "heading_path": heading_path_str,
+                    "content_hash": cls.hash_content(clean_text),
+                }
+            )
+            chunk_idx += 1
 
-                    # Truncate stack to the level above the current heading
-                    current_heading_stack = current_heading_stack[: level - 1]
-                    # Pad stack if there were jumps (e.g. H1 directly to H3)
-                    while len(current_heading_stack) < level - 1:
-                        current_heading_stack.append("Unknown")
+        if not chunks:
+            return cls._extract_by_section(content)
 
-                    current_heading_stack.append(title)
+        return chunks
 
-            # Skip chunks that are too small (e.g. less than 20 chars), unless they are headings
-            if len(block) < 20 and not heading_matches:
-                continue
+    @classmethod
+    def _extract_by_section(cls, content: str) -> List[Dict[str, Any]]:
+        """Découpe un document Markdown par section hiérarchique (Titre + Corps)."""
+        chunks: List[Dict[str, Any]] = []
+        lines = content.split("\n")
 
-            heading_path_str = " > ".join(current_heading_stack) if current_heading_stack else None
+        current_heading_stack: List[str] = []
+        current_section_lines: List[str] = []
+        current_heading_path: Optional[str] = None
+        chunk_idx = 0
 
-            chunks.append({"index": chunk_index, "content": block, "page_number": current_page, "heading_path": heading_path_str, "content_hash": cls.hash_content(block)})
-            chunk_index += 1
+        def flush_section() -> None:
+            nonlocal chunk_idx, current_section_lines, current_heading_path
+            text = "\n".join(current_section_lines).strip()
+            text = cls.PAGE_MARKER_REGEX.sub("", text).strip()
+            if text and len(text) >= 15:
+                chunks.append(
+                    {
+                        "index": chunk_idx,
+                        "content": text,
+                        "page_number": None,
+                        "heading_path": current_heading_path or "Introduction",
+                        "content_hash": cls.hash_content(text),
+                    }
+                )
+                chunk_idx += 1
+            current_section_lines = []
+
+        for line in lines:
+            h_match = cls.HEADING_REGEX.match(line)
+            if h_match:
+                level = len(h_match.group(1))
+                title = h_match.group(2).strip()
+
+                has_substantive_text = any(line_item.strip() and not cls.HEADING_REGEX.match(line_item) for line_item in current_section_lines)
+
+                if has_substantive_text and level <= 3:
+                    flush_section()
+
+                current_heading_stack = current_heading_stack[: level - 1]
+                while len(current_heading_stack) < level - 1:
+                    current_heading_stack.append("Section")
+                current_heading_stack.append(title)
+                current_heading_path = " > ".join(current_heading_stack)
+
+                current_section_lines.append(line)
+            else:
+                current_section_lines.append(line)
+
+        flush_section()
+
+        # Si le document n'avait pas de titres structurés (texte au kilomètre)
+        if not chunks:
+            raw_blocks = content.split("\n\n")
+            accumulated: List[str] = []
+            for block in raw_blocks:
+                b_clean = block.strip()
+                if not b_clean:
+                    continue
+                accumulated.append(b_clean)
+                combined = "\n\n".join(accumulated)
+                if len(combined) >= 250:
+                    chunks.append(
+                        {
+                            "index": chunk_idx,
+                            "content": combined,
+                            "page_number": None,
+                            "heading_path": "Document",
+                            "content_hash": cls.hash_content(combined),
+                        }
+                    )
+                    chunk_idx += 1
+                    accumulated = []
+            if accumulated:
+                combined = "\n\n".join(accumulated)
+                if len(combined) >= 15:
+                    chunks.append(
+                        {
+                            "index": chunk_idx,
+                            "content": combined,
+                            "page_number": None,
+                            "heading_path": "Document",
+                            "content_hash": cls.hash_content(combined),
+                        }
+                    )
 
         return chunks

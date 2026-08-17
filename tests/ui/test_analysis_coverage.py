@@ -7,11 +7,11 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.ui.views.analysis_view import DocumentInspectorPanel
+from ankiforge.ui.views.analysis_view import DocumentInspectorPanel, AISourcesDiagnosticTab
 
 
 def test_document_inspector_panel_chapter_coverage(qtbot):
-    """Vérifie l'affichage de la heatmap et de l'inspecteur de fragments dans l'Audit de Document."""
+    """Vérifie l'affichage du sommaire et des cartes liées dans DocumentInspectorPanel."""
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
         title=f"Cours Droit {uid}",
@@ -53,14 +53,58 @@ def test_document_inspector_panel_chapter_coverage(qtbot):
     qtbot.addWidget(panel)
 
     panel.load_chunks()
-    assert "Article 1" in panel.text_browser.toHtml()
-    assert "🟢 Couvert" in panel.text_browser.toHtml()
-    assert "⚠️ Non couvert" in panel.text_browser.toHtml()
+
+    # Vérification du sommaire (2 items)
+    assert panel.chapters_list.count() == 2
+    item1 = panel.chapters_list.item(0)
+    assert "🟢" in item1.text()
+    assert "1 carte" in item1.text()
+
+    item2 = panel.chapters_list.item(1)
+    assert "⚠️" in item2.text()
+    assert "0 carte" in item2.text()
 
     # Inspecter le chunk couvert (chunk 1)
     panel.inspect_chunk(chunk1.id)
-    assert "1 carte(s) Anki associée(s)" in panel.facets_layout.itemAt(0).widget().text()
+    assert "1 carte(s) Anki forgée(s)" in panel.cards_layout.itemAt(0).widget().text()
 
     # Inspecter le chunk orphelin (chunk 2)
     panel.inspect_chunk(chunk2.id)
-    assert "Aucune flashcard" in panel.lbl_chunk_preview.text() or panel.facets_layout.count() >= 1
+    assert panel.cards_layout.count() >= 1
+
+    # Navigation vers création
+    emitted = []
+    panel.request_navigation.connect(lambda target, payload: emitted.append((target, payload)))
+    panel._on_forge_chunk(chunk2.id)
+    assert len(emitted) == 1
+    assert emitted[0][0] == "creation"
+    assert "contracter" in emitted[0][1]["text_source"].lower()
+
+
+def test_ai_sources_diagnostic_tab_grid_and_kpis(qtbot):
+    """Vérifie la grille de diagnostic des sources et les KPIs globaux de la Forge."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Test {uid}",
+        content="# Section 1\nContenu A\n\n# Section 2\nContenu B",
+        file_type="md",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Section 1",
+        content="Contenu A",
+        content_hash=f"h1_{uid}",
+    )
+
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+
+    tab.refresh_data()
+    assert "Documents :" in tab.lbl_kpi_docs.text()
+    assert "Couverture Moyenne :" in tab.lbl_kpi_coverage.text()
+    assert tab.grid_layout.count() >= 1
+
+    # Test switch to inspector
+    tab.show_inspector(doc.id)
+    assert tab.stack.currentIndex() == 1

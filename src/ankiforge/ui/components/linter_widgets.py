@@ -434,7 +434,7 @@ class RetentionCurveCanvas(QWidget):
 
 
 class SourceDiagnosticCardWidget(QFrame):
-    """Carte de diagnostic pour une source (.pdf, .md, etc.) dans l'onglet Sources."""
+    """Carte de diagnostic et santé documentaire pour l'onglet Documents du menu d'analyse."""
 
     inspect_requested = Signal(int)
 
@@ -446,32 +446,37 @@ class SourceDiagnosticCardWidget(QFrame):
             SourceDiagnosticCardWidget {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
+                border-radius: 8px;
+            }}
+            SourceDiagnosticCardWidget:hover {{
+                border: 1px solid {DesignTokens.COLOR_PURPLE};
+                background-color: {DesignTokens.BG_HOVER};
             }}
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
 
         # Header: Icon + Title and Score
         h_header = QHBoxLayout()
-        ext = data.get("extension", "md").lower()
-        title = data.get("title", "Document")
-        score = data.get("score", 0.0)
+        ext = str(data.get("extension", "md")).lower()
+        title = str(data.get("title", "Document"))
+        coverage_pct = float(data.get("coverage_pct", 0.0))
+        is_indexed = bool(data.get("is_indexed", False))
 
         icon_name = "file-text"
         icon_color = "#9ca3af"
         if ext == "pdf":
             icon_name = "file-pdf"
             icon_color = "#f87171"
-        elif ext == "md":
+        elif ext in ("md", "markdown"):
             icon_name = "file-md"
             icon_color = "#c084fc"
         elif ext == "png":
             icon_name = "image"
             icon_color = DesignTokens.COLOR_YELLOW
-        elif ext == "yt":
+        elif ext in ("yt", "youtube"):
             icon_name = "youtube-logo"
             icon_color = "#ef4444"
         elif ext == "web":
@@ -479,52 +484,80 @@ class SourceDiagnosticCardWidget(QFrame):
             icon_color = DesignTokens.COLOR_BLUE
 
         lbl_icon = QLabel()
-        lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(14, 14))
+        lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(18, 18))
 
         lbl_title = QLabel(title)
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_title.setToolTip(title)
 
-        lbl_score = QLabel(f"{score:.1f}%")
-        lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        if score >= 95:
+        # Badge Couverture
+        lbl_score = QLabel(f"{coverage_pct:.0f}% Couvert" if is_indexed else "Non indexé")
+        lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        if not is_indexed:
+            lbl_score.setStyleSheet("background-color: rgba(156,163,175,0.15); color: #9ca3af; border: 1px solid rgba(156,163,175,0.3); border-radius: 4px; padding: 2px 6px;")
+        elif coverage_pct >= 90:
             lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 2px 6px;")
-        elif score >= 80:
+        elif coverage_pct >= 50:
             lbl_score.setStyleSheet(f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px;")
         else:
             lbl_score.setStyleSheet("background-color: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;")
 
         h_header.addWidget(lbl_icon)
-        h_header.addWidget(lbl_title)
-        h_header.addStretch()
+        h_header.addWidget(lbl_title, 1)
         h_header.addWidget(lbl_score)
         layout.addLayout(h_header)
 
-        # Body: Stats
+        # Micro Progress Bar
+        bar_bg = QFrame()
+        bar_bg.setFixedHeight(4)
+        bar_bg.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_INPUT}; border-radius: 2px; }}")
+        b_ly = QHBoxLayout(bar_bg)
+        b_ly.setContentsMargins(0, 0, 0, 0)
+        b_ly.setSpacing(0)
+        if coverage_pct > 0:
+            bar_fg = QFrame()
+            bar_color = DesignTokens.COLOR_GREEN if coverage_pct >= 90 else (DesignTokens.COLOR_YELLOW if coverage_pct >= 50 else "#f87171")
+            bar_fg.setStyleSheet(f".QFrame {{ background-color: {bar_color}; border-radius: 2px; }}")
+            b_ly.addWidget(bar_fg, stretch=int(coverage_pct))
+            b_ly.addStretch(int(100 - coverage_pct))
+        layout.addWidget(bar_bg)
+
+        # Body: Real Stats
         grid_stats = QVBoxLayout()
-        grid_stats.setSpacing(4)
+        grid_stats.setSpacing(5)
+
+        total_chunks = data.get("total_chunks", 0)
+        covered_chunks = data.get("covered_chunks", 0)
+        orphan_chunks = data.get("orphan_chunks", 0)
+        total_cards = data.get("total_cards", 0)
+        density = data.get("density", 0.0)
+        faiss_status = "⚡ Prêt (FAISS)" if is_indexed else "⚪ Non indexé"
 
         stats = [
-            ("Moteur Parser :", data.get("engine", "N/A"), False),
-            ("Volume Source :", data.get("volume", "N/A"), False),
-            (data.get("metric_name", "Eléments :"), data.get("metric_val", "N/A"), True),
-            ("Cartes Générées :", f"{data.get('cards', 0)} cartes", True),
+            ("Sections couvertes :", f"{covered_chunks} / {total_chunks}" if total_chunks > 0 else "0", True if covered_chunks > 0 else False),
+            ("Trous (orphelines) :", f"{orphan_chunks} section(s)" if orphan_chunks > 0 else "Aucun trou 🎉", True if orphan_chunks > 0 else False),
+            ("Cartes Anki liées :", f"{total_cards} cartes", True),
+            ("Densité :", f"{density:.1f} cartes / sec", False),
+            ("Index Vectoriel :", faiss_status, False),
         ]
 
-        for i, (label, val, highlight) in enumerate(stats):
+        for label, val, highlight in stats:
             row = QHBoxLayout()
             lbl_k = QLabel(label)
-            lbl_k.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+            lbl_k.setFont(QFont(DesignTokens.FONT_MAIN, 9))
             lbl_k.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
 
             lbl_v = QLabel(val)
-            lbl_v.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-            if i == len(stats) - 1:
-                lbl_v.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY};")
+            lbl_v.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            if label.startswith("Trous") and orphan_chunks > 0:
+                lbl_v.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW};")
+            elif label.startswith("Cartes"):
+                lbl_v.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN};")
             elif highlight:
-                lbl_v.setStyleSheet(f"color: {icon_color};")
-            else:
                 lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+            else:
+                lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
 
             row.addWidget(lbl_k)
             row.addStretch()
@@ -541,12 +574,13 @@ class SourceDiagnosticCardWidget(QFrame):
 
         # Footer
         h_foot = QHBoxLayout()
-        lbl_foot = QLabel(f".{ext} · {data.get('footer_sub', 'AST')}")
+        words_cnt = data.get("word_count", 0)
+        lbl_foot = QLabel(f".{ext.upper()} · {words_cnt:,} mots")
         lbl_foot.setFont(QFont(DesignTokens.FONT_CODE, 9))
         lbl_foot.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
 
-        btn_inspect = SecondaryButton(data.get("action_text", "Inspecter"))
-        btn_inspect.setFixedHeight(24)
+        btn_inspect = SecondaryButton("🔍 Inspecter l'audit")
+        btn_inspect.setFixedHeight(26)
         doc_id = data.get("doc_id", -1)
         btn_inspect.clicked.connect(lambda: self.inspect_requested.emit(doc_id))
 

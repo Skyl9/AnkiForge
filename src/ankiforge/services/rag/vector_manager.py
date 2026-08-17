@@ -71,7 +71,7 @@ class VectorManager:
 
             # Si aucun chunk n'existe en base, on utilise ChunkingService
             if not chunks:
-                extracted = ChunkingService.extract_chunks(document.content)
+                extracted = ChunkingService.extract_chunks(document.content, file_type=document.file_type)
                 with DocumentChunkModel._meta.database.atomic():
                     for item in extracted:
                         c = DocumentChunkModel.create(

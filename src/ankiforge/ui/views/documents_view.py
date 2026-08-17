@@ -806,7 +806,7 @@ class DocumentsView(QWidget):
             from ankiforge.services.parsing.chunking_service import ChunkingService
             from ankiforge.database.models import DocumentChunkModel
 
-            extracted_chunks = ChunkingService.extract_chunks(content)
+            extracted_chunks = ChunkingService.extract_chunks(content, file_type=file_type)
 
             with DocumentChunkModel._meta.database.atomic():
                 DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()

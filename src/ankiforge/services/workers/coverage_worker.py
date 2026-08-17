@@ -39,7 +39,7 @@ class CoverageWorker(QThread):
                 return
 
             # 1. DÉCOUPAGE DU DOCUMENT via ChunkingService
-            extracted_chunks = ChunkingService.extract_chunks(doc.content)
+            extracted_chunks = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type)
             if not extracted_chunks:
                 self.progress_update.emit("Document vide ou trop court.")
                 self.finished_processing.emit()
