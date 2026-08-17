@@ -111,6 +111,22 @@ def run_migrations() -> None:
                 router.model.create(name="011_add_facet_profile")
                 logging.info("Legacy DB detected: faking migration 011_add_facet_profile.")
 
+        # Si la colonne config_data existe sur pipeline_steps, l'utilisateur a la v12
+        if "012_pipeline_step_config" not in done_migrations:
+            for t_name in ("pipeline_steps", "pipelinestepmodel"):
+                if db.table_exists(t_name):
+                    columns = [col.name for col in db.get_columns(t_name)]
+                    if "config_data" in columns:
+                        router.model.create(name="012_pipeline_step_config")
+                        logging.info("Legacy DB detected: faking migration 012_pipeline_step_config.")
+                        break
+
+        # Si la table python_tools existe, l'utilisateur a la v13
+        if "013_python_tools" not in done_migrations:
+            if db.table_exists("python_tools"):
+                router.model.create(name="013_python_tools")
+                logging.info("Legacy DB detected: faking migration 013_python_tools.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

@@ -22,6 +22,7 @@ from ankiforge.database.models import (
     AICacheModel,
     DocumentChunkModel,
     NoteChunkLinkModel,
+    PythonToolModel,
 )
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -45,6 +46,7 @@ def mock_db():
         PersonaModel,
         PipelineModel,
         PipelineStepModel,
+        PythonToolModel,
         FolderModel,
         DocumentModel,
         IgnoredDuplicateModel,

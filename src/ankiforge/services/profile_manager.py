@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import shutil
 
@@ -54,3 +55,10 @@ class ProfileManager:
         # Réinitialise la base de données Peewee avec le nouveau chemin
         db.init(new_path)
         set_active_profile(profile_name)
+
+        try:
+            from ankiforge.database.migration import run_migrations
+
+            run_migrations()
+        except Exception as e:
+            logging.getLogger(__name__).debug("Notice on profile migration: %s", e)

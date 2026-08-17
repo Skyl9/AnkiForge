@@ -14,10 +14,11 @@ class Badge(QLabel):
 
     def set_variant(self, variant: str) -> None:
         style = """
-            border-radius: 9999px;
-            padding: 2px 8px;
-            font-size: 11px;
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 10px;
             font-weight: bold;
+            letter-spacing: 0.3px;
         """
 
         if variant == "filled":
@@ -39,7 +40,7 @@ class Badge(QLabel):
         elif variant == "neutral":
             style += f"background-color: #2d313a; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR};"
 
-        self.setStyleSheet(style)
+        self.setStyleSheet(f"QLabel {{ {style} }}")
 
 
 class TagButton(QPushButton):

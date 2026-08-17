@@ -247,17 +247,39 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_llm_prompt(self, step: PipelineStepModel) -> None:
         """Exécute un prompt LLM standard en interpolant les templates Jinja2."""
-        raw_system_prompt = step.persona.system_prompt if step.persona else ""
+        cfg: Dict[str, Any] = {}
+        if step.config_data:
+            try:
+                cfg = json.loads(step.config_data)
+            except Exception:
+                cfg = {}
+
+        raw_system_prompt = cfg.get("prompt_override") or (step.persona.system_prompt if step.persona else "")
         rendered_sys = self._render_prompt_template(raw_system_prompt)
 
         # Préparation du prompt utilisateur à partir du contexte courant
-        user_input = self.state.get_variable("last_output") or self.state.get_variable("text_source") or self.state.initial_prompt or "Analyser et générer les flashcards correspondantes."
+        input_var = cfg.get("input_variable")
+        if input_var:
+            user_input = self.state.get_variable(input_var)
+        else:
+            user_input = self.state.get_variable("last_output") or self.state.get_variable("text_source") or self.state.initial_prompt or "Analyser et générer les flashcards correspondantes."
+
         if isinstance(user_input, (dict, list)):
             user_input = json.dumps(user_input, ensure_ascii=False, indent=2)
 
-        output_format = getattr(step.persona, "output_format", "json") if step.persona else "json"
+        output_format = str(cfg.get("output_format") or (getattr(step.persona, "output_format", "json") if step.persona else "json"))
 
-        response_text = self.ai_provider.generate(
+        # Provider override si configuré
+        provider = self.ai_provider
+        if cfg.get("llm_config_id"):
+            override_cfg = LLMConfigModel.get_or_none(LLMConfigModel.id == cfg["llm_config_id"])
+            if override_cfg:
+                try:
+                    provider = AIManager.create_provider_from_config(override_cfg)
+                except Exception as e:
+                    logger.warning("Impossible d'instancier le provider dédié: %s", e)
+
+        response_text = provider.generate(
             system_prompt=rendered_sys,
             user_prompt=user_input,
             response_format=output_format,
@@ -272,6 +294,9 @@ class PipelineOrchestrator(QRunnable):
                 parsed_output = response_text
 
         # Mise à jour des variables de l'état partagé
+        out_var = cfg.get("output_variable")
+        if out_var:
+            self.state.set_variable(out_var, parsed_output)
         self.state.set_variable(f"result_step_{step.step_order}", parsed_output)
         self.state.set_variable("last_output", parsed_output)
 
@@ -283,7 +308,21 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_rag_retrieval(self, step: PipelineStepModel) -> None:
         """Interroge l'index vectoriel ou effectue une recherche sémantique locale."""
-        query = self.state.get_variable("rag_query") or (step.persona.system_prompt if step.persona else None) or self.state.initial_prompt or "Concepts clés et définitions"
+        cfg: Dict[str, Any] = {}
+        if step.config_data:
+            try:
+                cfg = json.loads(step.config_data)
+            except Exception:
+                cfg = {}
+
+        top_k = int(cfg.get("top_k", 5))
+        query = (
+            cfg.get("rag_query_template")
+            or self.state.get_variable("rag_query")
+            or (step.persona.system_prompt if step.persona else None)
+            or self.state.initial_prompt
+            or "Concepts clés et définitions"
+        )
         rendered_query = self._render_prompt_template(query)
 
         doc_id = str(self.state.document_id) if self.state.document_id else "default_doc"
@@ -293,7 +332,7 @@ class PipelineOrchestrator(QRunnable):
             llm_config = LLMConfigModel.select().first()
             if llm_config:
                 rag = RAGService(llm_config)
-                rag_results = rag.search(doc_id, rendered_query, top_k=5)
+                rag_results = rag.search(doc_id, rendered_query, top_k=top_k)
                 retrieved = [r.get("content", "") if isinstance(r, dict) else str(r) for r in rag_results]
         except Exception as e:
             logger.warning(f"Recherche RAG FAISS non disponible: {e}. Utilisation du fallback mémoire.")
@@ -304,8 +343,10 @@ class PipelineOrchestrator(QRunnable):
             if text_source:
                 # Découpage basique par paragraphes
                 paras = [p.strip() for p in text_source.split("\n\n") if p.strip()]
-                retrieved = paras[:5]
+                retrieved = paras[:top_k]
 
+        out_var = cfg.get("output_variable") or "retrieved_chunks"
+        self.state.set_variable(out_var, retrieved)
         self.state.add_retrieved_chunks(retrieved)
         self.state.set_variable("last_output", "\n\n".join(retrieved))
 
@@ -412,15 +453,28 @@ class PipelineOrchestrator(QRunnable):
         self.state.is_paused_for_human = False
 
     def _execute_python_tool(self, step: PipelineStepModel) -> None:
-        """Exécute un outil Python enregistré dans le registre."""
-        tool_name = step.persona.name if step.persona else "default_tool"
+        """Exécute un outil Python (natif ou script personnalisé BDD) sur l'état partagé."""
+        cfg: Dict[str, Any] = {}
+        if step.config_data:
+            try:
+                cfg = json.loads(step.config_data)
+            except Exception:
+                cfg = {}
+
+        tool_name = cfg.get("tool_name") or (step.persona.name if step.persona else "clean_html_latex")
+
+        # 1. Vérifier si un callback est surchargé dans tool_registry en mémoire
         if tool_name in self.tool_registry:
             tool_fn = self.tool_registry[tool_name]
             result = tool_fn(self.state)
-            self.state.set_variable(f"result_tool_{step.step_order}", result)
-            self.state.set_variable("last_output", result)
         else:
-            logger.warning(f"Outil Python '{tool_name}' non trouvé dans le registre.")
+            from ankiforge.services.tools.tool_service import ToolService
+
+            result = ToolService.execute_tool(tool_name, self.state, cfg.get("tool_args"))
+
+        out_var = cfg.get("output_variable") or f"result_tool_{step.step_order}"
+        self.state.set_variable(out_var, result)
+        self.state.set_variable(f"result_tool_{step.step_order}", result)
 
     # ==========================================
     # CONTRÔLES EXTERNES (THREAD-SAFE / APPELÉS PAR L'UI)
