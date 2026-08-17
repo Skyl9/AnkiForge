@@ -66,7 +66,7 @@ class ConsultantEngine:
                 if self.persona and hasattr(self.persona, "system_prompt") and self.persona.system_prompt:
                     persona_prompt = f"Tu es l'agent nommé '{self.persona.name}'. Ton rôle est défini comme suit :\n{self.persona.system_prompt}\n"
 
-                # nosec B608 car c'est un prompt envoyé à l'IA, pas une vraie requête exécutée ici
+                # Prompt système envoyé à l'IA (texte indicatif, pas de requête SQL exécutée)
                 system_prompt = f"""{persona_prompt}
 Ton UNIQUE but est de récupérer des données réelles et factuelles en utilisant tes outils si nécessaire, et de répondre en respectant ta personnalité.
 Ne propose JAMAIS de créer des cartes ou des flashcards (même si le projet s'appelle AnkiForge) SAUF si on te le demande explicitement.
