@@ -11,7 +11,6 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -44,56 +43,6 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.widgets.toast import show_toast
 
 logger = logging.getLogger(__name__)
-
-
-class DiscoveryAIDialog(QDialog):
-    """
-    Popup "Profilage initial" d'IA Découverte pour un Document.
-    """
-
-    def __init__(self, doc: Any, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.doc = doc
-        self.setWindowTitle("IA Découverte - Profilage Initial")
-        self.resize(400, 300)
-        self._setup_ui()
-
-    def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-
-        lbl_info = QLabel("L'IA suggère ces facettes pour ce document. Cochez/décochez :")
-        lbl_info.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-        lbl_info.setWordWrap(True)
-        layout.addWidget(lbl_info)
-
-        # Placeholder for Checkboxes
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("background: transparent; border: none;")
-
-        container = QWidget()
-        vbox = QVBoxLayout(container)
-
-        # Mock Data
-        mock_facets = ["Définition", "Théorème", "Exemple", "Historique"]
-        for facet in mock_facets:
-            cb = QCheckBox(facet)
-            cb.setChecked(True)
-            cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-            vbox.addWidget(cb)
-
-        vbox.addStretch()
-        self.scroll_area.setWidget(container)
-        layout.addWidget(self.scroll_area)
-
-        btn_box = QHBoxLayout()
-        btn_box.addStretch()
-
-        btn_ok = PrimaryButton("Valider les facettes")
-        btn_ok.clicked.connect(self.accept)
-        btn_box.addWidget(btn_ok)
-
-        layout.addLayout(btn_box)
 
 
 # =====================================================================================
@@ -1417,19 +1366,45 @@ class DocumentInspectorPanel(QWidget):
         self.load_chunks()
 
     def load_chunks(self):
-        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.id))
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
 
         if not chunks:
             self.text_browser.setHtml(f"<p style='color: {DesignTokens.TEXT_SECONDARY}; padding: 12px;'>Ce document n'a pas encore été fragmenté.</p>")
             return
 
+        # Récupérer tous les chunk_ids qui ont des liens
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document == self.doc)}
+        hallucinating_chunk_ids = {
+            link.chunk_id
+            for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).where(NoteChunkLinkModel.is_hallucinating == True)  # noqa: E712
+        }
+
         html_content = ""
         for chunk in chunks:
-            # We wrap the chunk content in an anchor tag with a specific style
             safe_text = chunk.content.replace("\n", "<br>")
+
+            if chunk.id in hallucinating_chunk_ids:
+                border_col = DesignTokens.COLOR_RED
+                bg_col = "rgba(239, 68, 68, 0.1)"
+                badge_text = "🔴 Alerte Fact-Checking"
+            elif chunk.id in linked_chunk_ids:
+                border_col = DesignTokens.COLOR_GREEN
+                bg_col = "rgba(34, 197, 94, 0.1)"
+                badge_text = "🟢 Couvert"
+            else:
+                border_col = DesignTokens.BORDER_COLOR
+                bg_col = DesignTokens.BG_MAIN
+                badge_text = "⚠️ Non couvert"
+
+            header_info = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+
             html_content += f"""
-            <div style='margin-bottom: 12px; padding: 8px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; background-color: {DesignTokens.BG_MAIN};'>
-                <a href='chunk_{chunk.id}' style='text-decoration: none; color: {DesignTokens.TEXT_PRIMARY}; display: block;'>
+            <div style='margin-bottom: 12px; padding: 10px; border: 1px solid {border_col}; border-radius: 6px; background-color: {bg_col};'>
+                <div style='display: flex; justify-content: space-between; font-size: 11px; color: {DesignTokens.TEXT_SECONDARY}; margin-bottom: 4px;'>
+                    <span><strong>{header_info}</strong></span>
+                    <span>{badge_text}</span>
+                </div>
+                <a href='chunk_{chunk.id}' style='text-decoration: none; color: {DesignTokens.TEXT_PRIMARY}; display: block; font-size: 13px;'>
                     {safe_text}
                 </a>
             </div>
@@ -1447,104 +1422,100 @@ class DocumentInspectorPanel(QWidget):
                 pass
 
     def inspect_chunk(self, chunk_id: int):
-        from ankiforge.database.models import DocumentChunkModel, ChunkFacetRequirementModel
-
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
         if not chunk:
             return
 
-        self.lbl_chunk_preview.setText(f"Aperçu du fragment n°{chunk_id}:\n\n{chunk.content[:400]}...")
-        self.lbl_chunk_preview.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; padding: 12px; font-weight: bold;")
+        header_title = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+        self.lbl_chunk_preview.setText(f"📌 {header_title}\n\n{chunk.content}")
+        self.lbl_chunk_preview.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; padding: 12px; font-size: 13px; line-height: 1.5;")
 
-        # Clear facets
+        # Clear inspect container
         while self.facets_layout.count():
             item = self.facets_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        if not chunk.is_profiled:
-            lbl = QLabel("Ce fragment n'a pas encore été analysé par le Profileur Cognitif.")
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-style: italic; padding: 12px;")
-            self.facets_layout.addWidget(lbl)
-            return
-
-        requirements = list(ChunkFacetRequirementModel.select().where(ChunkFacetRequirementModel.chunk == chunk))
         links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk))
 
-        covered_facets = {}
-        hallucinating_facets = {}
-        for link in links:
-            if link.facet:
-                facet_id = link.facet.id
+        if not links:
+            box = QFrame()
+            box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border-radius: 6px; border: 1px dashed {DesignTokens.BORDER_COLOR}; padding: 12px; }}")
+            b_layout = QVBoxLayout(box)
+            b_layout.setSpacing(8)
+
+            lbl_warn = QLabel("⚠️ Aucune flashcard n'a encore été générée pour cette section.")
+            lbl_warn.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-style: italic;")
+            b_layout.addWidget(lbl_warn)
+
+            btn_gen = PrimaryButton("⚡ Forger ce chapitre")
+            btn_gen.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
+            b_layout.addWidget(btn_gen)
+
+            self.facets_layout.addWidget(box)
+        else:
+            lbl_cnt = QLabel(f"✅ {len(links)} carte(s) Anki associée(s) :")
+            lbl_cnt.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-weight: bold; margin-bottom: 8px;")
+            self.facets_layout.addWidget(lbl_cnt)
+
+            for link in links:
+                note = link.note
+                card_box = QFrame()
+                card_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; }}")
+                c_layout = QVBoxLayout(card_box)
+                c_layout.setContentsMargins(8, 8, 8, 8)
+                c_layout.setSpacing(4)
+
+                import json
+
+                fields = {}
+                try:
+                    fields = json.loads(note.fields_data) if note and note.fields_data else {}
+                except Exception as e:
+                    logger.debug("Erreur parsing fields_data: %s", e)
+
+                front = fields.get("Front") or fields.get("Question") or "Carte Anki"
+                back = fields.get("Back") or fields.get("Answer") or ""
+
+                lbl_front = QLabel(f"Q: {front}")
+                lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
+                lbl_front.setWordWrap(True)
+                c_layout.addWidget(lbl_front)
+
+                if back:
+                    lbl_back = QLabel(f"R: {back[:120]}..." if len(back) > 120 else f"R: {back}")
+                    lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px;")
+                    lbl_back.setWordWrap(True)
+                    c_layout.addWidget(lbl_back)
+
                 if link.is_hallucinating:
-                    hallucinating_facets[facet_id] = True
-                else:
-                    covered_facets[facet_id] = True
+                    lbl_bad = QLabel("🔴 Hallucination détectée face au document source")
+                    lbl_bad.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11px; font-weight: bold;")
+                    c_layout.addWidget(lbl_bad)
 
-        if not requirements:
-            lbl = QLabel("Aucune facette n'est requise pour ce fragment (Texte mineur).")
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; padding: 12px;")
-            self.facets_layout.addWidget(lbl)
-            return
+                self.facets_layout.addWidget(card_box)
 
-        for req in requirements:
-            facet = req.facet
-            if facet.id in hallucinating_facets:
-                self.add_facet_status(facet.name, "Hallucination !", DesignTokens.COLOR_RED, chunk_id=chunk.id, facet_id=facet.id)
-            elif facet.id in covered_facets:
-                self.add_facet_status(facet.name, "Couvert", DesignTokens.COLOR_GREEN, chunk_id=chunk.id, facet_id=facet.id)
-            else:
-                self.add_facet_status(facet.name, "Manquant", DesignTokens.COLOR_YELLOW, show_button=True, chunk_id=chunk.id, facet_id=facet.id)
+            btn_more = SecondaryButton("+ Générer plus de cartes pour ce chapitre")
+            btn_more.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
+            self.facets_layout.addWidget(btn_more)
 
-    def add_facet_status(self, name: str, status: str, color: str, show_button: bool = False, chunk_id: int = 0, facet_id: int = 0):
-        row = QFrame()
-        row.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; }}")
-        row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(8, 8, 8, 8)
-
-        lbl_name = QLabel(name)
-        lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 500;")
-
-        lbl_status = QLabel(status)
-        lbl_status.setStyleSheet(f"color: {color}; font-weight: bold;")
-
-        row_layout.addWidget(lbl_name)
-        row_layout.addStretch()
-        row_layout.addWidget(lbl_status)
-
-        if show_button:
-            btn_generate = SecondaryButton("Forger")
-            btn_generate.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    color: {DesignTokens.ACCENT_PRIMARY};
-                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                    border-radius: 4px;
-                    padding: 4px 8px;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignTokens.ACCENT_PRIMARY};
-                    color: white;
-                }}
-            """)
-            btn_generate.clicked.connect(lambda: self._on_forge_facet(chunk_id, facet_id))
-            row_layout.addWidget(btn_generate)
-
-        self.facets_layout.addWidget(row)
-
-    def _on_forge_facet(self, chunk_id: int, facet_id: int):
-        from ankiforge.database.models import CognitiveFacetModel
-
+    def _on_forge_chunk(self, chunk_id: int):
         chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
-        facet = CognitiveFacetModel.get_or_none(CognitiveFacetModel.id == facet_id)
-        if not chunk or not facet:
+        if not chunk:
             return
-
-        pre_prompt = f"Génère des flashcards d'apprentissage concernant la facette cognitive : {facet.name}.\n\nVoici le document source :\n\n{chunk.content}\n\nConcentre-toi sur cette facette en ignorant le reste du texte."  # noqa: E501
-        self.request_navigation.emit("creation", {"prompt": pre_prompt, "title": f"Forge: {facet.name}"})
+        doc_title = self.doc.title if self.doc else "Document"
+        section_name = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+        self.request_navigation.emit("creation", {"text_source": chunk.content, "source_title": f"{doc_title} - {section_name}"})
 
     def _on_profile_document(self) -> None:
-        """Affiche la popup d'IA Découverte (Scaffolding)."""
-        show_toast(self, "Lancement du profilage Smart Coverage...")
-        dialog = DiscoveryAIDialog(self.doc, self)
-        dialog.exec()
+        """Lance l'indexation FAISS et la structuration des chunks en arrière-plan."""
+        from ankiforge.services.workers.coverage_worker import CoverageWorker
+
+        show_toast(self, "Structuration du cours et indexation FAISS en cours...")
+        self._coverage_worker = CoverageWorker(self.doc.id)
+        self._coverage_worker.finished_processing.connect(self._on_coverage_finished)
+        self._coverage_worker.start()
+
+    def _on_coverage_finished(self) -> None:
+        show_toast(self, "Indexation et analyse du document terminées !")
+        self.load_chunks()

@@ -111,6 +111,13 @@ def run_migrations() -> None:
                 router.model.create(name="011_add_facet_profile")
                 logging.info("Legacy DB detected: faking migration 011_add_facet_profile.")
 
+        # Nettoyage et synchronisation de la table note_chunk_links
+        if db.table_exists("note_chunk_links"):
+            try:
+                db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS note_chunk_links_note_chunk ON note_chunk_links (note_id, chunk_id);")
+            except Exception as e:
+                logging.debug(f"Notice on note_chunk_links index: {e}")
+
     logging.info("Lancement des migrations via peewee-migrate...")
     try:
         # Exécute toutes les migrations en attente

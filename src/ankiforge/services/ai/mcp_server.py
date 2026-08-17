@@ -154,10 +154,14 @@ def search_document(query: str, document_id: int) -> str:
         rag = RAGService(llm_config)
         results = rag.search(str(document_id), query, top_k=3)
 
-        if not results:
-            return "Aucune information pertinente trouvée dans ce document."
-
-        formatted = "Extraits trouvés :\n" + "\n---\n".join(results)
+        snippets = []
+        for r in results:
+            if isinstance(r, dict):
+                loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else "Extrait")
+                snippets.append(f"[{loc}] : {r.get('content', '')}")
+            else:
+                snippets.append(str(r))
+        formatted = "Extraits trouvés :\n" + "\n---\n".join(snippets)
         return formatted
     except Exception as e:
         logger.error(f"Erreur lors de la recherche RAG : {e}")

@@ -393,84 +393,37 @@ class AICacheModel(BaseModel):
         indexes = ((("prompt_hash", "system_prompt_hash", "model_id", "temperature"), True),)
 
 
-class CognitiveFacetModel(BaseModel):
-    """
-    Définit une facette d'apprentissage (ex: Quoi, Pourquoi, Comment).
-    Totalement modulaire : l'utilisateur peut créer ses propres facettes.
-    """
-
-    name = CharField(unique=True)  # Ex: "Pourquoi (Cause)"
-    description = TextField(null=True)  # Ex: "Explique l'origine ou la raison du concept."
-    is_active = BooleanField(default=True)
-
-    class Meta:
-        table_name = "cognitive_facets"
-
-
-class DocumentActiveFacetModel(BaseModel):
-    """
-    Associe un document aux facettes qui lui sont appliquées.
-    """
-
-    document = ForeignKeyField(DocumentModel, backref="active_facets", on_delete="CASCADE")
-    facet = ForeignKeyField(CognitiveFacetModel, on_delete="CASCADE")
-
-    class Meta:
-        table_name = "document_active_facets"
-        indexes = ((("document", "facet"), True),)
-
-
 class DocumentChunkModel(BaseModel):
     """
-    Un morceau de texte (paragraphe) issu d'un DocumentModel.
-    C'est la base du hachage pour éviter de re-profiler le texte s'il n'a pas changé.
+    Un morceau de texte (paragraphe, sous-section ou page) issu d'un DocumentModel.
+    Permet le suivi fin de la couverture de cours et l'indexation RAG.
     """
 
     document = ForeignKeyField(DocumentModel, backref="chunks", on_delete="CASCADE")
     chunk_index = IntegerField()  # Pour garder l'ordre du texte (0, 1, 2...)
     content = TextField()
-    content_hash = CharField(index=True)  # Hash MD5/SHA-256 du texte brut
+    content_hash = CharField(index=True)  # Hash MD5 du texte brut
     page_number = IntegerField(null=True)
     heading_path = CharField(null=True)
-
-    # Si True, l'Agent "Profileur" a déjà analysé ce chunk
-    is_profiled = BooleanField(default=False)
+    is_profiled = BooleanField(default=False, null=True)
 
     class Meta:
         table_name = "document_chunks"
 
 
-class ChunkFacetRequirementModel(BaseModel):
-    """
-    Stocke le résultat de l'Agent "Profileur".
-    Indique qu'un chunk spécifique nécessite d'être couvert par une facette spécifique.
-    (ex: Le Chunk #4 nécessite une carte de type "Pourquoi").
-    """
-
-    chunk = ForeignKeyField(DocumentChunkModel, backref="required_facets", on_delete="CASCADE")
-    facet = ForeignKeyField(CognitiveFacetModel, on_delete="CASCADE")
-
-    class Meta:
-        table_name = "chunk_facet_requirements"
-        indexes = ((("chunk", "facet"), True),)  # Pas de doublons autorisés
-
-
 class NoteChunkLinkModel(BaseModel):
     """
-    Le lien sacré entre une Carte Anki, le Chunk d'origine, et la Facette qu'elle couvre.
-    C'est cette table qui permet d'afficher les boutons en "Vert" dans l'UI !
+    Liaison de traçabilité entre une Note Anki (NoteModel) et son fragment source (DocumentChunkModel).
+    Permet le calcul de complétion de cours et l'audit anti-hallucination.
     """
 
     note = ForeignKeyField(NoteModel, backref="chunk_links", on_delete="CASCADE")
-    chunk = ForeignKeyField(DocumentChunkModel, on_delete="CASCADE")
-    facet = ForeignKeyField(CognitiveFacetModel, on_delete="CASCADE")
-
-    # Optionnel : score de fact-checking anti-hallucination
+    chunk = ForeignKeyField(DocumentChunkModel, backref="note_links", on_delete="CASCADE")
     is_hallucinating = BooleanField(default=False)
 
     class Meta:
         table_name = "note_chunk_links"
-        indexes = ((("note", "chunk", "facet"), True),)
+        indexes = ((("note", "chunk"), True),)
 
 
 def seed_initial_data() -> None:
@@ -478,44 +431,6 @@ def seed_initial_data() -> None:
     Peuple la base avec les données métier (Modèles, Prompts, Pipelines).
     Utilise get_or_create pour être idempotent et permettre les mises à jour sans purger la BDD.
     """
-    # ==========================================
-    # 1. NOUVEAUTÉ : FACETTES & PROFILEUR
-    # (À placer TOUT EN HAUT pour contourner le "return" prématuré)
-    # ==========================================
-    facets = [
-        {"name": "Quoi (Définition)", "desc": "Définit le concept, sa nature ou sa structure de base."},
-        {"name": "Pourquoi (Cause)", "desc": "Explique l'origine, la raison d'être ou la cause d'un phénomène."},
-        {"name": "Comment (Mécanisme)", "desc": "Décrit le processus, la méthode ou le fonctionnement étape par étape."},
-        {"name": "Comparaison (Nuance)", "desc": "Met en évidence les différences ou similarités avec un autre concept."},
-        {"name": "Exemple (Application)", "desc": "Fournit un cas d'usage concret, clinique ou pratique."},
-    ]
-    for f in facets:
-        CognitiveFacetModel.get_or_create(name=f["name"], defaults={"description": f["desc"]})
-
-    profileur_prompt = (
-        "Tu es un ingénieur pédagogique expert en neurosciences de l'apprentissage.\n"
-        "Ton but est d'analyser des fragments de cours et de déterminer quelles 'facettes cognitives' l'étudiant doit impérativement maîtriser pour chaque fragment.\n\n"
-        "Voici les facettes disponibles dans le système :\n"
-        "1. Quoi (Définition) : Nature, structure de base.\n"
-        "2. Pourquoi (Cause) : Raison, origine, objectif.\n"
-        "3. Comment (Mécanisme) : Processus, fonctionnement.\n"
-        "4. Comparaison (Nuance) : Différences/similarités avec autre chose.\n"
-        "5. Exemple (Application) : Cas concret, clinique ou pratique.\n\n"
-        "Pour chaque fragment de texte fourni, retourne un tableau JSON strict indiquant le numéro du fragment et la liste des noms exacts des facettes pertinentes.\n"
-        "Ne sélectionne QUE les facettes strictement nécessaires (évite la surcharge).\n\n"
-        "Format de sortie attendu :\n"
-        "[\n"
-        "  {\n"
-        '    "chunk_index": 0,\n'
-        '    "facets": ["Quoi (Définition)", "Pourquoi (Cause)"]\n'
-        "  }\n"
-        "]"
-    )
-    PersonaModel.get_or_create(
-        name="Profileur Cognitif",
-        defaults={"description": "Analyse un texte et détermine les angles d'apprentissage requis (Facettes).", "system_prompt": profileur_prompt},
-    )
-
     juge_prompt = (
         "Tu es l'Agent Juge d'AnkiForge, un fact-checker impitoyable contre les hallucinations.\n"
         "Je vais te fournir le contenu d'une carte d'apprentissage (Anki) et le fragment de cours (Chunk) dont elle est issue.\n"

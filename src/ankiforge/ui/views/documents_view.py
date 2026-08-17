@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -31,7 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import DocumentModel, FolderModel
+from ankiforge.database.models import DocumentChunkModel, DocumentModel, FolderModel, NoteChunkLinkModel
 from ankiforge.services.workers.document_worker import DocumentWorker
 from ankiforge.ui.components import (
     IconButton,
@@ -83,6 +85,8 @@ class DocumentsView(QWidget):
     """
     Vue My Documents / Library — 100% Conforme à la Maquette concept_ide.
     """
+
+    request_navigation = Signal(str, object)
 
     def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -362,7 +366,51 @@ class DocumentsView(QWidget):
         self.editor_panel.add_tab("Lecteur & Éditeur", self.editor_stack, "ph.file-text", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
-        self.main_splitter.setSizes([260, 800])
+        # --- PANNEAU DROIT : Sommaire & Couverture de Cours ---
+        self.coverage_panel = IdePanel(detachable=True)
+        self.coverage_panel.setMinimumWidth(280)
+
+        coverage_content = QWidget()
+        cov_layout = QVBoxLayout(coverage_content)
+        cov_layout.setContentsMargins(10, 10, 10, 10)
+        cov_layout.setSpacing(8)
+
+        self.lbl_coverage_summary = QLabel("📊 Couverture : 0%")
+        self.lbl_coverage_summary.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px;")
+        cov_layout.addWidget(self.lbl_coverage_summary)
+
+        self.chapters_list = QListWidget()
+        self.chapters_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: #1a1d24;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 4px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+            }}
+            QListWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QListWidget::item:selected {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        cov_layout.addWidget(self.chapters_list, 1)
+
+        self.btn_forge_chapter = PrimaryButton("⚡ Forger la section")
+        self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
+        cov_layout.addWidget(self.btn_forge_chapter)
+
+        self.coverage_panel.add_tab("Sommaire & Couverture", coverage_content, "ph.list-checks", closable=False)
+        self.main_splitter.addWidget(self.coverage_panel)
+
+        self.main_splitter.setSizes([240, 650, 280])
 
         # Par défaut, afficher l'état vide
         self.editor_stack.setCurrentIndex(0)
@@ -580,10 +628,12 @@ class DocumentsView(QWidget):
                     self._on_view_toggled("md")
 
                 self.editor_stack.setCurrentIndex(1)  # Afficher l'éditeur
+                self._refresh_chapters_list()
         else:
             # Si un dossier est sélectionné, basculer sur l'état vide de l'éditeur
             self._current_doc_id = None
             self.editor_stack.setCurrentIndex(0)
+            self._refresh_chapters_list()
 
     @Slot()
     def _on_document_text_changed(self) -> None:
@@ -924,34 +974,99 @@ class DocumentsView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible d'enregistrer le document : {str(e)}")
 
+    def _refresh_chapters_list(self) -> None:
+        """Met à jour le sommaire des chapitres et les indicateurs de couverture du document actif."""
+        self.chapters_list.clear()
+        if not self._current_doc_id:
+            self.lbl_coverage_summary.setText("📊 Couverture : 0%")
+            return
+
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
+
+        if not chunks:
+            item = QListWidgetItem("Aucun fragment indexé (cliquez sur 'Vectoriser (RAG)')")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.chapters_list.addItem(item)
+            self.lbl_coverage_summary.setText("📊 Couverture : 0%")
+            return
+
+        # Récupérer les liens de cartes
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == self._current_doc_id)}
+
+        covered_count = 0
+        for chunk in chunks:
+            is_covered = chunk.id in linked_chunk_ids
+            if is_covered:
+                covered_count += 1
+                badge = "🟢"
+                status_text = "Couvert"
+            else:
+                badge = "⚠️"
+                status_text = "Non couvert"
+
+            title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+            item_text = f"{badge} {title_str} ({status_text})"
+
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.ItemDataRole.UserRole, chunk.id)
+            self.chapters_list.addItem(item)
+
+        total_chunks = len(chunks)
+        percent = (covered_count / total_chunks * 100) if total_chunks > 0 else 0
+        self.lbl_coverage_summary.setText(f"📊 Couverture : {percent:.0f}% ({covered_count}/{total_chunks} sections)")
+
+    @Slot()
+    def _on_forge_selected_chapter(self) -> None:
+        """Bascule sur l'Usine de Création en préchargeant la section sélectionnée."""
+        items = self.chapters_list.selectedItems()
+        if not items:
+            show_toast(self, "Veuillez sélectionner un chapitre dans le sommaire.", is_error=True)
+            return
+
+        chunk_id = items[0].data(Qt.ItemDataRole.UserRole)
+        if not chunk_id:
+            return
+
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+        if not chunk:
+            return
+
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        doc_title = doc.title if doc else "Document"
+        section_name = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+
+        self.request_navigation.emit(
+            "creation",
+            {
+                "text_source": chunk.content,
+                "source_title": f"{doc_title} - {section_name}",
+                "chunk_id": chunk.id,
+            },
+        )
+
     @Slot()
     def _on_vectorize_rag(self) -> None:
         if not self._current_doc_id:
             show_toast(self, "Veuillez sélectionner un document à vectoriser.", is_error=True)
             return
 
-        doc = DocumentModel.get_by_id(self._current_doc_id)
-        if doc.chroma_collection_name:
-            reply = QMessageBox.question(self, "Déjà indexé", "Ce document est déjà indexé dans ChromaDB.\nVoulez-vous le ré-indexer ?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-
         self.btn_rag.setEnabled(False)
-        self.btn_rag.setText("Vectorisation...")
+        self.btn_rag.setText("Vectorisation FAISS...")
 
-        from ankiforge.services.workers.vector_worker import VectorWorker
+        from ankiforge.services.workers.coverage_worker import CoverageWorker
 
-        self._vector_worker = VectorWorker(document_id=self._current_doc_id, parent=self)
-        self._vector_worker.finished_indexing.connect(self._on_vectorization_success)
-        self._vector_worker.error_occurred.connect(self._on_vectorization_error)
-        self._vector_worker.finished.connect(self._vector_worker.deleteLater)
-        self._vector_worker.start()
+        self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, parent=self)
+        self._coverage_worker.finished_processing.connect(self._on_vectorization_success)
+        self._coverage_worker.error_occurred.connect(self._on_vectorization_error)
+        self._coverage_worker.finished.connect(self._coverage_worker.deleteLater)
+        self._coverage_worker.start()
 
-    @Slot(str)
-    def _on_vectorization_success(self, collection_name: str) -> None:
+    @Slot()
+    def _on_vectorization_success(self) -> None:
         self.btn_rag.setEnabled(True)
         self.btn_rag.setText("Vectoriser (RAG)")
-        show_toast(self, f"Document indexé dans ChromaDB : {collection_name}")
+        show_toast(self, "Document indexé avec succès dans FAISS !")
+        self._refresh_chapters_list()
 
     @Slot(str)
     def _on_vectorization_error(self, err: str) -> None:

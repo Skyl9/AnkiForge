@@ -293,7 +293,8 @@ class PipelineOrchestrator(QRunnable):
             llm_config = LLMConfigModel.select().first()
             if llm_config:
                 rag = RAGService(llm_config)
-                retrieved = rag.search(doc_id, rendered_query, top_k=5)
+                rag_results = rag.search(doc_id, rendered_query, top_k=5)
+                retrieved = [r.get("content", "") if isinstance(r, dict) else str(r) for r in rag_results]
         except Exception as e:
             logger.warning(f"Recherche RAG FAISS non disponible: {e}. Utilisation du fallback mémoire.")
 

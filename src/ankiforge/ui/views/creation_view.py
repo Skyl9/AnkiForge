@@ -41,6 +41,7 @@ from ankiforge.database.models import (
     DocumentModel,
     FolderModel,
     LLMConfigModel,
+    NoteChunkLinkModel,
     NoteTypeModel,
     PipelineModel,
 )
@@ -1651,13 +1652,22 @@ class CreationView(QWidget):
                     tags.append(f"source:{clean_title}")
 
                 deck_obj, _ = DeckModel.get_or_create(name=deck_name)
-                NoteManager.create_note(
+                note = NoteManager.create_note(
                     note_type=selected_nt,
                     deck=deck_obj,
                     content_dict=fields,
                     tags=tags,
                     source="ai",
                 )
+
+                if note:
+                    target_chunk_id = card.get("chunk_id") or getattr(self, "current_source_chunk_id", None)
+                    if target_chunk_id:
+                        try:
+                            NoteChunkLinkModel.get_or_create(note=note, chunk_id=int(target_chunk_id))
+                        except Exception as e:
+                            logger.warning("Erreur lors de la création du lien NoteChunkLink: %s", e)
+
                 # Marquer la carte comme "Enregistrée" pour éviter les doublons
                 card["status"] = "Enregistrée"
                 saved_count += 1
