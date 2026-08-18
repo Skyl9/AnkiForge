@@ -226,6 +226,28 @@ class TokenUsageModel(BaseModel):
         table_name = "token_usage"
 
 
+class PersonaFolderModel(BaseModel):
+    """Dossier et sous-dossier de classification pour organiser les Personas et Agents IA."""
+
+    name = CharField()
+    parent = ForeignKeyField("self", backref="subfolders", null=True, on_delete="CASCADE")
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "persona_folders"
+
+    def get_full_path(self) -> str:
+        """Retourne le chemin complet du dossier (ex: 'Création / Mathématiques / Algèbre')."""
+        parts = [str(self.name)]
+        curr = self.parent
+        visited = {self.id}
+        while curr is not None and curr.id not in visited:
+            parts.append(str(curr.name))
+            visited.add(curr.id)
+            curr = curr.parent
+        return " / ".join(reversed(parts))
+
+
 class PersonaModel(BaseModel):
     """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur) augmenté de capacités."""
 
@@ -233,6 +255,8 @@ class PersonaModel(BaseModel):
     description = TextField(null=True)
     system_prompt = TextField()  # Stockera le contenu du prompt Jinja2
     output_format = CharField(default="json")
+    persona_type = CharField(default="pipeline")  # 'pipeline', 'mcp', 'universal'
+    folder = ForeignKeyField(PersonaFolderModel, backref="personas", null=True, on_delete="SET NULL")
     allowed_tools = TextField(default="[]")  # JSON: ["query_peewee", "rag_retrieval"]
     llm_config = ForeignKeyField(LLMConfigModel, null=True, on_delete="SET NULL")
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])

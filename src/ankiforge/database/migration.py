@@ -127,6 +127,32 @@ def run_migrations() -> None:
                 router.model.create(name="013_python_tools")
                 logging.info("Legacy DB detected: faking migration 013_python_tools.")
 
+        # Si le champ persona_type existe dans personas, l'utilisateur a la v14
+        if "014_persona_type" not in done_migrations:
+            for t_name in ("personas", "personamodel"):
+                if db.table_exists(t_name):
+                    columns = [col.name for col in db.get_columns(t_name)]
+                    if "persona_type" in columns:
+                        router.model.create(name="014_persona_type")
+                        logging.info("Legacy DB detected: faking migration 014_persona_type.")
+                        break
+
+        # Si la table persona_folders existe, l'utilisateur a la v15
+        if "015_persona_folders" not in done_migrations:
+            if db.table_exists("persona_folders"):
+                router.model.create(name="015_persona_folders")
+                logging.info("Legacy DB detected: faking migration 015_persona_folders.")
+
+        # Si le champ parent_id existe dans persona_folders, l'utilisateur a la v16
+        if "016_persona_subfolders" not in done_migrations:
+            for t_name in ("persona_folders", "personafoldermodel"):
+                if db.table_exists(t_name):
+                    columns = [col.name for col in db.get_columns(t_name)]
+                    if "parent" in columns or "parent_id" in columns:
+                        router.model.create(name="016_persona_subfolders")
+                        logging.info("Legacy DB detected: faking migration 016_persona_subfolders.")
+                        break
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

@@ -210,8 +210,8 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
             background-color: rgba({r}, {g}, {b}, 0.15);
             color: {color_hex};
             border: 1px solid rgba({r}, {g}, {b}, 0.35);
-            border-radius: 11px;
-            padding: 2px 10px;
+            border-radius: 9999px;
+            padding: 3px 12px;
             font-size: 10px;
             font-weight: bold;
             letter-spacing: 0.5px;
@@ -234,7 +234,7 @@ class StatusPillBadge(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 3, 10, 3)
+        layout.setContentsMargins(10, 4, 12, 4)
         layout.setSpacing(6)
 
         self.lbl_icon = QLabel()
@@ -259,7 +259,7 @@ class StatusPillBadge(QFrame):
             StatusPillBadge {{
                 background-color: {bg_alpha};
                 border: 1px solid {border_alpha};
-                border-radius: 12px;
+                border-radius: 9999px;
             }}
             StatusPillBadge:hover {{
                 border-color: {color};
@@ -697,22 +697,28 @@ class StepPickerDialog(QDialog):
         self.col1_cards_layout.addWidget(card_prompt_pure)
         self._cards.append((card_prompt_pure, "agent ia prompt libre personnalise prompt pur".lower()))
 
-        if not self.personas:
-            lbl_no_p = QLabel("Aucun persona configuré. Créez des agents dans l'Atelier d'Agents.")
+        pipeline_personas = [p for p in self.personas if getattr(p, "persona_type", "pipeline") in ("pipeline", "universal", None, "")]
+
+        if not pipeline_personas:
+            lbl_no_p = QLabel("Aucun persona de pipeline configuré. Créez des agents dans l'Atelier d'Agents.")
             lbl_no_p.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic; margin-left: 6px;")
             self.col1_cards_layout.addWidget(lbl_no_p)
 
-        for p in self.personas:
+        for p in pipeline_personas:
             p_desc = p.system_prompt.strip().replace("\n", " ") if p.system_prompt else "Agent IA spécialisé"
             if len(p_desc) > 85:
                 p_desc = p_desc[:82] + "..."
+            p_type = getattr(p, "persona_type", "pipeline")
+            badge_txt = "UNIVERSEL" if p_type == "universal" else "LLM"
+            badge_col = "#f59e0b" if p_type == "universal" else "#8b5cf6"
+
             card = StepPickerCard(
                 payload={"type": "LLM_PROMPT", "persona": p},
                 icon_name="ph.sparkle",
                 title=f"Agent : {p.name}",
                 subtitle=p_desc,
-                badge_text="LLM",
-                badge_color="#8b5cf6",
+                badge_text=badge_txt,
+                badge_color=badge_col,
             )
             card.clicked.connect(self._on_item_selected)
             self.col1_cards_layout.addWidget(card)
