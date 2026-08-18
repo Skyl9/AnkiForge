@@ -442,6 +442,13 @@ class PipelineOrchestrator(QRunnable):
     def _execute_human_validation(self, step: PipelineStepModel) -> None:
         """Met le DAG en pause et attend l'interaction de l'utilisateur sur l'UI."""
         logger.info(f"[Orchestrateur DAG] Pause pour validation humaine (étape {step.step_order})")
+        cfg: Dict[str, Any] = {}
+        if step.config_data:
+            try:
+                cfg = json.loads(step.config_data)
+            except Exception:
+                cfg = {}
+        self.state.set_variable("human_validation_config", cfg)
         self.state.is_paused_for_human = True
         self._pause_event.clear()
 

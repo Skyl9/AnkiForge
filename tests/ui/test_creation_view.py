@@ -91,11 +91,17 @@ def test_human_validation_dialog(qtbot):
 
     state = PipelineRunState()
     state.set_variable("last_output", {"concepts_cles": ["Concept 1", "Concept 2"]})
+    state.set_variable("human_validation_config", {"human_title": "Pause Personnalisée", "human_message": "Veuillez valider."})
 
     dlg = HumanValidationDialog(state=state)
     qtbot.addWidget(dlg)
 
     assert "Concept 1" in dlg.editor.toPlainText()
+
+    # Tester le formateur JSON
+    dlg.editor.setPlainText('{"concepts_cles":["A","B"]}')
+    dlg._format_json()
+    assert "\n" in dlg.editor.toPlainText()
 
     # Modifier le texte et valider
     dlg.editor.setPlainText('{"concepts_cles": ["Concept 1 Modifié"]}')
@@ -103,3 +109,12 @@ def test_human_validation_dialog(qtbot):
 
     assert state.get_variable("last_output") == {"concepts_cles": ["Concept 1 Modifié"]}
     assert state.get_variable("map_items") == ["Concept 1 Modifié"]
+
+
+def test_creation_view_cancellation(qtbot):
+    """Vérifie l'annulation propre de la génération dans CreationView."""
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view._on_cancel_generation()
+    assert view.orchestrator is None or view.orchestrator._is_cancelled

@@ -46,7 +46,6 @@ from ankiforge.database.models import (
     PipelineModel,
 )
 from ankiforge.services.cards.note_manager import NoteManager
-from ankiforge.services.workers.creation_worker import CreationWorker
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
@@ -372,7 +371,6 @@ class CreationView(QWidget):
         self.ai_manager = ai_manager
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
-        self.worker: Optional[CreationWorker] = None
         self.orchestrator: Optional[PipelineOrchestrator] = None
         self.current_deck: Optional[DeckModel] = None
         self.current_model: Optional[NoteTypeModel] = None
@@ -1274,28 +1272,28 @@ class CreationView(QWidget):
         self.orchestrator.signals.step_completed.connect(self._on_orchestrator_step_completed)
         self.orchestrator.signals.human_validation_required.connect(self._on_human_validation)
         self.orchestrator.signals.pipeline_finished.connect(self._on_orchestrator_finished)
-        self.orchestrator.signals.error_occurred.connect(self._on_worker_error)
-        self.orchestrator.signals.cancelled.connect(self._on_worker_cancelled)
+        self.orchestrator.signals.error_occurred.connect(self._on_generation_error)
+        self.orchestrator.signals.cancelled.connect(self._on_generation_cancelled)
 
         QThreadPool.globalInstance().start(self.orchestrator)
 
     @Slot(int, str)
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
-        logger.info("[Orchestrateur] Démarrage de %s", desc)
+        logger.info("[Orchestrateur] Démarrage étape %d : %s", step_order, desc)
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
-            active_editor.editor.setPlaceholderText(f"⏳ {desc}...")
+            active_editor.raw_editor.setPlaceholderText(f"⏳ Étape {step_order}: {desc}...")
 
     @Slot(int, int, str)
     def _on_orchestrator_step_progress(self, current: int, total: int, detail: str) -> None:
-        logger.info("[Orchestrateur] Progression : %s", detail)
+        logger.info("[Orchestrateur] Progression (%d/%d) : %s", current, total, detail)
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
-            active_editor.editor.setPlaceholderText(f"⏳ {detail}...")
+            active_editor.raw_editor.setPlaceholderText(f"⏳ {detail} ({current}/{total})...")
 
     @Slot(int, object)
     def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
-        logger.info("[Orchestrateur] Étape %d terminée.", step_order)
+        logger.info("[Orchestrateur] Étape %d terminée avec succès.", step_order)
 
     @Slot(object)
     def _on_human_validation(self, state: PipelineRunState) -> None:
@@ -1307,7 +1305,7 @@ class CreationView(QWidget):
             if self.orchestrator:
                 self.orchestrator.resume(state)
         else:
-            show_toast(self, "Génération interrompue.", is_error=False)
+            show_toast(self, "Génération interrompue par l'utilisateur.", is_error=False)
             if self.orchestrator:
                 self.orchestrator.cancel()
 
@@ -1346,21 +1344,13 @@ class CreationView(QWidget):
                     cleaned_notes.append(note_fields)
 
         if cleaned_notes:
-            self._on_worker_finished(cleaned_notes)
+            self._on_generation_finished(cleaned_notes)
         else:
-            show_toast(self, "Pipeline terminé.", is_error=False)
+            show_toast(self, "Pipeline terminé (aucune carte générée).", is_error=False)
         logger.info("[Orchestrateur] Fin du Pipeline. %d cartes obtenues.", len(cleaned_notes))
 
-    @Slot(int)
-    def _on_worker_progress(self, val: int) -> None:
-        pass
-
-    @Slot(str)
-    def _on_worker_log(self, msg: str) -> None:
-        logger.info("[CreationWorker] %s", msg)
-
     @Slot(list)
-    def _on_worker_finished(self, cards: list[dict[str, Any]]) -> None:
+    def _on_generation_finished(self, cards: list[dict[str, Any]]) -> None:
         self._set_all_generation_states(False)
         self.generated_cards = cards
         self.current_preview_index = 0
@@ -1371,14 +1361,14 @@ class CreationView(QWidget):
         show_toast(self, f"{len(cards)} cartes générées avec succès !")
 
     @Slot(str)
-    def _on_worker_error(self, err_msg: str) -> None:
+    def _on_generation_error(self, err_msg: str) -> None:
         self._set_all_generation_states(False)
         self.err_lbl.setText(f"⚠️ Erreur de génération : {err_msg}")
         self.results_panel.set_tab_title(1, "Journal des Erreurs (1)")
         show_toast(self, f"Erreur : {err_msg}", is_error=True)
 
     @Slot()
-    def _on_worker_cancelled(self) -> None:
+    def _on_generation_cancelled(self) -> None:
         self._set_all_generation_states(False)
         show_toast(self, "Génération annulée.", is_error=False)
 
@@ -1388,9 +1378,6 @@ class CreationView(QWidget):
             self.orchestrator.cancel()
             self._set_all_generation_states(False)
             show_toast(self, "Pipeline annulé.", is_error=False)
-
-        if self.worker and self.worker.isRunning():
-            self.worker.cancel()
 
     def _populate_results_table(self) -> None:
         """Remplit le tableau des cartes générées en préservant la sélection courante."""
