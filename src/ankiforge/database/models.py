@@ -632,6 +632,6 @@ def seed_initial_data() -> None:
 
         ToolService.seed_builtin_tools()
     except Exception as e:
-        import logging
+        import logging as logger
 
-        logging.getLogger(__name__).warning("Erreur seed_builtin_tools: %s", e)
+        logger.getLogger(__name__).warning("Erreur seed_builtin_tools: %s", e)

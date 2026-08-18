@@ -4,8 +4,10 @@ from typing import Any
 
 from ankiforge.database.models import (
     LLMConfigModel,
+    NoteModel,
     NoteTypeModel,
     PersonaModel,
+    PipelineModel,
 )
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.ui.views.ab_tests_view import ABTestsView
@@ -49,9 +51,9 @@ class DummySingleABManager:
 
 
 def test_ab_tests_view_engine_comparison(qtbot):
-    """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA."""
+    """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA et importer les cartes."""
     uid = uuid.uuid4().hex[:6]
-    NoteTypeModel.create(
+    nt = NoteTypeModel.create(
         name=f"NoteType AB {uid}",
         fields_schema='["Front", "Back"]',
         templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
@@ -97,9 +99,19 @@ def test_ab_tests_view_engine_comparison(qtbot):
     assert len(view.cards_b) == 1
     assert view.cards_b[0]["Front"] == "Question Branche B"
 
+    # Vérification des KPIs affichés
+    assert "⏱️" in view.kpi_a.lbl_time.text()
+    assert "1 carte" in view.kpi_a.lbl_cards.text()
 
-def test_ab_tests_view_prompt_comparison(qtbot):
-    """Vérifie le test A/B en Mode 1 : Comparer deux Prompts."""
+    # Tester l'import dans la forge
+    view.model_combo.setCurrentIndex(view.model_combo.findText(nt.name))
+    initial_notes = NoteModel.select().count()
+    view._on_import_branch_to_forge("A")
+    assert NoteModel.select().count() == initial_notes + 1
+
+
+def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
+    """Vérifie le test A/B en Mode 1 (Prompts) et Mode 2 (Pipelines) ainsi que la navigation synchro."""
     uid = uuid.uuid4().hex[:6]
     NoteTypeModel.create(
         name=f"NoteType Prompt {uid}",
@@ -110,6 +122,9 @@ def test_ab_tests_view_prompt_comparison(qtbot):
 
     PersonaModel.create(name=f"Agent Simple {uid}", system_prompt="Prompt Simple", output_format="json")
     PersonaModel.create(name=f"Agent Complexe {uid}", system_prompt="Prompt Complexe", output_format="json")
+
+    PipelineModel.create(name=f"Pipe A {uid}")
+    PipelineModel.create(name=f"Pipe B {uid}")
 
     LLMConfigModel.create(provider="mock", model_id=f"model_{uid}", display_name=f"Model Global {uid}")
 
@@ -124,3 +139,23 @@ def test_ab_tests_view_prompt_comparison(qtbot):
     view.mode_combo.setCurrentIndex(1)
     assert not view.persona_a_combo.isHidden()
     assert not view.persona_b_combo.isHidden()
+
+    # Mode 2 : Comparer deux pipelines
+    view.mode_combo.setCurrentIndex(2)
+    assert not view.pipeline_a_combo.isHidden()
+    assert not view.pipeline_b_combo.isHidden()
+
+    # Test navigation synchronisée
+    view.cards_a = [{"Front": "A1"}, {"Front": "A2"}]
+    view.cards_b = [{"Front": "B1"}, {"Front": "B2"}]
+    view.index_a = 0
+    view.index_b = 0
+    view.chk_sync_nav.setChecked(True)
+
+    view._next_a()
+    assert view.index_a == 1
+    assert view.index_b == 1
+
+    view._prev_a()
+    assert view.index_a == 0
+    assert view.index_b == 0
