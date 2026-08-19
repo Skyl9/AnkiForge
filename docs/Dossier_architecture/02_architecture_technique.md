@@ -14,7 +14,7 @@ Pour éviter qu'AnkiForge ne pèse plusieurs gigaoctets (à cause des bibliothè
 L'application n'est pas distribuée sous forme de script Python pur, mais est compilée pour des performances maximales et une distribution simplifiée.
 * **Compilateur :** Utilisation de **Nuitka**, qui traduit le code Python en C avant de le compiler. Cela offre un gain de vitesse notable et masque le code source.
 * **CI/CD :** Le processus de compilation est automatisé via des **GitHub Actions** pour produire des exécutables pré-compilés.
-* **Cross-Platform :** Bien que l'application soit principalement développée et ciblée pour **macOS** actuellement, l'architecture logicielle (chemins de fichiers, librairies) respecte scrupuleusement les standards multi-plateformes pour garantir un déploiement futur sans heurt sur Windows/PC.
+* **Cross-Platform :** L'architecture logicielle (chemins de fichiers, librairies, compilation C) respecte scrupuleusement les standards multi-plateformes pour un fonctionnement optimal sous macOS, Windows et Linux.
 
 ## 4. Asynchronisme (La Règle du Zéro-Freeze)
 AnkiForge impose une séparation stricte entre le thread de l'interface graphique (Main Thread) et la logique métier.

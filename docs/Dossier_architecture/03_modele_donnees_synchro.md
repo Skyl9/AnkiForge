@@ -5,11 +5,13 @@ AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée
 
 * **NoteTypeModel (Les Modèles de Cartes) :** Définit la structure HTML/CSS et les champs disponibles (Recto, Verso, Extra, etc.). C'est l'ADN de la carte.
 * **NoteModel (Le Contenu brut) :** Contient les textes, images et formules. Une note est agnostique de son emplacement (paquet).
-* **CardModel (Le Rendu) :** Représente l'instanciation physique d'une Note dans un paquet spécifique, avec son historique de révision (bien que cet historique ne soit pas le focus d'AnkiForge).
-* **DeckModel & FolderModel :** L'arborescence des paquets.
-* **MediaModel :** Stockage des chemins et hash des images/audios pour éviter les doublons lors des exports.
-
-*Le versionnement natif est assuré par des tables `NoteVersionModel`, permettant un historique absolu des modifications.*
+* **CardModel (Le Rendu) :** Représente l'instanciation physique d'une Note dans un paquet spécifique, avec son historique de révision.
+* **DeckModel & FolderModel :** L'arborescence des paquets et dossiers sources.
+* **MediaModel & NoteVersionMediaModel :** Stockage des chemins et hash des images/audios pour éviter les doublons lors des exports.
+* **NoteVersionModel :** Versionnement natif assurant un historique absolu des modifications de chaque note.
+* **DocumentModel, DocumentChunkModel & NoteChunkLinkModel :** Traçabilité source, fragmentation sémantique et ancrage des flashcards générées aux fragments documentaires.
+* **PersonaFolderModel, PersonaModel, PipelineModel, PipelineStepModel & PythonToolModel :** Moteur d'orchestration DAG, hiérarchie de personas et outils déterministes.
+* **LinterRuleModel & AuditRecordModel :** Règles d'audit Wozniak et règles personnalisées avec historisation des audits.
 
 ```mermaid
 classDiagram
@@ -17,6 +19,7 @@ classDiagram
     
     class DeckModel {
         +BigInteger anki_id
+        +String name
     }
     class NoteTypeModel {
         +String name
@@ -40,6 +43,30 @@ classDiagram
         +String filename
         +String checksum
     }
+    class DocumentModel {
+        +String title
+        +String faiss_index_path
+    }
+    class DocumentChunkModel {
+        +Integer chunk_index
+        +Text text_content
+        +Integer page_number
+        +String heading_path
+    }
+    class NoteChunkLinkModel {
+        +Float relevance_score
+    }
+    class PersonaModel {
+        +String name
+        +String persona_type
+        +Text system_prompt
+        +JSON allowed_tools
+    }
+    class PipelineStepModel {
+        +Integer step_order
+        +String step_type
+        +JSON config_data
+    }
 
     DeckModel "1" --> "*" DeckModel : contient sous-paquets
     DeckModel "1" --> "*" CardModel : stocke
@@ -47,6 +74,10 @@ classDiagram
     NoteModel "1" --> "*" CardModel : génère
     NoteModel "1" *-- "*" NoteVersionModel : possède historique
     NoteVersionModel "*" --> "*" MediaModel : utilise
+    DocumentModel "1" *-- "*" DocumentChunkModel : découpe
+    DocumentChunkModel "1" <-- "*" NoteChunkLinkModel : lie
+    NoteModel "1" <-- "*" NoteChunkLinkModel : référence
+    PersonaModel "1" --> "*" PipelineStepModel : exécute
 ```
 
 ## 2. Le Cycle de Synchronisation (Workflow `.apkg`)

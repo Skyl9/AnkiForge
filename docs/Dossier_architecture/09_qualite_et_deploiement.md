@@ -24,7 +24,7 @@ L'usine logicielle garantit que ce qui marche sur la machine du développeur mar
 * **La CI (Continuous Integration) :** À chaque *push* sur GitHub, une machine virtuelle lance :
   1. La compilation de l'extension C (Levenshtein) sur Mac, Windows et Linux.
   2. La suite complète `pytest`.
-* **Le Déploiement (Nuitka) :** Lors de la création d'un "Tag" de release sur GitHub (ex: `v1.2.0`), un workflow dédié déclenche Nuitka. Il compile l'application PySide6 en binaire natif (`.exe`, `.app`, `.AppImage`) et la publie automatiquement dans les *GitHub Releases*, prête à être téléchargée par les utilisateurs finaux (sans la lourdeur des dépendances locales Lazy-loadées).
+* **Le Déploiement (Nuitka) :** Lors de la publication d'une release sur GitHub, un workflow dédié déclenche Nuitka. Il compile l'application PySide6 en binaire natif (`.exe`, `.app`, `.AppImage`) et la publie automatiquement dans les *GitHub Releases*, prête à être téléchargée par les utilisateurs finaux (sans la lourdeur des dépendances locales Lazy-loadées).
 
 ## 5. Pratiques d'Ingénierie Avancées (God-Tier)
 L'application impose des contraintes de test extrêmes pour prévenir toute régression :
