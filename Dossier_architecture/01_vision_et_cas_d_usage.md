@@ -21,4 +21,4 @@ AnkiForge est une application polyvalente, prête à accueillir de nombreuses fo
 
 ## 4. Utilisateurs Cibles et UX Adaptative
 L'application s'adresse à un spectre allant de l'utilisateur cherchant la simplicité au puriste voulant une maîtrise totale de sa base de connaissance.
-* **Évolutivité de l'Interface :** La conception UI/UX devra tirer parti de la divulgation progressive. L'interface doit être simple à prendre en main pour les tâches d'usine, tout en déployant des options poussées (et potentiellement des "styles" d'UI distincts à terme) pour satisfaire les exigences des power users dans l'Hôpital ou l'Atelier.
+* **Évolutivité de l'Interface :** La conception UI/UX tire parti de la divulgation progressive. L'interface est simple à prendre en main pour les tâches d'usine, tout en déployant des options poussées pour satisfaire les exigences des power users dans l'Hôpital ou l'Atelier.

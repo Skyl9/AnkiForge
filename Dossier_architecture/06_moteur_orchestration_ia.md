@@ -1,26 +1,29 @@
 # Moteur d'Orchestration IA & Architecture Détaillée
 
-Pour répondre aux contraintes du traitement massif (LLM locaux avec fenêtres de contexte limitées) et offrir une flexibilité totale, l'architecture IA d'AnkiForge abandonne le modèle de pipeline naïf (linéaire) au profit d'un **Moteur de Workflow Orienté Graphe (DAG) avec Map-Reduce et RAG natif**.
+Pour répondre aux contraintes du traitement massif (LLM locaux avec fenêtres de contexte limitées) et offrir une flexibilité totale, l'architecture IA d'AnkiForge s'appuie sur un **Moteur de Workflow Orienté Graphe (DAG) avec Map-Reduce, RAG natif et Pause Copilote**.
 
-## 1. Refonte du Schéma de Données (Le Moteur de Pipeline)
+## 1. Schéma de Données (Le Moteur de Pipeline)
 
-Les anciens modèles Peewee sont détruits et repensés pour supporter des boucles et des permissions.
+Le schéma Peewee supporte nativement des graphes d'exécution, des permissions d'outils et des configurations dynamiques.
 
-### A. PersonaModel (Ex-AgentModel)
-Définit un rôle IA, mais augmenté avec des capacités (Tools).
+### A. PersonaModel
+Définit un rôle IA enrichi de capacités et d'outils :
 * `name`, `system_prompt`, `output_format`
-* `allowed_tools` (JSON) : Liste des fonctions Python que cette Persona a le droit d'appeler (ex: `["query_vector_db", "read_anki_stats"]`).
-* `llm_config_id` : Clé étrangère pour forcer un modèle spécifique (ex: forcer un gros modèle cloud pour l'extraction, et un petit modèle local rapide pour le Linter).
+* `persona_type` : Portée de l'agent (`pipeline`, `mcp`, `universal`).
+* `folder` : Clé étrangère vers `PersonaFolderModel` pour l'organisation arborescente récursive.
+* `allowed_tools` (JSON) : Liste des fonctions et outils MCP/Python que cette Persona a le droit d'appeler (ex: `["query_peewee", "get_deck_stats", "clean_html_latex"]`).
+* `llm_config_id` : Clé étrangère pour assigner un modèle dédié (ex: forcer un gros modèle cloud pour l'Architecte et un petit modèle local rapide pour le Linter).
 
-### B. PipelineStepModel (Le cœur du réacteur)
-Chaque étape du pipeline n'est plus seulement un appel LLM. Elle possède un `step_type` crucial :
-1. **`LLM_PROMPT`** : Appel standard à une Persona.
-2. **`RAG_RETRIEVAL`** : Recherche sémantique pure. Prend un mot-clé, interroge la base vectorielle, et injecte le résultat dans le *State*.
-3. **`MAP_REDUCE`** : Le chaînon manquant. Prend une liste d'éléments (ex: 50 chunks d'un PDF, ou 100 cartes Anki) et exécute une sous-étape sur *chaque* élément en parallèle (Threads), puis fusionne les résultats.
-4. **`HUMAN_VALIDATION`** : Met le pipeline en pause. Le *State* actuel est envoyé à l'UI. Le processus s'arrête tant que l'utilisateur n'a pas cliqué sur "Continuer" ou corrigé les données.
+### B. PipelineStepModel
+Chaque étape du pipeline possède un `step_type` déterministe et une configuration dynamique `config_data` :
+1. **`LLM_PROMPT`** : Appel standard à une Persona avec injection de variables Jinja2.
+2. **`RAG_RETRIEVAL`** : Recherche sémantique pure interrogeant l'index vectoriel FAISS/ChromaDB et injectant les fragments pertinents dans le *State*.
+3. **`MAP_REDUCE`** : Exécute une sous-étape sur chaque élément d'une collection en parallèle (`QThreadPool`), puis fusionne les résultats.
+4. **`HUMAN_VALIDATION`** : Met le pipeline en pause. Le *State* actuel est transmis à la modale interactive `HumanValidationDialog` pour validation humaine avant reprise (`resume()`).
+5. **`PYTHON_TOOL`** : Exécution d'un outil Python déterministe (`ToolService`) avec entrées/sorties typées.
 
-### C. State Management (Contexte)
-Les pipelines n'envoient pas de simples strings d'une étape à l'autre. Ils se passent un objet **`PipelineRunState`** (un dictionnaire JSON en mémoire) qui s'enrichit.
+### C. State Management (Contexte & Mémoire partagée)
+Les étapes s'échangent un objet **`PipelineRunState`** (dictionnaire JSON en mémoire) qui s'enrichit au fil de l'exécution :
 * *Exemple :* L'étape 1 écrit dans `state["pdf_chunks"]`. L'étape 2 (MapReduce) lit `state["pdf_chunks"]` et écrit dans `state["draft_cards"]`.
 
 ```mermaid
@@ -29,8 +32,13 @@ classDiagram
     
     class PersonaModel {
         +String name
+        +String persona_type
         +Text system_prompt
         +JSON allowed_tools
+    }
+    class PersonaFolderModel {
+        +String name
+        +Integer parent_id
     }
     class PipelineModel {
         +String name
@@ -38,17 +46,20 @@ classDiagram
     class PipelineStepModel {
         +Integer step_order
         +String step_type
+        +JSON config_data
         +String failure_behavior
+    }
+    class PythonToolModel {
+        +String name
+        +Text code
     }
     class DocumentModel {
         +String title
         +String faiss_index_path
     }
-    class FolderModel {
-        +String name
-    }
 
-    FolderModel "1" --> "*" DocumentModel : contient
+    PersonaFolderModel "1" --> "*" PersonaFolderModel : sous-dossiers
+    PersonaFolderModel "1" --> "*" PersonaModel : classe
     PipelineModel "1" *-- "*" PipelineStepModel : compose
     PersonaModel "1" --> "*" PipelineStepModel : est assigné à
     PipelineStepModel "1" --> "0..1" PipelineStepModel : on_success
@@ -57,68 +68,74 @@ classDiagram
 
 ---
 
-## 2. Implémentation du RAG (Vectorisation)
+## 2. Implémentation du RAG (Vectorisation Locale)
 
-SQLite standard n'est pas taillé pour le RAG.
-* **Vector Store Local :** Utilisation de **FAISS** (Facebook AI Similarity Search) ou **ChromaDB** embarqué. Ils s'installent en local, n'ont pas de serveur lourd, et se couplent bien avec PySide6.
+* **Vector Store Local :** Utilisation de **FAISS** ou **ChromaDB** embarqué sans serveur lourd externe.
 * **Ingestion (Pipeline de Document) :**
-  1. L'utilisateur importe un PDF.
-  2. *Marker* extrait le Markdown.
-  3. Le texte est découpé par **Semantic Chunking** (et non au nombre de mots, pour ne pas couper au milieu d'un concept).
-  4. Ces chunks sont envoyés à un modèle d'embedding (ex: `nomic-embed-text` via Ollama).
-  5. Les vecteurs sont sauvés dans FAISS. Le `DocumentModel` de Peewee stocke juste les métadonnées (titre, chemin FAISS).
+  1. L'utilisateur importe une source (PDF, Markdown, URL, vidéo YouTube).
+  2. *Marker OCR* ou le parseur extrait le texte brut.
+  3. Le texte est découpé par **Semantic Chunking** (`ChunkingService`) préservant numéros de pages et arborescence de titres.
+  4. Les fragments sont vectorisés via un modèle d'embedding local (Ollama) ou cloud.
+  5. Les vecteurs sont persistés dans l'index FAISS local (`RAGService`, `VectorManager`), et `DocumentChunkModel` stocke les métadonnées relationnelles.
 
 ---
 
-## 3. Architecture Détaillée par Module (Les Vues)
-
-Voici comment ce moteur orchestre chaque partie de l'application :
+## 3. Architecture par Module
 
 ### 📚 A. Module Documents (Ingestion & Base de Connaissances)
-**Objectif :** C'est la porte d'entrée de la Forge (`documents_view.py`). Gérer l'importation, le nettoyage et la vectorisation des sources avant toute création de cartes.
+* **Porte d'entrée :** `documents_view.py`.
+* **Délimitation :** Modale `DocumentDelimitationDialog` permettant de définir des plages de pages ou chapitres utiles.
+* **Statut Live :** Badges FAISS réactifs (`🟢 Indexé FAISS` / `⏳ Non indexé`) et modale de test sémantique `RAGTestDialog`.
+* **Traçabilité :** Calcul du taux de couverture documentaire et bouton "⚡ Forger la section" direct.
 
-**Interaction IHM (Délimitation de la source) :**
-Pour éviter le gaspillage de ressources sur de gros documents, l'IHM effectue d'abord un scan léger (ex: `pypdf`). Une modale permet à l'utilisateur de définir une **plage de pages** (ex: "12-45") ou de **sélectionner des chapitres spécifiques**. AnkiForge tronque le document en mémoire pour ne conserver que la portion utile avant de lancer l'IA.
+### 🏭 B. Module Création & Pipelines (Génération DAG)
+* **Orchestration :** Exécution asynchrone pilotée par `PipelineOrchestrator` dans `QThreadPool`.
+* **Copilote Interactif :** Interception du signal `human_validation_required` avec la boîte `HumanValidationDialog` pour éditer les concepts extraits avant de relancer l'orchestrateur.
+* **Mappage de Modèles :** Résolution automatique des champs selon le schéma du `NoteTypeModel`.
 
-**Le Pipeline Workflow (Ingestion) :**
-1. **Étape 1 (Parsing) :** La portion de document délimitée est transmise à l'outil d'extraction lourd (ex: *Marker* pour PDF, *yt-dlp* pour vidéo). Le texte brut est extrait.
-2. **Étape 2 (`MAP_REDUCE` interne) :** Le texte est découpé en *Chunks sémantiques*.
-3. **Étape 3 (Embeddings) :** Chaque chunk est passé dans le modèle d'embedding (Ollama local ou API externe).
-4. **Sortie :** Enregistrement dans FAISS/ChromaDB. La vue met à jour le statut du document dans l'UI ("Prêt pour l'analyse") et affiche des métriques (nombre de pages, taille des vecteurs). Ce module sert de bibliothèque (Hub) où l'utilisateur classe ses sources dans des dossiers (`FolderModel`).
+### 🏥 C. Module Analyse & Audit (L'Hôpital)
+* **Linter Wozniak & Règles Custom :** Modèle `LinterRuleModel`, 20 règles de formulation + règles utilisateur par catégories (`cat-atomicite`, `cat-interferences`, etc.), inspecteur comparatif 5 champs et scission/mutation en 1-clic.
+* **Matrice de Doublons & Fusion :** Détection hybride (Levenshtein natif C + FAISS vectoriel), boîte de dialogue de fusion (Merge Dialog) à 3 colonnes.
+* **Diagnostic Sources & Gap Analysis :** Analyse des lacunes de couverture via `NoteChunkLinkModel` et génération ciblée des cartes manquantes.
 
-### 🏭 B. Module Création & Pipelines (Génération de Paquets)
-**Objectif :** Transformer un PDF de 100 pages en un paquet Anki parfait sans crasher le modèle local.
-**Le Pipeline Workflow :**
-1. **Étape 1 (`RAG_RETRIEVAL`) :** Requête "Extrais les grands chapitres et concepts". Le RAG pioche les titres du PDF.
-2. **Étape 2 (`LLM_PROMPT`) :** La Persona *Architecte* génère un Squelette JSON du cours.
-3. **Étape 3 (`HUMAN_VALIDATION`) :** L'UI affiche l'arbre des chapitres. L'utilisateur décoche les chapitres hors-sujet.
-4. **Étape 4 (`MAP_REDUCE`) :** Pour chaque chapitre validé, on lance une recherche RAG ciblée, puis on envoie le texte à la Persona *Rédacteur Anki* pour générer des cartes.
-5. **Étape 5 (`LLM_PROMPT`) :** La Persona *Critique* (Linter) vérifie les cartes générées.
-6. **Sortie :** Affichage dans la vue `creation_view.py` pour validation finale avant export.
+### 🤖 D. Module Consultant (Agent ReAct Autonome)
+* **Moteur ReAct :** Boucle autonome (*Thought ➔ Action ➔ Observation ➔ Response*).
+* **Serveur MCP In-Process :** Registre d'outils sécurisés (`query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `update_card_model_css`, `execute_python_tool`).
+* **Widgets Riches :** `ThoughtStepWidget`, `ToolCallWidget`, `ChatMessageWidget` avec prévisualisation et application directe.
 
-### 🏥 C. Module Analyse & Audit (Linter et Doublons)
-**Objectif :** Nettoyer un paquet de 5000 cartes existantes.
-**Le Pipeline Workflow :**
-1. **Étape 1 (`MAP_REDUCE`) :** On découpe les 5000 cartes en batchs de 50.
-2. **Étape 2 (`LLM_PROMPT`) :** La Persona *Linter Wozniak* analyse chaque batch avec des règles strictes (ex: "Pas plus de 15 mots par verso").
-3. **Étape 3 (Tri en mémoire) :** Les cartes flaguées "Malades" sont séparées.
-4. **Sortie (`HUMAN_VALIDATION`) :** La vue `analysis_view.py` affiche une grille listant uniquement les cartes à corriger, avec la correction proposée par l'IA à côté. L'utilisateur clique sur "Accepter" ou "Ignorer".
+### 🎨 E. Module Modèles de Cartes (Atelier & Tests A/B)
+* **Atelier de Modèles :** Édition HTML/CSS/Jinja2 avec aperçu temps réel WebEngine.
+* **Laboratoire A/B :** 3 modes de comparaison simultanés (Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline), exécution concurrente multithread, bannière de KPIs en direct et import 1-clic dans la Forge.
 
-### 🤖 D. Module Consultant (Agent Autonome)
-**Objectif :** Un Chatbot "God-Mode" dans l'IDE, sans pipeline prédéfini.
-**Architecture (Le Pattern ReAct - Reason & Act) :**
-1. Le Consultant n'utilise *pas* de PipelineStepModel. Il tourne dans une boucle infinie de réflexion.
-2. **Input Utilisateur :** *"Quels sont mes pires concepts en biologie ?"*
-3. **Thought (LLM) :** "Je dois interroger la BDD Peewee pour trouver les cartes taguées biologie avec le plus bas taux de rétention."
-4. **Action (MCP Tool Call) :** Le Consultant en tant que Client MCP appelle la ressource/l'outil exposé par le Serveur MCP interne d'AnkiForge (ex: `execute_sql(query)`).
-5. **Observation :** Le Serveur MCP exécute la fonction et renvoie une liste JSON de cartes.
-6. **Response (LLM) :** L'Agent formate la réponse dans le Chat et affiche les cartes cliquables dans l'UI (`consultant_view.py`).
+---
 
-### 🎨 E. Module Modèles de Cartes (Atelier)
-**Objectif :** Générer de l'UI Anki sur demande.
-**Architecture :**
-Le Consultant dispose de l'outil `update_model_css(model_id, new_css)`. 
-1. L'utilisateur demande "Fais des bordures violettes arrondies".
-2. Le LLM génère le code.
-3. Il déclenche le Tool Call via le protocole MCP.
-4. PySide6 intercepte l'appel, met à jour la base Peewee, et recharge la *WebEngineView* (Aperçu de la carte) instantanément.
+## 4. Spécifications des Vues Connectées au DAG
+
+### 📋 1. Vue Pipelines d'Exécution (`pipelines_view.py`)
+1. **Actions Système & Agents IA :** Support transparent de `LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`.
+2. **Inspecteur Maître-Détail JetBrains :** `StepInspectorPanel` isolé dans une `QScrollArea` avec gestion des paramètres contextuels et configuration dynamique `config_data`.
+3. **Système d'Outils Python Déterministes :** Éditeur intégré `ToolEditorDialog`, outils intégrés (`clean_html_latex`, `deduplicate_cards_levenshtein`, `validate_json_schema`, `compute_stats_and_metrics`) et persistance `PythonToolModel`.
+4. **Badges de Rôle Visuels :** 🔵 `RAG`, 🟣 `LLM`, 🟡 `PAUSE (Copilote)`, 🟢 `MAP-REDUCE`, 🟠 `OUTIL PYTHON`.
+
+### 🧑‍💻 2. Vue Éditeur d'Agents (`agents_view.py`)
+1. **Arborescence Récursive (`PersonaFolderModel`) :** Dossiers et sous-dossiers illimités avec méthode `get_full_path()`.
+2. **Portée & Types de Personas :** Filtrage instantané `⚡ Pipeline`, `🤝 MCP`, `🌐 Universel`.
+3. **Éditeur Riche 3 Onglets :** Identité & Dossier, Prompt Jinja2 avec palette de snippets contextuels en 1-clic, Grille de permissions d'outils MCP & Python.
+4. **Modale de Test Unitaire :** `AgentTestDialog` avec simulation en direct.
+
+### 🤖 3. Vue Consultant IA (`consultant_view.py`)
+1. **Moteur ReAct Autonome :** Boucle de raisonnement continue avec auto-correction.
+2. **Serveur MCP Interne :** Exposition standardisée d'outils backend sécurisés.
+3. **Composants d'IHM Riches :** Affichage interactif des résultats SQL, statistiques de rétention et boutons d'action rapide.
+4. **Injection Directe de Styles :** Modification instantanée du CSS des modèles de notes et rechargement de l'aperçu WebEngine.
+
+### 🧪 4. Vue Laboratoire de Tests A/B (`ab_tests_view.py`)
+1. **Comparaison Tri-Mode :** Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline.
+2. **Exécution Concurrente Symétrique :** Deux instances de `PipelineOrchestrator` en parallèle via `QThreadPool`.
+3. **Bannière KPIs en Direct :** Durée (⏱️), cartes générées (🃏), tokens consommés (🪙), coût en USD (💰).
+4. **Affichage Symétrique :** Rendu Cartes, Tableau des Champs, JSON Brut, et Import 1-Clic dans la Forge.
+
+### 🏭 5. Vue Studio de Création (`creation_view.py`)
+1. **Pilotage Asynchrone :** Connexion complète aux signaux de `PipelineOrchestrator`.
+2. **Modale Interactive de Copilote :** Affichage de `HumanValidationDialog` lors d'une étape `HUMAN_VALIDATION` pour ajustement et reprise fluide (`resume()`).
+3. **Mappage Automatique des Champs :** Détection et structuration des champs selon le modèle de note sélectionné.

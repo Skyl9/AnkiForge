@@ -19,36 +19,43 @@ AnkiForge s'aligne sur les standards des meilleurs IDE (IntelliJ, VSCode) :
 L'application est découpée en modules fonctionnels (Vues) précis. Voici leur rôle et leurs interactions clés :
 
 ### 📊 Tableau de Bord (`dashboard_view.py`)
-* **Rôle :** Point d'entrée. Offre une vue d'ensemble de la base locale AnkiForge.
-* **Actions/Boutons :** *Boutons de navigation vers les autres modules, KPIs globaux (Nombre de cartes, documents ingérés).*
+* **Rôle :** Point d'entrée. Offre une vue d'ensemble de la base locale AnkiForge, sélecteur de profil et métriques globales.
+* **Actions/Boutons :** *Boutons de navigation vers les modules, sélecteur de profil actif (`profile_selector.py`), KPIs globaux (Nombre de cartes, documents ingérés, répartition par paquets).*
 
 ### 📚 Documents (`documents_view.py`)
-* **Rôle :** Hub d'ingestion (Porte d'entrée des sources).
-* **Actions/Boutons :** *Bouton d'import (PDF, URL)*, *Bouton de délimitation (Plage de pages)*, *Bouton "Lancer la vectorisation/RAG"*.
+* **Rôle :** Hub d'ingestion (Porte d'entrée des sources) et base de connaissances vectorielle.
+* **Actions/Boutons :** *Import (PDF via Marker OCR lazy-loadé, Markdown, URL, vidéo YouTube)*, *Délimitation intelligente de la portée (`DocumentDelimitationDialog`)*, *Vectorisation sémantique FAISS/ChromaDB avec badge live*, *Recherche et test RAG instantané (`RAGTestDialog`)*, *Bouton "⚡ Forger la section" vers la Création*.
 
 ### 🏭 Création & Pipelines (`creation_view.py` & `pipelines_view.py`)
-* **Rôle :** Orchestration de la génération de masse de cartes à partir des sources.
+* **Rôle :** Orchestration de la génération de masse de cartes à partir des sources via le moteur DAG.
 * **Actions/Boutons :** 
-  * Dans Pipelines : *Créer un Pipeline*, *Ajouter une étape (MapReduce/Agent)*.
-  * Dans Création : *Lancer le workflow*, *Boutons de Validation Humaine (Accepter le plan, Refuser une branche)*, *Générer les cartes*.
+  * Dans Pipelines : *Créer/Éditer un Pipeline DAG*, *Ajouter une étape (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`)*, *Inspecteur d'étape JetBrains (`StepInspectorPanel`)*, *Éditeur d'outils Python déterministes (`ToolEditorDialog`)*.
+  * Dans Création : *Lancer le workflow DAG dans QThreadPool*, *Modale de validation humaine interactive (`HumanValidationDialog`)*, *Mappage automatique des champs selon le modèle de note*, *Générer les cartes*.
 
 ### 🏥 Analyse & Audit IA (`analysis_view.py`)
-* **Rôle :** Maintenance et réparation des paquets (Divisée en onglets).
-* **Actions/Boutons Clés :**
-  * *Audit Wozniak :* `Sélectionner un paquet`, `Analyser`, `Accepter la reformulation`, `Ignorer`.
-  * *Diagnostic Sources :* `Analyser tous les documents`, Puces de filtres (PDF, MD, Web).
-  * *Fusions & Doublons :* Matrice de similitude, `Auto-fusionner >95%`, `Permuter A ↔ B` (dans l'inspecteur), `Valider la fusion`, `Faux doublon`.
+* **Rôle :** Maintenance, audit cognitif et réparation des paquets (Divisée en 4 onglets interactifs).
+* **Onglets & Actions Clés :**
+  * *Audit Wozniak & Règles Custom :* Sélecteur de paquet, gestionnaire de règles (`linter_rules_dialog.py`), catégories (`cat-atomicite`, `cat-interferences`, etc.), inspecteur comparatif 5 champs SQLite vs proposition IA, boutons *Scinder la carte*, *Appliquer la mutation*, *Ignorer*.
+  * *Diagnostic Sources & Smart Coverage :* Analyse de traçabilité via `NoteChunkLinkModel`, détection des lacunes (Gap Analysis) et génération ciblée des cartes manquantes.
+  * *Fusions & Doublons :* Matrice de similitude hybride (C-Levenshtein + FAISS vectoriel), inspecteur 3 colonnes avec permutation A ↔ B et injection sélective de champs.
+  * *Suivi Financier & FSRS :* Suivi des dépenses en jetons IA par modèle/fournisseur, courbe de rétention FSRS-4.5 et détection des cartes sangsues (Leeches).
 
-### 📝 Édition & Batch (`edition_view.py` & `batch_view.py`)
+### 📝 Édition & Batch Factory (`edition_view.py` & `batch_view.py`)
 * **Rôle :** Éditeur manuel façon Browser Anki pour les retouches chirurgicales ou actions en masse.
-* **Actions/Boutons :** *Barre de recherche complexe*, *Éditer (Code/Rendu)*, *Ajouter un tag*, *Changement de paquet par lot*.
+* **Actions/Boutons :** *Barre de recherche omnibox complexe*, *Éditeur de note avec saisie KaTeX live (`katex_editor.py`)*, *Time Machine et historique de version (`time_machine_dialog.py`)*, *Édition et taggage par lot (`batch_edit_dialog.py`, `auto_tag_dialog.py`)*.
 
 ### 🎨 Modèles de Cartes & A/B Tests (`card_models_view.py` & `ab_tests_view.py`)
-* **Rôle :** L'Atelier de design pour créer les types de notes (Templates).
-* **Actions/Boutons :** *Éditeur HTML/CSS*, *Bouton d'Aperçu WebEngine*, *Piocher dans l'inventaire de styles*, *Générer variante (A/B Test)*.
-
-### 🤖 Agents & Consultant (`agents_view.py` & `consultant_view.py`)
-* **Rôle :** Configuration des "Personas" et Chatbot d'assistance (Agent autonome).
+* **Rôle :** L'Atelier de design des templates et laboratoire comparatif de performance IA.
 * **Actions/Boutons :** 
-  * Dans Agents : *Créer un Agent*, *Définir le System Prompt*, *Sélectionner les Tools (Cases à cocher)*.
-  * Dans Consultant : *Barre de Chat*, *Ouvrir l'outil de validation (lorsque l'agent propose une action)*.
+  * Dans Modèles : *Éditeur HTML/CSS/Jinja2*, *Aperçu fidèle WebEngine (`safe_web_preview.py`)*, *Inventaire de styles et composants réutilisables*.
+  * Dans Tests A/B : *3 modes de comparaison (Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline)*, *Exécution concurrente dans `QThreadPool`*, *Bannière KPIs en direct (durée, cartes, tokens, coût)*, *Affichage symétrique (Rendu, Champs, JSON)*, *Bouton "Importer dans la Forge" en 1-clic*.
+
+### 🤖 Personas & Consultant IA (`agents_view.py` & `consultant_view.py`)
+* **Rôle :** Configuration des agents IA et Copilote autonome ReAct / MCP.
+* **Actions/Boutons :** 
+  * Dans Agents : *Arborescence récursive de dossiers (`PersonaFolderModel`)*, *Filtrage par portée (`⚡ Pipeline`, `🤝 MCP`, `🌐 Universel`)*, *Éditeur 3 onglets (Identité, Prompt Jinja2 avec palette de snippets, Permissions Tools)*, *Simulation unitaire (`AgentTestDialog`)*.
+  * Dans Consultant : *Boucle ReAct autonome*, *Cartouches repliables de raisonnement (`ThoughtStepWidget`)*, *Cartes d'appel d'outils MCP (`ToolCallWidget`)*, *Messages avec boutons d'injection CSS et import de cartes (`ChatMessageWidget`)*, *Quick prompts*.
+
+### 🔀 Résolveur de Conflits (`merge_view.py`)
+* **Rôle :** Boîte de dialogue de fusion (Merge Dialog) à 3 panneaux lors de la synchronisation `.apkg` ou de mise à jour documentaire.
+* **Actions/Boutons :** *Panneau Gauche (Base locale)*, *Panneau Droit (Base entrante)*, *Panneau Central (Éditeur avec coloration différentielle et boutons d'acceptation sélective)*.
