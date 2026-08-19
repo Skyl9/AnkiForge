@@ -62,3 +62,9 @@ Thumbs.db
 # --- Worktrees ---
 .worktrees/
 ankiforge_obsidian/
+
+# --- Documentation Build & Outils Internes ---
+site/
+.impeccable/
+temp/
+test_marker_out/
