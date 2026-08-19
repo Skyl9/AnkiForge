@@ -153,6 +153,16 @@ def run_migrations() -> None:
                         logging.info("Legacy DB detected: faking migration 016_persona_subfolders.")
                         break
 
+        # Si le champ category existe dans linter_rules, l'utilisateur a la v17
+        if "017_linter_rule_categories" not in done_migrations:
+            for t_name in ("linter_rules", "linterrulemodel"):
+                if db.table_exists(t_name):
+                    columns = [col.name for col in db.get_columns(t_name)]
+                    if "category" in columns:
+                        router.model.create(name="017_linter_rule_categories")
+                        logging.info("Legacy DB detected: faking migration 017_linter_rule_categories.")
+                        break
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

@@ -3,13 +3,85 @@ Moteur de Linter IA Wozniak, Diagnostic des Sources & Suivi Financier Jetons / F
 Raccordement dynamique à la base de données Peewee ORM (NoteModel, DeckModel, NoteVersionModel).
 """
 
-import logging
 import json
-from typing import List, Dict, Any, Optional
+import logging
+from typing import Any, Dict, List, Optional
 
 from ankiforge.database.models import NoteModel, NoteVersionModel
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_linter_suggestion(
+    raw_sug: Any,
+    original_content: Optional[Dict[str, Any]] = None,
+    rule_name: str = "",
+) -> Dict[str, str]:
+    """
+    Normalise universellement toute suggestion de correction émise par l'IA ou le cache.
+    Garantit la présence systématique des 5 champs clés : NoteType, Recto, Verso, Champ Annexe Extra, Tags.
+    """
+    if isinstance(raw_sug, str):
+        try:
+            parsed = json.loads(raw_sug)
+            if isinstance(parsed, dict):
+                raw_sug = parsed
+            else:
+                raw_sug = {"Recto": str(raw_sug), "Verso": ""}
+        except Exception:
+            raw_sug = {"Recto": str(raw_sug), "Verso": ""}
+
+    if not isinstance(raw_sug, dict):
+        raw_sug = {}
+
+    orig = original_content or {}
+    orig_recto = orig.get("Recto") or orig.get("Front") or orig.get("Texte") or orig.get("Text") or ""
+    orig_verso = orig.get("Verso") or orig.get("Back") or ""
+    orig_extra = orig.get("Champ Annexe Extra") or orig.get("Extra") or orig.get("Remarques extra") or ""
+    orig_tags = orig.get("Tags") or "#linter-corrigé"
+
+    # Mappings de synonymes
+    recto = raw_sug.get("Recto") or raw_sug.get("Front") or raw_sug.get("question") or raw_sug.get("Question") or raw_sug.get("Texte") or raw_sug.get("Text") or raw_sug.get("q") or orig_recto
+    verso = (
+        raw_sug.get("Verso")
+        or raw_sug.get("Back")
+        or raw_sug.get("reponse")
+        or raw_sug.get("Réponse")
+        or raw_sug.get("Response")
+        or raw_sug.get("Answer")
+        or raw_sug.get("answer")
+        or raw_sug.get("r")
+        or orig_verso
+    )
+    extra = raw_sug.get("Champ Annexe Extra") or raw_sug.get("Extra") or raw_sug.get("extra") or raw_sug.get("Remarques extra") or raw_sug.get("context") or raw_sug.get("Contexte") or orig_extra
+    tags = raw_sug.get("Tags") or orig_tags
+    if "#linter" not in str(tags):
+        tags = f"{tags} #linter-corrigé"
+
+    note_type = raw_sug.get("NoteType") or orig.get("NoteType") or "AnkiForge-Basic"
+
+    # Si c'est une liste de cartes atomiques ou multi-cartes
+    subcards = raw_sug.get("subcards") or raw_sug.get("cartes_atomiques")
+    if isinstance(subcards, list) and subcards:
+        subcard_rectos = []
+        subcard_versos = []
+        for i, sc in enumerate(subcards, 1):
+            if isinstance(sc, dict):
+                r = sc.get("Recto") or sc.get("Front") or sc.get("question") or f"Sous-carte #{i}"
+                v = sc.get("Verso") or sc.get("Back") or sc.get("reponse") or ""
+                subcard_rectos.append(f"{i}. {r}")
+                subcard_versos.append(f"{i}. {v}")
+        recto = " | ".join(subcard_rectos) if subcard_rectos else recto
+        verso = " | ".join(subcard_versos) if subcard_versos else verso
+        note_type = f"{note_type} ({len(subcards)} Cartes Atomiques)"
+
+    return {
+        "NoteType": str(note_type),
+        "Recto": str(recto),
+        "Verso": str(verso),
+        "Champ Annexe Extra": str(extra),
+        "Tags": str(tags),
+    }
 
 
 class WozniakLinterEngine:

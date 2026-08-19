@@ -28,6 +28,7 @@ class WozniakKpiCard(QFrame):
     def __init__(self, cat_id: str, title: str, pct: int, subtitle: str, color: str, icon_name: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.cat_id = cat_id
+        self.title = title
         self.color = color
         self._is_active = False
 
@@ -142,6 +143,7 @@ class FieldInspectorWidget(QFrame):
         grid_layout = QHBoxLayout()
 
         # Original Panel
+        # Original Panel
         orig_box = QFrame()
         orig_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
         orig_layout = QVBoxLayout(orig_box)
@@ -150,8 +152,18 @@ class FieldInspectorWidget(QFrame):
         orig_title.setStyleSheet("color: #f87171;")
         orig_layout.addWidget(orig_title)
 
-        for key in ["NoteType", "Recto", "Verso", "Champ Annexe Extra", "Tags"]:
-            val = original_data.get(key, "-")
+        field_keys = ["NoteType", "Recto", "Verso", "Champ Annexe Extra", "Tags"]
+        for key in field_keys:
+            val = "-"
+            if key == "Recto":
+                val = original_data.get("Recto") or original_data.get("Front") or original_data.get("Texte") or original_data.get("Text") or "-"
+            elif key == "Verso":
+                val = original_data.get("Verso") or original_data.get("Back") or "-"
+            elif key == "Champ Annexe Extra":
+                val = original_data.get("Champ Annexe Extra") or original_data.get("Extra") or original_data.get("Remarques extra") or "-"
+            else:
+                val = original_data.get(key, "-")
+
             lbl = QLabel(f"<b>{key} :</b> {val}")
             lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
             lbl.setWordWrap(True)
@@ -167,8 +179,17 @@ class FieldInspectorWidget(QFrame):
         prop_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN};")
         prop_layout.addWidget(prop_title)
 
-        for key in ["NoteType", "Recto", "Verso", "Champ Annexe Extra", "Tags"]:
-            val = proposal_data.get(key, "-")
+        for key in field_keys:
+            val = "-"
+            if key == "Recto":
+                val = proposal_data.get("Recto") or proposal_data.get("Front") or proposal_data.get("question") or proposal_data.get("Texte") or "-"
+            elif key == "Verso":
+                val = proposal_data.get("Verso") or proposal_data.get("Back") or proposal_data.get("reponse") or "-"
+            elif key == "Champ Annexe Extra":
+                val = proposal_data.get("Champ Annexe Extra") or proposal_data.get("Extra") or proposal_data.get("Remarques extra") or "-"
+            else:
+                val = proposal_data.get(key, "-")
+
             lbl = QLabel(f"<b>{key} :</b> {val}")
             lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
             lbl.setWordWrap(True)
@@ -239,7 +260,8 @@ class WozniakCardItemWidget(QFrame):
         op_title.setStyleSheet("color: #f87171;")
 
         orig_dict = item_data.get("original", {})
-        op_text = QLabel(orig_dict.get("Recto", orig_dict.get("Text", "-")))
+        orig_val = orig_dict.get("Recto") or orig_dict.get("Front") or orig_dict.get("Texte") or orig_dict.get("Text") or "-"
+        op_text = QLabel(orig_val)
         op_text.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         op_text.setWordWrap(True)
         op_text.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
@@ -256,7 +278,8 @@ class WozniakCardItemWidget(QFrame):
         pp_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN};")
 
         prop_dict = item_data.get("proposal", {})
-        pp_text = QLabel(prop_dict.get("Recto", "-"))
+        prop_val = prop_dict.get("Recto") or prop_dict.get("Front") or prop_dict.get("question") or (list(prop_dict.values())[0] if isinstance(prop_dict, dict) and prop_dict else "-")
+        pp_text = QLabel(prop_val)
         pp_text.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         pp_text.setWordWrap(True)
         pp_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")

@@ -29,9 +29,9 @@ class DuplicateMatrixTable(QFrame):
             QCheckBox::indicator {{
                 width: 14px;
                 height: 14px;
-                border: 1px solid {DesignTokens.TEXT_MUTED};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
-                background-color: white;
+                background-color: {DesignTokens.BG_INPUT};
             }}
             QCheckBox::indicator:checked {{
                 background-color: {DesignTokens.COLOR_BLUE};
@@ -57,7 +57,7 @@ class DuplicateMatrixTable(QFrame):
 
         badge_count = QLabel("14 paires à examiner")
         badge_count.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        badge_count.setStyleSheet("background: rgba(168,85,247,0.2); color: #c084fc; padding: 3px 9px; border-radius: 5px;")
+        badge_count.setStyleSheet("background: rgba(168,85,247,0.2); color: #c084fc; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(168,85,247,0.4);")
 
         h_title.addWidget(icon_title)
         h_title.addWidget(lbl_title)
@@ -229,7 +229,7 @@ class DuplicateMatrixTable(QFrame):
 
         lbl_sim = QLabel(sim_str)
         lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        lbl_sim.setStyleSheet(f"background: {rgba_bg}; color: {color}; padding: 3px 9px; border-radius: 5px;")
+        lbl_sim.setStyleSheet(f"background: {rgba_bg}; color: {color}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {color};")
         sim_widget = QWidget()
         sim_layout = QHBoxLayout(sim_widget)
         sim_layout.addWidget(lbl_sim)
@@ -358,7 +358,7 @@ class DuplicateMergeInspector(QFrame):
 
         self.lbl_sim = QLabel("Indice de similitude C : --%")
         self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        self.lbl_sim.setStyleSheet("background: rgba(239,68,68,0.2); color: #f87171; padding: 3px 9px; border-radius: 5px;")
+        self.lbl_sim.setStyleSheet("background: rgba(239,68,68,0.2); color: #f87171; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(239,68,68,0.4);")
         h_header.addWidget(self.lbl_sim)
 
         layout.addLayout(h_header)

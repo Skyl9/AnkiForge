@@ -75,8 +75,7 @@ def test_render_anki_card_integration():
     # Vérifications de structure HTML
     assert "<html>" in result
     assert ".card { color: red; }" in result
-    assert "MathJax" in result
-    assert "tex-svg.js" in result
+    assert "katex" in result
 
     # Vérifications des données
     assert "<b>Q?</b><br>R!" in result

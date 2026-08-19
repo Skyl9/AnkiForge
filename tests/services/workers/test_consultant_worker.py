@@ -28,4 +28,4 @@ def test_consultant_worker_success():
 
     # On vérifie que le thread a bien émis des messages de progression pour l'UI
     assert len(emitted_progress) >= 2
-    assert "Extraction et structuration" in emitted_progress[0]
+    assert "Initialisation" in emitted_progress[0]

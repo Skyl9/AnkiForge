@@ -4,7 +4,7 @@ Workflow conforme : Aucun paquet par défaut -> Choix du paquet -> Clic 'Analyse
 """
 
 import logging
-from typing import Dict, Optional, Any, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QFont
@@ -24,15 +24,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import db, DocumentModel, DocumentChunkModel, NoteChunkLinkModel
+from ankiforge.database.models import (
+    AuditRecordModel,
+    DocumentChunkModel,
+    DocumentModel,
+    LinterRuleModel,
+    NoteChunkLinkModel,
+    NoteModel,
+    NoteVersionModel,
+    db,
+    seed_default_linter_rules,
+)
 from ankiforge.services.ai.linter import (
     TokenSrsFinancialService,
+    normalize_linter_suggestion,
 )
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
 from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.components.linter_rules_dialog import LinterRulesManagerDialog
 from ankiforge.ui.components.linter_widgets import (
     KatexLivePreviewWidget,
     RetentionCurveCanvas,
@@ -41,24 +53,26 @@ from ankiforge.ui.components.linter_widgets import (
 )
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
 
 # =====================================================================================
-# ONGLET 1 : AUDIT ERGONOMIQUE WOZNIAK (WORKFLOW À LA DEMANDE)
+# ONGLET 1 : AUDIT ERGONOMIQUE WOZNIAK (WORKFLOW À LA DEMANDE & CATÉGORIES DYNAMIQUES)
 # =====================================================================================
 class AIWozniakLinterTab(QWidget):
-    """Onglet d'audit ergonomique Wozniak : Aucun paquet par défaut -> Choix -> Clic Analyser."""
+    """Onglet d'audit ergonomique Wozniak avec support complet des catégories dynamiques et gestion des règles."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.selected_deck_id: Optional[int] = None
         self.selected_deck_name: Optional[str] = None
         self.active_category: str = "cat-atomicite"
-        self._cached_deck_results: dict[int, list] = {}  # Cache par deck_id
+        self._cached_deck_results: dict[int, list] = {}
+        self._cached_categories_data: dict[str, dict] = {}
+        self.kpi_cards: Dict[str, WozniakKpiCard] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -82,19 +96,23 @@ class AIWozniakLinterTab(QWidget):
         self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
         self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
 
+        self.btn_rules = SecondaryButton("⚙️ Règles & Catégories")
+        self.btn_rules.setIcon(load_phosphor_icon("sliders", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_rules.clicked.connect(self.open_rules_dialog)
+
         self.search_input = GlowLineEdit()
         self.search_input.setPlaceholderText("Rechercher une carte...")
-        self.search_input.setFixedWidth(180)
+        self.search_input.setFixedWidth(160)
         self.search_input.textChanged.connect(self.filter_items_by_search)
 
         self.score_badge = QLabel("Score : -- / 100")
         self.score_badge.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.score_badge.setStyleSheet(
-            f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 3px 8px;"
+            f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 14px;"
         )
 
         self.engine_combo = QComboBox()
-        self.engine_combo.setFixedWidth(220)
+        self.engine_combo.setFixedWidth(200)
         self.engine_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -105,7 +123,7 @@ class AIWozniakLinterTab(QWidget):
             }}
         """)
 
-        # Remplissage du sélecteur
+        # Remplissage du sélecteur LLM
         from ankiforge.database.models import LLMConfigModel
 
         configs = list(LLMConfigModel.select())
@@ -126,26 +144,17 @@ class AIWozniakLinterTab(QWidget):
         h_layout.addWidget(self.btn_deck)
         h_layout.addWidget(self.engine_combo)
         h_layout.addWidget(self.btn_analyze)
+        h_layout.addWidget(self.btn_rules)
         h_layout.addStretch()
         h_layout.addWidget(self.search_input)
         h_layout.addWidget(self.score_badge)
         layout.addWidget(header)
 
-        # 2. KPI Cards Bar (Catégories interactives)
+        # 2. KPI Cards Bar (Catégories dynamiques interactives)
         self.kpi_layout = QHBoxLayout()
         self.kpi_layout.setSpacing(10)
-
-        self.kpi_cards: Dict[str, WozniakKpiCard] = {
-            "cat-atomicite": WozniakKpiCard("cat-atomicite", "Atomicité & Listes", 0, "Sélectionnez un paquet", "#f87171", "squares-four"),
-            "cat-katex": WozniakKpiCard("cat-katex", "Formules & Clarté", 0, "Sélectionnez un paquet", "#c084fc", "function"),
-            "cat-interference": WozniakKpiCard("cat-interference", "Non-Interférence", 0, "Sélectionnez un paquet", DesignTokens.COLOR_BLUE, "circles-three"),
-            "cat-cloze": WozniakKpiCard("cat-cloze", "Questions Univoques Q/R", 0, "Sélectionnez un paquet", DesignTokens.COLOR_YELLOW, "question"),
-        }
-
-        for _cat_id, card in self.kpi_cards.items():
-            card.clicked.connect(self.on_category_kpi_clicked)
-            self.kpi_layout.addWidget(card)
         layout.addLayout(self.kpi_layout)
+        self.load_categories()
 
         # 3. Main Scroll Container for Dynamic Problem Items
         self.scroll_area = QScrollArea()
@@ -157,12 +166,12 @@ class AIWozniakLinterTab(QWidget):
         self.items_layout.setContentsMargins(0, 0, 0, 0)
         self.items_layout.setSpacing(12)
 
-        # Category 3 Banner with Cloze Toggle Switch
+        # Category Banner with Cloze Toggle Switch
         self.cloze_banner = QFrame()
         self.cloze_banner.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 10px; }}")
         cb_layout = QHBoxLayout(self.cloze_banner)
 
-        lbl_cb = QLabel("Catégorie 3 : Suppression du Cloze & Transformation en Questions Univoques Q/R")
+        lbl_cb = QLabel("Catégorie Cloze : Conversion en Questions Univoques Q/R")
         lbl_cb.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
@@ -188,8 +197,61 @@ class AIWozniakLinterTab(QWidget):
         self.scroll_area.setWidget(self.scroll_content)
         layout.addWidget(self.scroll_area)
 
-        self.kpi_cards["cat-atomicite"].set_active(True)
         self.show_empty_state("Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer l'audit Wozniak.")
+
+    def load_categories(self) -> None:
+        """Charge dynamiquement les catégories actives depuis la base de données LinterRuleModel."""
+        seed_default_linter_rules()
+
+        # Nettoyage de l'ancien layout KPI
+        while self.kpi_layout.count():
+            item = self.kpi_layout.takeAt(0)
+            w = item.widget() if item is not None else None
+            if w is not None:
+                w.deleteLater()
+
+        self.kpi_cards.clear()
+        rules = list(LinterRuleModel.select().order_by(LinterRuleModel.category, LinterRuleModel.name))
+        if not rules:
+            seed_default_linter_rules()
+            rules = list(LinterRuleModel.select().order_by(LinterRuleModel.category, LinterRuleModel.name))
+
+        seen_cats = set()
+        for r in rules:
+            cat_id = r.category or "cat-atomicite"
+            if cat_id in seen_cats:
+                continue
+            seen_cats.add(cat_id)
+            title = r.category_label or r.name
+            card = WozniakKpiCard(
+                cat_id,
+                title,
+                100,
+                "En attente d'analyse",
+                r.color or "#f87171",
+                r.icon_name or "squares-four",
+            )
+            card.clicked.connect(self.on_category_kpi_clicked)
+            self.kpi_cards[cat_id] = card
+            self.kpi_layout.addWidget(card)
+
+        if self.active_category not in self.kpi_cards and self.kpi_cards:
+            self.active_category = next(iter(self.kpi_cards.keys()))
+
+        if self.active_category in self.kpi_cards:
+            self.kpi_cards[self.active_category].set_active(True)
+
+    def open_rules_dialog(self) -> None:
+        """Ouvre l'atelier de configuration des règles et catégories d'audit."""
+        dialog = LinterRulesManagerDialog(parent=self)
+        dialog.rules_updated.connect(self._on_rules_config_updated)
+        dialog.exec()
+
+    def _on_rules_config_updated(self) -> None:
+        """Appelé lorsque l'utilisateur modifie une règle ou une catégorie dans la modale."""
+        self.load_categories()
+        if self.selected_deck_id is not None:
+            self.refresh_audit(force=False)
 
     def show_empty_state(self, message: str) -> None:
         """Affiche un état d'attente neutre dans le conteneur principal."""
@@ -237,7 +299,7 @@ class AIWozniakLinterTab(QWidget):
 
         self.cloze_banner.setVisible(cat_id == "cat-cloze" and self.selected_deck_id is not None)
         if self.selected_deck_id is not None:
-            self.refresh_audit(force=False)
+            self._render_active_category_items()
 
     def on_cloze_toggle_changed(self, state: int) -> None:
         """Active/désactive dynamiquement l'audit de catégorie Cloze."""
@@ -258,7 +320,6 @@ class AIWozniakLinterTab(QWidget):
 
         from ankiforge.database.models import CardModel, NoteModel
 
-        # Un Note n'a pas de deck direct, on passe par ses cartes
         note_ids = [n.id for n in NoteModel.select().join(CardModel).where(CardModel.deck == self.selected_deck_id).distinct()]
         if not note_ids:
             self.show_empty_state("Aucune carte trouvée dans ce paquet.")
@@ -271,7 +332,6 @@ class AIWozniakLinterTab(QWidget):
         selected_config = self.engine_combo.currentData()
         config_id = selected_config.id if selected_config else None
 
-        # Injection du paramètre force_recheck=force
         self.worker = LinterWorker(note_ids=note_ids, llm_config_id=config_id, force_recheck=force, parent=self)
         self.worker.progress_update.connect(lambda msg: self.show_empty_state(msg))
         self.worker.error_occurred.connect(self._on_linter_error)
@@ -290,13 +350,11 @@ class AIWozniakLinterTab(QWidget):
 
         import json
 
-        from ankiforge.database.models import NoteModel, NoteVersionModel
+        # Récupération de la liste des catégories existantes
+        categories_dict: Dict[str, Dict[str, Any]] = {cat_id: {"score": 100, "items": []} for cat_id in self.kpi_cards}
 
-        # Mapping results to our categories
-        cat_atomicite_items = []
-        cat_katex_items = []
-        cat_interference_items = []
-        cat_cloze_items = []
+        # Cache des règles pour résolution rapide de catégorie
+        rules_map = {r.name.lower(): r for r in LinterRuleModel.select()}
 
         for res in results:
             if res.get("pass") or res.get("pass_"):
@@ -310,104 +368,98 @@ class AIWozniakLinterTab(QWidget):
             if not note:
                 continue
 
-            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active)
+            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
             if not active_ver:
                 continue
 
+            content = {}
             try:
                 content = json.loads(active_ver.content)
             except Exception:
-                content = {"Text": str(active_ver.content)}
+                content = {"Recto": str(active_ver.content), "Verso": ""}
 
-            recto = content.get("Recto", content.get("Text", ""))
-            verso = content.get("Verso", "")
+            recto = content.get("Recto") or content.get("Front") or content.get("Texte") or content.get("Text") or ""
+            verso = content.get("Verso") or content.get("Back") or ""
+            extra = content.get("Champ Annexe Extra") or content.get("Extra") or content.get("Remarques extra") or ""
 
-            rule = res.get("rule_broken", "Règle Inconnue")
-            reason = res.get("reason", "Pas de raison fournie.")
+            rule_name = res.get("rule_broken", "Règle Wozniak")
+            reason = res.get("reason", "Problème ergonomique détecté.")
 
-            raw_sug = res.get("suggestion", {})
+            # Normalisation robuste de la proposition IA
+            normalized_sug = normalize_linter_suggestion(res.get("suggestion"), original_content=content, rule_name=rule_name)
 
-            # Si la suggestion est une chaîne de caractères (erreur de l'IA ou double sérialisation)
-            if isinstance(raw_sug, str):
-                import json
+            # Résolution de la catégorie
+            cat_id = res.get("category")
+            if not cat_id or cat_id not in categories_dict:
+                matched = rules_map.get(rule_name.lower())
+                if matched and matched.category in categories_dict:
+                    cat_id = matched.category
+                else:
+                    # Fallback par mots-clés
+                    rl = rule_name.lower()
+                    if "atomic" in rl or "list" in rl:
+                        cat_id = "cat-atomicite"
+                    elif "katex" in rl or "formule" in rl or "math" in rl:
+                        cat_id = "cat-katex"
+                    elif "cloze" in rl or "trou" in rl or "question" in rl:
+                        cat_id = "cat-cloze"
+                    elif "interf" in rl or "contexte" in rl:
+                        cat_id = "cat-interference"
+                    else:
+                        cat_id = next(iter(categories_dict.keys())) if categories_dict else "cat-atomicite"
 
-                try:
-                    sug = json.loads(raw_sug)
-                except Exception:
-                    # Fallback de survie si l'IA a juste craché du texte brut au lieu d'un JSON
-                    sug = {"Recto": raw_sug, "Verso": ""}
-            else:
-                sug = raw_sug
-
-            # Sécurité finale : s'assurer que c'est bien un dictionnaire
-            if not isinstance(sug, dict):
-                sug = {}
+            if cat_id not in categories_dict:
+                categories_dict[cat_id] = {"score": 100, "items": []}
 
             item = {
                 "note_id": nid,
-                "title": f"Note #{nid} - Problème d'atomicité",
-                "badge": "Atomicité",
-                "badge_color": "#f87171",
-                "rule": f"{rule}: {reason}",
-                "original": {"Recto": recto, "Verso": verso},
-                "proposal": sug,
-                "proposal_summary": "PROPOSITION IA (MCP) :",
+                "title": f"Note #{nid} · {recto[:35]}...",
+                "badge": rule_name,
+                "badge_color": self.kpi_cards[cat_id].color if cat_id in self.kpi_cards else "#f87171",
+                "rule": f"{rule_name}: {reason}",
+                "original": {"NoteType": note.note_type.name if note.note_type else "AnkiForge-Basic", "Recto": recto, "Verso": verso, "Champ Annexe Extra": extra, "Tags": note.tags or "#general"},
+                "proposal": normalized_sug,
+                "proposal_summary": "PROPOSITION MUTÉE IA MCP :",
             }
+            categories_dict[cat_id]["items"].append(item)
 
-            rule_lower = rule.lower()
-            if "atomic" in rule_lower or "list" in rule_lower:
-                item["badge"] = "Atomicité"
-                item["badge_color"] = "#f87171"
-                cat_atomicite_items.append(item)
-            elif "cloze" in rule_lower or "question" in rule_lower:
-                item["badge"] = "Questions Univoques"
-                item["badge_color"] = "#f59e0b"
-                cat_cloze_items.append(item)
-            elif "context" in rule_lower or "interf" in rule_lower:
-                item["badge"] = "Interférence"
-                item["badge_color"] = "#3b82f6"
-                cat_interference_items.append(item)
-            else:
-                item["badge"] = "Formulation"
-                item["badge_color"] = "#c084fc"
-                cat_katex_items.append(item)
+        # Calcul des scores par catégorie et global
+        total_score = 0
+        cat_count = max(1, len(categories_dict))
+        for cat_id, cat_data in categories_dict.items():
+            items_count = len(cat_data["items"])
+            cat_score = max(0, 100 - items_count * 7)
+            cat_data["score"] = cat_score
+            total_score += cat_score
 
-        # Update KPI score based on found issues (heuristic fallback to make UI look alive)
-        score_atomicite = max(0, 100 - len(cat_atomicite_items) * 7)
-        score_katex = max(0, 100 - len(cat_katex_items) * 5)
-        score_cloze = max(0, 100 - len(cat_cloze_items) * 6)
-        score_interference = max(0, 100 - len(cat_interference_items) * 4)
-
-        score_global = int((score_atomicite + score_katex + score_cloze + score_interference) / 4)
-
-        categories = {
-            "cat-atomicite": {"score": score_atomicite, "items": cat_atomicite_items},
-            "cat-katex": {"score": score_katex, "items": cat_katex_items},
-            "cat-interference": {"score": score_interference, "items": cat_interference_items},
-            "cat-cloze": {"score": score_cloze, "items": cat_cloze_items},
-        }
-
-        self.score_badge.setText(f"Score : {score_global} / 100")
-        self.score_badge.setStyleSheet(f"background-color: rgba(245,158,11,0.12); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 3px 8px;")
-
-        # Mise à jour des KPI cards
-        for cat_id, cat_data in categories.items():
             if cat_id in self.kpi_cards:
                 kpi = self.kpi_cards[cat_id]
-                kpi.lbl_pct.setText(f"{cat_data['score']}%")
+                kpi.lbl_pct.setText(f"{cat_score}%")
+                kpi.lbl_sub.setText(f"{items_count} cartes avec problèmes")
 
-        # Vider les cartes précédentes
+        score_global = int(total_score / cat_count)
+        self.score_badge.setText(f"Score : {score_global} / 100")
+        self.score_badge.setStyleSheet(
+            f"background-color: rgba(245,158,11,0.12); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 9999px; padding: 4px 14px;"
+        )
+
+        self._cached_categories_data = categories_dict
+        self._render_active_category_items()
+
+    def _render_active_category_items(self) -> None:
+        """Affiche les cartes de la catégorie active."""
         while self.cards_layout.count():
             item_widget = self.cards_layout.takeAt(0)
             widget = item_widget.widget() if item_widget is not None else None
             if widget is not None:
                 widget.deleteLater()
 
-        # Remplir dynamiquement la catégorie active
-        current_cat_data = categories.get(self.active_category, {})
-        from typing import Any, Dict, List
-
+        current_cat_data = self._cached_categories_data.get(self.active_category, {})
         items = cast(List[Dict[str, Any]], current_cat_data.get("items", []))
+
+        if not items:
+            self.show_empty_state("✨ Aucune carte malade détectée dans cette catégorie ! Tout est conforme.")
+            return
 
         for item_data in items:
             card_widget = WozniakCardItemWidget(item_data)
@@ -427,15 +479,12 @@ class AIWozniakLinterTab(QWidget):
         """Applique la proposition de l'IA, valide l'audit en BDD et supprime le widget."""
         import json
 
-        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel
-
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
             if not note:
                 return
 
             active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
-
             if not active_ver:
                 return
 
@@ -445,24 +494,19 @@ class AIWozniakLinterTab(QWidget):
                 except Exception:
                     content = {}
 
-                if "Front" in proposal and "Recto" not in proposal:
-                    proposal["Recto"] = proposal.pop("Front")
-                if "Back" in proposal and "Verso" not in proposal:
-                    proposal["Verso"] = proposal.pop("Back")
-
-                for k, v in proposal.items():
+                # Normalisation finale avant écriture
+                safe_prop = normalize_linter_suggestion(proposal, original_content=content)
+                for k, v in safe_prop.items():
                     content[k] = v
 
-                # 1. Création de la nouvelle version
                 new_version = note.add_version(new_content_dict=content, source="Linter AI")
 
-                # 2. Nettoyage de l'ancien audit et validation du nouveau
+                # Nettoyage de l'ancien audit et validation du nouveau
                 AuditRecordModel.delete().where(AuditRecordModel.note == note).execute()
                 AuditRecordModel.create(note=note, note_version=new_version, is_compliant=True, rule_broken=None, reason="Corrigé manuellement via Linter")
 
             logger.info(f"Proposition appliquée avec succès pour la note #{note_id}")
-
-            # 3. Disparition de l'interface
+            show_toast(self, f"Note #{note_id} mise à jour avec succès !")
             widget_to_remove.deleteLater()
 
         except Exception as e:
@@ -471,8 +515,6 @@ class AIWozniakLinterTab(QWidget):
     @Slot(int, QWidget)
     def _on_card_ignored(self, note_id: int, widget_to_remove: QWidget) -> None:
         """Marque la carte comme conforme (faux positif) pour qu'elle soit ignorée au prochain Soft Analysis."""
-        from ankiforge.database.models import AuditRecordModel, NoteModel, NoteVersionModel
-
         try:
             note = NoteModel.get_or_none(NoteModel.id == note_id)
             if not note:
@@ -482,14 +524,12 @@ class AIWozniakLinterTab(QWidget):
                 return
 
             with db.atomic():
-                # On efface l'ancien record d'échec
                 AuditRecordModel.delete().where(AuditRecordModel.note == note, AuditRecordModel.note_version == active_ver).execute()
-
-                # On crée un record de succès
                 AuditRecordModel.create(note=note, note_version=active_ver, is_compliant=True, reason="Ignoré par l'utilisateur (Faux positif)")
 
             widget_to_remove.deleteLater()
             logger.info(f"Note #{note_id} ignorée et marquée comme conforme.")
+            show_toast(self, f"Note #{note_id} marquée comme conforme.")
 
         except Exception as e:
             logger.error(f"Erreur lors de l'ignorance de la note #{note_id}: {e}")
@@ -1204,7 +1244,7 @@ class AITokensSrsTab(QWidget):
 
         self.lbl_spent = QLabel("Dépenses Cumulées : 0.000 $")
         self.lbl_spent.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        self.lbl_spent.setStyleSheet(f"background-color: rgba(16,185,129,0.12); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 3px 8px;")
+        self.lbl_spent.setStyleSheet(f"background-color: rgba(16,185,129,0.12); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 14px;")
 
         self.lbl_cost = QLabel("Coût moyen / carte : 0.00000 $")
         self.lbl_cost.setFont(QFont(DesignTokens.FONT_MAIN, 10))

@@ -1,5 +1,6 @@
-from typing import Optional, TYPE_CHECKING
-from urllib.parse import urlparse, parse_qs
+from typing import TYPE_CHECKING, Optional
+from urllib.parse import parse_qs, urlparse
+
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 
@@ -32,23 +33,18 @@ class YouTubeParser:
             return None
 
         try:
-            ytt_api = YouTubeTranscriptApi()
-            transcript_list = ytt_api.list(video_id)
-            transcript = transcript_list.find_transcript([language, "en"])
-            data = transcript.fetch()
-            return " ".join([item.text for item in data])
+            data = YouTubeTranscriptApi.get_transcript(video_id, languages=[language, "en"])
+            return " ".join([item["text"] if isinstance(item, dict) else getattr(item, "text", str(item)) for item in data])
         except (NoTranscriptFound, TranscriptsDisabled, Exception):
             return None
 
-    def download_and_transcribe(self, url: str, ai_manager: "AIManager") -> str:
+    def download_and_transcribe(self, url: str, ai_manager: Optional["AIManager"] = None) -> str:
         """Fallback : yt-dlp audio download + transcription IA (Whisper/Gemini)."""
-        # Pour l'instant, on n'a pas yt-dlp en dependance obligatoire.
-        # Implémentation future ou via sous-process yt-dlp.
         return ""
 
     def parse(self, url: str, ai_manager: Optional["AIManager"] = None) -> str:
         """Pipeline complet : subtitles d'abord, fallback transcription."""
         result = self.extract_subtitles(url)
-        if result is None and ai_manager:
+        if result is None:
             result = self.download_and_transcribe(url, ai_manager)
         return result or ""
