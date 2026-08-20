@@ -36,9 +36,9 @@ class CommandPalette(QDialog):
         # Fond: rgba(26, 29, 36, 0.95)
         self.container.setStyleSheet(f"""
             QWidget#commandPaletteContainer {{
-                background-color: rgba(26, 29, 36, 0.95);
+                background-color: {DesignTokens.BG_PANEL};
                 border-radius: {DesignTokens.RADIUS_LG}px;
-                border: 1px solid {DesignTokens.BORDER_LIGHT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
         # QGraphicsDropShadowEffect(blur=32) via theme

@@ -6,7 +6,7 @@ from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QAbstractItemView, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.theme import DesignTokens, is_dark_mode
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import get_mathjax_script
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -49,15 +49,17 @@ class DuplicateMatrixTable(QFrame):
         h_title.setContentsMargins(0, 0, 0, 8)
 
         icon_title = QLabel()
-        icon_title.setPixmap(load_phosphor_icon("git-diff", color="#c084fc").pixmap(16, 16))
+        icon_title.setPixmap(load_phosphor_icon("git-diff", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
 
         lbl_title = QLabel("Matrice de Doublons Détectés")
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        lbl_title.setStyleSheet("color: #c084fc;")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY};")
 
         badge_count = QLabel("14 paires à examiner")
         badge_count.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        badge_count.setStyleSheet("background: rgba(168,85,247,0.2); color: #c084fc; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(168,85,247,0.4);")
+        badge_count.setStyleSheet(
+            f"background: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; " f"padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.BORDER_COLOR};"
+        )
 
         h_title.addWidget(icon_title)
         h_title.addWidget(lbl_title)
@@ -105,9 +107,13 @@ class DuplicateMatrixTable(QFrame):
         def create_filter_btn(text: str, is_active: bool = False) -> SecondaryButton:
             btn = SecondaryButton(text)
             if is_active:
-                btn.setStyleSheet(f"background: rgba(99, 102, 241, 0.25); border: 1px solid {DesignTokens.ACCENT_PRIMARY}; color: #ffffff; padding: 4px 10px; border-radius: 5px;")
+                btn.setStyleSheet(
+                    f"background: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; " f"color: {DesignTokens.ACCENT_PRIMARY}; padding: 4px 10px; border-radius: 5px;"
+                )
             else:
-                btn.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_SECONDARY}; padding: 4px 10px; border-radius: 5px;")
+                btn.setStyleSheet(
+                    f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; " f"color: {DesignTokens.TEXT_SECONDARY}; padding: 4px 10px; border-radius: 5px;"
+                )
             return btn
 
         self.btn_filter_all = create_filter_btn("Toutes (14)", is_active=True)
@@ -135,7 +141,7 @@ class DuplicateMatrixTable(QFrame):
 
         self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%")
         self.btn_auto_merge.setIcon(load_phosphor_icon("lightning", color="#ffffff"))
-        self.btn_auto_merge.setStyleSheet(f"background: rgba(99,102,241,0.2); border: 1px solid {DesignTokens.ACCENT_PRIMARY};")
+        self.btn_auto_merge.setStyleSheet(f"background: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY};")
 
         h_line2.addWidget(self.btn_auto_merge)
         layout.addLayout(h_line2)
@@ -183,7 +189,7 @@ class DuplicateMatrixTable(QFrame):
                 padding: 4px;
             }}
             QTableWidget::item:selected {{
-                background: rgba(99,102,241,0.18);
+                background: {DesignTokens.BG_ACTIVE};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
@@ -222,7 +228,7 @@ class DuplicateMatrixTable(QFrame):
         sim_str = f"{similarity * 100:.1f} % C"
         if similarity > 0.95:
             rgba_bg = "rgba(239,68,68,0.25)"
-            color = "#f87171"
+            color = DesignTokens.COLOR_RED
         else:
             rgba_bg = "rgba(245,158,11,0.25)"
             color = DesignTokens.COLOR_YELLOW
@@ -335,21 +341,21 @@ class DuplicateMergeInspector(QFrame):
         h_header.addWidget(nav_widget)
 
         self.btn_swap = QPushButton(" Permuter A ↔ B")
-        self.btn_swap.setIcon(load_phosphor_icon("arrows-left-right", color="#c084fc"))
+        self.btn_swap.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_swap.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_swap.setStyleSheet("""
-            QPushButton {
-                background: rgba(168, 85, 247, 0.15); 
-                border: 1px solid #c084fc; 
-                color: #c084fc;
+        self.btn_swap.setStyleSheet(f"""
+            QPushButton {{
+                background: {DesignTokens.BG_ACTIVE}; 
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY}; 
+                color: {DesignTokens.TEXT_PRIMARY};
                 padding: 4px 10px;
                 border-radius: 4px;
                 font-weight: bold;
                 font-size: 11px;
-            }
-            QPushButton:hover {
-                background: rgba(168, 85, 247, 0.25);
-            }
+            }}
+            QPushButton:hover {{
+                background: {DesignTokens.BG_HOVER};
+            }}
         """)
         self.btn_swap.clicked.connect(self.on_swap)
         h_header.addWidget(self.btn_swap)
@@ -358,7 +364,7 @@ class DuplicateMergeInspector(QFrame):
 
         self.lbl_sim = QLabel("Indice de similitude C : --%")
         self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        self.lbl_sim.setStyleSheet("background: rgba(239,68,68,0.2); color: #f87171; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(239,68,68,0.4);")
+        self.lbl_sim.setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; " f"padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(239,68,68,0.4);")
         h_header.addWidget(self.lbl_sim)
 
         layout.addLayout(h_header)
@@ -408,8 +414,8 @@ class DuplicateMergeInspector(QFrame):
         self.btn_ignore = SecondaryButton("Ignorer")
 
         self.btn_false = SecondaryButton("Faux Doublon")
-        self.btn_false.setIcon(load_phosphor_icon("prohibit", color="#f87171"))
-        self.btn_false.setStyleSheet("border-color: rgba(239,68,68,0.5); color: #f87171;")
+        self.btn_false.setIcon(load_phosphor_icon("prohibit", color=DesignTokens.COLOR_RED))
+        self.btn_false.setStyleSheet(f"border-color: rgba(239,68,68,0.5); color: {DesignTokens.COLOR_RED};")
 
         f_actions.addWidget(self.btn_valid, 1)
         f_actions.addWidget(self.btn_ignore)
@@ -419,7 +425,7 @@ class DuplicateMergeInspector(QFrame):
         h_cols.addWidget(self.col_fusion, 1)
 
         # Col 3: Card B
-        self.col_b, self.lbl_title_b, self.layout_b, self.btn_keep_b, self.srs_b = self._create_card_col("CARTE #2", "#c084fc", "⬅ Injecter", "Conserver Carte #2 (Duplicata)")
+        self.col_b, self.lbl_title_b, self.layout_b, self.btn_keep_b, self.srs_b = self._create_card_col("CARTE #2", DesignTokens.ACCENT_PRIMARY, "⬅ Injecter", "Conserver Carte #2 (Duplicata)")
         h_cols.addWidget(self.col_b)
 
         layout.addLayout(h_cols)
@@ -540,7 +546,7 @@ class DuplicateMergeInspector(QFrame):
         if source == "A":
             self._populate_fields(self.layout_a, self.current_conflict["content_a"], DesignTokens.COLOR_BLUE, "➔ Injecter", "A")
         elif source == "B":
-            self._populate_fields(self.layout_b, self.current_conflict["content_b"], "#c084fc", "⬅ Injecter", "B")
+            self._populate_fields(self.layout_b, self.current_conflict["content_b"], DesignTokens.ACCENT_PRIMARY, "⬅ Injecter", "B")
         elif source == "Fusion":
             self._populate_fields(self.merged_content_layout, self.current_conflict.get("merged_content", {}), DesignTokens.ACCENT_PRIMARY, "", "Fusion")
 
@@ -580,7 +586,7 @@ class DuplicateMergeInspector(QFrame):
                 web_val = SafeWebEngineView()
                 web_val.setMinimumHeight(100)
 
-                text_color = "#e2e8f0" if is_dark_mode() else "#1e293b"
+                text_color = DesignTokens.TEXT_PRIMARY
                 html_text = str(field_val)
                 final_html = f"""<!DOCTYPE html>
                 <html>
@@ -599,8 +605,8 @@ class DuplicateMergeInspector(QFrame):
                         }}
                         ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
                         ::-webkit-scrollbar-track {{ background: transparent; }}
-                        ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 3px; }}
-                        ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
+                        ::-webkit-scrollbar-thumb {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; }}
+                        ::-webkit-scrollbar-thumb:hover {{ background: {DesignTokens.TEXT_MUTED}; }}
                     </style>
                 </head>
                 <body> 
@@ -655,7 +661,7 @@ class DuplicateMergeInspector(QFrame):
         self._populate_fields(self.layout_a, content_a, DesignTokens.COLOR_BLUE, "➔ Injecter", "A")
 
         self.lbl_title_b.setText(f"CARTE #2 (Duplicata #{note_b.id})")
-        self._populate_fields(self.layout_b, content_b, "#c084fc", "⬅ Injecter", "B")
+        self._populate_fields(self.layout_b, content_b, DesignTokens.ACCENT_PRIMARY, "⬅ Injecter", "B")
 
         def _update_srs(note, srs_dict):
             has_srs = hasattr(note, "srs_ivl") or (hasattr(note, "cards") and len(note.cards) > 0 and hasattr(note.cards[0], "srs_ivl"))

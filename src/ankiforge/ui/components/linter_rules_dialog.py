@@ -146,7 +146,7 @@ class LinterRulesManagerDialog(QDialog):
         btn_new.clicked.connect(self._on_new_rule)
 
         self.btn_delete = SecondaryButton("Supprimer")
-        self.btn_delete.setIcon(load_phosphor_icon("ph.trash", color="#f87171"))
+        self.btn_delete.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
         self.btn_delete.setEnabled(False)
         self.btn_delete.clicked.connect(self._on_delete_rule)
 
@@ -199,7 +199,7 @@ class LinterRulesManagerDialog(QDialog):
         style_row = QHBoxLayout()
         col_box = QVBoxLayout()
         col_box.addWidget(QLabel("Couleur (Hex) :"))
-        self.txt_color = QLineEdit("#f87171")
+        self.txt_color = QLineEdit(DesignTokens.COLOR_RED)
         col_box.addWidget(self.txt_color)
 
         ico_box = QVBoxLayout()
@@ -331,7 +331,7 @@ class LinterRulesManagerDialog(QDialog):
         self.txt_name.setText(rule.name)
         self.txt_category.setText(rule.category or "cat-atomicite")
         self.txt_category_label.setText(rule.category_label or "Atomicité & Restructuration")
-        self.txt_color.setText(rule.color or "#f87171")
+        self.txt_color.setText(rule.color or DesignTokens.COLOR_RED)
         self.txt_icon.setText(rule.icon_name or "squares-four")
         self.chk_is_active.setChecked(bool(rule.is_active))
         self.txt_desc.setPlainText(rule.description or "")
@@ -364,7 +364,7 @@ class LinterRulesManagerDialog(QDialog):
         self.txt_name.setText("Nouvelle Règle d'Audit")
         self.txt_category.setText("cat-custom")
         self.txt_category_label.setText("Règles Personnalisées")
-        self.txt_color.setText("#10b981")
+        self.txt_color.setText(DesignTokens.COLOR_GREEN)
         self.txt_icon.setText("check-circle")
         self.chk_is_active.setChecked(True)
         self.txt_desc.setPlainText("Description de votre règle d'audit...")
@@ -382,7 +382,7 @@ class LinterRulesManagerDialog(QDialog):
 
         cat = self.txt_category.text().strip() or "cat-custom"
         cat_label = self.txt_category_label.text().strip() or "Règles Personnalisées"
-        color = self.txt_color.text().strip() or "#f87171"
+        color = self.txt_color.text().strip() or DesignTokens.COLOR_RED
         icon_name = self.txt_icon.text().strip() or "squares-four"
         is_active = self.chk_is_active.isChecked()
         desc = self.txt_desc.toPlainText().strip()

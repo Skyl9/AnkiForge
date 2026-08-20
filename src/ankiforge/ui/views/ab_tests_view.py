@@ -103,17 +103,6 @@ class BranchKpiWidget(QFrame):
         self.branch_title = branch_title
         self.color_hex = color_hex
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"""
-            BranchKpiWidget {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 8px;
-                padding: 4px;
-            }}
-            BranchKpiWidget QLabel {{
-                background: transparent;
-            }}
-        """)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
@@ -519,7 +508,10 @@ class ABTestsView(QWidget):
 
         self.json_edit_a = StyledTextEdit()
         self.json_edit_a.setReadOnly(True)
-        self.json_edit_a.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: 'JetBrains Mono', monospace; font-size: 12px; border: none; padding: 10px; }")
+        self.json_edit_a.setStyleSheet(
+            f"QPlainTextEdit {{ background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; "
+            f"font-family: '{DesignTokens.FONT_CODE}', monospace; font-size: 12px; border: none; padding: 10px; }}"
+        )
 
         self.stack_a.addWidget(self.preview_a)
         self.stack_a.addWidget(self.table_a)
@@ -613,7 +605,10 @@ class ABTestsView(QWidget):
 
         self.json_edit_b = StyledTextEdit()
         self.json_edit_b.setReadOnly(True)
-        self.json_edit_b.setStyleSheet("QPlainTextEdit { background-color: #090a0f; color: #a5b4fc; font-family: 'JetBrains Mono', monospace; font-size: 12px; border: none; padding: 10px; }")
+        self.json_edit_b.setStyleSheet(
+            f"QPlainTextEdit {{ background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; "
+            f"font-family: '{DesignTokens.FONT_CODE}', monospace; font-size: 12px; border: none; padding: 10px; }}"
+        )
 
         self.stack_b.addWidget(self.preview_b)
         self.stack_b.addWidget(self.table_b)
@@ -1063,6 +1058,17 @@ class ABTestsView(QWidget):
         except Exception as e:
             logger.exception("Erreur lors de l'import des cartes A/B dans la Forge")
             show_toast(self, f"Erreur lors de l'import : {e}", is_error=True)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit à chaud les composants et aperçus de cartes A/B lors d'un changement de thème."""
+        if hasattr(self, "preview_a") and hasattr(self.preview_a, "refresh_theme"):
+            self.preview_a.refresh_theme(profile)
+        if hasattr(self, "preview_b") and hasattr(self.preview_b, "refresh_theme"):
+            self.preview_b.refresh_theme(profile)
+        if hasattr(self, "tab_bar_a"):
+            self.tab_bar_a.update()
+        if hasattr(self, "tab_bar_b"):
+            self.tab_bar_b.update()
 
 
 ABTestsTab = ABTestsView

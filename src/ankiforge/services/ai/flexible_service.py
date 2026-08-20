@@ -219,6 +219,13 @@ class AIManager:
         """
         p_name = provider_name.lower()
         key = api_key or ""
+        if not key:
+            try:
+                from ankiforge.services.settings_service import SettingsService
+
+                key = str(SettingsService.get(f"keys/{p_name}", ""))
+            except Exception:
+                pass  # nosec B110
 
         if p_name == "ollama":
             return OllamaProvider(model_name=model_id)

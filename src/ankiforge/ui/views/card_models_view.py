@@ -61,19 +61,19 @@ class TagPillButton(QPushButton):
 
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: #20242e;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {border_color};
                 border-radius: 12px;
                 color: {text_color};
-                font-family: 'JetBrains Mono', 'Fira Code', Menlo;
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 11px;
                 font-weight: bold;
                 padding: 4px 10px;
             }}
             QPushButton:hover {{
-                background-color: #2d3240;
-                border-color: #8b5cf6;
-                color: #ffffff;
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
 
@@ -89,47 +89,47 @@ class CodeEditorWithGutter(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #0d0f12;
-                border: 1px solid #2d313a;
-                border-radius: 6px;
-            }
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
         """)
 
-        # Gouttière des numéros de lignes (#121419)
+        # Gouttière des numéros de lignes
         self.lines_label = QLabel("1")
         self.lines_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-        self.lines_label.setStyleSheet("""
-            QLabel {
-                background-color: #121419;
-                color: #4b5563;
-                font-family: 'Fira Code', 'JetBrains Mono', Menlo;
-                font-size: 13px;
+        self.lines_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignTokens.BG_SIDEBAR};
+                color: {DesignTokens.TEXT_MUTED};
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 12px;
                 line-height: 1.5;
                 padding: 12px 10px;
-                border-right: 1px solid #2d313a;
-                border-top-left-radius: 6px;
-                border-bottom-left-radius: 6px;
-            }
+                border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top-left-radius: {DesignTokens.RADIUS_SM}px;
+                border-bottom-left-radius: {DesignTokens.RADIUS_SM}px;
+            }}
         """)
         layout.addWidget(self.lines_label)
 
-        # Éditeur de texte (#0d0f12)
+        # Éditeur de texte
         self.editor = StyledTextEdit()
         self.editor.setPlaceholderText(placeholder)
-        self.editor.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: #0d0f12;
-                color: #e2e8f0;
-                font-family: 'Fira Code', 'JetBrains Mono', Menlo;
-                font-size: 13px;
+        self.editor.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 12px;
                 line-height: 1.5;
                 padding: 12px;
                 border: none;
-                border-top-right-radius: 6px;
-                border-bottom-right-radius: 6px;
-            }
+                border-top-right-radius: {DesignTokens.RADIUS_SM}px;
+                border-bottom-right-radius: {DesignTokens.RADIUS_SM}px;
+            }}
         """)
         layout.addWidget(self.editor, 1)
 
@@ -169,8 +169,8 @@ class SubTabButton(QPushButton):
             self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_PRIMARY))
             self.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: #1e2128;
-                    color: #f8fafc;
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.TEXT_PRIMARY};
                     border: none;
                     border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
                     padding: 6px 14px;
@@ -180,20 +180,20 @@ class SubTabButton(QPushButton):
             """)
         else:
             self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED))
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #16181d;
-                    color: #94a3b8;
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_SIDEBAR};
+                    color: {DesignTokens.TEXT_SECONDARY};
                     border: none;
                     border-top: 2px solid transparent;
                     padding: 6px 14px;
                     font-size: 12px;
                     font-weight: normal;
-                }
-                QPushButton:hover {
-                    background-color: #2d313a;
-                    color: #f8fafc;
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                }}
             """)
 
 
@@ -237,7 +237,7 @@ class CardModelsView(QWidget):
         self.list_widget = QListWidget()
         self.list_widget.setStyleSheet(f"""
             QListWidget {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
@@ -283,20 +283,6 @@ class CardModelsView(QWidget):
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
-        self.btn_save.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
-                border: 1px solid #6366f1;
-                color: white;
-                font-weight: bold;
-                padding: 4px 12px;
-                border-radius: 6px;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f46e5, stop:1 #7c3aed);
-            }
-        """)
         apply_shadow(self.btn_save, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
 
         self.editor_panel.add_header_widget(self.btn_refresh)
@@ -345,7 +331,7 @@ class CardModelsView(QWidget):
 
         # 3. Sub-tabs Bar Style IDE (conforme L1794-L1800)
         subtabs_container = QWidget()
-        subtabs_container.setStyleSheet(f"background-color: #16181d; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
+        subtabs_container.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
         subtabs_row = QHBoxLayout(subtabs_container)
         subtabs_row.setContentsMargins(8, 0, 8, 0)
         subtabs_row.setSpacing(2)
@@ -397,11 +383,11 @@ class CardModelsView(QWidget):
 
         # Cadre d'arrière-plan sombre avec halo lumineux radial (#0f111a)
         preview_canvas = QFrame()
-        preview_canvas.setStyleSheet("""
-            QFrame {
-                background-color: #0f111a;
+        preview_canvas.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
                 border: none;
-            }
+            }}
         """)
         canvas_layout = QVBoxLayout(preview_canvas)
         canvas_layout.setContentsMargins(16, 16, 16, 16)

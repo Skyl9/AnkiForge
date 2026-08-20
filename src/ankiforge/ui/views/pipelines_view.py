@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
-    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -63,7 +62,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
 )
 from ankiforge.ui.dialogs.tool_editor_dialog import ToolEditorDialog
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -1125,7 +1124,7 @@ class StepInspectorPanel(QFrame):
             }}
             QTabBar::tab:selected {{
                 background: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
+                color: {DesignTokens.ACCENT_PRIMARY};
                 border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
@@ -1916,30 +1915,7 @@ class PipelinesView(QWidget):
 
     def _on_open_more_menu(self) -> None:
         """Affiche le menu contextuel élégant regroupant toutes les actions secondaires."""
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 4px;
-            }}
-            QMenu::item {{
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 6px 24px 6px 10px;
-                border-radius: 4px;
-                font-size: 12px;
-            }}
-            QMenu::item:selected {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-            QMenu::separator {{
-                height: 1px;
-                background-color: {DesignTokens.BORDER_COLOR};
-                margin: 4px 0px;
-            }}
-        """)
+        menu = StyledMenu(self)
 
         act_new = menu.addAction(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY), "Nouveau Pipeline...")
         act_clone = menu.addAction(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY), "Dupliquer le Pipeline")

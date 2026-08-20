@@ -26,6 +26,7 @@ from ankiforge.database.models import (
     PythonToolModel,
     LinterRuleModel,
     AuditRecordModel,
+    SettingModel,
 )
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -63,6 +64,7 @@ def mock_db():
         NoteChunkLinkModel,
         LinterRuleModel,
         AuditRecordModel,
+        SettingModel,
     ]
 
     # On force Peewee à utiliser cette fausse base plutôt que le fichier .db réel

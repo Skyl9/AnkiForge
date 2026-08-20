@@ -44,6 +44,7 @@ class IdeTabBar(QWidget):
                 background-color: transparent;
                 color: {DesignTokens.TEXT_SECONDARY};
                 border: none;
+                border-right: 1px solid {DesignTokens.BORDER_COLOR};
                 border-top: 2px solid transparent;
                 padding: 0 16px;
                 font-family: "{DesignTokens.FONT_MAIN}";
@@ -55,7 +56,9 @@ class IdeTabBar(QWidget):
             QPushButton:checked {{
                 color: {DesignTokens.TEXT_PRIMARY};
                 border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                border-right: 1px solid {DesignTokens.BORDER_COLOR};
                 background-color: {DesignTokens.BG_PANEL};
+                font-weight: bold;
             }}
         """)
 
@@ -117,6 +120,7 @@ class PillTabBar(QWidget):
             QPushButton:checked {{
                 background-color: {DesignTokens.BG_PANEL};
                 color: {DesignTokens.TEXT_PRIMARY};
+                font-weight: bold;
             }}
         """)
 
@@ -217,75 +221,32 @@ class TabButton(QPushButton):
         self.setSizePolicy(sizePolicy)
 
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        padding_right = 28 if closable else 12
-        if variant == "document":
-            self.setStyleSheet(f"""
-                TabButton {{
-                    background-color: transparent;
-                    color: {DesignTokens.TEXT_SECONDARY};
-                    border: none;
-                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-top: 2px solid transparent;
-                    border-top-left-radius: {DesignTokens.RADIUS_SM}px;
-                    border-top-right-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 0 {padding_right}px 0 12px;
-                    font-family: "{DesignTokens.FONT_MAIN}";
-                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
-                    text-align: left;
-                }}
-                TabButton:hover {{
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    background-color: {DesignTokens.BG_HOVER};
-                }}
-                TabButton:checked {{
-                    background-color: {DesignTokens.BG_INPUT};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    border-bottom: 1px solid {DesignTokens.BG_INPUT};
-                    border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                    font-weight: bold;
-                }}
-            """)
-        else:
-            self.setStyleSheet(f"""
-                TabButton {{
-                    background-color: #16181d;
-                    color: #94a3b8;
-                    border: none;
-                    border-top: 2px solid transparent;
-                    padding: 0 {padding_right}px 0 12px;
-                    font-family: "{DesignTokens.FONT_MAIN}";
-                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
-                    text-align: left;
-                }}
-                TabButton:hover {{
-                    color: #f8fafc;
-                    background-color: #2d313a;
-                }}
-                TabButton:checked {{
-                    background-color: #1e2128;
-                    color: #f8fafc;
-                    border-top: 2px solid #6366f1;
-                    font-weight: bold;
-                }}
-            """)
+        self.setProperty("variant", variant)
+        self.setProperty("closable", "true" if closable else "false")
+        self.toggled.connect(self._on_toggled)
         if self.closable:
             self.close_btn = QPushButton(self)
             self.close_btn.setFixedSize(16, 16)
             self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.close_btn.setStyleSheet("""
-                QPushButton {
+            self.close_btn.setStyleSheet(f"""
+                QPushButton {{
                     background-color: transparent;
                     border-radius: 8px;
                     border: none;
-                }
-                QPushButton:hover {
-                    background-color: rgba(255, 255, 255, 0.1);
-                }
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
             """)
-            self.close_btn.setIcon(load_phosphor_icon("ph.x", color="#94a3b8"))
+            self.close_btn.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_SECONDARY))
             self.close_btn.clicked.connect(self.close_requested.emit)
         self._drag_start_pos = QPoint()
+
+    def _on_toggled(self, checked: bool) -> None:
+        icon_name = self.property("icon_name")
+        if icon_name:
+            c = DesignTokens.ACCENT_PRIMARY if checked else DesignTokens.TEXT_SECONDARY
+            self.setIcon(load_phosphor_icon(icon_name, color=c))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

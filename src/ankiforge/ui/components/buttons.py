@@ -1,3 +1,4 @@
+from typing import Any
 from PySide6.QtWidgets import QPushButton, QWidget, QFrame, QVBoxLayout, QLabel, QGraphicsDropShadowEffect
 from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QCursor
@@ -6,31 +7,14 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class PrimaryButton(QPushButton):
-    """Bouton principal indigo avec glow. Usage: actions primaires."""
+    """Bouton principal avec glow. Usage: actions primaires."""
 
     def __init__(self, text: str, parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
+        self.setProperty("role", "primary")
 
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: #6366f1;
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: none;
-                border-radius: 6px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-                font-weight: 600;
-                padding: 8px 16px;
-            }}
-            QPushButton:hover {{
-                background-color: #4f46e5;
-            }}
-            QPushButton:disabled {{
-                background-color: #2d313a;
-                color: #64748b;
-            }}
-        """)
         apply_shadow(self, blur=10, offset_y=0, color="rgba(99,102,241,0.4)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
@@ -60,21 +44,7 @@ class SecondaryButton(QPushButton):
         super().__init__(text, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
-
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: #1a1d24;
-                color: #f8fafc;
-                border: 1px solid #2d313a;
-                border-radius: 6px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-                padding: 0 16px;
-            }}
-            QPushButton:hover {{
-                background-color: #2d313a;
-                border: 1px solid #4b5563;
-            }}
-        """)
+        self.setProperty("role", "secondary")
 
 
 class DangerButton(QPushButton):
@@ -84,47 +54,27 @@ class DangerButton(QPushButton):
         super().__init__(text, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
-
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: rgba(239, 68, 68, 0.12);
-                color: #ef4444;
-                border: 1px solid rgba(239, 68, 68, 0.25);
-                border-radius: 6px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-                font-weight: 600;
-                padding: 0 16px;
-            }}
-            QPushButton:hover {{
-                background-color: rgba(239, 68, 68, 0.25);
-            }}
-        """)
+        self.setProperty("role", "danger")
 
 
 class IconButton(QPushButton):
-    """Bouton icône 32x32 transparent. Usage: toolbars."""
+    """Bouton icône carré. Usage: actions secondaires, close, toggle."""
 
     def __init__(self, icon_name: str, tooltip: str = "", size: int = 32, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.icon_name = icon_name
         self.setFixedSize(size, size)
         self.setToolTip(tooltip)
+        self.setProperty("role", "icon")
+
         if icon_name:
             self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
             self.setIconSize(self.size() * 0.6)
             self.setText("")
 
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: none;
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
+    def refresh_theme(self, profile: Any) -> None:
+        if self.icon_name:
+            self.setIcon(load_phosphor_icon(self.icon_name, color=profile.text_primary))
 
 
 class PremiumActionCard(QFrame):
@@ -134,19 +84,10 @@ class PremiumActionCard(QFrame):
 
     def __init__(self, icon_name: str, title: str, description: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.icon_name = icon_name
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setMinimumHeight(100)
-        self.setStyleSheet(f"""
-            PremiumActionCard {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            PremiumActionCard:hover {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
+        self.setProperty("card-style", "elevated")
         apply_shadow(self, blur=12, offset_y=4)
 
         layout = QVBoxLayout(self)
@@ -167,6 +108,11 @@ class PremiumActionCard(QFrame):
         layout.addWidget(self.title_label)
         layout.addWidget(self.desc_label)
         layout.addStretch()
+
+    def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "icon_name") and self.icon_name:
+            pixmap = load_phosphor_icon(self.icon_name, color=profile.accent_primary).pixmap(24, 24)
+            self.icon_label.setPixmap(pixmap)
 
     def mouseReleaseEvent(self, event) -> None:
         from PySide6.QtGui import QMouseEvent

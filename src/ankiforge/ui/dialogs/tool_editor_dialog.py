@@ -116,14 +116,14 @@ class ToolEditorDialog(QDialog):
         self.edit_code.setText(self.DEFAULT_TEMPLATE)
         self.edit_code.setStyleSheet(f"""
             QTextEdit {{
-                background-color: #0b0d11;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: #a5d6ff;
-                font-family: monospace;
-                font-size: 12px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: {DesignTokens.FONT_SIZE_CODE}px;
                 line-height: 1.4;
                 padding: 8px;
-                border-radius: 6px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         layout.addWidget(self.edit_code, 1)
@@ -135,13 +135,13 @@ class ToolEditorDialog(QDialog):
         self.edit_console.setPlaceholderText("Console de test : Cliquez sur '🧪 Tester le Script' pour valider...")
         self.edit_console.setStyleSheet(f"""
             QTextEdit {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 color: {DesignTokens.TEXT_SECONDARY};
-                font-family: monospace;
-                font-size: 11px;
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: {DesignTokens.FONT_SIZE_SM}px;
                 padding: 4px;
-                border-radius: 4px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         layout.addWidget(self.edit_console)
@@ -155,7 +155,9 @@ class ToolEditorDialog(QDialog):
         row_actions.addStretch()
 
         btn_cancel = QPushButton("Annuler")
-        btn_cancel.setStyleSheet(f"background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_MUTED}; padding: 6px 14px; border-radius: 4px;")
+        btn_cancel.setStyleSheet(
+            f"background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; " f"color: {DesignTokens.TEXT_MUTED}; padding: 6px 14px; border-radius: {DesignTokens.RADIUS_SM}px;"
+        )
         btn_cancel.clicked.connect(self.reject)
         row_actions.addWidget(btn_cancel)
 
@@ -177,13 +179,13 @@ class ToolEditorDialog(QDialog):
         """Exécute un test du script sur un état d'essai."""
         code = self.edit_code.toPlainText()
         if "def run(" not in code:
-            self.edit_console.setHtml("<span style='color: #ef4444;'>❌ Erreur : Le script doit définir une fonction 'def run(state):'.</span>")
+            self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ Erreur : Le script doit définir une fonction 'def run(state):'.</span>")
             return
 
         try:
             compile(code, "<test_custom_tool>", "exec")
         except SyntaxError as e:
-            self.edit_console.setHtml(f"<span style='color: #ef4444;'>❌ Erreur de syntaxe Python : {e}</span>")
+            self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ Erreur de syntaxe Python : {e}</span>")
             return
 
         state = PipelineRunState(initial_prompt="Exemple de texte mathématique avec $x^2$ et <p></p>")
@@ -201,17 +203,17 @@ class ToolEditorDialog(QDialog):
             exec(code, global_scope, local_scope)  # nosec B102
             run_fn = local_scope.get("run") or global_scope.get("run")
             if not callable(run_fn):
-                self.edit_console.setHtml("<span style='color: #ef4444;'>❌ 'run' n'est pas appelable.</span>")
+                self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ 'run' n'est pas appelable.</span>")
                 return
 
             res = run_fn(state)
             self.edit_console.setHtml(
-                f"<span style='color: #10b981;'><b>✅ Exécution réussie !</b></span><br>"
-                f"<span style='color: #94a3b8;'>Résultat : {res}</span><br>"
-                f"<span style='color: #94a3b8;'>Cartes : {len(state.get_variable('generated_cards', []))}</span>"
+                f"<span style='color: {DesignTokens.COLOR_GREEN};'><b>✅ Exécution réussie !</b></span><br>"
+                f"<span style='color: {DesignTokens.TEXT_MUTED};'>Résultat : {res}</span><br>"
+                f"<span style='color: {DesignTokens.TEXT_MUTED};'>Cartes : {len(state.get_variable('generated_cards', []))}</span>"
             )
         except Exception as e:
-            self.edit_console.setHtml(f"<span style='color: #ef4444;'>❌ Exception à l'exécution : {e}</span>")
+            self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ Exception à l'exécution : {e}</span>")
 
     def _on_save_clicked(self) -> None:
         name = self.edit_name.text().strip()

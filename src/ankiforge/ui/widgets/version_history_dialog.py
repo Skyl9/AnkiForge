@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import db, NoteModel, NoteVersionModel
 from ankiforge.ui.components.components import PrimaryButton, HeaderLabel
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 
 
@@ -123,15 +124,18 @@ class VersionHistoryDialog(QDialog):
             part_a = old_text[a0:a1].replace("\n", "<br>")
             part_b = new_text[b0:b1].replace("\n", "<br>")
 
+            del_style = f"background-color: rgba(239, 68, 68, 0.2); color: {DesignTokens.COLOR_RED}; text-decoration: line-through; padding: 1px 4px; border-radius: 2px;"
+            ins_style = f"background-color: rgba(16, 185, 129, 0.2); color: {DesignTokens.COLOR_GREEN}; padding: 1px 4px; border-radius: 2px;"
+
             if opcode == "equal":
                 html_result += part_a
             elif opcode == "replace":
-                html_result += f"<span style='background-color: #5c1b1b; color: #ffcccc; text-decoration: line-through;'>{part_a}</span>"
-                html_result += f"<span style='background-color: #1b5c20; color: #ccffcc;'>{part_b}</span>"
+                html_result += f"<span style='{del_style}'>{part_a}</span>"
+                html_result += f"<span style='{ins_style}'>{part_b}</span>"
             elif opcode == "delete":
-                html_result += f"<span style='background-color: #5c1b1b; color: #ffcccc; text-decoration: line-through;'>{part_a}</span>"
+                html_result += f"<span style='{del_style}'>{part_a}</span>"
             elif opcode == "insert":
-                html_result += f"<span style='background-color: #1b5c20; color: #ccffcc;'>{part_b}</span>"
+                html_result += f"<span style='{ins_style}'>{part_b}</span>"
 
         return html_result
 

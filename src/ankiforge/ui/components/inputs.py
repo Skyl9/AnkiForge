@@ -11,19 +11,6 @@ class StyledLineEdit(QLineEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(36)
-        self.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 12px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-            }}
-            QLineEdit:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
 
 
 class StyledTextEdit(QPlainTextEdit):
@@ -31,19 +18,6 @@ class StyledTextEdit(QPlainTextEdit):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 8px 12px;
-                font-family: "{DesignTokens.FONT_CODE}";
-            }}
-            QPlainTextEdit:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
 
     def setText(self, text: str) -> None:
         """Alias pour setPlainText pour compatibilité d'interface."""
@@ -56,21 +30,6 @@ class GlowLineEdit(QLineEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(40)
-        self.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 16px;
-                font-size: 14px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-            }}
-            QLineEdit:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_PANEL};
-            }}
-        """)
         apply_shadow(self, blur=8, offset_y=2)
 
 

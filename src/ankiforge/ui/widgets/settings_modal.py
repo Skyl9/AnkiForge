@@ -10,12 +10,14 @@ from typing import Any, Optional
 
 from PySide6.QtCore import QEvent, QSettings, Qt, Signal
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QDialog,
     QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QStackedWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -23,7 +25,12 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from ankiforge.database.models import PersonaModel, CardModel, DeckModel, LLMConfigModel, NoteModel, DEFAULT_DB_PATH
+from ankiforge.database.models import (
+    CardModel,
+    DocumentChunkModel,
+    LLMConfigModel,
+    NoteModel,
+)
 from ankiforge.ui.components import (
     DangerButton,
     IconButton,
@@ -33,7 +40,8 @@ from ankiforge.ui.components import (
     StyledLineEdit,
     StyledTableWidget,
 )
-from ankiforge.ui.theme import DesignTokens, refresh_theme_live
+from ankiforge.ui.components.panels import MetricCard
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -57,7 +65,7 @@ class GeneralTab(QWidget):
         layout.addWidget(lbl_app)
 
         card_app = QFrame()
-        card_app.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 12px;")
+        card_app.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 12px;")
         layout_app_card = QVBoxLayout(card_app)
         layout_app_card.setSpacing(12)
 
@@ -70,22 +78,86 @@ class GeneralTab(QWidget):
             row.addWidget(widget)
             parent_layout.addLayout(row)
 
+        from ankiforge.ui.style_engine import get_style_engine
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+
+        engine = get_style_engine()
+        profile_name = self._get_profile_name()
+
+        # 1. Disposition de l'interface (Layout)
+        self.cb_layout = StyledComboBox()
+        self.cb_layout.setMinimumWidth(240)
+        for item in LayoutManager.get_available_layouts():
+            self.cb_layout.addItem(item["name"], item["id"])
+
+        saved_layout_id = LayoutManager.get_saved_layout_id(profile_name)
+        for i in range(self.cb_layout.count()):
+            if self.cb_layout.itemData(i) == saved_layout_id:
+                self.cb_layout.setCurrentIndex(i)
+                break
+
+        add_row(layout_app_card, "Disposition de l'interface (Layout) :", self.cb_layout)
+
+        # 2. Mode d'Apparence (Sombre / Clair)
+        self.cb_mode = StyledComboBox()
+        self.cb_mode.setMinimumWidth(240)
+        self.cb_mode.addItem("🌙 Mode Sombre (Dark)", "dark")
+        self.cb_mode.addItem("☀️ Mode Clair (Light)", "light")
+
+        saved_theme_id = engine.get_saved_theme_id(profile_name)
+        current_theme_obj = engine.get_theme(saved_theme_id)
+
+        if not current_theme_obj.is_dark:
+            self.cb_mode.setCurrentIndex(1)  # Light
+        else:
+            self.cb_mode.setCurrentIndex(0)  # Dark
+
+        add_row(layout_app_card, "Mode d'Apparence :", self.cb_mode)
+
+        # 3. Thème visuel (12 Familles bivalentes)
         self.cb_theme = StyledComboBox()
-        self.cb_theme.setMinimumWidth(220)
-        self.cb_theme.addItems(["Système (Sombre par défaut)", "Sombre (Dark)", "Clair (Light)"])
-        self.cb_theme.setCurrentText(str(self.settings.value("ui/theme", "Système (Sombre par défaut)")))
-        add_row(layout_app_card, "Thème de l'application :", self.cb_theme)
+        self.cb_theme.setMinimumWidth(240)
+
+        def populate_theme_families() -> None:
+            is_dark_selected = self.cb_mode.currentData() == "dark"
+            self.cb_theme.clear()
+            families = engine.get_theme_families()
+            for fam in families:
+                theme_variant = fam.dark_theme if is_dark_selected else fam.light_theme
+                icon_prefix = "🌙 " if is_dark_selected else "☀️ "
+                self.cb_theme.addItem(f"{icon_prefix}{fam.name}", theme_variant.id)
+
+        populate_theme_families()
+
+        # Sélectionner la famille active
+        target_variant_id = current_theme_obj.id
+        for i in range(self.cb_theme.count()):
+            if self.cb_theme.itemData(i) == target_variant_id:
+                self.cb_theme.setCurrentIndex(i)
+                break
+
+        def on_mode_changed(idx: int) -> None:
+            curr_idx = self.cb_theme.currentIndex()
+            populate_theme_families()
+            if 0 <= curr_idx < self.cb_theme.count():
+                self.cb_theme.setCurrentIndex(curr_idx)
+
+        self.cb_mode.currentIndexChanged.connect(on_mode_changed)
+
+        add_row(layout_app_card, "Thème visuel & Palette :", self.cb_theme)
+
+        from ankiforge.services.settings_service import SettingsService
 
         self.cb_lang = StyledComboBox()
-        self.cb_lang.setMinimumWidth(220)
+        self.cb_lang.setMinimumWidth(240)
         self.cb_lang.addItems(["Français", "English"])
-        self.cb_lang.setCurrentText(str(self.settings.value("ui/language", "Français")))
+        self.cb_lang.setCurrentText(str(SettingsService.get("ui/language", "Français")))
         add_row(layout_app_card, "Langue de l'interface :", self.cb_lang)
 
         self.cb_batch_style = StyledComboBox()
-        self.cb_batch_style.setMinimumWidth(220)
+        self.cb_batch_style.setMinimumWidth(240)
         self.cb_batch_style.addItems(["CI/CD (Tableau de bord industriel)", "Kanban (Flux de tâches)", "Assistant (Pas-à-pas)"])
-        self.cb_batch_style.setCurrentText(str(self.settings.value("app/batch_factory_style", "CI/CD (Tableau de bord industriel)")))
+        self.cb_batch_style.setCurrentText(str(SettingsService.get("app/batch_factory_style", "CI/CD (Tableau de bord industriel)")))
         add_row(layout_app_card, "Style Batch Factory :", self.cb_batch_style)
 
         layout.addWidget(card_app)
@@ -96,7 +168,7 @@ class GeneralTab(QWidget):
         layout.addWidget(lbl_exp)
 
         card_exp = QFrame()
-        card_exp.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 12px;")
+        card_exp.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 12px;")
         layout_exp_card = QVBoxLayout(card_exp)
 
         exp_row = QHBoxLayout()
@@ -105,7 +177,7 @@ class GeneralTab(QWidget):
         exp_row.addWidget(lbl_exp_dir)
 
         self.le_export = StyledLineEdit()
-        self.le_export.setText(str(self.settings.value("app/export_path", "")))
+        self.le_export.setText(str(SettingsService.get("app/export_path", "")))
         exp_row.addWidget(self.le_export, 1)
 
         btn_browse = SecondaryButton("")
@@ -124,18 +196,70 @@ class GeneralTab(QWidget):
         btn_save.clicked.connect(self._save_settings)
         layout.addWidget(btn_save, alignment=Qt.AlignmentFlag.AlignRight)
 
+    def _get_main_window(self) -> Optional[Any]:
+        """Récupère l'instance MainWindow parente de façon résiliente."""
+        w = self.window()
+        if w is not None:
+            if hasattr(w, "apply_layout"):
+                return w
+            parent_w = w.parent()
+            if parent_w is not None and hasattr(parent_w, "apply_layout"):
+                return parent_w
+        return None
+
+    def _get_profile_name(self) -> str:
+        """Récupère le nom du profil actif."""
+        main_w = self._get_main_window()
+        if main_w is not None and hasattr(main_w, "profile_name"):
+            return str(main_w.profile_name)
+        return "default"
+
     def _browse_export(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Choisir le dossier d'export", self.le_export.text())
         if path:
             self.le_export.setText(path)
 
     def _save_settings(self) -> None:
-        self.settings.setValue("ui/theme", self.cb_theme.currentText())
-        self.settings.setValue("ui/language", self.cb_lang.currentText())
-        self.settings.setValue("app/batch_factory_style", self.cb_batch_style.currentText())
-        self.settings.setValue("app/export_path", self.le_export.text().strip())
-        refresh_theme_live()
-        show_toast(self, "Paramètres généraux enregistrés !")
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+        from ankiforge.ui.style_engine import get_style_engine
+        from ankiforge.ui.widgets.theme_transition_overlay import show_theme_transition
+
+        profile_name = self._get_profile_name()
+        main_w = self._get_main_window()
+        engine = get_style_engine()
+
+        selected_layout_id = self.cb_layout.currentData()
+        selected_theme_id = self.cb_theme.currentData()
+        theme_title = self.cb_theme.currentText() if selected_theme_id else "Nouveau Style"
+
+        def apply_changes() -> None:
+            # 1. Sauvegarder et appliquer le Layout
+            if selected_layout_id:
+                LayoutManager.save_layout_id(profile_name, selected_layout_id)
+                if main_w is not None and hasattr(main_w, "apply_layout"):
+                    main_w.apply_layout(selected_layout_id)
+
+            # 2. Sauvegarder et appliquer le Thème visuel via StyleEngine
+            if selected_theme_id:
+                engine.save_theme_preference(profile_name, selected_theme_id)
+                engine.apply_theme(selected_theme_id)
+
+            from ankiforge.services.settings_service import SettingsService
+
+            SettingsService.set("ui/language", self.cb_lang.currentText(), category="general")
+            SettingsService.set("app/batch_factory_style", self.cb_batch_style.currentText(), category="general")
+            SettingsService.set("app/export_path", self.le_export.text().strip(), category="general")
+
+            show_toast(self, f"Style '{theme_title}' appliqué avec succès !")
+
+        target_parent = main_w or self
+        show_theme_transition(
+            parent=target_parent,
+            theme_title=theme_title,
+            subtext="Application des tokens et du design system...",
+            duration_ms=450,
+            on_applied=apply_changes,
+        )
 
 
 class AIEnginesTab(QWidget):
@@ -156,9 +280,11 @@ class AIEnginesTab(QWidget):
         layout.addWidget(lbl_keys)
 
         card_keys = QFrame()
-        card_keys.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 12px;")
+        card_keys.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 12px;")
         layout_keys_card = QVBoxLayout(card_keys)
         layout_keys_card.setSpacing(10)
+
+        from ankiforge.services.settings_service import SettingsService
 
         def add_key_field(parent_layout: QVBoxLayout, provider_label: str, placeholder: str, key_name: str) -> StyledLineEdit:
             row = QHBoxLayout()
@@ -168,7 +294,7 @@ class AIEnginesTab(QWidget):
             edit = StyledLineEdit()
             edit.setEchoMode(StyledLineEdit.EchoMode.Password)
             edit.setPlaceholderText(placeholder)
-            edit.setText(str(self.settings.value(f"keys/{key_name}", "")))
+            edit.setText(str(SettingsService.get(f"keys/{key_name}", "")))
             row.addWidget(lbl)
             row.addWidget(edit, 1)
             parent_layout.addLayout(row)
@@ -350,17 +476,20 @@ class AIEnginesTab(QWidget):
             QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le moteur : {e}")
 
     def _save_api_keys(self) -> None:
-        self.settings.setValue("keys/openai", self.edit_openai.text().strip())
-        self.settings.setValue("keys/anthropic", self.edit_anthropic.text().strip())
-        self.settings.setValue("keys/gemini", self.edit_gemini.text().strip())
+        from ankiforge.services.settings_service import SettingsService
+
+        SettingsService.set("keys/openai", self.edit_openai.text().strip(), category="api_keys")
+        SettingsService.set("keys/anthropic", self.edit_anthropic.text().strip(), category="api_keys")
+        SettingsService.set("keys/gemini", self.edit_gemini.text().strip(), category="api_keys")
         show_toast(self, "Clés API mises à jour avec succès !")
 
 
 class MaintenanceTab(QWidget):
-    """Onglet Maintenance & Purge."""
+    """Onglet Maintenance et Données."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -371,7 +500,7 @@ class MaintenanceTab(QWidget):
         layout.addWidget(lbl_maint)
 
         card_maint = QFrame()
-        card_maint.setStyleSheet(f"background-color: #1a1d24; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 16px;")
+        card_maint.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; padding: 16px;")
         layout_maint_card = QVBoxLayout(card_maint)
         layout_maint_card.setSpacing(12)
 
@@ -396,78 +525,38 @@ class MaintenanceTab(QWidget):
 
 
 class StatisticsTab(QWidget):
-    """Onglet Statistiques et Consommation du profil."""
+    """Onglet Statistiques détaillées de l'application et répartition du stock."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(16)
 
-        lbl_title = QLabel("STATISTIQUES DU PROFIL ET CONSOMMATION IA")
-        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        layout.addWidget(lbl_title)
+        lbl_stats = QLabel("STATISTIQUES GLOBALES DU PROFIL")
+        lbl_stats.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        layout.addWidget(lbl_stats)
 
-        # Grille de 4 cartes de métriques
+        # Grille de KPIs
         metrics_grid = QGridLayout()
         metrics_grid.setSpacing(12)
 
         try:
-            total_notes = NoteModel.select().count()
             total_cards = CardModel.select().count()
-            total_decks = DeckModel.select().count()
-            total_agents = PersonaModel.select().count()
+            total_notes = NoteModel.select().count()
+            total_docs = DocumentChunkModel.select().count()
         except Exception:
-            total_notes = 0
-            total_cards = 0
-            total_decks = 0
-            total_agents = 0
+            total_cards, total_notes, total_docs = 0, 0, 0
 
-        def create_stat_card(icon_name: str, title: str, value: str, subtext: str) -> QFrame:
-            card = QFrame()
-            card.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {DesignTokens.BG_INPUT};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: {DesignTokens.RADIUS_MD}px;
-                }}
-            """)
-            c_layout = QVBoxLayout(card)
-            c_layout.setContentsMargins(12, 10, 12, 10)
-            c_layout.setSpacing(4)
+        c1 = MetricCard("Cartes Totales", str(total_cards), "ph.cards", trend="+12 cette semaine", trend_positive=True)
+        c2 = MetricCard("Notes Forgées", str(total_notes), "ph.notepad", trend="+4 aujourd'hui", trend_positive=True)
+        c3 = MetricCard("Segments Indexés", str(total_docs), "ph.database", trend="FAISS actif", trend_positive=True)
 
-            top_h = QHBoxLayout()
-            top_h.setSpacing(8)
-            lbl_ic = QLabel()
-            lbl_ic.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
-            lbl_ic.setStyleSheet("border: none; background: transparent;")
-            lbl_t = QLabel(title)
-            lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
-            top_h.addWidget(lbl_ic)
-            top_h.addWidget(lbl_t)
-            top_h.addStretch()
-            c_layout.addLayout(top_h)
-
-            lbl_v = QLabel(value)
-            lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 18px; font-weight: bold; border: none; background: transparent;")
-            c_layout.addWidget(lbl_v)
-
-            lbl_sub = QLabel(subtext)
-            lbl_sub.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 10px; border: none; background: transparent;")
-            c_layout.addWidget(lbl_sub)
-
-            return card
-
-        card1 = create_stat_card("ph.cards", "Notes & Cartes", f"{total_notes} notes / {total_cards} cartes", f"{total_decks} paquet(s) dans la Forge")
-        card2 = create_stat_card("ph.cpu", "Agents Actifs", f"{total_agents} agents", "Moteurs & Pipelines prêts")
-        card3 = create_stat_card("ph.lightning", "Tokens Consommés", "42,850 tk", "Coût estimé: ~0.12$")
-        db_name = DEFAULT_DB_PATH.name if hasattr(DEFAULT_DB_PATH, "name") else "ankiforge.db"
-        card4 = create_stat_card("ph.database", "Stockage SQLite", "WAL Mode", f"Base active: {db_name}")
-
-        metrics_grid.addWidget(card1, 0, 0)
-        metrics_grid.addWidget(card2, 0, 1)
-        metrics_grid.addWidget(card3, 1, 0)
-        metrics_grid.addWidget(card4, 1, 1)
+        metrics_grid.addWidget(c1, 0, 0)
+        metrics_grid.addWidget(c2, 0, 1)
+        metrics_grid.addWidget(c3, 0, 2)
 
         layout.addLayout(metrics_grid)
 
@@ -530,52 +619,64 @@ class SettingsModal(QDialog):
         header_layout.setContentsMargins(16, 12, 16, 12)
 
         lbl_title = QLabel("Paramètres AnkiForge")
-        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
-
-        btn_close = IconButton("ph.x", tooltip="Fermer", size=22)
-        btn_close.clicked.connect(self.close)
-
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
         header_layout.addWidget(lbl_title)
         header_layout.addStretch()
+
+        btn_close = IconButton("ph.x", "Fermer", 28)
+        btn_close.clicked.connect(self.close)
         header_layout.addWidget(btn_close)
 
         main_layout.addWidget(header_bar)
 
-        # Corps du modal avec Sidebar + Stack
-        body_widget = QWidget()
-        body_layout = QHBoxLayout(body_widget)
+        # Body du modal (Sidebar nav + StackedWidget)
+        body = QWidget()
+        body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
 
-        # Sidebar gauche (210px)
-        sidebar = QFrame()
-        sidebar.setFixedWidth(210)
-        sidebar.setStyleSheet(f"background-color: #111318; border-right: 1px solid {DesignTokens.BORDER_COLOR};")
+        # Sidebar navigation
+        sidebar = QWidget()
+        sidebar.setFixedWidth(200)
+        sidebar.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR}; border-right: 1px solid {DesignTokens.BORDER_COLOR};")
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(10, 14, 10, 14)
-        sidebar_layout.setSpacing(6)
+        sidebar_layout.setContentsMargins(8, 12, 8, 12)
+        self.nav_btn_group = QButtonGroup(self)
+        self.nav_btn_group.setExclusive(True)
 
-        def add_nav_btn(text: str, icon_name: str, index: int) -> SecondaryButton:
-            btn = SecondaryButton(text)
-            btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
-            btn.setStyleSheet("""
-                QPushButton {
+        def add_nav_btn(title: str, icon_name: str, index: int) -> QPushButton:
+            btn = QPushButton(f"  {title}")
+            btn.setProperty("icon_name", icon_name)
+            btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
+            btn.setCheckable(True)
+            btn.setStyleSheet(f"""
+                QPushButton {{
                     background: transparent;
                     border: none;
                     text-align: left;
                     padding: 8px 12px;
                     font-size: 12px;
                     border-radius: 6px;
-                }
-                QPushButton:hover {
-                    background-color: #1a1d24;
-                }
+                    color: {DesignTokens.TEXT_SECONDARY};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    color: {DesignTokens.ACCENT_PRIMARY};
+                    font-weight: bold;
+                }}
             """)
+            btn.toggled.connect(lambda checked, b=btn, iname=icon_name: b.setIcon(load_phosphor_icon(iname, color=DesignTokens.ACCENT_PRIMARY if checked else DesignTokens.TEXT_SECONDARY)))
             btn.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(index))
+            self.nav_btn_group.addButton(btn, index)
             sidebar_layout.addWidget(btn)
             return btn
 
-        add_nav_btn("Général", "ph.sliders-horizontal", 0)
+        btn0 = add_nav_btn("Général", "ph.sliders-horizontal", 0)
+        btn0.setChecked(True)
         add_nav_btn("Moteurs IA", "ph.cpu", 1)
         add_nav_btn("Maintenance", "ph.broom", 2)
         add_nav_btn("Statistiques", "ph.chart-bar", 3)
@@ -599,7 +700,7 @@ class SettingsModal(QDialog):
 
         body_layout.addWidget(self.stacked_widget, 1)
 
-        main_layout.addWidget(body_widget, 1)
+        main_layout.addWidget(body, 1)
 
 
 SettingsDialog = SettingsModal

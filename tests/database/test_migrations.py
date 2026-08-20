@@ -33,6 +33,8 @@ def test_run_migrations_idempotency(mock_db):
     assert "003_orientation_features" in router.done, "La migration 003 devrait être marquée comme terminée."
     assert "004_ai_cache" in router.done, "La migration 004 devrait être marquée comme terminée."
     assert "005_persona_engine" in router.done, "La migration 005 devrait être marquée comme terminée."
+    assert "018_app_settings" in router.done, "La migration 018 devrait être marquée comme terminée."
+    assert db.table_exists("settings"), "La table settings devrait exister."
 
     # 2. Deuxième exécution (Idempotence)
     run_migrations()
@@ -42,3 +44,4 @@ def test_run_migrations_idempotency(mock_db):
     assert "003_orientation_features" in router.done
     assert "004_ai_cache" in router.done
     assert "005_persona_engine" in router.done
+    assert "018_app_settings" in router.done

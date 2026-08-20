@@ -5,11 +5,12 @@ from typing import cast
 
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView
 from peewee import prefetch
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.components.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
+from ankiforge.ui.theme import StyledMenu
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +341,7 @@ class NoteTableWidget(RoundedPanel):
             self.data_table.show()
 
     def _show_header_menu(self, pos: QPoint) -> None:
-        menu = QMenu(self)
+        menu = StyledMenu(self)
         visible_count = sum(not self.data_table.isColumnHidden(i) for i in range(self.data_table.columnCount()))
         for i in range(self.data_table.columnCount()):
             header_item = self.data_table.horizontalHeaderItem(i)

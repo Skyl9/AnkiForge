@@ -3,11 +3,12 @@ from typing import cast
 import json
 
 from PySide6.QtCore import Qt, Signal, Slot, QPoint
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QListWidget, QListWidgetItem, QFrame, QMenu
+from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QListWidget, QListWidgetItem, QFrame
 from PySide6.QtGui import QAction
 
 from ankiforge.database.models import DeckModel, NoteModel, CardModel
 from ankiforge.ui.components.components import RoundedPanel
+from ankiforge.ui.theme import StyledMenu
 
 logger = logging.getLogger(__name__)
 
@@ -153,9 +154,7 @@ class FilterSidebar(RoundedPanel):
         if tag is None:
             return
 
-        menu = QMenu(self)
-        # On pourrait ajouter des actions comme "Renommer le tag" ou "Supprimer le tag" ici
-        # Pour l'instant on garde ça simple pour le refactoring
+        menu = StyledMenu(self)
         action = QAction(f"Options pour '{tag}'", self)
         menu.addAction(action)
         menu.exec(self.tag_list.mapToGlobal(pos))

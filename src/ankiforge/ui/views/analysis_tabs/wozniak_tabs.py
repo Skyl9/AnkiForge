@@ -194,7 +194,6 @@ class WozniakIssueWidget(QFrame):
         actions_layout.addStretch()
         btn_ignore = SecondaryButton("Ignorer")
         btn_accept = PrimaryButton("Valider et Sauvegarder (Ctrl+Enter)")
-        btn_accept.setStyleSheet(btn_accept.styleSheet() + "background-color: #9333ea;")  # Violet KaTeX
 
         actions_layout.addWidget(btn_ignore)
         actions_layout.addWidget(btn_accept)

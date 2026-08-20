@@ -16,6 +16,7 @@ from ankiforge.database.models import (
     MediaModel,
     NoteVersionMediaModel,
     AICacheModel,
+    SettingModel,
 )
 
 
@@ -338,3 +339,35 @@ def test_ai_cache_uniqueness():
     # Tenter d'insérer le même hash d'appel doit lever une IntegrityError
     with pytest.raises(IntegrityError):
         AICacheModel.create(prompt_hash="p1", system_prompt_hash="s1", model_id="m1", temperature=0.7, response_content="Response 2")
+
+
+def test_setting_model_crud_and_json():
+    """Vérifie la persistance, la mise à jour et la conversion JSON de SettingModel."""
+    # 1. Enregistrement scalaire
+    SettingModel.set_value("theme_id", "jetbrains_light", category="appearance")
+    assert SettingModel.get_value("theme_id") == "jetbrains_light"
+
+    # 2. Mise à jour de la même clé (upsert)
+    SettingModel.set_value("theme_id", "emerald_light", category="appearance")
+    assert SettingModel.get_value("theme_id") == "emerald_light"
+
+    # 3. Enregistrement de structures JSON complexes (dict, bool, list)
+    SettingModel.set_value("layout_config", {"sidebar_width": 240, "compact": True}, category="appearance")
+    config = SettingModel.get_value("layout_config")
+    assert isinstance(config, dict)
+    assert config["sidebar_width"] == 240
+    assert config["compact"] is True
+
+    # 4. get_category
+    cat_settings = SettingModel.get_category("appearance")
+    assert "theme_id" in cat_settings
+    assert "layout_config" in cat_settings
+    assert cat_settings["theme_id"] == "emerald_light"
+
+    # 5. set_many (lot atomique)
+    SettingModel.set_many({"ui/language": "English", "app/export_path": "/tmp/export"}, category="general")
+    assert SettingModel.get_value("ui/language") == "English"
+    assert SettingModel.get_value("app/export_path") == "/tmp/export"
+
+    # 6. Fallback par défaut
+    assert SettingModel.get_value("non_existent_key", default="default_val") == "default_val"

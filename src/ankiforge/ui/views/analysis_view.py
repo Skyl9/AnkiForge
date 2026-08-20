@@ -1733,15 +1733,15 @@ class AnalysisView(QWidget):
 
         # Bouton de paramètres ajouté au header
         btn_settings = IconButton("gear", "Paramètres de l'Analyse", 24)
-        btn_settings.setStyleSheet("""
-            QPushButton {
+        btn_settings.setStyleSheet(f"""
+            QPushButton {{
                 background-color: transparent;
                 border: none;
                 border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #2d313a;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
         """)
         self.main_panel.add_header_widget(btn_settings)
 

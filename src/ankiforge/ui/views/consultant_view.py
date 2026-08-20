@@ -34,7 +34,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMenu,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
@@ -64,7 +63,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledTextEdit,
 )
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -100,15 +99,15 @@ class ThoughtStepWidget(QFrame):
     def __init__(self, step: int, thought_text: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet("""
-            ThoughtStepWidget {
-                background-color: rgba(99, 102, 241, 0.08);
-                border: 1px solid rgba(99, 102, 241, 0.25);
+        self.setStyleSheet(f"""
+            ThoughtStepWidget {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 8px;
-            }
-            ThoughtStepWidget QLabel {
+            }}
+            ThoughtStepWidget QLabel {{
                 background: transparent;
-            }
+            }}
         """)
 
         layout = QVBoxLayout(self)
@@ -120,23 +119,26 @@ class ThoughtStepWidget(QFrame):
         header_row.setSpacing(6)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon("ph.brain", color="#a5b4fc").pixmap(14, 14))
+        icon_lbl.setPixmap(load_phosphor_icon("ph.brain", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
         header_row.addWidget(icon_lbl)
 
         lbl_title = QLabel(f"Raisonnement ReAct — Étape {step}")
-        lbl_title.setStyleSheet("color: #a5b4fc; font-weight: bold; font-size: 11px;")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; font-size: 11px;")
         header_row.addWidget(lbl_title, 1)
 
         self.btn_toggle = QPushButton("Détails ▾")
         self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_toggle.setStyleSheet("""
-            QPushButton {
+        self.btn_toggle.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
                 border: none;
-                color: #818cf8;
+                color: {DesignTokens.TEXT_MUTED};
                 font-size: 10px;
                 font-weight: bold;
-            }
+            }}
+            QPushButton:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
         """)
         self.btn_toggle.clicked.connect(self._toggle_content)
         header_row.addWidget(self.btn_toggle)
@@ -233,7 +235,7 @@ class ToolCallWidget(QFrame):
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_MAIN};
                 color: #38bdf8;
-                font-family: 'JetBrains Mono', monospace;
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 11px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 4px;
@@ -298,11 +300,11 @@ class ChatMessageWidget(QWidget):
             layout.addStretch()
         else:
             self.avatar_lbl.setPixmap(load_phosphor_icon("ph.sparkle", color="white").pixmap(18, 18))
-            self.avatar_lbl.setStyleSheet("""
-                QLabel {
-                    background-color: #6366f1;
+            self.avatar_lbl.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.ACCENT_PRIMARY};
                     border-radius: 17px;
-                }
+                }}
             """)
 
         # Bulle de contenu
@@ -348,8 +350,8 @@ class ChatMessageWidget(QWidget):
         if is_user:
             body_card.setStyleSheet(f"""
                 QFrame {{
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(99, 102, 241, 0.20), stop:1 rgba(139, 92, 246, 0.20));
-                    border: 1px solid rgba(139, 92, 246, 0.4);
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
@@ -894,7 +896,7 @@ class ConsultantView(QWidget):
     @Slot()
     def _on_add_context(self) -> None:
         """Affiche un menu permettant d'attacher un Deck ou un Document au contexte IA."""
-        menu = QMenu(self)
+        menu = StyledMenu(self)
 
         menu_decks = menu.addMenu("🎴 Attacher un Paquet (Deck)")
         decks = list(DeckModel.select())

@@ -39,38 +39,38 @@ class DashboardHeroBanner(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(180)
-        self.setStyleSheet("""
-            DashboardHeroBanner {
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 rgba(99, 102, 241, 0.12), stop:1 rgba(139, 92, 246, 0.04));
-                border: 1px solid rgba(139, 92, 246, 0.2);
-                border-radius: 16px;
-            }
-        """)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(12)
 
-        icon_label = QLabel()
+        self.icon_label = QLabel()
         icon = load_phosphor_icon("ph.stack", color=DesignTokens.ACCENT_PRIMARY)
-        icon_label.setPixmap(icon.pixmap(48, 48))
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(icon_label)
+        self.icon_label.setPixmap(icon.pixmap(48, 48))
+        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_label.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(self.icon_label)
 
-        title = QLabel('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % DesignTokens.ACCENT_PRIMARY)
+        self.title = QLabel('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % DesignTokens.ACCENT_PRIMARY)
         font = QFont(DesignTokens.FONT_MAIN, 24, QFont.Weight.Bold)
-        title.setFont(font)
-        title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        self.title.setFont(font)
+        self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.title)
 
-        subtitle = QLabel("Le générateur de cartes intelligent et votre assistant d'apprentissage personnel.")
-        subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 13))
-        subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(subtitle)
+        self.subtitle = QLabel("Le générateur de cartes intelligent et votre assistant d'apprentissage personnel.")
+        self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 13))
+        self.subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.subtitle)
 
         apply_shadow(self, blur=20, offset_y=4, color="rgba(0, 0, 0, 0.2)")
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(48, 48))
+        self.title.setText('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % profile.accent_primary)
+        self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
+        self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
 
 class DashboardActionButton(QFrame):
@@ -79,52 +79,46 @@ class DashboardActionButton(QFrame):
     def __init__(self, title, subtitle, icon_name, color, bg_color, parent=None):
         super().__init__(parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            DashboardActionButton {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            DashboardActionButton:hover {{
-                background-color: #2d313a;
-                border: 1px solid #6366f1;
-            }}
-        """)
+        self.icon_name = icon_name
+        self.color = color
+        self.bg_color = bg_color
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(16)
 
-        icon_wrapper = QFrame()
-        icon_wrapper.setFixedSize(48, 48)
-        icon_wrapper.setStyleSheet(f"""
+        self.icon_wrapper = QFrame()
+        self.icon_wrapper.setFixedSize(48, 48)
+        self.icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {bg_color};
                 border-radius: {DesignTokens.RADIUS_SM}px;
+                border: none;
             }}
         """)
-        icon_layout = QVBoxLayout(icon_wrapper)
+        icon_layout = QVBoxLayout(self.icon_wrapper)
         icon_layout.setContentsMargins(0, 0, 0, 0)
         icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label = QLabel()
+        self.icon_label = QLabel()
         icon = load_phosphor_icon(icon_name, color=color)
-        icon_label.setPixmap(icon.pixmap(24, 24))
-        icon_layout.addWidget(icon_label)
+        self.icon_label.setPixmap(icon.pixmap(24, 24))
+        self.icon_label.setStyleSheet("border: none; background: transparent;")
+        icon_layout.addWidget(self.icon_label)
 
-        layout.addWidget(icon_wrapper)
+        layout.addWidget(self.icon_wrapper)
 
         text_layout = QVBoxLayout()
         text_layout.setSpacing(4)
 
-        title_label = QLabel(title)
-        title_label.setFont(QFont(DesignTokens.FONT_MAIN, 14, QFont.Weight.Bold))
-        title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        text_layout.addWidget(title_label)
+        self.title_label = QLabel(title)
+        self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 14, QFont.Weight.Bold))
+        self.title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        text_layout.addWidget(self.title_label)
 
-        subtitle_label = QLabel(subtitle)
-        subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 12))
-        subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
-        text_layout.addWidget(subtitle_label)
+        self.subtitle_label = QLabel(subtitle)
+        self.subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 12))
+        self.subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
+        text_layout.addWidget(self.subtitle_label)
 
         layout.addLayout(text_layout)
         layout.addStretch()
@@ -134,6 +128,10 @@ class DashboardActionButton(QFrame):
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
+    def refresh_theme(self, profile: Any) -> None:
+        self.title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
+        self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; font-size: 12px; border: none; background: transparent;")
+
 
 class ActivityItem(QFrame):
     clicked = Signal(int)
@@ -142,17 +140,6 @@ class ActivityItem(QFrame):
         super().__init__(parent)
         self.note_id = note_id
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            ActivityItem {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-            ActivityItem:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(10)
@@ -181,16 +168,16 @@ class ActivityItem(QFrame):
         text_layout = QVBoxLayout()
         text_layout.setSpacing(2)
 
-        title_label = QLabel(title)
-        title_label.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
-        title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        title_label.setWordWrap(True)
-        text_layout.addWidget(title_label)
+        self.title_label = QLabel(title)
+        self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
+        self.title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        self.title_label.setWordWrap(True)
+        text_layout.addWidget(self.title_label)
 
-        subtitle_label = QLabel(subtitle)
-        subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
-        subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-        text_layout.addWidget(subtitle_label)
+        self.subtitle_label = QLabel(subtitle)
+        self.subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
+        self.subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        text_layout.addWidget(self.subtitle_label)
 
         layout.addLayout(text_layout, 1)
 
@@ -199,6 +186,10 @@ class ActivityItem(QFrame):
             self.clicked.emit(self.note_id)
         super().mouseReleaseEvent(event)
 
+    def refresh_theme(self, profile: Any) -> None:
+        self.title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
+        self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
+
 
 class DashboardDropZone(QFrame):
     file_selected = Signal(str)
@@ -206,44 +197,38 @@ class DashboardDropZone(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setStyleSheet(f"""
-            DashboardDropZone {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: 2px dashed {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            DashboardDropZone:hover {{
-                border: 2px dashed {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(16)
 
-        icon_label = QLabel()
+        self.icon_label = QLabel()
         icon = load_phosphor_icon("ph.upload-simple", color=DesignTokens.ACCENT_PRIMARY)
-        icon_label.setPixmap(icon.pixmap(40, 40))
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setStyleSheet("border: none; background: transparent;")
-        layout.addWidget(icon_label)
+        self.icon_label.setPixmap(icon.pixmap(40, 40))
+        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_label.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(self.icon_label)
 
-        title = QLabel("Glissez un PDF ou Document ici")
-        title.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
-        title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        self.title = QLabel("Glissez un PDF ou Document ici")
+        self.title.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
+        self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.title)
 
-        subtitle = QLabel("L'analyse sémantique et la génération démarreront automatiquement.")
-        subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 13))
-        subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(subtitle)
+        self.subtitle = QLabel("L'analyse sémantique et la génération démarreront automatiquement.")
+        self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 13))
+        self.subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.subtitle)
 
         self.btn = SecondaryButton("Parcourir les fichiers")
         self.btn.clicked.connect(self._browse_files)
         layout.addWidget(self.btn, 0, Qt.AlignmentFlag.AlignCenter)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.icon_label.setPixmap(load_phosphor_icon("ph.upload-simple", color=profile.accent_primary).pixmap(40, 40))
+        self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
+        self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
     def _browse_files(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un document", "", "Documents (*.pdf *.txt *.md);;Tous les fichiers (*.*)")
@@ -265,13 +250,7 @@ class DashboardDropZone(QFrame):
 class StatItem(QFrame):
     def __init__(self, value, label, value_color=None, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            StatItem {{
-                background-color: #1e2128;
-                border: 1px solid #2d313a;
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
+        self.value_color = value_color
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -285,14 +264,19 @@ class StatItem(QFrame):
         self.val_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.val_label)
 
-        lbl_label = QLabel(label.upper())
-        lbl_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
-        lbl_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-        lbl_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(lbl_label)
+        self.lbl_label = QLabel(label.upper())
+        self.lbl_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
+        self.lbl_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.lbl_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.lbl_label)
 
     def set_value(self, value):
         self.val_label.setText(str(value))
+
+    def refresh_theme(self, profile: Any) -> None:
+        color = self.value_color if self.value_color else profile.text_primary
+        self.val_label.setStyleSheet(f"color: {color}; border: none; background: transparent;")
+        self.lbl_label.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
 
 class DashboardView(QWidget):
@@ -334,7 +318,8 @@ class DashboardView(QWidget):
         content_layout.setContentsMargins(24, 24, 24, 24)
         content_layout.setSpacing(24)
 
-        content_layout.addWidget(DashboardHeroBanner())
+        self.hero_banner = DashboardHeroBanner()
+        content_layout.addWidget(self.hero_banner)
 
         actions_header = QHBoxLayout()
         actions_icon = QLabel()
@@ -350,22 +335,22 @@ class DashboardView(QWidget):
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(16)
 
-        btn1 = DashboardActionButton("Forger des cartes", "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, "rgba(59, 130, 246, 0.1)")
-        btn1.clicked.connect(lambda: self._navigate("creation"))
-        btn2 = DashboardActionButton("Bibliothèque", "Naviguer les paquets", "ph.books", DesignTokens.COLOR_GREEN, "rgba(16, 185, 129, 0.1)")
-        btn2.clicked.connect(lambda: self._navigate("documents"))
-        btn3 = DashboardActionButton("Consulter l'IA", "Configurer les agents", "ph.robot", DesignTokens.COLOR_PURPLE, "rgba(139, 92, 246, 0.1)")
-        btn3.clicked.connect(lambda: self._navigate("consultant"))
+        self.btn_forge = DashboardActionButton("Forger des cartes", "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, DesignTokens.BG_ACTIVE)
+        self.btn_forge.clicked.connect(lambda: self._navigate("creation"))
+        self.btn_library = DashboardActionButton("Bibliothèque", "Naviguer les paquets", "ph.books", DesignTokens.COLOR_GREEN, DesignTokens.BG_ACTIVE)
+        self.btn_library.clicked.connect(lambda: self._navigate("documents"))
+        self.btn_consultant = DashboardActionButton("Consulter l'IA", "Configurer les agents", "ph.robot", DesignTokens.ACCENT_PRIMARY, DesignTokens.BG_ACTIVE)
+        self.btn_consultant.clicked.connect(lambda: self._navigate("consultant"))
 
-        actions_layout.addWidget(btn1)
-        actions_layout.addWidget(btn2)
-        actions_layout.addWidget(btn3)
+        actions_layout.addWidget(self.btn_forge)
+        actions_layout.addWidget(self.btn_library)
+        actions_layout.addWidget(self.btn_consultant)
         content_layout.addLayout(actions_layout)
 
-        drop_zone = DashboardDropZone()
-        drop_zone.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        drop_zone.file_selected.connect(self._on_file_selected)
-        content_layout.addWidget(drop_zone, 1)
+        self.drop_zone = DashboardDropZone()
+        self.drop_zone.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.drop_zone.file_selected.connect(self._on_file_selected)
+        content_layout.addWidget(self.drop_zone, 1)
 
         scroll_area.setWidget(content_widget)
         left_panel.add_tab("Accueil", scroll_area, icon_name="ph.house", closable=True)
@@ -386,7 +371,7 @@ class DashboardView(QWidget):
         self.stat_cards_forged = StatItem("1,245", "Cartes Forgées")
         self.stat_success_rate = StatItem("98%", "Taux Succès IA", DesignTokens.COLOR_GREEN)
         self.stat_docs_analyzed = StatItem("14", "Docs Analysés")
-        self.stat_default_model = StatItem("3.5", "Modèle par défaut", DesignTokens.COLOR_PURPLE)
+        self.stat_default_model = StatItem("3.5", "Modèle par défaut", DesignTokens.ACCENT_PRIMARY)
 
         stats_layout.addWidget(self.stat_cards_forged, 0, 0)
         stats_layout.addWidget(self.stat_success_rate, 0, 1)
@@ -491,3 +476,24 @@ class DashboardView(QWidget):
 
     def is_dirty(self) -> bool:
         return False
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit à chaud tous les composants du tableau de bord."""
+        if hasattr(self, "hero_banner") and hasattr(self.hero_banner, "refresh_theme"):
+            self.hero_banner.refresh_theme(profile)
+        if hasattr(self, "btn_forge") and hasattr(self.btn_forge, "refresh_theme"):
+            self.btn_forge.refresh_theme(profile)
+        if hasattr(self, "btn_library") and hasattr(self.btn_library, "refresh_theme"):
+            self.btn_library.refresh_theme(profile)
+        if hasattr(self, "btn_consultant") and hasattr(self.btn_consultant, "refresh_theme"):
+            self.btn_consultant.refresh_theme(profile)
+        if hasattr(self, "drop_zone") and hasattr(self.drop_zone, "refresh_theme"):
+            self.drop_zone.refresh_theme(profile)
+        if hasattr(self, "stat_cards_forged") and hasattr(self.stat_cards_forged, "refresh_theme"):
+            self.stat_cards_forged.refresh_theme(profile)
+        if hasattr(self, "stat_success_rate") and hasattr(self.stat_success_rate, "refresh_theme"):
+            self.stat_success_rate.refresh_theme(profile)
+        if hasattr(self, "stat_docs_analyzed") and hasattr(self.stat_docs_analyzed, "refresh_theme"):
+            self.stat_docs_analyzed.refresh_theme(profile)
+        if hasattr(self, "stat_default_model") and hasattr(self.stat_default_model, "refresh_theme"):
+            self.stat_default_model.refresh_theme(profile)

@@ -221,7 +221,7 @@ class KaTeXEditor(QWidget):
         self.mode_toggle_frame = QFrame()
         self.mode_toggle_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 16px;
             }}
@@ -234,7 +234,7 @@ class KaTeXEditor(QWidget):
                 padding: 6px 16px;
             }}
             QPushButton:checked {{
-                background-color: {DesignTokens.COLOR_PURPLE};
+                background-color: {DesignTokens.ACCENT_PRIMARY};
                 color: white;
             }}
         """)

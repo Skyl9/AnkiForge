@@ -36,7 +36,6 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
-    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -68,7 +67,7 @@ from ankiforge.ui.components import (
     StyledLineEdit,
     StyledTextEdit,
 )
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -178,7 +177,7 @@ class FolderHeaderWidget(QWidget):
             icon_name = "ph.tray"
             icon_color = "#94a3b8"
         elif is_subfolder:
-            icon_name = "ph.folder-notch"
+            icon_name = "ph.folder-simple"
             icon_color = "#38bdf8"
         else:
             icon_name = "ph.folder"
@@ -426,7 +425,7 @@ class AgentPromptPreviewDialog(QDialog):
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 color: #38bdf8;
-                font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.4;
                 padding: 10px;
@@ -646,9 +645,9 @@ class AgentsView(QWidget):
                     border-color: {DesignTokens.ACCENT_PRIMARY};
                 }}
                 QPushButton:checked {{
-                    background-color: rgba(99, 102, 241, 0.2);
-                    border-color: #8b5cf6;
-                    color: #a5b4fc;
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                    color: {DesignTokens.ACCENT_PRIMARY};
                 }}
             """)
             btn.clicked.connect(lambda _, s=scope: self._set_scope_filter(s))
@@ -744,7 +743,7 @@ class AgentsView(QWidget):
             }}
             QTabBar::tab:selected {{
                 background: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
+                color: {DesignTokens.ACCENT_PRIMARY};
                 border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
@@ -920,7 +919,7 @@ class AgentsView(QWidget):
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 color: #a5b4fc;
-                font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.5;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -1368,7 +1367,7 @@ class AgentsView(QWidget):
             return
 
         item_type, obj = data
-        menu = QMenu(self)
+        menu = StyledMenu(self)
 
         if item_type == "folder" and obj is not None:
             action_subfolder = menu.addAction(load_phosphor_icon("ph.folder-plus"), "Nouveau sous-dossier")

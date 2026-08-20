@@ -70,7 +70,7 @@ class CardPreviewWidget(QWidget):
         self.card_selector.setFixedHeight(30)
         self.card_selector.setStyleSheet(f"""
             QComboBox {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
@@ -227,11 +227,11 @@ class CardPreviewWidget(QWidget):
 
     def set_empty_state(self, message: str = "Sélectionnez une carte pour la prévisualiser.") -> None:
         """Affiche un message par défaut quand aucune carte n'est chargée."""
-        text_color = "#94a3b8" if is_dark_mode() else "#64748b"
+        text_color = DesignTokens.TEXT_MUTED
         placeholder = f"""
         <html>
         <body style='background: transparent; margin: 0; display: flex; height: 100vh; align-items: center; justify-content: center;'>
-            <div style='color: {text_color}; font-family: sans-serif; text-align: center; font-size: 13px; font-weight: 500;'>
+            <div style='color: {text_color}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align: center; font-size: 13px; font-weight: 500;'>
                 {message}
             </div>
         </body>
@@ -310,6 +310,19 @@ class CardPreviewWidget(QWidget):
         base_url = QUrl.fromLocalFile(str(media_dir) + "/")
 
         self.web_view.setHtmlSafe(final_html, base_url)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit le mode sombre/clair et les icônes de contrôle du composant."""
+        self._is_preview_dark = getattr(profile, "is_dark", True)
+        if hasattr(self, "btn_desktop") and hasattr(self.btn_desktop, "refresh_theme"):
+            self.btn_desktop.refresh_theme(profile)
+        if hasattr(self, "btn_tablet") and hasattr(self.btn_tablet, "refresh_theme"):
+            self.btn_tablet.refresh_theme(profile)
+        if hasattr(self, "btn_mobile") and hasattr(self.btn_mobile, "refresh_theme"):
+            self.btn_mobile.refresh_theme(profile)
+        if hasattr(self, "btn_theme_toggle"):
+            self.btn_theme_toggle.setIcon(load_phosphor_icon("sun" if self._is_preview_dark else "moon", color=profile.text_secondary))
+        self._render()
 
     def clear_memory(self) -> None:
         """Nettoie la RAM du moteur web."""

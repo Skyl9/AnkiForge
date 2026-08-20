@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QMessageBox,
     QProgressDialog,
-    QMenu,
     QPushButton,
     QAbstractItemView,
     QScrollArea,
@@ -30,7 +29,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Slot, QSettings
 from PySide6.QtGui import QFont, QAction, QColor, QBrush
 
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton, IconButton
 from ankiforge.ui.components.inputs import StyledTextEdit
@@ -329,17 +328,7 @@ class EditionView(QWidget):
         if not note:
             return
 
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QMenu::item:selected {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
+        menu = StyledMenu(self)
 
         act_approve = QAction("Approuver la note", self)
         act_approve.triggered.connect(lambda: self.approve_selected_notes([note.id]))
@@ -631,21 +620,21 @@ class EditionView(QWidget):
 
         for tag in self._active_tags:
             chip = QPushButton(f"{tag}")
-            chip.setIcon(load_phosphor_icon("x", color="#c084fc"))
-            chip.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(192, 132, 252, 0.15);
-                    border: 1px solid #c084fc;
+            chip.setIcon(load_phosphor_icon("x", color=DesignTokens.ACCENT_PRIMARY))
+            chip.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                     border-radius: 12px;
                     padding: 2px 10px 2px 8px;
                     min-height: 20px;
                     font-size: 11px;
                     font-weight: bold;
-                    color: #c084fc;
-                }
-                QPushButton:hover {
-                    background-color: rgba(192, 132, 252, 0.3);
-                }
+                    color: {DesignTokens.TEXT_PRIMARY};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
             """)
             chip.clicked.connect(lambda checked=False, t=tag: self._remove_tag_filter(t))
             self.tags_layout.addWidget(chip)
@@ -658,12 +647,7 @@ class EditionView(QWidget):
 
     @Slot()
     def _show_model_menu(self) -> None:
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}
-            QMenu::item {{ color: {DesignTokens.TEXT_PRIMARY}; padding: 6px 24px; font-size: 12px; }}
-            QMenu::item:selected {{ background-color: {DesignTokens.BG_HOVER}; }}
-        """)
+        menu = StyledMenu(self)
 
         all_action = menu.addAction("Tous les modèles")
         all_action.triggered.connect(lambda: self._on_model_selected(None, "Tous les modèles"))

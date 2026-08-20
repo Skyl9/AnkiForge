@@ -4,6 +4,8 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
+from ankiforge.ui.theme import DesignTokens
+
 
 class DonutChartWidget(QWidget):
     """
@@ -35,7 +37,7 @@ class DonutChartWidget(QWidget):
         self.chart.layout().setContentsMargins(0, 0, 0, 0)
         self.chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
         self.chart.legend().setLabelColor(QColor("palette(text)"))
-        self.chart.legend().setFont(QFont("sans-serif", 10, QFont.Weight.Bold))
+        self.chart.legend().setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
 
         # 3. La Vue
         self.chart_view = QChartView(self.chart)

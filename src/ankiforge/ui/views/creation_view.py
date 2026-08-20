@@ -135,7 +135,7 @@ class FlashcardPreview(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet("background-color: rgba(0, 0, 0, 0.1);")
+        self.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -194,7 +194,7 @@ class DocumentEditorWidget(QWidget):
                 font-weight: 500;
             }}
             QPushButton:checked {{
-                background: {DesignTokens.COLOR_PURPLE};
+                background: {DesignTokens.ACCENT_PRIMARY};
                 color: white;
             }}
         """)
@@ -468,7 +468,7 @@ class CreationView(QWidget):
         add_form_group(config_layout, "MOTEUR IA :", self.engine_combo)
 
         self.btn_no_engine_help = SecondaryButton("⚙️ Configurer les Moteurs IA")
-        self.btn_no_engine_help.setStyleSheet("color: #eab308; border-color: rgba(234, 179, 8, 0.4); font-size: 11px;")
+        self.btn_no_engine_help.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW}; font-size: 11px;")
         self.btn_no_engine_help.hide()
         config_layout.addWidget(self.btn_no_engine_help)
 
@@ -477,7 +477,7 @@ class CreationView(QWidget):
         add_form_group(config_layout, "PIPELINE AGENTIQUE :", self.pipeline_combo)
 
         self.btn_no_pipeline_help = SecondaryButton("🔀 Créer un Pipeline d'Agents")
-        self.btn_no_pipeline_help.setStyleSheet("color: #a855f7; border-color: rgba(168, 85, 247, 0.4); font-size: 11px;")
+        self.btn_no_pipeline_help.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         self.btn_no_pipeline_help.hide()
         config_layout.addWidget(self.btn_no_pipeline_help)
 
@@ -652,19 +652,20 @@ class CreationView(QWidget):
                 border-radius: 2px;
                 height: 4px;
                 margin: 0px;
-                background-color: rgba(255, 255, 255, 0.1);
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
             QSlider::sub-page:horizontal {{
                 background-color: {DesignTokens.ACCENT_PRIMARY};
                 border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
-                border: none;
-                height: 12px;
-                width: 12px;
-                margin: -4px 0;
-                border-radius: 6px;
+                background-color: #ffffff;
+                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                height: 14px;
+                width: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
             }}
             QSlider::handle:horizontal:hover {{
                 background-color: {DesignTokens.ACCENT_HOVER};
@@ -864,15 +865,15 @@ class CreationView(QWidget):
     @Slot(bool)
     def _update_vision_ui(self, checked: bool) -> None:
         if checked:
-            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color="#eab308").pixmap(16, 16))
+            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_YELLOW).pixmap(16, 16))
             self.vision_badge.setText("ON")
             self.vision_badge.set_variant("warning")
-            self.vision_card.setStyleSheet("""
-                QFrame#visionCard {
-                    background-color: rgba(234, 179, 8, 0.1);
-                    border: 1px solid #eab308;
-                    border-radius: 6px;
-                }
+            self.vision_card.setStyleSheet(f"""
+                QFrame#visionCard {{
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    border: 1px solid {DesignTokens.COLOR_YELLOW};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
             """)
         else:
             self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
@@ -882,7 +883,7 @@ class CreationView(QWidget):
                 QFrame#visionCard {{
                     background-color: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: 6px;
+                    border-radius: {DesignTokens.RADIUS_SM}px;
                 }}
                 QFrame#visionCard:hover {{
                     border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -1713,6 +1714,11 @@ class CreationView(QWidget):
                 event.ignore()
                 return
         event.accept()
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit l'aperçu de carte et les composants du studio de création."""
+        if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "card_preview_widget"):
+            self.preview_widget.card_preview_widget.refresh_theme(profile)
 
 
 CreationTab = CreationView

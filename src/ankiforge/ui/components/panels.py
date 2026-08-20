@@ -82,7 +82,7 @@ class PanelPlaceholderWidget(QFrame):
             PanelPlaceholderWidget {{
                 border: 2px dashed {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                background-color: rgba(255, 255, 255, 0.01);
+                background-color: transparent;
                 margin: 8px;
             }}
         """)
@@ -252,13 +252,7 @@ class IdePanel(QFrame):
 
     def __init__(self, title: str = "", detachable: bool = False, tab_variant: str = "ide", parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            IdePanel {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._title = title
         self._detachable = detachable
         self.setMinimumSize(150, 100)
@@ -270,13 +264,8 @@ class IdePanel(QFrame):
 
         # --- Header (ide-tabs) ---
         self.header = QFrame()
-        self.header.setStyleSheet("""
-            QFrame {
-                background-color: #16181d;
-                border: none;
-                border-bottom: 1px solid #2d313a;
-            }
-        """)
+        self.header.setObjectName("header")
+        self.header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.header.setFixedHeight(36)
 
         self.header_layout = QHBoxLayout(self.header)
@@ -306,15 +295,15 @@ class IdePanel(QFrame):
         self._extra_widgets_zone.setVisible(False)
         self.header_layout.addWidget(self._extra_widgets_zone)
 
-        action_btn_style = """
-            QPushButton {
+        action_btn_style = f"""
+            QPushButton {{
                 background-color: transparent;
                 border: none;
                 border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #2d313a;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
         """
 
         self.menu_btn = IconButton("ph.plus", "Gérer les onglets", 24)
@@ -806,13 +795,6 @@ class GlassPanel(QFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            GlassPanel {{
-                background-color: rgba(30, 33, 40, 0.6);
-                border: 1px solid {DesignTokens.BORDER_LIGHT};
-                border-radius: {DesignTokens.RADIUS_LG}px;
-            }}
-        """)
         apply_shadow(self, blur=DesignTokens.SHADOW_GLASS_BLUR, offset_y=4)
 
 
@@ -821,17 +803,6 @@ class MetricCard(QFrame):
 
     def __init__(self, label: str, value: str, icon_name: str, trend: str = "", trend_positive: bool = True, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            MetricCard {{
-                background-color: #1e2128;
-                border: 1px solid #2d313a;
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            MetricCard:hover {{
-                border: 1px solid #6366f1;
-                background-color: #252830;
-            }}
-        """)
         apply_shadow(self, blur=12, offset_y=4, color=QColor(99, 102, 241, 40))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -871,12 +842,6 @@ class StatCard(QFrame):
 
     def __init__(self, label: str, value: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            StatCard {{
-                background-color: {DesignTokens.BG_INPUT};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
 

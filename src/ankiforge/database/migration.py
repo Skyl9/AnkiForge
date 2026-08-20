@@ -163,6 +163,14 @@ def run_migrations() -> None:
                         logging.info("Legacy DB detected: faking migration 017_linter_rule_categories.")
                         break
 
+        # Si la table settings existe, l'utilisateur a la v18
+        if "018_app_settings" not in done_migrations:
+            for t_name in ("settings", "settingmodel"):
+                if db.table_exists(t_name):
+                    router.model.create(name="018_app_settings")
+                    logging.info("Legacy DB detected: faking migration 018_app_settings.")
+                    break
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

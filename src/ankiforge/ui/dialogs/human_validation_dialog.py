@@ -84,12 +84,12 @@ class HumanValidationDialog(QDialog):
         self.editor.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
-                color: #38bdf8;
+                color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 12px;
-                font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
-                font-size: 12px;
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: {DesignTokens.FONT_SIZE_CODE}px;
                 line-height: 1.5;
             }}
             QPlainTextEdit:focus {{
@@ -134,7 +134,8 @@ class HumanValidationDialog(QDialog):
             parsed = json.loads(self.editor.toPlainText().strip())
             self.editor.setPlainText(json.dumps(parsed, ensure_ascii=False, indent=2))
         except Exception:
-            pass  # nosec B110 - Ne pas modifier si texte brut non-JSON
+            # Ne pas modifier si texte brut non-JSON
+            pass  # nosec B110
 
     def _on_validate_clicked(self) -> None:
         """Parse le contenu modifié et met à jour l'état avant de valider la boîte de dialogue."""

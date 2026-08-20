@@ -4,7 +4,7 @@ Vue Batch Factory (CI/CD Power User) — 100% Conforme à la Maquette concept_id
 - MIDDLE ROW (Config & Queue) :
   - Gauche (350px) : 'Paramètres du Build' (Source combo, Paquet Cible, Modèle, Moteur IA, Pipeline, Vision, Validation auto, Bouton 'Ajouter à la Queue').
   - Droite (flex-1) : 'File d'attente détaillée' (Case à cocher, Statut, Fichier/Source, Barre de progrès %, Tokens Est., Actions, Boutons 'Vider' et 'Démarrer Pipeline' vert émeraude #10b981).
-- BOTTOM ROW (250px) : Terminal CI/CD 'root@ankiforge:~/pipeline_logs' (#0c0c0c, logs colorés INFO/WARN/SUCCESS, 'Fira Code').
+- BOTTOM ROW (250px) : Terminal CI/CD 'root@ankiforge:~/pipeline_logs' (#0c0c0c, logs colorés INFO/WARN/SUCCESS, monospace).
 """
 
 import datetime
@@ -71,7 +71,7 @@ class CicdMetricCard(QFrame):
         self.color = color
         self.setStyleSheet(f"""
             QFrame {{
-                background-color: #1e2128;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
                 padding: 0px;
@@ -119,7 +119,7 @@ class ProgressTableCellWidget(QWidget):
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: none;
                 border-radius: 3px;
             }}
@@ -149,7 +149,7 @@ class ProgressTableCellWidget(QWidget):
         self.progress_bar.setValue(progress_pct)
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_INPUT};
                 border: none;
                 border-radius: 3px;
             }}
@@ -433,20 +433,6 @@ class BatchView(QWidget):
         # 8. Bouton 'Ajouter à la Queue'
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue")
         self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
-        self.btn_add_to_queue.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #8b5cf6);
-                border: 1px solid #6366f1;
-                border-radius: 6px;
-                padding: 10px 16px;
-                font-size: 13px;
-                font-weight: bold;
-                color: white;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f46e5, stop:1 #7c3aed);
-            }
-        """)
         apply_shadow(self.btn_add_to_queue, blur=20, offset_y=0, color="rgba(99, 102, 241, 0.75)")
         self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
 
@@ -469,22 +455,22 @@ class BatchView(QWidget):
 
         self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline")
         self.btn_start_pipeline.setIcon(load_phosphor_icon("ph.play", color="white"))
-        self.btn_start_pipeline.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                border: 1px solid #10b981;
-                color: white;
+        self.btn_start_pipeline.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.COLOR_GREEN};
+                border: 1px solid {DesignTokens.COLOR_GREEN};
+                color: #ffffff;
                 font-weight: bold;
                 padding: 6px 18px;
                 border-radius: 6px;
                 font-size: 12px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #059669;
                 border-color: #34d399;
-            }
+            }}
         """)
-        apply_shadow(self.btn_start_pipeline, blur=24, offset_y=0, color="rgba(16, 185, 129, 0.85)")
+        apply_shadow(self.btn_start_pipeline, blur=16, offset_y=0, color="rgba(16, 185, 129, 0.45)")
         self.btn_start_pipeline.clicked.connect(self._on_start_batch)
         self.queue_panel.add_header_widget(self.btn_start_pipeline)
 
@@ -516,13 +502,6 @@ class BatchView(QWidget):
         # BOTTOM ROW: Terminal Log Console (L2038-L2062, height: 250px)
         # =========================================================================
         self.terminal_panel = IdePanel(detachable=True)
-        self.terminal_panel.setStyleSheet("""
-            QFrame {
-                border: 1px solid rgba(59, 130, 246, 0.5);
-                border-radius: 8px;
-            }
-        """)
-        apply_shadow(self.terminal_panel, blur=22, offset_y=0, color="rgba(59, 130, 246, 0.55)")
 
         # Header Actions pour le Terminal (Vider console & Scroll Lock)
         self.btn_clear_terminal = IconButton("ph.trash", tooltip="Effacer les logs du terminal", size=20)
@@ -538,20 +517,20 @@ class BatchView(QWidget):
         terminal_layout.setContentsMargins(0, 0, 0, 0)
         terminal_layout.setSpacing(0)
 
-        # Console Text Edit (#0c0c0c, Fira Code / JetBrains Mono)
+        # Console Text Edit
         self.console_output = StyledTextEdit()
         self.console_output.setReadOnly(True)
-        self.console_output.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: #0c0c0c;
-                color: #10b981;
-                font-family: 'Fira Code', 'JetBrains Mono', Menlo;
+        self.console_output.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.COLOR_GREEN};
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.6;
                 padding: 14px;
                 border: none;
-                selection-background-color: #3b82f6;
-            }
+                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
         """)
         terminal_layout.addWidget(self.console_output, 1)
 

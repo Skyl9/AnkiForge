@@ -149,7 +149,7 @@ class FieldInspectorWidget(QFrame):
         orig_layout = QVBoxLayout(orig_box)
         orig_title = QLabel("CARTE ACTUELLE EN BASE (SQLite)")
         orig_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        orig_title.setStyleSheet("color: #f87171;")
+        orig_title.setStyleSheet(f"color: {DesignTokens.COLOR_RED};")
         orig_layout.addWidget(orig_title)
 
         field_keys = ["NoteType", "Recto", "Verso", "Champ Annexe Extra", "Tags"]
@@ -234,7 +234,7 @@ class WozniakCardItemWidget(QFrame):
 
         lbl_badge = QLabel(item_data.get("badge", "Problème"))
         lbl_badge.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        badge_color = item_data.get("badge_color", "#f87171")
+        badge_color = item_data.get("badge_color", DesignTokens.COLOR_RED)
         lbl_badge.setStyleSheet(f"background-color: rgba(239,68,68,0.15); color: {badge_color}; padding: 2px 6px; border-radius: 4px;")
 
         self.btn_inspect = SecondaryButton("Inspecter les 5 champs")
@@ -257,7 +257,7 @@ class WozniakCardItemWidget(QFrame):
         op_layout = QVBoxLayout(orig_panel)
         op_title = QLabel("CARTE ACTUELLE EN BASE :")
         op_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        op_title.setStyleSheet("color: #f87171;")
+        op_title.setStyleSheet(f"color: {DesignTokens.COLOR_RED};")
 
         orig_dict = item_data.get("original", {})
         orig_val = orig_dict.get("Recto") or orig_dict.get("Front") or orig_dict.get("Texte") or orig_dict.get("Text") or "-"
@@ -349,7 +349,7 @@ class KatexLivePreviewWidget(QFrame):
         self.setStyleSheet(f"""
             KatexLivePreviewWidget {{
                 background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid #c084fc;
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                 border-radius: 6px;
                 padding: 8px;
             }}
@@ -361,7 +361,7 @@ class KatexLivePreviewWidget(QFrame):
 
         lbl_title = QLabel("Panneau Live Preview KaTeX (Interactif)")
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        lbl_title.setStyleSheet("color: #c084fc;")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY};")
         layout.addWidget(lbl_title)
 
         self.input_formula = QLineEdit(initial_formula)
@@ -369,7 +369,7 @@ class KatexLivePreviewWidget(QFrame):
             QLineEdit {{
                 background-color: {DesignTokens.BG_MAIN};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: #c084fc;
+                color: {DesignTokens.TEXT_PRIMARY};
                 font-family: {DesignTokens.FONT_CODE};
                 font-size: 11px;
                 padding: 4px 8px;
@@ -489,19 +489,19 @@ class SourceDiagnosticCardWidget(QFrame):
         is_indexed = bool(data.get("is_indexed", False))
 
         icon_name = "file-text"
-        icon_color = "#9ca3af"
+        icon_color = DesignTokens.TEXT_MUTED
         if ext == "pdf":
             icon_name = "file-pdf"
-            icon_color = "#f87171"
+            icon_color = DesignTokens.COLOR_RED
         elif ext in ("md", "markdown"):
             icon_name = "file-md"
-            icon_color = "#c084fc"
+            icon_color = DesignTokens.ACCENT_PRIMARY
         elif ext == "png":
             icon_name = "image"
             icon_color = DesignTokens.COLOR_YELLOW
         elif ext in ("yt", "youtube"):
             icon_name = "youtube-logo"
-            icon_color = "#ef4444"
+            icon_color = DesignTokens.COLOR_RED
         elif ext == "web":
             icon_name = "globe"
             icon_color = DesignTokens.COLOR_BLUE
@@ -518,13 +518,15 @@ class SourceDiagnosticCardWidget(QFrame):
         lbl_score = QLabel(f"{coverage_pct:.0f}% Couvert" if is_indexed else "Non indexé")
         lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         if not is_indexed:
-            lbl_score.setStyleSheet("background-color: rgba(156,163,175,0.15); color: #9ca3af; border: 1px solid rgba(156,163,175,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(
+                f"background-color: {DesignTokens.BG_HOVER}; color: {DesignTokens.TEXT_MUTED}; " f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 6px;"
+            )
         elif coverage_pct >= 90:
-            lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; " f"border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 2px 6px;")
         elif coverage_pct >= 50:
-            lbl_score.setStyleSheet(f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; " f"border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px;")
         else:
-            lbl_score.setStyleSheet("background-color: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(f"background-color: rgba(239,68,68,0.15); color: {DesignTokens.COLOR_RED}; " f"border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;")
 
         h_header.addWidget(lbl_icon)
         h_header.addWidget(lbl_title, 1)
@@ -540,7 +542,7 @@ class SourceDiagnosticCardWidget(QFrame):
         b_ly.setSpacing(0)
         if coverage_pct > 0:
             bar_fg = QFrame()
-            bar_color = DesignTokens.COLOR_GREEN if coverage_pct >= 90 else (DesignTokens.COLOR_YELLOW if coverage_pct >= 50 else "#f87171")
+            bar_color = DesignTokens.COLOR_GREEN if coverage_pct >= 90 else (DesignTokens.COLOR_YELLOW if coverage_pct >= 50 else DesignTokens.COLOR_RED)
             bar_fg.setStyleSheet(f".QFrame {{ background-color: {bar_color}; border-radius: 2px; }}")
             b_ly.addWidget(bar_fg, stretch=int(coverage_pct))
             b_ly.addStretch(int(100 - coverage_pct))

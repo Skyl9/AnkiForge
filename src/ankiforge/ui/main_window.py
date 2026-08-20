@@ -47,7 +47,6 @@ class SidebarItem(QPushButton):
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(20, 20))
         self.setText(f"  {self.title}")
-        self.setStyleSheet(self._get_style(False))
         self.toggled.connect(self._on_toggled)
 
     def set_collapsed(self, collapsed: bool) -> None:
@@ -64,27 +63,10 @@ class SidebarItem(QPushButton):
             self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.ACCENT_PRIMARY))
         else:
             self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
-        self.setStyleSheet(self._get_style(checked))
 
-    def _get_style(self, checked: bool) -> str:
-        bg_color = DesignTokens.BG_ACTIVE if checked else "transparent"
-        text_color = DesignTokens.ACCENT_PRIMARY if checked else DesignTokens.TEXT_SECONDARY
-        return f"""
-            SidebarItem {{
-                background-color: {bg_color};
-                color: {text_color};
-                border: none;
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                text-align: left;
-                padding-left: 12px;
-                font-weight: {"bold" if checked else "normal"};
-                font-size: {DesignTokens.FONT_SIZE_BASE}px;
-            }}
-            SidebarItem:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """
+    def refresh_theme(self, profile: Any) -> None:
+        color = profile.accent_primary if self.isChecked() else profile.text_secondary
+        self.setIcon(load_phosphor_icon(self.icon_name, color=color))
 
 
 class Sidebar(QWidget):
@@ -96,8 +78,8 @@ class Sidebar(QWidget):
 
     def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setObjectName("Sidebar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR};")
         self.setFixedWidth(DesignTokens.SIDEBAR_WIDTH_EXPANDED)
 
         self.is_collapsed = False
@@ -170,34 +152,40 @@ class Sidebar(QWidget):
         footer_layout.addWidget(self.settings_btn)
 
         self.user_widget = QWidget()
+        self.user_widget.setObjectName("UserWidget")
+        self.user_widget.setProperty("card-style", "panel")
         self.user_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.user_widget.setStyleSheet(f"""
-            QWidget {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-            QWidget:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
         self.user_widget.setCursor(Qt.CursorShape.PointingHandCursor)
         user_layout = QHBoxLayout(self.user_widget)
         user_layout.setContentsMargins(8, 8, 8, 8)
 
-        cards_icon = QLabel()
-        cards_icon.setPixmap(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        cards_icon.setStyleSheet("border: none; background: transparent;")
+        self.cards_icon = QLabel()
+        self.cards_icon.setPixmap(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
+        self.cards_icon.setStyleSheet("border: none; background: transparent;")
 
         self.user_name = QLabel(f"Profil: {profile_name}<br><span style='color: {DesignTokens.COLOR_GREEN}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
         self.user_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-weight: bold; font-size: 12px;")
-        user_layout.addWidget(cards_icon)
+        user_layout.addWidget(self.cards_icon)
         user_layout.addWidget(self.user_name)
         user_layout.addStretch()
 
         footer_layout.addWidget(self.user_widget)
 
         main_layout.addWidget(self.footer)
+
+    def refresh_theme(self, profile: Any) -> None:
+        from ankiforge.utils.icon_loader import load_logo_icon
+
+        if hasattr(self, "logo_icon"):
+            self.logo_icon.setPixmap(load_logo_icon(profile.accent_primary).pixmap(24, 24))
+        if hasattr(self, "toggle_btn"):
+            self.toggle_btn.refresh_theme(profile)
+        for item in self._items.values():
+            item.refresh_theme(profile)
+        if hasattr(self, "settings_btn"):
+            self.settings_btn.refresh_theme(profile)
+        if hasattr(self, "cards_icon"):
+            self.cards_icon.setPixmap(load_phosphor_icon("cards", color=profile.accent_primary).pixmap(20, 20))
 
     def add_section(self, title: str, items: list[Tuple[str, str, str]]) -> None:
         """Ajoute une section avec un titre, une ligne séparatrice et une liste de (view_id, icon, text)."""
@@ -286,9 +274,9 @@ class TopBar(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setObjectName("TopBar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedHeight(DesignTokens.TOPBAR_HEIGHT)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 0, 24, 0)
@@ -306,14 +294,8 @@ class TopBar(QWidget):
         # Token cost tracker pill (28px compact height, vertically centered)
         self.token_container = QWidget()
         self.token_container.setFixedHeight(28)
+        self.token_container.setProperty("card-style", "panel")
         self.token_container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.token_container.setStyleSheet(f"""
-            QWidget {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
         token_layout = QHBoxLayout(self.token_container)
         token_layout.setContentsMargins(8, 0, 10, 0)
         token_layout.setSpacing(6)
@@ -356,6 +338,14 @@ class TopBar(QWidget):
         clean_cost = str(cost).replace("$", "").strip()
         self.token_lbl.setText(f"Dépenses : {clean_cost} $ ({tokens} tk)")
 
+    def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "dollar_icon"):
+            self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=profile.color_green).pixmap(14, 14))
+        if hasattr(self, "notif_btn") and hasattr(self.notif_btn, "refresh_theme"):
+            self.notif_btn.refresh_theme(profile)
+        if hasattr(self, "daemon_status") and hasattr(self.daemon_status, "refresh_theme"):
+            self.daemon_status.refresh_theme(profile)
+
 
 class GlobalTitleBar(QFrame):
     """Barre de titre globale 28px pour macOS drag."""
@@ -363,7 +353,6 @@ class GlobalTitleBar(QFrame):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(DesignTokens.GLOBAL_TOPBAR_HEIGHT)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -443,55 +432,78 @@ class MainWindow(QMainWindow):
         else:
             self.resize(1380, 860)
 
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
-
-        # Main layout
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        # 1. Global topbar (28px) -> Removed to reclaim native window space and remove redundant title label
-
-        # 2. App body (QHBoxLayout)
-        body_widget = QWidget()
-        body_layout = QHBoxLayout(body_widget)
-        body_layout.setContentsMargins(0, 0, 0, 0)
-        body_layout.setSpacing(0)
-
-        # Sidebar
-        self.sidebar = Sidebar(profile_name=self.profile_name)
-        self.sidebar.toggle_requested.connect(self._toggle_sidebar)
-        self.sidebar.view_selected.connect(self._on_view_selected)
-        self.sidebar.settings_requested.connect(self._open_settings_modal)
-        body_layout.addWidget(self.sidebar)
-
-        # Main content
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
-
-        # TopBar
-        self.topbar = TopBar()
-        self.topbar.search_clicked.connect(self._open_command_palette)
-        content_layout.addWidget(self.topbar)
-
-        # StackedWidget
-        self.stacked_widget = QStackedWidget()
-        content_layout.addWidget(self.stacked_widget)
-
-        body_layout.addWidget(content_widget, stretch=1)
-        main_layout.addWidget(body_widget, stretch=1)
+        from ankiforge.ui.layouts.base_layout import BaseLayout
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
 
         self._view_widgets: Dict[str, QWidget] = {}
         self._current_view_id: Optional[str] = None
         self._settings_window: Optional[QWidget] = None
+        self.current_layout: Optional[BaseLayout] = None
+        self.stacked_widget = QStackedWidget()
 
-        self._populate_sidebar_and_register()
+        # Enregistrement initial des placeholders légers (Lazy Loading)
+        for view_id, (_cat, _icon, title, _cls) in self.VIEW_REGISTRY.items():
+            placeholder = DummyView(title)
+            self.stacked_widget.addWidget(placeholder)
+            self._view_widgets[view_id] = placeholder
+
+        # Application du Thème visuel et du Layout actif pour le profil
+        from ankiforge.ui.style_engine import get_style_engine
+
+        self.engine = get_style_engine()
+        self.engine.theme_changed.connect(self._on_theme_changed)
+        saved_theme_id = self.engine.get_saved_theme_id(self.profile_name)
+        self.engine.apply_theme(saved_theme_id)
+
+        saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
+        self.apply_layout(saved_layout_id)
+
         self._setup_debug_shortcuts()
+
+    @property
+    def sidebar(self) -> Optional[Any]:
+        """Propriété de compatibilité pour accéder à la sidebar si présente."""
+        if self.current_layout is not None and hasattr(self.current_layout, "sidebar"):
+            return self.current_layout.sidebar
+        return None
+
+    @property
+    def topbar(self) -> Optional[Any]:
+        """Propriété de compatibilité pour accéder à la topbar si présente."""
+        if self.current_layout is not None and hasattr(self.current_layout, "topbar"):
+            return self.current_layout.topbar
+        return None
+
+    def apply_layout(self, layout_id: str) -> None:
+        """Bascule dynamiquement vers un nouveau layout à chaud (sans redémarrer l'application)."""
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+
+        if self.current_layout is not None:
+            try:
+                self.current_layout.view_selected.disconnect()
+                self.current_layout.settings_requested.disconnect()
+                self.current_layout.search_clicked.disconnect()
+                self.current_layout.toggle_sidebar_requested.disconnect()
+            except Exception:
+                pass  # nosec B110
+
+        new_layout = LayoutManager.create_layout(layout_id, profile_name=self.profile_name)
+        self.current_layout = new_layout
+        new_layout.view_selected.connect(self._on_view_selected)
+        new_layout.settings_requested.connect(self._open_settings_modal)
+        new_layout.search_clicked.connect(self._open_command_palette)
+        new_layout.toggle_sidebar_requested.connect(self._toggle_sidebar)
+
+        new_layout.populate_navigation(self.VIEW_REGISTRY)
+        new_layout.set_stacked_widget(self.stacked_widget)
+        self.setCentralWidget(new_layout)
+        LayoutManager.save_layout_id(self.profile_name, layout_id)
+        LayoutManager.apply_theme_for_layout(layout_id)
+
+        if self._current_view_id:
+            new_layout.set_active_view(self._current_view_id)
+        else:
+            self._on_view_selected("dashboard")
 
     def _setup_debug_shortcuts(self) -> None:
         """Configure les raccourcis de debug (ex: Capture d'écran)."""
@@ -510,29 +522,18 @@ class MainWindow(QMainWindow):
         pixmap.save(str(output_path))
         print(f"[Debug] Capture d'écran de l'UI enregistrée dans : {output_path}")
 
-    def _populate_sidebar_and_register(self) -> None:
-        # Group by category
-        categories: Dict[str, list[Tuple[str, str, str]]] = {}
-        for view_id, (cat, icon, title, _cls) in self.VIEW_REGISTRY.items():
-            if cat not in categories:
-                categories[cat] = []
-            categories[cat].append((view_id, icon, title))
-
-            # Enregistrement initial avec un placeholder léger (Lazy Loading)
-            placeholder = DummyView(title)
-            self._register_view(view_id, placeholder)
-
-        for cat, items in categories.items():
-            self.sidebar.add_section(cat, items)
-
-        # Activer la vue par défaut (déclenche l'instanciation de dashboard)
-        if "dashboard" in self.VIEW_REGISTRY:
-            self._on_view_selected("dashboard")
-
-    def _register_view(self, view_id: str, widget: QWidget) -> None:
-        """Ajoute un widget au QStackedWidget avec un identifiant."""
-        self.stacked_widget.addWidget(widget)
-        self._view_widgets[view_id] = widget
+    def _on_theme_changed(self, profile: Any) -> None:
+        """Propagé immédiatement à la sidebar, la topbar et toutes les vues instanciées."""
+        if self.sidebar and hasattr(self.sidebar, "refresh_theme"):
+            self.sidebar.refresh_theme(profile)
+        if self.topbar and hasattr(self.topbar, "refresh_theme"):
+            self.topbar.refresh_theme(profile)
+        for view_widget in self._view_widgets.values():
+            if hasattr(view_widget, "refresh_theme"):
+                try:
+                    view_widget.refresh_theme(profile)
+                except Exception:
+                    pass  # nosec B110
 
     def _on_view_selected(self, view_id: str, data: Optional[dict] = None) -> None:
         """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
@@ -542,7 +543,7 @@ class MainWindow(QMainWindow):
         if self._current_view_id != view_id:
             if not self._can_switch_view():
                 # Reset sidebar selection visually if rejected
-                if self._current_view_id:
+                if self._current_view_id and self.sidebar:
                     self.sidebar.set_active_view(self._current_view_id)
                 return
 
@@ -571,7 +572,8 @@ class MainWindow(QMainWindow):
         if widget:
             self.stacked_widget.setCurrentWidget(widget)
             self._current_view_id = view_id
-            self.sidebar.set_active_view(view_id)
+            if hasattr(self, "current_layout") and self.current_layout:
+                self.current_layout.set_active_view(view_id)
 
             if hasattr(widget, "refresh_data"):
                 cast(Any, widget).refresh_data()
@@ -603,27 +605,31 @@ class MainWindow(QMainWindow):
         return True
 
     def _toggle_sidebar(self) -> None:
-        self.sidebar.set_collapsed(not self.sidebar.is_collapsed)
+        if self.sidebar:
+            self.sidebar.set_collapsed(not self.sidebar.is_collapsed)
 
     def _open_settings_modal(self) -> None:
         """Ouvre la fenêtre de paramètres non bloquante."""
         if hasattr(self, "_settings_window") and self._settings_window is not None and self._settings_window.isVisible():
             self._settings_window.raise_()
             self._settings_window.activateWindow()
-            self.sidebar.settings_btn.setChecked(True)
+            if self.sidebar and hasattr(self.sidebar, "settings_btn"):
+                self.sidebar.settings_btn.setChecked(True)
             return
 
         from ankiforge.ui.widgets.settings_modal import SettingsModal
 
         self._settings_window = SettingsModal(ai_manager=self.ai_manager, parent=self)
         self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
-        self.sidebar.settings_btn.setChecked(True)
+        if self.sidebar and hasattr(self.sidebar, "settings_btn"):
+            self.sidebar.settings_btn.setChecked(True)
         self._settings_window.show()
         self._settings_window.raise_()
         self._settings_window.activateWindow()
 
     def _on_settings_focus_changed(self, focused: bool) -> None:
-        self.sidebar.settings_btn.setChecked(focused)
+        if self.sidebar and hasattr(self.sidebar, "settings_btn"):
+            self.sidebar.settings_btn.setChecked(focused)
 
     def _open_command_palette(self) -> None:
         """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""

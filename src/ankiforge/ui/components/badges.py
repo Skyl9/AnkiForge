@@ -26,19 +26,19 @@ class Badge(QLabel):
         elif variant == "outline":
             style += f"background-color: transparent; border: 1px solid {self.base_color}; color: {self.base_color};"
         elif variant == "status":
-            style += f"background-color: rgba(99, 102, 241, 0.1); color: {self.base_color}; border: 1px solid rgba(99, 102, 241, 0.2);"
+            style += f"background-color: {DesignTokens.BG_ACTIVE}; color: {self.base_color}; border: 1px solid {DesignTokens.BORDER_COLOR};"
         elif variant == "glass":
-            style += "background-color: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2);"
+            style += f"background-color: {DesignTokens.BG_HOVER}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR};"
         elif variant == "success":
-            style += "background-color: rgba(16, 185, 129, 0.15); color: #10b981;"
+            style += f"background-color: rgba(16, 185, 129, 0.15); color: {DesignTokens.COLOR_GREEN};"
         elif variant == "warning":
-            style += "background-color: rgba(245, 158, 11, 0.15); color: #f59e0b;"
+            style += f"background-color: rgba(245, 158, 11, 0.15); color: {DesignTokens.COLOR_YELLOW};"
         elif variant == "info":
-            style += "background-color: rgba(59, 130, 246, 0.15); color: #3b82f6;"
+            style += f"background-color: rgba(59, 130, 246, 0.15); color: {DesignTokens.COLOR_BLUE};"
         elif variant == "danger":
-            style += "background-color: rgba(239, 68, 68, 0.15); color: #ef4444;"
+            style += f"background-color: rgba(239, 68, 68, 0.15); color: {DesignTokens.COLOR_RED};"
         elif variant == "neutral":
-            style += f"background-color: #2d313a; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR};"
+            style += f"background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR};"
 
         self.setStyleSheet(f"QLabel {{ {style} }}")
 

@@ -1,3 +1,4 @@
+from typing import Any
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QColor, QLinearGradient, QFont, QPaintEvent
@@ -62,6 +63,8 @@ class DaemonStatusWidget(QWidget):
         super().__init__(parent)
         self.setFixedHeight(28)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._status = "idle"
+        self._text = "Idle"
 
         self.layout_h = QHBoxLayout(self)
         self.layout_h.setContentsMargins(8, 0, 12, 0)
@@ -76,6 +79,8 @@ class DaemonStatusWidget(QWidget):
         self.set_status("idle", "Idle")
 
     def set_status(self, status: str, text: str) -> None:
+        self._status = status
+        self._text = text
         self.text_lbl.setText(text)
 
         if status == "active":
@@ -102,3 +107,6 @@ class DaemonStatusWidget(QWidget):
                 border-radius: 14px;
             }}
         """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.set_status(self._status, self._text)

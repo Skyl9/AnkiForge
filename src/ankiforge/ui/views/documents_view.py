@@ -197,15 +197,24 @@ class DocumentDelimitationDialog(QDialog):
         # Barre d'actions rapides pour cocher/décocher
         quick_btns = QHBoxLayout()
         btn_check_all = QPushButton("Tout sélectionner")
-        btn_check_all.setStyleSheet("QPushButton { background: transparent; border: 1px solid #475569; border-radius: 4px; padding: 3px 8px; font-size: 10px; color: #cbd5e1; }")
+        btn_check_all.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_SECONDARY}; }}"
+        )
         btn_check_all.clicked.connect(lambda: self._set_all_checked(True))
 
         btn_uncheck_all = QPushButton("Tout désélectionner")
-        btn_uncheck_all.setStyleSheet("QPushButton { background: transparent; border: 1px solid #475569; border-radius: 4px; padding: 3px 8px; font-size: 10px; color: #cbd5e1; }")
+        btn_uncheck_all.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_SECONDARY}; }}"
+        )
         btn_uncheck_all.clicked.connect(lambda: self._set_all_checked(False))
 
         btn_smart_filter = QPushButton("Filtre Intelligent IA")
-        btn_smart_filter.setStyleSheet("QPushButton { background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; border-radius: 4px; padding: 3px 8px; font-size: 10px; color: #a5b4fc; }")
+        btn_smart_filter.setStyleSheet(
+            f"QPushButton {{ background: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; "
+            f"border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_PRIMARY}; }}"
+        )
         btn_smart_filter.clicked.connect(self._apply_smart_filter)
 
         quick_btns.addWidget(btn_check_all)
@@ -540,7 +549,7 @@ class DocumentsView(QWidget):
         self.tree_explorer.setHeaderHidden(True)
         self.tree_explorer.setStyleSheet(f"""
             QTreeWidget {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
@@ -648,7 +657,7 @@ class DocumentsView(QWidget):
         self.view_toggle_frame = QFrame()
         self.view_toggle_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 16px;
             }}
@@ -662,7 +671,7 @@ class DocumentsView(QWidget):
                 font-size: 11px;
             }}
             QPushButton:checked {{
-                background-color: {DesignTokens.COLOR_PURPLE};
+                background-color: {DesignTokens.ACCENT_PRIMARY};
                 color: white;
             }}
         """)
@@ -709,7 +718,7 @@ class DocumentsView(QWidget):
         self.doc_scroll = QScrollArea()
         self.doc_scroll.setWidgetResizable(True)
         self.doc_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.doc_scroll.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT};")
+        self.doc_scroll.setStyleSheet("background-color: transparent;")
 
         doc_page_wrapper = QWidget()
         page_wrapper_layout = QVBoxLayout(doc_page_wrapper)
@@ -721,7 +730,7 @@ class DocumentsView(QWidget):
         self.doc_page_frame.setMinimumWidth(800)
         self.doc_page_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
@@ -756,7 +765,7 @@ class DocumentsView(QWidget):
             QTextBrowser {{
                 background-color: {DesignTokens.BG_HOVER};
                 color: {DesignTokens.ACCENT_PRIMARY};
-                font-family: 'JetBrains Mono', Courier, monospace;
+                font-family: '{DesignTokens.FONT_CODE}', Courier, monospace;
                 padding: 12px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
@@ -785,7 +794,7 @@ class DocumentsView(QWidget):
         self.chapters_list = QListWidget()
         self.chapters_list.setStyleSheet(f"""
             QListWidget {{
-                background-color: #1a1d24;
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
@@ -1014,7 +1023,7 @@ class DocumentsView(QWidget):
     @Slot()
     def _on_document_text_changed(self) -> None:
         self._dirty = True
-        self.btn_save.setStyleSheet(f"background-color: {DesignTokens.ACCENT_PRIMARY}; color: white;")
+        self.btn_save.setEnabled(True)
         self._update_word_count()
 
     def _update_word_count(self) -> None:

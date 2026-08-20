@@ -171,7 +171,7 @@ class TagSelectWindow(QWidget):
                     else:
                         new_item = QTreeWidgetItem(self.tree, [parts[i - 1]])
                     new_item.setData(0, Qt.ItemDataRole.UserRole, parent_path)
-                    new_item.setIcon(0, load_phosphor_icon("tag", color="#c084fc"))
+                    new_item.setIcon(0, load_phosphor_icon("tag", color=DesignTokens.ACCENT_PRIMARY))
                     self._items_by_path[parent_path] = new_item
                     parent_item = new_item
 
@@ -182,7 +182,7 @@ class TagSelectWindow(QWidget):
                 item = QTreeWidgetItem(self.tree, [node_name])
 
             item.setData(0, Qt.ItemDataRole.UserRole, tag)
-            item.setIcon(0, load_phosphor_icon("tag", color="#c084fc"))
+            item.setIcon(0, load_phosphor_icon("tag", color=DesignTokens.ACCENT_PRIMARY))
             self._items_by_path[tag] = item
 
         self.tree.expandAll()

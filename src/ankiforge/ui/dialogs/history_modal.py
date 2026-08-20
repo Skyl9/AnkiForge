@@ -1,12 +1,23 @@
-import json
 import difflib
+import json
 from typing import Optional
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QListWidget, QListWidgetItem, QPushButton, QSplitter, QTextBrowser
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QSplitter,
+    QTextBrowser,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ankiforge.database.models import NoteModel, NoteVersionModel
-from ankiforge.ui.theme import apply_shadow
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 
 
 class DiffViewer(QTextBrowser):
@@ -15,16 +26,16 @@ class DiffViewer(QTextBrowser):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setOpenExternalLinks(False)
-        self.setStyleSheet("""
-            QTextBrowser {
-                background-color: #1e1e1e;
-                color: #d4d4d4;
-                border: 1px solid #333333;
-                border-radius: 4px;
-                font-family: Menlo;
-                font-size: 13px;
+        self.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                font-family: {DesignTokens.FONT_CODE};
+                font-size: {DesignTokens.FONT_SIZE_BASE}px;
                 padding: 8px;
-            }
+            }}
         """)
 
     def set_diff(self, old_text: str, new_text: str) -> None:
@@ -47,16 +58,26 @@ class DiffViewer(QTextBrowser):
             text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
             if code == "  ":
-                html.append(f"<tr><td style='color: #666; width: 30px;'>{old_line_num}</td><td style='color: #666; width: 30px;'>{new_line_num}</td><td>{text}</td></tr>")
+                html.append(
+                    f"<tr><td style='color: {DesignTokens.TEXT_MUTED}; width: 30px;'>{old_line_num}</td>"
+                    f"<td style='color: {DesignTokens.TEXT_MUTED}; width: 30px;'>{new_line_num}</td><td>{text}</td></tr>"
+                )
                 old_line_num += 1
                 new_line_num += 1
             elif code == "- ":
-                del_style = "background-color: rgba(239, 68, 68, 0.2);"
-                html.append(f"<tr style='{del_style}'><td style='color: #ef4444; width: 30px;'>{old_line_num}</td><td style='width: 30px;'></td><td style='color: #ef4444;'>- {text}</td></tr>")
+                del_style = "background-color: rgba(239, 68, 68, 0.15);"
+                html.append(
+                    f"<tr style='{del_style}'><td style='color: {DesignTokens.COLOR_RED}; width: 30px;'>{old_line_num}</td>"
+                    f"<td style='width: 30px;'></td><td style='color: {DesignTokens.COLOR_RED};'>- {text}</td></tr>"
+                )
                 old_line_num += 1
             elif code == "+ ":
-                add_style = "background-color: rgba(16, 185, 129, 0.2);"
-                html.append(f"<tr style='{add_style}'><td style='width: 30px;'></td><td style='color: #10b981; width: 30px;'>{new_line_num}</td><td style='color: #10b981;'>+ {text}</td></tr>")
+                add_style = "background-color: rgba(16, 185, 129, 0.15);"
+                html.append(
+                    f"<tr style='{add_style}'><td style='width: 30px;'></td>"
+                    f"<td style='color: {DesignTokens.COLOR_GREEN}; width: 30px;'>{new_line_num}</td>"
+                    f"<td style='color: {DesignTokens.COLOR_GREEN};'>+ {text}</td></tr>"
+                )
                 new_line_num += 1
 
         html.append("</table>")
@@ -80,7 +101,7 @@ class VersionItemWidget(QWidget):
             title_text += " (Actuelle)"
 
         self.title_label = QLabel(title_text)
-        self.title_label.setStyleSheet("font-weight: bold; color: #ffffff;")
+        self.title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
 
         self.badge_label = QLabel()
         self.badge_label.setStyleSheet(self._get_badge_style(version.source))
@@ -92,7 +113,7 @@ class VersionItemWidget(QWidget):
 
         date_str = version.created_at.strftime("%Y-%m-%d %H:%M:%S")
         self.date_label = QLabel(date_str)
-        self.date_label.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+        self.date_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
 
         layout.addLayout(header_layout)
         layout.addWidget(self.date_label)
@@ -109,12 +130,12 @@ class VersionItemWidget(QWidget):
     def _get_badge_style(self, source: str) -> str:
         base_style = "padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;"
         if source == "manual":
-            return base_style + " background-color: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981;"
+            return base_style + f" background-color: rgba(16, 185, 129, 0.2); color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN};"
         elif source == "ai":
-            return base_style + " background-color: rgba(168, 85, 247, 0.2); color: #a855f7; border: 1px solid #a855f7;"
+            return base_style + f" background-color: rgba(99, 102, 241, 0.2); color: {DesignTokens.ACCENT_PRIMARY}; border: 1px solid {DesignTokens.ACCENT_PRIMARY};"
         elif source == "import":
-            return base_style + " background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid #3b82f6;"
-        return base_style + " background-color: #333333; color: #ffffff;"
+            return base_style + f" background-color: rgba(59, 130, 246, 0.2); color: {DesignTokens.COLOR_BLUE}; border: 1px solid {DesignTokens.COLOR_BLUE};"
+        return base_style + f" background-color: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.TEXT_PRIMARY};"
 
 
 class HistoryModal(QDialog):
@@ -130,26 +151,26 @@ class HistoryModal(QDialog):
 
         self.setWindowTitle("Machine à remonter le temps — Historique de version")
         self.setMinimumSize(900, 600)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #121212;
-            }
-            QLabel {
-                color: #e0e0e0;
-            }
-            QListWidget {
-                background-color: #1e1e1e;
-                border: 1px solid #333333;
-                border-radius: 6px;
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+            }}
+            QLabel {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QListWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
                 outline: none;
-            }
-            QListWidget::item:selected {
-                background-color: #2a2a2a;
-            }
-            QSplitter::handle {
-                background-color: #333333;
+            }}
+            QListWidget::item:selected {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+            QSplitter::handle {{
+                background-color: {DesignTokens.BORDER_COLOR};
                 width: 2px;
-            }
+            }}
         """)
 
         self._setup_ui()
@@ -169,7 +190,7 @@ class HistoryModal(QDialog):
         left_layout.setContentsMargins(0, 0, 0, 0)
 
         title_label = QLabel("Historique")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 8px;")
+        title_label.setStyleSheet(f"font-size: 16px; font-weight: bold; margin-bottom: 8px; color: {DesignTokens.TEXT_PRIMARY};")
 
         self.version_list = QListWidget()
         self.version_list.currentItemChanged.connect(self._on_version_selected)
@@ -184,25 +205,25 @@ class HistoryModal(QDialog):
 
         diff_header_layout = QHBoxLayout()
         diff_title = QLabel("Comparaison")
-        diff_title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        diff_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
 
         self.restore_btn = QPushButton("Restaurer cette version")
-        self.restore_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
+        self.restore_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
                 color: white;
                 border: none;
-                border-radius: 6px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 8px 16px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #059669;
-            }
-            QPushButton:disabled {
-                background-color: #3f3f46;
-                color: #a1a1aa;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.ACCENT_HOVER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_MUTED};
+            }}
         """)
         self.restore_btn.setEnabled(False)
         self.restore_btn.clicked.connect(self._on_restore_clicked)
@@ -215,9 +236,9 @@ class HistoryModal(QDialog):
         self.verso_diff = DiffViewer()
 
         recto_label = QLabel("Recto")
-        recto_label.setStyleSheet("font-weight: bold; color: #a0a0a0;")
+        recto_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED};")
         verso_label = QLabel("Verso")
-        verso_label.setStyleSheet("font-weight: bold; color: #a0a0a0; margin-top: 8px;")
+        verso_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; margin-top: 8px;")
 
         right_layout.addLayout(diff_header_layout)
         right_layout.addWidget(recto_label)
