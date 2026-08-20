@@ -95,31 +95,6 @@ class StyledComboBox(QComboBox):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(36)
-        self.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 12px;
-                font-family: "{DesignTokens.FONT_MAIN}";
-            }}
-            QComboBox::drop-down {{
-                border: none;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-            }}
-            QComboBox:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                selection-background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
 
 
 class DBComboBox(StyledComboBox):

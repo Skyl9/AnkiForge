@@ -68,17 +68,11 @@ class CicdMetricCard(QFrame):
 
     def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.title_text = title
+        self.icon_name = icon_name
         self.color = color
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 0px;
-            }}
-        """)
-        apply_shadow(self, blur=8, offset_y=2)
         self.setFixedHeight(58)
+        self._apply_style()
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 8, 14, 8)
@@ -88,20 +82,43 @@ class CicdMetricCard(QFrame):
         text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
 
-        title_lbl = QLabel(title)
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
 
         self.val_lbl = QLabel(value)
         self.val_lbl.setStyleSheet(f"color: {color}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
 
-        text_layout.addWidget(title_lbl)
+        text_layout.addWidget(self.title_lbl)
         text_layout.addWidget(self.val_lbl)
         layout.addLayout(text_layout, 1)
 
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(24, 24))
-        icon_lbl.setStyleSheet("border: none; background: transparent; opacity: 0.85;")
-        layout.addWidget(icon_lbl)
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(24, 24))
+        self.icon_lbl.setStyleSheet("border: none; background: transparent; opacity: 0.85;")
+        layout.addWidget(self.icon_lbl)
+        apply_shadow(self, blur=8, offset_y=2)
+
+    def _apply_style(self, profile: Any = None) -> None:
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        radius_md = profile.radius_md if profile else DesignTokens.RADIUS_MD
+        self.setStyleSheet(f"""
+            CicdMetricCard {{
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+                padding: 0px;
+            }}
+        """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self._apply_style(profile)
+        if hasattr(self, "title_lbl"):
+            self.title_lbl.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
+        if hasattr(self, "val_lbl"):
+            self.val_lbl.setStyleSheet(f"color: {self.color}; font-size: 15px; font-weight: bold; border: none; font-family: '{profile.font_code}';")
+        if hasattr(self, "icon_lbl"):
+            self.icon_lbl.setPixmap(load_phosphor_icon(self.icon_name, color=self.color).pixmap(24, 24))
 
 
 class ProgressTableCellWidget(QWidget):
@@ -113,21 +130,14 @@ class ProgressTableCellWidget(QWidget):
         layout.setContentsMargins(6, 4, 6, 4)
         layout.setSpacing(3)
 
+        self.progress_pct = progress_pct
+        self.status_text = status_text
+        self.color = color
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(6)
         self.progress_bar.setValue(progress_pct)
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setStyleSheet(f"""
-            QProgressBar {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: none;
-                border-radius: 3px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {color};
-                border-radius: 3px;
-            }}
-        """)
+        self._apply_style()
         layout.addWidget(self.progress_bar)
 
         sub_row = QHBoxLayout()
@@ -145,19 +155,33 @@ class ProgressTableCellWidget(QWidget):
 
         layout.addLayout(sub_row)
 
-    def update_progress(self, progress_pct: int, status_text: str, color: str = "#10b981") -> None:
-        self.progress_bar.setValue(progress_pct)
+    def _apply_style(self, profile: Any = None) -> None:
+        bg_input = profile.bg_input if profile else DesignTokens.BG_INPUT
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {bg_input};
                 border: none;
                 border-radius: 3px;
             }}
             QProgressBar::chunk {{
-                background-color: {color};
+                background-color: {self.color};
                 border-radius: 3px;
             }}
         """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self._apply_style(profile)
+        if hasattr(self, "lbl_status"):
+            self.lbl_status.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-family: '{profile.font_code}';")
+        if hasattr(self, "lbl_pct"):
+            self.lbl_pct.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-family: '{profile.font_code}'; font-weight: bold;")
+
+    def update_progress(self, progress_pct: int, status_text: str, color: str = "#10b981") -> None:
+        self.progress_pct = progress_pct
+        self.status_text = status_text
+        self.color = color
+        self.progress_bar.setValue(progress_pct)
+        self._apply_style()
         self.lbl_status.setText(status_text)
         self.lbl_pct.setText(f"{progress_pct}%")
 
@@ -256,15 +280,15 @@ class BatchView(QWidget):
         # 1. Source (Fichiers/Dossiers)
         grp_src = QVBoxLayout()
         grp_src.setSpacing(4)
-        lbl_src = QLabel("SOURCE (FICHIERS/DOSSIERS) :")
-        lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
+        self.lbl_src = QLabel("SOURCE (FICHIERS/DOSSIERS) :")
+        self.lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
 
         src_row = QHBoxLayout()
         src_row.setSpacing(6)
         self.doc_combo = StyledComboBox()
         src_row.addWidget(self.doc_combo, 1)
 
-        grp_src.addWidget(lbl_src)
+        grp_src.addWidget(self.lbl_src)
         grp_src.addLayout(src_row)
         build_layout.addLayout(grp_src)
 
@@ -317,23 +341,23 @@ class BatchView(QWidget):
         build_layout.addWidget(self.cb_autoval)
 
         # 7. Séparateur + Paramètres Avancés pliables (Température + Max Tokens)
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 6px 0;")
-        build_layout.addWidget(sep)
+        self.sep = QFrame()
+        self.sep.setFrameShape(QFrame.Shape.HLine)
+        self.sep.setFrameShadow(QFrame.Shadow.Sunken)
+        self.sep.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 6px 0;")
+        build_layout.addWidget(self.sep)
 
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
         adv_header = QHBoxLayout(self.btn_toggle_advanced)
         adv_header.setContentsMargins(0, 0, 0, 0)
-        adv_lbl = QLabel("Paramètres Avancés")
-        adv_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
+        self.adv_lbl = QLabel("Paramètres Avancés")
+        self.adv_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
         self.advanced_icon = QLabel()
         self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
         self.advanced_icon.setStyleSheet("background: transparent;")
-        adv_header.addWidget(adv_lbl)
+        adv_header.addWidget(self.adv_lbl)
         adv_header.addStretch()
         adv_header.addWidget(self.advanced_icon)
         build_layout.addWidget(self.btn_toggle_advanced)
@@ -384,11 +408,11 @@ class BatchView(QWidget):
         # Température
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
-        temp_lbl = QLabel("Température")
-        temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.temp_lbl = QLabel("Température")
+        self.temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         self.val_temp_lbl = QLabel("0.7")
         self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
-        temp_header.addWidget(temp_lbl)
+        temp_header.addWidget(self.temp_lbl)
         temp_header.addStretch()
         temp_header.addWidget(self.val_temp_lbl)
 
@@ -407,11 +431,11 @@ class BatchView(QWidget):
         # Max Tokens
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
-        tokens_lbl = QLabel("Max Tokens")
-        tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.tokens_lbl = QLabel("Max Tokens")
+        self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
         self.val_tokens_lbl = QLabel("4096")
         self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
-        tokens_header.addWidget(tokens_lbl)
+        tokens_header.addWidget(self.tokens_lbl)
         tokens_header.addStretch()
         tokens_header.addWidget(self.val_tokens_lbl)
 
@@ -991,6 +1015,126 @@ class BatchView(QWidget):
         self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 16px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         self._log_formatted_line("ERROR", error_msg)
         QMessageBox.critical(self, "Erreur Pipeline", f"Erreur lors de l'exécution du pipeline :\n{error_msg}")
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit à chaud l'intégralité des composants de la Batch Factory."""
+        if hasattr(self, "card_status"):
+            self.card_status.refresh_theme(profile)
+        if hasattr(self, "card_time"):
+            self.card_time.refresh_theme(profile)
+        if hasattr(self, "card_cards"):
+            self.card_cards.refresh_theme(profile)
+        if hasattr(self, "card_cost"):
+            self.card_cost.refresh_theme(profile)
+
+        if hasattr(self, "lbl_src"):
+            self.lbl_src.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: bold;")
+
+        if hasattr(self, "btn_select_deck"):
+            self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=profile.text_muted))
+            self.btn_select_deck.setStyleSheet(
+                f"text-align: left; padding: 6px 10px; border-radius: 4px; "
+                f"border: 1px solid {profile.border_color}; background: {profile.bg_input}; "
+                f"color: {profile.text_primary}; font-weight: normal;"
+            )
+
+        if hasattr(self, "btn_select_model"):
+            self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=profile.text_muted))
+            self.btn_select_model.setStyleSheet(
+                f"text-align: left; padding: 6px 10px; border-radius: 4px; "
+                f"border: 1px solid {profile.border_color}; background: {profile.bg_input}; "
+                f"color: {profile.text_primary}; font-weight: normal;"
+            )
+
+        if hasattr(self, "cb_vision"):
+            self.cb_vision.setStyleSheet(f"color: {profile.text_primary}; font-size: 11px;")
+        if hasattr(self, "cb_autoval"):
+            self.cb_autoval.setStyleSheet(f"color: {profile.text_primary}; font-size: 11px;")
+
+        if hasattr(self, "sep"):
+            self.sep.setStyleSheet(f"border: 1px dashed {profile.border_color}; margin: 6px 0;")
+
+        if hasattr(self, "adv_lbl"):
+            self.adv_lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; background: transparent;")
+        if hasattr(self, "advanced_icon"):
+            self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=profile.text_muted).pixmap(14, 14))
+
+        if hasattr(self, "advanced_container"):
+            self.advanced_container.setStyleSheet(f"""
+                QFrame#batchAdvancedContainer {{
+                    background: {profile.bg_input};
+                    padding: 10px;
+                    border-radius: {profile.radius_sm}px;
+                    border: 1px solid {profile.border_color};
+                }}
+            """)
+
+        slider_style = f"""
+            QSlider {{
+                min-height: 24px;
+            }}
+            QSlider::groove:horizontal {{
+                border-radius: 2px;
+                height: 4px;
+                margin: 0px;
+                background-color: {profile.bg_hover};
+            }}
+            QSlider::sub-page:horizontal {{
+                background-color: {profile.accent_primary};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background-color: {profile.accent_primary};
+                border: none;
+                height: 12px;
+                width: 12px;
+                margin: -4px 0;
+                border-radius: 6px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background-color: {profile.accent_hover};
+            }}
+        """
+        if hasattr(self, "slider_temp"):
+            self.slider_temp.setStyleSheet(slider_style)
+        if hasattr(self, "slider_tokens"):
+            self.slider_tokens.setStyleSheet(slider_style)
+
+        if hasattr(self, "temp_lbl"):
+            self.temp_lbl.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px;")
+        if hasattr(self, "val_temp_lbl"):
+            self.val_temp_lbl.setStyleSheet(f"color: {profile.text_primary}; font-family: '{profile.font_code}'; font-size: 11px;")
+        if hasattr(self, "tokens_lbl"):
+            self.tokens_lbl.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px;")
+        if hasattr(self, "val_tokens_lbl"):
+            self.val_tokens_lbl.setStyleSheet(f"color: {profile.text_primary}; font-family: '{profile.font_code}'; font-size: 11px;")
+
+        if hasattr(self, "queue_table") and hasattr(self.queue_table, "refresh_theme"):
+            self.queue_table.refresh_theme(profile)
+
+        if hasattr(self, "console_output"):
+            self.console_output.setStyleSheet(f"""
+                QPlainTextEdit {{
+                    background-color: {profile.bg_input};
+                    color: {profile.color_green};
+                    font-family: '{profile.font_code}';
+                    font-size: 12px;
+                    line-height: 1.6;
+                    padding: 14px;
+                    border: none;
+                    selection-background-color: {profile.accent_primary};
+                }}
+            """)
+
+        for cell in self.cell_widgets_map.values():
+            if hasattr(cell, "refresh_theme"):
+                cell.refresh_theme(profile)
+
+        from ankiforge.ui.components.panels import IdePanel
+
+        for panel in self.findChildren(IdePanel):
+            if hasattr(panel, "refresh_theme"):
+                panel.refresh_theme(profile)
 
 
 BatchTab = BatchView

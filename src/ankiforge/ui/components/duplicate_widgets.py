@@ -58,7 +58,7 @@ class DuplicateMatrixTable(QFrame):
         badge_count = QLabel("14 paires à examiner")
         badge_count.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         badge_count.setStyleSheet(
-            f"background: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; " f"padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.BORDER_COLOR};"
+            f"background: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.BORDER_COLOR};"
         )
 
         h_title.addWidget(icon_title)
@@ -108,12 +108,10 @@ class DuplicateMatrixTable(QFrame):
             btn = SecondaryButton(text)
             if is_active:
                 btn.setStyleSheet(
-                    f"background: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; " f"color: {DesignTokens.ACCENT_PRIMARY}; padding: 4px 10px; border-radius: 5px;"
+                    f"background: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; color: {DesignTokens.ACCENT_PRIMARY}; padding: 4px 10px; border-radius: 5px;"
                 )
             else:
-                btn.setStyleSheet(
-                    f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; " f"color: {DesignTokens.TEXT_SECONDARY}; padding: 4px 10px; border-radius: 5px;"
-                )
+                btn.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_SECONDARY}; padding: 4px 10px; border-radius: 5px;")
             return btn
 
         self.btn_filter_all = create_filter_btn("Toutes (14)", is_active=True)
@@ -364,7 +362,7 @@ class DuplicateMergeInspector(QFrame):
 
         self.lbl_sim = QLabel("Indice de similitude C : --%")
         self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        self.lbl_sim.setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; " f"padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(239,68,68,0.4);")
+        self.lbl_sim.setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(239,68,68,0.4);")
         h_header.addWidget(self.lbl_sim)
 
         layout.addLayout(h_header)

@@ -1,3 +1,4 @@
+from typing import Any
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget, QHBoxLayout
 from PySide6.QtCore import Signal, Qt
 from ankiforge.ui.theme import DesignTokens
@@ -9,10 +10,26 @@ class Badge(QLabel):
     def __init__(self, text: str, variant: str = "filled", color: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.base_color = color or DesignTokens.ACCENT_PRIMARY
+        self.base_color = color
+        self.current_variant = variant
         self.set_variant(variant)
 
-    def set_variant(self, variant: str) -> None:
+    def set_variant(self, variant: str, profile: Any = None) -> None:
+        self.current_variant = variant
+        accent = profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY
+        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        bg_active = profile.bg_active if profile else DesignTokens.BG_ACTIVE
+        bg_hover = profile.bg_hover if profile else DesignTokens.BG_HOVER
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+        text_primary = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+        text_muted = profile.text_muted if profile else DesignTokens.TEXT_MUTED
+        color_green = profile.color_green if profile else DesignTokens.COLOR_GREEN
+        color_yellow = profile.color_yellow if profile else DesignTokens.COLOR_YELLOW
+        color_blue = profile.color_blue if profile else DesignTokens.COLOR_BLUE
+        color_red = profile.color_red if profile else DesignTokens.COLOR_RED
+
+        base_color = self.base_color or accent
+
         style = """
             border-radius: 9999px;
             padding: 3px 12px;
@@ -22,25 +39,28 @@ class Badge(QLabel):
         """
 
         if variant == "filled":
-            style += f"background-color: {self.base_color}; color: #ffffff;"
+            style += f"background-color: {base_color}; color: #ffffff;"
         elif variant == "outline":
-            style += f"background-color: transparent; border: 1px solid {self.base_color}; color: {self.base_color};"
+            style += f"background-color: transparent; border: 1px solid {base_color}; color: {base_color};"
         elif variant == "status":
-            style += f"background-color: {DesignTokens.BG_ACTIVE}; color: {self.base_color}; border: 1px solid {DesignTokens.BORDER_COLOR};"
+            style += f"background-color: {bg_active}; color: {base_color}; border: 1px solid {border_col};"
         elif variant == "glass":
-            style += f"background-color: {DesignTokens.BG_HOVER}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR};"
+            style += f"background-color: {bg_hover}; color: {text_primary}; border: 1px solid {border_col};"
         elif variant == "success":
-            style += f"background-color: rgba(16, 185, 129, 0.15); color: {DesignTokens.COLOR_GREEN};"
+            style += f"background-color: rgba(16, 185, 129, 0.15); color: {color_green};"
         elif variant == "warning":
-            style += f"background-color: rgba(245, 158, 11, 0.15); color: {DesignTokens.COLOR_YELLOW};"
+            style += f"background-color: rgba(245, 158, 11, 0.15); color: {color_yellow};"
         elif variant == "info":
-            style += f"background-color: rgba(59, 130, 246, 0.15); color: {DesignTokens.COLOR_BLUE};"
+            style += f"background-color: rgba(59, 130, 246, 0.15); color: {color_blue};"
         elif variant == "danger":
-            style += f"background-color: rgba(239, 68, 68, 0.15); color: {DesignTokens.COLOR_RED};"
+            style += f"background-color: rgba(239, 68, 68, 0.15); color: {color_red};"
         elif variant == "neutral":
-            style += f"background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR};"
+            style += f"background-color: {bg_panel}; color: {text_muted}; border: 1px solid {border_col};"
 
         self.setStyleSheet(f"QLabel {{ {style} }}")
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.set_variant(self.current_variant, profile)
 
 
 class TagButton(QPushButton):
@@ -57,30 +77,46 @@ class TagButton(QPushButton):
         layout.setContentsMargins(8, 2, 8, 2)
         layout.setSpacing(4)
 
-        lbl = QLabel(text)
-        lbl.setStyleSheet(f"""
+        self.lbl = QLabel(text)
+        self.lbl.setStyleSheet(f"""
             color: {DesignTokens.ACCENT_PRIMARY};
             font-family: "{DesignTokens.FONT_CODE}";
             font-size: 11px;
         """)
-        layout.addWidget(lbl)
+        layout.addWidget(self.lbl)
 
         if removable:
-            del_lbl = QLabel("×")
-            del_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 14px;")
-            layout.addWidget(del_lbl)
+            self.del_lbl = QLabel("×")
+            self.del_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 14px;")
+            layout.addWidget(self.del_lbl)
 
+        self._apply_style()
+
+    def _apply_style(self, profile: Any = None) -> None:
+        accent = profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY
+        bg_active = profile.bg_active if profile else DesignTokens.BG_ACTIVE
         self.setStyleSheet(f"""
             TagButton {{
-                background-color: {DesignTokens.BG_ACTIVE};
-                border: 1px solid rgba(99, 102, 241, 0.2);
+                background-color: {bg_active};
+                border: 1px solid {accent};
                 border-radius: 9999px;
             }}
             TagButton:hover {{
-                background-color: rgba(99, 102, 241, 0.15);
-                border: 1px solid rgba(99, 102, 241, 0.4);
+                background-color: {bg_active};
+                border: 1px solid {accent};
             }}
         """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self._apply_style(profile)
+        if hasattr(self, "lbl"):
+            self.lbl.setStyleSheet(f"""
+                color: {profile.accent_primary};
+                font-family: "{profile.font_code}";
+                font-size: 11px;
+            """)
+        if hasattr(self, "del_lbl"):
+            self.del_lbl.setStyleSheet(f"color: {profile.text_muted}; font-size: 14px;")
 
     def mouseReleaseEvent(self, event) -> None:
         from PySide6.QtGui import QMouseEvent

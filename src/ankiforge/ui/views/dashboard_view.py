@@ -39,6 +39,7 @@ class DashboardHeroBanner(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(180)
+        self._apply_style()
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -66,7 +67,17 @@ class DashboardHeroBanner(QFrame):
 
         apply_shadow(self, blur=20, offset_y=4, color="rgba(0, 0, 0, 0.2)")
 
+    def _apply_style(self) -> None:
+        self.setStyleSheet(f"""
+            DashboardHeroBanner {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_LG}px;
+            }}
+        """)
+
     def refresh_theme(self, profile: Any) -> None:
+        self._apply_style()
         self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(48, 48))
         self.title.setText('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % profile.accent_primary)
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
@@ -82,6 +93,7 @@ class DashboardActionButton(QFrame):
         self.icon_name = icon_name
         self.color = color
         self.bg_color = bg_color
+        self._apply_style()
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -123,12 +135,26 @@ class DashboardActionButton(QFrame):
         layout.addLayout(text_layout)
         layout.addStretch()
 
+    def _apply_style(self) -> None:
+        self.setStyleSheet(f"""
+            DashboardActionButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            DashboardActionButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
     def refresh_theme(self, profile: Any) -> None:
+        self._apply_style()
         self.title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; font-size: 12px; border: none; background: transparent;")
 
@@ -140,6 +166,8 @@ class ActivityItem(QFrame):
         super().__init__(parent)
         self.note_id = note_id
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._apply_style()
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(10)
@@ -181,12 +209,26 @@ class ActivityItem(QFrame):
 
         layout.addLayout(text_layout, 1)
 
+    def _apply_style(self) -> None:
+        self.setStyleSheet(f"""
+            ActivityItem {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            ActivityItem:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.note_id)
         super().mouseReleaseEvent(event)
 
     def refresh_theme(self, profile: Any) -> None:
+        self._apply_style()
         self.title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
@@ -197,6 +239,7 @@ class DashboardDropZone(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
+        self._apply_style()
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -225,7 +268,21 @@ class DashboardDropZone(QFrame):
         self.btn.clicked.connect(self._browse_files)
         layout.addWidget(self.btn, 0, Qt.AlignmentFlag.AlignCenter)
 
+    def _apply_style(self) -> None:
+        self.setStyleSheet(f"""
+            DashboardDropZone {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 2px dashed {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            DashboardDropZone:hover {{
+                border: 2px dashed {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+
     def refresh_theme(self, profile: Any) -> None:
+        self._apply_style()
         self.icon_label.setPixmap(load_phosphor_icon("ph.upload-simple", color=profile.accent_primary).pixmap(40, 40))
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
@@ -251,6 +308,7 @@ class StatItem(QFrame):
     def __init__(self, value, label, value_color=None, parent=None):
         super().__init__(parent)
         self.value_color = value_color
+        self._apply_style()
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -270,10 +328,20 @@ class StatItem(QFrame):
         self.lbl_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_label)
 
+    def _apply_style(self) -> None:
+        self.setStyleSheet(f"""
+            StatItem {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+
     def set_value(self, value):
         self.val_label.setText(str(value))
 
     def refresh_theme(self, profile: Any) -> None:
+        self._apply_style()
         color = self.value_color if self.value_color else profile.text_primary
         self.val_label.setStyleSheet(f"color: {color}; border: none; background: transparent;")
         self.lbl_label.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
@@ -322,13 +390,13 @@ class DashboardView(QWidget):
         content_layout.addWidget(self.hero_banner)
 
         actions_header = QHBoxLayout()
-        actions_icon = QLabel()
-        actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.TEXT_PRIMARY).pixmap(16, 16))
-        actions_title = QLabel("Actions Rapides")
-        actions_title.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
-        actions_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
-        actions_header.addWidget(actions_icon)
-        actions_header.addWidget(actions_title)
+        self.actions_icon = QLabel()
+        self.actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.TEXT_PRIMARY).pixmap(16, 16))
+        self.actions_title = QLabel("Actions Rapides")
+        self.actions_title.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
+        self.actions_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        actions_header.addWidget(self.actions_icon)
+        actions_header.addWidget(self.actions_title)
         actions_header.addStretch()
         content_layout.addLayout(actions_header)
 
@@ -481,6 +549,10 @@ class DashboardView(QWidget):
         """Rafraîchit à chaud tous les composants du tableau de bord."""
         if hasattr(self, "hero_banner") and hasattr(self.hero_banner, "refresh_theme"):
             self.hero_banner.refresh_theme(profile)
+        if hasattr(self, "actions_icon"):
+            self.actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=profile.text_primary).pixmap(16, 16))
+        if hasattr(self, "actions_title"):
+            self.actions_title.setStyleSheet(f"color: {profile.text_primary};")
         if hasattr(self, "btn_forge") and hasattr(self.btn_forge, "refresh_theme"):
             self.btn_forge.refresh_theme(profile)
         if hasattr(self, "btn_library") and hasattr(self.btn_library, "refresh_theme"):
@@ -497,3 +569,9 @@ class DashboardView(QWidget):
             self.stat_docs_analyzed.refresh_theme(profile)
         if hasattr(self, "stat_default_model") and hasattr(self.stat_default_model, "refresh_theme"):
             self.stat_default_model.refresh_theme(profile)
+
+        from ankiforge.ui.components.panels import IdePanel
+
+        for panel in self.findChildren(IdePanel):
+            if hasattr(panel, "refresh_theme"):
+                panel.refresh_theme(profile)

@@ -82,6 +82,7 @@ class Sidebar(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedWidth(DesignTokens.SIDEBAR_WIDTH_EXPANDED)
 
+        self.profile_name = profile_name
         self.is_collapsed = False
         self._items: Dict[str, SidebarItem] = {}
         self._button_group = QButtonGroup(self)
@@ -178,6 +179,15 @@ class Sidebar(QWidget):
 
         if hasattr(self, "logo_icon"):
             self.logo_icon.setPixmap(load_logo_icon(profile.accent_primary).pixmap(24, 24))
+        if hasattr(self, "logo_text"):
+            self.logo_text.setStyleSheet(f"color: {profile.text_primary}; font-weight: bold; font-size: 16px; border: none;")
+        if hasattr(self, "header"):
+            self.header.setStyleSheet(f"border-bottom: 1px solid {profile.border_color}; background-color: transparent;")
+        if hasattr(self, "separator"):
+            self.separator.setStyleSheet(f"background-color: {profile.border_color}; border: none; margin: 4px 0px;")
+        if hasattr(self, "user_name"):
+            self.user_name.setText(f"Profil: {getattr(self, 'profile_name', 'default')}<br><span style='color: {profile.color_green}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
+            self.user_name.setStyleSheet(f"color: {profile.text_primary}; border: none; font-weight: bold; font-size: 12px;")
         if hasattr(self, "toggle_btn"):
             self.toggle_btn.refresh_theme(profile)
         for item in self._items.values():
@@ -341,6 +351,8 @@ class TopBar(QWidget):
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "dollar_icon"):
             self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=profile.color_green).pixmap(14, 14))
+        if hasattr(self, "token_lbl"):
+            self.token_lbl.setStyleSheet(f"color: {profile.text_secondary}; font-family: '{profile.font_code}'; font-size: 11px; border: none; background: transparent;")
         if hasattr(self, "notif_btn") and hasattr(self.notif_btn, "refresh_theme"):
             self.notif_btn.refresh_theme(profile)
         if hasattr(self, "daemon_status") and hasattr(self.daemon_status, "refresh_theme"):
@@ -532,6 +544,14 @@ class MainWindow(QMainWindow):
             if hasattr(view_widget, "refresh_theme"):
                 try:
                     view_widget.refresh_theme(profile)
+                except Exception:
+                    pass  # nosec B110
+        from ankiforge.ui.components.panels import IdePanel
+
+        for panel in self.findChildren(IdePanel):
+            if hasattr(panel, "refresh_theme"):
+                try:
+                    panel.refresh_theme(profile)
                 except Exception:
                     pass  # nosec B110
 

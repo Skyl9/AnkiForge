@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QFrame, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QSplitter, QPushButton
 from PySide6.QtCore import Signal, Qt, QRect
 from PySide6.QtGui import QIcon, QPainter, QColor, QAction, QPen
-from typing import Tuple
+from typing import Any, Tuple
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.tabs import ScrollableTabBarWidget
@@ -318,6 +318,14 @@ class IdePanel(QFrame):
             self.detach_btn.clicked.connect(self.detach_panel)
             self.header_layout.addWidget(self.detach_btn)
 
+        self.header.setStyleSheet(f"""
+            QFrame#header {{
+                background-color: {DesignTokens.BG_SIDEBAR};
+                border: none;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+
         self.layout_v.addWidget(self.header)
 
         # --- Content (ide-panel-content) ---
@@ -334,6 +342,23 @@ class IdePanel(QFrame):
         self.drag_overlay = PanelDragOverlay(self)
 
         self._toggle_placeholder()
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        self.header.setStyleSheet(f"""
+            QFrame#header {{
+                background-color: {DesignTokens.BG_SIDEBAR};
+                border: none;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        if hasattr(self, "tabs_bar") and hasattr(self.tabs_bar, "refresh_theme"):
+            self.tabs_bar.refresh_theme(profile)
+        if hasattr(self, "menu_btn") and hasattr(self.menu_btn, "refresh_theme"):
+            self.menu_btn.refresh_theme(profile)
+        if hasattr(self, "detach_btn") and hasattr(self.detach_btn, "refresh_theme"):
+            self.detach_btn.refresh_theme(profile)
+        if self._static_title_label is not None:
+            self._static_title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; padding-left: 16px;")
 
     def _toggle_placeholder(self):
         if len(self.tabs_bar.tabs) == 0:

@@ -549,8 +549,8 @@ class CreationView(QWidget):
         pages_header.addStretch()
         scope_pages_layout.addLayout(pages_header)
 
-        pages_input_frame = QFrame()
-        pages_input_frame.setStyleSheet(f"""
+        self.pages_input_frame = QFrame()
+        self.pages_input_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -567,7 +567,7 @@ class CreationView(QWidget):
                 width: 0px;
             }}
         """)
-        pages_input_layout = QHBoxLayout(pages_input_frame)
+        pages_input_layout = QHBoxLayout(self.pages_input_frame)
         pages_input_layout.setContentsMargins(4, 2, 4, 2)
         pages_input_layout.setSpacing(4)
 
@@ -589,7 +589,7 @@ class CreationView(QWidget):
         pages_input_layout.addWidget(lbl_to)
         pages_input_layout.addWidget(self.spin_page_end)
 
-        scope_pages_layout.addWidget(pages_input_frame)
+        scope_pages_layout.addWidget(self.pages_input_frame)
         self.scope_stack.addWidget(self.scope_pages_widget)
 
         self.spin_page_start.valueChanged.connect(self._on_page_scope_changed)
@@ -1716,9 +1716,78 @@ class CreationView(QWidget):
         event.accept()
 
     def refresh_theme(self, profile: Any) -> None:
-        """Rafraîchit l'aperçu de carte et les composants du studio de création."""
+        """Rafraîchit à chaud tous les composants du studio de création."""
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "card_preview_widget"):
             self.preview_widget.card_preview_widget.refresh_theme(profile)
+
+        if hasattr(self, "config_panel"):
+            self.config_panel.setStyleSheet(f"border-right: 1px solid {profile.border_color};")
+
+        if hasattr(self, "btn_select_deck"):
+            self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=profile.text_muted))
+            self.btn_select_deck.setStyleSheet(
+                f"text-align: left; padding: 6px 10px; border-radius: 4px; "
+                f"border: 1px solid {profile.border_color}; background: {profile.bg_input}; "
+                f"color: {profile.text_primary}; font-weight: normal;"
+            )
+
+        if hasattr(self, "btn_select_model"):
+            self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=profile.text_muted))
+            self.btn_select_model.setStyleSheet(
+                f"text-align: left; padding: 6px 10px; border-radius: 4px; "
+                f"border: 1px solid {profile.border_color}; background: {profile.bg_input}; "
+                f"color: {profile.text_primary}; font-weight: normal;"
+            )
+
+        if hasattr(self, "vision_card"):
+            self.vision_card.setStyleSheet(f"""
+                QFrame#visionCard {{
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: 6px;
+                }}
+                QFrame#visionCard:hover {{
+                    border-color: {profile.accent_primary};
+                }}
+            """)
+        if hasattr(self, "lbl_vision_title"):
+            self.lbl_vision_title.setStyleSheet(f"color: {profile.text_primary}; font-weight: 600; font-size: 12px;")
+        if hasattr(self, "lbl_vision_desc"):
+            self.lbl_vision_desc.setStyleSheet(f"color: {profile.text_muted}; font-size: 11px;")
+        if hasattr(self, "lbl_vision_icon"):
+            self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=profile.text_muted).pixmap(16, 16))
+
+        if hasattr(self, "pages_input_frame"):
+            self.pages_input_frame.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_md}px;
+                    padding: 2px 6px;
+                }}
+                QSpinBox {{
+                    background: transparent;
+                    border: none;
+                    color: {profile.text_primary};
+                    font-weight: bold;
+                }}
+                QSpinBox::up-button, QSpinBox::down-button {{
+                    width: 0px;
+                }}
+            """)
+
+        if hasattr(self, "advanced_container"):
+            self.advanced_container.setStyleSheet(f"""
+                background-color: {profile.bg_input};
+                border-radius: {profile.radius_sm}px;
+                border: 1px solid {profile.border_color};
+            """)
+
+        from ankiforge.ui.components.panels import IdePanel
+
+        for panel in self.findChildren(IdePanel):
+            if hasattr(panel, "refresh_theme"):
+                panel.refresh_theme(profile)
 
 
 CreationTab = CreationView

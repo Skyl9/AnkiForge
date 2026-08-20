@@ -156,7 +156,7 @@ class ToolEditorDialog(QDialog):
 
         btn_cancel = QPushButton("Annuler")
         btn_cancel.setStyleSheet(
-            f"background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; " f"color: {DesignTokens.TEXT_MUTED}; padding: 6px 14px; border-radius: {DesignTokens.RADIUS_SM}px;"
+            f"background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_MUTED}; padding: 6px 14px; border-radius: {DesignTokens.RADIUS_SM}px;"
         )
         btn_cancel.clicked.connect(self.reject)
         row_actions.addWidget(btn_cancel)

@@ -519,14 +519,14 @@ class SourceDiagnosticCardWidget(QFrame):
         lbl_score.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         if not is_indexed:
             lbl_score.setStyleSheet(
-                f"background-color: {DesignTokens.BG_HOVER}; color: {DesignTokens.TEXT_MUTED}; " f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 6px;"
+                f"background-color: {DesignTokens.BG_HOVER}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 6px;"
             )
         elif coverage_pct >= 90:
-            lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; " f"border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 2px 6px;")
         elif coverage_pct >= 50:
-            lbl_score.setStyleSheet(f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; " f"border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; padding: 2px 6px;")
         else:
-            lbl_score.setStyleSheet(f"background-color: rgba(239,68,68,0.15); color: {DesignTokens.COLOR_RED}; " f"border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;")
+            lbl_score.setStyleSheet(f"background-color: rgba(239,68,68,0.15); color: {DesignTokens.COLOR_RED}; border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 2px 6px;")
 
         h_header.addWidget(lbl_icon)
         h_header.addWidget(lbl_title, 1)

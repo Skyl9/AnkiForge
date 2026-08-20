@@ -198,15 +198,13 @@ class DocumentDelimitationDialog(QDialog):
         quick_btns = QHBoxLayout()
         btn_check_all = QPushButton("Tout sélectionner")
         btn_check_all.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; "
-            f"border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_SECONDARY}; }}"
+            f"QPushButton {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_SECONDARY}; }}"
         )
         btn_check_all.clicked.connect(lambda: self._set_all_checked(True))
 
         btn_uncheck_all = QPushButton("Tout désélectionner")
         btn_uncheck_all.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; "
-            f"border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_SECONDARY}; }}"
+            f"QPushButton {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 3px 8px; font-size: 10px; color: {DesignTokens.TEXT_SECONDARY}; }}"
         )
         btn_uncheck_all.clicked.connect(lambda: self._set_all_checked(False))
 

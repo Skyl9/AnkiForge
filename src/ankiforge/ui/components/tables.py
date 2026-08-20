@@ -1,3 +1,4 @@
+from typing import Any
 from PySide6.QtWidgets import QTableWidget, QWidget, QAbstractItemView, QHeaderView
 from PySide6.QtCore import Qt
 from ankiforge.ui.theme import DesignTokens
@@ -19,33 +20,47 @@ class StyledTableWidget(QTableWidget):
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
+        self._apply_style()
+
+    def _apply_style(self, profile: Any = None) -> None:
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        radius_md = profile.radius_md if profile else DesignTokens.RADIUS_MD
+        text_primary = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+        text_secondary = profile.text_secondary if profile else DesignTokens.TEXT_SECONDARY
+        bg_active = profile.bg_active if profile else DesignTokens.BG_ACTIVE
+        bg_hover = profile.bg_hover if profile else DesignTokens.BG_HOVER
+
         self.setStyleSheet(f"""
             QTableWidget {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+                color: {text_primary};
             }}
             QHeaderView::section {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_SECONDARY};
+                background-color: {bg_panel};
+                color: {text_secondary};
                 padding: 8px 16px;
                 border: none;
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-bottom: 1px solid {border_col};
                 font-weight: bold;
             }}
             QTableWidget::item {{
                 padding: 8px 16px;
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-bottom: 1px solid {border_col};
             }}
             QTableWidget::item:selected {{
-                background-color: {DesignTokens.BG_ACTIVE};
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {bg_active};
+                color: {text_primary};
             }}
             QTableWidget::item:hover {{
-                background-color: {DesignTokens.BG_HOVER};
+                background-color: {bg_hover};
             }}
         """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self._apply_style(profile)
 
     def set_active_row(self, row: int) -> None:
         self.selectRow(row)
@@ -58,6 +73,8 @@ class CicdTable(StyledTableWidget):
         cols = [c.upper() for c in columns]
         super().__init__(cols, parent)
 
+    def _apply_style(self, profile: Any = None) -> None:
+        super()._apply_style(profile)
         self.setStyleSheet(
             self.styleSheet()
             + """

@@ -779,7 +779,7 @@ class ABTestsView(QWidget):
             try:
                 fields = json.loads(selected_nt.fields_schema)
             except Exception:
-                pass
+                pass  # nosec B110
 
         f_front = fields[0] if len(fields) > 0 else "Front"
         f_back = fields[1] if len(fields) > 1 else "Back"

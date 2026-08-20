@@ -76,6 +76,35 @@ class IdeTabBar(QWidget):
             self.tabs[index].setChecked(True)
             self.tab_changed.emit(index)
 
+    def refresh_theme(self, profile: Any = None) -> None:
+        for btn in self.tabs:
+            icon_name = btn.property("icon_name")
+            if icon_name:
+                c = DesignTokens.ACCENT_PRIMARY if btn.isChecked() else DesignTokens.TEXT_SECONDARY
+                btn.setIcon(load_phosphor_icon(icon_name, color=c))
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    border: none;
+                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-top: 2px solid transparent;
+                    padding: 0 16px;
+                    font-family: "{DesignTokens.FONT_MAIN}";
+                }}
+                QPushButton:hover {{
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+                QPushButton:checked {{
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                    background-color: {DesignTokens.BG_PANEL};
+                    font-weight: bold;
+                }}
+            """)
+
 
 class PillTabBar(QWidget):
     """Tab bar style pill/segment. Usage: sous-navigation dans les panneaux."""
@@ -224,6 +253,9 @@ class TabButton(QPushButton):
         self.setProperty("variant", variant)
         self.setProperty("closable", "true" if closable else "false")
         self.toggled.connect(self._on_toggled)
+
+        self._apply_style()
+
         if self.closable:
             self.close_btn = QPushButton(self)
             self.close_btn.setFixedSize(16, 16)
@@ -241,6 +273,80 @@ class TabButton(QPushButton):
             self.close_btn.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_SECONDARY))
             self.close_btn.clicked.connect(self.close_requested.emit)
         self._drag_start_pos = QPoint()
+
+    def _apply_style(self) -> None:
+        padding_right = 28 if self.closable else 12
+        variant = self.property("variant") or "ide"
+        if variant == "document":
+            self.setStyleSheet(f"""
+                TabButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    border: none;
+                    border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-top: 2px solid transparent;
+                    border-top-left-radius: {DesignTokens.RADIUS_SM}px;
+                    border-top-right-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 0 {padding_right}px 0 12px;
+                    font-family: "{DesignTokens.FONT_MAIN}";
+                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                    text-align: left;
+                }}
+                TabButton:hover {{
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+                TabButton:checked {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border-bottom: 1px solid {DesignTokens.BG_INPUT};
+                    border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                TabButton {{
+                    background-color: {DesignTokens.BG_SIDEBAR};
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    border: none;
+                    border-top: 2px solid transparent;
+                    padding: 0 {padding_right}px 0 12px;
+                    font-family: "{DesignTokens.FONT_MAIN}";
+                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                    text-align: left;
+                }}
+                TabButton:hover {{
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+                TabButton:checked {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    font-weight: bold;
+                }}
+            """)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        self._apply_style()
+        icon_name = self.property("icon_name")
+        if icon_name:
+            c = DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY
+            self.setIcon(load_phosphor_icon(icon_name, color=c))
+        if hasattr(self, "close_btn"):
+            self.close_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    border-radius: 8px;
+                    border: none;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+            self.close_btn.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_SECONDARY))
 
     def _on_toggled(self, checked: bool) -> None:
         icon_name = self.property("icon_name")
@@ -591,6 +697,15 @@ class ScrollableTabBarWidget(QWidget):
             self.tabs[index].setChecked(True)
             self.tab_changed.emit(index)
             self.scroll_area.ensureWidgetVisible(self.tabs[index])
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        for tab in self.tabs:
+            if hasattr(tab, "refresh_theme"):
+                tab.refresh_theme(profile)
+        if hasattr(self, "btn_left"):
+            self.btn_left.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
+        if hasattr(self, "btn_right"):
+            self.btn_right.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
 
     def _on_tab_clicked(self, idx: int):
         self.tab_changed.emit(idx)
