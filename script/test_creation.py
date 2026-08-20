@@ -9,7 +9,8 @@ db.connect(reuse_if_open=True)
 
 manager = AIManager()
 gemini_config = LLMConfigModel.get_or_none(LLMConfigModel.model_id == "gemini-2.5-flash")
-if not gemini_config: gemini_config = LLMConfigModel.select().first()
+if not gemini_config:
+    gemini_config = LLMConfigModel.select().first()
 
 provider = manager.create_provider_from_config(gemini_config)
 
@@ -20,7 +21,7 @@ payload = CreationTaskPayload(
     pipeline_id=None,
     pipeline_name="Custom",
     pipeline_steps=[{"name": "tests", "system_prompt": "Fais un JSON avec notes: [{Front, Back}]", "output_format": "json"}],
-    use_vision=False
+    use_vision=False,
 )
 
 worker = CreationWorker(provider, payload)

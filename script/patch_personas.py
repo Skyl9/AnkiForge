@@ -3,6 +3,7 @@ from pathlib import Path
 
 # Override the DEFAULT_DB_PATH before importing models
 import ankiforge.database.models
+
 ankiforge.database.models.DEFAULT_DB_PATH = Path("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db")
 
 from ankiforge.database.models import db, PersonaModel
@@ -15,11 +16,11 @@ wozniak_prompt = (
     "JSON Structure:\n"
     "[\n"
     "  {\n"
-    "    \"note_id\": 123,\n"
-    "    \"pass\": false,\n"
-    "    \"rule_broken\": \"Atomicity\",\n"
-    "    \"reason\": \"The card asks for 3 different concepts at once.\",\n"
-    "    \"suggestion\": {\"Front\": \"Question 1?\", \"Back\": \"Answer 1\"} \n"
+    '    "note_id": 123,\n'
+    '    "pass": false,\n'
+    '    "rule_broken": "Atomicity",\n'
+    '    "reason": "The card asks for 3 different concepts at once.",\n'
+    '    "suggestion": {"Front": "Question 1?", "Back": "Answer 1"} \n'
     "  }\n"
     "]\n"
     "Always wrap your response in standard JSON. Only provide suggestions if it fails."

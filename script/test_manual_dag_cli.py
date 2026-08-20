@@ -108,22 +108,24 @@ def setup_in_memory_db():
 
     db.init(":memory:")
     db.connect()
-    db.create_tables([
-        DeckModel,
-        NoteTypeModel,
-        NoteModel,
-        CardModel,
-        PersonaModel,
-        PipelineModel,
-        PipelineStepModel,
-        LLMConfigModel,
-    ])
+    db.create_tables(
+        [
+            DeckModel,
+            NoteTypeModel,
+            NoteModel,
+            CardModel,
+            PersonaModel,
+            PipelineModel,
+            PipelineStepModel,
+            LLMConfigModel,
+        ]
+    )
 
 
 def print_banner(title: str):
-    print(f"\n{C_CYAN}{'='*70}{C_RESET}")
+    print(f"\n{C_CYAN}{'=' * 70}{C_RESET}")
     print(f"{C_BOLD}{C_CYAN} 🧪 {title.upper()}{C_RESET}")
-    print(f"{C_CYAN}{'='*70}{C_RESET}\n")
+    print(f"{C_CYAN}{'=' * 70}{C_RESET}\n")
 
 
 def attach_console_signals(orchestrator: PipelineOrchestrator, on_human_pause_fn=None):
@@ -139,9 +141,9 @@ def attach_console_signals(orchestrator: PipelineOrchestrator, on_human_pause_fn
         print(f" {C_GREEN}✔ Étape {order} terminée avec succès.{C_RESET}")
 
     def on_human(state: PipelineRunState):
-        print(f"\n{C_MAGENTA}{'!'*60}")
+        print(f"\n{C_MAGENTA}{'!' * 60}")
         print(f" ⏸️  INTERRUPTION : VALIDATION HUMAINE REQUISE (Copilote Intentionnel)")
-        print(f"{'!'*60}{C_RESET}\n")
+        print(f"{'!' * 60}{C_RESET}\n")
         if on_human_pause_fn:
             on_human_pause_fn(orchestrator, state)
 
@@ -235,8 +237,7 @@ def run_scenario_creation(ai_provider: LLMProvider):
     initial_state = PipelineRunState(initial_prompt="Introduction aux Réseaux de Neurones Profonds")
     initial_state.set_variable(
         "text_source",
-        "Le Perceptron est l'unité de base. La rétropropagation permet de calculer le gradient de l'erreur. "
-        "Le surapprentissage (overfitting) se combat avec le Dropout et la régularisation L2.",
+        "Le Perceptron est l'unité de base. La rétropropagation permet de calculer le gradient de l'erreur. Le surapprentissage (overfitting) se combat avec le Dropout et la régularisation L2.",
     )
 
     def handle_human_pause(orch: PipelineOrchestrator, state: PipelineRunState):

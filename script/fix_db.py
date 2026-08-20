@@ -16,7 +16,7 @@ for nv in NoteVersionModel.select():
         schema = json.loads(schema_str) if schema_str else []
         needs_fix = False
         new_content = content.copy()
-        
+
         # Keep original mapping fallback just in case
         if "Front" in content and "Front" not in schema and len(schema) >= 1:
             new_content[schema[0]] = new_content.pop("Front")
@@ -24,7 +24,7 @@ for nv in NoteVersionModel.select():
         if "Back" in content and "Back" not in schema and len(schema) >= 2:
             new_content[schema[1]] = new_content.pop("Back")
             needs_fix = True
-            
+
         if needs_fix:
             nv.content = json.dumps(new_content, ensure_ascii=False)
             nv.save()

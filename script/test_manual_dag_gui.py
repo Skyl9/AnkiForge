@@ -184,16 +184,18 @@ class DagVisualTesterWindow(QMainWindow):
     def _init_db(self):
         db.init(":memory:")
         db.connect()
-        db.create_tables([
-            DeckModel,
-            NoteTypeModel,
-            NoteModel,
-            CardModel,
-            PersonaModel,
-            PipelineModel,
-            PipelineStepModel,
-            LLMConfigModel,
-        ])
+        db.create_tables(
+            [
+                DeckModel,
+                NoteTypeModel,
+                NoteModel,
+                CardModel,
+                PersonaModel,
+                PipelineModel,
+                PipelineStepModel,
+                LLMConfigModel,
+            ]
+        )
 
     def _build_ui(self):
         central = QWidget()
@@ -325,8 +327,7 @@ class DagVisualTesterWindow(QMainWindow):
         initial_state = PipelineRunState(initial_prompt="Physique Quantique Fondamentale")
         initial_state.set_variable(
             "text_source",
-            "La dualité onde-corpuscule unifie les aspects ondulatoires et corpusculaires. "
-            "Le principe d'incertitude de Heisenberg limite la précision simultanée de la position et de l'impulsion.",
+            "La dualité onde-corpuscule unifie les aspects ondulatoires et corpusculaires. Le principe d'incertitude de Heisenberg limite la précision simultanée de la position et de l'impulsion.",
         )
 
         provider = MockGuiProvider()

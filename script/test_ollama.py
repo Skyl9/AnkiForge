@@ -15,8 +15,10 @@ payload = CreationTaskPayload(
     note_type_fields_schema='["Front", "Back"]',
     pipeline_id=None,
     pipeline_name="Custom",
-    pipeline_steps=[{"name": "tests", "system_prompt": "Crée une carte Anki avec les champs Front et Back. Renvoie un JSON valide au format {'notes': [{'Front': '...', 'Back': '...'}]}.", "output_format": "json"}],
-    use_vision=False
+    pipeline_steps=[
+        {"name": "tests", "system_prompt": "Crée une carte Anki avec les champs Front et Back. Renvoie un JSON valide au format {'notes': [{'Front': '...', 'Back': '...'}]}.", "output_format": "json"}
+    ],
+    use_vision=False,
 )
 
 worker = CreationWorker(provider, payload)
