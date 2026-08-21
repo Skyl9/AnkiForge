@@ -121,10 +121,12 @@ class Sidebar(QWidget):
         main_layout.addWidget(self.header)
 
         # 2. ScrollArea for sections
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background-color: transparent; border: none;")
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; } QScrollBar { width: 0px; height: 0px; }")
 
         self.scroll_content = QWidget()
         self.scroll_content.setStyleSheet("background-color: transparent;")
@@ -133,8 +135,8 @@ class Sidebar(QWidget):
         self.sections_layout.setSpacing(24)
         self.sections_layout.addStretch()
 
-        scroll.setWidget(self.scroll_content)
-        main_layout.addWidget(scroll)
+        self.scroll.setWidget(self.scroll_content)
+        main_layout.addWidget(self.scroll)
 
         # 3. Footer
         self.footer = QWidget()
@@ -504,7 +506,6 @@ class MainWindow(QMainWindow):
         new_layout.view_selected.connect(self._on_view_selected)
         new_layout.settings_requested.connect(self._open_settings_modal)
         new_layout.search_clicked.connect(self._open_command_palette)
-        new_layout.toggle_sidebar_requested.connect(self._toggle_sidebar)
 
         new_layout.populate_navigation(self.VIEW_REGISTRY)
         new_layout.set_stacked_widget(self.stacked_widget)

@@ -99,3 +99,25 @@ def test_layout_persistence(tmp_path):
 
     LayoutManager.save_layout_id(profile, "glassmorphism")
     assert LayoutManager.get_saved_layout_id(profile) == "glassmorphism"
+
+
+def test_ide_layout_sidebar_toggle(qtbot, mock_db):
+    """Vérifie que le bouton de la sidebar et l'icône du logo rétractent et ré-étendent correctement la sidebar."""
+    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None, profile_name="test_profile")
+        qtbot.addWidget(window)
+
+        sidebar = window.sidebar
+        assert sidebar is not None
+        assert not sidebar.is_collapsed
+        assert sidebar.width() == DesignTokens.SIDEBAR_WIDTH_EXPANDED
+
+        # 1. Clic sur le bouton hamburger/list de la sidebar pour la replier
+        sidebar.toggle_btn.click()
+        assert sidebar.is_collapsed
+        assert sidebar.width() == DesignTokens.SIDEBAR_WIDTH_COLLAPSED
+
+        # 2. Clic sur le logo pour la ré-étendre
+        sidebar.logo_icon.clicked.emit()
+        assert not sidebar.is_collapsed
+        assert sidebar.width() == DesignTokens.SIDEBAR_WIDTH_EXPANDED
