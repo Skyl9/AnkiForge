@@ -1746,3 +1746,24 @@ class AnalysisView(QWidget):
         self.main_panel.add_header_widget(btn_settings)
 
         layout.addWidget(self.main_panel)
+
+    def set_active_tab_by_name(self, tab_name: str) -> None:
+        """Active l'onglet spécifié par son nom ou alias."""
+        tab_lower = tab_name.lower().strip()
+        tab_map = {
+            "audit": 0,
+            "wozniak": 0,
+            "sources": 1,
+            "coverage": 1,
+            "documents": 1,
+            "tokens": 2,
+            "srs": 2,
+            "cost": 2,
+            "budget": 2,
+            "duplicates": 3,
+            "merge": 3,
+            "fusions": 3,
+        }
+        idx = tab_map.get(tab_lower)
+        if idx is not None:
+            self.main_panel.set_active_tab(idx)

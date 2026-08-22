@@ -286,6 +286,7 @@ class TopBar(QWidget):
     search_clicked = Signal()
     import_clicked = Signal()
     export_clicked = Signal()
+    notif_clicked = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -363,7 +364,14 @@ class TopBar(QWidget):
 
         # Notifications
         self.notif_btn = IconButton("bell", tooltip="Notifications", size=24)
+        self.notif_btn.clicked.connect(self.notif_clicked.emit)
         layout.addWidget(self.notif_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+    def update_notif_badge(self, count: int) -> None:
+        if count > 0:
+            self.notif_btn.setToolTip(f"Notifications & Diagnostics ({count} alerte{'s' if count > 1 else ''})")
+        else:
+            self.notif_btn.setToolTip("Notifications (Aucune alerte)")
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if obj == self.omnibox and event.type() == QEvent.Type.MouseButtonPress:
@@ -497,6 +505,7 @@ class MainWindow(QMainWindow):
         self._settings_window: Optional[QWidget] = None
         self._import_dialog: Optional[QWidget] = None
         self._export_dialog: Optional[QWidget] = None
+        self._notif_popup: Optional[QWidget] = None
         self.current_layout: Optional[BaseLayout] = None
         self.stacked_widget = QStackedWidget()
 
@@ -554,6 +563,7 @@ class MainWindow(QMainWindow):
         new_layout.search_clicked.connect(self._open_command_palette)
         new_layout.import_requested.connect(self._open_import_dialog)
         new_layout.export_requested.connect(self._open_export_dialog)
+        new_layout.notif_requested.connect(self._show_notif_popup)
 
         new_layout.populate_navigation(self.VIEW_REGISTRY)
         new_layout.set_stacked_widget(self.stacked_widget)
@@ -634,6 +644,8 @@ class MainWindow(QMainWindow):
             self.sidebar.refresh_theme(profile)
         if self.topbar and hasattr(self.topbar, "refresh_theme"):
             self.topbar.refresh_theme(profile)
+        if self._notif_popup and hasattr(self._notif_popup, "refresh_theme"):
+            self._notif_popup.refresh_theme(profile)
         for view_widget in self._view_widgets.values():
             if hasattr(view_widget, "refresh_theme"):
                 try:
@@ -648,6 +660,39 @@ class MainWindow(QMainWindow):
                     panel.refresh_theme(profile)
                 except Exception:
                     pass  # nosec B110
+
+    def _show_notif_popup(self) -> None:
+        """Affiche le menu déroulant des notifications rattaché à la cloche TopBar."""
+        from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
+        from ankiforge.services.audit.metrics_service import MetricsService
+        from PySide6.QtCore import QPoint
+
+        if not self._notif_popup:
+            self._notif_popup = NotificationMenuPopup(self)
+            self._notif_popup.action_triggered.connect(self._on_view_selected)
+            alerts = MetricsService.get_proactive_diagnostics()
+            self._notif_popup.set_notifications(alerts)
+
+        if self.topbar and hasattr(self.topbar, "notif_btn"):
+            btn = self.topbar.notif_btn
+            pos = btn.mapToGlobal(QPoint(btn.width() - self._notif_popup.width(), btn.height() + 6))
+            self._notif_popup.move(pos)
+
+        self._notif_popup.show()
+        self._notif_popup.raise_()
+
+    def _on_dashboard_data_updated(self, data: dict) -> None:
+        """Synchronise la cloche de notification et le token tracker avec les données du dashboard."""
+        diagnostics = data.get("diagnostics", [])
+        if self._notif_popup and hasattr(self._notif_popup, "set_notifications"):
+            self._notif_popup.set_notifications(diagnostics)
+        if self.topbar and hasattr(self.topbar, "update_notif_badge"):
+            self.topbar.update_notif_badge(len(diagnostics))
+        telemetry = data.get("kpis", {}).get("telemetry", {})
+        if self.topbar and hasattr(self.topbar, "update_token_tracker"):
+            cost_val = telemetry.get("total_cost_usd", 0.0)
+            tokens_val = telemetry.get("total_tokens", 0)
+            self.topbar.update_token_tracker(f"{cost_val:.2f}", f"{tokens_val:,}")
 
     def _on_view_selected(self, view_id: str, data: Optional[dict] = None) -> None:
         """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
@@ -667,12 +712,18 @@ class MainWindow(QMainWindow):
             current_widget = self._view_widgets.get(view_id)
             if isinstance(current_widget, DummyView) and cls != DummyView:
                 try:
-                    real_widget = cast(Any, cls)(ai_manager=self.ai_manager)
+                    real_widget = cast(Any, cls)(ai_manager=self.ai_manager, profile_name=self.profile_name)
                 except TypeError:
-                    real_widget = cast(Any, cls)()
+                    try:
+                        real_widget = cast(Any, cls)(ai_manager=self.ai_manager)
+                    except TypeError:
+                        real_widget = cast(Any, cls)()
 
                 if hasattr(real_widget, "request_navigation"):
                     real_widget.request_navigation.connect(self._on_view_selected)
+
+                if hasattr(real_widget, "dashboard_data_updated"):
+                    real_widget.dashboard_data_updated.connect(self._on_dashboard_data_updated)
 
                 # Remplacer le placeholder par la vraie vue dans QStackedWidget
                 idx = self.stacked_widget.indexOf(current_widget)
@@ -702,6 +753,10 @@ class MainWindow(QMainWindow):
             if view_id == "creation" and isinstance(data, dict) and "prompt" in data:
                 if hasattr(widget, "_open_document_tab"):
                     cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+
+            if view_id == "analysis" and isinstance(data, dict) and "tab" in data:
+                if hasattr(widget, "set_active_tab_by_name"):
+                    cast(Any, widget).set_active_tab_by_name(data["tab"])
 
     def _can_switch_view(self) -> bool:
         """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""

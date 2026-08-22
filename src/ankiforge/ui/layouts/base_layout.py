@@ -20,6 +20,7 @@ class BaseLayout(QWidget):
     search_clicked = Signal()
     import_requested = Signal()
     export_requested = Signal()
+    notif_requested = Signal()
 
     def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
