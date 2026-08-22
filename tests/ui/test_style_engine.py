@@ -70,18 +70,39 @@ def test_style_engine_apply_theme(qtbot):
 
 
 def test_semantic_buttons_properties(qtbot):
-    """Vérifie que les composants de boutons appliquent correctement leurs propriétés sémantiques."""
+    """Vérifie que les composants de boutons appliquent correctement leurs propriétés sémantiques et animations."""
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QEnterEvent
+    from ankiforge.ui.components.buttons import IconButton
+
     btn_p = PrimaryButton("Valider")
     btn_s = SecondaryButton("Annuler")
     btn_d = DangerButton("Supprimer")
+    btn_i = IconButton("ph.trash")
 
     qtbot.addWidget(btn_p)
     qtbot.addWidget(btn_s)
     qtbot.addWidget(btn_d)
+    qtbot.addWidget(btn_i)
 
     assert btn_p.property("role") == "primary"
     assert btn_s.property("role") == "secondary"
     assert btn_d.property("role") == "danger"
+    assert btn_i.property("role") == "icon"
+
+    assert btn_p.testAttribute(Qt.WidgetAttribute.WA_Hover)
+    assert btn_s.testAttribute(Qt.WidgetAttribute.WA_Hover)
+    assert btn_d.testAttribute(Qt.WidgetAttribute.WA_Hover)
+    assert btn_i.testAttribute(Qt.WidgetAttribute.WA_Hover)
+
+    # Vérification des animations d'ombres au survol
+    enter_ev = QEnterEvent(QPointF(10, 10), QPointF(10, 10), QPointF(10, 10))
+    btn_s.enterEvent(enter_ev)
+    assert btn_s.anim.endValue() == btn_s.hover_blur
+
+    leave_ev = QEvent(QEvent.Type.Leave)
+    btn_s.leaveEvent(leave_ev)
+    assert btn_s.anim.endValue() == btn_s.default_blur
 
 
 def test_custom_theme_registration():
@@ -205,7 +226,7 @@ def test_force_global_repolish_and_live_signal(qtbot):
     widget = QWidget()
     layout = QVBoxLayout(widget)
     lbl = QLabel("Test")
-    btn_icon = IconButton("bell")
+    btn_icon = IconButton("ph.bell")
     btn_primary = PrimaryButton("Action")
     layout.addWidget(lbl)
     layout.addWidget(btn_icon)
@@ -222,3 +243,17 @@ def test_force_global_repolish_and_live_signal(qtbot):
     engine.set_color_mode("light", app)
     assert "dracula_light" in received_profiles
     assert DesignTokens.ACTIVE_THEME_ID == "dracula_light"
+
+
+def test_all_builtin_themes_compilation_and_application(qtbot):
+    """Vérifie que la compilation QSS et l'application s'exécutent avec succès sur TOUS les thèmes intégrés."""
+    from ankiforge.ui.style_engine import BUILTIN_THEMES
+
+    engine = get_style_engine()
+    app = QApplication.instance()
+
+    for theme_id, theme in BUILTIN_THEMES.items():
+        qss = engine.generate_stylesheet(theme)
+        assert len(qss) > 100
+        engine.apply_theme(theme_id, app)
+        assert engine.current_theme.id == theme.id

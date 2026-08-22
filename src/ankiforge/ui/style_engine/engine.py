@@ -91,12 +91,14 @@ class StyleEngine(QObject):
             font-weight: 500;
             border-radius: {p.radius_sm}px;
             padding: 8px 16px;
-            border: 1px solid transparent;
+            border: 1px solid {p.border_color};
+            border-top: 1px solid {p.border_light};
             background-color: {p.bg_input};
             color: {p.text_primary};
         }}
         QPushButton:hover {{
             background-color: {p.bg_hover};
+            border: 1px solid {p.accent_primary};
         }}
         QPushButton:disabled {{
             background-color: {p.bg_hover};
@@ -109,14 +111,28 @@ class StyleEngine(QObject):
             background-color: {p.accent_primary};
             color: #ffffff;
             font-weight: 600;
-            border: none;
+            border: 1px solid {p.accent_primary};
+            border-top: 1px solid rgba(255, 255, 255, 0.35);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.35);
         }}
         QPushButton[role="primary"]:hover {{
             background-color: {p.accent_hover};
+            border: 1.5px solid #ffffff;
+        }}
+        QPushButton[role="primary"]:focus {{
+            border: 2px solid #ffffff;
+            background-color: {p.accent_hover};
+        }}
+        QPushButton[role="primary"]:pressed {{
+            background-color: {p.accent_hover};
+            border: 2px solid #ffffff;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+            padding-top: 9px;
         }}
         QPushButton[role="primary"]:disabled {{
             background-color: {p.bg_hover};
             color: {p.text_muted};
+            border-color: transparent;
         }}
 
         /* Role: Secondary Button */
@@ -124,10 +140,22 @@ class StyleEngine(QObject):
             background-color: {p.bg_input};
             color: {p.text_primary};
             border: 1px solid {p.border_color};
+            border-top: 1px solid {p.border_light};
         }}
         QPushButton[role="secondary"]:hover {{
             background-color: {p.bg_hover};
-            border-color: rgba(255, 255, 255, 0.2);
+            border: 1.5px solid {p.accent_primary};
+            color: {p.text_primary};
+        }}
+        QPushButton[role="secondary"]:focus {{
+            border: 2px solid {p.accent_primary};
+            background-color: {p.bg_panel};
+            color: {p.text_primary};
+        }}
+        QPushButton[role="secondary"]:pressed {{
+            background-color: {p.bg_active};
+            border: 2px solid {p.accent_primary};
+            padding-top: 9px;
         }}
         QPushButton[role="secondary"]:disabled {{
             background-color: {p.bg_input};
@@ -140,29 +168,62 @@ class StyleEngine(QObject):
             background-color: rgba(239, 68, 68, 0.14);
             color: {p.color_red};
             border: 1px solid rgba(239, 68, 68, 0.3);
+            border-top: 1px solid rgba(239, 68, 68, 0.5);
             font-weight: 600;
         }}
         QPushButton[role="danger"]:hover {{
             background-color: rgba(239, 68, 68, 0.28);
-            border-color: {p.color_red};
+            border: 1.5px solid {p.color_red};
+        }}
+        QPushButton[role="danger"]:focus {{
+            border: 2px solid {p.color_red};
+            background-color: rgba(239, 68, 68, 0.22);
+        }}
+        QPushButton[role="danger"]:pressed {{
+            background-color: rgba(239, 68, 68, 0.40);
+            border: 2px solid {p.color_red};
+            padding-top: 9px;
         }}
 
         /* Role: Ghost / Icon Button */
-        QPushButton[role="ghost"], QPushButton[role="icon"] {{
+        QPushButton[role="ghost"] {{
             background-color: transparent;
             border: none;
             padding: 4px 8px;
             color: {p.text_secondary};
         }}
-        QPushButton[role="ghost"]:hover, QPushButton[role="icon"]:hover {{
+        QPushButton[role="ghost"]:hover {{
             background-color: {p.bg_hover};
             color: {p.text_primary};
         }}
+        QPushButton[role="icon"] {{
+            background-color: {p.bg_input};
+            border: 1px solid {p.border_color};
+            border-top: 1px solid {p.border_light};
+            border-radius: {p.radius_sm}px;
+            padding: 2px;
+            color: {p.text_secondary};
+        }}
+        QPushButton[role="icon"]:hover {{
+            background-color: {p.bg_hover};
+            border: 1.5px solid {p.accent_primary};
+            color: {p.text_primary};
+        }}
+        QPushButton[role="icon"]:focus {{
+            border: 2px solid {p.accent_primary};
+            background-color: {p.bg_panel};
+        }}
+        QPushButton[role="icon"]:pressed {{
+            background-color: {p.bg_active};
+            border: 2px solid {p.accent_primary};
+            padding-top: 3px;
+        }}
 
-        /* --- Champs de Saisie & Formulairs --- */
+        /* --- Champs de Saisie & Formulaires --- */
         QLineEdit, QTextEdit, QPlainTextEdit, QComboBox {{
             background-color: {p.bg_input};
             border: 1px solid {p.border_color};
+            border-top: 1px solid {p.border_light};
             border-radius: {p.radius_sm}px;
             color: {p.text_primary};
             padding: 6px 10px;
@@ -170,7 +231,8 @@ class StyleEngine(QObject):
             selection-color: #ffffff;
         }}
         QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
-            border: 1px solid {p.border_focus};
+            border: 1.5px solid {p.accent_primary};
+            background-color: {p.bg_panel};
         }}
         QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QComboBox:disabled {{
             background-color: {p.bg_main};
@@ -178,18 +240,25 @@ class StyleEngine(QObject):
             border-color: {p.border_light};
         }}
 
-        /* GlowLineEdit / Omnibox */
-        GlowLineEdit {{
+        /* GlowLineEdit / Omnibox / Search inputs */
+        GlowLineEdit, QLineEdit[role="search"] {{
             background-color: {p.bg_input};
             border: 1px solid {p.border_color};
-            border-radius: {p.radius_md}px;
+            border-top: 1px solid {p.border_light};
+            border-radius: {p.radius_sm}px;
             color: {p.text_primary};
-            padding: 0 16px;
-            font-size: 13px;
+            padding: 4px 10px;
+            font-size: 12px;
         }}
-        GlowLineEdit:focus {{
-            border: 1px solid {p.accent_primary};
+        GlowLineEdit:hover, QLineEdit[role="search"]:hover {{
+            border: 1.5px solid {p.accent_primary};
+            background-color: {p.bg_hover};
+            color: {p.text_primary};
+        }}
+        GlowLineEdit:focus, QLineEdit[role="search"]:focus {{
+            border: 2px solid {p.accent_primary};
             background-color: {p.bg_panel};
+            color: {p.text_primary};
         }}
 
         /* BranchKpiWidget A/B */

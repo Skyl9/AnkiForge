@@ -6,11 +6,18 @@ from ankiforge.ui.theme import DesignTokens, apply_shadow
 
 
 class StyledLineEdit(QLineEdit):
-    """Input avec style design system. Focus = glow indigo."""
+    """Input avec style design system et relief subtil."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, icon_name: str = "", placeholder: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(36)
+        self.setFixedHeight(34)
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+        if icon_name:
+            from ankiforge.utils.icon_loader import load_phosphor_icon
+
+            icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED)
+            self.addAction(icon, QLineEdit.ActionPosition.LeadingPosition)
 
 
 class StyledTextEdit(QPlainTextEdit):
@@ -25,12 +32,97 @@ class StyledTextEdit(QPlainTextEdit):
 
 
 class GlowLineEdit(QLineEdit):
-    """Input avec glow accentué au focus. Usage: recherche, omnibox."""
+    """Input de recherche avec loupe intégrée, animation d'ombre au survol et contour accentué au focus."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, placeholder: str = "Rechercher...", parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(40)
-        apply_shadow(self, blur=8, offset_y=2)
+        self.setFixedHeight(34)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("role", "search")
+        self._is_focused = False
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+        self.setClearButtonEnabled(True)
+
+        from ankiforge.utils.icon_loader import load_phosphor_icon
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+
+        self._search_icon = load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED)
+        self.addAction(self._search_icon, QLineEdit.ActionPosition.LeadingPosition)
+
+        self._apply_base_style()
+
+        apply_shadow(self, blur=4, offset_y=1, color="rgba(0,0,0,0.22)")
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            self._shadow_effect = effect
+            self.anim = QPropertyAnimation(effect, b"blurRadius")
+            self.anim.setDuration(160)
+            self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self.default_blur = 4
+            self.hover_blur = 12
+            self.focus_blur = 18
+
+    def _apply_base_style(self) -> None:
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 4px 10px;
+                font-size: 12px;
+                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
+                selection-color: #ffffff;
+            }}
+            QLineEdit:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QLineEdit:focus {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+
+    def enterEvent(self, event) -> None:
+        if hasattr(self, "anim") and not (self.hasFocus() or self._is_focused):
+            self.anim.stop()
+            self.anim.setEndValue(self.hover_blur)
+            self.anim.start()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        if hasattr(self, "anim") and not (self.hasFocus() or self._is_focused):
+            self.anim.stop()
+            self.anim.setEndValue(self.default_blur)
+            self.anim.start()
+        super().leaveEvent(event)
+
+    def focusInEvent(self, event) -> None:
+        self._is_focused = True
+        if hasattr(self, "anim"):
+            self.anim.stop()
+            self.anim.setEndValue(self.focus_blur)
+            self.anim.start()
+            if hasattr(self, "_shadow_effect") and self._shadow_effect:
+                accent_qcolor = QColor(DesignTokens.ACCENT_PRIMARY)
+                accent_qcolor.setAlpha(120)
+                self._shadow_effect.setColor(accent_qcolor)
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event) -> None:
+        self._is_focused = False
+        if hasattr(self, "anim"):
+            self.anim.stop()
+            self.anim.setEndValue(self.default_blur)
+            self.anim.start()
+            if hasattr(self, "_shadow_effect") and self._shadow_effect:
+                self._shadow_effect.setColor(QColor(0, 0, 0, 56))
+        super().focusOutEvent(event)
 
 
 class ToggleSwitch(QWidget):

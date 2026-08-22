@@ -288,7 +288,8 @@ class IdePanel(QFrame):
 
         # Extra widgets zone (e.g. view toggles)
         self._extra_widgets_zone = QWidget()
-        self._extra_widgets_zone.setStyleSheet("border: none; background: transparent;")
+        self._extra_widgets_zone.setObjectName("extraWidgetsZone")
+        self._extra_widgets_zone.setStyleSheet("QWidget#extraWidgetsZone { border: none; background: transparent; }")
         self._extra_layout = QHBoxLayout(self._extra_widgets_zone)
         self._extra_layout.setContentsMargins(0, 0, 0, 0)
         self._extra_layout.setSpacing(4)
@@ -330,7 +331,8 @@ class IdePanel(QFrame):
 
         # --- Content (ide-panel-content) ---
         self.content_stack = QStackedWidget()
-        self.content_stack.setStyleSheet("border: none; background: transparent;")
+        self.content_stack.setObjectName("idePanelContentStack")
+        self.content_stack.setStyleSheet("QStackedWidget#idePanelContentStack { border: none; background: transparent; }")
         self.layout_v.addWidget(self.content_stack)
 
         self.placeholder_widget = PanelPlaceholderWidget(self)

@@ -121,3 +121,31 @@ def test_ide_layout_sidebar_toggle(qtbot, mock_db):
         sidebar.logo_icon.clicked.emit()
         assert not sidebar.is_collapsed
         assert sidebar.width() == DesignTokens.SIDEBAR_WIDTH_EXPANDED
+
+
+def test_flow_layout_wrapping_and_crud(qtbot):
+    """Vérifie le bon fonctionnement du FlowLayout (ajout, calcul de taille, suppression)."""
+    from PySide6.QtWidgets import QLabel, QWidget
+    from ankiforge.ui.components.flow_layout import FlowLayout
+
+    container = QWidget()
+    qtbot.addWidget(container)
+    layout = FlowLayout(container, margin=5, h_spacing=8, v_spacing=8)
+
+    labels = [QLabel(f"Label {i}") for i in range(10)]
+    for lbl in labels:
+        layout.addWidget(lbl)
+
+    assert layout.count() == 10
+    assert layout.horizontalSpacing() == 8
+    assert layout.verticalSpacing() == 8
+    assert layout.hasHeightForWidth() is True
+    assert layout.heightForWidth(200) > 0
+    assert layout.sizeHint().isValid()
+    assert layout.minimumSize().isValid()
+
+    # Retirer des éléments
+    item = layout.takeAt(0)
+    assert item is not None
+    assert layout.count() == 9
+    assert layout.itemAt(0) is not None

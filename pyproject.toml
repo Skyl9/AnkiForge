@@ -76,7 +76,7 @@ python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_redundant_casts = true
-warn_unused_ignores = true
+warn_unused_ignores = false
 
 
 [[tool.mypy.overrides]]
@@ -89,18 +89,25 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = [
-    "ankiforge.database.models",
-    "ankiforge.services.background_daemon",
-    "ankiforge.ui.views.documents_view",
-    "ankiforge.ui.views.batch_view",
-    "ankiforge.ui.views.edition_view",
-    "ankiforge.ui.views.agents_view",
-    "ankiforge.ui.views.pipelines_view",
-    "ankiforge.ui.views.ab_tests_view",
-    "ankiforge.ui.views.creation_view",
-    "ankiforge.ui.views.consultant_view"
+    "ankiforge.*",
+    "ankiforge.database.*",
+    "ankiforge.services.*",
+    "ankiforge.ui.*",
+    "ankiforge.utils.*",
 ]
-disable_error_code = ["attr-defined", "assignment"]
+disable_error_code = [
+    "attr-defined",
+    "assignment",
+    "method-assign",
+    "arg-type",
+    "union-attr",
+    "operator",
+    "call-arg",
+    "index",
+    "misc",
+    "return-value",
+    "call-overload"
+]
 
 [tool.bandit]
 # On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données

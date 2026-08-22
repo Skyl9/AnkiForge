@@ -53,6 +53,7 @@ Le moteur de style centralisé (`StyleEngine`) et la classe `DesignTokens` (`src
 | **Barres de Défilement** | `QScrollBar:vertical`, `QScrollBar:horizontal` | Fond rail<br>Curseur (handle)<br>Handle Hover | `transparent`, largeur 10px<br>`border_color`, `radius: 5px`<br>`text_muted` | Ascenseurs discrets et harmonieux pour le contenu long. |
 | **Badges Sémantiques** | `Badge` | Variantes `neutral`, `success`, `warning`, `danger`, `info` | Fond `bg_active` ou teinté sémantique (`color_green`, `color_yellow`, `color_red`, `color_blue`), texte contrasté | Étiquettes d'état (ON/OFF, Validé, Conflit, Erreur, IA). |
 | **Fenêtres & Modales** | `QDialog`, `QMainWindow` | Fond de fenêtre<br>En-tête modale | `bg_main`<br>`bg_panel`, bordure basse `border_color` | Paramètres généraux, History Time Machine, Modale de fusion. |
+| **Disposition Fluide & Wrap** | `FlowLayout` | Marges & Espacements | `h_spacing: 6px`, `v_spacing: 6px` | Disposition fluide avec passage à la ligne automatique pour les pilules, tags et badges. |
 
 ---
 

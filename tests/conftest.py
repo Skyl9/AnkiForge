@@ -82,20 +82,16 @@ def mock_db():
 
 @pytest.fixture(autouse=True)
 def cleanup_qt_widgets():
-    """Nettoie les widgets Qt et WebEngine à la fin de chaque test pour éviter les fuites mémoire."""
+    """Nettoie les fenêtres et widgets top-level Qt à la fin de chaque test."""
     yield
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance()
     if app:
         app.processEvents()
-        for widget in list(app.allWidgets()):
-            if hasattr(widget, "cleanup"):
-                try:
-                    widget.cleanup()
-                except Exception:
-                    pass
+        for widget in list(app.topLevelWidgets()):
             try:
+                widget.close()
                 widget.deleteLater()
             except Exception:
                 pass
