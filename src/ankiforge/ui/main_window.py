@@ -46,7 +46,7 @@ class SidebarItem(QPushButton):
         # Set icon
         self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.setIconSize(QSize(20, 20))
-        self.setText(f"  {self.title}")
+        self.setText(f"  {self.title.replace('&', '&&')}")
         self.toggled.connect(self._on_toggled)
 
     def set_collapsed(self, collapsed: bool) -> None:
@@ -55,7 +55,7 @@ class SidebarItem(QPushButton):
             self.setText("")
             self.setToolTip(self.title)
         else:
-            self.setText(f"  {self.title}")
+            self.setText(f"  {self.title.replace('&', '&&')}")
             self.setToolTip("")
 
     def _on_toggled(self, checked: bool) -> None:

@@ -46,24 +46,37 @@ class CardPreviewWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        # --- En-tête de contrôles (Barre de contrôles conforme maquette) ---
-        # --- En-tête de contrôles (Barre de contrôles) ---
+        # --- En-tête de contrôles (Barre de contrôles unifiée sur 1 seule ligne) ---
         self.controls_container = QWidget()
-        self.controls_layout = QVBoxLayout(self.controls_container)
-        self.controls_layout.setContentsMargins(8, 6, 8, 6)
-        self.controls_layout.setSpacing(4)
-
-        # Ligne 1 : Titre et thèmes / mode
-        row1_layout = QHBoxLayout()
-        row1_layout.setContentsMargins(0, 0, 0, 0)
-        row1_layout.setSpacing(8)
+        self.controls_layout = QHBoxLayout(self.controls_container)
+        self.controls_layout.setContentsMargins(6, 4, 6, 4)
+        self.controls_layout.setSpacing(6)
 
         if show_header:
-            lbl_preview = QLabel("PRÉVISUALISATION")
+            lbl_preview = QLabel("APERÇU")
             lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border: none;")
-            row1_layout.addWidget(lbl_preview)
+            self.controls_layout.addWidget(lbl_preview)
 
-        row1_layout.addStretch()
+        # Sélecteur de carte (Carte n°1, Carte n°2)
+        self.card_selector = StyledComboBox()
+        self.card_selector.setMinimumWidth(100)
+        self.card_selector.setFixedHeight(26)
+        self.card_selector.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 0 8px;
+                font-size: 11px;
+            }}
+            QComboBox:focus {{
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.controls_layout.addWidget(self.card_selector)
+
+        self.controls_layout.addStretch()
 
         # Boutons de bascule multi-appareils (Bureau / Tablette / Mobile)
         self.device_container = QWidget()
@@ -84,47 +97,25 @@ class CardPreviewWidget(QWidget):
         device_layout.addWidget(self.btn_desktop)
         device_layout.addWidget(self.btn_tablet)
         device_layout.addWidget(self.btn_mobile)
-
-        row1_layout.addWidget(self.device_container)
+        self.controls_layout.addWidget(self.device_container)
 
         self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip="Basculer le thème", size=22)
         self.btn_theme_toggle.clicked.connect(self._toggle_theme)
-        row1_layout.addWidget(self.btn_theme_toggle)
-
-        # Ligne 2 : Sélecteur de carte et bouton recto/verso
-        row2_layout = QHBoxLayout()
-        row2_layout.setContentsMargins(0, 0, 0, 0)
-        row2_layout.setSpacing(6)
-
-        # Sélecteur de carte (Carte n°1, Carte n°2)
-        self.card_selector = StyledComboBox()
-        self.card_selector.setMinimumWidth(110)
-        self.card_selector.setFixedHeight(26)
-        self.card_selector.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 8px;
-                font-size: 11px;
-            }}
-            QComboBox:focus {{
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+        self.controls_layout.addWidget(self.btn_theme_toggle)
 
         # Bouton pour basculer Recto/Verso
         self.btn_toggle_side = SecondaryButton("Voir Verso")
         self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_toggle_side.setFixedHeight(26)
+        self.btn_toggle_side.setStyleSheet("""
+            QPushButton {
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+        """)
         self.btn_toggle_side.clicked.connect(self._on_toggle_side)
-
-        row2_layout.addWidget(self.card_selector, 1)
-        row2_layout.addWidget(self.btn_toggle_side)
-
-        self.controls_layout.addLayout(row1_layout)
-        self.controls_layout.addLayout(row2_layout)
+        self.controls_layout.addWidget(self.btn_toggle_side)
 
         layout.addWidget(self.controls_container)
 
