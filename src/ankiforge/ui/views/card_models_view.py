@@ -55,7 +55,9 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
 from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
+from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
+from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.cloze_manager import is_template_cloze
@@ -375,7 +377,7 @@ class CardModelsView(QWidget):
         self.btn_import_json = SecondaryButton("Importer")
         self.btn_import_json.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_import_json.setFixedHeight(28)
-        self.btn_import_json.setToolTip("Importer un modèle au format JSON standardisé")
+        self.btn_import_json.setToolTip("Importer un modèle au format .afmodel ou .json")
 
         self.btn_del = DangerButton("Supprimer", ghost=True)
         self.btn_del.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
@@ -384,6 +386,17 @@ class CardModelsView(QWidget):
         row_actions2.addWidget(self.btn_import_json, 1)
         row_actions2.addWidget(self.btn_del, 1)
         list_toolbar.addLayout(row_actions2)
+
+        row_actions3 = QHBoxLayout()
+        row_actions3.setSpacing(5)
+
+        self.btn_starter_pack = SecondaryButton("Pack Communautaire")
+        self.btn_starter_pack.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_starter_pack.setFixedHeight(28)
+        self.btn_starter_pack.setToolTip("Explorer et installer les modèles communautaires (Starter Pack)")
+
+        row_actions3.addWidget(self.btn_starter_pack, 1)
+        list_toolbar.addLayout(row_actions3)
 
         list_layout.addLayout(list_toolbar)
 
@@ -682,6 +695,7 @@ class CardModelsView(QWidget):
         self.btn_new.clicked.connect(self._on_new_model)
         self.btn_duplicate.clicked.connect(self._on_duplicate_model)
         self.btn_import_json.clicked.connect(self._on_import_json)
+        self.btn_starter_pack.clicked.connect(self._on_open_starter_pack)
         self.btn_del.clicked.connect(self._on_delete_model)
 
         self.btn_export_json.clicked.connect(self._on_export_json)
@@ -1306,20 +1320,8 @@ class CardModelsView(QWidget):
             return
 
         self._sync_current_template_from_editors()
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Exporter le modèle de carte",
-            f"{self._current_model.name.replace(' ', '_').lower()}_model.json",
-            "Fichier Modèle AnkiForge (*.json)",
-        )
-        if file_path:
-            try:
-                json_str = CardModelIO.export_to_json(self._current_model)
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(json_str)
-                show_toast(self, f"Modèle exporté dans '{file_path}'.")
-            except Exception as e:
-                QMessageBox.critical(self, "Erreur d'exportation", f"Impossible d'exporter le fichier : {str(e)}")
+        dialog = ModelExportDialog(model=self._current_model, parent=self)
+        dialog.exec()
 
     @Slot()
     def _on_import_json(self) -> None:
@@ -1327,16 +1329,13 @@ class CardModelsView(QWidget):
             self,
             "Importer un modèle de carte",
             "",
-            "Fichier Modèle AnkiForge (*.json)",
+            "Paquets & Modèles AnkiForge (*.afmodel *.json);;Paquet .afmodel (*.afmodel);;Fichier JSON (*.json)",
         )
         if file_path:
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-
-                is_valid, parsed_data, err_msg = CardModelIO.validate_and_parse_json(content)
+                is_valid, parsed_data, err_msg = CardModelIO.read_model_file(file_path)
                 if not is_valid or not parsed_data:
-                    QMessageBox.critical(self, "Fichier Invalide", f"Le fichier JSON est invalide :\n{err_msg}")
+                    QMessageBox.critical(self, "Fichier Invalide", f"Le fichier de modèle est invalide :\n{err_msg}")
                     return
 
                 dialog = ModelImportDialog(model_data=parsed_data, parent=self)
@@ -1350,6 +1349,20 @@ class CardModelsView(QWidget):
                     show_toast(self, f"Modèle '{dialog.imported_model.name}' importé avec succès.")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur d'importation", f"Échec de l'import : {str(e)}")
+
+    @Slot()
+    def _on_open_starter_pack(self) -> None:
+        dialog = StarterPackDialog(parent=self)
+        dialog.model_installed.connect(self._on_starter_model_installed)
+        dialog.exec()
+
+    def _on_starter_model_installed(self, model_id: int) -> None:
+        self.refresh_data()
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            if item.data(Qt.ItemDataRole.UserRole).id == model_id:
+                self.list_widget.setCurrentItem(item)
+                break
 
     @Slot()
     def _on_delete_model(self) -> None:

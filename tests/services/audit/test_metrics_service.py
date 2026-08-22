@@ -10,7 +10,9 @@ from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
+    FolderModel,
     LinterRuleModel,
+    MediaModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
@@ -23,52 +25,25 @@ from ankiforge.services.audit.metrics_service import MetricsService
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
-    db.bind(
-        [
-            NoteModel,
-            CardModel,
-            DeckModel,
-            NoteTypeModel,
-            NoteVersionModel,
-            DocumentModel,
-            DocumentChunkModel,
-            NoteChunkLinkModel,
-            TokenUsageModel,
-            LinterRuleModel,
-            AuditRecordModel,
-        ]
-    )
-    db.create_tables(
-        [
-            NoteModel,
-            CardModel,
-            DeckModel,
-            NoteTypeModel,
-            NoteVersionModel,
-            DocumentModel,
-            DocumentChunkModel,
-            NoteChunkLinkModel,
-            TokenUsageModel,
-            LinterRuleModel,
-            AuditRecordModel,
-        ]
-    )
+    models = [
+        FolderModel,
+        MediaModel,
+        NoteModel,
+        CardModel,
+        DeckModel,
+        NoteTypeModel,
+        NoteVersionModel,
+        DocumentModel,
+        DocumentChunkModel,
+        NoteChunkLinkModel,
+        TokenUsageModel,
+        LinterRuleModel,
+        AuditRecordModel,
+    ]
+    db.bind(models)
+    db.create_tables(models)
     yield
-    db.drop_tables(
-        [
-            NoteModel,
-            CardModel,
-            DeckModel,
-            NoteTypeModel,
-            NoteVersionModel,
-            DocumentModel,
-            DocumentChunkModel,
-            NoteChunkLinkModel,
-            TokenUsageModel,
-            LinterRuleModel,
-            AuditRecordModel,
-        ]
-    )
+    db.drop_tables(models)
 
 
 def test_wozniak_health_score_empty_db():
@@ -103,16 +78,16 @@ def test_wozniak_health_score_with_issues():
 
 
 def test_smart_coverage_rate():
-    doc = DocumentModel.create(title="Doc 1", file_path="/tmp/doc1.pdf", file_type="pdf")
-    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, text_content="Chunk 1")
-    _c2 = DocumentChunkModel.create(document=doc, chunk_index=1, text_content="Chunk 2")
+    doc = DocumentModel.create(title="Doc 1", file_type="pdf")
+    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, content="Chunk 1", content_hash="h1")
+    _c2 = DocumentChunkModel.create(document=doc, chunk_index=1, content="Chunk 2", content_hash="h2")
 
     deck = DeckModel.create(name="Default")
     nt = NoteTypeModel.create(name="Basic", fields_schema=["Front", "Back"])
-    note = NoteModel.create(deck=deck, note_type=nt, fields={"Front": "Q", "Back": "A"})
+    note = NoteModel.create(deck=deck, note_type=nt)
 
     # Lier c1 à note
-    NoteChunkLinkModel.create(note=note, chunk=c1, similarity_score=0.95)
+    NoteChunkLinkModel.create(note=note, chunk=c1)
 
     res = MetricsService.get_smart_coverage_rate()
     assert res["total_chunks"] == 2

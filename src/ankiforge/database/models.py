@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 import datetime
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -60,9 +61,13 @@ class NoteTypeModel(BaseModel):
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (mid)
     name = CharField(unique=True)
-    fields_schema = TextField()  # JSON: Liste des noms des champs ["Front", "Back"]
-    templates = TextField()  # JSON: Les formats HTML des différentes cartes
-    css_style = TextField()  # Le CSS global du modèle
+    fields_schema = TextField(default='["Front", "Back"]')  # JSON: Liste des noms des champs ["Front", "Back"]
+    templates = TextField(default="[]")  # JSON: Les formats HTML des différentes cartes
+    css_style = TextField(default="")  # Le CSS global du modèle
+
+
+def generate_guid() -> str:
+    return uuid.uuid4().hex
 
 
 class NoteModel(BaseModel):
@@ -72,7 +77,7 @@ class NoteModel(BaseModel):
     cards: Any
 
     anki_id = BigIntegerField(unique=True, null=True)
-    guid = CharField(unique=True)
+    guid = CharField(unique=True, default=generate_guid)
     note_type = ForeignKeyField(NoteTypeModel, backref="notes")
     tags = TextField(null=True)
     status = CharField(default="new")
@@ -135,7 +140,7 @@ class NoteVersionModel(BaseModel):
 
     note = ForeignKeyField(NoteModel, backref="versions", on_delete="CASCADE")
     version_number = IntegerField(default=1)
-    content = TextField()  # Le JSON contenant "Recto" et "Verso"
+    content = TextField(default="{}")  # Le JSON contenant "Recto" et "Verso"
     created_at = DateTimeField(default=datetime.datetime.now)
     source = CharField(default="ai")  # Peut être 'ai', 'manual', ou 'import'
     is_active = BooleanField(default=True)  # Permet de savoir quelle version exporter
@@ -336,7 +341,7 @@ class DocumentModel(BaseModel):
     """Stocke les cours après extraction par Marker et leur lien vers la BDD Vectorielle."""
 
     title = CharField(unique=True)
-    content = TextField()
+    content = TextField(default="")
     chroma_collection_name = CharField(null=True)  # Nom de la collection ChromaDB pour le RAG
     created_at = DateTimeField(default=datetime.datetime.now)
     # 🆕 Clé étrangère vers le dossier. null=True permet d'avoir des docs "non rangés".
@@ -536,9 +541,9 @@ class DocumentChunkModel(BaseModel):
     """
 
     document = ForeignKeyField(DocumentModel, backref="chunks", on_delete="CASCADE")
-    chunk_index = IntegerField()  # Pour garder l'ordre du texte (0, 1, 2...)
-    content = TextField()
-    content_hash = CharField(index=True)  # Hash MD5 du texte brut
+    chunk_index = IntegerField(default=0)  # Pour garder l'ordre du texte (0, 1, 2...)
+    content = TextField(default="")
+    content_hash = CharField(index=True, default="")  # Hash MD5 du texte brut
     page_number = IntegerField(null=True)
     heading_path = CharField(null=True)
     is_profiled = BooleanField(default=False, null=True)
