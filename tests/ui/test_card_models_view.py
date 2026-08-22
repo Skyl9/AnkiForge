@@ -727,11 +727,11 @@ def test_card_models_13inch_responsive_layout_and_flow_widget(qtbot, mock_db):
     assert top_bar.btn_export_json.text() == "Exporter JSON"
     assert top_bar.btn_refresh.text() == "Rafraîchir"
 
-    # 2. Vérification de FlowWidget
-    flow_w = view.tags_container
-    assert flow_w.hasHeightForWidth() is True
-    h1 = flow_w.heightForWidth(300)
-    h2 = flow_w.heightForWidth(800)
+    # 2. Vérification de FlowLayout
+    flow_l = view.tags_flow_layout
+    assert flow_l.hasHeightForWidth() is True
+    h1 = flow_l.heightForWidth(300)
+    h2 = flow_l.heightForWidth(800)
     assert h1 >= h2  # Plus la largeur est petite, plus la hauteur s'adapte en passant à la ligne
 
     # 3. Vérification des Snippet Cards sans débordement horizontal

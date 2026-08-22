@@ -115,8 +115,7 @@ class FlowLayout(QLayout):
 
 class FlowWidget(QWidget):
     """
-    Conteneur spécialisé pour FlowLayout garantissant la propagation exacte de heightForWidth
-    vers les QScrollArea et les layouts parents.
+    Conteneur spécialisé pour FlowLayout avec nettoyage propre et politique d'expansion fluide.
     """
 
     def __init__(
@@ -129,17 +128,6 @@ class FlowWidget(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         self.flow_layout = FlowLayout(self, margin=margin, h_spacing=h_spacing, v_spacing=v_spacing)
-
-    def hasHeightForWidth(self) -> bool:
-        return True
-
-    def heightForWidth(self, width: int) -> int:
-        return self.flow_layout.heightForWidth(width)
-
-    def sizeHint(self) -> QSize:
-        w = max(self.width(), 100)
-        h = self.heightForWidth(w)
-        return QSize(w, h)
 
     def clear(self) -> None:
         """Supprime immédiatement tous les widgets enfants du layout."""

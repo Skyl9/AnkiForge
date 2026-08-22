@@ -1,3 +1,4 @@
+import pytest
 import json
 import uuid
 from typing import Any
@@ -32,6 +33,7 @@ class DummyCreationAIManager:
         return DummyCreationProvider()
 
 
+@pytest.mark.ui
 def test_creation_view_creation(qtbot, mock_db):
     """Vérifie l'instanciation de base de la vue de création."""
     view = CreationView(ai_manager=None)
@@ -39,6 +41,8 @@ def test_creation_view_creation(qtbot, mock_db):
     assert view is not None
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_creation_view_dag_generation_flow(qtbot, mock_db):
     """Vérifie le déclenchement asynchrone de la génération DAG et la réception des cartes."""
 
@@ -91,6 +95,7 @@ def test_creation_view_dag_generation_flow(qtbot, mock_db):
     view.thread_pool.waitForDone(2000)
 
 
+@pytest.mark.ui
 def test_human_validation_dialog(qtbot, mock_db):
     """Vérifie le fonctionnement de la modale HumanValidationDialog."""
     from ankiforge.services.ai.state import PipelineRunState
@@ -117,6 +122,7 @@ def test_human_validation_dialog(qtbot, mock_db):
     assert state.get_variable("map_items") == ["Concept 1 Modifié"]
 
 
+@pytest.mark.ui
 def test_creation_view_cancellation(qtbot, mock_db):
     """Vérifie l'annulation propre de la génération dans CreationView."""
     view = CreationView(ai_manager=None)

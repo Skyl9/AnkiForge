@@ -1,3 +1,4 @@
+import pytest
 from ankiforge.database.migration import run_migrations
 from ankiforge.database.models import db
 from peewee_migrate import Router
@@ -6,6 +7,7 @@ import os
 MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "ankiforge", "database", "migrations")
 
 
+@pytest.mark.integration
 def test_run_migrations_idempotency(mock_db):
     """
     Vérifie que run_migrations ne plante pas, crée la table migratehistory,

@@ -2,6 +2,7 @@
 Tests unitaires pour le Moteur de Style Centralisé (StyleEngine) d'AnkiForge.
 """
 
+import pytest
 from PySide6.QtWidgets import QApplication
 
 from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton
@@ -245,6 +246,7 @@ def test_force_global_repolish_and_live_signal(qtbot):
     assert DesignTokens.ACTIVE_THEME_ID == "dracula_light"
 
 
+@pytest.mark.slow
 def test_all_builtin_themes_compilation_and_application(qtbot):
     """Vérifie que la compilation QSS et l'application s'exécutent avec succès sur TOUS les thèmes intégrés."""
     from ankiforge.ui.style_engine import BUILTIN_THEMES

@@ -23,15 +23,11 @@ repos:
 
   - repo: local
     hooks:
-          - id: pytest
-            name: Run pytest
-        # On utilise 'uv' pour s'assurer que ça tourne dans le bon environnement
-            entry: uv run pytest tests/
-        # language: system dit à pre-commit d'utiliser l'environnement de votre PC
-            language: system
-            types: [ python ]
-        # pass_filenames: false force pytest à lancer toute la suite de tests,
-        # pas juste sur les fichiers qui viennent d'être modifiés.
-            pass_filenames: false
+      - id: pytest
+        name: Run fast unit tests
+        entry: uv run pytest -m "not slow and not integration" --timeout=2.0
+        language: system
+        types: [ python ]
+        pass_filenames: false
         # Optionnel: false permet de ne pas empêcher le commit si un test plante,
         # mais on veut être stricts ! Donc on omet ou on laisse l'action par défaut (qui bloque).

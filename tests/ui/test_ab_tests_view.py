@@ -1,3 +1,4 @@
+import pytest
 import json
 import uuid
 from typing import Any
@@ -50,6 +51,8 @@ class DummySingleABManager:
         return DummyABProviderA()
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_ab_tests_view_engine_comparison(qtbot):
     """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA et importer les cartes."""
     uid = uuid.uuid4().hex[:6]
@@ -110,6 +113,7 @@ def test_ab_tests_view_engine_comparison(qtbot):
     assert NoteModel.select().count() == initial_notes + 1
 
 
+@pytest.mark.ui
 def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
     """Vérifie le test A/B en Mode 1 (Prompts) et Mode 2 (Pipelines) ainsi que la navigation synchro."""
     uid = uuid.uuid4().hex[:6]

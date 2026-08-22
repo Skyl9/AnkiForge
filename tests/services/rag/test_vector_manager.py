@@ -1,9 +1,11 @@
+import pytest
 import uuid
 from ankiforge.database.models import DocumentModel, DocumentChunkModel
 from ankiforge.services.rag.vector_manager import VectorManager
 from ankiforge.services.ai.rag_service import RAGService
 
 
+@pytest.mark.integration
 def test_vector_manager_index_and_search(tmp_path):
     """Vérifie l'indexation FAISS locale et la recherche sémantique."""
     uid = uuid.uuid4().hex[:6]
@@ -37,6 +39,7 @@ def test_vector_manager_index_and_search(tmp_path):
     assert any("mitochondrie" in r["content"].lower() for r in results)
 
 
+@pytest.mark.integration
 def test_rag_service_facade(tmp_path):
     """Vérifie la façade RAGService."""
     uid = uuid.uuid4().hex[:6]

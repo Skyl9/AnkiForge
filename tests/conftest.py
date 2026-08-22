@@ -82,19 +82,21 @@ def mock_db():
 
 @pytest.fixture(autouse=True)
 def cleanup_qt_widgets():
-    """Nettoie les fenêtres et widgets top-level Qt à la fin de chaque test."""
+    """Nettoie les fenêtres et widgets Qt à la fin de chaque test."""
     yield
+    from PySide6.QtCore import QCoreApplication, QEvent
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance()
     if app:
-        app.processEvents()
-        for widget in list(app.topLevelWidgets()):
+        for widget in list(app.allWidgets()):
             try:
-                widget.close()
-                widget.deleteLater()
+                if widget.parent() is None:
+                    widget.close()
+                    widget.deleteLater()
             except Exception:
                 pass
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         app.processEvents()
 
 

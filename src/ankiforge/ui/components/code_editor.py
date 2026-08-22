@@ -1042,8 +1042,11 @@ class NativeCodeEditor(QPlainTextEdit):
         # 38px de base pour pastilles de couleur (10px) + puces d'alerte (6px) + marges
         return 38 + char_width * max(2, digits)
 
-    def _update_line_number_area_width(self, _: int) -> None:
-        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+    def _update_line_number_area_width(self, _: int = 0) -> None:
+        new_width = self.line_number_area_width()
+        margins = self.viewportMargins()
+        if margins.left() != new_width:
+            self.setViewportMargins(new_width, 0, 0, 0)
 
     def _update_line_number_area(self, rect: QRect, dy: int) -> None:
         if dy:

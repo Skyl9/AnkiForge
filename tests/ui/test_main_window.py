@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import patch
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.views.batch_view import BatchView
@@ -5,6 +6,8 @@ from ankiforge.ui.views.edition_view import EditionView
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_main_window_creation(qtbot, mock_db):
     with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
@@ -15,6 +18,8 @@ def test_main_window_creation(qtbot, mock_db):
         assert window.topbar.breadcrumb_lbl.text() == "Tableau de bord"
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_main_window_breadcrumb_navigation(qtbot, mock_db):
     with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)

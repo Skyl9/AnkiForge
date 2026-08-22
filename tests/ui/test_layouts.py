@@ -2,6 +2,7 @@
 Tests unitaires pour l'Architecture UI Enfichable (Layouts) d'AnkiForge.
 """
 
+import pytest
 from unittest.mock import patch
 from PySide6.QtWidgets import QStackedWidget, QWidget
 
@@ -15,6 +16,7 @@ from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.theme import DesignTokens
 
 
+@pytest.mark.ui
 def test_layout_manager_available_layouts():
     """Vérifie que tous les 4 layouts sont correctement enregistrés."""
     layouts = LayoutManager.get_available_layouts()
@@ -25,6 +27,8 @@ def test_layout_manager_available_layouts():
     assert "glassmorphism" in layout_ids
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_layout_instantiation_and_theme_sync(qtbot):
     """Vérifie l'instanciation de chaque classe de layout, l'injection du stacked widget et la synchro du thème."""
     stack = QStackedWidget()
@@ -47,6 +51,8 @@ def test_layout_instantiation_and_theme_sync(qtbot):
         layout.update_token_tracker("0.05", "1500")
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_main_window_layout_hot_reload_and_tokens(qtbot, mock_db):
     """Vérifie le basculement dynamique à chaud des layouts et de leurs tokens visuels sur MainWindow."""
     LayoutManager.save_layout_id("test_profile", "ide")
@@ -101,6 +107,8 @@ def test_layout_persistence(tmp_path):
     assert LayoutManager.get_saved_layout_id(profile) == "glassmorphism"
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 def test_ide_layout_sidebar_toggle(qtbot, mock_db):
     """Vérifie que le bouton de la sidebar et l'icône du logo rétractent et ré-étendent correctement la sidebar."""
     with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):

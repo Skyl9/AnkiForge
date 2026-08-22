@@ -1,3 +1,4 @@
+import pytest
 import csv
 from unittest.mock import patch, MagicMock
 
@@ -16,6 +17,7 @@ def test_extract_pb_string():
     assert result == "Hello"
 
 
+@pytest.mark.integration
 def test_handle_txt_import(tmp_path):
     """Génère un fichier TSV à la volée et vérifie son importation."""
     manager = StoreManager()
@@ -43,6 +45,7 @@ def test_handle_txt_import(tmp_path):
     assert "Cat" in note.versions.first().content
 
 
+@pytest.mark.integration
 @patch("ankiforge.services.cards.store_manager.sqlite3.connect")
 @patch("zipfile.ZipFile")
 def test_handle_apkg_mocked(mock_zip, mock_sqlite, tmp_path):

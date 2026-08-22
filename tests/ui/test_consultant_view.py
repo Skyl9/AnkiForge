@@ -1,3 +1,4 @@
+import pytest
 import json
 import uuid
 from typing import Any
@@ -105,6 +106,8 @@ def test_consultant_view_persona_scope_filtering(qtbot):
     assert not any(p_pipe.name in t for t in combo_texts)
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 def test_consultant_react_mcp_worker_execution(qtbot):
     """Vérifie le cycle complet du worker ReAct : appel d'outil MCP puis réponse finale."""
     DeckModel.create(name="Deck Cardio Test")

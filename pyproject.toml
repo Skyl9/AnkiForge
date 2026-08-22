@@ -58,6 +58,7 @@ dev = [
     "types-markdown>=3.10.2.20260408",
     "types-peewee>=4.0.0.20260408",
     "types-requests>=2.33.0.20260408",
+    "pytest-timeout>=2.4.0",
 ]
 
 [tool.ruff]
