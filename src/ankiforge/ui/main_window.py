@@ -284,6 +284,8 @@ class TopBar(QWidget):
     """Barre supérieure 60px : omnibox + actions daemon/tokens/notifications."""
 
     search_clicked = Signal()
+    import_clicked = Signal()
+    export_clicked = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -349,6 +351,15 @@ class TopBar(QWidget):
         self.daemon_status = DaemonStatusWidget()
         self.daemon_status.set_status("idle", "Daemon en attente")
         layout.addWidget(self.daemon_status, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Import & Export Actions
+        self.import_btn = IconButton("download-simple", tooltip="Importer un paquet Anki (Ctrl+Shift+I)", size=24)
+        self.import_btn.clicked.connect(self.import_clicked.emit)
+        layout.addWidget(self.import_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.export_btn = IconButton("upload-simple", tooltip="Exporter des cartes Anki (Ctrl+Shift+E)", size=24)
+        self.export_btn.clicked.connect(self.export_clicked.emit)
+        layout.addWidget(self.export_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Notifications
         self.notif_btn = IconButton("bell", tooltip="Notifications", size=24)
@@ -484,6 +495,8 @@ class MainWindow(QMainWindow):
         self._view_widgets: Dict[str, QWidget] = {}
         self._current_view_id: Optional[str] = None
         self._settings_window: Optional[QWidget] = None
+        self._import_dialog: Optional[QWidget] = None
+        self._export_dialog: Optional[QWidget] = None
         self.current_layout: Optional[BaseLayout] = None
         self.stacked_widget = QStackedWidget()
 
@@ -539,6 +552,8 @@ class MainWindow(QMainWindow):
         new_layout.view_selected.connect(self._on_view_selected)
         new_layout.settings_requested.connect(self._open_settings_modal)
         new_layout.search_clicked.connect(self._open_command_palette)
+        new_layout.import_requested.connect(self._open_import_dialog)
+        new_layout.export_requested.connect(self._open_export_dialog)
 
         new_layout.populate_navigation(self.VIEW_REGISTRY)
         new_layout.set_stacked_widget(self.stacked_widget)
@@ -557,7 +572,7 @@ class MainWindow(QMainWindow):
         screenshot_shortcut.activated.connect(self._take_debug_screenshot)
 
     def _setup_global_shortcuts(self) -> None:
-        """Configure les raccourcis clavier universels (Sauvegarde, Exécution, Recherche)."""
+        """Configure les raccourcis clavier universels (Sauvegarde, Exécution, Recherche, Import, Export)."""
         self.shortcut_save = QShortcut(QKeySequence.StandardKey.Save, self)
         self.shortcut_save.activated.connect(self._on_shortcut_save)
 
@@ -566,6 +581,12 @@ class MainWindow(QMainWindow):
 
         self.shortcut_find = QShortcut(QKeySequence.StandardKey.Find, self)
         self.shortcut_find.activated.connect(self._on_shortcut_find)
+
+        self.shortcut_import = QShortcut(QKeySequence("Ctrl+Shift+I"), self)
+        self.shortcut_import.activated.connect(self._open_import_dialog)
+
+        self.shortcut_export = QShortcut(QKeySequence("Ctrl+Shift+E"), self)
+        self.shortcut_export.activated.connect(self._open_export_dialog)
 
     def _on_shortcut_save(self) -> None:
         """Déclenche la sauvegarde sur la vue active si elle le supporte."""
@@ -729,7 +750,44 @@ class MainWindow(QMainWindow):
 
     def _open_command_palette(self) -> None:
         """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""
-        print("Command Palette Requested")
+        pass
+
+    def _open_import_dialog(self) -> None:
+        """Ouvre la boîte de dialogue d'importation d'archive Anki."""
+        from ankiforge.ui.dialogs.import_dialog import ImportDialog
+
+        if hasattr(self, "_import_dialog") and self._import_dialog is not None and self._import_dialog.isVisible():
+            self._import_dialog.raise_()
+            self._import_dialog.activateWindow()
+            return
+
+        self._import_dialog = ImportDialog(parent=self)
+        self._import_dialog.import_finished.connect(self._on_import_finished)
+        self._import_dialog.show()
+        self._import_dialog.raise_()
+        self._import_dialog.activateWindow()
+
+    def _on_import_finished(self, summary: dict) -> None:
+        """Rafraîchit la vue active après importation."""
+        current_widget = self.stacked_widget.currentWidget()
+        if hasattr(current_widget, "refresh_data"):
+            cast(Any, current_widget).refresh_data()
+        elif hasattr(current_widget, "load_data"):
+            cast(Any, current_widget).load_data()
+
+    def _open_export_dialog(self) -> None:
+        """Ouvre la boîte de dialogue d'exportation de paquets Anki."""
+        from ankiforge.ui.dialogs.export_dialog import ExportDialog
+
+        if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
+            self._export_dialog.raise_()
+            self._export_dialog.activateWindow()
+            return
+
+        self._export_dialog = ExportDialog(parent=self)
+        self._export_dialog.show()
+        self._export_dialog.raise_()
+        self._export_dialog.activateWindow()
 
     def closeEvent(self, event) -> None:
         # Close all floating windows

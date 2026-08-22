@@ -62,6 +62,8 @@ class IdeLayout(BaseLayout):
         # TopBar
         self.topbar = TopBar()
         self.topbar.search_clicked.connect(self.search_clicked.emit)
+        self.topbar.import_clicked.connect(self.import_requested.emit)
+        self.topbar.export_clicked.connect(self.export_requested.emit)
         self.content_layout.addWidget(self.topbar)
 
         # Conteneur pour le stacked widget

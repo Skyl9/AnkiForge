@@ -18,6 +18,8 @@ class BaseLayout(QWidget):
     settings_requested = Signal()
     toggle_sidebar_requested = Signal()
     search_clicked = Signal()
+    import_requested = Signal()
+    export_requested = Signal()
 
     def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)

@@ -124,6 +124,8 @@ class EditionView(QWidget):
 
         self._deck_modal: Optional[DeckSelectWindow] = None
         self._tag_modal: Optional[TagSelectWindow] = None
+        self._import_dialog: Optional[QWidget] = None
+        self._export_dialog: Optional[QWidget] = None
 
         self._all_notes: List[NoteModel] = []
         self._displayed_count: int = 0
@@ -251,6 +253,14 @@ class EditionView(QWidget):
         self.btn_open_tag.clicked.connect(self._show_tag_modal)
         filter_layout.addWidget(self.btn_open_tag)
         filter_layout.addStretch()
+
+        self.btn_import_apkg = IconButton("download-simple", tooltip="Importer un paquet Anki (.apkg)", size=22)
+        self.btn_import_apkg.clicked.connect(self._open_import_dialog)
+        filter_layout.addWidget(self.btn_import_apkg)
+
+        self.btn_export_apkg = IconButton("upload-simple", tooltip="Exporter des cartes Anki (.apkg)", size=22)
+        self.btn_export_apkg.clicked.connect(self._open_export_dialog)
+        filter_layout.addWidget(self.btn_export_apkg)
 
         table_box_layout.addWidget(filter_bar)
 
@@ -1311,6 +1321,35 @@ class EditionView(QWidget):
         for panel in self.findChildren(IdePanel):
             if hasattr(panel, "refresh_theme"):
                 panel.refresh_theme(profile)
+
+    def _open_import_dialog(self) -> None:
+        """Ouvre le dialogue d'importation depuis la vue Édition."""
+        from ankiforge.ui.dialogs.import_dialog import ImportDialog
+
+        if hasattr(self, "_import_dialog") and self._import_dialog is not None and self._import_dialog.isVisible():
+            self._import_dialog.raise_()
+            self._import_dialog.activateWindow()
+            return
+
+        self._import_dialog = ImportDialog(parent=self)
+        self._import_dialog.import_finished.connect(lambda _: self.refresh_data())
+        self._import_dialog.show()
+        self._import_dialog.raise_()
+        self._import_dialog.activateWindow()
+
+    def _open_export_dialog(self) -> None:
+        """Ouvre le dialogue d'exportation depuis la vue Édition."""
+        from ankiforge.ui.dialogs.export_dialog import ExportDialog
+
+        if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
+            self._export_dialog.raise_()
+            self._export_dialog.activateWindow()
+            return
+
+        self._export_dialog = ExportDialog(default_deck_id=self.current_folder_id, parent=self)
+        self._export_dialog.show()
+        self._export_dialog.raise_()
+        self._export_dialog.activateWindow()
 
 
 # Alias pour la rétrocompatibilité

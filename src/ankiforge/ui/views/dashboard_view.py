@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Optional
 from peewee import fn
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSplitter, QScrollArea, QGridLayout, QSizePolicy, QFileDialog
@@ -38,34 +39,36 @@ class StatsWorker(QThread):
 class DashboardHeroBanner(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(180)
+        self.setMinimumHeight(130)
+        self.setMaximumHeight(155)
         self._apply_style()
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(12)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(6)
 
         self.icon_label = QLabel()
         icon = load_phosphor_icon("ph.stack", color=DesignTokens.ACCENT_PRIMARY)
-        self.icon_label.setPixmap(icon.pixmap(48, 48))
+        self.icon_label.setPixmap(icon.pixmap(40, 40))
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_label.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.icon_label)
 
         self.title = QLabel('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % DesignTokens.ACCENT_PRIMARY)
-        font = QFont(DesignTokens.FONT_MAIN, 24, QFont.Weight.Bold)
+        font = QFont(DesignTokens.FONT_MAIN, 21, QFont.Weight.Bold)
         self.title.setFont(font)
         self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.title)
 
         self.subtitle = QLabel("Le générateur de cartes intelligent et votre assistant d'apprentissage personnel.")
-        self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 13))
+        self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 12))
         self.subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.subtitle)
 
-        apply_shadow(self, blur=20, offset_y=4, color="rgba(0, 0, 0, 0.2)")
+        apply_shadow(self, blur=16, offset_y=4, color="rgba(0, 0, 0, 0.18)")
 
     def _apply_style(self) -> None:
         self.setStyleSheet(f"""
@@ -78,7 +81,7 @@ class DashboardHeroBanner(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_style()
-        self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(48, 48))
+        self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(40, 40))
         self.title.setText('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % profile.accent_primary)
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
@@ -96,11 +99,11 @@ class DashboardActionButton(QFrame):
         self._apply_style()
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(16)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(12)
 
         self.icon_wrapper = QFrame()
-        self.icon_wrapper.setFixedSize(48, 48)
+        self.icon_wrapper.setFixedSize(42, 42)
         self.icon_wrapper.setStyleSheet(f"""
             QFrame {{
                 background-color: {bg_color};
@@ -113,23 +116,23 @@ class DashboardActionButton(QFrame):
         icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_label = QLabel()
         icon = load_phosphor_icon(icon_name, color=color)
-        self.icon_label.setPixmap(icon.pixmap(24, 24))
+        self.icon_label.setPixmap(icon.pixmap(22, 22))
         self.icon_label.setStyleSheet("border: none; background: transparent;")
         icon_layout.addWidget(self.icon_label)
 
         layout.addWidget(self.icon_wrapper)
 
         text_layout = QVBoxLayout()
-        text_layout.setSpacing(4)
+        text_layout.setSpacing(2)
 
         self.title_label = QLabel(title)
-        self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 14, QFont.Weight.Bold))
+        self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
         self.title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         text_layout.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(subtitle)
-        self.subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 12))
-        self.subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
+        self.subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 11))
+        self.subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         text_layout.addWidget(self.subtitle_label)
 
         layout.addLayout(text_layout)
@@ -243,23 +246,24 @@ class DashboardDropZone(QFrame):
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(16)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(10)
 
         self.icon_label = QLabel()
         icon = load_phosphor_icon("ph.upload-simple", color=DesignTokens.ACCENT_PRIMARY)
-        self.icon_label.setPixmap(icon.pixmap(40, 40))
+        self.icon_label.setPixmap(icon.pixmap(34, 34))
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon_label.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.icon_label)
 
         self.title = QLabel("Glissez un PDF ou Document ici")
-        self.title.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
+        self.title.setFont(QFont(DesignTokens.FONT_MAIN, 15, QFont.Weight.Bold))
         self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.title)
 
         self.subtitle = QLabel("L'analyse sémantique et la génération démarreront automatiquement.")
-        self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 13))
+        self.subtitle.setFont(QFont(DesignTokens.FONT_MAIN, 12))
         self.subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.subtitle)
@@ -283,7 +287,7 @@ class DashboardDropZone(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_style()
-        self.icon_label.setPixmap(load_phosphor_icon("ph.upload-simple", color=profile.accent_primary).pixmap(40, 40))
+        self.icon_label.setPixmap(load_phosphor_icon("ph.upload-simple", color=profile.accent_primary).pixmap(34, 34))
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
@@ -312,11 +316,11 @@ class StatItem(QFrame):
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(4)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(3)
+        layout.setContentsMargins(12, 10, 12, 10)
 
         self.val_label = QLabel(value)
-        self.val_label.setFont(QFont(DesignTokens.FONT_MAIN, 20, QFont.Weight.Bold))
+        self.val_label.setFont(QFont(DesignTokens.FONT_MAIN, 18, QFont.Weight.Bold))
         color = value_color if value_color else DesignTokens.TEXT_PRIMARY
         self.val_label.setStyleSheet(f"color: {color}; border: none; background: transparent;")
         self.val_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -353,6 +357,8 @@ class DashboardView(QWidget):
     def __init__(self, ai_manager: Any = None, parent: QWidget | None = None):
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self._import_dialog: Optional[QWidget] = None
+        self._export_dialog: Optional[QWidget] = None
         self.setup_ui()
 
     def _navigate(self, view_id: str, data: Optional[dict] = None) -> None:
@@ -378,8 +384,8 @@ class DashboardView(QWidget):
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(24, 24, 24, 24)
-        content_layout.setSpacing(24)
+        content_layout.setContentsMargins(20, 18, 20, 18)
+        content_layout.setSpacing(16)
 
         self.hero_banner = DashboardHeroBanner()
         content_layout.addWidget(self.hero_banner)
@@ -388,7 +394,7 @@ class DashboardView(QWidget):
         self.actions_icon = QLabel()
         self.actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.TEXT_PRIMARY).pixmap(16, 16))
         self.actions_title = QLabel("Actions Rapides")
-        self.actions_title.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
+        self.actions_title.setFont(QFont(DesignTokens.FONT_MAIN, 15, QFont.Weight.Bold))
         self.actions_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
         actions_header.addWidget(self.actions_icon)
         actions_header.addWidget(self.actions_title)
@@ -396,18 +402,21 @@ class DashboardView(QWidget):
         content_layout.addLayout(actions_header)
 
         actions_layout = QHBoxLayout()
-        actions_layout.setSpacing(16)
+        actions_layout.setSpacing(10)
 
         self.btn_forge = DashboardActionButton("Forger des cartes", "Depuis un document", "ph.hammer", DesignTokens.COLOR_BLUE, DesignTokens.BG_ACTIVE)
         self.btn_forge.clicked.connect(lambda: self._navigate("creation"))
+        self.btn_import = DashboardActionButton("Importer .apkg", "Paquet ou collection", "ph.download-simple", DesignTokens.COLOR_YELLOW, DesignTokens.BG_ACTIVE)
+        self.btn_import.clicked.connect(self._open_import_dialog)
+        self.btn_export = DashboardActionButton("Exporter .apkg", "Vers Anki Desktop", "ph.upload-simple", DesignTokens.ACCENT_PRIMARY, DesignTokens.BG_ACTIVE)
+        self.btn_export.clicked.connect(self._open_export_dialog)
         self.btn_library = DashboardActionButton("Bibliothèque", "Naviguer les paquets", "ph.books", DesignTokens.COLOR_GREEN, DesignTokens.BG_ACTIVE)
         self.btn_library.clicked.connect(lambda: self._navigate("documents"))
-        self.btn_consultant = DashboardActionButton("Consulter l'IA", "Configurer les agents", "ph.robot", DesignTokens.ACCENT_PRIMARY, DesignTokens.BG_ACTIVE)
-        self.btn_consultant.clicked.connect(lambda: self._navigate("consultant"))
 
         actions_layout.addWidget(self.btn_forge)
+        actions_layout.addWidget(self.btn_import)
+        actions_layout.addWidget(self.btn_export)
         actions_layout.addWidget(self.btn_library)
-        actions_layout.addWidget(self.btn_consultant)
         content_layout.addLayout(actions_layout)
 
         self.drop_zone = DashboardDropZone()
@@ -428,8 +437,8 @@ class DashboardView(QWidget):
         stats_panel = IdePanel(detachable=True)
         stats_widget = QWidget()
         stats_layout = QGridLayout(stats_widget)
-        stats_layout.setContentsMargins(16, 16, 16, 16)
-        stats_layout.setSpacing(12)
+        stats_layout.setContentsMargins(12, 12, 12, 12)
+        stats_layout.setSpacing(10)
 
         self.stat_cards_forged = StatItem("1,245", "Cartes Forgées")
         self.stat_success_rate = StatItem("98%", "Taux Succès IA", DesignTokens.COLOR_GREEN)
@@ -448,8 +457,8 @@ class DashboardView(QWidget):
         activity_panel = IdePanel(detachable=True)
         activity_widget = QWidget()
         activity_layout = QVBoxLayout(activity_widget)
-        activity_layout.setContentsMargins(12, 12, 12, 12)
-        activity_layout.setSpacing(8)
+        activity_layout.setContentsMargins(10, 10, 10, 10)
+        activity_layout.setSpacing(6)
 
         # Zone responsive avec scrollarea
         activity_scroll = QScrollArea()
@@ -462,7 +471,7 @@ class DashboardView(QWidget):
         activity_inner.setStyleSheet("background: transparent;")
         self.activity_list_layout = QVBoxLayout(activity_inner)
         self.activity_list_layout.setContentsMargins(0, 0, 0, 0)
-        self.activity_list_layout.setSpacing(8)
+        self.activity_list_layout.setSpacing(6)
         self.activity_list_layout.addStretch(1)
 
         activity_scroll.setWidget(activity_inner)
@@ -478,13 +487,13 @@ class DashboardView(QWidget):
 
         splitter.addWidget(right_container)
 
-        right_container.setSizes([220, 380])
+        right_container.setSizes([160, 380])
         right_container.setCollapsible(0, False)
         right_container.setCollapsible(1, False)
         right_container.setStretchFactor(0, 1)
         right_container.setStretchFactor(1, 2)
 
-        splitter.setSizes([900, 360])
+        splitter.setSizes([960, 300])
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
         splitter.setStretchFactor(0, 3)
@@ -496,9 +505,41 @@ class DashboardView(QWidget):
         self.worker.feed_loaded.connect(self._on_feed_loaded)
         self.worker.start()
 
-    def _on_file_selected(self, file_path: str):
-        # We navigate to creation view and maybe pass the file path later
-        self._navigate("creation")
+    def _on_file_selected(self, file_path: str) -> None:
+        p = Path(file_path)
+        if p.suffix.lower() in [".apkg", ".colpkg", ".txt"]:
+            self._open_import_dialog(initial_path=file_path)
+        else:
+            self._navigate("creation")
+
+    def _open_import_dialog(self, initial_path: Optional[str] = None) -> None:
+        from ankiforge.ui.dialogs.import_dialog import ImportDialog
+
+        if hasattr(self, "_import_dialog") and self._import_dialog is not None and self._import_dialog.isVisible():
+            if initial_path:
+                self._import_dialog.path_input.setText(initial_path)
+            self._import_dialog.raise_()
+            self._import_dialog.activateWindow()
+            return
+
+        self._import_dialog = ImportDialog(initial_path=initial_path, parent=self)
+        self._import_dialog.import_finished.connect(lambda _: self.refresh_data())
+        self._import_dialog.show()
+        self._import_dialog.raise_()
+        self._import_dialog.activateWindow()
+
+    def _open_export_dialog(self) -> None:
+        from ankiforge.ui.dialogs.export_dialog import ExportDialog
+
+        if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
+            self._export_dialog.raise_()
+            self._export_dialog.activateWindow()
+            return
+
+        self._export_dialog = ExportDialog(parent=self)
+        self._export_dialog.show()
+        self._export_dialog.raise_()
+        self._export_dialog.activateWindow()
 
     def _on_activity_card_clicked(self, note_id: int) -> None:
         self._navigate("edition", {"note_id": note_id})

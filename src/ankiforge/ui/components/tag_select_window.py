@@ -37,7 +37,7 @@ class TagSelectWindow(QWidget):
         """)
 
         # 1. Content
-        self.setWindowFlags(Qt.WindowType.Window)
+        self.setWindowFlags(Qt.WindowType.Dialog if parent else Qt.WindowType.Window)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
