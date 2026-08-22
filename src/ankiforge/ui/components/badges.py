@@ -63,6 +63,88 @@ class Badge(QLabel):
         self.set_variant(self.current_variant, profile)
 
 
+class StatusBadge(QWidget):
+    """Pill badge élégant avec icône Phosphor vectorielle et texte stylisé."""
+
+    def __init__(self, text: str, icon_name: str = "", variant: str = "neutral", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.badge_text = text
+        self.icon_name = icon_name
+        self.current_variant = variant
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(5)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+
+        self.text_lbl = QLabel(text)
+        self.text_lbl.setStyleSheet("border: none; background: transparent; font-size: 10px; font-weight: bold; letter-spacing: 0.4px;")
+
+        layout.addWidget(self.icon_lbl)
+        layout.addWidget(self.text_lbl)
+
+        self._apply_style()
+
+    def set_status(self, text: str, icon_name: str, variant: str) -> None:
+        self.badge_text = text
+        self.icon_name = icon_name
+        self.current_variant = variant
+        self.text_lbl.setText(text)
+        self._apply_style()
+
+    def _apply_style(self, profile: Any = None) -> None:
+        from ankiforge.utils.icon_loader import load_phosphor_icon
+
+        _ = profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY
+        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+        text_muted = profile.text_muted if profile else DesignTokens.TEXT_MUTED
+        color_green = profile.color_green if profile else DesignTokens.COLOR_GREEN
+        color_yellow = profile.color_yellow if profile else DesignTokens.COLOR_YELLOW
+        color_blue = profile.color_blue if profile else DesignTokens.COLOR_BLUE
+        color_red = profile.color_red if profile else DesignTokens.COLOR_RED
+
+        variant = self.current_variant
+        bg_style = ""
+        fg_color = text_muted
+
+        if variant == "success":
+            bg_style = "background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3);"
+            fg_color = color_green
+        elif variant == "warning":
+            bg_style = "background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3);"
+            fg_color = color_yellow
+        elif variant == "info":
+            bg_style = "background-color: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3);"
+            fg_color = color_blue
+        elif variant in ("danger", "error"):
+            bg_style = "background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);"
+            fg_color = color_red
+        else:
+            bg_style = f"background-color: {bg_panel}; border: 1px solid {border_col};"
+            fg_color = text_muted
+
+        self.setStyleSheet(f"""
+            QWidget {{
+                {bg_style}
+                border-radius: 9999px;
+            }}
+        """)
+        self.text_lbl.setStyleSheet(f"color: {fg_color}; border: none; background: transparent; font-size: 10px; font-weight: bold; letter-spacing: 0.4px;")
+        if self.icon_name:
+            icon = load_phosphor_icon(self.icon_name, color=fg_color)
+            self.icon_lbl.setPixmap(icon.pixmap(12, 12))
+            self.icon_lbl.show()
+        else:
+            self.icon_lbl.hide()
+
+    def refresh_theme(self, profile: Any) -> None:
+        self._apply_style(profile)
+
+
 class TagButton(QPushButton):
     """Tag pill avec code font + tint accent. Usage: tags de notes."""
 

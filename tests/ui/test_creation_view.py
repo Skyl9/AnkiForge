@@ -32,15 +32,16 @@ class DummyCreationAIManager:
         return DummyCreationProvider()
 
 
-def test_creation_view_creation(qtbot):
+def test_creation_view_creation(qtbot, mock_db):
     """Vérifie l'instanciation de base de la vue de création."""
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
     assert view is not None
 
 
-def test_creation_view_dag_generation_flow(qtbot):
+def test_creation_view_dag_generation_flow(qtbot, mock_db):
     """Vérifie le déclenchement asynchrone de la génération DAG et la réception des cartes."""
+
     uid = uuid.uuid4().hex[:6]
     deck = DeckModel.create(name=f"Deck Test {uid}")
     nt = NoteTypeModel.create(
@@ -65,13 +66,16 @@ def test_creation_view_dag_generation_flow(qtbot):
     view.refresh_data()
 
     # Sélectionner le pipeline et le moteur dans les combos de l'IHM
-    idx_p = view.pipeline_combo.findText(str(pipe.name))
-    if idx_p != -1:
-        view.pipeline_combo.setCurrentIndex(idx_p)
+    for i in range(view.pipeline_combo.count()):
+        if view.pipeline_combo.itemData(i) and getattr(view.pipeline_combo.itemData(i), "id", None) == pipe.id:
+            view.pipeline_combo.setCurrentIndex(i)
+            break
 
-    idx_e = view.engine_combo.findText(f"Mock IA {uid}")
-    if idx_e != -1:
-        view.engine_combo.setCurrentIndex(idx_e)
+    for i in range(view.engine_combo.count()):
+        data = view.engine_combo.itemData(i)
+        if data and getattr(data, "model_id", "") == f"dummy_{uid}":
+            view.engine_combo.setCurrentIndex(i)
+            break
 
     # Déclencher la génération asynchrone
     view._on_generate(text_source="Texte source sur le DAG et le Copilote", source_title="Test Document")
@@ -84,8 +88,10 @@ def test_creation_view_dag_generation_flow(qtbot):
     assert view.generated_cards[0]["Back"] == "Un graphe orienté acyclique."
     assert view.results_table.rowCount() == 2
 
+    view.thread_pool.waitForDone(2000)
 
-def test_human_validation_dialog(qtbot):
+
+def test_human_validation_dialog(qtbot, mock_db):
     """Vérifie le fonctionnement de la modale HumanValidationDialog."""
     from ankiforge.services.ai.state import PipelineRunState
 
@@ -111,7 +117,7 @@ def test_human_validation_dialog(qtbot):
     assert state.get_variable("map_items") == ["Concept 1 Modifié"]
 
 
-def test_creation_view_cancellation(qtbot):
+def test_creation_view_cancellation(qtbot, mock_db):
     """Vérifie l'annulation propre de la génération dans CreationView."""
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)

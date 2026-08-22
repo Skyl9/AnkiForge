@@ -11,10 +11,10 @@ Studio de Création AnkiForge — 100% Conforme aux Exigences & Raccordement Mé
 import json
 import logging
 import markdown
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
-from PySide6.QtCore import Qt, Signal, Slot, QThreadPool
-from PySide6.QtGui import QCloseEvent, QColor
+from PySide6.QtCore import Qt, Signal, Slot, QThreadPool, QEvent
+from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -51,6 +51,7 @@ from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.components import (
     Badge,
+    StatusBadge,
     DangerButton,
     IconButton,
     IdePanel,
@@ -379,6 +380,7 @@ class CreationView(QWidget):
         self._deck_modal: Optional[DeckSelectWindow] = None
         self.models_cache: list[NoteTypeModel] = []
         self.open_editors: dict[str, DocumentEditorWidget] = {}
+        self.thread_pool = QThreadPool(self)
 
         self._setup_ui()
         self._connect_signals()
@@ -768,14 +770,15 @@ class CreationView(QWidget):
         table_container.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
         self.results_table = StyledTableWidget(["Recto", "Verso", "Statut"])
-        # Bouton Sauvegarder retiré d'ici, déplacé dans la barre globale
         self.results_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
-        # Redimensionnement responsive des colonnes
+        # Redimensionnement responsive des colonnes et garantie anti-écrasement
         self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setMinimumSectionSize(125)
         self.results_table.itemSelectionChanged.connect(self._on_table_selection_changed)
         self.results_table.itemChanged.connect(self._on_cell_edited)
+        self.results_table.installEventFilter(self)
         table_layout.addWidget(self.results_table, 1)
 
         self.results_splitter.addWidget(table_container)
@@ -792,19 +795,23 @@ class CreationView(QWidget):
 
         self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge (0)")
         self.btn_save_anki.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
-        self.btn_save_anki.setEnabled(False)  # Activé uniquement quand des cartes sont Validées
+        self.btn_save_anki.setEnabled(False)
+        self.btn_save_anki.setToolTip("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)")
         main_bot_toolbar.addWidget(self.btn_save_anki)
 
         main_bot_toolbar.addStretch()
 
         self.btn_rejeter = DangerButton("Rejeter", ghost=True)
         self.btn_rejeter.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+        self.btn_rejeter.setToolTip("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)")
 
         self.btn_editer = SecondaryButton("Éditer")
         self.btn_editer.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_editer.setToolTip("Modifier le texte de la carte (Raccourci: E)")
 
         self.btn_valider = PrimaryButton("Garder")
         self.btn_valider.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_valider.setToolTip("Garder la carte active et passer à la suivante (Raccourci: Espace ou V)")
 
         main_bot_toolbar.addWidget(self.btn_rejeter)
         main_bot_toolbar.addWidget(self.btn_editer)
@@ -1011,12 +1018,6 @@ class CreationView(QWidget):
 
     # Statuts considérés comme "décision prise" (aucune action utilisateur requise)
     _FINAL_STATUSES = frozenset({"Enregistrée", "Refusée"})
-
-    def is_dirty(self) -> bool:
-        """Retourne True si des cartes 'Validée' non encore persistées existent.
-        Utilisé par la fenêtre principale pour afficher l'indicateur de modifications.
-        """
-        return self._has_unsaved_changes()
 
     @Slot()
     def _on_create_new_deck(self) -> None:
@@ -1268,6 +1269,7 @@ class CreationView(QWidget):
             initial_state=initial_state,
             ai_provider=provider,
         )
+        self.orchestrator.setAutoDelete(False)
         self.orchestrator.signals.step_started.connect(self._on_orchestrator_step_started)
         self.orchestrator.signals.step_progress.connect(self._on_orchestrator_step_progress)
         self.orchestrator.signals.step_completed.connect(self._on_orchestrator_step_completed)
@@ -1276,7 +1278,7 @@ class CreationView(QWidget):
         self.orchestrator.signals.error_occurred.connect(self._on_generation_error)
         self.orchestrator.signals.cancelled.connect(self._on_generation_cancelled)
 
-        QThreadPool.globalInstance().start(self.orchestrator)
+        self.thread_pool.start(self.orchestrator)
 
     @Slot(int, str)
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
@@ -1373,6 +1375,21 @@ class CreationView(QWidget):
         self._set_all_generation_states(False)
         show_toast(self, "Génération annulée.", is_error=False)
 
+    def eventFilter(self, obj: Any, event: Any) -> bool:
+        if obj == self.results_table and event.type() == QEvent.Type.KeyPress:
+            key_event = cast(QKeyEvent, event)
+            key = key_event.key()
+            if key in (Qt.Key.Key_Space, Qt.Key.Key_V):
+                self._on_validate_card()
+                return True
+            elif key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace, Qt.Key.Key_R):
+                self._on_reject_card()
+                return True
+            elif key == Qt.Key.Key_E:
+                self._on_edit_card()
+                return True
+        return super().eventFilter(obj, event)
+
     @Slot()
     def _on_cancel_generation(self) -> None:
         if self.orchestrator:
@@ -1382,7 +1399,6 @@ class CreationView(QWidget):
 
     def _populate_results_table(self) -> None:
         """Remplit le tableau des cartes générées en préservant la sélection courante."""
-        # Sauvegarder l'index actuel avant le refresh pour restaurer la sélection
         saved_index = self.current_preview_index
 
         self.results_table.blockSignals(True)
@@ -1391,19 +1407,13 @@ class CreationView(QWidget):
 
         col_count = self.results_table.columnCount()
 
-        _STATUS_VARIANT = {
-            "Acceptée": "success",
-            "Validée": "success",
-            "Refusée": "error",
-            "À valider": "warning",
-            "En attente": "warning",
-        }
-        _STATUS_ICON = {
-            "Acceptée": "✅",
-            "Validée": "✅",
-            "Refusée": "❌",
-            "À valider": "⏳",
-            "En attente": "⏳",
+        _STATUS_META = {
+            "Acceptée": ("Validée", "ph.check-circle", "success"),
+            "Validée": ("Validée", "ph.check-circle", "success"),
+            "Refusée": ("Refusée", "ph.x-circle", "danger"),
+            "À valider": ("À valider", "ph.hourglass-simple", "warning"),
+            "En attente": ("En attente", "ph.hourglass-simple", "warning"),
+            "Enregistrée": ("Enregistrée", "ph.floppy-disk", "info"),
         }
 
         for row, card in enumerate(self.generated_cards):
@@ -1414,7 +1424,7 @@ class CreationView(QWidget):
 
             # --- Colonne Recto ---
             front_item = QTableWidgetItem(front_text)
-            front_item.setToolTip(front_text)  # Tooltip pour le texte complet
+            front_item.setToolTip(front_text)
             self.results_table.setItem(row, 0, front_item)
 
             # --- Colonne Verso ---
@@ -1423,28 +1433,25 @@ class CreationView(QWidget):
                 back_item.setToolTip(back_text)
                 self.results_table.setItem(row, 1, back_item)
 
-            # --- Colonne Statut (badge inline) ---
-            variant = _STATUS_VARIANT.get(status_text, "warning")
-            icon = _STATUS_ICON.get(status_text, "⏳")
+            # --- Colonne Statut (badge vectoriel Phosphor) ---
+            label, icon_name, variant = _STATUS_META.get(status_text, (status_text, "ph.hourglass-simple", "warning"))
 
             badge_container = QWidget()
             badge_layout = QHBoxLayout(badge_container)
             badge_layout.setContentsMargins(6, 2, 6, 2)
-            badge_layout.setSpacing(4)
-            badge = Badge(f"{icon} {status_text}", variant=variant)
+            badge_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge = StatusBadge(label, icon_name=icon_name, variant=variant)
             badge_layout.addWidget(badge)
-            badge_layout.addStretch()
 
             status_col = col_count - 1
             self.results_table.setItem(row, status_col, QTableWidgetItem())
             self.results_table.setCellWidget(row, status_col, badge_container)
 
-            # Hauteur de ligne confortable pour la lisibilité
-            self.results_table.setRowHeight(row, 36)
+            self.results_table.setRowHeight(row, 38)
 
         self.results_table.blockSignals(False)
 
-        # Restaurer la sélection sur la ligne courante (pas forcer la ligne 0)
+        # Restaurer la sélection sur la ligne courante
         if self.generated_cards:
             target = max(0, min(saved_index, len(self.generated_cards) - 1))
             self.results_table.selectRow(target)
@@ -1505,10 +1512,6 @@ class CreationView(QWidget):
             self.results_table.selectRow(self.current_preview_index)
             self._update_card_preview()
 
-    def _has_unsaved_changes(self) -> bool:
-        """Retourne True si des cartes Validées non encore sauvegardées dans la Forge existent."""
-        return any(card.get("status") == "Validée" for card in self.generated_cards)
-
     def _all_cards_processed(self) -> bool:
         """Retourne True si TOUTES les cartes ont un statut final (Enregistrée ou Refusée).
         Aucune carte ne reste en 'À valider' ou 'Validée'.
@@ -1529,29 +1532,40 @@ class CreationView(QWidget):
             counts[s] = counts.get(s, 0) + 1
         return counts
 
+    def is_dirty(self) -> bool:
+        """Indique si la vue contient des cartes générées non encore enregistrées."""
+        return any(card.get("status") in ("Validée", "À valider", "En attente") for card in self.generated_cards)
+
     def _refresh_save_button(self) -> None:
-        """Met à jour le label et l'état du bouton Enregistrer selon les cartes Validées."""
-        count = self._count_validated()
-        self.btn_save_anki.setText(f"Enregistrer dans la Forge ({count})")
-        self.btn_save_anki.setEnabled(count > 0)
+        """Met à jour le label et l'état du bouton Enregistrer selon les cartes."""
+        validated_count = self._count_validated()
+        total_count = len(self.generated_cards)
+        if total_count > 0:
+            self.btn_save_anki.setText(f"Enregistrer dans la Forge ({validated_count}/{total_count})")
+            self.btn_save_anki.setEnabled(True)
+        else:
+            self.btn_save_anki.setText("Enregistrer dans la Forge (0)")
+            self.btn_save_anki.setEnabled(False)
 
     @Slot()
     def _on_validate_card(self) -> None:
         """Marque la carte comme Acceptée (statut → Validée) puis passe automatiquement à la suivante."""
         if not self.generated_cards or not (0 <= self.current_preview_index < len(self.generated_cards)):
             return
-        # Sauvegarder l'index avant le refresh du tableau
         next_index = self.current_preview_index + 1
         self.generated_cards[self.current_preview_index]["status"] = "Validée"
         self._populate_results_table()
-        show_toast(self, "Carte acceptée !")
-        # Navigation automatique vers la carte suivante
+        show_toast(self, "✅ Carte acceptée !")
+
+        # Navigation automatique fluide vers la carte suivante
         if next_index < len(self.generated_cards):
             self.current_preview_index = next_index
             self.results_table.selectRow(self.current_preview_index)
             self._update_card_preview()
         else:
-            show_toast(self, "✅ Toutes les cartes ont été traitées !", is_error=False)
+            self.results_table.selectRow(self.current_preview_index)
+            self._update_card_preview()
+            show_toast(self, "✅ Toutes les cartes ont été passées en revue !", is_error=False)
 
     @Slot()
     def _on_edit_card(self) -> None:
@@ -1561,7 +1575,7 @@ class CreationView(QWidget):
             return
 
         card = self.generated_cards[self.current_preview_index]
-        previous_status = card.get("status", "À valider")  # Mémoriser le statut
+        previous_status = card.get("status", "À valider")
 
         dlg = CardEditDialog(
             front=card.get("Front", card.get("Recto", "")),
@@ -1572,37 +1586,80 @@ class CreationView(QWidget):
             new_front, new_back = dlg.get_data()
             card["Front"] = new_front
             card["Back"] = new_back
-            card["status"] = previous_status  # Restaurer explicitement le statut
-            self._populate_results_table()  # Rafraîchit le tableau (sans sauvegarder)
-            self._update_card_preview()  # Met à jour l'aperçu
-            show_toast(self, "✏️ Carte modifiée en mémoire (non encore enregistrée dans la Forge).")
+            card["status"] = previous_status
+            self._populate_results_table()
+            self._update_card_preview()
+            show_toast(self, "✏️ Carte modifiée en mémoire.")
 
     @Slot()
     def _on_reject_card(self) -> None:
         """Marque la carte comme Refusée (sans la supprimer) et passe à la suivante."""
         if self.generated_cards and 0 <= self.current_preview_index < len(self.generated_cards):
+            next_index = self.current_preview_index + 1
             card = self.generated_cards[self.current_preview_index]
             card["status"] = "Refusée"
             self._populate_results_table()
-            show_toast(self, f"Carte '{card.get('Front', '')[:20]}...' marquée Refusée.")
+            show_toast(self, f"❌ Carte '{card.get('Front', '')[:20]}...' marquée Refusée.")
+
             # Navigation automatique vers la carte suivante
-            if self.current_preview_index < len(self.generated_cards) - 1:
-                self._on_next_card()
-            else:
+            if next_index < len(self.generated_cards):
+                self.current_preview_index = next_index
+                self.results_table.selectRow(self.current_preview_index)
                 self._update_card_preview()
+            else:
+                self.results_table.selectRow(self.current_preview_index)
+                self._update_card_preview()
+                show_toast(self, "Toutes les cartes ont été passées en revue.", is_error=False)
 
     @Slot()
     def _on_save_anki(self) -> None:
-        """Enregistre dans la Forge uniquement les cartes ayant le statut 'Validée'.
-        Les cartes 'À valider', 'Refusée' ou modifiées sont ignorées."""
+        """Enregistre dans la Forge les cartes avec arbitrage si des cartes restent en attente."""
+        if not self.generated_cards:
+            show_toast(self, "Aucune carte générée à enregistrer.", is_error=True)
+            return
+
+        pending_cards = [c for c in self.generated_cards if c.get("status") in ("À valider", "En attente")]
         validated_cards = [c for c in self.generated_cards if c.get("status") == "Validée"]
+
+        if pending_cards:
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle("Enregistrement des Cartes")
+            msg_box.setText(f"Il reste <b>{len(pending_cards)} carte(s)</b> en attente de décision.")
+            msg_box.setInformativeText("Souhaitez-vous tout valider automatiquement ou enregistrer uniquement les cartes déjà marquées 'Validée' ?")
+
+            btn_accept_all = msg_box.addButton(
+                f"Tout Valider et Enregistrer ({len(validated_cards) + len(pending_cards)})",
+                QMessageBox.ButtonRole.AcceptRole,
+            )
+            btn_save_validated = msg_box.addButton(
+                f"Enregistrer Validées Uniquement ({len(validated_cards)})",
+                QMessageBox.ButtonRole.ActionRole,
+            )
+            _ = msg_box.addButton("Continuer la Revue", QMessageBox.ButtonRole.RejectRole)
+
+            msg_box.exec()
+            clicked_btn = msg_box.clickedButton()
+
+            if clicked_btn == btn_accept_all:
+                for c in self.generated_cards:
+                    if c.get("status") in ("À valider", "En attente"):
+                        c["status"] = "Validée"
+                validated_cards = [c for c in self.generated_cards if c.get("status") == "Validée"]
+            elif clicked_btn == btn_save_validated:
+                if not validated_cards:
+                    show_toast(self, "Aucune carte n'a encore été marquée 'Validée'. Utilisez 'Garder' ou validez tout.", is_error=True)
+                    return
+            else:
+                return  # Continuer la revue
+
         if not validated_cards:
             show_toast(self, "Aucune carte 'Validée' à enregistrer. Utilisez 'Garder' pour valider des cartes.", is_error=True)
             return
 
         selected_nt = self.current_model
         if not selected_nt:
-            show_toast(self, "Aucun type de note (modèle) sélectionné.", is_error=True)
+            show_toast(self, "Aucun modèle de carte sélectionné.", is_error=True)
             return
 
         deck_data = self.current_deck
@@ -1614,7 +1671,6 @@ class CreationView(QWidget):
                 front_val = card.get("Front", card.get("Recto", ""))
                 back_val = card.get("Back", card.get("Verso", ""))
 
-                # Mapping dynamique selon le schéma du NoteType
                 import json
 
                 try:
@@ -1628,7 +1684,6 @@ class CreationView(QWidget):
                 if len(schema) >= 2:
                     fields[schema[1]] = back_val
 
-                # Pour les champs supplémentaires (ex: Notes additionnelles)
                 for f_name in schema[2:]:
                     fields[f_name] = card.get(f_name, "")
 
@@ -1656,15 +1711,11 @@ class CreationView(QWidget):
                         except Exception as e:
                             logger.warning("Erreur lors de la création du lien NoteChunkLink: %s", e)
 
-                # Marquer la carte comme "Enregistrée" pour éviter les doublons
                 card["status"] = "Enregistrée"
                 saved_count += 1
 
-            # Rafraîchir le tableau et le bouton de sauvegarde
             self._populate_results_table()
             show_toast(self, f"💾 {saved_count} carte(s) enregistrée(s) dans la Forge !", is_error=False)
-
-            # Vérifier si toutes les cartes ont été traitées → désactiver l'alerte
             self._check_completion()
 
         except Exception as e:
@@ -1674,12 +1725,10 @@ class CreationView(QWidget):
     def _check_completion(self) -> None:
         """Vérifie si toutes les cartes ont reçu un statut final.
         Si oui : toast de félicitation et réinitialisation de l'état de travail.
-        is_dirty() retournera False → closeEvent ne déclenchera plus l'alerte.
         """
         if not self._all_cards_processed():
-            # Des cartes sont encore en attente de décision
             counts = self._count_by_status()
-            pending = counts.get("À valider", 0)
+            pending = counts.get("À valider", 0) + counts.get("En attente", 0)
             if pending:
                 show_toast(
                     self,
@@ -1688,25 +1737,30 @@ class CreationView(QWidget):
                 )
             return
 
-        # ✅ Toutes les cartes ont un statut final : session terminée
         counts = self._count_by_status()
         saved = counts.get("Enregistrée", 0)
         refused = counts.get("Refusée", 0)
         show_toast(
             self,
-            f"🎉 Session terminée : {saved} carte(s) enregistrée(s), {refused} refusée(s). Aucune modification en attente.",
+            f"🎉 Session terminée : {saved} carte(s) enregistrée(s), {refused} refusée(s).",
             is_error=False,
         )
-        # is_dirty() retourne maintenant False car _has_unsaved_changes() == False
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Affiche un modal d'avertissement si des cartes Validées non encore persistées existent."""
-        if self._has_unsaved_changes():
-            count = self._count_validated()
+        """Affiche un modal d'avertissement si des cartes générées n'ont pas encore été enregistrées."""
+        import os
+
+        # Ne pas bloquer si la vue n'est pas visible ou en environnement de test headless
+        if os.environ.get("QT_QPA_PLATFORM") == "offscreen" or not self.isVisible() or getattr(self, "_skip_close_dialog", False):
+            event.accept()
+            return
+
+        if self.is_dirty():
+            unsaved_count = sum(1 for c in self.generated_cards if c.get("status") in ("Validée", "À valider", "En attente"))
             reply = QMessageBox.question(
                 self,
                 "Quitter le Studio de Création ?",
-                f"{count} carte(s) validée(s) n'ont pas encore été enregistrées dans la Forge.\n\nFermer quand même ?",
+                f"{unsaved_count} carte(s) générée(s) n'ont pas encore été enregistrées dans la Forge.\n\nVoulez-vous vraiment fermer sans enregistrer ?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

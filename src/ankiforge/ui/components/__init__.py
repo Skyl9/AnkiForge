@@ -3,9 +3,10 @@ from .panels import IdePanel, GlassPanel, MetricCard, StatCard
 from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
 from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, StyledComboBox
 from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem
-from .badges import Badge, TagButton
+from .badges import Badge, TagButton, StatusBadge
 from .tables import StyledTableWidget, CicdTable
 from .misc import UserAvatar, StyledToolbar, DaemonStatusWidget
+from .flow_layout import FlowLayout
 
 from .components import ActionButton, RoundedPanel, HeaderLabel, EmptyStateWidget
 
@@ -36,10 +37,12 @@ __all__ = [
     "DocTreeItem",
     "ContextItem",
     "Badge",
+    "StatusBadge",
     "TagButton",
     "StyledTableWidget",
     "CicdTable",
     "UserAvatar",
     "StyledToolbar",
     "DaemonStatusWidget",
+    "FlowLayout",
 ]
