@@ -632,10 +632,19 @@ class StyleEngine(QObject):
         }}
 
         /* --- Splitters --- */
-        QSplitter::handle {{
-            background-color: {p.border_color};
-            width: 2px;
-            height: 2px;
+        QSplitter::handle:horizontal {{
+            background-color: transparent;
+            width: 6px;
+        }}
+        QSplitter::handle:horizontal:hover {{
+            background-color: {p.accent_primary};
+        }}
+        QSplitter::handle:vertical {{
+            background-color: transparent;
+            height: 6px;
+        }}
+        QSplitter::handle:vertical:hover {{
+            background-color: {p.accent_primary};
         }}
 
         /* --- Menus & Tooltips --- */

@@ -523,11 +523,17 @@ class BatchView(QWidget):
         self.main_splitter.addWidget(self.middle_splitter)
 
         # =========================================================================
-        # BOTTOM ROW: Terminal Log Console (L2038-L2062, height: 250px)
+        # BOTTOM ROW: Terminal Log Console (Drawer Style: Collapsible)
         # =========================================================================
         self.terminal_panel = IdePanel(detachable=True)
+        self._terminal_expanded = True
+        self._terminal_last_height = 240
 
-        # Header Actions pour le Terminal (Vider console & Scroll Lock)
+        # Header Actions pour le Terminal (Toggle, Vider console & Scroll Lock)
+        self.btn_toggle_terminal = IconButton("ph.caret-down", tooltip="Réduire / Déplier le terminal", size=20)
+        self.btn_toggle_terminal.clicked.connect(self._toggle_terminal)
+        self.terminal_panel.add_header_widget(self.btn_toggle_terminal)
+
         self.btn_clear_terminal = IconButton("ph.trash", tooltip="Effacer les logs du terminal", size=20)
         self.btn_clear_terminal.clicked.connect(self._on_clear_terminal_clicked)
         self.terminal_panel.add_header_widget(self.btn_clear_terminal)
@@ -536,8 +542,8 @@ class BatchView(QWidget):
         self.btn_scroll_lock.clicked.connect(lambda: show_toast(self, "Verrouillage du défilement activé."))
         self.terminal_panel.add_header_widget(self.btn_scroll_lock)
 
-        terminal_content = QWidget()
-        terminal_layout = QVBoxLayout(terminal_content)
+        self.terminal_content = QWidget()
+        terminal_layout = QVBoxLayout(self.terminal_content)
         terminal_layout.setContentsMargins(0, 0, 0, 0)
         terminal_layout.setSpacing(0)
 
@@ -558,13 +564,31 @@ class BatchView(QWidget):
         """)
         terminal_layout.addWidget(self.console_output, 1)
 
-        self.terminal_panel.add_tab("root@ankiforge:~/pipeline_logs", terminal_content, "ph.terminal-window", closable=False)
+        self.terminal_panel.add_tab("root@ankiforge:~/pipeline_logs", self.terminal_content, "ph.terminal-window", closable=False)
         self.main_splitter.addWidget(self.terminal_panel)
 
+        self.middle_splitter.setCollapsible(0, False)
+        self.middle_splitter.setCollapsible(1, False)
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
         self.main_splitter.setSizes([500, 240])
 
         self._log_formatted_line("INFO", "Pipeline worker initialized.")
         self._update_queue_table()
+
+    def _toggle_terminal(self) -> None:
+        self._terminal_expanded = not self._terminal_expanded
+        if self._terminal_expanded:
+            self.terminal_content.setVisible(True)
+            self.btn_toggle_terminal.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_SECONDARY))
+            self.main_splitter.setSizes([500, self._terminal_last_height])
+        else:
+            sizes = self.main_splitter.sizes()
+            if len(sizes) > 1 and sizes[1] > 50:
+                self._terminal_last_height = sizes[1]
+            self.terminal_content.setVisible(False)
+            self.btn_toggle_terminal.setIcon(load_phosphor_icon("ph.caret-up", color=DesignTokens.TEXT_SECONDARY))
+            self.main_splitter.setSizes([800, 36])
 
     def _connect_signals(self) -> None:
         self.btn_select_deck.clicked.connect(self._on_click_select_deck)
@@ -1125,6 +1149,9 @@ class BatchView(QWidget):
                     selection-background-color: {profile.accent_primary};
                 }}
             """)
+
+        if hasattr(self, "btn_toggle_terminal") and hasattr(self.btn_toggle_terminal, "refresh_theme"):
+            self.btn_toggle_terminal.refresh_theme(profile)
 
         for cell in self.cell_widgets_map.values():
             if hasattr(cell, "refresh_theme"):

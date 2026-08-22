@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QAbstractItemView,
     QScrollArea,
+    QStackedWidget,
 )
 from PySide6.QtCore import Qt, Slot, QSettings
 from PySide6.QtGui import QFont, QAction, QColor, QBrush
@@ -274,7 +275,6 @@ class EditionView(QWidget):
 
         # Champs + Prévisualisation
         self.fields_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.fields_splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DesignTokens.BORDER_COLOR}; width: 4px; }}")
 
         # Left side: ScrollArea for fields
         self.fields_scroll_area = QScrollArea()
@@ -306,7 +306,39 @@ class EditionView(QWidget):
 
         editor_layout.addWidget(self.fields_splitter)
 
-        self.main_splitter.addWidget(self.editor_container)
+        # Stack Éditeur / Placeholder
+        self.editor_stack = QStackedWidget()
+
+        # Page 0: Placeholder élégant
+        self.editor_placeholder = QWidget()
+        self.editor_placeholder.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR};")
+        placeholder_layout = QVBoxLayout(self.editor_placeholder)
+        placeholder_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        placeholder_layout.setSpacing(12)
+
+        self.placeholder_icon = QLabel()
+        self.placeholder_icon.setPixmap(load_phosphor_icon("cards", color=DesignTokens.TEXT_MUTED).pixmap(40, 40))
+        self.placeholder_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder_icon.setStyleSheet("border: none; background: transparent;")
+
+        self.placeholder_title = QLabel("Aucune note sélectionnée")
+        self.placeholder_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none; background: transparent;")
+        self.placeholder_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.placeholder_sub = QLabel("Sélectionnez une carte dans le tableau pour afficher l'éditeur et l'aperçu live.")
+        self.placeholder_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
+        self.placeholder_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        placeholder_layout.addWidget(self.placeholder_icon)
+        placeholder_layout.addWidget(self.placeholder_title)
+        placeholder_layout.addWidget(self.placeholder_sub)
+
+        self.editor_stack.addWidget(self.editor_placeholder)  # Index 0
+        self.editor_stack.addWidget(self.editor_container)  # Index 1
+
+        self.main_splitter.addWidget(self.editor_stack)
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
         self.main_splitter.setSizes([450, 550])
 
         panel_layout.addWidget(self.main_splitter)
@@ -314,7 +346,7 @@ class EditionView(QWidget):
         self.main_panel.add_tab("Éditeur & Navigateur de Cartes (Style Anki Desktop)", panel_content, icon_name="ph.cards", closable=False)
         main_layout.addWidget(self.main_panel)
 
-        self.editor_container.setVisible(False)
+        self.editor_stack.setCurrentIndex(0)
 
     def _show_card_context_menu(self, pos) -> None:
         item = self.card_table.itemAt(pos)
@@ -464,8 +496,8 @@ class EditionView(QWidget):
             return
         self._current_note = note
 
-        if not self.editor_container.isVisible():
-            self.editor_container.setVisible(True)
+        if hasattr(self, "editor_stack"):
+            self.editor_stack.setCurrentIndex(1)
 
         data = self._get_note_content_dynamic(note)
         self._build_dynamic_editors(note, data)
@@ -984,7 +1016,8 @@ class EditionView(QWidget):
         self._displayed_count = 0
 
         self._current_note = None
-        self.editor_container.setVisible(False)
+        if hasattr(self, "editor_stack"):
+            self.editor_stack.setCurrentIndex(0)
 
         try:
             query = NoteModel.select()
@@ -1035,6 +1068,31 @@ class EditionView(QWidget):
 
     def is_dirty(self) -> bool:
         return self._dirty
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit à chaud les composants d'EditionView."""
+        if hasattr(self, "card_preview") and hasattr(self.card_preview, "refresh_theme"):
+            self.card_preview.refresh_theme(profile)
+
+        if hasattr(self, "editor_placeholder"):
+            self.editor_placeholder.setStyleSheet(f"background-color: {profile.bg_sidebar};")
+        if hasattr(self, "placeholder_icon"):
+            self.placeholder_icon.setPixmap(load_phosphor_icon("cards", color=profile.text_muted).pixmap(40, 40))
+        if hasattr(self, "placeholder_title"):
+            self.placeholder_title.setStyleSheet(f"color: {profile.text_primary}; font-size: 14px; font-weight: bold; border: none; background: transparent;")
+        if hasattr(self, "placeholder_sub"):
+            self.placeholder_sub.setStyleSheet(f"color: {profile.text_muted}; font-size: 12px; border: none; background: transparent;")
+
+        if hasattr(self, "editor_container"):
+            self.editor_container.setStyleSheet(f"background-color: {profile.bg_sidebar};")
+        if hasattr(self, "fields_container"):
+            self.fields_container.setStyleSheet(f"background-color: {profile.bg_sidebar};")
+
+        from ankiforge.ui.components.panels import IdePanel
+
+        for panel in self.findChildren(IdePanel):
+            if hasattr(panel, "refresh_theme"):
+                panel.refresh_theme(profile)
 
 
 # Alias pour la rétrocompatibilité

@@ -758,8 +758,18 @@ class ConsultantView(QWidget):
         self.btn_clear_memory.clicked.connect(self._on_clear_memory)
         context_layout.addWidget(self.btn_clear_memory)
 
-        self.context_panel.add_tab("Contexte Actif", context_container, "ph.bounding-box", closable=False)
+        # Encapsulation dans une QScrollArea transparente
+        context_scroll = QScrollArea()
+        context_scroll.setWidgetResizable(True)
+        context_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        context_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        context_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollBar { width: 0px; }")
+        context_scroll.setWidget(context_container)
+
+        self.context_panel.add_tab("Contexte Actif", context_scroll, "ph.bounding-box", closable=False)
         self.splitter.addWidget(self.context_panel)
+        self.splitter.setCollapsible(0, False)
+        self.splitter.setCollapsible(1, False)
         self.splitter.setSizes([750, 280])
 
     def _connect_signals(self) -> None:

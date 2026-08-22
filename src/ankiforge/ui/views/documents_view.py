@@ -724,8 +724,9 @@ class DocumentsView(QWidget):
         page_wrapper_layout.setContentsMargins(24, 24, 24, 24)
 
         self.doc_page_frame = QFrame()
-        self.doc_page_frame.setMaximumWidth(1200)
-        self.doc_page_frame.setMinimumWidth(800)
+        self.doc_page_frame.setMaximumWidth(1000)
+        self.doc_page_frame.setMinimumWidth(360)
+        self.doc_page_frame.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.doc_page_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -820,6 +821,9 @@ class DocumentsView(QWidget):
         self.coverage_panel.add_tab("Sommaire & Couverture", coverage_content, "ph.list-checks", closable=False)
         self.main_splitter.addWidget(self.coverage_panel)
 
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
+        self.main_splitter.setCollapsible(2, False)
         self.main_splitter.setSizes([240, 650, 280])
         self.editor_stack.setCurrentIndex(0)
 

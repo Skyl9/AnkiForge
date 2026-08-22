@@ -159,6 +159,7 @@ class Sidebar(QWidget):
         self.user_widget.setProperty("card-style", "panel")
         self.user_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.user_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.user_widget.mousePressEvent = lambda event: self.settings_requested.emit()
         user_layout = QHBoxLayout(self.user_widget)
         user_layout.setContentsMargins(8, 8, 8, 8)
 
@@ -294,10 +295,29 @@ class TopBar(QWidget):
         layout.setContentsMargins(24, 0, 24, 0)
         layout.setSpacing(16)
 
+        # Fil d'Ariane (Breadcrumb)
+        self.breadcrumb_container = QWidget()
+        breadcrumb_layout = QHBoxLayout(self.breadcrumb_container)
+        breadcrumb_layout.setContentsMargins(0, 0, 0, 0)
+        breadcrumb_layout.setSpacing(8)
+        breadcrumb_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        self._current_breadcrumb_icon = "ph.house"
+        self.breadcrumb_icon = QLabel()
+        self.breadcrumb_icon.setPixmap(load_phosphor_icon(self._current_breadcrumb_icon, color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        self.breadcrumb_icon.setStyleSheet("border: none; background: transparent;")
+
+        self.breadcrumb_lbl = QLabel("Tableau de bord")
+        self.breadcrumb_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 13px; border: none; background: transparent;")
+
+        breadcrumb_layout.addWidget(self.breadcrumb_icon)
+        breadcrumb_layout.addWidget(self.breadcrumb_lbl)
+        layout.addWidget(self.breadcrumb_container, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         # Omnibox
         self.omnibox = GlowLineEdit()
         self.omnibox.setPlaceholderText("Rechercher cartes, paquets ou commandes... (Ctrl+K)")
-        self.omnibox.setMaximumWidth(500)
+        self.omnibox.setMaximumWidth(420)
         self.omnibox.installEventFilter(self)
         layout.addWidget(self.omnibox)
 
@@ -343,6 +363,13 @@ class TopBar(QWidget):
     def _on_omnibox_click(self, event: QMouseEvent) -> None:
         self.search_clicked.emit()
 
+    def update_breadcrumb(self, text: str, icon_name: str = "ph.folder") -> None:
+        self._current_breadcrumb_icon = icon_name
+        if hasattr(self, "breadcrumb_lbl"):
+            self.breadcrumb_lbl.setText(text)
+        if hasattr(self, "breadcrumb_icon"):
+            self.breadcrumb_icon.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+
     def update_daemon_status(self, status: str, text: str) -> None:
         self.daemon_status.set_status(status, text)
 
@@ -351,6 +378,11 @@ class TopBar(QWidget):
         self.token_lbl.setText(f"Dépenses : {clean_cost} $ ({tokens} tk)")
 
     def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "breadcrumb_lbl"):
+            self.breadcrumb_lbl.setStyleSheet(f"color: {profile.text_primary}; font-weight: 600; font-size: 13px; border: none; background: transparent;")
+        if hasattr(self, "breadcrumb_icon"):
+            icon_name = getattr(self, "_current_breadcrumb_icon", "ph.folder")
+            self.breadcrumb_icon.setPixmap(load_phosphor_icon(icon_name, color=profile.accent_primary).pixmap(16, 16))
         if hasattr(self, "dollar_icon"):
             self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=profile.color_green).pixmap(14, 14))
         if hasattr(self, "token_lbl"):
@@ -473,6 +505,7 @@ class MainWindow(QMainWindow):
         self.apply_layout(saved_layout_id)
 
         self._setup_debug_shortcuts()
+        self._setup_global_shortcuts()
 
     @property
     def sidebar(self) -> Optional[Any]:
@@ -522,6 +555,45 @@ class MainWindow(QMainWindow):
         """Configure les raccourcis de debug (ex: Capture d'écran)."""
         screenshot_shortcut = QShortcut(QKeySequence("Ctrl+F12"), self)
         screenshot_shortcut.activated.connect(self._take_debug_screenshot)
+
+    def _setup_global_shortcuts(self) -> None:
+        """Configure les raccourcis clavier universels (Sauvegarde, Exécution, Recherche)."""
+        self.shortcut_save = QShortcut(QKeySequence.StandardKey.Save, self)
+        self.shortcut_save.activated.connect(self._on_shortcut_save)
+
+        self.shortcut_run = QShortcut(QKeySequence(Qt.Key.Key_Return | Qt.KeyboardModifier.ControlModifier), self)
+        self.shortcut_run.activated.connect(self._on_shortcut_run)
+
+        self.shortcut_find = QShortcut(QKeySequence.StandardKey.Find, self)
+        self.shortcut_find.activated.connect(self._on_shortcut_find)
+
+    def _on_shortcut_save(self) -> None:
+        """Déclenche la sauvegarde sur la vue active si elle le supporte."""
+        current_widget = self.stacked_widget.currentWidget()
+        if hasattr(current_widget, "_save_card"):
+            current_widget._save_card()
+        elif hasattr(current_widget, "save"):
+            current_widget.save()
+
+    def _on_shortcut_run(self) -> None:
+        """Déclenche l'action primaire de la vue active (ex: Générer / Lancer)."""
+        current_widget = self.stacked_widget.currentWidget()
+        if hasattr(current_widget, "btn_generate_cards") and current_widget.btn_generate_cards.isEnabled():
+            current_widget.btn_generate_cards.click()
+        elif hasattr(current_widget, "_on_generate_clicked"):
+            current_widget._on_generate_clicked()
+        elif hasattr(current_widget, "_on_start_batch"):
+            current_widget._on_start_batch()
+
+    def _on_shortcut_find(self) -> None:
+        """Donne le focus à l'omnibox ou au champ de recherche de la vue active."""
+        current_widget = self.stacked_widget.currentWidget()
+        if hasattr(current_widget, "search_input"):
+            current_widget.search_input.setFocus()
+            current_widget.search_input.selectAll()
+        elif self.topbar and hasattr(self.topbar, "omnibox"):
+            self.topbar.omnibox.setFocus()
+            self.topbar.omnibox.selectAll()
 
     def _take_debug_screenshot(self) -> None:
         """Capture l'état actuel de la fenêtre et le sauvegarde."""
@@ -588,6 +660,9 @@ class MainWindow(QMainWindow):
                     current_widget.deleteLater()
                     self.stacked_widget.insertWidget(idx, real_widget)
                     self._view_widgets[view_id] = real_widget
+
+            if self.topbar and hasattr(self.topbar, "update_breadcrumb"):
+                self.topbar.update_breadcrumb(title, icon)
 
         widget = self._view_widgets.get(view_id)
         if widget:
