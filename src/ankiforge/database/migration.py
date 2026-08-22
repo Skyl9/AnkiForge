@@ -39,13 +39,11 @@ def run_migrations() -> None:
                     router.model.create(name="002_llm_pricing")
                     logging.info("Legacy DB detected: faking migration 002_llm_pricing.")
 
-        # Si la colonne last_synced_at existe sur notemodel, l'utilisateur a déjà la structure de la v3
+        # Si notemodel n'existe pas ou si la colonne last_synced_at existe déjà
         if "003_orientation_features" not in done_migrations:
-            if db.table_exists("notemodel"):
-                columns = [col.name for col in db.get_columns("notemodel")]
-                if "last_synced_at" in columns:
-                    router.model.create(name="003_orientation_features")
-                    logging.info("Legacy DB detected: faking migration 003_orientation_features.")
+            if not db.table_exists("notemodel") or "last_synced_at" in [col.name for col in db.get_columns("notemodel")]:
+                router.model.create(name="003_orientation_features")
+                logging.info("Legacy DB detected: faking migration 003_orientation_features.")
 
         # Si la table ai_cache existe déjà, l'utilisateur a déjà la structure de la v4
         if "004_ai_cache" not in done_migrations:
@@ -69,41 +67,36 @@ def run_migrations() -> None:
                 except Exception as e:
                     logging.warning(f"Notice on personas.llm_config_id: {e}")
 
-        # Si la colonne chroma_collection_name existe sur documentmodel, l'utilisateur a la v6
+        # Si documentmodel n'existe pas ou si la colonne chroma_collection_name existe
         if "006_chroma_db" not in done_migrations:
-            if db.table_exists("documentmodel"):
-                columns = [col.name for col in db.get_columns("documentmodel")]
-                if "chroma_collection_name" in columns:
-                    router.model.create(name="006_chroma_db")
-                    logging.info("Legacy DB detected: faking migration 006_chroma_db.")
+            if not db.table_exists("documentmodel") or "chroma_collection_name" in [col.name for col in db.get_columns("documentmodel")]:
+                router.model.create(name="006_chroma_db")
+                logging.info("Legacy DB detected: faking migration 006_chroma_db.")
 
-        # Si la table linter_rules existe, l'utilisateur a la v7
+        # Si la table linter_rules existe déjà ou n'est pas gérée par cette base
         if "007_card_linter" not in done_migrations:
-            if db.table_exists("linter_rules"):
+            if db.table_exists("linter_rules") or not db.table_exists("notemodel"):
                 router.model.create(name="007_card_linter")
                 logging.info("Legacy DB detected: faking migration 007_card_linter.")
 
-        # Si la table document_chunks existe, l'utilisateur a la v8
+        # Si la table document_chunks ou cognitive_facets existe, ou si documentmodel n'existe pas
         if "008_document_coverage" not in done_migrations:
-            if db.table_exists("document_chunks"):
+            if db.table_exists("document_chunks") or db.table_exists("cognitive_facets") or not db.table_exists("documentmodel"):
                 router.model.create(name="008_document_coverage")
                 logging.info("Legacy DB detected: faking migration 008_document_coverage.")
 
-        # Si la colonne stability existe sur cardmodel, l'utilisateur a la v9
+        # Si cardmodel n'existe pas ou si la colonne stability existe
         if "009_srs_and_task_metrics" not in done_migrations:
-            if db.table_exists("cardmodel"):
-                columns = [col.name for col in db.get_columns("cardmodel")]
-                if "stability" in columns:
-                    router.model.create(name="009_srs_and_task_metrics")
-                    logging.info("Legacy DB detected: faking migration 009_srs_and_task_metrics.")
+            if not db.table_exists("cardmodel") or "stability" in [col.name for col in db.get_columns("cardmodel")]:
+                router.model.create(name="009_srs_and_task_metrics")
+                logging.info("Legacy DB detected: faking migration 009_srs_and_task_metrics.")
 
-        # Si la colonne original_media_id existe sur documentmodel, l'utilisateur a la v10
+        # Si documentmodel n'existe pas ou si original_media existe
         if "010_document_original_media" not in done_migrations:
-            if db.table_exists("documentmodel"):
-                columns = [col.name for col in db.get_columns("documentmodel")]
-                if "original_media" in columns or "original_media_id" in columns:
-                    router.model.create(name="010_document_original_media")
-                    logging.info("Legacy DB detected: faking migration 010_document_original_media.")
+            doc_cols = [col.name for col in db.get_columns("documentmodel")] if db.table_exists("documentmodel") else []
+            if not db.table_exists("documentmodel") or ("original_media" in doc_cols or "original_media_id" in doc_cols):
+                router.model.create(name="010_document_original_media")
+                logging.info("Legacy DB detected: faking migration 010_document_original_media.")
 
         # Si la table facet_profiles existe, l'utilisateur a la v11
         if "011_add_facet_profile" not in done_migrations:
@@ -153,15 +146,12 @@ def run_migrations() -> None:
                         logging.info("Legacy DB detected: faking migration 016_persona_subfolders.")
                         break
 
-        # Si le champ category existe dans linter_rules, l'utilisateur a la v17
+        # Si linter_rules n'existe pas ou a déjà la colonne category
         if "017_linter_rule_categories" not in done_migrations:
-            for t_name in ("linter_rules", "linterrulemodel"):
-                if db.table_exists(t_name):
-                    columns = [col.name for col in db.get_columns(t_name)]
-                    if "category" in columns:
-                        router.model.create(name="017_linter_rule_categories")
-                        logging.info("Legacy DB detected: faking migration 017_linter_rule_categories.")
-                        break
+            has_rules = db.table_exists("linter_rules") or db.table_exists("linterrulemodel")
+            if not has_rules or ("category" in [col.name for col in db.get_columns("linter_rules" if db.table_exists("linter_rules") else "linterrulemodel")]):
+                router.model.create(name="017_linter_rule_categories")
+                logging.info("Legacy DB detected: faking migration 017_linter_rule_categories.")
 
         # Si la table settings existe, l'utilisateur a la v18
         if "018_app_settings" not in done_migrations:
@@ -169,6 +159,14 @@ def run_migrations() -> None:
                 if db.table_exists(t_name):
                     router.model.create(name="018_app_settings")
                     logging.info("Legacy DB detected: faking migration 018_app_settings.")
+                    break
+
+        # Si la table persona_versions existe, l'utilisateur a la v19
+        if "019_persona_versions" not in done_migrations:
+            for t_name in ("persona_versions", "personaversionmodel"):
+                if db.table_exists(t_name):
+                    router.model.create(name="019_persona_versions")
+                    logging.info("Legacy DB detected: faking migration 019_persona_versions.")
                     break
 
         # Nettoyage et synchronisation de la table note_chunk_links

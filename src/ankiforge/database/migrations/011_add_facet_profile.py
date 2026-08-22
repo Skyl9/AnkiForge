@@ -47,7 +47,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
         class Meta:
             table_name = "facet_profiles"
 
-    migrator.add_fields("cognitive_facets", profile=pw.ForeignKeyField(column_name="profile_id", field="id", model=migrator.orm["facet_profiles"], null=True, on_delete="CASCADE"))
+    if "cognitive_facets" in migrator.orm:
+        migrator.add_fields("cognitive_facets", profile=pw.ForeignKeyField(column_name="profile_id", field="id", model=migrator.orm["facet_profiles"], null=True, on_delete="CASCADE"))
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake=False):

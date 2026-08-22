@@ -265,6 +265,25 @@ class PersonaModel(BaseModel):
         table_name = "personas"
 
 
+class PersonaVersionModel(BaseModel):
+    """Historique des versions et snapshots de configuration pour chaque Persona/Agent IA."""
+
+    persona = ForeignKeyField(PersonaModel, backref="versions", on_delete="CASCADE")
+    version_number = IntegerField(default=1)
+    system_prompt = TextField()
+    description = TextField(null=True)
+    output_format = CharField(default="json")
+    persona_type = CharField(default="pipeline")
+    allowed_tools = TextField(default="[]")
+    llm_config = ForeignKeyField(LLMConfigModel, null=True, on_delete="SET NULL")
+    commit_message = CharField(default="Mise à jour du prompt")
+    created_at = DateTimeField(default=datetime.datetime.now)
+    is_active = BooleanField(default=True)
+
+    class Meta:
+        table_name = "persona_versions"
+
+
 class PipelineModel(BaseModel):
     """Définit une chaîne d'exécution (ex: Génération Complète Ensimag)."""
 

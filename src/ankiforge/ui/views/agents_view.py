@@ -56,7 +56,9 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.services.ai.base import MockProvider
+from ankiforge.services.ai.persona_version_service import PersonaVersionService
 from ankiforge.services.tools.tool_service import ToolService
+from ankiforge.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
@@ -712,6 +714,10 @@ class AgentsView(QWidget):
         self.editor_panel = IdePanel(detachable=True)
 
         # Actions d'en-tête
+        self.btn_history = SecondaryButton("Historique")
+        self.btn_history.setIcon(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_history.clicked.connect(self._on_open_history)
+
         self.btn_test = SecondaryButton("Tester l'Agent")
         self.btn_test.setIcon(load_phosphor_icon("ph.flask", color=DesignTokens.TEXT_PRIMARY))
         self.btn_test.clicked.connect(self._on_test_agent)
@@ -719,6 +725,7 @@ class AgentsView(QWidget):
         self.btn_save = PrimaryButton("Enregistrer les Modifications")
         self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
 
+        self.editor_panel.add_header_widget(self.btn_history)
         self.editor_panel.add_header_widget(self.btn_test)
         self.editor_panel.add_header_widget(self.btn_save)
         self.editor_panel.add_header_separator()
@@ -1556,10 +1563,37 @@ class AgentsView(QWidget):
                 self._current_agent.llm_config_id = selected_engine.id if selected_engine else None
                 self._current_agent.save()
 
+                # Snapshot automatique de versioning Git-like
+                PersonaVersionService.create_snapshot(
+                    self._current_agent,
+                    commit_message=f"Mise à jour de '{name}'",
+                )
+
             show_toast(self, f"Agent '{name}' enregistré avec succès !")
             self.refresh_data()
         except Exception as e:
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Échec de l'enregistrement de l'agent : {str(e)}")
+
+    @Slot()
+    def _on_open_history(self) -> None:
+        """Ouvre la Machine à Remonter le Temps pour le persona sélectionné."""
+        if not self._current_agent or not self._current_agent.id:
+            show_toast(self, "Sélectionnez un agent pour explorer son historique.", is_error=True)
+            return
+
+        dlg = PersonaHistoryDialog(self._current_agent.id, parent=self)
+        dlg.version_restored.connect(self._on_version_restored)
+        dlg.exec()
+
+    @Slot(int)
+    def _on_version_restored(self, persona_id: int) -> None:
+        """Callback déclenché lorsqu'une version antérieure est restaurée."""
+        refreshed = PersonaModel.get_or_none(PersonaModel.id == persona_id)
+        if refreshed:
+            self._current_agent = refreshed
+            self._load_persona_into_editor(refreshed)
+            self.refresh_data()
+            show_toast(self, f"Agent '{refreshed.name}' restauré avec succès !")
 
 
 AgentsTab = AgentsView
