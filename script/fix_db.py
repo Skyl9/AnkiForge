@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from ankiforge.database.models import db, NoteVersionModel
 
 db_path = "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db"

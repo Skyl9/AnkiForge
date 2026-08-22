@@ -16,7 +16,7 @@ AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée
 ```mermaid
 classDiagram
     direction TB
-    
+
     class DeckModel {
         +BigInteger anki_id
         +String name
@@ -92,7 +92,7 @@ C'est la fonctionnalité phare pour les Power Users. Lors d'un import, AnkiForge
 ### A. Critères stricts de déclenchement d'un conflit
 L'application ne lève une alerte de conflit **que si, et seulement si, le contenu textuel/HTML des champs d'une Note a été modifié des deux côtés**.
 * **Ce qui déclenche un conflit :** La modification du texte du Recto, la correction d'une faute de frappe, l'ajout d'une image dans le Verso.
-* **Ce qui est ignoré (Pas de conflit) :** 
+* **Ce qui est ignoré (Pas de conflit) :**
   * Le déplacement de la carte vers un autre paquet (Deck).
   * La modification des statistiques de révision (Ease factor, intervalles).
   * Ces métadonnées sont fusionnées silencieusement (AnkiForge garde le contenu forgé, mais accepte le nouveau Deck entrant si pertinent).

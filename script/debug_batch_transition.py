@@ -3,7 +3,6 @@ Script de capture de transition sombre vers clair pour Batch Factory.
 """
 
 import os
-from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 

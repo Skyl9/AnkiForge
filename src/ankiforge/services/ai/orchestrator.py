@@ -14,6 +14,8 @@ from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import AIReponseParser
+from ankiforge.services.plugins.api import PipelineHooksAPI
+from ankiforge.services.plugins.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +135,7 @@ class PipelineOrchestrator(QRunnable):
         current_step: Optional[PipelineStepModel] = first_step
 
         executed_count = 0
+        event_bus.emit("pipeline_started", self.pipeline_id, self.state)
 
         try:
             while current_step is not None and not self._is_cancelled:
@@ -159,7 +162,12 @@ class PipelineOrchestrator(QRunnable):
                     # ==========================================
                     # ROUTEUR D'EXÉCUTION DES ÉTAPES DU DAG
                     # ==========================================
-                    if step_type == "LLM_PROMPT":
+                    custom_steps = PipelineHooksAPI.get_registered_steps()
+                    if step_type in custom_steps:
+                        custom_executor = custom_steps[step_type]
+                        custom_executor(self, current_step, self.state)
+
+                    elif step_type == "LLM_PROMPT":
                         self._execute_llm_prompt(current_step)
 
                     elif step_type == "RAG_RETRIEVAL":
@@ -234,6 +242,7 @@ class PipelineOrchestrator(QRunnable):
 
             if not self._is_cancelled:
                 logger.info("[Orchestrateur DAG] Pipeline terminé avec succès.")
+                event_bus.emit("pipeline_finished", self.state)
                 self.signals.pipeline_finished.emit(self.state)
 
         except Exception as e:

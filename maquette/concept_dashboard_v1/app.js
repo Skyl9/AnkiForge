@@ -5,7 +5,7 @@ const views = document.querySelectorAll('.view');
 menuItems.forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
-        
+
         // Remove active class from all menu items
         menuItems.forEach(m => m.classList.remove('active'));
         // Add active class to clicked item
@@ -13,7 +13,7 @@ menuItems.forEach(item => {
 
         // Hide all views
         views.forEach(v => v.classList.add('hidden'));
-        
+
         // Show target view
         const targetViewId = 'view-' + item.getAttribute('data-view');
         const targetView = document.getElementById(targetViewId);

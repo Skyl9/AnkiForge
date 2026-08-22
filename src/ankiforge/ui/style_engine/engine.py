@@ -79,7 +79,7 @@ class StyleEngine(QObject):
             font-size: {p.font_size_base}px;
             color: {p.text_primary};
         }}
-        
+
         QMainWindow, QDialog, QStackedWidget {{
             background-color: {p.bg_main};
         }}
@@ -442,7 +442,7 @@ class StyleEngine(QObject):
             border: 1px solid {p.border_color};
             border-radius: {p.radius_lg}px;
         }}
-        
+
         /* En-tête des panneaux IDE */
         IdePanel > QFrame#header, QFrame#IdePanelHeader {{
             background-color: {p.bg_sidebar};

@@ -21,10 +21,10 @@ class DuplicateMatrixTable(QFrame):
         super().__init__(parent)
         self.setObjectName("DuplicateMatrixTable")
         self.setStyleSheet(f"""
-            QFrame#DuplicateMatrixTable {{ 
-                background: {DesignTokens.BG_PANEL}; 
-                border: 1px solid {DesignTokens.BORDER_COLOR}; 
-                border-radius: 8px; 
+            QFrame#DuplicateMatrixTable {{
+                background: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 8px;
             }}
             QCheckBox::indicator {{
                 width: 14px;
@@ -177,10 +177,10 @@ class DuplicateMatrixTable(QFrame):
             }}
         """)
         self.table.setStyleSheet(f"""
-            QTableWidget {{ 
-                background: {DesignTokens.BG_MAIN}; 
-                border: 1px solid {DesignTokens.BORDER_COLOR}; 
-                border-radius: 6px; 
+            QTableWidget {{
+                background: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
             }}
             QTableWidget::item {{
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
@@ -343,8 +343,8 @@ class DuplicateMergeInspector(QFrame):
         self.btn_swap.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_swap.setStyleSheet(f"""
             QPushButton {{
-                background: {DesignTokens.BG_ACTIVE}; 
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY}; 
+                background: {DesignTokens.BG_ACTIVE};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                 color: {DesignTokens.TEXT_PRIMARY};
                 padding: 4px 10px;
                 border-radius: 4px;
@@ -591,10 +591,10 @@ class DuplicateMergeInspector(QFrame):
                 <head>
                     <meta charset="utf-8">
                     <style>
-                        body {{ 
-                            background-color: transparent; 
-                            margin: 0; 
-                            padding: 2px; 
+                        body {{
+                            background-color: transparent;
+                            margin: 0;
+                            padding: 2px;
                             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                             font-size: 14px;
                             color: {text_color};
@@ -607,7 +607,7 @@ class DuplicateMergeInspector(QFrame):
                         ::-webkit-scrollbar-thumb:hover {{ background: {DesignTokens.TEXT_MUTED}; }}
                     </style>
                 </head>
-                <body> 
+                <body>
                     {html_text}
                     {get_mathjax_script()}
                 </body>

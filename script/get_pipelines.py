@@ -1,4 +1,4 @@
-from ankiforge.database.models import db, PipelineModel, PipelineStepModel
+from ankiforge.database.models import db, PipelineModel
 
 db.connect()
 pipelines = list(PipelineModel.select())

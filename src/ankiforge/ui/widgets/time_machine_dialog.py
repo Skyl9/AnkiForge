@@ -67,9 +67,7 @@ class DiffViewerWidget(QTextBrowser):
             cur_val = current_dict.get(field, "")
 
             header_style = (
-                f"background-color: {DesignTokens.BG_PANEL}; "
-                "padding: 4px 8px; margin-top: 10px; margin-bottom: 4px; "
-                f"font-weight: bold; border-radius: 4px; color: {DesignTokens.ACCENT_PRIMARY};"
+                f"background-color: {DesignTokens.BG_PANEL}; padding: 4px 8px; margin-top: 10px; margin-bottom: 4px; font-weight: bold; border-radius: 4px; color: {DesignTokens.ACCENT_PRIMARY};"
             )
             html.append(f"<div style='{header_style}'>Champ : {field}</div>")
 
@@ -92,11 +90,11 @@ class DiffViewerWidget(QTextBrowser):
                 elif code == "- ":
                     # Présent dans l'actuel mais absent de l'historique (sera supprimé si restauré)
                     del_style = "background-color: rgba(239, 68, 68, 0.15); color: #f87171;"
-                    html.append(f"<tr style='{del_style}'><td style='width: 25px; user-select: none; font-weight: bold;'>-</td>" f"<td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
+                    html.append(f"<tr style='{del_style}'><td style='width: 25px; user-select: none; font-weight: bold;'>-</td><td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
                 elif code == "+ ":
                     # Présent dans l'historique mais absent de l'actuel (sera restauré)
                     add_style = "background-color: rgba(16, 185, 129, 0.15); color: #34d399;"
-                    html.append(f"<tr style='{add_style}'><td style='width: 25px; user-select: none; font-weight: bold;'>+</td>" f"<td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
+                    html.append(f"<tr style='{add_style}'><td style='width: 25px; user-select: none; font-weight: bold;'>+</td><td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
 
             html.append("</table>")
 

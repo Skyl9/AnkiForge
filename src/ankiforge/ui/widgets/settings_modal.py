@@ -41,6 +41,7 @@ from ankiforge.ui.components import (
     StyledTableWidget,
 )
 from ankiforge.ui.components.panels import MetricCard
+from ankiforge.ui.dialogs.addon_manager_dialog import AddonManagerWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -680,6 +681,7 @@ class SettingsModal(QDialog):
         add_nav_btn("Moteurs IA", "ph.cpu", 1)
         add_nav_btn("Maintenance", "ph.broom", 2)
         add_nav_btn("Statistiques", "ph.chart-bar", 3)
+        add_nav_btn("Extensions", "ph.puzzle-piece", 4)
 
         sidebar_layout.addStretch()
 
@@ -692,11 +694,13 @@ class SettingsModal(QDialog):
         self.ai_tab = AIEnginesTab(self.ai_manager)
         self.maint_tab = MaintenanceTab()
         self.stats_tab = StatisticsTab()
+        self.addons_tab = AddonManagerWidget()
 
         self.stacked_widget.addWidget(self.general_tab)
         self.stacked_widget.addWidget(self.ai_tab)
         self.stacked_widget.addWidget(self.maint_tab)
         self.stacked_widget.addWidget(self.stats_tab)
+        self.stacked_widget.addWidget(self.addons_tab)
 
         body_layout.addWidget(self.stacked_widget, 1)
 

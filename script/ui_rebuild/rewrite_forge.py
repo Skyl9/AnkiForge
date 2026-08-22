@@ -43,7 +43,7 @@ if start_marker in content and end_marker in content:
                                                 <button class="ide-tab active" draggable="true" data-target="tab-resultats"><i class="ph ph-list-numbers"></i> Cartes Générées (2)</button>
                                                 <button class="ide-tab" draggable="true" data-target="tab-erreurs"><i class="ph ph-warning-circle"></i> Erreurs</button>
                                             </div>
-                                            
+
                                             <!-- IDEA-like Preview Toggles -->
                                             <div class="view-toggles" style="display: flex; gap: 4px; padding: 0 12px; border-right: 1px solid var(--border-color); margin-right: 8px;">
                                                 <button class="btn-icon small" title="Liste uniquement (Editor Only)"><i class="ph ph-list-dashes"></i></button>
@@ -53,7 +53,7 @@ if start_marker in content and end_marker in content:
 
                                             <button class="btn-icon small detach-btn" style="margin-left: 0; margin-right: 4px;" title="Détacher"><i class="ph ph-arrow-up-right"></i></button>
                                         </div>
-                                        
+
                                         <div class="ide-panel-content p-0" style="padding: 0;">
                                             <div id="tab-resultats" class="sub-pane active h-full flex-row w-full">
                                                 <!-- LEFT SIDE : Table -->
@@ -71,7 +71,7 @@ if start_marker in content and end_marker in content:
                                                         <button class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Sauvegarder dans Anki</button>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <!-- RIGHT SIDE : Preview -->
                                                 <div class="flex-1 flex-col" style="padding: 16px; background-color: rgba(0,0,0,0.1);">
                                                     <div class="preview-card-container flex-grow">

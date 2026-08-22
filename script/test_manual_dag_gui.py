@@ -13,21 +13,18 @@ Usage:
 
 import json
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from PySide6.QtCore import Qt, QThreadPool, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMainWindow,
     QMessageBox,
     QProgressBar,
-    QPushButton,
-    QScrollArea,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -50,7 +47,7 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
-from ankiforge.ui.components import Badge, DangerButton, IdePanel, PrimaryButton, SecondaryButton
+from ankiforge.ui.components import DangerButton, IdePanel, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 
 
@@ -311,18 +308,18 @@ class DagVisualTesterWindow(QMainWindow):
         # Création des étapes du DAG
         pipeline = PipelineModel.create(name="DAG Test GUI")
 
-        step1 = PipelineStepModel.create(pipeline=pipeline, step_order=1, step_type="RAG_RETRIEVAL")
+        PipelineStepModel.create(pipeline=pipeline, step_order=1, step_type="RAG_RETRIEVAL")
 
         p2 = PersonaModel.create(name="Architecte", system_prompt="Plan du cours", output_format="json")
-        step2 = PipelineStepModel.create(pipeline=pipeline, persona=p2, step_order=2, step_type="LLM_PROMPT")
+        PipelineStepModel.create(pipeline=pipeline, persona=p2, step_order=2, step_type="LLM_PROMPT")
 
-        step3 = PipelineStepModel.create(pipeline=pipeline, step_order=3, step_type="HUMAN_VALIDATION")
+        PipelineStepModel.create(pipeline=pipeline, step_order=3, step_type="HUMAN_VALIDATION")
 
         p4 = PersonaModel.create(name="Rédacteur", system_prompt="Flashcards pour: {{ item }}", output_format="json")
-        step4 = PipelineStepModel.create(pipeline=pipeline, persona=p4, step_order=4, step_type="MAP_REDUCE")
+        PipelineStepModel.create(pipeline=pipeline, persona=p4, step_order=4, step_type="MAP_REDUCE")
 
         p5 = PersonaModel.create(name="Linter", system_prompt="Contrôle qualité", output_format="json")
-        step5 = PipelineStepModel.create(pipeline=pipeline, persona=p5, step_order=5, step_type="LLM_PROMPT")
+        PipelineStepModel.create(pipeline=pipeline, persona=p5, step_order=5, step_type="LLM_PROMPT")
 
         initial_state = PipelineRunState(initial_prompt="Physique Quantique Fondamentale")
         initial_state.set_variable(

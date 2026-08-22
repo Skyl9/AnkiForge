@@ -27,7 +27,7 @@ dashboard_content = """<!-- VUE : DASHBOARD -->
                                                     <p class="muted mt-10">Le générateur de cartes intelligent et votre assistant d'apprentissage personnel.</p>
                                                 </div>
                                             </div>
-                                            
+
                                             <h3 class="mb-10"><i class="ph ph-lightning"></i> Actions Rapides</h3>
                                             <div class="grid-3" style="gap: 15px;">
                                                 <button class="dashboard-btn-premium" onclick="document.querySelector('[data-view=\\'forge\\']').click()">
@@ -68,7 +68,7 @@ dashboard_content = """<!-- VUE : DASHBOARD -->
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Right Sidebar Panel -->
                                 <div class="flex-col" style="gap: 12px; width: 320px;">
                                     <div class="ide-panel">
@@ -167,7 +167,7 @@ other_views_content = """<!-- VUE : EDITION / ANALYSE -->
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="ide-panel flex-1">
                                     <div class="ide-tabs">
                                         <div class="ide-tabs-list">
@@ -260,7 +260,7 @@ other_views_content = """<!-- VUE : EDITION / ANALYSE -->
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="ide-panel flex-1">
                                     <div class="ide-tabs">
                                         <div class="ide-tabs-list">
@@ -291,7 +291,7 @@ other_views_content = """<!-- VUE : EDITION / ANALYSE -->
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="ide-panel" style="width: 320px;">
                                     <div class="ide-tabs">
                                         <div class="ide-tabs-list">
@@ -307,12 +307,12 @@ other_views_content = """<!-- VUE : EDITION / ANALYSE -->
                                                     <button class="btn btn-secondary small flex-grow"><i class="ph ph-magic-wand"></i> Modif IA</button>
                                                     <button class="btn btn-secondary small flex-grow"><i class="ph ph-tag"></i> Auto-Tag</button>
                                                 </div>
-                                                
+
                                                 <div class="toolbar space-between mb-5">
                                                     <h4 style="margin:0;"><i class="ph ph-code"></i> HTML Recto</h4>
                                                 </div>
                                                 <textarea class="textarea-element w-full code-font" rows="5"></textarea>
-                                                
+
                                                 <h4 class="mt-15 mb-5" style="margin-top:15px; margin-bottom:5px;"><i class="ph ph-code"></i> HTML Verso</h4>
                                                 <textarea class="textarea-element w-full code-font" rows="5"></textarea>
                                             </div>
@@ -372,7 +372,7 @@ other_views_content = """<!-- VUE : EDITION / ANALYSE -->
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="ide-panel flex-1">
                                         <div class="ide-tabs">
                                             <div class="ide-tabs-list">
@@ -388,7 +388,7 @@ other_views_content = """<!-- VUE : EDITION / ANALYSE -->
                                                     <button class="btn btn-secondary icon-btn ml-5"><i class="ph ph-plus"></i></button>
                                                     <button class="btn btn-secondary icon-btn ml-5"><i class="ph ph-pencil-simple"></i></button>
                                                     <button class="btn btn-secondary icon-btn ml-5"><i class="ph ph-trash"></i></button>
-                                                    
+
                                                     <button class="btn btn-secondary ml-auto"><i class="ph ph-corners-out"></i> Mode Focus</button>
                                                     <span class="muted uppercase small ml-15 mr-10">Prévisualisation :</span>
                                                     <select class="input-element"><option>Voir Recto</option></select>

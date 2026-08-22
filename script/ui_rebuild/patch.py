@@ -3,15 +3,15 @@ content = open("src/ankiforge/ui/views/consultant_view.py").read()
 new_widget_code = """
 class ChatMessageWidget(QWidget):
     \"\"\"A bubble representing a message (User or AI).\"\"\"
-    
+
     def __init__(self, text: str, is_user: bool, parent=None):
         super().__init__(parent)
         self.is_user = is_user
         self.raw_text = text
-        
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 5, 10, 5)
-        
+
         # Avatar
         self.avatar = QLabel()
         self.avatar.setFixedSize(32, 32)
@@ -40,7 +40,7 @@ class ChatMessageWidget(QWidget):
         self.bubble = QFrame()
         bubble_layout = QVBoxLayout(self.bubble)
         bubble_layout.setContentsMargins(15, 12, 15, 12)
-        
+
         self.text_browser = QTextBrowser()
         self.text_browser.setOpenExternalLinks(True)
         self.text_browser.setFrameShape(QFrame.Shape.NoFrame)
@@ -63,11 +63,11 @@ class ChatMessageWidget(QWidget):
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             \"\"\")
-            
+
             # Layout logic: User message (Text on left, Avatar on right)
             layout.addStretch()
             layout.addWidget(self.bubble, stretch=1)
-            
+
             avatar_layout = QVBoxLayout()
             avatar_layout.addWidget(self.avatar)
             avatar_layout.addStretch()
@@ -90,44 +90,44 @@ class ChatMessageWidget(QWidget):
                 }}
             \"\"\")
             apply_shadow(self.bubble, blur=DesignTokens.SHADOW_SM_BLUR)
-            
+
             # Layout logic: AI message (Avatar on left, Text on right)
             avatar_layout = QVBoxLayout()
             avatar_layout.addWidget(self.avatar)
             avatar_layout.addStretch()
             layout.addLayout(avatar_layout)
-            
+
             layout.addWidget(self.bubble, stretch=1)
             layout.addStretch()
 
         bubble_layout.addWidget(self.text_browser)
-        
+
         if not is_user:
             actions_layout = QHBoxLayout()
             actions_layout.setContentsMargins(0, 5, 0, 0)
             actions_layout.addStretch()
-            
+
             btn_copy = QToolButton()
             btn_copy.setIcon(qta.icon("fa5s.copy", color=DesignTokens.TEXT_MUTED))
             btn_copy.setStyleSheet("border: none; background: transparent;")
             btn_copy.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_copy.clicked.connect(self._copy_text)
-            
+
             btn_regen = QToolButton()
             btn_regen.setIcon(qta.icon("fa5s.sync-alt", color=DesignTokens.TEXT_MUTED))
             btn_regen.setStyleSheet("border: none; background: transparent;")
             btn_regen.setCursor(Qt.CursorShape.PointingHandCursor)
-            
+
             btn_up = QToolButton()
             btn_up.setIcon(qta.icon("fa5s.thumbs-up", color=DesignTokens.TEXT_MUTED))
             btn_up.setStyleSheet("border: none; background: transparent;")
             btn_up.setCursor(Qt.CursorShape.PointingHandCursor)
-            
+
             btn_down = QToolButton()
             btn_down.setIcon(qta.icon("fa5s.thumbs-down", color=DesignTokens.TEXT_MUTED))
             btn_down.setStyleSheet("border: none; background: transparent;")
             btn_down.setCursor(Qt.CursorShape.PointingHandCursor)
-            
+
             actions_layout.addWidget(btn_copy)
             actions_layout.addWidget(btn_regen)
             actions_layout.addWidget(btn_up)

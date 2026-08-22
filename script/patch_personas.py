@@ -1,12 +1,8 @@
-import sys
 from pathlib import Path
-
-# Override the DEFAULT_DB_PATH before importing models
 import ankiforge.database.models
+from ankiforge.database.models import db, PersonaModel
 
 ankiforge.database.models.DEFAULT_DB_PATH = Path("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db")
-
-from ankiforge.database.models import db, PersonaModel
 
 wozniak_prompt = (
     "You are an expert Anki flashcard auditor following Piotr Wozniak's '20 rules of formulating knowledge'.\n"

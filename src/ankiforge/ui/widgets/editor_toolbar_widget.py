@@ -153,6 +153,27 @@ class EditorToolbarWidget(QWidget):
         self.register_action("hr", "minus", "Séparateur", "Ligne de séparation (<hr>)", "", lambda: self.action_triggered.emit("hr"), group="list")
         self.register_action("quote", "quotes", "Citation", "Citation en bloc (<blockquote>...</blockquote>)", "", lambda: self.action_triggered.emit("quote"), group="list")
 
+        # --- Actions injectées par les Addons / Plugins ---
+        try:
+            from ankiforge.services.plugins.plugin_manager import get_plugin_manager
+
+            pm = get_plugin_manager()
+            for addon_info in pm.get_all_addons():
+                api = pm.get_addon_api(addon_info.id)
+                if api:
+                    for act in api.ui.get_registered_editor_actions():
+                        self.register_action(
+                            action_id=act["action_id"],
+                            icon_name=act["icon_name"],
+                            label=act["label"],
+                            tooltip=act["tooltip"],
+                            shortcut=act["shortcut"],
+                            callback=act["callback"],
+                            group=act.get("group", "custom"),
+                        )
+        except Exception:
+            pass  # nosec B110
+
     def register_action(
         self,
         action_id: str,

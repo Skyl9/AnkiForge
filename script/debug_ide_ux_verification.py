@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -7,6 +6,7 @@ from PySide6.QtWidgets import QApplication
 
 from ankiforge.database.models import init_db
 from ankiforge.ui.main_window import MainWindow
+
 
 def main():
     app = QApplication.instance() or QApplication(sys.argv)
@@ -54,6 +54,7 @@ def main():
         win.grab().save(str(output_dir / "6_documents_responsive.png"))
 
     print("Screenshots captured successfully in temp/ide_ux_verification!")
+
 
 if __name__ == "__main__":
     main()

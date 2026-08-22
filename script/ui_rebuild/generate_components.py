@@ -57,7 +57,7 @@ class PrimaryButton(QPushButton, HoverAnimMixin):
         super().__init__(text, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
-        
+
         self.setStyleSheet(f\"\"\"
             QPushButton {{
                 background-color: {DesignTokens.ACCENT_PRIMARY};
@@ -84,7 +84,7 @@ class SecondaryButton(QPushButton):
         super().__init__(text, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
-        
+
         self.setStyleSheet(f\"\"\"
             QPushButton {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -106,7 +106,7 @@ class DangerButton(QPushButton):
         super().__init__(text, parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
-        
+
         if ghost:
             self.setStyleSheet(f\"\"\"
                 QPushButton {{
@@ -146,7 +146,7 @@ class IconButton(QPushButton):
         self.setFixedSize(size, size)
         self.setToolTip(tooltip)
         self.setText(icon_name)
-        
+
         self.setStyleSheet(f\"\"\"
             QPushButton {{
                 background-color: transparent;
@@ -180,20 +180,20 @@ class PremiumActionCard(QFrame):
             }}
         \"\"\")
         apply_shadow(self, blur=12, offset_y=4)
-        
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        
+
         self.icon_label = QLabel(icon_name)
         self.icon_label.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 24px;")
-        
+
         self.title_label = QLabel(title)
         self.title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        
+
         self.desc_label = QLabel(description)
         self.desc_label.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
         self.desc_label.setWordWrap(True)
-        
+
         layout.addWidget(self.icon_label)
         layout.addWidget(self.title_label)
         layout.addWidget(self.desc_label)
@@ -227,26 +227,26 @@ class IdePanel(QFrame):
         self.layout_v = QVBoxLayout(self)
         self.layout_v.setContentsMargins(0, 0, 0, 0)
         self.layout_v.setSpacing(0)
-        
+
         self.header = QFrame()
         self.header.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
         self.header.setFixedHeight(36)
         header_layout = QHBoxLayout(self.header)
         header_layout.setContentsMargins(16, 0, 8, 0)
-        
+
         self.title_label = QLabel(title)
         self.title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         header_layout.addWidget(self.title_label)
-        
+
         header_layout.addStretch()
-        
+
         if detachable:
             self.detach_btn = IconButton("⏏", "Détacher", 24)
             self.detach_btn.clicked.connect(self.detach_requested.emit)
             header_layout.addWidget(self.detach_btn)
-            
+
         self.layout_v.addWidget(self.header)
-        
+
         self.content_stack = QStackedWidget()
         self.layout_v.addWidget(self.content_stack)
 
@@ -286,30 +286,30 @@ class MetricCard(QFrame):
         \"\"\")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
-        
+
         header = QHBoxLayout()
         self.lbl_label = QLabel(label)
         self.lbl_label.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px;")
-        
+
         self.icon_label = QLabel(icon_name)
         self.icon_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED};")
-        
+
         header.addWidget(self.lbl_label)
         header.addStretch()
         header.addWidget(self.icon_label)
         layout.addLayout(header)
-        
+
         footer = QHBoxLayout()
         self.val_label = QLabel(value)
         self.val_label.setStyleSheet(f"font-size: 24px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         footer.addWidget(self.val_label)
-        
+
         if trend:
             self.trend_label = QLabel(trend)
             color = DesignTokens.COLOR_GREEN if trend_positive else DesignTokens.COLOR_RED
             self.trend_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
             footer.addWidget(self.trend_label)
-        
+
         footer.addStretch()
         layout.addLayout(footer)
 
@@ -329,13 +329,13 @@ class StatCard(QFrame):
         \"\"\")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
-        
+
         self.lbl = QLabel(label)
         self.lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 12px;")
-        
+
         self.val = QLabel(value)
         self.val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
-        
+
         layout.addWidget(self.lbl)
         layout.addWidget(self.val)
 """
@@ -367,7 +367,7 @@ class IdeTabBar(QWidget):
         btn.setCheckable(True)
         btn.setFixedHeight(36)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+
         btn.setStyleSheet(f\"\"\"
             QPushButton {{
                 background-color: transparent;
@@ -387,14 +387,14 @@ class IdeTabBar(QWidget):
                 background-color: {DesignTokens.BG_PANEL};
             }}
         \"\"\")
-        
+
         self.btn_group.addButton(btn, idx)
         self.tabs.append(btn)
         self.layout_h.insertWidget(idx, btn)
-        
+
         if len(self.tabs) == 1:
             btn.setChecked(True)
-            
+
         return idx
 
     def set_active(self, index: int) -> None:
@@ -429,7 +429,7 @@ class PillTabBar(QWidget):
         btn.setCheckable(True)
         btn.setFixedHeight(28)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+
         btn.setStyleSheet(f\"\"\"
             QPushButton {{
                 background-color: transparent;
@@ -447,14 +447,14 @@ class PillTabBar(QWidget):
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         \"\"\")
-        
+
         self.btn_group.addButton(btn, idx)
         self.tabs.append(btn)
         self.layout_h.addWidget(btn)
-        
+
         if len(self.tabs) == 1:
             btn.setChecked(True)
-            
+
         return idx
 
 
@@ -478,7 +478,7 @@ class SettingsTabBar(QWidget):
         btn.setCheckable(True)
         btn.setFixedHeight(36)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+
         btn.setStyleSheet(f\"\"\"
             QPushButton {{
                 text-align: left;
@@ -499,14 +499,14 @@ class SettingsTabBar(QWidget):
                 font-weight: bold;
             }}
         \"\"\")
-        
+
         self.btn_group.addButton(btn, idx)
         self.tabs.append(btn)
         self.layout_v.insertWidget(idx, btn)
-        
+
         if len(self.tabs) == 1:
             btn.setChecked(True)
-            
+
         return idx
 """
 
@@ -587,7 +587,7 @@ class ToggleSwitch(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._checked = False
         self._thumb_pos = 2
-        
+
         self.anim = QPropertyAnimation(self, b"thumb_pos")
         self.anim.setDuration(150)
         self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
@@ -620,12 +620,12 @@ class ToggleSwitch(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         bg_color = QColor(DesignTokens.ACCENT_PRIMARY) if self._checked else QColor(DesignTokens.BG_INPUT)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(bg_color)
         p.drawRoundedRect(0, 0, self.width(), self.height(), 10, 10)
-        
+
         p.setBrush(QColor("#ffffff"))
         p.drawEllipse(self._thumb_pos, 2, 16, 16)
 
@@ -699,11 +699,11 @@ class ActivityItem(QWidget):
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)
-        
+
         self.icon_lbl = QLabel(icon_name)
         self.icon_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
         layout.addWidget(self.icon_lbl)
-        
+
         vbox = QVBoxLayout()
         self.title_lbl = QLabel(title)
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold;")
@@ -712,9 +712,9 @@ class ActivityItem(QWidget):
         vbox.addWidget(self.title_lbl)
         vbox.addWidget(self.sub_lbl)
         layout.addLayout(vbox)
-        
+
         layout.addStretch()
-        
+
         self.time_lbl = QLabel(timestamp)
         self.time_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         layout.addWidget(self.time_lbl)
@@ -736,21 +736,21 @@ class DocTreeItem(QWidget):
                 background-color: {DesignTokens.BG_HOVER};
             }}
         \"\"\")
-        
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 0, 8, 0)
         layout.setSpacing(6)
-        
+
         self.caret = QLabel("▼" if expanded else "▶")
         self.caret.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
         if not is_dir:
             self.caret.setVisible(False)
         layout.addWidget(self.caret)
-        
+
         icon = "📁" if is_dir else "📄"
         self.icon_lbl = QLabel(icon)
         layout.addWidget(self.icon_lbl)
-        
+
         self.text_lbl = QLabel(text)
         self.text_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
         layout.addWidget(self.text_lbl)
@@ -772,10 +772,10 @@ class ContextItem(QWidget):
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         \"\"\")
-        
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 0, 4, 0)
-        
+
         self.badge = QLabel(type_badge)
         self.badge.setStyleSheet(f\"\"\"
             background-color: {DesignTokens.BG_PANEL};
@@ -786,13 +786,13 @@ class ContextItem(QWidget):
             font-weight: bold;
         \"\"\")
         layout.addWidget(self.badge)
-        
+
         self.name_lbl = QLabel(name)
         self.name_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
         layout.addWidget(self.name_lbl)
-        
+
         layout.addStretch()
-        
+
         self.del_btn = IconButton("✕", "Remove", 24)
         self.del_btn.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         self.del_btn.clicked.connect(self.removed.emit)
@@ -809,16 +809,16 @@ class Badge(QLabel):
                  color: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
         base_color = color or DesignTokens.ACCENT_PRIMARY
-        
+
         style = f\"\"\"
             border-radius: 10px;
             padding: 2px 8px;
             font-size: 11px;
             font-weight: bold;
         \"\"\"
-        
+
         if variant == "filled":
             style += f"background-color: {base_color}; color: #ffffff;"
         elif variant == "outline":
@@ -827,7 +827,7 @@ class Badge(QLabel):
             style += f"background-color: rgba(99, 102, 241, 0.1); color: {base_color}; border: 1px solid rgba(99, 102, 241, 0.2);"
         elif variant == "glass":
             style += f"background-color: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.2);"
-            
+
         self.setStyleSheet(style)
 
 
@@ -839,11 +839,11 @@ class TagButton(QPushButton):
         super().__init__(parent)
         self.tag_text = text
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 2, 8, 2)
         layout.setSpacing(4)
-        
+
         lbl = QLabel(text)
         lbl.setStyleSheet(f\"\"\"
             color: {DesignTokens.ACCENT_PRIMARY};
@@ -851,12 +851,12 @@ class TagButton(QPushButton):
             font-size: 11px;
         \"\"\")
         layout.addWidget(lbl)
-        
+
         if removable:
             del_lbl = QLabel("×")
             del_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 14px;")
             layout.addWidget(del_lbl)
-            
+
         self.setStyleSheet(f\"\"\"
             TagButton {{
                 background-color: {DesignTokens.BG_ACTIVE};
@@ -885,16 +885,16 @@ class StyledTableWidget(QTableWidget):
     def __init__(self, columns: list[str], parent: QWidget | None = None) -> None:
         super().__init__(0, len(columns), parent)
         self.setHorizontalHeaderLabels(columns)
-        
+
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setShowGrid(False)
         self.verticalHeader().setVisible(False)
-        
+
         header = self.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        
+
         self.setStyleSheet(f\"\"\"
             QTableWidget {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -932,7 +932,7 @@ class CicdTable(StyledTableWidget):
     def __init__(self, columns: list[str], parent: QWidget | None = None) -> None:
         cols = [c.upper() for c in columns]
         super().__init__(cols, parent)
-        
+
         self.setStyleSheet(self.styleSheet() + f\"\"\"
             QHeaderView::section {{
                 font-size: 11px;
@@ -961,15 +961,15 @@ class UserAvatar(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+
         grad = QLinearGradient(0, 0, self.width(), self.height())
         grad.setColorAt(0, QColor(DesignTokens.ACCENT_PRIMARY))
         grad.setColorAt(1, QColor(DesignTokens.COLOR_PURPLE))
-        
+
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(grad)
         p.drawEllipse(0, 0, self.width(), self.height())
-        
+
         p.setPen(QColor("#ffffff"))
         font = QFont(DesignTokens.FONT_MAIN, self.size_val // 3, QFont.Weight.Bold)
         p.setFont(font)
@@ -1005,22 +1005,22 @@ class DaemonStatusWidget(QWidget):
         super().__init__(parent)
         self.setFixedHeight(28)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        
+
         self.layout_h = QHBoxLayout(self)
         self.layout_h.setContentsMargins(8, 0, 12, 0)
         self.layout_h.setSpacing(6)
-        
+
         self.icon_lbl = QLabel("⚙")
         self.text_lbl = QLabel("Idle")
         self.text_lbl.setStyleSheet(f"font-size: 12px; font-weight: bold;")
-        
+
         self.layout_h.addWidget(self.icon_lbl)
         self.layout_h.addWidget(self.text_lbl)
         self.set_status("idle", "Idle")
 
     def set_status(self, status: str, text: str) -> None:
         self.text_lbl.setText(text)
-        
+
         if status == "active":
             color = DesignTokens.COLOR_YELLOW
             icon = "⚙"
@@ -1033,11 +1033,11 @@ class DaemonStatusWidget(QWidget):
             color = DesignTokens.TEXT_MUTED
             icon = "✓"
             bg = f"transparent"
-            
+
         self.icon_lbl.setText(icon)
         self.icon_lbl.setStyleSheet(f"color: {color};")
         self.text_lbl.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
-        
+
         self.setStyleSheet(f\"\"\"
             DaemonStatusWidget {{
                 background-color: {bg};

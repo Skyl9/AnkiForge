@@ -14,7 +14,7 @@ target2 = """                self.table_engines.setItem(i, 0, item_name)
 replace2 = """                self.table_engines.setItem(i, 0, item_name)
                 self.table_engines.setItem(i, 1, QTableWidgetItem(getattr(eg, "provider", "inconnu").upper()))
                 self.table_engines.setItem(i, 2, QTableWidgetItem(getattr(eg, "model_id", "default")))
-                
+
                 item_free = QTableWidgetItem()
                 item_free.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
                 item_free.setCheckState(Qt.CheckState.Checked if getattr(eg, "is_free", False) else Qt.CheckState.Unchecked)

@@ -43,7 +43,7 @@ class ToolEditorDialog(QDialog):
             if isinstance(card, dict) and "Front" in card:
                 card["Front"] = card["Front"].strip()
         state.set_variable("generated_cards", cards)
-    
+
     return {"status": "success", "processed_cards": len(cards) if isinstance(cards, list) else 0}
 '''
 

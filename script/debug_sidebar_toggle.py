@@ -3,6 +3,7 @@ Script de test interactif pour le toggle de la sidebar.
 """
 
 import os
+
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from PySide6.QtWidgets import QApplication
@@ -11,6 +12,7 @@ from unittest.mock import patch
 from ankiforge.database.models import init_db
 from ankiforge.database.migration import run_migrations
 from ankiforge.ui.main_window import MainWindow
+
 
 def test_sidebar_toggle():
     init_db()
@@ -40,6 +42,7 @@ def test_sidebar_toggle():
         app.processEvents()
 
         print(f"Après 2e clic logo_icon: is_collapsed = {sidebar.is_collapsed}, width = {sidebar.width()}")
+
 
 if __name__ == "__main__":
     test_sidebar_toggle()

@@ -28,6 +28,7 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager, OpenAICompatibleProvider
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.plugins.api import MCPHooksAPI
 from ankiforge.services.tools.tool_service import ToolService
 
 logger = logging.getLogger(__name__)
@@ -331,6 +332,11 @@ class ConsultantEngine:
                 t_name = tool_args.get("tool_name", "")
                 args_json = tool_args.get("args_json", "{}")
                 return ConsultantToolRegistry.execute_python_tool(t_name, args_json), False
+            elif tool_name in MCPHooksAPI.get_registered_tools():
+                plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
+                handler = plugin_tool["handler"]
+                res = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
+                return str(res) if not isinstance(res, str) else res, False
             else:
                 # Tentative d'exécution directe via ToolService
                 state = PipelineRunState(initial_prompt="Consultant Fallback")

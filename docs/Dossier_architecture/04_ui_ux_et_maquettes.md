@@ -28,7 +28,7 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 
 ### 🏭 Création & Pipelines (`creation_view.py` & `pipelines_view.py`)
 * **Rôle :** Orchestration de la génération de masse de cartes à partir des sources via le moteur DAG.
-* **Actions/Boutons :** 
+* **Actions/Boutons :**
   * Dans Pipelines : *Créer/Éditer un Pipeline DAG*, *Ajouter une étape (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`)*, *Inspecteur d'étape JetBrains (`StepInspectorPanel`)*, *Éditeur d'outils Python déterministes (`ToolEditorDialog`)*.
   * Dans Création : *Lancer le workflow DAG dans QThreadPool*, *Modale de validation humaine interactive (`HumanValidationDialog`)*, *Mappage automatique des champs selon le modèle de note*, *Générer les cartes*.
 
@@ -46,13 +46,13 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 
 ### 🎨 Modèles de Cartes & A/B Tests (`card_models_view.py` & `ab_tests_view.py`)
 * **Rôle :** L'Atelier de design des templates et laboratoire comparatif de performance IA.
-* **Actions/Boutons :** 
+* **Actions/Boutons :**
   * Dans Modèles : *Éditeur HTML/CSS/Jinja2*, *Aperçu fidèle WebEngine (`safe_web_preview.py`)*, *Inventaire de styles et composants réutilisables*.
   * Dans Tests A/B : *3 modes de comparaison (Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline)*, *Exécution concurrente dans `QThreadPool`*, *Bannière KPIs en direct (durée, cartes, tokens, coût)*, *Affichage symétrique (Rendu, Champs, JSON)*, *Bouton "Importer dans la Forge" en 1-clic*.
 
 ### 🤖 Personas & Consultant IA (`agents_view.py` & `consultant_view.py`)
 * **Rôle :** Configuration des agents IA et Copilote autonome ReAct / MCP.
-* **Actions/Boutons :** 
+* **Actions/Boutons :**
   * Dans Agents : *Arborescence récursive de dossiers (`PersonaFolderModel`)*, *Filtrage par portée (`⚡ Pipeline`, `🤝 MCP`, `🌐 Universel`)*, *Éditeur 3 onglets (Identité, Prompt Jinja2 avec palette de snippets, Permissions Tools)*, *Simulation unitaire (`AgentTestDialog`)*.
   * Dans Consultant : *Boucle ReAct autonome*, *Cartouches repliables de raisonnement (`ThoughtStepWidget`)*, *Cartes d'appel d'outils MCP (`ToolCallWidget`)*, *Messages avec boutons d'injection CSS et import de cartes (`ChatMessageWidget`)*, *Quick prompts*.
 

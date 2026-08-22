@@ -64,6 +64,12 @@ def main():
 
     setup_dynamic_theme(app)
 
+    # Initialisation et chargement sécurisé des extensions
+    from ankiforge.services.plugins import get_plugin_manager
+
+    plugin_mgr = get_plugin_manager()
+    plugin_mgr.load_all_addons()
+
     window = MainWindow(ai_manager, selected_profile)
     window.show()
 

@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
       }
       let targetViewId = this.getAttribute("data-view");
-      
+
       if (targetViewId === "batch-factory") {
         const styleSelect = document.getElementById("batch-factory-style-select");
         if (styleSelect) {
@@ -234,11 +234,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         <head>
                             <title>Panneau Détaché - AnkiForge</title>
                             <style>
-                                body { 
+                                body {
                                     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                                    padding: 40px; 
-                                    background: #0F1115; 
-                                    color: #F8FAFC; 
+                                    padding: 40px;
+                                    background: #0F1115;
+                                    color: #F8FAFC;
                                     display: flex;
                                     flex-direction: column;
                                     align-items: center;

@@ -1,7 +1,7 @@
-import os
 import time
 from pathlib import Path
 import pytest
+
 
 class DurationCollector:
     def __init__(self):
@@ -14,11 +14,12 @@ class DurationCollector:
         dt = time.perf_counter() - t0
         self.durations.append((dt, item.nodeid))
 
+
 if __name__ == "__main__":
     collector = DurationCollector()
     pytest.main(["-q"], plugins=[collector])
     collector.durations.sort(key=lambda x: x[0], reverse=True)
-    
+
     out_path = Path("script/benchmark_results.txt")
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("=" * 80 + "\n")

@@ -15,7 +15,7 @@ Usage:
 import json
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QCoreApplication
 
@@ -103,7 +103,6 @@ def setup_in_memory_db():
         PersonaModel,
         PipelineModel,
         PipelineStepModel,
-        LLMConfigModel,
     )
 
     db.init(":memory:")
@@ -142,7 +141,7 @@ def attach_console_signals(orchestrator: PipelineOrchestrator, on_human_pause_fn
 
     def on_human(state: PipelineRunState):
         print(f"\n{C_MAGENTA}{'!' * 60}")
-        print(f" ⏸️  INTERRUPTION : VALIDATION HUMAINE REQUISE (Copilote Intentionnel)")
+        print(" ⏸️  INTERRUPTION : VALIDATION HUMAINE REQUISE (Copilote Intentionnel)")
         print(f"{'!' * 60}{C_RESET}\n")
         if on_human_pause_fn:
             on_human_pause_fn(orchestrator, state)
@@ -182,7 +181,7 @@ def run_scenario_creation(ai_provider: LLMProvider):
     pipeline = PipelineModel.create(name="Pipeline Création & Validation")
 
     # Étape 1 : RAG
-    step1 = PipelineStepModel.create(
+    PipelineStepModel.create(
         pipeline=pipeline,
         step_order=1,
         step_type="RAG_RETRIEVAL",
@@ -194,7 +193,7 @@ def run_scenario_creation(ai_provider: LLMProvider):
         system_prompt="Extrais les concepts clés du cours sous format JSON { 'titre_cours': str, 'concepts_cles': list }.",
         output_format="json",
     )
-    step2 = PipelineStepModel.create(
+    PipelineStepModel.create(
         pipeline=pipeline,
         persona=p_architecte,
         step_order=2,
@@ -202,7 +201,7 @@ def run_scenario_creation(ai_provider: LLMProvider):
     )
 
     # Étape 3 : Pause interactive (Validation Humaine)
-    step3 = PipelineStepModel.create(
+    PipelineStepModel.create(
         pipeline=pipeline,
         step_order=3,
         step_type="HUMAN_VALIDATION",
@@ -214,7 +213,7 @@ def run_scenario_creation(ai_provider: LLMProvider):
         system_prompt="Génère des flashcards parfaites au format JSON { 'cards': [{'Front': '...', 'Back': '...'}] } pour le concept : {{ item }}.",
         output_format="json",
     )
-    step4 = PipelineStepModel.create(
+    PipelineStepModel.create(
         pipeline=pipeline,
         persona=p_redacteur,
         step_order=4,
@@ -227,7 +226,7 @@ def run_scenario_creation(ai_provider: LLMProvider):
         system_prompt="Valide et nettoie les flashcards générées : {{ last_output }}.",
         output_format="json",
     )
-    step5 = PipelineStepModel.create(
+    PipelineStepModel.create(
         pipeline=pipeline,
         persona=p_linter,
         step_order=5,
@@ -287,7 +286,7 @@ def run_scenario_audit_map_reduce(ai_provider: LLMProvider):
         system_prompt="Analyse cette carte : {{ item }}. Indique si elle est conforme ou malade.",
         output_format="json",
     )
-    step1 = PipelineStepModel.create(
+    PipelineStepModel.create(
         pipeline=pipeline,
         persona=p_linter,
         step_order=1,
@@ -326,7 +325,7 @@ def run_scenario_dag_branching(ai_provider: LLMProvider):
     persona_target = PersonaModel.create(name="Action Cible Saut", system_prompt="Action Cible", output_format="text")
 
     step1 = PipelineStepModel.create(pipeline=pipeline, persona=persona_main, step_order=1, step_type="LLM_PROMPT")
-    step2_skipped = PipelineStepModel.create(pipeline=pipeline, persona=persona_skip, step_order=2, step_type="LLM_PROMPT")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona_skip, step_order=2, step_type="LLM_PROMPT")
     step3_target = PipelineStepModel.create(pipeline=pipeline, persona=persona_target, step_order=3, step_type="LLM_PROMPT")
 
     # Branchement : Étape 1 saute directement à Étape 3

@@ -3,7 +3,6 @@ Script de reproduction et capture des problèmes lors du passage sombre -> clair
 """
 
 import os
-from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 

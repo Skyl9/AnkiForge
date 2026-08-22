@@ -1,5 +1,5 @@
-from ankiforge.database.models import db, LLMConfigModel
-from ankiforge.services.ai.flexible_service import AIManager, OllamaProvider
+from ankiforge.database.models import db
+from ankiforge.services.ai.flexible_service import OllamaProvider
 from ankiforge.services.workers.creation_worker import CreationWorker, CreationTaskPayload
 from PySide6.QtWidgets import QApplication
 import sys

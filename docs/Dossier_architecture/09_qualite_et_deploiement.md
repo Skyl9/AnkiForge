@@ -9,7 +9,7 @@ La qualité commence avant même d'exécuter le code.
 
 ## 2. Stratégie de Tests (Pytest)
 Les tests sont séparés en trois strates distinctes :
-* **Tests du Core Backend (Peewee & IA) :** Utilisation de `pytest`. 
+* **Tests du Core Backend (Peewee & IA) :** Utilisation de `pytest`.
   * *Règle d'or :* Les appels LLM dans les tests automatisés **doivent être mockés** (via `pytest-mock` ou `responses`). La CI ne doit jamais appeler une vraie API OpenAI ni attendre un modèle Ollama, sous peine d'être lente et coûteuse.
 * **Tests d'Interface (PySide6) :** Utilisation de l'extension `pytest-qt`. Elle permet de faire des tests "Headless" (sans afficher la fenêtre à l'écran) pour simuler des clics sur des boutons et vérifier que les bons signaux Qt sont émis.
 * **Évaluation de l'IA (Evals) :** Un sous-dossier de tests métier (ex: un dataset de 50 cartes Anki volontairement "malades"). Un script vérifie périodiquement que le "Linter Wozniak" généré par le LLM corrige bien ces cartes de manière pertinente.

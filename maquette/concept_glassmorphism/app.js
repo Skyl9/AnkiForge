@@ -6,9 +6,9 @@ navItems.forEach(item => {
         e.preventDefault();
         navItems.forEach(n => n.classList.remove('active'));
         item.classList.add('active');
-        
+
         views.forEach(v => v.classList.add('hidden'));
-        
+
         const target = 'view-' + item.getAttribute('data-view');
         const el = document.getElementById(target);
         if(el) {

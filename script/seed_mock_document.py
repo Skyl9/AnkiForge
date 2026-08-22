@@ -13,7 +13,16 @@ if db.is_closed():
 
 doc = DocumentModel.create(
     title="Introduction à la Physique Quantique",
-    content="# Introduction à la Physique Quantique\n\n## Définition Fondamentale\nLa physique quantique est la discipline de la physique dont l'objet est l'étude des comportements de la matière et de la lumière au niveau microscopique ou atomique.\n\n## Comparaison Classique\nContrairement à la mécanique classique, les grandeurs observables ne peuvent prendre que des valeurs discrètes.\n\n## Concept Avancé\nDe plus, on introduit la notion de dualité onde-corpuscule, selon laquelle une particule peut se comporter comme une onde.",
+    content=(
+        "# Introduction à la Physique Quantique\n\n"
+        "## Définition Fondamentale\n"
+        "La physique quantique est la discipline de la physique dont l'objet est l'étude des comportements "
+        "de la matière et de la lumière au niveau microscopique ou atomique.\n\n"
+        "## Comparaison Classique\n"
+        "Contrairement à la mécanique classique, les grandeurs observables ne peuvent prendre que des valeurs discrètes.\n\n"
+        "## Concept Avancé\n"
+        "De plus, on introduit la notion de dualité onde-corpuscule, selon laquelle une particule peut se comporter comme une onde."
+    ),
     file_type="md",
 )
 

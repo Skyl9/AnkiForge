@@ -7,9 +7,9 @@ navBtns.forEach(btn => {
         e.preventDefault();
         navBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        
+
         views.forEach(v => v.classList.add('hidden'));
-        
+
         const target = 'view-' + btn.getAttribute('data-view');
         const el = document.getElementById(target);
         if(el) {

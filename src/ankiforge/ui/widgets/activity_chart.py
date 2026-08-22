@@ -216,9 +216,7 @@ class ActivityChartWidget(QWidget):
                     modified = item.get("modified", 0)
                     total = item.get("total", 0)
 
-                    tooltip_text = (
-                        f"<b>{item.get('label', '')} ({date_str})</b><br>" f"⚡ <b>{created}</b> cartes créées<br>" f"✏️ <b>{modified}</b> cartes révisées<br>" f"📊 Total : <b>{total}</b> actions"
-                    )
+                    tooltip_text = f"<b>{item.get('label', '')} ({date_str})</b><br>⚡ <b>{created}</b> cartes créées<br>✏️ <b>{modified}</b> cartes révisées<br>📊 Total : <b>{total}</b> actions"
                     QToolTip.showText(event.globalPosition().toPoint(), tooltip_text, self)
                 return
 

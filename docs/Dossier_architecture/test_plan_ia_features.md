@@ -11,7 +11,7 @@ Ce document rassemble les scénarios de test manuel pour valider que tous les mo
 1. Allez dans le module de **Création**.
 2. Dans le bloc d'import ou la barre d'entrée URL, collez un lien YouTube valide contenant des sous-titres (ex: une courte vidéo TEDx).
 3. Cliquez sur le bouton pour lancer l'analyse (Générer depuis YouTube).
-4. **Comportement attendu :** 
+4. **Comportement attendu :**
    - L'application affiche un statut de progression.
    - Les imports Python que nous avons corrigés ne causent pas de crash silencieux.
    - Des cartes Anki apparaissent en sortie (le LLM a transformé la transcription en cartes structurées).

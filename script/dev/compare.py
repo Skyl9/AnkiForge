@@ -12,7 +12,7 @@ with open(log_file, "r") as f:
                         old_content = tc["args"].get("TargetContent", "")
                         if "SLIM BAR NAVIGATION" in old_content:
                             old_js = old_content
-        except:
+        except Exception:
             pass
 
 current_js = open("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/maquette/concept_ide/app.js").read()

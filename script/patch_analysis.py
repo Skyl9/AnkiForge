@@ -1,5 +1,3 @@
-import re
-
 with open("src/ankiforge/ui/views/analysis_view.py", "r") as f:
     content = f.read()
 

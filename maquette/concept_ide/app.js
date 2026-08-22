@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
       }
       let targetViewId = this.getAttribute("data-view");
-      
+
       if (targetViewId === "batch-factory") {
         const styleSelect = document.getElementById("batch-factory-style-select");
         if (styleSelect) {
@@ -227,21 +227,21 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", (e) => {
       const panel = e.target.closest(".ide-panel");
       if (!panel) return;
-      
+
       const activeTab = panel.querySelector(".ide-tab.active");
       if (!activeTab) return;
-      
+
       const targetId = activeTab.getAttribute("data-target");
       const content = panel.querySelector(`#${targetId}`);
       if (!content) return;
-      
+
       const title = activeTab.textContent ? activeTab.textContent.trim() : activeTab.innerText.trim();
       const iconClass = activeTab.querySelector("i") ? activeTab.querySelector("i").className : "ph ph-cube-transparent";
 
       // Hide active tab and content
       activeTab.style.display = "none";
       content.style.display = "none";
-      
+
       // Create empty state placeholder
       const emptyState = document.createElement("div");
       emptyState.className = "empty-state-dock";
@@ -255,13 +255,13 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
       `;
       panel.appendChild(emptyState);
-      
+
       // Create mock floating window
       const floatWin = document.createElement("div");
       floatWin.className = "mock-floating-window";
       floatWin.style.left = `${panel.getBoundingClientRect().left + 40}px`;
       floatWin.style.top = `${panel.getBoundingClientRect().top + 40}px`;
-      
+
       floatWin.innerHTML = `
           <div class="mock-floating-header">
               <span class="mock-floating-title"><i class="${iconClass}"></i> ${title} (Détaché)</span>
@@ -282,12 +282,12 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
       `;
       document.body.appendChild(floatWin);
-      
+
       // Handle moving the floating window
       const header = floatWin.querySelector(".mock-floating-header");
       let isDragging = false;
       let startX, startY;
-      
+
       header.addEventListener("mousedown", (e) => {
           if (e.target.closest(".close-float-btn")) return;
           isDragging = true;
@@ -295,47 +295,47 @@ document.addEventListener("DOMContentLoaded", () => {
           startY = e.clientY - floatWin.offsetTop;
           floatWin.style.borderColor = "var(--accent-primary)";
       });
-      
+
       document.addEventListener("mousemove", (e) => {
           if (!isDragging) return;
           floatWin.style.left = `${e.clientX - startX}px`;
           floatWin.style.top = `${e.clientY - startY}px`;
       });
-      
+
       document.addEventListener("mouseup", () => {
           isDragging = false;
           floatWin.style.borderColor = "";
       });
-      
+
       // Drag events to restore/dock back
       const floatTab = floatWin.querySelector(".ide-tab");
-      
+
       floatTab.addEventListener("dragstart", (e) => {
           e.dataTransfer.setData("text/plain", targetId);
           e.dataTransfer.effectAllowed = "move";
       });
-      
+
       // Drag over empty target
       emptyState.addEventListener("dragover", (e) => {
           e.preventDefault();
           emptyState.classList.add("drag-over");
       });
-      
+
       emptyState.addEventListener("dragleave", () => {
           emptyState.classList.remove("drag-over");
       });
-      
+
       emptyState.addEventListener("drop", (e) => {
           e.preventDefault();
           emptyState.classList.remove("drag-over");
-          
+
           // Restore tab & content
           activeTab.style.display = "";
           content.style.display = "";
           emptyState.remove();
           floatWin.remove();
       });
-      
+
       // Close button docks back
       floatWin.querySelector(".close-float-btn").addEventListener("click", () => {
           activeTab.style.display = "";

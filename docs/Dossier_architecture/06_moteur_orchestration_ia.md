@@ -29,7 +29,7 @@ Les étapes s'échangent un objet **`PipelineRunState`** (dictionnaire JSON en m
 ```mermaid
 classDiagram
     direction TB
-    
+
     class PersonaModel {
         +String name
         +String persona_type

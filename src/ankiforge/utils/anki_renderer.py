@@ -180,7 +180,7 @@ def render_anki_card(
                     {css}
                 </style>
             </head>
-            <body class="{body_class}"> 
+            <body class="{body_class}">
                 <div class="card">{html}</div>
                 {get_mathjax_script()}
             </body>

@@ -11,7 +11,7 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
 ### A. Le Moteur de Workflows DAG & Map-Reduce (`PipelineOrchestrator`)
 * **Cas d'usage :** Les vues `creation_view.py`, `pipelines_view.py`, `ab_tests_view.py` et `analysis_view.py`.
 * **Philosophie :** Traitements automatisés, reproductibles et déterministes.
-* **Mécanique :** 
+* **Mécanique :**
   * Graphe orienté acyclique (DAG) avec mémoire partagée (`PipelineRunState`).
   * 5 types d'étapes : `LLM_PROMPT` (Persona), `RAG_RETRIEVAL` (recherche vectorielle FAISS/ChromaDB), `MAP_REDUCE` (parallélisation multithread par lot), `HUMAN_VALIDATION` (pause interactive copilote), `PYTHON_TOOL` (outils déterministes en sandbox).
   * Branchements conditionnels (`on_success_step`, `on_failure_step`, `failure_behavior`).
@@ -20,7 +20,7 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
 ### B. Le Système Agentique ReAct & MCP (`ConsultantEngine`)
 * **Cas d'usage :** La vue `consultant_view.py`.
 * **Philosophie :** Exploration dynamique, raisonnement autonome et assistance conversationnelle avancée.
-* **Mécanique :** 
+* **Mécanique :**
   * Boucle ReAct (*Thought ➔ Action ➔ Observation ➔ Response*) avec auto-correction d'erreurs.
   * Serveur MCP in-process (`mcp_server.py`, `MCPToolService`) exposant des outils sécurisés : `query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `update_card_model_css`, `execute_python_tool`.
   * Rendu visuel interactif dans le chat (cartouches de pensée repliables, widgets d'appels d'outils, injection directe de CSS et cartes Anki).

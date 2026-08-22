@@ -32,7 +32,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 7. **Laboratoire de Tests A/B :** Comparaisons 3 modes (Modèle vs Modèle, Prompt vs Prompt, Pipeline vs Pipeline), exécution concurrente symétrique dans `QThreadPool`, bannière de KPIs en direct (durée, cartes, tokens, coût), affichage symétrique (Rendu, Champs, JSON) et import 1-clic dans la Forge.
 8. **Hub Documentaire, Smart Coverage & RAG Local :** Délimitation intelligente de la portée documentaire (`DocumentDelimitationDialog`), découpage sémantique (`ChunkingService`), indexation vectorielle FAISS/ChromaDB (`RAGService`, `VectorManager`), modale de test instantané (`RAGTestDialog`), traçabilité `NoteChunkLinkModel` et analyse des lacunes (Gap Analysis).
 9. **Multi-Profils & Isolation des Données :** Support multi-profils isolés (`ProfileManager`). Chaque profil possède sa base SQLite sous `~/.ankiforge/profiles/<profile_name>/ankiforge.db` et son répertoire de médias dédié.
-10. **Agnosticisme LLM & Gestion des Dépendances :** 
+10. **Agnosticisme LLM & Gestion des Dépendances :**
     - *LLM Locaux :* Délégation à `Ollama` via API sur `localhost:11434` (Zéro dépendance lourde LLM embarquée).
     - *APIs Cloud & Suivi des Coûts :* Support OpenAI, Anthropic, Gemini via `flexible_service.py`, traçabilité des dépenses via `pricing_service.py` et `TokenUsageModel`.
     - *Lazy Loading & PDF :* Dépendances ultra-lourdes (Marker OCR, PyTorch) installées à la volée dans le dossier de données persistant utilisateur.

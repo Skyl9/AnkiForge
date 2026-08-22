@@ -21,7 +21,7 @@ new_code = """    @staticmethod
         if deck_id is not None:
             query = query.where(CardModel.deck_id == deck_id)
         total_cards = query.count()
-        
+
         maturing_cards = query.where(CardModel.ivl > 21).count()
         new_cards = query.where(CardModel.ivl == 0).count()
         learning_cards = query.where((CardModel.ivl > 0) & (CardModel.ivl <= 21)).count()
@@ -30,18 +30,18 @@ new_code = """    @staticmethod
         fsrs_retention = 90.0
         if avg_stability > 0:
             fsrs_retention = min(99.0, max(0.0, 90.0 + (avg_stability * 0.5)))
-        
+
         # Token usage aggregation
         total_spent = TokenUsageModel.select(fn.SUM(TokenUsageModel.estimated_cost_usd)).scalar() or 0.0
         total_tokens = TokenUsageModel.select(fn.SUM(TokenUsageModel.total_tokens)).scalar() or 0
-        
+
         # Models usage
         models_query = TokenUsageModel.select(
             TokenUsageModel.model_id,
             fn.SUM(TokenUsageModel.estimated_cost_usd).alias('cost'),
             fn.SUM(TokenUsageModel.total_tokens).alias('tokens')
         ).group_by(TokenUsageModel.model_id)
-        
+
         colors = ["#4285F4", "#10a37f", "#c084fc", "#f59e0b"]
         models_list = []
         for i, mq in enumerate(models_query):
@@ -53,7 +53,7 @@ new_code = """    @staticmethod
                 "pct": pct,
                 "color": colors[i % len(colors)],
             })
-            
+
         if not models_list:
              models_list = [
                 {
@@ -64,7 +64,7 @@ new_code = """    @staticmethod
                     "color": "var(--color-blue)",
                 }
              ]
-             
+
         # Add Local model manually since it's zero cost
         models_list.append({
             "name": "Modèles Locaux (Marker PDF & Whisper AI)",
@@ -79,7 +79,7 @@ new_code = """    @staticmethod
             TokenUsageModel.task_type,
             fn.SUM(TokenUsageModel.estimated_cost_usd).alias('cost')
         ).group_by(TokenUsageModel.task_type)
-        
+
         tasks_breakdown = []
         for i, tq in enumerate(task_query):
             pct = (tq.cost / total_spent * 100) if total_spent > 0 else 0
@@ -96,9 +96,9 @@ new_code = """    @staticmethod
                 {"task": "2. Extraction & Structure Sources (PDF/Web)", "cost_usd": 0.0, "pct": 0.0, "color": "var(--color-blue)"},
                 {"task": "3. Audit Linter Ergonomique & Live KaTeX", "cost_usd": 0.0, "pct": 0.0, "color": "#c084fc"},
             ]
-        
+
         avg_cost = total_spent / total_cards if total_cards > 0 else 0.0
-        
+
         return {
             "total_spent_usd": total_spent,
             "avg_cost_per_card_usd": avg_cost,

@@ -1,6 +1,6 @@
 # 🧪 Plan de Test IA - AnkiForge
 
-Ce document répertorie tous les tests à effectuer pour garantir le fonctionnement optimal des différents éléments IA intégrés dans AnkiForge. 
+Ce document répertorie tous les tests à effectuer pour garantir le fonctionnement optimal des différents éléments IA intégrés dans AnkiForge.
 
 ---
 
