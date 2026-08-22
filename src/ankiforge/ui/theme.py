@@ -49,6 +49,15 @@ class DesignTokens:
     COLOR_RED = "#ef4444"
     COLOR_PURPLE = "#6366f1"
 
+    # Tokens de coloration syntaxique (Syntax Highlighting)
+    SYNTAX_TAG = "#38bdf8"
+    SYNTAX_ATTR = "#fbbf24"
+    SYNTAX_STRING = "#4ade80"
+    SYNTAX_KEYWORD = "#c084fc"
+    SYNTAX_VARIABLE = "#f97316"
+    SYNTAX_COMMENT = "#64748b"
+    SYNTAX_NUMBER = "#22d3ee"
+
     # Radius
     RADIUS_SM = 6  # buttons, inputs
     RADIUS_MD = 10  # panels, cards
@@ -107,6 +116,15 @@ class DesignTokens:
         cls.COLOR_YELLOW = profile.color_yellow
         cls.COLOR_RED = profile.color_red
         cls.COLOR_PURPLE = profile.color_purple
+
+        # Syntax Highlighting Tokens
+        cls.SYNTAX_TAG = getattr(profile, "syntax_tag", "#38bdf8" if cls.IS_DARK else "#0284c7")
+        cls.SYNTAX_ATTR = getattr(profile, "syntax_attr", "#fbbf24" if cls.IS_DARK else "#d97706")
+        cls.SYNTAX_STRING = getattr(profile, "syntax_string", "#4ade80" if cls.IS_DARK else "#16a34a")
+        cls.SYNTAX_KEYWORD = getattr(profile, "syntax_keyword", "#c084fc" if cls.IS_DARK else "#7c3aed")
+        cls.SYNTAX_VARIABLE = getattr(profile, "syntax_variable", "#f97316" if cls.IS_DARK else "#ea580c")
+        cls.SYNTAX_COMMENT = getattr(profile, "syntax_comment", "#64748b" if cls.IS_DARK else "#94a3b8")
+        cls.SYNTAX_NUMBER = getattr(profile, "syntax_number", "#22d3ee" if cls.IS_DARK else "#0891b2")
 
         cls.RADIUS_SM = profile.radius_sm
         cls.RADIUS_MD = profile.radius_md

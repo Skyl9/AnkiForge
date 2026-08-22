@@ -55,3 +55,12 @@ class ThemeProfile:
     font_code: str = "Menlo"
     font_size_base: int = 13
     font_size_sm: int = 11
+
+    # Tokens de coloration syntaxique (Syntax Highlighting)
+    syntax_tag: str = "#38bdf8"  # Balises HTML, sélecteurs CSS
+    syntax_attr: str = "#fbbf24"  # Attributs HTML, propriétés CSS
+    syntax_string: str = "#4ade80"  # Chaînes de texte "...", '...'
+    syntax_keyword: str = "#c084fc"  # Mots-clés Anki, conditionals, @media
+    syntax_variable: str = "#f97316"  # Variables / Champs Anki {{Champ}}, IDs CSS
+    syntax_comment: str = "#64748b"  # Commentaires <!-- -->, /* */
+    syntax_number: str = "#22d3ee"  # Nombres, unités px, %, couleurs hex

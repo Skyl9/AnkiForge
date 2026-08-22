@@ -50,31 +50,63 @@ class CardPreviewWidget(QWidget):
         # --- En-tête de contrôles (Barre de contrôles) ---
         self.controls_container = QWidget()
         self.controls_layout = QVBoxLayout(self.controls_container)
-        self.controls_layout.setContentsMargins(12, 12, 12, 12)
-        self.controls_layout.setSpacing(8)
+        self.controls_layout.setContentsMargins(8, 6, 8, 6)
+        self.controls_layout.setSpacing(4)
 
         # Ligne 1 : Titre et thèmes / mode
         row1_layout = QHBoxLayout()
-        row1_layout.setSpacing(12)
+        row1_layout.setContentsMargins(0, 0, 0, 0)
+        row1_layout.setSpacing(8)
 
         if show_header:
             lbl_preview = QLabel("PRÉVISUALISATION")
-            lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border: none;")
+            lbl_preview.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border: none;")
             row1_layout.addWidget(lbl_preview)
 
         row1_layout.addStretch()
 
+        # Boutons de bascule multi-appareils (Bureau / Tablette / Mobile)
+        self.device_container = QWidget()
+        device_layout = QHBoxLayout(self.device_container)
+        device_layout.setContentsMargins(0, 0, 0, 0)
+        device_layout.setSpacing(2)
+
+        self.btn_desktop = IconButton("monitor", tooltip="Mode Bureau (100% largeur)", size=22)
+        self.btn_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;")
+        self.btn_desktop.clicked.connect(lambda: self.set_device_mode("desktop"))
+
+        self.btn_tablet = IconButton("device-tablet", tooltip="Mode Tablette (768px)", size=22)
+        self.btn_tablet.clicked.connect(lambda: self.set_device_mode("tablet"))
+
+        self.btn_mobile = IconButton("device-mobile", tooltip="Mode Mobile (375px)", size=22)
+        self.btn_mobile.clicked.connect(lambda: self.set_device_mode("mobile"))
+
+        device_layout.addWidget(self.btn_desktop)
+        device_layout.addWidget(self.btn_tablet)
+        device_layout.addWidget(self.btn_mobile)
+
+        row1_layout.addWidget(self.device_container)
+
+        self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip="Basculer le thème", size=22)
+        self.btn_theme_toggle.clicked.connect(self._toggle_theme)
+        row1_layout.addWidget(self.btn_theme_toggle)
+
+        # Ligne 2 : Sélecteur de carte et bouton recto/verso
+        row2_layout = QHBoxLayout()
+        row2_layout.setContentsMargins(0, 0, 0, 0)
+        row2_layout.setSpacing(6)
+
         # Sélecteur de carte (Carte n°1, Carte n°2)
         self.card_selector = StyledComboBox()
-        self.card_selector.setMinimumWidth(150)
-        self.card_selector.setFixedHeight(30)
+        self.card_selector.setMinimumWidth(110)
+        self.card_selector.setFixedHeight(26)
         self.card_selector.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
-                padding: 0 10px;
+                padding: 0 8px;
                 font-size: 11px;
             }}
             QComboBox:focus {{
@@ -85,41 +117,11 @@ class CardPreviewWidget(QWidget):
         # Bouton pour basculer Recto/Verso
         self.btn_toggle_side = SecondaryButton("Voir Verso")
         self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_toggle_side.setFixedHeight(26)
         self.btn_toggle_side.clicked.connect(self._on_toggle_side)
 
-        # Ligne 2 : Sélecteur de carte et bouton recto/verso
-        row2_layout = QHBoxLayout()
-        row2_layout.setSpacing(12)
-
-        row2_layout.addWidget(self.card_selector)
+        row2_layout.addWidget(self.card_selector, 1)
         row2_layout.addWidget(self.btn_toggle_side)
-        row2_layout.addStretch()
-
-        # Boutons de bascule multi-appareils (Bureau / Tablette / Mobile)
-        self.device_container = QWidget()
-        device_layout = QHBoxLayout(self.device_container)
-        device_layout.setContentsMargins(0, 0, 0, 0)
-        device_layout.setSpacing(4)
-
-        self.btn_desktop = IconButton("monitor", tooltip="Mode Bureau (100% largeur)", size=24)
-        self.btn_desktop.setStyleSheet(f"background-color: {DesignTokens.BG_HOVER}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px;")
-        self.btn_desktop.clicked.connect(lambda: self.set_device_mode("desktop"))
-
-        self.btn_tablet = IconButton("device-tablet", tooltip="Mode Tablette (768px)", size=24)
-        self.btn_tablet.clicked.connect(lambda: self.set_device_mode("tablet"))
-
-        self.btn_mobile = IconButton("device-mobile", tooltip="Mode Mobile (375px)", size=24)
-        self.btn_mobile.clicked.connect(lambda: self.set_device_mode("mobile"))
-
-        device_layout.addWidget(self.btn_desktop)
-        device_layout.addWidget(self.btn_tablet)
-        device_layout.addWidget(self.btn_mobile)
-
-        row1_layout.addWidget(self.device_container)
-
-        self.btn_theme_toggle = IconButton("sun" if self._is_preview_dark else "moon", tooltip="Basculer le thème", size=24)
-        self.btn_theme_toggle.clicked.connect(self._toggle_theme)
-        row1_layout.addWidget(self.btn_theme_toggle)
 
         self.controls_layout.addLayout(row1_layout)
         self.controls_layout.addLayout(row2_layout)

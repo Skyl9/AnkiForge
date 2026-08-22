@@ -24,90 +24,12 @@ from PySide6.QtWidgets import (
 from ankiforge.services.cards.snippet_library import SnippetItem, SnippetLibrary
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import DangerButton, IconButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.components.flow_layout import FlowLayout
-from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit, StyledTextEdit
+from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+from ankiforge.ui.components.flow_layout import FlowWidget
+from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
-
-
-class CodeEditorWithGutter(QFrame):
-    """Conteneur d'édition de code avec gouttière de numéros de ligne et relief tactile."""
-
-    def __init__(self, placeholder: str = "", parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("codeEditorGutter")
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        self.setStyleSheet(f"""
-            QFrame#codeEditorGutter {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
-
-        # Gouttière des numéros de lignes
-        self.lines_label = QLabel("1")
-        self.lines_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-        self.lines_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignTokens.BG_SIDEBAR};
-                color: {DesignTokens.TEXT_MUTED};
-                font-family: '{DesignTokens.FONT_CODE}';
-                font-size: 11px;
-                line-height: 1.4;
-                padding: 8px 8px;
-                border-right: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top-left-radius: {DesignTokens.RADIUS_SM}px;
-                border-bottom-left-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
-        layout.addWidget(self.lines_label)
-
-        # Éditeur de texte
-        self.editor = StyledTextEdit()
-        self.editor.setPlaceholderText(placeholder)
-        self.editor.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-family: '{DesignTokens.FONT_CODE}';
-                font-size: 11px;
-                line-height: 1.4;
-                padding: 8px;
-                border: none;
-                border-top-right-radius: {DesignTokens.RADIUS_SM}px;
-                border-bottom-right-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
-        layout.addWidget(self.editor, 1)
-
-        self.editor.blockCountChanged.connect(self._update_line_numbers)
-        self.editor.textChanged.connect(self._update_line_numbers)
-
-    def _update_line_numbers(self) -> None:
-        count = max(1, self.editor.blockCount())
-        lines_text = "\n".join(str(i) for i in range(1, count + 1))
-        self.lines_label.setText(lines_text)
-
-    def toPlainText(self) -> str:
-        return self.editor.toPlainText()
-
-    def setPlainText(self, text: str) -> None:
-        self.editor.setPlainText(text)
-        self._update_line_numbers()
-
-    def insertPlainText(self, text: str) -> None:
-        self.editor.insertPlainText(text)
-        self._update_line_numbers()
-
-    def clear(self) -> None:
-        self.editor.clear()
-        self._update_line_numbers()
 
 
 class SnippetCardWidget(QFrame):
@@ -138,10 +60,10 @@ class SnippetCardWidget(QFrame):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
 
-        # En-tête : Icône dans une pastille + Titre + Catégorie + Flèche / Indicateur d'édition
+        # Ligne 1 : Icône dans une pastille + Titre (word wrap) + Flèche d'édition
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(6)
@@ -167,26 +89,31 @@ class SnippetCardWidget(QFrame):
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: bold; border: none; background: transparent;")
         title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         title_lbl.setWordWrap(True)
-
-        category_badge = Badge(snippet.category, variant="neutral")
-        category_badge.setFixedHeight(18)
-        category_badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        header_layout.addWidget(title_lbl, 1)
 
         btn_edit = IconButton("ph.caret-right", tooltip="Inspecter et modifier le snippet", size=20)
         btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.snippet))
-
-        header_layout.addWidget(title_lbl, 1)
-        header_layout.addWidget(category_badge)
         header_layout.addWidget(btn_edit)
         layout.addLayout(header_layout)
 
-        # Description responsive avec passage à la ligne
+        # Ligne 2 : Badge de catégorie dédié (sur toute la largeur pour éviter toute troncature)
+        badge_layout = QHBoxLayout()
+        badge_layout.setContentsMargins(0, 0, 0, 0)
+        badge_layout.setSpacing(4)
+        category_badge = Badge(snippet.category, variant="neutral")
+        category_badge.setFixedHeight(18)
+        category_badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        badge_layout.addWidget(category_badge)
+        badge_layout.addStretch()
+        layout.addLayout(badge_layout)
+
+        # Ligne 3 : Description responsive avec passage à la ligne
         desc_lbl = QLabel(snippet.description)
         desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         desc_lbl.setWordWrap(True)
         layout.addWidget(desc_lbl)
 
-        # Bouton d'insertion au curseur unique et responsive
+        # Ligne 4 : Bouton d'insertion au curseur unique et responsive
         self.btn_insert = SecondaryButton("Insérer au curseur")
         self.btn_insert.setIcon(load_phosphor_icon("ph.cursor-click", color=DesignTokens.TEXT_PRIMARY))
         self.btn_insert.setFixedHeight(28)
@@ -269,17 +196,18 @@ class SnippetLibraryDrawer(QWidget):
         self.search_input.textChanged.connect(self._filter_snippets)
         layout.addWidget(self.search_input)
 
-        # Filtres de catégories fluides (FlowLayout)
-        self.category_container = QWidget()
+        # Filtres de catégories fluides (FlowWidget)
+        self.category_container = FlowWidget(margin=0, h_spacing=4, v_spacing=4)
         self.category_container.setObjectName("categoryContainer")
         self.category_container.setStyleSheet("QWidget#categoryContainer { background: transparent; border: none; }")
-        self.category_layout = FlowLayout(self.category_container, margin=0, h_spacing=4, v_spacing=4)
+        self.category_layout = self.category_container.flow_layout
         self._rebuild_category_buttons()
         layout.addWidget(self.category_container)
 
         # Zone scrollable des cartes de snippets
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
@@ -295,10 +223,7 @@ class SnippetLibraryDrawer(QWidget):
         self._populate_cards(self._all_snippets)
 
     def _rebuild_category_buttons(self) -> None:
-        while self.category_layout.count():
-            child = self.category_layout.takeAt(0)
-            if child and child.widget():
-                child.widget().deleteLater()
+        self.category_container.clear()
 
         categories = ["Tous"] + SnippetLibrary.get_categories()
         self.category_buttons: List[SecondaryButton] = []
@@ -402,8 +327,12 @@ class SnippetLibraryDrawer(QWidget):
     def _populate_cards(self, snippets: List[SnippetItem]) -> None:
         while self.cards_layout.count():
             child = self.cards_layout.takeAt(0)
-            if child and child.widget():
-                child.widget().deleteLater()
+            if child:
+                w = child.widget()
+                if w:
+                    w.hide()
+                    w.setParent(None)
+                    w.deleteLater()
 
         if not snippets:
             empty_lbl = QLabel("Aucun snippet correspondant.")
@@ -562,11 +491,17 @@ class SnippetLibraryDrawer(QWidget):
 
         self.detail_code_stack = QStackedWidget()
 
-        self.detail_html_editor = CodeEditorWithGutter(placeholder='<div class="custom-card">\n  {{Champ}}\n</div>')
+        self.detail_html_editor = CodeEditorWithGutter(
+            placeholder='<div class="custom-card">\n  {{Champ}}\n</div>',
+            mode="html",
+        )
         self.detail_html_editor.setFixedHeight(140)
         self.detail_code_stack.addWidget(self.detail_html_editor)
 
-        self.detail_css_editor = CodeEditorWithGutter(placeholder=".custom-card {\n  margin: 10px 0;\n  padding: 12px;\n}")
+        self.detail_css_editor = CodeEditorWithGutter(
+            placeholder=".custom-card {\n  margin: 10px 0;\n  padding: 12px;\n}",
+            mode="css",
+        )
         self.detail_css_editor.setFixedHeight(140)
         self.detail_code_stack.addWidget(self.detail_css_editor)
 
@@ -789,11 +724,17 @@ class SnippetLibraryDrawer(QWidget):
 
         self.create_code_stack = QStackedWidget()
 
-        self.create_html_editor = CodeEditorWithGutter(placeholder='<div class="af-custom-box">\n  <div class="af-custom-title">Titre</div>\n  <div class="af-custom-body">{{Contenu}}</div>\n</div>')
+        self.create_html_editor = CodeEditorWithGutter(
+            placeholder='<div class="af-custom-box">\n  <div class="af-custom-title">Titre</div>\n  <div class="af-custom-body">{{Contenu}}</div>\n</div>',
+            mode="html",
+        )
         self.create_html_editor.setFixedHeight(140)
         self.create_code_stack.addWidget(self.create_html_editor)
 
-        self.create_css_editor = CodeEditorWithGutter(placeholder=".af-custom-box {\n  margin: 12px 0;\n  padding: 10px;\n  border-radius: 8px;\n  background: rgba(99, 102, 241, 0.1);\n}")
+        self.create_css_editor = CodeEditorWithGutter(
+            placeholder=".af-custom-box {\n  margin: 12px 0;\n  padding: 10px;\n  border-radius: 8px;\n  background: rgba(99, 102, 241, 0.1);\n}",
+            mode="css",
+        )
         self.create_css_editor.setFixedHeight(140)
         self.create_code_stack.addWidget(self.create_css_editor)
 

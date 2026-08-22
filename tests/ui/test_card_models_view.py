@@ -447,3 +447,293 @@ def test_card_models_view_cursor_linked_insertion(qtbot, mock_db):
     assert "_END_BACK" in back_text
     assert snippet_warn.html_template in back_text
     assert ".af-callout-warning" in view.css_editor_wrapper.toPlainText()
+
+
+def test_html_linter_and_css_linter():
+    """Vérifie la détection précise des erreurs de syntaxe par HTMLLinter et CSSLinter."""
+    from ankiforge.ui.components.code_editor import CSSLinter, HTMLLinter
+
+    # 1. HTML Linter : balises orphelines, non fermées, champs Anki inconnus
+    html_valid = '<div class="card">\n  <p>{{Front}}</p>\n  <hr id="answer">\n</div>'
+    assert len(HTMLLinter.lint(html_valid, ["Front", "Back"])) == 0
+
+    html_unclosed_tag = '<div class="card">\n  <span>{{Front}}\n</div>'
+    issues_html = HTMLLinter.lint(html_unclosed_tag, ["Front", "Back"])
+    assert len(issues_html) >= 1
+    assert any("span" in iss.message for iss in issues_html)
+
+    html_orphan_brace = "<div>{{Front</div>"
+    issues_brace = HTMLLinter.lint(html_orphan_brace, ["Front", "Back"])
+    assert len(issues_brace) >= 1
+    assert any("Accolade double" in iss.message for iss in issues_brace)
+
+    html_unknown_field = "<div>{{ChampInexistant}}</div>"
+    issues_field = HTMLLinter.lint(html_unknown_field, ["Front", "Back"])
+    assert len(issues_field) >= 1
+    assert any("ChampInexistant" in iss.message for iss in issues_field)
+
+    # 2. CSS Linter : accolades non fermées, propriétés sans séparateur, valeurs vides
+    css_valid = ".card {\n  background-color: #fff;\n  font-size: 14px;\n}"
+    assert len(CSSLinter.lint(css_valid)) == 0
+
+    css_unclosed_brace = ".card {\n  color: red;\n"
+    issues_css = CSSLinter.lint(css_unclosed_brace)
+    assert len(issues_css) >= 1
+    assert any("Accolade ouvrante" in iss.message for iss in issues_css)
+
+    css_missing_colon = ".card {\n  color red;\n}"
+    issues_colon = CSSLinter.lint(css_missing_colon)
+    assert len(issues_colon) >= 1
+    assert any("manquant" in iss.message for iss in issues_colon)
+
+
+def test_code_editor_gutter_autocomplete_and_lint_status(qtbot):
+    """Vérifie la synchronisation de la gouttière native, le statut du linter et l'autocomplétion."""
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+
+    editor_wrapper = CodeEditorWithGutter(placeholder="{{Front}}", mode="html")
+    qtbot.addWidget(editor_wrapper)
+    editor_wrapper.show()
+
+    # 1. Gouttière native synchronisée
+    native = editor_wrapper.editor
+    native.setPlainText("Ligne 1\nLigne 2\nLigne 3\nLigne 4\nLigne 5")
+    assert native.blockCount() == 5
+    assert native.line_number_area.width() > 20
+
+    # 2. Synchronisation des champs et autocomplétion
+    editor_wrapper.set_known_fields(["Front", "Back", "Extra"])
+    model = native.completer.model()
+    assert model is not None
+    string_list = model.stringList()
+    assert "{{Front}}" in string_list
+    assert "{{cloze:Front}}" in string_list
+    assert '<div class="card">' in string_list
+
+    # 3. Lintage temps réel et mise à jour de la barre de statut
+    native.setPlainText("<div class='box'>\n  <span>{{Front}}\n</div>")
+    native.run_linter()
+
+    issues = editor_wrapper.get_lint_issues()
+    assert len(issues) >= 1
+    assert "erreur" in editor_wrapper.lint_status_bar.status_lbl.text()
+
+    # 4. Correction du code -> retour à la syntaxe valide
+    native.setPlainText("<div class='box'>\n  <span>{{Front}}</span>\n</div>")
+    native.run_linter()
+    assert len(editor_wrapper.get_lint_issues()) == 0
+    assert "valide" in editor_wrapper.lint_status_bar.status_lbl.text()
+
+
+def test_code_editor_auto_closing_tags_and_braces(qtbot):
+    """Vérifie l'auto-fermeture automatique des balises HTML (<test> -> <test></test>) et accolades."""
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtCore import QEvent
+
+    wrapper = CodeEditorWithGutter(placeholder="", mode="html")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    native = wrapper.editor
+
+    # 1. Balise standard/personnalisée <test> -> auto-fermeture </test>
+    native.setPlainText("<test")
+    cursor = native.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    native.setTextCursor(cursor)
+
+    key_event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Greater, Qt.KeyboardModifier.NoModifier, ">")
+    native.keyPressEvent(key_event)
+
+    assert native.toPlainText() == "<test></test>"
+    # Le curseur doit être situé à l'intérieur entre <test> et </test>
+    assert native.textCursor().position() == 6
+
+    # 2. Balise vide void (ex: <br>) -> PAS d'auto-fermeture </br>
+    native.setPlainText("<br")
+    cursor = native.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    native.setTextCursor(cursor)
+
+    key_event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Greater, Qt.KeyboardModifier.NoModifier, ">")
+    native.keyPressEvent(key_event)
+    assert native.toPlainText() == "<br>"
+
+    # 3. Accolades doubles Anki : { puis { -> auto-fermeture }}
+    native.setPlainText("{")
+    cursor = native.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    native.setTextCursor(cursor)
+
+    key_brace = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_BraceLeft, Qt.KeyboardModifier.NoModifier, "{")
+    native.keyPressEvent(key_brace)
+    assert native.toPlainText() == "{{}}"
+    assert native.textCursor().position() == 2
+
+
+def test_syntax_highlighters(qtbot):
+    """Vérifie l'application de la coloration syntaxique HTML et CSS."""
+    from ankiforge.ui.components.code_editor import CSSSyntaxHighlighter, HTMLSyntaxHighlighter
+    from PySide6.QtWidgets import QTextEdit
+
+    # 1. HTML Highlighter
+    ed_html = QTextEdit()
+    qtbot.addWidget(ed_html)
+    hl_html = HTMLSyntaxHighlighter(ed_html.document())
+    assert len(hl_html.rules) >= 5
+
+    # 2. CSS Highlighter
+    ed_css = QTextEdit()
+    qtbot.addWidget(ed_css)
+    hl_css = CSSSyntaxHighlighter(ed_css.document())
+    assert len(hl_css.rules) >= 5
+
+
+def test_modern_css_linter_no_false_positives():
+    """Vérifie que le CSS moderne (variables, clamp, calc, at-rules, multi-lignes) ne génère aucun faux positif."""
+    from ankiforge.ui.components.code_editor import CSSLinter
+
+    modern_css = """
+    :root {
+        --bg-color: #ffffff;
+        --text-color: #080808;
+        --question-color: #5c6bc0;
+        --ref-color: #D3D3D3;
+    }
+
+    .nightMode,
+    :root[data-theme="dark"] {
+        --bg-color: #2b2b2b;
+        --text-color: #a9b7c6;
+    }
+
+    .card {
+        font-size: clamp(16px, 1.1vw, 19px);
+        background-color: var(--bg-color);
+        background: linear-gradient(to right,
+                transparent,
+                var(--border-color),
+                transparent);
+        transition: all 0.2s ease;
+    }
+
+    .important {
+        background-color: color-mix(in srgb, var(--remarque-accent) 10%, transparent);
+    }
+
+    @media (max-width: 600px) {
+        .card {
+            width: 96%;
+            padding: 15px;
+        }
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    """
+
+    issues = CSSLinter.lint(modern_css)
+    assert len(issues) == 0
+
+    # Vérification que les vraies erreurs sont bien captées
+    err_css = ".card { color red; font-size: clamp(16px, 1.1vw; }"
+    err_issues = CSSLinter.lint(err_css)
+    assert any(i.rule_id == "css-missing-colon" for i in err_issues)
+    assert any(i.rule_id == "css-unbalanced-parens" for i in err_issues)
+
+
+def test_color_swatches_detection():
+    """Vérifie l'extraction précise des codes couleurs (hex, rgb, rgba, hsl)."""
+    from ankiforge.ui.components.code_editor import extract_colors_from_text
+
+    line_1 = "--bg-color: #ffffff; --accent: #5c6bc0;"
+    colors_1 = extract_colors_from_text(line_1)
+    assert len(colors_1) == 2
+    assert colors_1[0][0] == "#ffffff"
+    assert colors_1[1][0] == "#5c6bc0"
+
+    line_2 = "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);"
+    colors_2 = extract_colors_from_text(line_2)
+    assert len(colors_2) == 1
+    assert "rgba" in colors_2[0][0]
+
+
+def test_code_formatter_css_and_html_and_shortcuts(qtbot):
+    """Vérifie le formateur de code CSS et HTML et son déclenchement via raccourci clavier / bouton."""
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter, CSSFormatter, HTMLFormatter
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtCore import QEvent
+
+    # 1. Formatage CSS
+    unformatted_css = ":root{--bg:#fff;--fg:#000;}.card{padding:10px;margin:0 auto;}"
+    formatted_css = CSSFormatter.format(unformatted_css)
+    assert ":root {\n  --bg: #fff;\n  --fg: #000;\n}" in formatted_css
+    assert ".card {\n  padding: 10px;\n  margin: 0 auto;\n}" in formatted_css
+
+    # 2. Formatage HTML
+    unformatted_html = "<div class='card'><h1>{{Front}}</h1><hr id='answer'><p>Texte</p></div>"
+    formatted_html = HTMLFormatter.format(unformatted_html)
+    assert "<div class='card'>" in formatted_html
+    assert "  <h1>" in formatted_html
+    assert "    {{Front}}" in formatted_html
+
+    # 3. Déclenchement via raccourci Ctrl+Alt+L dans l'éditeur
+    wrapper = CodeEditorWithGutter(placeholder="", mode="css")
+    qtbot.addWidget(wrapper)
+    wrapper.show()
+    wrapper.setPlainText(":root{color:red;}")
+
+    key_event = QKeyEvent(
+        QEvent.Type.KeyPress,
+        Qt.Key.Key_L,
+        Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier,
+    )
+    wrapper.editor.keyPressEvent(key_event)
+    assert ":root {\n  color: red;\n}" in wrapper.toPlainText()
+
+    # 4. Déclenchement via le bouton Formater de la barre de statut
+    wrapper.setPlainText(".box{width:100px;}")
+    wrapper.lint_status_bar.format_btn.click()
+    assert ".box {\n  width: 100px;\n}" in wrapper.toPlainText()
+
+
+def test_card_models_13inch_responsive_layout_and_flow_widget(qtbot, mock_db):
+    """Vérifie la robustesse du layout responsive (TopBar compacte, FlowWidget sans collision, SnippetCards)."""
+    uid = uuid.uuid4().hex[:6]
+    NoteTypeModel.create(
+        name=f"Modèle Responsive 13in {uid}",
+        fields_schema=json.dumps(["Question", "Explication", "Source"]),
+        templates=json.dumps([{"name": "Carte 1", "qfmt": "{{Question}}", "afmt": "{{Explication}} <br> {{Source}}"}]),
+        css_style=".card { font-size: 14px; }\n.af-callout-info { color: blue; }",
+    )
+
+    view = CardModelsView()
+    qtbot.addWidget(view)
+    view.show()
+    view.resize(1024, 700)  # Simulation largeur écran 13 pouces avec sidebar
+
+    # 1. Vérification de la Top Action Bar Responsive
+    top_bar = view.top_action_bar
+    top_bar.resize(400, 38)
+    top_bar.resizeEvent(None)  # type: ignore
+    assert top_bar.btn_export_json.text() == ""
+    assert top_bar.btn_refresh.text() == ""
+    assert top_bar.btn_export_json.width() <= 30
+
+    top_bar.resize(600, 38)
+    top_bar.resizeEvent(None)  # type: ignore
+    assert top_bar.btn_export_json.text() == "Exporter JSON"
+    assert top_bar.btn_refresh.text() == "Rafraîchir"
+
+    # 2. Vérification de FlowWidget
+    flow_w = view.tags_container
+    assert flow_w.hasHeightForWidth() is True
+    h1 = flow_w.heightForWidth(300)
+    h2 = flow_w.heightForWidth(800)
+    assert h1 >= h2  # Plus la largeur est petite, plus la hauteur s'adapte en passant à la ligne
+
+    # 3. Vérification des Snippet Cards sans débordement horizontal
+    drawer = view.snippet_drawer
+    assert drawer.category_container.flow_layout.count() > 0

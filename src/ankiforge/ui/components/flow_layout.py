@@ -1,13 +1,13 @@
 """
-Layout Fluide (Flow / Wrap Layout) pour PySide6.
-Permet d'aligner des widgets horizontalement avec retour à la ligne automatique sans débordement.
+Layout Fluide (Flow / Wrap Layout) et Conteneur Fluide pour PySide6.
+Permet d'aligner des widgets horizontalement avec retour à la ligne automatique sans débordement ni collision.
 """
 
 from __future__ import annotations
 
 from typing import List, Optional
 from PySide6.QtCore import QPoint, QRect, QSize, Qt
-from PySide6.QtWidgets import QLayout, QLayoutItem, QWidget
+from PySide6.QtWidgets import QLayout, QLayoutItem, QSizePolicy, QWidget
 
 
 class FlowLayout(QLayout):
@@ -64,7 +64,7 @@ class FlowLayout(QLayout):
         return True
 
     def heightForWidth(self, width: int) -> int:
-        return self._do_layout(QRect(0, 0, width, 0), apply_geometry=False)
+        return self._do_layout(QRect(0, 0, max(1, width), 0), apply_geometry=False)
 
     def setGeometry(self, rect: QRect) -> None:
         super().setGeometry(rect)
@@ -111,3 +111,44 @@ class FlowLayout(QLayout):
             line_height = max(line_height, item_size.height())
 
         return y + line_height - rect.y() + margins.bottom()
+
+
+class FlowWidget(QWidget):
+    """
+    Conteneur spécialisé pour FlowLayout garantissant la propagation exacte de heightForWidth
+    vers les QScrollArea et les layouts parents.
+    """
+
+    def __init__(
+        self,
+        margin: int = 0,
+        h_spacing: int = 6,
+        v_spacing: int = 6,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        self.flow_layout = FlowLayout(self, margin=margin, h_spacing=h_spacing, v_spacing=v_spacing)
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self.flow_layout.heightForWidth(width)
+
+    def sizeHint(self) -> QSize:
+        w = max(self.width(), 100)
+        h = self.heightForWidth(w)
+        return QSize(w, h)
+
+    def clear(self) -> None:
+        """Supprime immédiatement tous les widgets enfants du layout."""
+        while self.flow_layout.count():
+            child = self.flow_layout.takeAt(0)
+            if child:
+                w = child.widget()
+                if w:
+                    w.hide()
+                    w.setParent(None)
+                    w.deleteLater()
+        self.updateGeometry()
