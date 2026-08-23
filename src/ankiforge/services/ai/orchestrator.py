@@ -13,7 +13,7 @@ from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.ai.state import PipelineRunState
-from ankiforge.services.ai.utils import AIReponseParser
+from ankiforge.services.ai.utils import AIReponseParser, extract_cards_from_data
 from ankiforge.services.plugins.api import PipelineHooksAPI
 from ankiforge.services.plugins.event_bus import event_bus
 
@@ -94,6 +94,19 @@ class PipelineOrchestrator(QRunnable):
         if not template_str:
             return ""
 
+        fields_list = self.state.get_variable("fields", ["Front", "Back"])
+        if isinstance(fields_list, str):
+            try:
+                fields_list = json.loads(fields_list)
+            except Exception:
+                fields_list = ["Front", "Back"]
+        if not isinstance(fields_list, list) or not fields_list:
+            fields_list = ["Front", "Back"]
+
+        first_field = fields_list[0] if len(fields_list) > 0 else "Front"
+        second_field = fields_list[1] if len(fields_list) > 1 else "Back"
+        fields_str = ", ".join([f'"{f}"' for f in fields_list])
+
         context: Dict[str, Any] = {
             "state": self.state,
             "variables": self.state.variables,
@@ -102,7 +115,13 @@ class PipelineOrchestrator(QRunnable):
             "document_id": self.state.document_id,
             "text_source": self.state.get_variable("text_source", ""),
             "last_output": self.state.get_variable("last_output", ""),
-            "fields": self.state.get_variable("fields", ["Front", "Back"]),
+            "fields": fields_list,
+            "fields_str": fields_str,
+            "first_field": first_field,
+            "second_field": second_field,
+            "document_chunk": self.state.get_variable("document_chunk", "") or self.state.get_variable("text_source", ""),
+            "target_deck": self.state.get_variable("target_deck", "Default"),
+            "note_type": self.state.get_variable("note_type", "Basique"),
         }
         if extra_context:
             context.update(extra_context)
@@ -310,10 +329,9 @@ class PipelineOrchestrator(QRunnable):
         self.state.set_variable("last_output", parsed_output)
 
         # Si l'étape a généré des cartes, on les extrait dans generated_cards
-        if isinstance(parsed_output, dict) and "cards" in parsed_output and isinstance(parsed_output["cards"], list):
-            self.state.set_variable("generated_cards", parsed_output["cards"])
-        elif isinstance(parsed_output, list) and len(parsed_output) > 0 and isinstance(parsed_output[0], dict):
-            self.state.set_variable("generated_cards", parsed_output)
+        extracted_cards = extract_cards_from_data(parsed_output)
+        if extracted_cards:
+            self.state.set_variable("generated_cards", extracted_cards)
 
     def _execute_rag_retrieval(self, step: PipelineStepModel) -> None:
         """Interroge l'index vectoriel ou effectue une recherche sémantique locale."""

@@ -101,3 +101,75 @@ def test_parse_with_list_dataclass():
     assert len(result) == 1
     assert isinstance(result[0], Flashcard)
     assert result[0].Recto == "Q1"
+
+
+def test_extract_cards_from_data():
+    from ankiforge.services.ai.utils import extract_cards_from_data
+
+    # Format 1: dict with "notes"
+    d1 = {"notes": [{"Front": "Q1", "Back": "A1"}]}
+    assert extract_cards_from_data(d1) == [{"Front": "Q1", "Back": "A1"}]
+
+    # Format 2: dict with "cards"
+    d2 = {"cards": [{"Front": "Q2", "Back": "A2"}]}
+    assert extract_cards_from_data(d2) == [{"Front": "Q2", "Back": "A2"}]
+
+    # Format 3: raw list of dicts
+    d3 = [{"Front": "Q3", "Back": "A3"}]
+    assert extract_cards_from_data(d3) == [{"Front": "Q3", "Back": "A3"}]
+
+    # Format 4: string JSON
+    d4 = '{"notes": [{"Front": "Q4", "Back": "A4"}]}'
+    assert extract_cards_from_data(d4) == [{"Front": "Q4", "Back": "A4"}]
+
+    # Format 5: single card dict
+    d5 = {"Front": "Q5", "Back": "A5"}
+    assert extract_cards_from_data(d5) == [{"Front": "Q5", "Back": "A5"}]
+
+    # Format 6: empty or invalid
+    assert extract_cards_from_data([]) == []
+    assert extract_cards_from_data("invalid text") == []
+    assert extract_cards_from_data(None) == []
+
+
+def test_parse_json_with_unescaped_html_quotes():
+    """Vérifie que AIReponseParser répare les guillemets HTML non échappés."""
+    raw = """{
+      "notes": [
+        {
+          "Front": "Qu'est-ce que \\( E = mc^2 \\)?",
+          "Back": "<div class=\\"important\\">Énergie de masse</div>"
+        }
+      ]
+    }"""
+    parsed = AIReponseParser.parse(raw)
+    assert isinstance(parsed, dict)
+    assert "notes" in parsed
+    assert len(parsed["notes"]) == 1
+    assert "Énergie de masse" in parsed["notes"][0]["Back"]
+
+
+def test_parse_json_with_trailing_commas():
+    """Vérifie la suppression automatique des virgules traînantes."""
+    raw = """{
+      "notes": [
+        {"Front": "Q1", "Back": "A1",},
+      ],
+    }"""
+    parsed = AIReponseParser.parse(raw)
+    assert isinstance(parsed, dict)
+    assert len(parsed["notes"]) == 1
+    assert parsed["notes"][0]["Front"] == "Q1"
+
+
+def test_parse_partial_broken_json_recovery():
+    """Vérifie la récupération partielle d'objets JSON même si la racine est tronquée."""
+    raw = """Voici les cartes :
+    {"Front": "Q1", "Back": "A1"}
+    {"Front": "Q2", "Back": "A2"}
+    Fin de génération.
+    """
+    parsed = AIReponseParser.parse(raw)
+    assert isinstance(parsed, dict)
+    assert "notes" in parsed
+    assert len(parsed["notes"]) == 2

@@ -54,6 +54,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.ui.components import (
     Badge,
     IconButton,
@@ -974,11 +975,7 @@ class ABTestsView(QWidget):
 
     def _extract_cards_from_state(self, state: PipelineRunState) -> List[Dict[str, Any]]:
         raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
-        if isinstance(raw_cards, list):
-            return [c for c in raw_cards if isinstance(c, dict)]
-        elif isinstance(raw_cards, dict) and "cards" in raw_cards and isinstance(raw_cards["cards"], list):
-            return [c for c in raw_cards["cards"] if isinstance(c, dict)]
-        return []
+        return extract_cards_from_data(raw_cards)
 
     @Slot(object)
     def _on_finished_a(self, state: PipelineRunState) -> None:

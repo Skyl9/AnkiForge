@@ -45,9 +45,10 @@ from ankiforge.database.models import (
     NoteTypeModel,
     PipelineModel,
 )
-from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.ai.utils import extract_cards_from_data
+from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.components import (
     Badge,
@@ -1258,6 +1259,12 @@ class CreationView(QWidget):
         initial_state = PipelineRunState(initial_prompt=text_source[:120])
         initial_state.set_variable("text_source", text_source)
         initial_state.set_variable("fields", fields)
+        first_field = fields[0] if len(fields) > 0 else "Front"
+        second_field = fields[1] if len(fields) > 1 else "Back"
+        fields_str = ", ".join([f'"{f}"' for f in fields])
+        initial_state.set_variable("first_field", first_field)
+        initial_state.set_variable("second_field", second_field)
+        initial_state.set_variable("fields_str", fields_str)
         initial_state.set_variable("note_type_id", nt_id)
         initial_state.set_variable("note_type_fields_schema", nt_schema)
 
@@ -1317,7 +1324,8 @@ class CreationView(QWidget):
         self._set_all_generation_states(False)
 
         # Récupération des cartes produites par les étapes DAG
-        cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
+        cards_raw = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
+        cards = extract_cards_from_data(cards_raw)
 
         selected_nt = self.current_model
         nt_schema = str(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else '["Front", "Back"]'

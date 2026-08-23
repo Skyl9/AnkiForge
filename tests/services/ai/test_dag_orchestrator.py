@@ -232,3 +232,45 @@ def test_orchestrator_cancellation():
     orchestrator.run()
 
     assert len(cancelled_signals) == 1
+
+
+def test_orchestrator_notes_json_format():
+    """Vérifie que l'orchestrateur extrait correctement les cartes au format 'notes' (utilisé par Archiviste et Linter)."""
+    pipeline = PipelineModel.create(name="Pipeline Notes Test")
+    persona1 = PersonaModel.create(
+        name="Archiviste Pédagogue Test",
+        system_prompt="Archiviste: Génère des notes avec {{ first_field }} et {{ second_field }}. Clés: {{ fields_str }}",
+        output_format="json",
+    )
+    PipelineStepModel.create(pipeline=pipeline, persona=persona1, step_order=1, step_type="LLM_PROMPT")
+
+    provider = DummyProvider(
+        {
+            "Archiviste": '{"notes": [{"Front": "Concept Q", "Back": "Explication A"}]}',
+        }
+    )
+
+    initial_state = PipelineRunState()
+    initial_state.set_variable("fields", ["Front", "Back"])
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        initial_state=initial_state,
+        ai_provider=provider,
+    )
+
+    finished_states = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    final_state = finished_states[0]
+    assert "generated_cards" in final_state.variables
+    cards = final_state.variables["generated_cards"]
+    assert len(cards) == 1
+    assert cards[0]["Front"] == "Concept Q"
+    assert cards[0]["Back"] == "Explication A"
+    # Vérifier que le rendu Jinja contenait bien les champs
+    assert "Front" in provider.calls[0]["system"]
+    assert "Back" in provider.calls[0]["system"]
