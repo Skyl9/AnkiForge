@@ -30,7 +30,7 @@ def test_batch_transition():
     out_dir = get_project_root() / "temp" / "transition_batch"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="default")
         window.resize(1440, 900)
         window.show()

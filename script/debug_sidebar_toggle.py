@@ -20,7 +20,7 @@ def test_sidebar_toggle():
 
     app = QApplication.instance() or QApplication([])
 
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="default")
         window.resize(1440, 900)
         window.show()

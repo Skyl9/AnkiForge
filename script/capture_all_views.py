@@ -30,7 +30,7 @@ def capture_views(output_dir: Path, theme_id: str = "ide") -> None:
 
     from ankiforge.ui.main_window import MainWindow
 
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="default")
         window.resize(1440, 900)
         window.show()

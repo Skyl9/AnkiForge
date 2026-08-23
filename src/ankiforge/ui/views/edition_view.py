@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import CardModel, DeckModel, LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.store_manager import StoreManager
@@ -1171,6 +1171,28 @@ class EditionView(QWidget):
             return
 
         next_batch = self._all_notes[self._displayed_count : self._displayed_count + self.BATCH_SIZE]
+        note_ids = [n.id for n in next_batch if n.id]
+
+        # Pré-chargement par lot (Batch prefetch) pour éradiquer les requêtes N+1
+        content_by_note_id: Dict[int, Dict[str, str]] = {}
+        deck_by_note_id: Dict[int, str] = {}
+        if note_ids:
+            active_versions = NoteVersionModel.select().where(
+                (NoteVersionModel.note.in_(note_ids)) & (NoteVersionModel.is_active == True)  # noqa: E712
+            )
+            for v in active_versions:
+                if v.content:
+                    try:
+                        parsed = json.loads(v.content)
+                        if isinstance(parsed, dict):
+                            content_by_note_id[v.note_id] = {str(k): str(val) for k, val in parsed.items()}
+                    except Exception:
+                        pass  # nosec B110
+
+            cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
+            for c in cards:
+                if c.note_id not in deck_by_note_id and c.deck:
+                    deck_by_note_id[c.note_id] = c.deck.name
 
         for note in next_batch:
             row = self.card_table.rowCount()
@@ -1183,7 +1205,7 @@ class EditionView(QWidget):
             chk.setData(Qt.ItemDataRole.UserRole, note)
             self.card_table.setItem(row, 0, chk)
 
-            data = self._get_note_content_dynamic(note)
+            data = content_by_note_id.get(note.id) if note.id in content_by_note_id else self._get_note_content_dynamic(note)
 
             col_offset = 1
             if self._current_table_fields:
@@ -1210,7 +1232,7 @@ class EditionView(QWidget):
                 item_verso.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
                 self.card_table.setItem(row, 2, item_verso)
 
-                model_name = note.note_type.name if note.note_type else "Inconnu"
+                model_name = note.note_type.name if (note.note_type and hasattr(note.note_type, "name")) else "Inconnu"
                 item_model = QTableWidgetItem(model_name)
                 item_model.setForeground(QBrush(QColor(DesignTokens.TEXT_MUTED)))
                 self.card_table.setItem(row, 3, item_model)
@@ -1218,14 +1240,7 @@ class EditionView(QWidget):
                 col_offset = 4
 
             # Deck
-            folder_name = getattr(note, "_deck_name", "Par défaut")
-            if folder_name == "Par défaut" and hasattr(note, "cards"):
-                try:
-                    cards_list = list(note.cards)
-                    if cards_list and cards_list[0].deck:
-                        folder_name = cards_list[0].deck.name
-                except Exception as e:
-                    logger.debug(f"Impossible de récupérer le nom du dossier pour la note: {e}")
+            folder_name = getattr(note, "_deck_name", None) or deck_by_note_id.get(note.id, "Par défaut")
             item_deck = QTableWidgetItem(folder_name)
             item_deck.setForeground(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
             self.card_table.setItem(row, col_offset, item_deck)

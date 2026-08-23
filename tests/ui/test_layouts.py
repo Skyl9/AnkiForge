@@ -56,7 +56,7 @@ def test_layout_instantiation_and_theme_sync(qtbot):
 def test_main_window_layout_hot_reload_and_tokens(qtbot, mock_db):
     """Vérifie le basculement dynamique à chaud des layouts et de leurs tokens visuels sur MainWindow."""
     LayoutManager.save_layout_id("test_profile", "ide")
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
         qtbot.addWidget(window)
 
@@ -111,7 +111,7 @@ def test_layout_persistence(tmp_path):
 @pytest.mark.ui
 def test_ide_layout_sidebar_toggle(qtbot, mock_db):
     """Vérifie que le bouton de la sidebar et l'icône du logo rétractent et ré-étendent correctement la sidebar."""
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
         qtbot.addWidget(window)
 

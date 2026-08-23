@@ -296,21 +296,25 @@ class MetricsService:
         """Agrège l'activité récente sous forme de grandes actions (batchs, imports, forges) plutôt que carte par carte."""
         actions: List[Dict[str, Any]] = []
         try:
-            recent_versions = NoteVersionModel.select(NoteVersionModel, NoteModel).join(NoteModel).order_by(NoteVersionModel.created_at.desc()).limit(100)
+            recent_versions = list(NoteVersionModel.select(NoteVersionModel, NoteModel).join(NoteModel).order_by(NoteVersionModel.created_at.desc()).limit(100))
 
             if not recent_versions:
                 return []
+
+            note_ids = [v.note_id for v in recent_versions if v.note_id]
+            deck_name_by_note: Dict[int, str] = {}
+            if note_ids:
+                cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
+                for c in cards:
+                    if c.note_id not in deck_name_by_note and c.deck:
+                        deck_name_by_note[c.note_id] = c.deck.name
 
             current_group: Optional[Dict[str, Any]] = None
 
             for v in recent_versions:
                 v_source = v.source or "manual"
                 v_time = v.created_at
-                deck_name = "Par défaut"
-                if v.note:
-                    card = CardModel.select(CardModel, DeckModel).join(DeckModel).where(CardModel.note == v.note).first()
-                    if card and card.deck:
-                        deck_name = card.deck.name
+                deck_name = deck_name_by_note.get(v.note_id, "Par défaut")
 
                 if current_group is None:
                     current_group = {

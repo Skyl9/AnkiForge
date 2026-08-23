@@ -296,9 +296,27 @@ def _normalize_card_item(item: dict[str, Any]) -> dict[str, Any]:
 def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
     """
     Extrait universellement une liste de dictionnaires représentant des cartes / notes
-    depuis n'importe quelle structure (dict avec 'notes'/'cards'/'flashcards', list, ou string JSON).
+    depuis n'importe quelle structure via validation Pydantic et auto-réparation (Self-Healing).
     Supporte les formats multi-modèles structurés {"model": "...", "fields": {...}}.
     """
+    try:
+        from ankiforge.services.ai.schemas import GeneratedCardsContainerSchema, SelfHealingValidator
+
+        container = SelfHealingValidator.parse_and_validate(data, GeneratedCardsContainerSchema)
+        if container and container.notes:
+            result: list[dict[str, Any]] = []
+            for n in container.notes:
+                card_dict: dict[str, Any] = dict(n.fields)
+                if n.model:
+                    card_dict["model"] = n.model
+                if n.tags:
+                    card_dict["tags"] = n.tags
+                result.append(card_dict)
+            if result:
+                return result
+    except Exception:
+        pass  # nosec B110
+
     if isinstance(data, str):
         try:
             data = AIReponseParser.parse(data)

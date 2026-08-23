@@ -15,7 +15,7 @@ def main():
     output_dir = Path("temp/ide_ux_verification")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         win = MainWindow(ai_manager=None)
         win.resize(1400, 880)
         win.show()

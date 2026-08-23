@@ -146,6 +146,13 @@ class NoteVersionModel(BaseModel):
     source = CharField(default="ai")  # Peut être 'ai', 'manual', ou 'import'
     is_active = BooleanField(default=True)  # Permet de savoir quelle version exporter
 
+    class Meta:
+        table_name = "noteversionmodel"
+        indexes = (
+            (("note", "is_active"), False),
+            (("note", "version_number"), False),
+        )
+
 
 class MediaModel(BaseModel):
     """Représente un fichier média physique géré par ankiforge_obsidian"""
@@ -188,6 +195,13 @@ class CardModel(BaseModel):
     stability = FloatField(default=0.0)
     difficulty = FloatField(default=0.0)
     retrievability = FloatField(default=0.0)
+
+    class Meta:
+        table_name = "cardmodel"
+        indexes = (
+            (("deck", "note"), False),
+            (("note", "template_index"), False),
+        )
 
 
 class PromptModel(BaseModel):
@@ -551,6 +565,7 @@ class DocumentChunkModel(BaseModel):
 
     class Meta:
         table_name = "document_chunks"
+        indexes = ((("document", "chunk_index"), False),)
 
 
 class NoteChunkLinkModel(BaseModel):

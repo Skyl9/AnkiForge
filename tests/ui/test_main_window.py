@@ -9,7 +9,7 @@ from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 @pytest.mark.slow
 @pytest.mark.ui
 def test_main_window_creation(qtbot, mock_db):
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
         assert window is not None
@@ -21,7 +21,7 @@ def test_main_window_creation(qtbot, mock_db):
 @pytest.mark.slow
 @pytest.mark.ui
 def test_main_window_breadcrumb_navigation(qtbot, mock_db):
-    with patch("ankiforge.services.background_daemon.BackgroundDaemon"), patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
