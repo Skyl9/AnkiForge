@@ -201,6 +201,11 @@ class MacosLayout(BaseLayout):
         self.daemon_status.set_status("idle", "Prêt")
         top_layout.addWidget(self.daemon_status)
 
+        # Profile Button
+        self.profile_btn = IconButton("user-circle", tooltip=f"Espace de travail : {self.profile_name}", size=22)
+        self.profile_btn.clicked.connect(self.profile_switch_requested.emit)
+        top_layout.addWidget(self.profile_btn)
+
         # Settings
         self.settings_btn = IconButton("gear", tooltip="Paramètres", size=22)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
@@ -256,5 +261,7 @@ class MacosLayout(BaseLayout):
 
     def set_profile_name(self, profile_name: str) -> None:
         super().set_profile_name(profile_name)
-        if hasattr(self, "profile_badge"):
+        if hasattr(self, "profile_btn") and self.profile_btn:
+            self.profile_btn.setToolTip(f"Espace de travail : {profile_name}")
+        if hasattr(self, "profile_badge") and self.profile_badge:
             self.profile_badge.setText(f"• {profile_name}")

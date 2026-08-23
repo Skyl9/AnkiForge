@@ -464,6 +464,21 @@ class CardModelsView(QWidget):
 
         top_res_layout.addLayout(fields_row)
 
+        # Directives IA / Description
+        desc_row = QHBoxLayout()
+        desc_row.setSpacing(6)
+
+        lbl_desc = QLabel("RÔLE IA :")
+        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        desc_row.addWidget(lbl_desc)
+
+        self.description_input = StyledLineEdit()
+        self.description_input.setFixedHeight(26)
+        self.description_input.setPlaceholderText("Instructions et rôle sémantique pour l'IA (ex: Questions directes, définitions...)")
+        desc_row.addWidget(self.description_input, 1)
+
+        top_res_layout.addLayout(desc_row)
+
         # Volet d'Aides d'Insertion Repliable (Collider / Accordéon)
         self.helpers_frame = QFrame()
         self.helpers_frame.setObjectName("helpersFrame")
@@ -844,6 +859,7 @@ class CardModelsView(QWidget):
 
         self._current_model = model
         self.lbl_editor_title.setText(f"Modèle : {model.name}")
+        self.description_input.setText(getattr(model, "description", "") or "")
 
         # Décompilation des champs schema JSON
         if model.fields_schema:
@@ -1399,6 +1415,7 @@ class CardModelsView(QWidget):
             css = self.css_editor_wrapper.toPlainText()
 
             self._current_model.fields_schema = json.dumps(fields_list, ensure_ascii=False)
+            self._current_model.description = self.description_input.text().strip()
             self._current_model.templates = json.dumps(self._templates_list, ensure_ascii=False)
             self._current_model.css_style = css
             self._current_model.save()

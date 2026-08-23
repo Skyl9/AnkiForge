@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.layouts.base_layout import BaseLayout
-from ankiforge.ui.theme import DesignTokens
 
 
 class IdeLayout(BaseLayout):
@@ -51,6 +50,7 @@ class IdeLayout(BaseLayout):
         self.sidebar.toggle_requested.connect(self._toggle_sidebar)
         self.sidebar.view_selected.connect(lambda vid: self.view_selected.emit(vid, None))
         self.sidebar.settings_requested.connect(self.settings_requested.emit)
+        self.sidebar.profile_switch_requested.connect(self.profile_switch_requested.emit)
         main_layout.addWidget(self.sidebar)
 
         # 2. Zone de contenu
@@ -113,5 +113,5 @@ class IdeLayout(BaseLayout):
 
     def set_profile_name(self, profile_name: str) -> None:
         super().set_profile_name(profile_name)
-        if hasattr(self.sidebar, "user_name"):
-            self.sidebar.user_name.setText(f"Profil: {profile_name}<br><span style='color: {DesignTokens.COLOR_GREEN}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
+        if hasattr(self, "sidebar") and self.sidebar:
+            self.sidebar.set_profile_name(profile_name)

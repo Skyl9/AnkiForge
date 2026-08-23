@@ -61,6 +61,7 @@ class NoteTypeModel(BaseModel):
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (mid)
     name = CharField(unique=True)
+    description = TextField(null=True, default="")  # Directives d'usage sémantique et rôle pour l'IA
     fields_schema = TextField(default='["Front", "Back"]')  # JSON: Liste des noms des champs ["Front", "Back"]
     templates = TextField(default="[]")  # JSON: Les formats HTML des différentes cartes
     css_style = TextField(default="")  # Le CSS global du modèle
@@ -595,9 +596,28 @@ def seed_initial_data() -> None:
     if not prompts_dir.exists():
         prompts_dir = Path(__file__).parent.parent.parent / "ressources" / "prompts"
 
+    if NoteTypeModel.select().where(NoteTypeModel.name == "Basique").count() == 0:
+        NoteTypeModel.create(
+            name="Basique",
+            description="Questions directes, définitions conceptuelles, relations de cause à effet simples. Format Q/R standard.",
+            fields_schema=json.dumps(["Front", "Back"], ensure_ascii=False),
+            templates=json.dumps(
+                [
+                    {
+                        "name": "Carte 1",
+                        "qfmt": "{{Front}}",
+                        "afmt": "{{FrontSide}}<hr id=answer>{{Back}}",
+                    }
+                ],
+                ensure_ascii=False,
+            ),
+            css_style=".card { font-family: arial; font-size: 20px; text-align: center; color: palette(text); }",
+        )
+
     if NoteTypeModel.select().where(NoteTypeModel.name == "Texte à trous (Cloze)").count() == 0:
         NoteTypeModel.create(
             name="Texte à trous (Cloze)",
+            description="Phrases denses, citations, listes ordonnées et dates clés. Utilise la syntaxe {{c1::mot}} pour masquer l'information clé dans le champ Texte.",
             fields_schema=json.dumps(["Texte", "Remarques extra"], ensure_ascii=False),
             templates=json.dumps(
                 [

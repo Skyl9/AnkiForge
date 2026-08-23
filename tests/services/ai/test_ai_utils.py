@@ -173,3 +173,59 @@ def test_parse_partial_broken_json_recovery():
     assert isinstance(parsed, dict)
     assert "notes" in parsed
     assert len(parsed["notes"]) == 2
+
+
+def test_extract_cards_multi_model():
+    """Vérifie la prise en charge des sorties multi-modèles structurées."""
+    from ankiforge.services.ai.utils import extract_cards_from_data
+
+    # Format multi-modèles standard avec clé "fields"
+    multi_data = {
+        "notes": [
+            {
+                "model": "Basique",
+                "fields": {"Front": "Capitale France", "Back": "Paris"},
+            },
+            {
+                "model": "Texte à trous (Cloze)",
+                "fields": {"Texte": "La capitale de l'Italie est {{c1::Rome}}.", "Remarques extra": "Europe"},
+            },
+        ]
+    }
+    extracted = extract_cards_from_data(multi_data)
+    assert len(extracted) == 2
+    assert extracted[0]["model"] == "Basique"
+    assert extracted[0]["Front"] == "Capitale France"
+    assert extracted[0]["Back"] == "Paris"
+    assert extracted[1]["model"] == "Texte à trous (Cloze)"
+    assert "{{c1::Rome}}" in extracted[1]["Texte"]
+
+    # Format multi-modèles plat
+    flat_multi = {
+        "notes": [
+            {"model": "Basique", "Front": "Q1", "Back": "A1"},
+            {"note_type": "Cloze", "Texte": "{{c1::Test}}", "Remarques extra": "Note"},
+        ]
+    }
+    extracted_flat = extract_cards_from_data(flat_multi)
+    assert len(extracted_flat) == 2
+    assert extracted_flat[0]["model"] == "Basique"
+    assert extracted_flat[1]["model"] == "Cloze"
+
+
+def test_format_available_card_models_prompt():
+    """Vérifie le formatage des directives de modèles de cartes pour le prompt Jinja."""
+    from ankiforge.services.ai.utils import format_available_card_models_prompt
+
+    mock_models = [
+        {"name": "Basique", "description": "Questions simples Q/R", "fields_schema": '["Front", "Back"]'},
+        {"name": "Cloze", "description": "Phrases à trous", "fields_schema": ["Texte", "Remarques extra"]},
+    ]
+    catalog = format_available_card_models_prompt(mock_models)
+    assert "MODÈLES DE CARTES AUTORISÉS" in catalog
+    assert 'Modèle : "Basique"' in catalog
+    assert "Questions simples Q/R" in catalog
+    assert '"Front": "..."' in catalog
+    assert 'Modèle : "Cloze"' in catalog
+    assert "Phrases à trous" in catalog
+    assert "FORMAT JSON DE SORTIE" in catalog

@@ -227,10 +227,77 @@ def format_system_prompt(system_prompt_template: str, fields_schema_json: str | 
     )
 
 
+def format_available_card_models_prompt(models: list[Any] | None = None) -> str:
+    """
+    Génère un bloc de directives sémantiques et de schémas JSON pour la balise {{ available_card_models }}.
+    """
+    if not models:
+        try:
+            from ankiforge.database.models import NoteTypeModel
+
+            models = list(NoteTypeModel.select())
+        except Exception:
+            models = []
+
+    if not models:
+        return ""
+
+    lines = [
+        "### 📋 MODÈLES DE CARTES AUTORISÉS & DIRECTIVES DE SÉLECTION :",
+        "Pour chaque notion ou concept extrait, CHOISIS le modèle de carte le plus pertinent parmi les modèles autorisés ci-dessous :\n",
+    ]
+
+    for idx, m in enumerate(models, 1):
+        if isinstance(m, dict):
+            name = m.get("name", "")
+            desc = m.get("description", "")
+            fields_schema = m.get("fields_schema", '["Front", "Back"]')
+        else:
+            name = getattr(m, "name", "")
+            desc = getattr(m, "description", "")
+            fields_schema = getattr(m, "fields_schema", '["Front", "Back"]')
+
+        if isinstance(fields_schema, str):
+            try:
+                fields_list = json.loads(fields_schema)
+            except Exception:
+                fields_list = ["Front", "Back"]
+        elif isinstance(fields_schema, list):
+            fields_list = fields_schema
+        else:
+            fields_list = ["Front", "Back"]
+
+        fields_sample = ", ".join([f'"{f}": "..."' for f in fields_list])
+        lines.append(f'{idx}. Modèle : "{name}"')
+        if desc:
+            lines.append(f"   - Rôle & Heuristique : {desc}")
+        lines.append(f"   - Champs attendus : {{{fields_sample}}}\n")
+
+    lines.append("### 📦 FORMAT JSON DE SORTIE :")
+    lines.append('Retourne un objet JSON avec la clé "notes" contenant la liste des cartes avec la clé "model" et leurs champs respectifs :')
+    lines.append('{\n  "notes": [\n    {\n      "model": "<Nom du Modèle>",\n      "fields": {\n        "<Champ 1>": "...",\n        "<Champ 2>": "..."\n      }\n    }\n  ]\n}')
+
+    return "\n".join(lines)
+
+
+def _normalize_card_item(item: dict[str, Any]) -> dict[str, Any]:
+    """Aplatit les structures {"model": "...", "fields": {...}} en conservant l'annotation de modèle."""
+    res = dict(item)
+    if "fields" in res and isinstance(res["fields"], dict):
+        inner_fields = res.pop("fields")
+        for k, v in inner_fields.items():
+            if k not in res:
+                res[k] = v
+    if "note_type" in res and "model" not in res:
+        res["model"] = res.pop("note_type")
+    return res
+
+
 def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
     """
     Extrait universellement une liste de dictionnaires représentant des cartes / notes
     depuis n'importe quelle structure (dict avec 'notes'/'cards'/'flashcards', list, ou string JSON).
+    Supporte les formats multi-modèles structurés {"model": "...", "fields": {...}}.
     """
     if isinstance(data, str):
         try:
@@ -241,13 +308,13 @@ def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
     if isinstance(data, dict):
         for key in ("notes", "cards", "flashcards", "data", "result", "items", "output"):
             if key in data and isinstance(data[key], list):
-                return [c for c in data[key] if isinstance(c, dict)]
+                return [_normalize_card_item(c) for c in data[key] if isinstance(c, dict)]
         if any(k.lower() in ("front", "recto", "question") for k in data.keys()):
-            return [data]
+            return [_normalize_card_item(data)]
         return []
 
     if isinstance(data, list):
-        return [c for c in data if isinstance(c, dict)]
+        return [_normalize_card_item(c) for c in data if isinstance(c, dict)]
 
     return []
 

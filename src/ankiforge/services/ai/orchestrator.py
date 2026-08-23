@@ -13,7 +13,11 @@ from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.ai.state import PipelineRunState
-from ankiforge.services.ai.utils import AIReponseParser, extract_cards_from_data
+from ankiforge.services.ai.utils import (
+    AIReponseParser,
+    extract_cards_from_data,
+    format_available_card_models_prompt,
+)
 from ankiforge.services.plugins.api import PipelineHooksAPI
 from ankiforge.services.plugins.event_bus import event_bus
 
@@ -107,6 +111,9 @@ class PipelineOrchestrator(QRunnable):
         second_field = fields_list[1] if len(fields_list) > 1 else "Back"
         fields_str = ", ".join([f'"{f}"' for f in fields_list])
 
+        selected_models = self.state.get_variable("selected_models", None)
+        models_catalog_str = format_available_card_models_prompt(selected_models)
+
         context: Dict[str, Any] = {
             "state": self.state,
             "variables": self.state.variables,
@@ -119,6 +126,9 @@ class PipelineOrchestrator(QRunnable):
             "fields_str": fields_str,
             "first_field": first_field,
             "second_field": second_field,
+            "available_card_models": models_catalog_str,
+            "card_models_catalog": models_catalog_str,
+            "card_models": models_catalog_str,
             "document_chunk": self.state.get_variable("document_chunk", "") or self.state.get_variable("text_source", ""),
             "target_deck": self.state.get_variable("target_deck", "Default"),
             "note_type": self.state.get_variable("note_type", "Basique"),

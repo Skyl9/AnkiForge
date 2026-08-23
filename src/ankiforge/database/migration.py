@@ -169,6 +169,13 @@ def run_migrations() -> None:
                     logging.info("Legacy DB detected: faking migration 019_persona_versions.")
                     break
 
+        # Si notetypemodel n'existe pas ou a déjà la colonne description, l'utilisateur a la v20
+        if "020_notetype_description" not in done_migrations:
+            has_notetype = db.table_exists("notetypemodel") or db.table_exists("notetype")
+            if not has_notetype or ("description" in [col.name for col in db.get_columns("notetypemodel" if db.table_exists("notetypemodel") else "notetype")]):
+                router.model.create(name="020_notetype_description")
+                logging.info("Legacy DB detected: faking migration 020_notetype_description.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:
@@ -178,10 +185,25 @@ def run_migrations() -> None:
 
     logging.info("Lancement des migrations via peewee-migrate...")
     try:
+        try:
+            db.execute_sql("PRAGMA foreign_keys = OFF;")
+        except Exception:
+            pass  # nosec B110
+
         # Exécute toutes les migrations en attente
         router.run()
+
+        try:
+            db.execute_sql("PRAGMA foreign_keys = ON;")
+        except Exception:
+            pass  # nosec B110
+
         logging.info("Migrations terminées avec succès.")
     except (peewee.DatabaseError, sqlite3.Error) as e:
+        try:
+            db.execute_sql("PRAGMA foreign_keys = ON;")
+        except Exception:
+            pass  # nosec B110
         logging.error(f"Erreur lors de l'exécution des migrations : {e}")
         # On ne bloque pas forcément l'appli si c'est une erreur mineure,
         # mais on logge l'alerte critique.

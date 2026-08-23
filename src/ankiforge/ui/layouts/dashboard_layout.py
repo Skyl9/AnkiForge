@@ -128,6 +128,9 @@ class DashboardLayout(BaseLayout):
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
         self.profile_lbl = QLabel(f"Espace de travail : {self.profile_name}")
         self.profile_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        self.profile_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.profile_lbl.setToolTip("Cliquez pour changer d'espace de travail")
+        self.profile_lbl.mousePressEvent = lambda event: self.profile_switch_requested.emit()
         title_box.addWidget(title_lbl)
         title_box.addWidget(self.profile_lbl)
 
@@ -158,6 +161,10 @@ class DashboardLayout(BaseLayout):
         self.search_btn = IconButton("magnifying-glass", tooltip="Rechercher (Ctrl+K)", size=24)
         self.search_btn.clicked.connect(self.search_clicked.emit)
         header_layout.addWidget(self.search_btn)
+
+        self.profile_btn = IconButton("user-circle", tooltip=f"Espace : {self.profile_name}", size=24)
+        self.profile_btn.clicked.connect(self.profile_switch_requested.emit)
+        header_layout.addWidget(self.profile_btn)
 
         self.settings_btn = IconButton("gear", tooltip="Paramètres", size=24)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
@@ -235,5 +242,7 @@ class DashboardLayout(BaseLayout):
 
     def set_profile_name(self, profile_name: str) -> None:
         super().set_profile_name(profile_name)
-        if hasattr(self, "profile_lbl"):
+        if hasattr(self, "profile_lbl") and self.profile_lbl:
             self.profile_lbl.setText(f"Espace de travail : {profile_name}")
+        if hasattr(self, "profile_btn") and self.profile_btn:
+            self.profile_btn.setToolTip(f"Espace : {profile_name}")

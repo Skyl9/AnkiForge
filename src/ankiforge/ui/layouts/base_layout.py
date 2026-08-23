@@ -21,12 +21,17 @@ class BaseLayout(QWidget):
     import_requested = Signal()
     export_requested = Signal()
     notif_requested = Signal()
+    profile_switch_requested = Signal()
 
     def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.profile_name = profile_name
         self.stacked_widget: Optional[QStackedWidget] = None
         self._current_view_id: str = "dashboard"
+
+    def set_profile_name(self, profile_name: str) -> None:
+        """Met à jour le nom du profil associé au layout."""
+        self.profile_name = profile_name
 
     @abstractmethod
     def get_layout_id(self) -> str:
@@ -65,7 +70,3 @@ class BaseLayout(QWidget):
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         """Met à jour l'affichage des dépenses IA."""
         pass
-
-    def set_profile_name(self, profile_name: str) -> None:
-        """Met à jour le nom du profil affiché."""
-        self.profile_name = profile_name

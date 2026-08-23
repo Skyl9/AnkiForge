@@ -75,6 +75,7 @@ class Sidebar(QWidget):
     view_selected = Signal(str)
     settings_requested = Signal()
     toggle_requested = Signal()
+    profile_switch_requested = Signal()
 
     def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -159,7 +160,7 @@ class Sidebar(QWidget):
         self.user_widget.setProperty("card-style", "panel")
         self.user_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.user_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.user_widget.mousePressEvent = lambda event: self.settings_requested.emit()
+        self.user_widget.mousePressEvent = lambda event: self.profile_switch_requested.emit()
         user_layout = QHBoxLayout(self.user_widget)
         user_layout.setContentsMargins(8, 8, 8, 8)
 
@@ -176,6 +177,12 @@ class Sidebar(QWidget):
         footer_layout.addWidget(self.user_widget)
 
         main_layout.addWidget(self.footer)
+
+    def set_profile_name(self, profile_name: str) -> None:
+        """Met à jour le nom du profil affiché dans le footer de la barre latérale."""
+        self.profile_name = profile_name
+        if hasattr(self, "user_name"):
+            self.user_name.setText(f"Profil: {profile_name}<br><span style='color: {DesignTokens.COLOR_GREEN}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
 
     def refresh_theme(self, profile: Any) -> None:
         from ankiforge.utils.icon_loader import load_logo_icon
@@ -553,6 +560,7 @@ class MainWindow(QMainWindow):
                 self.current_layout.settings_requested.disconnect()
                 self.current_layout.search_clicked.disconnect()
                 self.current_layout.toggle_sidebar_requested.disconnect()
+                self.current_layout.profile_switch_requested.disconnect()
             except Exception:
                 pass  # nosec B110
 
@@ -564,6 +572,7 @@ class MainWindow(QMainWindow):
         new_layout.import_requested.connect(self._open_import_dialog)
         new_layout.export_requested.connect(self._open_export_dialog)
         new_layout.notif_requested.connect(self._show_notif_popup)
+        new_layout.profile_switch_requested.connect(self._on_switch_profile_requested)
 
         new_layout.populate_navigation(self.VIEW_REGISTRY)
         new_layout.set_stacked_widget(self.stacked_widget)
@@ -832,17 +841,75 @@ class MainWindow(QMainWindow):
 
     def _open_export_dialog(self) -> None:
         """Ouvre la boîte de dialogue d'exportation de paquets Anki."""
-        from ankiforge.ui.dialogs.export_dialog import ExportDialog
 
         if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
             self._export_dialog.raise_()
             self._export_dialog.activateWindow()
             return
 
-        self._export_dialog = ExportDialog(parent=self)
-        self._export_dialog.show()
-        self._export_dialog.raise_()
-        self._export_dialog.activateWindow()
+    def _on_switch_profile_requested(self) -> None:
+        """Ouvre la boîte de dialogue de sélection/création de profil et bascule à chaud."""
+        from PySide6.QtWidgets import QDialog
+        from ankiforge.services.profile_manager import ProfileManager
+        from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
+
+        pm = ProfileManager()
+        profiles = pm.list_profiles()
+        if not profiles:
+            profiles = [self.profile_name or "default"]
+
+        dialog = ProfileSelectorDialog(profiles, current_profile=self.profile_name, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_profile = dialog.get_selected_profile()
+            if new_profile and new_profile != self.profile_name:
+                self.switch_to_profile(new_profile)
+
+    def switch_to_profile(self, new_profile: str) -> None:
+        """Bascule l'application vers un autre profil utilisateur (BDD, thèmes, layouts, vues)."""
+        from ankiforge.services.profile_manager import ProfileManager
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+        from ankiforge.ui.widgets.toast import show_toast
+
+        # 1. Basculer la base de données Peewee et le répertoire média
+        pm = ProfileManager()
+        pm.switch_profile(new_profile)
+        self.profile_name = new_profile
+
+        # 2. Mettre à jour le profil sur le layout actif
+        if self.current_layout is not None:
+            self.current_layout.set_profile_name(new_profile)
+
+        # 3. Charger et appliquer le thème du nouveau profil
+        saved_theme_id = self.engine.get_saved_theme_id(self.profile_name)
+        self.engine.apply_theme(saved_theme_id)
+
+        # 4. Charger et appliquer le layout du nouveau profil si différent
+        saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
+        if self.current_layout is None or self.current_layout.get_layout_id() != saved_layout_id:
+            self.apply_layout(saved_layout_id)
+
+        # 5. Réinitialiser les vues existantes pour repartir sur la nouvelle base de données
+        self._reset_view_widgets()
+
+        # 6. Re-charger la vue courante (ou le dashboard)
+        target_view = self._current_view_id if (self._current_view_id and self._current_view_id in self.VIEW_REGISTRY) else "dashboard"
+        self._current_view_id = None
+        self._on_view_selected(target_view)
+
+        show_toast(self, f"Espace de travail actif : « {new_profile} »")
+
+    def _reset_view_widgets(self) -> None:
+        """Réinitialise les instances de vues pour nettoyer tout cache BDD lié au précédent profil."""
+        for view_id, (_cat, _icon, title, _cls) in self.VIEW_REGISTRY.items():
+            old_widget = self._view_widgets.get(view_id)
+            if old_widget is not None:
+                idx = self.stacked_widget.indexOf(old_widget)
+                if idx != -1:
+                    self.stacked_widget.removeWidget(old_widget)
+                    old_widget.deleteLater()
+            placeholder = DummyView(title)
+            self.stacked_widget.addWidget(placeholder)
+            self._view_widgets[view_id] = placeholder
 
     def closeEvent(self, event) -> None:
         # Close all floating windows

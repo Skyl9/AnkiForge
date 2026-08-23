@@ -274,3 +274,64 @@ def test_orchestrator_notes_json_format():
     # Vérifier que le rendu Jinja contenait bien les champs
     assert "Front" in provider.calls[0]["system"]
     assert "Back" in provider.calls[0]["system"]
+
+
+def test_orchestrator_multi_model_jinja_and_parsing():
+    """Vérifie le rendu de {{ available_card_models }} et l'extraction multi-modèles."""
+    from ankiforge.database.models import NoteTypeModel
+
+    nt_basic = NoteTypeModel.create(
+        name="Basique Test",
+        description="Questions directes et définitions.",
+        fields_schema='["Front", "Back"]',
+    )
+    nt_cloze = NoteTypeModel.create(
+        name="Cloze Test",
+        description="Phrases à trous.",
+        fields_schema='["Texte", "Remarques extra"]',
+    )
+
+    pipeline = PipelineModel.create(name="Pipeline Multi-Modèles")
+    persona = PersonaModel.create(
+        name="Extracteur Multi",
+        system_prompt="Contexte modèles :\n{{ available_card_models }}",
+        output_format="json",
+    )
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+
+    provider = DummyProvider(
+        {
+            "Contexte modèles": (
+                '{"notes": [  {"model": "Basique Test", "fields": {"Front": "Q1", "Back": "A1"}},  {"model": "Cloze Test", "fields": {"Texte": "{{c1::T1}}", "Remarques extra": "R1"}}]}'
+            )
+        }
+    )
+
+    initial_state = PipelineRunState()
+    initial_state.set_variable("selected_models", [nt_basic, nt_cloze])
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        initial_state=initial_state,
+        ai_provider=provider,
+    )
+
+    finished_states = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    final_state = finished_states[0]
+    cards = final_state.variables["generated_cards"]
+    assert len(cards) == 2
+    assert cards[0]["model"] == "Basique Test"
+    assert cards[0]["Front"] == "Q1"
+    assert cards[1]["model"] == "Cloze Test"
+    assert cards[1]["Texte"] == "{{c1::T1}}"
+
+    # Vérifier que le catalogue a bien été injecté dans le prompt système reçu par le LLM
+    system_prompt = provider.calls[0]["system"]
+    assert "MODÈLES DE CARTES AUTORISÉS" in system_prompt
+    assert 'Modèle : "Basique Test"' in system_prompt
+    assert "Questions directes et définitions." in system_prompt
+    assert 'Modèle : "Cloze Test"' in system_prompt

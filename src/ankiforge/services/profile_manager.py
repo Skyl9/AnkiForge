@@ -57,8 +57,11 @@ class ProfileManager:
         set_active_profile(profile_name)
 
         try:
+            from ankiforge.database.models import init_db, seed_initial_data
             from ankiforge.database.migration import run_migrations
 
+            init_db()
             run_migrations()
+            seed_initial_data()
         except Exception as e:
             logging.getLogger(__name__).debug("Notice on profile migration: %s", e)

@@ -180,6 +180,10 @@ class GlassmorphismLayout(BaseLayout):
         self.search_btn.clicked.connect(self.search_clicked.emit)
         header_layout.addWidget(self.search_btn)
 
+        self.profile_btn = IconButton("user-circle", tooltip=f"Espace de travail : {self.profile_name}", size=22)
+        self.profile_btn.clicked.connect(self.profile_switch_requested.emit)
+        header_layout.addWidget(self.profile_btn)
+
         self.settings_btn = IconButton("gear", tooltip="Paramètres", size=22)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         header_layout.addWidget(self.settings_btn)
@@ -236,3 +240,8 @@ class GlassmorphismLayout(BaseLayout):
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()
         self.token_lbl.setText(f"{clean_cost} $")
+
+    def set_profile_name(self, profile_name: str) -> None:
+        super().set_profile_name(profile_name)
+        if hasattr(self, "profile_btn") and self.profile_btn:
+            self.profile_btn.setToolTip(f"Espace de travail : {profile_name}")

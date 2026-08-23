@@ -66,7 +66,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
+from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
@@ -376,6 +376,7 @@ class CreationView(QWidget):
         self.orchestrator: Optional[PipelineOrchestrator] = None
         self.current_deck: Optional[DeckModel] = None
         self.current_model: Optional[NoteTypeModel] = None
+        self.selected_models: list[NoteTypeModel] = []
         self.current_source_title: str = "Saisie Libre"
         self.decks_cache: list[DeckModel] = []
         self._deck_modal: Optional[DeckSelectWindow] = None
@@ -921,8 +922,12 @@ class CreationView(QWidget):
 
                 note_types = [DummyModel("Basique (Recto/Verso)"), DummyModel("Texte à trous (Cloze)")]
             self.models_cache = note_types
+            if not self.selected_models and self.models_cache:
+                self.selected_models = list(self.models_cache)
             if self.current_model is None and self.models_cache:
                 self._set_current_model(self.models_cache[0])
+            else:
+                self._update_selected_models_display()
 
             # 3. Engines LLM
             self.engine_combo.blockSignals(True)
@@ -1195,34 +1200,53 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_click_select_model(self) -> None:
-        dialog = SelectionDialog(title="Sélectionner un modèle de carte", items=self.models_cache, display_func=lambda m: m.name, parent=self)
+        initial = self.selected_models or ([self.current_model] if self.current_model else [])
+        dialog = MultiSelectionDialog(
+            title="Sélectionner les modèles de cartes autorisés pour l'IA",
+            items=self.models_cache,
+            display_func=lambda m: m.name,
+            initial_selected=initial,
+            parent=self,
+        )
         if dialog.exec():
-            selected = dialog.get_selected_item()
+            selected = dialog.get_selected_items()
             if selected:
-                self._set_current_model(selected)
+                self.selected_models = selected
+                self.current_model = selected[0]
+                self._update_selected_models_display()
+                self._on_model_changed()
+
+    def _update_selected_models_display(self) -> None:
+        if not self.selected_models:
+            if self.current_model:
+                self.selected_models = [self.current_model]
+            elif self.models_cache:
+                self.selected_models = [self.models_cache[0]]
+                self.current_model = self.models_cache[0]
+
+        if len(self.selected_models) == 1:
+            name = getattr(self.selected_models[0], "name", str(self.selected_models[0]))
+            self.btn_select_model.setText(name)
+        elif len(self.selected_models) > 1:
+            first_name = getattr(self.selected_models[0], "name", str(self.selected_models[0]))
+            self.btn_select_model.setText(f"{first_name} (+{len(self.selected_models) - 1})")
+        else:
+            self.btn_select_model.setText("Sélectionner un modèle...")
 
     def _set_current_model(self, model: Any) -> None:
         self.current_model = model
-        name = getattr(model, "name", str(model))
-        self.btn_select_model.setText(name)
+        if model and model not in self.selected_models:
+            self.selected_models = [model]
+        self._update_selected_models_display()
         self._on_model_changed()
 
     @Slot()
     def _on_model_changed(self) -> None:
-        selected_nt = self.current_model
-        fields = ["Recto", "Verso", "Statut"]
-        if selected_nt and isinstance(selected_nt, NoteTypeModel) and selected_nt.fields_schema:
-            try:
-                schema_fields = json.loads(str(selected_nt.fields_schema))
-                if isinstance(schema_fields, list) and schema_fields:
-                    fields = schema_fields + ["Statut"]
-            except Exception:
-                pass  # nosec B110
-
+        headers = ["Modèle", "Recto / Texte", "Verso / Détails", "Statut"]
         self.results_table.blockSignals(True)
         self.results_table.clear()
-        self.results_table.setColumnCount(len(fields))
-        self.results_table.setHorizontalHeaderLabels(fields)
+        self.results_table.setColumnCount(len(headers))
+        self.results_table.setHorizontalHeaderLabels(headers)
         self.results_table.setRowCount(0)
         self.results_table.blockSignals(False)
 
@@ -1267,6 +1291,7 @@ class CreationView(QWidget):
         initial_state.set_variable("fields_str", fields_str)
         initial_state.set_variable("note_type_id", nt_id)
         initial_state.set_variable("note_type_fields_schema", nt_schema)
+        initial_state.set_variable("selected_models", self.selected_models or ([selected_nt] if selected_nt else []))
 
         # 2. Configurer et démarrer le PipelineOrchestrator dans QThreadPool
         self._set_all_generation_states(True)
@@ -1328,17 +1353,39 @@ class CreationView(QWidget):
         cards = extract_cards_from_data(cards_raw)
 
         selected_nt = self.current_model
-        nt_schema = str(selected_nt.fields_schema) if selected_nt and hasattr(selected_nt, "fields_schema") and selected_nt.fields_schema else '["Front", "Back"]'
-        fields = json.loads(nt_schema) if nt_schema else ["Front", "Back"]
+        default_model_name = selected_nt.name if selected_nt else "Basique"
 
         cleaned_notes: list[dict[str, Any]] = []
         if isinstance(cards, list):
             for item in cards:
                 if isinstance(item, dict):
+                    card_model_name = item.get("model") or item.get("note_type") or default_model_name
+                    target_nt = None
+                    if self.models_cache:
+                        for m in self.models_cache:
+                            if m.name.lower().strip() == str(card_model_name).lower().strip():
+                                target_nt = m
+                                break
+                    if not target_nt:
+                        target_nt = selected_nt
+
+                    m_schema = str(target_nt.fields_schema) if target_nt and hasattr(target_nt, "fields_schema") and target_nt.fields_schema else '["Front", "Back"]'
+                    try:
+                        m_fields = json.loads(m_schema) if m_schema else ["Front", "Back"]
+                    except Exception:
+                        m_fields = ["Front", "Back"]
+
                     lower_item = {str(k).lower().strip(): v for k, v in item.items()}
-                    raw_values = list(item.values())
-                    note_fields: dict[str, Any] = {}
-                    for i, field_name in enumerate(fields):
+                    raw_values = [v for k, v in item.items() if str(k).lower() not in ("model", "note_type", "status", "chunk_id")]
+
+                    note_dict: dict[str, Any] = {
+                        "model": target_nt.name if target_nt else default_model_name,
+                        "status": item.get("status", "À valider"),
+                    }
+                    if "chunk_id" in item:
+                        note_dict["chunk_id"] = item["chunk_id"]
+
+                    for i, field_name in enumerate(m_fields):
                         f_lower = field_name.lower().strip()
                         if f_lower in lower_item:
                             val = lower_item[f_lower]
@@ -1351,8 +1398,14 @@ class CreationView(QWidget):
                             val = "<br>".join([str(v) for v in val])
                         else:
                             val = str(val) if val is not None else ""
-                        note_fields[field_name] = val
-                    cleaned_notes.append(note_fields)
+                        note_dict[field_name] = val
+
+                    # Conserver aussi les clés génériques utiles
+                    for k, v in item.items():
+                        if k not in note_dict and str(k).lower() not in ("status",):
+                            note_dict[k] = v
+
+                    cleaned_notes.append(note_dict)
 
         if cleaned_notes:
             self._on_generation_finished(cleaned_notes)
@@ -1406,14 +1459,16 @@ class CreationView(QWidget):
             show_toast(self, "Pipeline annulé.", is_error=False)
 
     def _populate_results_table(self) -> None:
-        """Remplit le tableau des cartes générées en préservant la sélection courante."""
+        """Remplit le tableau des cartes générées avec sélecteur de modèle par ligne."""
         saved_index = self.current_preview_index
 
         self.results_table.blockSignals(True)
         self.results_table.setRowCount(len(self.generated_cards))
         self.results_panel.set_tab_title(0, f"Cartes Générées ({len(self.generated_cards)})")
 
-        col_count = self.results_table.columnCount()
+        headers = ["Modèle", "Recto / Texte Principal", "Verso / Détails", "Statut"]
+        self.results_table.setColumnCount(len(headers))
+        self.results_table.setHorizontalHeaderLabels(headers)
 
         _STATUS_META = {
             "Acceptée": ("Validée", "ph.check-circle", "success"),
@@ -1426,22 +1481,46 @@ class CreationView(QWidget):
 
         for row, card in enumerate(self.generated_cards):
             card["status"] = card.get("status", "À valider")
-            front_text = card.get("Front", card.get("Recto", ""))
-            back_text = card.get("Back", card.get("Verso", ""))
+            card_model_name = card.get("model") or (self.current_model.name if self.current_model else "Basique")
+            card["model"] = card_model_name
+
+            front_text = card.get("Front") or card.get("Recto") or card.get("Texte") or card.get("Théorème") or ""
+            back_text = card.get("Back") or card.get("Verso") or card.get("Remarques extra") or card.get("Démonstration") or ""
             status_text = card["status"]
 
-            # --- Colonne Recto ---
-            front_item = QTableWidgetItem(front_text)
-            front_item.setToolTip(front_text)
-            self.results_table.setItem(row, 0, front_item)
+            # --- Colonne 0 : Modèle (StyledComboBox) ---
+            model_combo = StyledComboBox()
+            model_combo.setFixedHeight(26)
+            for m in self.models_cache:
+                model_combo.addItem(m.name, m)
+            idx = model_combo.findText(card_model_name)
+            if idx >= 0:
+                model_combo.setCurrentIndex(idx)
 
-            # --- Colonne Verso ---
-            if col_count > 2:
-                back_item = QTableWidgetItem(back_text)
-                back_item.setToolTip(back_text)
-                self.results_table.setItem(row, 1, back_item)
+            def make_combo_handler(r=row, combo=model_combo):
+                def handler(index: int):
+                    new_model_name = combo.currentText()
+                    if 0 <= r < len(self.generated_cards):
+                        self.generated_cards[r]["model"] = new_model_name
+                        if self.current_preview_index == r:
+                            self._update_card_preview()
 
-            # --- Colonne Statut (badge vectoriel Phosphor) ---
+                return handler
+
+            model_combo.currentIndexChanged.connect(make_combo_handler(row, model_combo))
+            self.results_table.setCellWidget(row, 0, model_combo)
+
+            # --- Colonne 1 : Recto / Texte Principal ---
+            front_item = QTableWidgetItem(str(front_text))
+            front_item.setToolTip(str(front_text))
+            self.results_table.setItem(row, 1, front_item)
+
+            # --- Colonne 2 : Verso / Détails ---
+            back_item = QTableWidgetItem(str(back_text))
+            back_item.setToolTip(str(back_text))
+            self.results_table.setItem(row, 2, back_item)
+
+            # --- Colonne 3 : Statut (Badge) ---
             label, icon_name, variant = _STATUS_META.get(status_text, (status_text, "ph.hourglass-simple", "warning"))
 
             badge_container = QWidget()
@@ -1451,9 +1530,8 @@ class CreationView(QWidget):
             badge = StatusBadge(label, icon_name=icon_name, variant=variant)
             badge_layout.addWidget(badge)
 
-            status_col = col_count - 1
-            self.results_table.setItem(row, status_col, QTableWidgetItem())
-            self.results_table.setCellWidget(row, status_col, badge_container)
+            self.results_table.setItem(row, 3, QTableWidgetItem())
+            self.results_table.setCellWidget(row, 3, badge_container)
 
             self.results_table.setRowHeight(row, 38)
 
@@ -1477,7 +1555,15 @@ class CreationView(QWidget):
         self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
 
         card = self.generated_cards[self.current_preview_index]
-        selected_nt = self.current_model
+        card_model_name = card.get("model") or card.get("note_type")
+        selected_nt = None
+        if card_model_name and self.models_cache:
+            for m in self.models_cache:
+                if m.name.lower().strip() == str(card_model_name).lower().strip():
+                    selected_nt = m
+                    break
+        if not selected_nt:
+            selected_nt = self.current_model
 
         self.preview_widget.card_preview_widget.update_preview(
             note_type=selected_nt,
@@ -1500,10 +1586,20 @@ class CreationView(QWidget):
         col = item.column()
         if 0 <= row < len(self.generated_cards):
             text = item.text()
-            if col == 0:
-                self.generated_cards[row]["Front"] = text
-            elif col == 1 and self.results_table.columnCount() > 2:
-                self.generated_cards[row]["Back"] = text
+            card = self.generated_cards[row]
+            card_model_name = card.get("model", "")
+            if "cloze" in card_model_name.lower():
+                if col == 1:
+                    card["Texte"] = text
+                elif col == 2:
+                    card["Remarques extra"] = text
+            else:
+                if col == 1:
+                    card["Front"] = text
+                    card["Recto"] = text
+                elif col == 2:
+                    card["Back"] = text
+                    card["Verso"] = text
             self._update_card_preview()
 
     @Slot()
@@ -1676,24 +1772,36 @@ class CreationView(QWidget):
         saved_count = 0
         try:
             for card in validated_cards:
-                front_val = card.get("Front", card.get("Recto", ""))
-                back_val = card.get("Back", card.get("Verso", ""))
-
-                import json
+                card_model_name = card.get("model") or card.get("note_type")
+                target_nt = None
+                if card_model_name and self.models_cache:
+                    for m in self.models_cache:
+                        if m.name.lower().strip() == str(card_model_name).lower().strip():
+                            target_nt = m
+                            break
+                if not target_nt:
+                    target_nt = selected_nt
 
                 try:
-                    schema = json.loads(str(selected_nt.fields_schema)) if selected_nt.fields_schema else ["Front", "Back"]
+                    schema = json.loads(str(target_nt.fields_schema)) if target_nt.fields_schema else ["Front", "Back"]
                 except Exception:
                     schema = ["Front", "Back"]
 
                 fields = {}
-                if len(schema) >= 1:
-                    fields[schema[0]] = front_val
-                if len(schema) >= 2:
-                    fields[schema[1]] = back_val
-
-                for f_name in schema[2:]:
-                    fields[f_name] = card.get(f_name, "")
+                for f_name in schema:
+                    val = card.get(f_name)
+                    if val is None:
+                        if f_name.lower() in ("front", "recto"):
+                            val = card.get("Front") or card.get("Recto") or card.get("Texte") or ""
+                        elif f_name.lower() in ("back", "verso"):
+                            val = card.get("Back") or card.get("Verso") or card.get("Remarques extra") or ""
+                        elif f_name.lower() in ("texte",):
+                            val = card.get("Texte") or card.get("Front") or ""
+                        elif f_name.lower() in ("remarques extra", "remarque", "extra"):
+                            val = card.get("Remarques extra") or card.get("Back") or ""
+                        else:
+                            val = ""
+                    fields[f_name] = str(val) if val is not None else ""
 
                 tags = ["ankiforge_generated"]
                 if getattr(self, "current_source_title", None) and self.current_source_title != "Saisie Libre":
@@ -1704,7 +1812,7 @@ class CreationView(QWidget):
 
                 deck_obj, _ = DeckModel.get_or_create(name=deck_name)
                 note = NoteManager.create_note(
-                    note_type=selected_nt,
+                    note_type=target_nt,
                     deck=deck_obj,
                     content_dict=fields,
                     tags=tags,
