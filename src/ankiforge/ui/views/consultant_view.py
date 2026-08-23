@@ -25,6 +25,7 @@ import re
 import uuid
 from typing import Any, Dict, List, Optional
 
+import markdown
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -86,6 +87,54 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
             letter-spacing: 0.5px;
         }}
     """)
+
+
+def render_markdown_message(text: str) -> str:
+    """Convertit du texte Markdown en HTML avec typographie et styles élégants."""
+    html_content = markdown.markdown(text, extensions=["tables", "fenced_code", "nl2br", "sane_lists"])
+    styled_html = f"""
+    <div style="font-family: {DesignTokens.FONT_MAIN}; font-size: 13px; line-height: 1.5; color: {DesignTokens.TEXT_PRIMARY};">
+        <style>
+            h1, h2, h3, h4, h5, h6 {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                margin-top: 8px;
+                margin-bottom: 4px;
+                font-weight: bold;
+            }}
+            h3 {{ font-size: 13px; color: {DesignTokens.ACCENT_PRIMARY}; }}
+            h4 {{ font-size: 12px; color: {DesignTokens.COLOR_YELLOW}; }}
+            p {{ margin: 3px 0; color: {DesignTokens.TEXT_PRIMARY}; }}
+            ul, ol {{ margin: 3px 0; padding-left: 16px; color: {DesignTokens.TEXT_PRIMARY}; }}
+            li {{ margin-bottom: 2px; }}
+            strong {{ color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; }}
+            em {{ color: {DesignTokens.TEXT_SECONDARY}; font-style: italic; }}
+            code {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.COLOR_BLUE};
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 11px;
+                padding: 1px 4px;
+                border-radius: 3px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+            pre {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                padding: 8px 10px;
+                margin: 6px 0;
+            }}
+            pre code {{
+                background-color: transparent;
+                border: none;
+                padding: 0;
+                color: #38bdf8;
+            }}
+        </style>
+        {html_content}
+    </div>
+    """
+    return styled_html
 
 
 # =====================================================================
@@ -342,10 +391,13 @@ class ChatMessageWidget(QWidget):
         msg_body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         # Rendu HTML/Markdown propre
-        if "<" in text and ">" in text:
+        if is_user:
             msg_body.setText(text)
+            msg_body.setTextFormat(Qt.TextFormat.PlainText)
         else:
-            msg_body.setText(text.replace("\n", "<br>"))
+            html = render_markdown_message(text)
+            msg_body.setText(html)
+            msg_body.setTextFormat(Qt.TextFormat.RichText)
 
         if is_user:
             body_card.setStyleSheet(f"""
@@ -524,14 +576,14 @@ class ConsultantView(QWidget):
         quick_prompts_layout.setSpacing(6)
 
         prompts = [
-            ("ph.chart-bar", "📊 Analyser la rétention"),
-            ("ph.magnifying-glass", "🔍 Détecter les cartes sangsues"),
-            ("ph.palette", "🎨 Styliser le modèle CSS"),
-            ("ph.sparkle", "⚡ Audit formulation minimale"),
-            ("ph.wrench", "🛠️ Outils Python MCP"),
+            ("ph.chart-bar", "Rétention SRS", "Rétention SRS"),
+            ("ph.magnifying-glass", "Cartes sangsues", "Cartes sangsues"),
+            ("ph.palette", "Style CSS", "Style CSS"),
+            ("ph.sparkle", "Audit Wozniak", "Audit Wozniak"),
+            ("ph.wrench", "Outils MCP", "Outils MCP"),
         ]
-        for icon, text in prompts:
-            btn = QPushButton(text)
+        for icon, label, key in prompts:
+            btn = QPushButton(label)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setIcon(load_phosphor_icon(icon, color=DesignTokens.ACCENT_PRIMARY))
             btn.setStyleSheet(f"""
@@ -539,7 +591,7 @@ class ConsultantView(QWidget):
                     background-color: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: 9999px;
-                    padding: 4px 12px;
+                    padding: 4px 10px;
                     font-size: 11px;
                     font-weight: 500;
                     color: {DesignTokens.TEXT_PRIMARY};
@@ -550,7 +602,7 @@ class ConsultantView(QWidget):
                     color: #a5b4fc;
                 }}
             """)
-            btn.clicked.connect(lambda _, t=text: self._on_quick_prompt_clicked(t))
+            btn.clicked.connect(lambda _, k=key: self._on_quick_prompt_clicked(k))
             quick_prompts_layout.addWidget(btn)
 
         quick_prompts_layout.addStretch()
@@ -896,11 +948,22 @@ class ConsultantView(QWidget):
         self.tokens_badge.setText(f"{tokens} tokens")
 
     @Slot(str)
-    def _on_quick_prompt_clicked(self, prompt_text: str) -> None:
-        clean_text = prompt_text
-        for prefix in ["📊 ", "🔍 ", "🎨 ", "⚡ ", "🛠️ "]:
-            clean_text = clean_text.replace(prefix, "")
-        self.chat_input.setPlainText(clean_text)
+    def _on_quick_prompt_clicked(self, key: str) -> None:
+        prompt_presets = {
+            "Rétention SRS": "Analyse en détail la rétention SRS et la stabilité FSRS-4.5 de mes paquets.",
+            "Cartes sangsues": "Détecte les cartes sangsues (lapses élevés) et propose des reformulations atomiques.",
+            "Style CSS": "Génère un style CSS moderne pour mon modèle de carte actuel.",
+            "Audit Wozniak": "Effectue un audit de formulation minimale basé sur les 20 règles de Piotr Wozniak.",
+            "Outils MCP": "Quels outils Python et requêtes Peewee sont disponibles pour le consultant ?",
+        }
+        if key in prompt_presets:
+            resolved_text = prompt_presets[key]
+        else:
+            clean_text = key
+            for prefix in ["📊 ", "🔍 ", "🎨 ", "⚡ ", "🛠️ "]:
+                clean_text = clean_text.replace(prefix, "")
+            resolved_text = clean_text
+        self.chat_input.setPlainText(resolved_text)
         self.chat_input.setFocus()
 
     @Slot()
