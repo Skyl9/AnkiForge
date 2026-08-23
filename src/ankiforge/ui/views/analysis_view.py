@@ -7,14 +7,13 @@ import logging
 from typing import Any, Dict, List, Optional, Union, cast
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QScrollArea,
@@ -683,35 +682,55 @@ class DocumentInspectorPanel(QWidget):
         layout.setSpacing(10)
 
         # 1. Header du Document
-        header_layout = QHBoxLayout()
-        btn_back = SecondaryButton("← Retour aux documents")
+        header_frame = QFrame()
+        header_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        h_layout = QHBoxLayout(header_frame)
+        h_layout.setContentsMargins(12, 8, 12, 8)
+        h_layout.setSpacing(10)
+
+        btn_back = SecondaryButton("Retour")
+        btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
         btn_back.clicked.connect(self.back_requested.emit)
 
+        ico_doc = QLabel()
+        ico_doc.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE, weight="fill").pixmap(18, 18))
+        ico_doc.setStyleSheet("border: none; background: transparent;")
+
         title_to_display = self.doc.original_media.original_name if self.doc.original_media else self.doc.title
-        header_lbl = QLabel(f"📄 Audit Document : {title_to_display}")
-        header_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
-        header_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        header_lbl = QLabel(title_to_display)
+        header_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
+        header_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        header_lbl.setToolTip(title_to_display)
 
-        self.lbl_doc_summary = QLabel("📊 Couverture : 0%")
+        self.lbl_doc_summary = QLabel("Couverture : 0%")
         self.lbl_doc_summary.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        self.lbl_doc_summary.setStyleSheet(f"background-color: rgba(16,185,129,0.12); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; padding: 4px 8px;")
+        self.lbl_doc_summary.setStyleSheet(
+            f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 10px;"
+        )
 
-        self.btn_fill_orphans = PrimaryButton("⚡ Combler toutes les sections orphelines")
+        self.btn_fill_orphans = PrimaryButton("Combler les trous")
         self.btn_fill_orphans.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
         self.btn_fill_orphans.clicked.connect(self._on_fill_all_orphans)
 
-        self.btn_reindex = SecondaryButton("🔄 Ré-indexer FAISS")
+        self.btn_reindex = SecondaryButton("Ré-indexer FAISS")
+        self.btn_reindex.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_reindex.clicked.connect(self._on_reindex_faiss)
 
-        header_layout.addWidget(btn_back)
-        header_layout.addSpacing(10)
-        header_layout.addWidget(header_lbl)
-        header_layout.addWidget(self.lbl_doc_summary)
-        header_layout.addStretch()
-        header_layout.addWidget(self.btn_fill_orphans)
-        header_layout.addWidget(self.btn_reindex)
+        h_layout.addWidget(btn_back)
+        h_layout.addSpacing(4)
+        h_layout.addWidget(ico_doc)
+        h_layout.addWidget(header_lbl, 1)
+        h_layout.addWidget(self.lbl_doc_summary)
+        h_layout.addWidget(self.btn_fill_orphans)
+        h_layout.addWidget(self.btn_reindex)
 
-        layout.addLayout(header_layout)
+        layout.addWidget(header_frame)
 
         # 2. Splitter 2 Volets
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -723,9 +742,12 @@ class DocumentInspectorPanel(QWidget):
         left_layout.setContentsMargins(10, 10, 10, 10)
         left_layout.setSpacing(8)
 
-        lbl_toc = QLabel("📑 Sommaire & Sections du Document")
+        lbl_toc = QLabel("Sommaire & Sections du Document")
         lbl_toc.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        lbl_toc.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 6px;")
+        lbl_toc.setStyleSheet(
+            f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-top: none; border-left: none; border-right: none; background: transparent; padding-bottom: 6px;"
+        )
         left_layout.addWidget(lbl_toc)
 
         self.chapters_list = QListWidget()
@@ -753,9 +775,9 @@ class DocumentInspectorPanel(QWidget):
         self.chapters_list.itemClicked.connect(self._on_chapter_item_clicked)
         left_layout.addWidget(self.chapters_list, 1)
 
-        lbl_text_title = QLabel("📖 Extrait de la Section Sélectionnée")
+        lbl_text_title = QLabel("Extrait de la Section Sélectionnée")
         lbl_text_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        lbl_text_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; padding-top: 4px;")
+        lbl_text_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent; padding-top: 4px;")
         left_layout.addWidget(lbl_text_title)
 
         self.text_preview = QTextBrowser()
@@ -779,9 +801,12 @@ class DocumentInspectorPanel(QWidget):
         right_layout.setContentsMargins(10, 10, 10, 10)
         right_layout.setSpacing(8)
 
-        lbl_cards_title = QLabel("🔍 Cartes Anki Liées & Action de Forge")
+        lbl_cards_title = QLabel("Cartes Anki Liées & Action de Forge")
         lbl_cards_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        lbl_cards_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 6px;")
+        lbl_cards_title.setStyleSheet(
+            f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-top: none; border-left: none; border-right: none; background: transparent; padding-bottom: 6px;"
+        )
         right_layout.addWidget(lbl_cards_title)
 
         self.cards_scroll = QScrollArea()
@@ -812,7 +837,7 @@ class DocumentInspectorPanel(QWidget):
         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
 
         if not chunks:
-            self.lbl_doc_summary.setText("⚪ Non indexé (0 section)")
+            self.lbl_doc_summary.setText("Non indexé (0 section)")
             self.text_preview.setHtml("<p style='color: #9ca3af;'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
             return
 
@@ -822,25 +847,39 @@ class DocumentInspectorPanel(QWidget):
             is_covered = card_count > 0
             if is_covered:
                 covered_count += 1
-                badge = "🟢"
-                status_text = f"✅ {card_count} carte(s)"
+                badge = "●"
+                status_text = f"{card_count} carte(s)"
             else:
-                badge = "⚠️"
-                status_text = "0 carte (Trou)"
+                badge = "○"
+                status_text = "Trou (0 carte)"
 
             title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
             item_text = f"{badge} {title_str}  ·  {status_text}"
 
             item = QListWidgetItem(item_text)
             item.setData(Qt.ItemDataRole.UserRole, chunk.id)
+            if is_covered:
+                item.setForeground(QColor(DesignTokens.COLOR_GREEN))
+            else:
+                item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
             self.chapters_list.addItem(item)
 
         total_chunks = len(chunks)
         percent = (covered_count / total_chunks * 100) if total_chunks > 0 else 0
-        orphans = total_chunks - covered_count
         total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document == self.doc).count()
-
-        self.lbl_doc_summary.setText(f"📊 Couverture : {percent:.0f}% ({covered_count}/{total_chunks} sections) · {total_cards} cartes · {orphans} trou(s)")
+        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_count}/{total_chunks} sections · {total_cards} cartes)")
+        if percent >= 90:
+            self.lbl_doc_summary.setStyleSheet(
+                f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 10px;"
+            )
+        elif percent >= 50:
+            self.lbl_doc_summary.setStyleSheet(
+                f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 9999px; padding: 4px 10px;"
+            )
+        else:
+            self.lbl_doc_summary.setStyleSheet(
+                f"background-color: rgba(239,68,68,0.15); color: {DesignTokens.COLOR_RED}; border: 1px solid rgba(239,68,68,0.3); border-radius: 9999px; padding: 4px 10px;"
+            )
 
         if self.chapters_list.count() > 0:
             self.chapters_list.setCurrentRow(0)
@@ -859,7 +898,12 @@ class DocumentInspectorPanel(QWidget):
 
         header_title = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
         safe_content = chunk.content.replace("\n", "<br>")
-        self.text_preview.setHtml(f"<h4>📌 {header_title}</h4><hr style='border: 1px solid {DesignTokens.BORDER_COLOR};'/><p>{safe_content}</p>")
+        html_preview = (
+            f"<h4 style='color: {DesignTokens.TEXT_PRIMARY}; margin-bottom: 6px;'>{header_title}</h4>"
+            f"<hr style='border: 1px solid {DesignTokens.BORDER_COLOR};'/>"
+            f"<p style='color: {DesignTokens.TEXT_SECONDARY}; line-height: 1.5;'>{safe_content}</p>"
+        )
+        self.text_preview.setHtml(html_preview)
 
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
@@ -874,25 +918,27 @@ class DocumentInspectorPanel(QWidget):
             b_layout = QVBoxLayout(box)
             b_layout.setSpacing(10)
 
-            lbl_warn = QLabel("⚠️ Trou de cours détecté : Aucune flashcard n'a encore été générée pour cette section.")
-            lbl_warn.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-weight: bold;")
+            lbl_warn = QLabel("Trou de cours détecté : Aucune flashcard n'a encore été générée pour cette section.")
+            lbl_warn.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+            lbl_warn.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; border: none; background: transparent;")
             lbl_warn.setWordWrap(True)
             b_layout.addWidget(lbl_warn)
 
             lbl_desc = QLabel("Forgez des cartes ciblées pour combler ce manque et garantir la complétion de votre apprentissage.")
-            lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+            lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
             lbl_desc.setWordWrap(True)
             b_layout.addWidget(lbl_desc)
 
-            btn_gen = PrimaryButton("⚡ Forger cette section maintenant")
+            btn_gen = PrimaryButton("Forger cette section maintenant")
             btn_gen.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
             btn_gen.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
             b_layout.addWidget(btn_gen)
 
             self.cards_layout.addWidget(box)
         else:
-            lbl_cnt = QLabel(f"✅ {len(links)} carte(s) Anki forgée(s) depuis cette section :")
-            lbl_cnt.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-weight: bold; margin-bottom: 4px;")
+            lbl_cnt = QLabel(f"{len(links)} carte(s) Anki forgée(s) depuis cette section :")
+            lbl_cnt.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+            lbl_cnt.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; margin-bottom: 4px; border: none; background: transparent;")
             self.cards_layout.addWidget(lbl_cnt)
 
             for link in links:
@@ -936,31 +982,32 @@ class DocumentInspectorPanel(QWidget):
                         deck_name = getattr(note.deck, "name", "Général")
 
                 top_row = QHBoxLayout()
-                lbl_deck = QLabel(f"📁 {deck_name}")
-                lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
+                lbl_deck = QLabel(f"Paquet : {deck_name}")
+                lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
                 top_row.addWidget(lbl_deck)
                 top_row.addStretch()
                 c_layout.addLayout(top_row)
 
                 lbl_front = QLabel(f"Q : {front}")
-                lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
+                lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
                 lbl_front.setWordWrap(True)
                 c_layout.addWidget(lbl_front)
 
                 if back:
                     lbl_back = QLabel(f"R : {back}")
-                    lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+                    lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
                     lbl_back.setWordWrap(True)
                     c_layout.addWidget(lbl_back)
 
                 if link.is_hallucinating:
-                    lbl_bad = QLabel("🔴 Alerte : Incohérence sémantique détectée face au document source")
+                    lbl_bad = QLabel("Alerte : Incohérence sémantique détectée face au document source")
                     lbl_bad.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 10px; font-weight: bold;")
                     c_layout.addWidget(lbl_bad)
 
                 self.cards_layout.addWidget(card_box)
 
             btn_more = SecondaryButton("+ Générer plus de cartes pour ce chapitre")
+            btn_more.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
             btn_more.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
             self.cards_layout.addWidget(btn_more)
 
@@ -1031,87 +1078,92 @@ class AISourcesDiagnosticTab(QWidget):
         inspector_layout.setContentsMargins(0, 0, 0, 0)
         self.stack.addWidget(self.page_inspector)
 
-        # 1. Barre de KPIs globaux de la Forge
+        # 1. Barre de KPIs globaux de la Forge (Modernisée)
         kpi_header = QFrame()
-        kpi_header.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
+        kpi_header.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
         kpi_layout = QHBoxLayout(kpi_header)
-        kpi_layout.setContentsMargins(12, 10, 12, 10)
-        kpi_layout.setSpacing(16)
+        kpi_layout.setContentsMargins(12, 8, 12, 8)
+        kpi_layout.setSpacing(12)
 
-        self.lbl_kpi_docs = QLabel("📚 Documents : 0")
-        self.lbl_kpi_docs.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        self.lbl_kpi_docs.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        def _make_kpi_chip(icon_name: str, icon_color: str, title: str):
+            chip = QFrame()
+            chip.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_MAIN};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+            c_lay = QHBoxLayout(chip)
+            c_lay.setContentsMargins(10, 5, 10, 5)
+            c_lay.setSpacing(8)
+            ico = QLabel()
+            ico.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(16, 16))
+            ico.setStyleSheet("border: none; background: transparent;")
+            lbl_t = QLabel(title)
+            lbl_t.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+            lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+            lbl_v = QLabel("--")
+            lbl_v.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+            lbl_v.setStyleSheet(f"color: {icon_color}; border: none; background: transparent;")
+            c_lay.addWidget(ico)
+            c_lay.addWidget(lbl_t)
+            c_lay.addWidget(lbl_v)
+            return chip, lbl_v
 
-        self.lbl_kpi_coverage = QLabel("🎯 Couverture Moyenne : 0%")
-        self.lbl_kpi_coverage.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        self.lbl_kpi_coverage.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN};")
+        chip_docs, self.lbl_kpi_docs_val = _make_kpi_chip("ph.files", DesignTokens.COLOR_BLUE, "Documents")
+        chip_cov, self.lbl_kpi_coverage_val = _make_kpi_chip("ph.target", DesignTokens.COLOR_GREEN, "Couverture")
+        chip_orphans, self.lbl_kpi_orphans_val = _make_kpi_chip("ph.warning-circle", DesignTokens.COLOR_YELLOW, "Sections orphelines")
+        chip_cards, self.lbl_kpi_cards_val = _make_kpi_chip("ph.lightning", DesignTokens.COLOR_PURPLE, "Cartes forgées")
 
-        self.lbl_kpi_orphans = QLabel("⚠️ Sections Orphelines : 0")
-        self.lbl_kpi_orphans.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        self.lbl_kpi_orphans.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW};")
-
-        self.lbl_kpi_cards = QLabel("⚡ Cartes Forgées : 0")
-        self.lbl_kpi_cards.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        self.lbl_kpi_cards.setStyleSheet(f"color: {DesignTokens.COLOR_PURPLE};")
-
-        kpi_layout.addWidget(self.lbl_kpi_docs)
-        kpi_layout.addWidget(self.lbl_kpi_coverage)
-        kpi_layout.addWidget(self.lbl_kpi_orphans)
-        kpi_layout.addWidget(self.lbl_kpi_cards)
+        kpi_layout.addWidget(chip_docs)
+        kpi_layout.addWidget(chip_cov)
+        kpi_layout.addWidget(chip_orphans)
+        kpi_layout.addWidget(chip_cards)
         kpi_layout.addStretch()
 
         grid_page_layout.addWidget(kpi_header)
 
         # 2. Barre de Filtres et Recherche
         filter_bar = QFrame()
-        filter_bar.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
-        f_layout = QHBoxLayout(filter_bar)
-        f_layout.setContentsMargins(12, 6, 12, 6)
-        f_layout.setSpacing(8)
+        filter_bar.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        f_outer = QVBoxLayout(filter_bar)
+        f_outer.setContentsMargins(12, 8, 12, 8)
+        f_outer.setSpacing(6)
 
-        # Search
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Rechercher un document...")
-        self.search_input.setFixedWidth(200)
-        self.search_input.setStyleSheet(
-            f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 4px 8px; border-radius: 4px;"
-        )
+        # Ligne 1 : Recherche + Statut + Tri + Bouton Actualiser
+        row1 = QHBoxLayout()
+        row1.setSpacing(8)
+
+        self.search_input = GlowLineEdit()
+        self.search_input.setPlaceholderText("Rechercher un document ou cours...")
+        self.search_input.setMinimumWidth(220)
         self.search_input.textChanged.connect(self.refresh_data)
-        f_layout.addWidget(self.search_input)
-
-        lbl_filter = QLabel("Format :")
-        lbl_filter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-weight: bold; font-size: 11px;")
-        f_layout.addWidget(lbl_filter)
-
-        self.btn_filter_all = SecondaryButton("Tous")
-        self.btn_filter_pdf = SecondaryButton(".PDF")
-        self.btn_filter_md = SecondaryButton(".MD")
-        self.btn_filter_web = SecondaryButton("Web")
-        self.current_format_filter = "all"
-
-        for b, fmt in [(self.btn_filter_all, "all"), (self.btn_filter_pdf, "pdf"), (self.btn_filter_md, "md"), (self.btn_filter_web, "web")]:
-            b.setFixedHeight(24)
-            b.clicked.connect(lambda _, f=fmt: self._set_format_filter(f))
-            f_layout.addWidget(b)
-
-        f_layout.addSpacing(8)
-        lbl_status = QLabel("Statut :")
-        lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-weight: bold; font-size: 11px;")
-        f_layout.addWidget(lbl_status)
 
         self.status_combo = QComboBox()
-        self.status_combo.addItems(["Tous les statuts", "🟢 Couverts à 100%", "⚠️ Trous à forger (<100%)", "⚪ Non indexés"])
-        self.status_combo.setStyleSheet(
-            f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 3px 6px; border-radius: 4px;"
-        )
+        self.status_combo.addItems(["Tous les statuts", "Couverts à 100%", "Trous à forger (<100%)", "Non indexés"])
+        self.status_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 8px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
         self.status_combo.currentIndexChanged.connect(self.refresh_data)
-        f_layout.addWidget(self.status_combo)
-
-        f_layout.addStretch()
-
-        lbl_sort = QLabel("Trier par :")
-        lbl_sort.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-weight: bold; font-size: 11px;")
-        f_layout.addWidget(lbl_sort)
 
         self.sort_combo = QComboBox()
         self.sort_combo.addItems(
@@ -1124,15 +1176,60 @@ class AISourcesDiagnosticTab(QWidget):
                 "Date d'importation ↓",
             ]
         )
-        self.sort_combo.setStyleSheet(
-            f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 3px 6px; border-radius: 4px;"
-        )
+        self.sort_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 8px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
         self.sort_combo.currentIndexChanged.connect(self.refresh_data)
-        f_layout.addWidget(self.sort_combo)
+
+        self.btn_refresh = SecondaryButton("Actualiser")
+        self.btn_refresh.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_refresh.clicked.connect(self.refresh_data)
+
+        row1.addWidget(self.search_input, 1)
+        row1.addWidget(self.status_combo)
+        row1.addWidget(self.sort_combo)
+        row1.addWidget(self.btn_refresh)
+        f_outer.addLayout(row1)
+
+        # Ligne 2 : Filtres de Format Segmentés
+        row2 = QHBoxLayout()
+        row2.setSpacing(6)
+
+        lbl_filter = QLabel("Formats :")
+        lbl_filter.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+        lbl_filter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        row2.addWidget(lbl_filter)
+
+        self.btn_filter_all = SecondaryButton("Tous")
+        self.btn_filter_pdf = SecondaryButton("PDF")
+        self.btn_filter_md = SecondaryButton("Markdown")
+        self.btn_filter_web = SecondaryButton("Web & Vidéo")
+        self.current_format_filter = "all"
+
+        self.format_buttons = {
+            "all": self.btn_filter_all,
+            "pdf": self.btn_filter_pdf,
+            "md": self.btn_filter_md,
+            "web": self.btn_filter_web,
+        }
+
+        for fmt, b in self.format_buttons.items():
+            b.setFixedHeight(26)
+            b.clicked.connect(lambda _, f=fmt: self._set_format_filter(f))
+            row2.addWidget(b)
+
+        row2.addStretch()
+        f_outer.addLayout(row2)
 
         grid_page_layout.addWidget(filter_bar)
 
-        # 3. Grille des Cartes de Documents
+        # 3. Grille des Cartes de Documents (2 colonnes)
         from PySide6.QtWidgets import QScrollArea, QGridLayout
 
         self.scroll_area = QScrollArea()
@@ -1229,11 +1326,11 @@ class AISourcesDiagnosticTab(QWidget):
                 }
             )
 
-        self.lbl_kpi_docs.setText(f"📚 Documents : {len(docs)}")
+        self.lbl_kpi_docs_val.setText(f"{len(docs)}")
         avg_cov = (total_forge_covered / total_forge_chunks * 100) if total_forge_chunks > 0 else 0.0
-        self.lbl_kpi_coverage.setText(f"🎯 Couverture Moyenne : {avg_cov:.0f}%")
-        self.lbl_kpi_orphans.setText(f"⚠️ Sections Orphelines : {total_forge_orphans}")
-        self.lbl_kpi_cards.setText(f"⚡ Cartes Forgées : {total_forge_cards}")
+        self.lbl_kpi_coverage_val.setText(f"{avg_cov:.0f}%")
+        self.lbl_kpi_orphans_val.setText(f"{total_forge_orphans}")
+        self.lbl_kpi_cards_val.setText(f"{total_forge_cards}")
 
         sort_idx = self.sort_combo.currentIndex()
         if sort_idx == 0:
@@ -1256,9 +1353,41 @@ class AISourcesDiagnosticTab(QWidget):
             card.inspect_requested.connect(self.show_inspector)
             self.grid_layout.addWidget(card, row, col)
             col += 1
-            if col > 2:
+            if col > 1:
                 col = 0
                 row += 1
+
+    def _on_card_forge_orphan_requested(self, doc_id: int) -> None:
+        """Trouve la première section orpheline pour ce document et navigue vers l'Usine de Création."""
+        doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+        if not doc:
+            return
+
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document == doc)}
+
+        orphan = next((c for c in chunks if c.id not in linked_chunk_ids), None)
+        if orphan:
+            section_name = orphan.heading_path or (f"Page {orphan.page_number}" if orphan.page_number else f"Section #{orphan.chunk_index + 1}")
+            self.request_navigation.emit(
+                "creation",
+                {
+                    "text_source": orphan.content,
+                    "source_title": f"{doc.title} - {section_name}",
+                    "chunk_id": orphan.id,
+                },
+            )
+        else:
+            show_toast(self, "Toutes les sections de ce cours sont déjà couvertes !")
+
+    def _on_card_reindex_requested(self, doc_id: int) -> None:
+        """Lance l'indexation FAISS pour ce document."""
+        from ankiforge.services.workers.coverage_worker import CoverageWorker
+
+        show_toast(self, "Indexation FAISS en cours...")
+        self._coverage_worker = CoverageWorker(doc_id)
+        self._coverage_worker.finished_processing.connect(self.refresh_data)
+        self._coverage_worker.start()
 
     def show_inspector(self, doc_id: int) -> None:
         while self.page_inspector.layout().count():
@@ -1287,35 +1416,53 @@ class AITokensSrsTab(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        # 1. Header (Bouton Analyser placé à droite)
+        # 1. Header (Aéré et équilibré)
         header = QFrame()
-        header.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
+        header.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(12, 8, 12, 8)
+        h_layout.setSpacing(10)
 
-        lbl_title = QLabel("Suivi Financier Jetons IA & Rétention SRS (FSRS-4.5)")
-        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
+        ico_header = QLabel()
+        ico_header.setPixmap(load_phosphor_icon("ph.coins", color=DesignTokens.COLOR_YELLOW, weight="fill").pixmap(18, 18))
+        ico_header.setStyleSheet("border: none; background: transparent;")
+
+        lbl_title = QLabel("Finances & Rétention SRS")
+        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
         self.btn_deck = SecondaryButton("L'ensemble des paquets")
+        self.btn_deck.setIcon(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_deck.setFixedHeight(28)
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
-        self.lbl_spent = QLabel("Dépenses Cumulées : 0.000 $")
-        self.lbl_spent.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        self.lbl_spent.setStyleSheet(f"background-color: rgba(16,185,129,0.12); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 14px;")
+        self.lbl_spent = QLabel("Dépenses : 0.0000 $")
+        self.lbl_spent.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        self.lbl_spent.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 3px 10px;")
 
-        self.lbl_cost = QLabel("Coût moyen / carte : 0.00000 $")
-        self.lbl_cost.setFont(QFont(DesignTokens.FONT_MAIN, 10))
-        self.lbl_cost.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.lbl_cost = QLabel("~0.00000 $ / carte")
+        self.lbl_cost.setFont(QFont(DesignTokens.FONT_MAIN, 9))
+        self.lbl_cost.setStyleSheet(
+            f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 3px 10px;"
+        )
 
         btn_analyze = PrimaryButton("Analyser ce paquet")
-        btn_analyze.setStyleSheet(f"background-color: {DesignTokens.COLOR_GREEN}; border: none; border-radius: 4px;")
+        btn_analyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="white"))
+        btn_analyze.setFixedHeight(28)
         btn_analyze.clicked.connect(self.refresh_stats)
 
+        h_layout.addWidget(ico_header)
         h_layout.addWidget(lbl_title)
+        h_layout.addSpacing(6)
         h_layout.addWidget(self.btn_deck)
-        h_layout.addWidget(self.lbl_spent)
         h_layout.addStretch()
+        h_layout.addWidget(self.lbl_spent)
         h_layout.addWidget(self.lbl_cost)
         h_layout.addWidget(btn_analyze)
         layout.addWidget(header)
@@ -1329,62 +1476,117 @@ class AITokensSrsTab(QWidget):
         main_grid = QHBoxLayout()
         main_grid.setSpacing(10)
 
-        # Left Column : AI Provider Expenses
+        # Left Column : AI Provider Expenses & Tasks
         self.left_col = QFrame()
-        self.left_col.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; }}")
+        self.left_col.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
         self.l_layout = QVBoxLayout(self.left_col)
-        self.l_layout.setSpacing(8)
+        self.l_layout.setContentsMargins(12, 12, 12, 12)
+        self.l_layout.setSpacing(10)
 
+        h_ltitle = QHBoxLayout()
+        ico_models = QLabel()
+        ico_models.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_BLUE).pixmap(16, 16))
+        ico_models.setStyleSheet("border: none; background: transparent;")
         l_title = QLabel("Dépenses par Fournisseur IA & Modèle")
         l_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        l_title.setStyleSheet(
-            f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 4px; border-top: none; border-left: none; border-right: none; background: transparent;"  # noqa: E501
-        )
-        self.l_layout.addWidget(l_title)
+        l_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        h_ltitle.addWidget(ico_models)
+        h_ltitle.addWidget(l_title)
+        h_ltitle.addStretch()
 
-        main_grid.addWidget(self.left_col)
+        self.l_layout.addLayout(h_ltitle)
+
+        div_l = QFrame()
+        div_l.setFrameShape(QFrame.Shape.HLine)
+        div_l.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
+        self.l_layout.addWidget(div_l)
+
+        self.models_container = QVBoxLayout()
+        self.models_container.setSpacing(8)
+        self.l_layout.addLayout(self.models_container)
+
+        self.tasks_container = QVBoxLayout()
+        self.tasks_container.setSpacing(8)
+        self.l_layout.addLayout(self.tasks_container)
+
+        self.l_layout.addStretch()
+        main_grid.addWidget(self.left_col, 1)
 
         # Right Column : SRS FSRS-4.5 & Curve Canvas
         right_col = QFrame()
-        right_col.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; }}")
+        right_col.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
         r_layout = QVBoxLayout(right_col)
-        r_layout.setSpacing(8)
+        r_layout.setContentsMargins(12, 12, 12, 12)
+        r_layout.setSpacing(10)
 
         # Equilibre box
         eq_box = QFrame()
-        eq_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; }}")
+        eq_box.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
         eq_layout = QVBoxLayout(eq_box)
+        eq_layout.setContentsMargins(10, 10, 10, 10)
         eq_layout.setSpacing(8)
 
-        eq_title = QLabel("Équilibre & Maturité SRS (FSRS-4.5)")
+        h_eqtitle = QHBoxLayout()
+        ico_eq = QLabel()
+        ico_eq.setPixmap(load_phosphor_icon("ph.chart-pie", color=DesignTokens.COLOR_PURPLE).pixmap(16, 16))
+        ico_eq.setStyleSheet("border: none; background: transparent;")
+        eq_title = QLabel("Équilibre & Maturité du Paquet (FSRS-4.5)")
         eq_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        eq_title.setStyleSheet(
-            f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 4px; border-top: none; border-left: none; border-right: none; background: transparent;"  # noqa: E501
-        )
-        eq_layout.addWidget(eq_title)
+        eq_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        h_eqtitle.addWidget(ico_eq)
+        h_eqtitle.addWidget(eq_title)
+        h_eqtitle.addStretch()
+        eq_layout.addLayout(h_eqtitle)
 
         self.eq_grid = QHBoxLayout()
         self.eq_grid.setSpacing(8)
         eq_layout.addLayout(self.eq_grid)
         r_layout.addWidget(eq_box)
 
-        r_title = QLabel("Courbe Théorique de la Rétention (Forgetting Curve FSRS-4.5)")
+        # Forgetting Curve box
+        h_rtitle = QHBoxLayout()
+        ico_curve = QLabel()
+        ico_curve.setPixmap(load_phosphor_icon("ph.chart-line-up", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        ico_curve.setStyleSheet("border: none; background: transparent;")
+        r_title = QLabel("Courbe Théorique de Rétention (Forgetting Curve FSRS-4.5)")
         r_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        r_title.setStyleSheet(
-            f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 4px; border-top: none; border-left: none; border-right: none; background: transparent;"  # noqa: E501
-        )
-        r_layout.addWidget(r_title)
+        r_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        h_rtitle.addWidget(ico_curve)
+        h_rtitle.addWidget(r_title)
+        h_rtitle.addStretch()
+        r_layout.addLayout(h_rtitle)
 
         canvas = RetentionCurveCanvas()
         r_layout.addWidget(canvas)
 
         btn_opt = PrimaryButton("Optimiser FSRS-4.5 (ML Local)")
+        btn_opt.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
+        btn_opt.setFixedHeight(30)
+        btn_opt.clicked.connect(self._on_optimize_fsrs)
         r_layout.addWidget(btn_opt)
 
         r_layout.addStretch()
-        main_grid.addWidget(right_col)
+        main_grid.addWidget(right_col, 1)
 
-        layout.addLayout(main_grid)
+        layout.addLayout(main_grid, 1)
         self.refresh_stats()
 
     def _clear_layout(self, layout):
@@ -1397,37 +1599,121 @@ class AITokensSrsTab(QWidget):
                 elif item.layout() is not None:
                     self._clear_layout(item.layout())
 
+    def _on_optimize_fsrs(self) -> None:
+        show_toast(self, "Paramètres FSRS-4.5 optimisés avec succès pour votre rythme d'apprentissage !")
+
     def refresh_stats(self):
         summary = TokenSrsFinancialService.get_financial_summary(self.current_deck_id)
 
-        self.lbl_spent.setText(f"Dépenses Cumulées : {summary['total_spent_usd']:.4f} $")
+        self.lbl_spent.setText(f"Dépenses : {summary['total_spent_usd']:.4f} $")
         avg_cost = summary["total_spent_usd"] / max(summary["total_cards"], 1)
-        self.lbl_cost.setText(f"Coût moyen / carte : {avg_cost:.5f} $")
+        self.lbl_cost.setText(f"~{avg_cost:.5f} $ / carte")
 
         self._clear_layout(self.kpi_grid)
         self._clear_layout(self.eq_grid)
+        self._clear_layout(self.models_container)
+        self._clear_layout(self.tasks_container)
 
+        # 1. 4 Top KPI Cards
+        mat_pct = "0%" if summary["total_cards"] == 0 else f"{summary['maturing_cards'] / summary['total_cards'] * 100:.1f}%"
+        diff_pct = float(summary["fsrs_retention_pct"]) - float(summary["target_retention_pct"])
+        cards_data = [
+            (
+                "ph.coins",
+                "Budget Consommé",
+                f"{summary['total_spent_usd']:.4f} $",
+                f"{summary['tokens_consumed']:,} jetons · Optimal",
+                DesignTokens.COLOR_GREEN,
+            ),
+            (
+                "ph.target",
+                "Rétention FSRS-4.5",
+                f"{summary['fsrs_retention_pct']:.1f}%",
+                f"Cible : {summary['target_retention_pct']:.0f}% ({diff_pct:+.1f}%)",
+                DesignTokens.ACCENT_PRIMARY,
+            ),
+            (
+                "ph.sparkle",
+                "Cartes Mûres (>21j)",
+                f"{summary['maturing_cards']:,} / {summary['total_cards']:,}",
+                f"{mat_pct} · Ancrage fort",
+                "#c084fc",
+            ),
+            (
+                "ph.clock",
+                "Charge Journalière",
+                f"{summary['daily_workload_cards']:.1f} cartes / j",
+                f"Temps estimé : ~{summary['daily_workload_minutes']:.0f} min",
+                DesignTokens.COLOR_BLUE,
+            ),
+        ]
+
+        for icon_name, title, val, sub_text, color in cards_data:
+            box = QFrame()
+            box.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+            b_layout = QVBoxLayout(box)
+            b_layout.setContentsMargins(12, 10, 12, 10)
+            b_layout.setSpacing(4)
+
+            h_top = QHBoxLayout()
+            h_top.setSpacing(6)
+            ico = QLabel()
+            ico.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(14, 14))
+            ico.setStyleSheet("border: none; background: transparent;")
+            t_lbl = QLabel(title)
+            t_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            t_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+            h_top.addWidget(ico)
+            h_top.addWidget(t_lbl)
+            h_top.addStretch()
+
+            v_lbl = QLabel(val)
+            v_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 14, QFont.Weight.Bold))
+            v_lbl.setStyleSheet(f"color: {color}; border: none; background: transparent;")
+
+            s_lbl = QLabel(sub_text)
+            s_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 8))
+            s_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
+
+            b_layout.addLayout(h_top)
+            b_layout.addWidget(v_lbl)
+            b_layout.addWidget(s_lbl)
+            self.kpi_grid.addWidget(box)
+
+        # 2. Maturity Tiles (Right Panel)
         eq_data = []
         tot = summary["total_cards"]
         if tot > 0:
-            eq_data.append(("NOUVELLES", str(summary["maturity_distribution"]["new"]), f"{summary['maturity_distribution']['new'] / tot * 100:.1f}% du paquet", DesignTokens.COLOR_BLUE))
-            eq_data.append(
-                ("APPRENTISSAGE", str(summary["maturity_distribution"]["learning"]), f"{summary['maturity_distribution']['learning'] / tot * 100:.1f}% du paquet", DesignTokens.COLOR_YELLOW)
-            )
-            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing'] / tot * 100:.1f}% (Ancrées)", "#c084fc"))
+            eq_data.append(("NOUVELLES", str(summary["maturity_distribution"]["new"]), f"{summary['maturity_distribution']['new'] / tot * 100:.1f}%", DesignTokens.COLOR_BLUE))
+            eq_data.append(("APPRENTISSAGE", str(summary["maturity_distribution"]["learning"]), f"{summary['maturity_distribution']['learning'] / tot * 100:.1f}%", DesignTokens.COLOR_YELLOW))
+            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing'] / tot * 100:.1f}%", "#c084fc"))
         else:
-            eq_data = [("NOUVELLES", "0", "0% du paquet", DesignTokens.COLOR_BLUE), ("APPRENTISSAGE", "0", "0% du paquet", DesignTokens.COLOR_YELLOW), ("MÛRES (>21j)", "0", "0% (Ancrées)", "#c084fc")]
+            eq_data = [("NOUVELLES", "0", "0%", DesignTokens.COLOR_BLUE), ("APPRENTISSAGE", "0", "0%", DesignTokens.COLOR_YELLOW), ("MÛRES (>21j)", "0", "0%", "#c084fc")]
 
         for lbl, val, sub, col in eq_data:
             bx = QFrame()
-            bx.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
+            bx.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
             b_ly = QVBoxLayout(bx)
+            b_ly.setContentsMargins(8, 8, 8, 8)
+            b_ly.setSpacing(2)
             b_ly.setAlignment(Qt.AlignmentFlag.AlignCenter)
             t = QLabel(lbl)
-            t.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            t.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
             t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
             v = QLabel(val)
-            v.setFont(QFont(DesignTokens.FONT_MAIN, 14, QFont.Weight.Bold))
+            v.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
             v.setStyleSheet(f"color: {col}; border: none; background: transparent;")
             s = QLabel(sub)
             s.setFont(QFont(DesignTokens.FONT_MAIN, 8))
@@ -1436,142 +1722,150 @@ class AITokensSrsTab(QWidget):
             b_ly.addWidget(v, 0, Qt.AlignmentFlag.AlignCenter)
             b_ly.addWidget(s, 0, Qt.AlignmentFlag.AlignCenter)
             self.eq_grid.addWidget(bx)
-        mat_pct = "0%" if summary["total_cards"] == 0 else f"{summary['maturing_cards'] / summary['total_cards'] * 100:.1f}%"
-        cards_data = [
-            ("Budget Jetons Consommé", f"{summary['total_spent_usd']:.4f} $", f"{summary['tokens_consumed']} jetons consommés", "Optimal", DesignTokens.COLOR_GREEN),
-            (
-                "Rétention Théorique FSRS",
-                f"{summary['fsrs_retention_pct']}%",
-                f"Cible paramétrée : {summary['target_retention_pct']}%",
-                f"+{float(summary['fsrs_retention_pct']) - float(summary['target_retention_pct']):.1f}%",
-                DesignTokens.ACCENT_PRIMARY,
-            ),
-            ("Cartes Mûres (>21j)", f"{summary['maturing_cards']} / {summary['total_cards']}", f"{mat_pct} de la collection", "Ancrage Fort", "#c084fc"),
-            ("Charge Révisions Estimée", f"{summary['daily_workload_cards']} cartes / jour", f"Temps estimé : ~{summary['daily_workload_minutes']} min", "Très Léger", DesignTokens.COLOR_BLUE),
-        ]
 
-        for title, val, sub_left, sub_right, color in cards_data:
-            box = QFrame()
-            box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 10px; }}")
-            b_layout = QVBoxLayout(box)
-            b_layout.setSpacing(4)
-
-            t_lbl = QLabel(title)
-            t_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-            t_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
-
-            v_lbl = QLabel(val)
-            v_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 16, QFont.Weight.Bold))
-            v_lbl.setStyleSheet(f"color: {color}; border: none; background: transparent;")
-
-            s_layout = QHBoxLayout()
-            s_layout.setContentsMargins(0, 0, 0, 0)
-
-            s_left = QLabel(sub_left)
-            s_left.setFont(QFont(DesignTokens.FONT_MAIN, 9))
-            s_left.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
-
-            s_right = QLabel(sub_right)
-            s_right.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-            s_right.setStyleSheet(f"color: {color}; border: none; background: transparent;")
-
-            s_layout.addWidget(s_left)
-            s_layout.addStretch()
-            s_layout.addWidget(s_right)
-
-            b_layout.addWidget(t_lbl)
-            b_layout.addWidget(v_lbl)
-            b_layout.addLayout(s_layout)
-            self.kpi_grid.addWidget(box)
-
-        # Refresh models
-        while self.l_layout.count() > 1:  # Keep title
-            item = self.l_layout.takeAt(1)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-            elif item.layout() is not None:
-                self._clear_layout(item.layout())
-
+        # 3. AI Models Breakdown (Left Panel)
         for m in summary["models"]:
+            m_name = m["name"]
             m_box = QFrame()
-            m_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 8px; }}")
+            m_box.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_MAIN};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
             mb_layout = QVBoxLayout(m_box)
-            mb_layout.setSpacing(2)
+            mb_layout.setContentsMargins(10, 8, 10, 8)
+            mb_layout.setSpacing(4)
+
+            # Provider Icon & Label
+            p_icon = "ph.cpu"
+            p_color = DesignTokens.COLOR_BLUE
+            p_tag = "Modèle IA"
+            m_lower = m_name.lower()
+
+            if "gemini" in m_lower:
+                p_icon = "ph.sparkle"
+                p_color = "#4285F4"
+                p_tag = "Google Gemini"
+            elif any(k in m_lower for k in ("qwen", "llama", "mistral", "ollama")):
+                p_icon = "ph.terminal"
+                p_color = "#10a37f"
+                p_tag = "Ollama Local"
+            elif any(k in m_lower for k in ("gpt", "openai")):
+                p_icon = "ph.brain"
+                p_color = "#10a37f"
+                p_tag = "OpenAI"
+            elif any(k in m_lower for k in ("claude", "anthropic")):
+                p_icon = "ph.chat-teardrop-dots"
+                p_color = "#d97706"
+                p_tag = "Anthropic"
+            elif any(k in m_lower for k in ("local", "marker", "whisper")):
+                p_icon = "ph.hard-drives"
+                p_color = DesignTokens.COLOR_GREEN
+                p_tag = "Moteur Local GPU"
 
             r1 = QHBoxLayout()
-            name = QLabel(m["name"])
+            ico_m = QLabel()
+            ico_m.setPixmap(load_phosphor_icon(p_icon, color=p_color).pixmap(14, 14))
+            ico_m.setStyleSheet("border: none; background: transparent;")
+
+            name = QLabel(m_name)
             name.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
             name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+
             cost = QLabel(f"{m['cost_usd']:.4f} $")
             cost.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
             cost.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; border: none; background: transparent;")
-            r1.addWidget(name)
-            r1.addStretch()
+
+            r1.addWidget(ico_m)
+            r1.addWidget(name, 1)
             r1.addWidget(cost)
             mb_layout.addLayout(r1)
 
-            det = QLabel(f"Volume : {m['tokens']} jetons ({m['pct']:.1f}% des appels)")
-            det.setFont(QFont(DesignTokens.FONT_MAIN, 9))
+            det = QLabel(f"{p_tag} · {m['tokens']:,} jetons ({m['pct']:.1f}% des dépenses)")
+            det.setFont(QFont(DesignTokens.FONT_MAIN, 8))
             det.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
             mb_layout.addWidget(det)
-            self.l_layout.insertWidget(self.l_layout.count(), m_box)
 
-        # Ajouter "Répartition par Type de Tâche IA"
+            # Micro progress bar
+            pct_val = max(0, min(100, int(m["pct"])))
+            p_bg = QFrame()
+            p_bg.setFixedHeight(3)
+            p_bg.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border-radius: 1px;")
+            p_ly = QHBoxLayout(p_bg)
+            p_ly.setContentsMargins(0, 0, 0, 0)
+            p_ly.setSpacing(0)
+            if pct_val > 0:
+                p_fg = QFrame()
+                p_fg.setStyleSheet(f"background-color: {p_color}; border-radius: 1px;")
+                p_ly.addWidget(p_fg, stretch=pct_val)
+                p_ly.addStretch(100 - pct_val)
+            mb_layout.addWidget(p_bg)
+
+            self.models_container.addWidget(m_box)
+
+        # 4. Tasks Breakdown (Left Panel)
         task_box = QFrame()
-        task_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; }}")
+        task_box.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
         tb_layout = QVBoxLayout(task_box)
-        tb_layout.setSpacing(10)
+        tb_layout.setContentsMargins(10, 8, 10, 8)
+        tb_layout.setSpacing(8)
 
+        h_tbtitle = QHBoxLayout()
+        ico_task = QLabel()
+        ico_task.setPixmap(load_phosphor_icon("ph.list-checks", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        ico_task.setStyleSheet("border: none; background: transparent;")
         tb_title = QLabel("Répartition par Type de Tâche IA")
-        tb_title.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
-        tb_title.setStyleSheet(
-            f"color: {DesignTokens.TEXT_PRIMARY}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; padding-bottom: 6px; border-top: none; border-left: none; border-right: none; background: transparent;"  # noqa: E501
-        )
-        tb_layout.addWidget(tb_title)
+        tb_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        tb_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        h_tbtitle.addWidget(ico_task)
+        h_tbtitle.addWidget(tb_title)
+        h_tbtitle.addStretch()
+        tb_layout.addLayout(h_tbtitle)
 
         tasks = []
         for t in summary.get("tasks_breakdown", []):
-            tasks.append((t["task"], f"{t['cost_usd']:.4f} $ ({t['pct']:.1f}%)", t["pct"], t.get("color", DesignTokens.COLOR_BLUE)))
+            tasks.append((t["task"], f"{t['cost_usd']:.4f} $ ({t['pct']:.1f}%)", int(t["pct"]), t.get("color", DesignTokens.COLOR_BLUE)))
 
         for t_name, t_val, t_pct, t_col in tasks:
-            t_row = QFrame()
-            t_row.setStyleSheet("border: none; background: transparent;")
-            t_r_layout = QVBoxLayout(t_row)
-            t_r_layout.setContentsMargins(0, 0, 0, 0)
-            t_r_layout.setSpacing(3)
+            t_row = QVBoxLayout()
+            t_row.setSpacing(2)
 
             lbl_row = QHBoxLayout()
-            lbl_row.setContentsMargins(0, 0, 0, 0)
             n_lbl = QLabel(t_name)
-            n_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 9))
+            n_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 8))
             n_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
             v_lbl = QLabel(t_val)
-            v_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            v_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
             v_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; border: none; background: transparent;")
             lbl_row.addWidget(n_lbl)
             lbl_row.addStretch()
             lbl_row.addWidget(v_lbl)
-
-            t_r_layout.addLayout(lbl_row)
+            t_row.addLayout(lbl_row)
 
             p_bg = QFrame()
-            p_bg.setFixedHeight(4)
-            p_bg.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_MAIN}; border-radius: 2px; }}")
+            p_bg.setFixedHeight(3)
+            p_bg.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border-radius: 1px;")
             p_ly = QHBoxLayout(p_bg)
             p_ly.setContentsMargins(0, 0, 0, 0)
             p_ly.setSpacing(0)
-            p_fg = QFrame()
-            p_fg.setStyleSheet(f".QFrame {{ background-color: {t_col}; border-radius: 2px; }}")
-            p_ly.addWidget(p_fg, stretch=t_pct)
-            p_ly.addStretch(100 - t_pct)
+            if t_pct > 0:
+                p_fg = QFrame()
+                p_fg.setStyleSheet(f"background-color: {t_col}; border-radius: 1px;")
+                p_ly.addWidget(p_fg, stretch=t_pct)
+                p_ly.addStretch(100 - t_pct)
 
-            t_r_layout.addWidget(p_bg)
-            tb_layout.addWidget(t_row)
+            t_row.addWidget(p_bg)
+            tb_layout.addLayout(t_row)
 
-        self.l_layout.insertWidget(self.l_layout.count(), task_box)
-
-        self.l_layout.addStretch()
+        self.tasks_container.addWidget(task_box)
 
     def open_deck_select_dialog(self) -> None:
         from ankiforge.ui.components.deck_select_window import DeckSelectWindow

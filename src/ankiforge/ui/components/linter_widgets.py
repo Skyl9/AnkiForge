@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QPainter, QPen, QColor, QBrush, QPainterPath
+from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
@@ -602,7 +602,8 @@ class RetentionCurveCanvas(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(95)
+        self.setFixedHeight(110)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
@@ -611,46 +612,96 @@ class RetentionCurveCanvas(QWidget):
         w = self.width()
         h = self.height()
 
-        # Background
+        left_margin = 35
+        right_margin = 25
+        top_margin = 15
+        bottom_margin = 25
+        plot_w = w - left_margin - right_margin
+        plot_h = h - top_margin - bottom_margin
+
+        # Background Frame
         painter.fillRect(0, 0, w, h, QColor(DesignTokens.BG_MAIN))
 
-        # Grid lines
+        # Y-Axis Grid lines (100%, 90%, 80%, 70%)
         pen_grid = QPen(QColor(DesignTokens.BORDER_COLOR), 1, Qt.PenStyle.DashLine)
         painter.setPen(pen_grid)
-        painter.drawLine(30, 20, w - 20, 20)
-        painter.drawLine(30, 50, w - 20, 50)
-
-        pen_axis = QPen(QColor(DesignTokens.BORDER_COLOR), 1)
-        painter.setPen(pen_axis)
-        painter.drawLine(30, 75, w - 20, 75)
-
-        # Labels
-        painter.setPen(QColor(DesignTokens.TEXT_MUTED))
         painter.setFont(QFont(DesignTokens.FONT_MAIN, 8))
-        painter.drawText(5, 23, "100%")
-        painter.drawText(5, 53, "90%")
-        painter.drawText(5, 78, "80%")
 
-        # Target 90% Line
-        pen_target = QPen(QColor(16, 185, 129, 150), 1.5, Qt.PenStyle.DashLine)
+        y_100 = top_margin
+        y_90 = int(top_margin + plot_h * 0.33)
+        y_80 = int(top_margin + plot_h * 0.66)
+        y_bottom = top_margin + plot_h
+
+        painter.drawLine(left_margin, y_100, w - right_margin, y_100)
+        painter.drawLine(left_margin, y_80, w - right_margin, y_80)
+        painter.drawLine(left_margin, y_bottom, w - right_margin, y_bottom)
+
+        # Target 90% Line (Green dashed)
+        pen_target = QPen(QColor(16, 185, 129, 180), 1.5, Qt.PenStyle.DashLine)
         painter.setPen(pen_target)
-        painter.drawLine(30, 50, w - 20, 50)
+        painter.drawLine(left_margin, y_90, w - right_margin, y_90)
 
-        # Retention Path
-        path = QPainterPath()
-        path.moveTo(30, 20)
-        path.cubicTo(100, 32, 200, 48, w - 20, 52)
+        # Y-Axis Labels
+        painter.setPen(QColor(DesignTokens.TEXT_MUTED))
+        painter.drawText(5, y_100 + 4, "100%")
+        painter.setPen(QColor(DesignTokens.COLOR_GREEN))
+        painter.drawText(5, y_90 + 4, " 90%")
+        painter.setPen(QColor(DesignTokens.TEXT_MUTED))
+        painter.drawText(5, y_80 + 4, " 80%")
+
+        # X-Axis Time Labels
+        days = [("J0", 0.0), ("J1", 0.15), ("J7", 0.4), ("J30", 0.7), ("J90", 1.0)]
+        for label, pos_factor in days:
+            x_pos = int(left_margin + plot_w * pos_factor)
+            painter.setPen(QColor(DesignTokens.TEXT_MUTED))
+            painter.drawText(x_pos - 10, h - 6, label)
+
+        # Area under curve gradient
+        path_fill = QPainterPath()
+        path_fill.moveTo(left_margin, y_bottom)
+        path_fill.lineTo(left_margin, y_100)
+        path_fill.cubicTo(
+            left_margin + int(plot_w * 0.3),
+            y_100 + int(plot_h * 0.2),
+            left_margin + int(plot_w * 0.65),
+            y_90 + int(plot_h * 0.2),
+            left_margin + plot_w,
+            y_80 + 8,
+        )
+        path_fill.lineTo(left_margin + plot_w, y_bottom)
+        path_fill.closeSubpath()
+
+        grad = QLinearGradient(0, y_100, 0, y_bottom)
+        grad.setColorAt(0.0, QColor(99, 102, 241, 60))
+        grad.setColorAt(1.0, QColor(99, 102, 241, 0))
+        painter.fillPath(path_fill, QBrush(grad))
+
+        # Retention Curve Path
+        path_curve = QPainterPath()
+        path_curve.moveTo(left_margin, y_100)
+        path_curve.cubicTo(
+            left_margin + int(plot_w * 0.3),
+            y_100 + int(plot_h * 0.2),
+            left_margin + int(plot_w * 0.65),
+            y_90 + int(plot_h * 0.2),
+            left_margin + plot_w,
+            y_80 + 8,
+        )
 
         pen_curve = QPen(QColor(DesignTokens.ACCENT_PRIMARY), 2.5)
         painter.setPen(pen_curve)
-        painter.drawPath(path)
+        painter.drawPath(path_curve)
 
-        # Points
-        painter.setBrush(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
-        painter.drawEllipse(30 - 3, 20 - 3, 6, 6)
-        painter.drawEllipse(120 - 3, 33 - 3, 6, 6)
-        painter.setBrush(QBrush(QColor(DesignTokens.COLOR_GREEN)))
-        painter.drawEllipse(w - 20 - 3, 52 - 3, 6, 6)
+        # Key Points Dots
+        points = [
+            (left_margin, y_100, DesignTokens.ACCENT_PRIMARY),
+            (left_margin + int(plot_w * 0.4), y_90, DesignTokens.COLOR_GREEN),
+            (left_margin + plot_w, y_80 + 8, DesignTokens.COLOR_YELLOW),
+        ]
+        for px, py, p_color in points:
+            painter.setPen(QPen(QColor(DesignTokens.BG_PANEL), 2))
+            painter.setBrush(QBrush(QColor(p_color)))
+            painter.drawEllipse(px - 4, py - 4, 8, 8)
 
 
 class SourceDiagnosticCardWidget(QFrame):
@@ -669,7 +720,7 @@ class SourceDiagnosticCardWidget(QFrame):
                 border-radius: 8px;
             }}
             SourceDiagnosticCardWidget:hover {{
-                border: 1px solid {DesignTokens.COLOR_PURPLE};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
                 background-color: {DesignTokens.BG_HOVER};
             }}
         """)
@@ -685,30 +736,31 @@ class SourceDiagnosticCardWidget(QFrame):
         coverage_pct = float(data.get("coverage_pct", 0.0))
         is_indexed = bool(data.get("is_indexed", False))
 
-        icon_name = "file-text"
+        icon_name = "ph.file-text"
         icon_color = DesignTokens.TEXT_MUTED
         if ext == "pdf":
-            icon_name = "file-pdf"
+            icon_name = "ph.file-pdf"
             icon_color = DesignTokens.COLOR_RED
         elif ext in ("md", "markdown"):
-            icon_name = "file-md"
-            icon_color = DesignTokens.ACCENT_PRIMARY
+            icon_name = "ph.file-text"
+            icon_color = DesignTokens.COLOR_BLUE
         elif ext == "png":
-            icon_name = "image"
+            icon_name = "ph.image"
             icon_color = DesignTokens.COLOR_YELLOW
         elif ext in ("yt", "youtube"):
-            icon_name = "youtube-logo"
+            icon_name = "ph.youtube-logo"
             icon_color = DesignTokens.COLOR_RED
         elif ext == "web":
-            icon_name = "globe"
+            icon_name = "ph.globe"
             icon_color = DesignTokens.COLOR_BLUE
 
         lbl_icon = QLabel()
         lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(18, 18))
+        lbl_icon.setStyleSheet("border: none; background: transparent;")
 
         lbl_title = QLabel(title)
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         lbl_title.setToolTip(title)
 
         # Badge Couverture
