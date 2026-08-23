@@ -17,6 +17,7 @@ from PySide6.QtCore import Qt, Signal, Slot, QThreadPool, QEvent
 from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -25,6 +26,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSlider,
     QSpinBox,
     QSplitter,
@@ -35,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from peewee import fn
 from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
@@ -59,6 +63,7 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
+    StyledLineEdit,
     StyledTableWidget,
     StyledTextEdit,
 )
@@ -73,6 +78,49 @@ from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 logger = logging.getLogger(__name__)
 
 
+def parse_page_ranges(scope_str: str, max_pages: int = 9999) -> list[int]:
+    """Parse une chaîne de portée de pages (ex: '1-5, 8, 12-15') en liste d'entiers triés."""
+    if not scope_str or not scope_str.strip():
+        return []
+
+    clean_str = scope_str.strip().lower()
+    if clean_str in ("all", "tout", "*"):
+        return list(range(1, max_pages + 1))
+
+    pages: set[int] = set()
+    parts = clean_str.replace(";", ",").split(",")
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part or "à" in part or ".." in part:
+            separator = "-" if "-" in part else ("à" if "à" in part else "..")
+            sub_parts = part.split(separator)
+            if len(sub_parts) == 2:
+                try:
+                    p_start = int(sub_parts[0].strip())
+                    p_end = int(sub_parts[1].strip())
+                    if p_start <= p_end:
+                        for p in range(p_start, min(p_end, max_pages) + 1):
+                            if p >= 1:
+                                pages.add(p)
+                    else:
+                        for p in range(p_end, min(p_start, max_pages) + 1):
+                            if p >= 1:
+                                pages.add(p)
+                except ValueError:
+                    continue
+        else:
+            try:
+                p = int(part)
+                if 1 <= p <= max_pages:
+                    pages.add(p)
+            except ValueError:
+                continue
+
+    return sorted(list(pages))
+
+
 class VisionCard(QFrame):
     """Carte interactive cliquable pour l'activation du mode Vision."""
 
@@ -81,6 +129,139 @@ class VisionCard(QFrame):
     def mousePressEvent(self, event: Any) -> None:
         super().mousePressEvent(event)
         self.clicked.emit()
+
+
+class CreationHubWidget(QWidget):
+    """
+    Vue d'accueil et d'aiguillage du Studio de Création (Progressive Disclosure).
+    Propose à l'utilisateur de choisir entre :
+    1. Explorer les documents de sa bibliothèque
+    2. Démarrer une saisie libre ou coller un extrait
+    """
+
+    open_free_text_requested = Signal()
+    open_documents_requested = Signal()
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(16)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Header Title
+        title_container = QVBoxLayout()
+        title_container.setSpacing(4)
+        title_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(32, 32))
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_container.addWidget(icon_lbl)
+
+        title_lbl = QLabel("Studio de Création AnkiForge")
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 18px; font-weight: 700; border: none; background: transparent;")
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_container.addWidget(title_lbl)
+
+        subtitle_lbl = QLabel("Choisissez un point de départ pour extraire et forger vos prochaines cartes mémoires :")
+        subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
+        subtitle_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_container.addWidget(subtitle_lbl)
+
+        layout.addLayout(title_container)
+
+        # Action Cards container
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(16)
+        cards_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Card 1: Explorer les Documents
+        card_doc = QFrame()
+        card_doc.setObjectName("cardDoc")
+        card_doc.setFixedSize(300, 180)
+        card_doc.setStyleSheet(f"""
+            QFrame#cardDoc {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#cardDoc:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        doc_l = QVBoxLayout(card_doc)
+        doc_l.setContentsMargins(14, 14, 14, 14)
+        doc_l.setSpacing(6)
+
+        doc_icon = QLabel()
+        doc_icon.setPixmap(load_phosphor_icon("ph.files", color=DesignTokens.COLOR_BLUE).pixmap(24, 24))
+        doc_icon.setStyleSheet("background: transparent; border: none;")
+        doc_l.addWidget(doc_icon)
+
+        doc_title = QLabel("Explorer mes Documents")
+        doc_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+        doc_l.addWidget(doc_title)
+
+        doc_desc = QLabel("Sélectionnez un cours (PDF, Markdown) ou importez de nouvelles sources pour forger des cartes.")
+        doc_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        doc_desc.setWordWrap(True)
+        doc_l.addWidget(doc_desc)
+
+        doc_l.addStretch()
+
+        btn_doc = PrimaryButton("Parcourir les Documents")
+        btn_doc.setIcon(load_phosphor_icon("ph.folder-open", color="white"))
+        btn_doc.clicked.connect(self.open_documents_requested.emit)
+        doc_l.addWidget(btn_doc)
+
+        cards_layout.addWidget(card_doc)
+
+        # Card 2: Saisie Libre
+        card_text = QFrame()
+        card_text.setObjectName("cardText")
+        card_text.setFixedSize(300, 180)
+        card_text.setStyleSheet(f"""
+            QFrame#cardText {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#cardText:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        text_l = QVBoxLayout(card_text)
+        text_l.setContentsMargins(14, 14, 14, 14)
+        text_l.setSpacing(6)
+
+        text_icon = QLabel()
+        text_icon.setPixmap(load_phosphor_icon("ph.note-pencil", color=DesignTokens.COLOR_GREEN).pixmap(24, 24))
+        text_icon.setStyleSheet("background: transparent; border: none;")
+        text_l.addWidget(text_icon)
+
+        text_title = QLabel("Saisie Libre / Presse-Papiers")
+        text_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
+        text_l.addWidget(text_title)
+
+        text_desc = QLabel("Collez ou écrivez directement vos notes, théorèmes ou résumés pour une extraction instantanée.")
+        text_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        text_desc.setWordWrap(True)
+        text_l.addWidget(text_desc)
+
+        text_l.addStretch()
+
+        btn_text = SecondaryButton("Ouvrir l'Éditeur Libre")
+        btn_text.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
+        btn_text.clicked.connect(self.open_free_text_requested.emit)
+        text_l.addWidget(btn_text)
+
+        cards_layout.addWidget(card_text)
+        layout.addLayout(cards_layout)
 
 
 class CardEditDialog(QDialog):
@@ -229,7 +410,82 @@ class DocumentEditorWidget(QWidget):
 
         self.editor_stack = QStackedWidget()
 
-        # PDF Viewer
+        # PDF Viewer Container avec bandeau de portée asservi (Approche 2)
+        self.pdf_container = QWidget()
+        pdf_layout = QVBoxLayout(self.pdf_container)
+        pdf_layout.setContentsMargins(0, 0, 0, 0)
+        pdf_layout.setSpacing(6)
+
+        self._pdf_selected_pages: list[int] = []
+
+        # 1. Bandeau de Portée PDF
+        self.pdf_scope_banner = QFrame()
+        self.pdf_scope_banner.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 6px;
+            }}
+        """)
+        scope_banner_layout = QHBoxLayout(self.pdf_scope_banner)
+        scope_banner_layout.setContentsMargins(6, 4, 6, 4)
+        scope_banner_layout.setSpacing(8)
+
+        ico_pdf_scope = QLabel()
+        ico_pdf_scope.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        ico_pdf_scope.setStyleSheet("border: none; background: transparent;")
+
+        self.lbl_pdf_scope_status = QLabel("Portée : Pages 1 à 10")
+        self.lbl_pdf_scope_status.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px; border: none; background: transparent;")
+
+        self.badge_pdf_scope = Badge("Dans la portée", variant="success")
+
+        scope_banner_layout.addWidget(ico_pdf_scope)
+        scope_banner_layout.addWidget(self.lbl_pdf_scope_status)
+        scope_banner_layout.addWidget(self.badge_pdf_scope)
+        scope_banner_layout.addStretch()
+
+        self.btn_pdf_scope_prev = IconButton("ph.caret-left", "Page précédente de la sélection", 16)
+        self.btn_pdf_scope_prev.clicked.connect(self._on_pdf_scope_prev)
+
+        self.lbl_pdf_scope_cur = QLabel("Page 1 / 10")
+        self.lbl_pdf_scope_cur.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600; border: none; background: transparent;")
+
+        self.btn_pdf_scope_next = IconButton("ph.caret-right", "Page suivante de la sélection", 16)
+        self.btn_pdf_scope_next.clicked.connect(self._on_pdf_scope_next)
+
+        scope_banner_layout.addWidget(self.btn_pdf_scope_prev)
+        scope_banner_layout.addWidget(self.lbl_pdf_scope_cur)
+        scope_banner_layout.addWidget(self.btn_pdf_scope_next)
+
+        # Séparateur vertical discret
+        sep = QLabel("|")
+        sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR}; font-size: 11px; margin: 0 4px; background: transparent; border: none;")
+        scope_banner_layout.addWidget(sep)
+
+        # Contrôles de Grossissement / Rétrécissement (Zoom)
+        self.btn_pdf_zoom_out = IconButton("ph.magnifying-glass-minus", "Dézoomer (Ctrl -)", 16)
+        self.btn_pdf_zoom_out.clicked.connect(self._on_pdf_zoom_out)
+
+        self.lbl_pdf_zoom = QLabel("100%")
+        self.lbl_pdf_zoom.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; min-width: 32px; background: transparent; border: none;")
+        self.lbl_pdf_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.btn_pdf_zoom_in = IconButton("ph.magnifying-glass-plus", "Zoomer (Ctrl +)", 16)
+        self.btn_pdf_zoom_in.clicked.connect(self._on_pdf_zoom_in)
+
+        self.btn_pdf_fit_width = IconButton("ph.arrows-out-line-horizontal", "Ajuster à la largeur", 16)
+        self.btn_pdf_fit_width.clicked.connect(self._on_pdf_fit_width)
+
+        scope_banner_layout.addWidget(self.btn_pdf_zoom_out)
+        scope_banner_layout.addWidget(self.lbl_pdf_zoom)
+        scope_banner_layout.addWidget(self.btn_pdf_zoom_in)
+        scope_banner_layout.addWidget(self.btn_pdf_fit_width)
+
+        pdf_layout.addWidget(self.pdf_scope_banner)
+
+        # 2. Composant PDF natif
         try:
             from PySide6.QtPdf import QPdfDocument
             from PySide6.QtPdfWidgets import QPdfView
@@ -238,14 +494,21 @@ class DocumentEditorWidget(QWidget):
             self.pdf_view = QPdfView()
             self.pdf_view.setDocument(self.pdf_document)
             self.pdf_view.setPageMode(QPdfView.PageMode.MultiPage)
-            self.editor_stack.addWidget(self.pdf_view)
+            if hasattr(self.pdf_view, "pageNavigator"):
+                self.pdf_view.pageNavigator().currentPageChanged.connect(self._on_pdf_page_changed)
+            if hasattr(self.pdf_view, "viewport"):
+                self.pdf_view.viewport().installEventFilter(self)
+            self.pdf_view.installEventFilter(self)
+            pdf_layout.addWidget(self.pdf_view, 1)
         except ImportError:
             self.pdf_view = QWidget()  # Fallback
-            self.editor_stack.addWidget(self.pdf_view)
+            pdf_layout.addWidget(self.pdf_view, 1)
+
+        self.editor_stack.addWidget(self.pdf_container)
 
         self.raw_editor = StyledTextEdit()
         self.raw_editor.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}';")
-        self.raw_editor.setPlaceholderText("📝 Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
+        self.raw_editor.setPlaceholderText("Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
         self.raw_editor.textChanged.connect(self._on_text_changed)
 
         self.markdown_viewer = QTextBrowser()
@@ -270,7 +533,7 @@ class DocumentEditorWidget(QWidget):
             if pdf_path.exists() and self.pdf_document is not None:
                 self.pdf_document.load(str(pdf_path))
                 self.view_toggle_frame.show()
-                self._on_view_toggled("md")  # Default to Markdown
+                self._on_view_toggled("pdf")  # Vue PDF active par défaut pour les documents PDF
         layout.addWidget(self.editor_stack, 1)
 
         bot_widget = QWidget()
@@ -309,9 +572,112 @@ class DocumentEditorWidget(QWidget):
         self.btn_view_md.setChecked(mode == "md")
 
         if mode == "pdf":
-            self.editor_stack.setCurrentWidget(self.pdf_view)
+            self.editor_stack.setCurrentWidget(self.pdf_container)
         else:
             self.editor_stack.setCurrentWidget(self.markdown_viewer)
+
+    def set_pdf_scope(self, pages: list[int]) -> None:
+        """Met à jour la portée active du PDF et asservit le bandeau de navigation."""
+        self._pdf_selected_pages = sorted(pages)
+        if not self._pdf_selected_pages:
+            self.lbl_pdf_scope_status.setText("Aucune page sélectionnée")
+            self.badge_pdf_scope.setText("0 page")
+            self.badge_pdf_scope.set_variant("danger")
+            return
+
+        count = len(self._pdf_selected_pages)
+        first_p = self._pdf_selected_pages[0]
+        last_p = self._pdf_selected_pages[-1]
+
+        if count == 1:
+            self.lbl_pdf_scope_status.setText(f"Portée : Page {first_p}")
+        else:
+            self.lbl_pdf_scope_status.setText(f"Portée : Pages {first_p} à {last_p} ({count} pages)")
+
+        self.jump_pdf_to_page(first_p - 1)
+        self._update_scope_indicator(first_p - 1)
+
+    @Slot(int)
+    def _on_pdf_page_changed(self, current_page_idx: int) -> None:
+        self._update_scope_indicator(current_page_idx)
+
+    def _update_scope_indicator(self, current_page_idx: int) -> None:
+        if not self._pdf_selected_pages:
+            return
+
+        current_1_based = current_page_idx + 1
+        if current_1_based in self._pdf_selected_pages:
+            idx_in_scope = self._pdf_selected_pages.index(current_1_based) + 1
+            self.badge_pdf_scope.setText("Dans la portée")
+            self.badge_pdf_scope.set_variant("success")
+            self.lbl_pdf_scope_cur.setText(f"Sélection {idx_in_scope} / {len(self._pdf_selected_pages)} (p. {current_1_based})")
+        else:
+            self.badge_pdf_scope.setText(f"Hors-portée (p. {current_1_based})")
+            self.badge_pdf_scope.set_variant("warning")
+            self.lbl_pdf_scope_cur.setText(f"Page {current_1_based}")
+
+    @Slot()
+    def _on_pdf_scope_prev(self) -> None:
+        if not self._pdf_selected_pages or not hasattr(self, "pdf_view") or not hasattr(self.pdf_view, "pageNavigator"):
+            return
+        cur_p = self.pdf_view.pageNavigator().currentPage() + 1
+        prev_candidates = [p for p in self._pdf_selected_pages if p < cur_p]
+        if prev_candidates:
+            self.jump_pdf_to_page(prev_candidates[-1] - 1)
+        else:
+            self.jump_pdf_to_page(self._pdf_selected_pages[0] - 1)
+
+    @Slot()
+    def _on_pdf_scope_next(self) -> None:
+        if not self._pdf_selected_pages or not hasattr(self, "pdf_view") or not hasattr(self.pdf_view, "pageNavigator"):
+            return
+        cur_p = self.pdf_view.pageNavigator().currentPage() + 1
+        next_candidates = [p for p in self._pdf_selected_pages if p > cur_p]
+        if next_candidates:
+            self.jump_pdf_to_page(next_candidates[0] - 1)
+        else:
+            self.jump_pdf_to_page(self._pdf_selected_pages[-1] - 1)
+
+    @Slot()
+    def _on_pdf_zoom_in(self) -> None:
+        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "setZoomFactor"):
+            from PySide6.QtPdfWidgets import QPdfView
+
+            self.pdf_view.setZoomMode(QPdfView.ZoomMode.Custom)
+            new_factor = min(3.0, self.pdf_view.zoomFactor() * 1.2)
+            self.pdf_view.setZoomFactor(new_factor)
+            self.lbl_pdf_zoom.setText(f"{int(new_factor * 100)}%")
+
+    @Slot()
+    def _on_pdf_zoom_out(self) -> None:
+        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "setZoomFactor"):
+            from PySide6.QtPdfWidgets import QPdfView
+
+            self.pdf_view.setZoomMode(QPdfView.ZoomMode.Custom)
+            new_factor = max(0.4, self.pdf_view.zoomFactor() / 1.2)
+            self.pdf_view.setZoomFactor(new_factor)
+            self.lbl_pdf_zoom.setText(f"{int(new_factor * 100)}%")
+
+    @Slot()
+    def _on_pdf_fit_width(self) -> None:
+        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "setZoomMode"):
+            from PySide6.QtPdfWidgets import QPdfView
+
+            self.pdf_view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
+            self.lbl_pdf_zoom.setText("Auto")
+
+    def eventFilter(self, obj: Any, event: Any) -> bool:
+        if hasattr(self, "pdf_view") and (obj == self.pdf_view or (hasattr(self.pdf_view, "viewport") and obj == self.pdf_view.viewport())):
+            if event.type() == QEvent.Type.Wheel:
+                modifiers = event.modifiers()
+                if modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
+                    delta = event.angleDelta().y()
+                    if delta > 0:
+                        self._on_pdf_zoom_in()
+                    elif delta < 0:
+                        self._on_pdf_zoom_out()
+                    return True
+        return super().eventFilter(obj, event)
 
     def jump_pdf_to_page(self, page_index: int) -> None:
         if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "pageNavigator"):
@@ -324,12 +690,15 @@ class DocumentEditorWidget(QWidget):
             self.editor_stack.setCurrentWidget(self.raw_editor)
             self.raw_editor.setPlainText(content)
         else:
-            if hasattr(self, "btn_view_md") and not self.btn_view_md.isChecked():
-                self.btn_view_md.setChecked(True)
-                self.btn_view_pdf.setChecked(False)
-            self.editor_stack.setCurrentWidget(self.markdown_viewer)
             html = markdown.markdown(content, extensions=["fenced_code", "tables"])
             self.markdown_viewer.setHtml(html)
+            # Conserver la vue active (PDF si l'utilisateur est sur PDF, sinon Markdown)
+            if hasattr(self, "btn_view_pdf") and self.btn_view_pdf.isChecked():
+                self.editor_stack.setCurrentWidget(self.pdf_container)
+            else:
+                if hasattr(self, "btn_view_md"):
+                    self.btn_view_md.setChecked(True)
+                self.editor_stack.setCurrentWidget(self.markdown_viewer)
         self._on_text_changed()
 
     @Slot()
@@ -368,9 +737,10 @@ class CreationView(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, ai_manager: Any = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.profile_name = profile_name
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
         self.orchestrator: Optional[PipelineOrchestrator] = None
@@ -401,7 +771,7 @@ class CreationView(QWidget):
 
         # --- COL 1: Left Tool Window (Explorateur + Config IA) ---
         self.config_panel = IdePanel(detachable=True)
-        self.config_panel.setMinimumWidth(260)
+        self.config_panel.setMinimumWidth(350)
         self.config_panel.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
         # Tab 1: Explorateur
@@ -437,60 +807,126 @@ class CreationView(QWidget):
         explorer_layout.addWidget(self.file_tree)
 
         # Tab 2: Config IA
-        config_content = QWidget()
-        config_layout = QVBoxLayout(config_content)
-        config_layout.setContentsMargins(12, 12, 12, 12)
-        config_layout.setSpacing(16)
+        config_scroll = QScrollArea()
+        config_scroll.setWidgetResizable(True)
+        config_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        config_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        config_scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+        """)
 
-        def add_form_group(layout: QVBoxLayout, label_text: str, widget_or_layout: Any) -> None:
-            lbl = QLabel(label_text)
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
-            layout.addWidget(lbl)
-            if isinstance(widget_or_layout, QWidget):
-                layout.addWidget(widget_or_layout)
-            else:
-                layout.addLayout(widget_or_layout)
+        config_content = QWidget()
+        config_content.setStyleSheet("background: transparent;")
+        config_layout = QVBoxLayout(config_content)
+        config_layout.setContentsMargins(8, 8, 8, 8)
+        config_layout.setSpacing(12)
+
+        # --- Section 1: Cibles Anki ---
+        target_card = QFrame()
+        target_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        target_layout = QVBoxLayout(target_card)
+        target_layout.setContentsMargins(10, 10, 10, 10)
+        target_layout.setSpacing(8)
+
+        target_top = QHBoxLayout()
+        target_top.setContentsMargins(0, 0, 0, 0)
+        target_top.setSpacing(6)
+        target_ico = QLabel()
+        target_ico.setPixmap(load_phosphor_icon("ph.cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        target_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_target = QLabel("CIBLES ANKI")
+        lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        target_top.addWidget(target_ico)
+        target_top.addWidget(lbl_target)
+        target_top.addStretch()
+        target_layout.addLayout(target_top)
 
         # 1. Paquet Cible (Bouton Sélecteur)
         self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
         self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_deck.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_deck.setStyleSheet(
-            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+            f"text-align: left; padding: 7px 10px; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_PANEL}; font-weight: 500;"
         )
-        add_form_group(config_layout, "PAQUET CIBLE", self.btn_select_deck)
+        target_layout.addWidget(self.btn_select_deck)
 
         # 2. Modèle de Carte (Bouton Sélecteur)
         self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_model.setStyleSheet(
-            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+            f"text-align: left; padding: 7px 10px; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_PANEL}; font-weight: 500;"
         )
-        add_form_group(config_layout, "MODÈLE DE CARTE", self.btn_select_model)
+        target_layout.addWidget(self.btn_select_model)
+        config_layout.addWidget(target_card)
+
+        # --- Section 2: Orchestration IA ---
+        ai_card = QFrame()
+        ai_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        ai_layout = QVBoxLayout(ai_card)
+        ai_layout.setContentsMargins(10, 10, 10, 10)
+        ai_layout.setSpacing(8)
+
+        ai_top = QHBoxLayout()
+        ai_top.setContentsMargins(0, 0, 0, 0)
+        ai_top.setSpacing(6)
+        ai_ico = QLabel()
+        ai_ico.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
+        ai_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_ai = QLabel("ORCHESTRATION IA")
+        lbl_ai.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        ai_top.addWidget(ai_ico)
+        ai_top.addWidget(lbl_ai)
+        ai_top.addStretch()
+        ai_layout.addLayout(ai_top)
 
         # 3. Moteur IA + Bouton d'aide si vide
         self.engine_combo = StyledComboBox()
-        add_form_group(config_layout, "MOTEUR IA :", self.engine_combo)
+        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.engine_combo.setMinimumContentsLength(8)
+        self.engine_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        ai_layout.addWidget(self.engine_combo)
 
-        self.btn_no_engine_help = SecondaryButton("⚙️ Configurer les Moteurs IA")
+        self.btn_no_engine_help = SecondaryButton("Configurer les Moteurs IA")
+        self.btn_no_engine_help.setIcon(load_phosphor_icon("ph.gear", color=DesignTokens.COLOR_YELLOW))
         self.btn_no_engine_help.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW}; font-size: 11px;")
         self.btn_no_engine_help.hide()
-        config_layout.addWidget(self.btn_no_engine_help)
+        ai_layout.addWidget(self.btn_no_engine_help)
 
         # 4. Pipeline Agentique + Bouton d'aide si vide
         self.pipeline_combo = StyledComboBox()
-        add_form_group(config_layout, "PIPELINE AGENTIQUE :", self.pipeline_combo)
+        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.pipeline_combo.setMinimumContentsLength(8)
+        self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        ai_layout.addWidget(self.pipeline_combo)
 
-        self.btn_no_pipeline_help = SecondaryButton("🔀 Créer un Pipeline d'Agents")
+        self.btn_no_pipeline_help = SecondaryButton("Créer un Pipeline d'Agents")
+        self.btn_no_pipeline_help.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_no_pipeline_help.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         self.btn_no_pipeline_help.hide()
-        config_layout.addWidget(self.btn_no_pipeline_help)
+        ai_layout.addWidget(self.btn_no_pipeline_help)
 
         # 5. Carte Visuelle Interactive : Activation de la Vision
         self.vision_card = VisionCard()
         self.vision_card.setObjectName("visionCard")
         self.vision_card.setStyleSheet(f"""
             QFrame#visionCard {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: 6px;
             }}
@@ -500,14 +936,14 @@ class CreationView(QWidget):
         """)
         self.vision_card.setCursor(Qt.CursorShape.PointingHandCursor)
         vision_layout = QVBoxLayout(self.vision_card)
-        vision_layout.setContentsMargins(12, 12, 12, 12)
-        vision_layout.setSpacing(6)
+        vision_layout.setContentsMargins(10, 8, 10, 8)
+        vision_layout.setSpacing(4)
 
         vision_top = QHBoxLayout()
         self.lbl_vision_icon = QLabel()
         self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
         self.lbl_vision_title = QLabel("Vision (PDF)")
-        self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px;")
+        self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
 
         self.vision_badge = Badge("OFF", variant="neutral")
 
@@ -518,116 +954,158 @@ class CreationView(QWidget):
         vision_layout.addLayout(vision_top)
 
         self.lbl_vision_desc = QLabel("Extraction multimodale des schémas & figures.")
-        self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         self.lbl_vision_desc.setWordWrap(True)
         vision_layout.addWidget(self.lbl_vision_desc)
 
         self.vision_cb = QCheckBox()
-        self.vision_cb.hide()  # Géré via l'interaction de la carte
+        self.vision_cb.hide()
         vision_layout.addWidget(self.vision_cb)
 
-        config_layout.addWidget(self.vision_card)
+        self.vision_card.hide()  # Divulgation progressive : masqué par défaut en saisie libre
+        ai_layout.addWidget(self.vision_card)
+        config_layout.addWidget(ai_card)
 
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
-        config_layout.addWidget(separator)
-
-        # Scope Selector (Portée de Génération)
-        scope_lbl = QLabel("PORTÉE DE GÉNÉRATION")
-        scope_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
-        config_layout.addWidget(scope_lbl)
-
-        self.scope_stack = QStackedWidget()
-
-        # Page 1: Sliders for pages
-        self.scope_pages_widget = QWidget()
-        scope_pages_layout = QVBoxLayout(self.scope_pages_widget)
-        scope_pages_layout.setContentsMargins(0, 0, 0, 0)
-
-        pages_header = QHBoxLayout()
-        pages_lbl = QLabel("Plage de pages:")
-        pages_header.addWidget(pages_lbl)
-        pages_header.addStretch()
-        scope_pages_layout.addLayout(pages_header)
-
-        self.pages_input_frame = QFrame()
-        self.pages_input_frame.setStyleSheet(f"""
+        # --- Section 3: Portée du Document (Hybride Presets + Syntaxe Naturelle) ---
+        self.scope_card = QFrame()
+        self.scope_card.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 2px 6px;
-            }}
-            QSpinBox {{
-                background: transparent;
-                border: none;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-weight: bold;
-            }}
-            QSpinBox::up-button, QSpinBox::down-button {{
-                width: 0px;
             }}
         """)
-        pages_input_layout = QHBoxLayout(self.pages_input_frame)
-        pages_input_layout.setContentsMargins(4, 2, 4, 2)
-        pages_input_layout.setSpacing(4)
+        scope_layout = QVBoxLayout(self.scope_card)
+        scope_layout.setContentsMargins(10, 10, 10, 10)
+        scope_layout.setSpacing(8)
 
-        self.spin_page_start = QSpinBox()
-        self.spin_page_start.setMinimum(1)
-        self.spin_page_start.setMaximum(9999)
+        scope_top = QHBoxLayout()
+        scope_top.setContentsMargins(0, 0, 0, 0)
+        scope_top.setSpacing(6)
+        scope_ico = QLabel()
+        scope_ico.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        scope_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_scope = QLabel("PORTÉE DU DOCUMENT")
+        lbl_scope.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+
+        self.scope_badge = Badge("10 pages", variant="neutral")
+
+        scope_top.addWidget(scope_ico)
+        scope_top.addWidget(lbl_scope)
+        scope_top.addStretch()
+        scope_top.addWidget(self.scope_badge)
+        scope_layout.addLayout(scope_top)
+
+        # Ligne de Presets Rapides (Pill Chips)
+        preset_row = QHBoxLayout()
+        preset_row.setSpacing(4)
+
+        preset_btn_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 10px;
+                padding: 2px 7px;
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+
+        self.btn_preset_all = QPushButton("Tout le doc")
+        self.btn_preset_all.setStyleSheet(preset_btn_style)
+        self.btn_preset_all.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.btn_preset_page = QPushButton("Page 1")
+        self.btn_preset_page.setStyleSheet(preset_btn_style)
+        self.btn_preset_page.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.btn_preset_range = QPushButton("1 – 10")
+        self.btn_preset_range.setStyleSheet(preset_btn_style)
+        self.btn_preset_range.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        preset_row.addWidget(self.btn_preset_all, 1)
+        preset_row.addWidget(self.btn_preset_page, 1)
+        preset_row.addWidget(self.btn_preset_range, 1)
+        scope_layout.addLayout(preset_row)
+
+        # Champ de Saisie à Syntaxe Naturelle & Steppers
+        input_container = QFrame()
+        input_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame:focus-within {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        input_layout = QHBoxLayout(input_container)
+        input_layout.setContentsMargins(6, 2, 4, 2)
+        input_layout.setSpacing(4)
+
+        self.input_page_scope = StyledLineEdit()
+        self.input_page_scope.setText("1-10")
+        self.input_page_scope.setPlaceholderText("ex: 1-5, 8, 12-15")
+        self.input_page_scope.setStyleSheet("background: transparent; border: none; font-size: 11px; font-weight: 600;")
+        input_layout.addWidget(self.input_page_scope, 1)
+
+        btn_stepper_style = f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: 3px;
+                padding: 2px;
+            }}
+            QPushButton:hover {{
+                background: {DesignTokens.BG_HOVER};
+            }}
+        """
+
+        self.btn_scope_minus = IconButton("ph.minus", "Réduire l'étendue", 16)
+        self.btn_scope_minus.setStyleSheet(btn_stepper_style)
+        self.btn_scope_plus = IconButton("ph.plus", "Élargir l'étendue", 16)
+        self.btn_scope_plus.setStyleSheet(btn_stepper_style)
+
+        input_layout.addWidget(self.btn_scope_minus)
+        input_layout.addWidget(self.btn_scope_plus)
+        scope_layout.addWidget(input_container)
+
+        # Indicateur de volume estimé
+        self.lbl_scope_stats = QLabel("~1 200 mots • ~6 cartes estimées")
+        self.lbl_scope_stats.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+        scope_layout.addWidget(self.lbl_scope_stats)
+
+        # Rétro-compatibilité pour composants internes
+        self.spin_page_start = QSpinBox(self)
+        self.spin_page_start.hide()
+        self.spin_page_end = QSpinBox(self)
+        self.spin_page_end.hide()
         self.spin_page_start.setValue(1)
-
-        lbl_to = QLabel("à")
-        lbl_to.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; background: transparent; border: none;")
-        lbl_to.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.spin_page_end = QSpinBox()
-        self.spin_page_end.setMinimum(1)
-        self.spin_page_end.setMaximum(9999)
         self.spin_page_end.setValue(10)
 
-        pages_input_layout.addWidget(self.spin_page_start)
-        pages_input_layout.addWidget(lbl_to)
-        pages_input_layout.addWidget(self.spin_page_end)
-
-        scope_pages_layout.addWidget(self.pages_input_frame)
-        self.scope_stack.addWidget(self.scope_pages_widget)
-
-        self.spin_page_start.valueChanged.connect(self._on_page_scope_changed)
-        self.spin_page_end.valueChanged.connect(self._on_page_scope_changed)
-
-        # Page 2: QTreeView for headings
-        self.scope_headings_tree = QTreeWidget()
-        self.scope_headings_tree.setHeaderHidden(True)
-        self.scope_headings_tree.setStyleSheet(f"background-color: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY};")
-        self.scope_stack.addWidget(self.scope_headings_tree)
-
-        config_layout.addWidget(self.scope_stack)
-
-        # The Generate button has been moved to the bottom of the config panel
-        # Separator 2
-        separator2 = QFrame()
-        separator2.setFrameShape(QFrame.Shape.HLine)
-        separator2.setFrameShadow(QFrame.Shadow.Sunken)
-        separator2.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
-        config_layout.addWidget(separator2)
+        self.scope_card.hide()  # Divulgation progressive : masqué tant qu'aucun document n'est ouvert
+        config_layout.addWidget(self.scope_card)
 
         # Paramètres Avancés
         self.btn_toggle_advanced = QPushButton()
-        self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 0;")
+        self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
 
         advanced_header = QHBoxLayout(self.btn_toggle_advanced)
         advanced_header.setContentsMargins(0, 0, 0, 0)
         advanced_lbl = QLabel("Paramètres Avancés")
-        advanced_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
+        advanced_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; background: transparent; border: none;")
 
         self.advanced_icon = QLabel()
-        self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
-        self.advanced_icon.setStyleSheet("background: transparent;")
+        self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(12, 12))
+        self.advanced_icon.setStyleSheet("background: transparent; border: none;")
 
         advanced_header.addWidget(advanced_lbl)
         advanced_header.addStretch()
@@ -640,17 +1118,16 @@ class CreationView(QWidget):
         self.advanced_container.setVisible(False)
         self.advanced_container.setStyleSheet(f"""
             QFrame#advancedContainer {{
-                background: rgba(0,0,0,0.1);
-                padding: 12px;
+                background: {DesignTokens.BG_PANEL};
+                padding: 8px;
                 border-radius: 4px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
         advanced_layout = QVBoxLayout(self.advanced_container)
         advanced_layout.setContentsMargins(0, 0, 0, 0)
-        advanced_layout.setSpacing(12)
+        advanced_layout.setSpacing(8)
 
-        # Style partagé des sliders
         slider_style = f"""
             QSlider::groove:horizontal {{
                 border-radius: 2px;
@@ -680,9 +1157,9 @@ class CreationView(QWidget):
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
         temp_lbl = QLabel("Température")
-        temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
         self.val_temp_lbl = QLabel("0.7")
-        self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         temp_header.addWidget(temp_lbl)
         temp_header.addStretch()
         temp_header.addWidget(self.val_temp_lbl)
@@ -702,9 +1179,9 @@ class CreationView(QWidget):
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
         tokens_lbl = QLabel("Max Tokens")
-        tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
         self.val_tokens_lbl = QLabel("4096")
-        self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         tokens_header.addWidget(tokens_lbl)
         tokens_header.addStretch()
         tokens_header.addWidget(self.val_tokens_lbl)
@@ -721,23 +1198,16 @@ class CreationView(QWidget):
         advanced_layout.addLayout(tokens_layout)
 
         config_layout.addWidget(self.advanced_container)
-
-        # Separator for the bottom
-        separator3 = QFrame()
-        separator3.setFrameShape(QFrame.Shape.HLine)
-        separator3.setFrameShadow(QFrame.Shadow.Sunken)
-        separator3.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 8px 0;")
-        config_layout.addWidget(separator3)
-
-        # Generate Button (moved from above)
-        self.btn_generate_cards = PrimaryButton("Générer les Cartes")
-        self.btn_generate_cards.setIcon(load_phosphor_icon("ph.magic-wand", color="white"))
-        config_layout.addWidget(self.btn_generate_cards)
-
         config_layout.addStretch()
 
+        # Compatibilité interne
+        self.btn_generate_cards = QPushButton(self)
+        self.btn_generate_cards.hide()
+
+        config_scroll.setWidget(config_content)
         self.config_panel.add_tab("Explorateur", explorer_content, "ph.files", closable=False)
-        self.config_panel.add_tab("Config IA", config_content, "ph.cpu", closable=False)
+        self.config_panel.add_tab("Config IA", config_scroll, "ph.cpu", closable=False)
+        self.config_panel.set_active_tab(0)
 
         self.main_splitter.addWidget(self.config_panel)
 
@@ -831,13 +1301,17 @@ class CreationView(QWidget):
 
         self.results_panel.add_tab("Cartes Générées (0)", cartes_content, "ph.list-numbers", closable=False)
         self.results_panel.add_tab("Journal des Erreurs", erreurs_content, "ph.warning-circle", closable=False)
+        self.results_panel.set_active_tab(0)
 
         self.center_splitter.addWidget(self.results_panel)
-        self.center_splitter.setSizes([320, 480])
-        self.main_splitter.setSizes([260, 800])
+        self.results_panel.hide()  # Masqué par défaut (Progressive Disclosure)
+        self.main_splitter.setSizes([360, 920])
 
-        # Creation du tab initial
-        self._open_document_tab("Saisie Libre")
+        # Hub d'accueil au démarrage (Progressive Disclosure)
+        self.hub_widget = CreationHubWidget(parent=self)
+        self.hub_widget.open_free_text_requested.connect(lambda: self._open_document_tab("Saisie Libre"))
+        self.hub_widget.open_documents_requested.connect(self._on_hub_open_documents)
+        self.source_panel.register_tab("Démarrage", self.hub_widget, "ph.sparkle", closable=False, icon_color=DesignTokens.ACCENT_PRIMARY)
         self._update_vision_ui(False)
 
     def _connect_signals(self) -> None:
@@ -847,6 +1321,13 @@ class CreationView(QWidget):
 
         self.btn_select_deck.clicked.connect(self._on_click_select_deck)
         self.btn_select_model.clicked.connect(self._on_click_select_model)
+
+        self.btn_preset_all.clicked.connect(self._on_preset_all)
+        self.btn_preset_page.clicked.connect(self._on_preset_single_page)
+        self.btn_preset_range.clicked.connect(lambda: self.input_page_scope.setText("1-10"))
+        self.btn_scope_minus.clicked.connect(self._on_scope_step_minus)
+        self.btn_scope_plus.clicked.connect(self._on_scope_step_plus)
+        self.input_page_scope.textChanged.connect(self._on_page_scope_changed)
 
         self.vision_card.clicked.connect(self._toggle_vision_card)
         self.vision_cb.toggled.connect(self._update_vision_ui)
@@ -861,6 +1342,11 @@ class CreationView(QWidget):
         self.btn_valider.clicked.connect(self._on_validate_card)
         self.btn_editer.clicked.connect(self._on_edit_card)
         self.btn_rejeter.clicked.connect(self._on_reject_card)
+
+    @Slot()
+    def _on_hub_open_documents(self) -> None:
+        self.config_panel.set_active_tab(0)  # Onglet Explorateur
+        show_toast(self, "Sélectionnez ou double-cliquez sur un document à gauche.")
 
     def _toggle_vision_card(self) -> None:
         self.vision_cb.setChecked(not self.vision_cb.isChecked())
@@ -914,7 +1400,7 @@ class CreationView(QWidget):
             # 2. Note Types
             note_types = list(NoteTypeModel.select())
             if not note_types:
-                # Add default models if empty in cache for selection dialog
+
                 class DummyModel:
                     def __init__(self, name: str):
                         self.name = name
@@ -950,7 +1436,7 @@ class CreationView(QWidget):
 
             for eg in engines:
                 display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
-                self.engine_combo.addItem(f"⚡ {display_name}", userData=eg)
+                self.engine_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), display_name, userData=eg)
             self.btn_no_engine_help.hide()
             self.engine_combo.blockSignals(False)
 
@@ -966,7 +1452,7 @@ class CreationView(QWidget):
                 pipelines = [p1]
 
             for pipe in pipelines:
-                self.pipeline_combo.addItem(f"🔀 {pipe.name}", userData=pipe)
+                self.pipeline_combo.addItem(load_phosphor_icon("ph.tree-structure", color=DesignTokens.COLOR_BLUE), pipe.name, userData=pipe)
             self.btn_no_pipeline_help.hide()
             self.pipeline_combo.blockSignals(False)
 
@@ -1075,6 +1561,29 @@ class CreationView(QWidget):
 
         self.source_panel.register_tab(title, editor_widget, icon, closable=True, icon_color=icon_color)
 
+        # Divulgation Progressive : adapter le panneau latéral selon le document actif
+        if doc_model is not None:
+            self.scope_card.show()
+            is_pdf = getattr(doc_model, "file_type", "") == "pdf"
+            self.vision_card.setVisible(is_pdf)
+
+            # Calcul du nombre total de pages du document
+            max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
+            total_pages = int(max_page_chunk) if max_page_chunk else 10
+            self._current_doc_total_pages = total_pages
+            self.btn_preset_all.setText(f"Tout ({total_pages}p)")
+            self.btn_preset_range.setText(f"1 – {min(10, total_pages)}")
+            self.input_page_scope.blockSignals(True)
+            self.input_page_scope.setText(f"1-{min(10, total_pages)}")
+            self.input_page_scope.blockSignals(False)
+            self._on_page_scope_changed()
+        else:
+            self.scope_card.hide()
+            self.vision_card.hide()
+
+        # Bascule automatique du panneau latéral vers l'onglet de paramètres (Config IA)
+        self.config_panel.set_active_tab(1)
+
     @Slot(QTreeWidgetItem, int)
     def _on_explorer_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         doc = item.data(0, Qt.ItemDataRole.UserRole)
@@ -1092,6 +1601,7 @@ class CreationView(QWidget):
                 try:
                     _ = self.open_editors[title].parent()
                     self.source_panel.open_tab(title)
+                    self.config_panel.set_active_tab(1)
                 except RuntimeError:
                     # Widget was deleted (tab closed). Remove it and recreate.
                     self.open_editors.pop(title, None)
@@ -1104,15 +1614,64 @@ class CreationView(QWidget):
             editor.set_generation_state(is_generating)
 
     @Slot()
-    def _on_page_scope_changed(self) -> None:
-        start = self.spin_page_start.value()
-        end = self.spin_page_end.value()
+    def _on_preset_all(self) -> None:
+        doc_total = getattr(self, "_current_doc_total_pages", 10) or 10
+        self.input_page_scope.setText(f"1-{doc_total}")
 
-        if start > end:
-            self.spin_page_end.blockSignals(True)
-            self.spin_page_end.setValue(start)
-            self.spin_page_end.blockSignals(False)
-            end = start
+    @Slot()
+    def _on_preset_single_page(self) -> None:
+        self.input_page_scope.setText("1")
+
+    @Slot()
+    def _on_scope_step_minus(self) -> None:
+        pages = parse_page_ranges(self.input_page_scope.text())
+        if len(pages) > 1:
+            new_end = pages[-2]
+            self.input_page_scope.setText(f"{pages[0]}-{new_end}" if new_end > pages[0] else str(pages[0]))
+
+    @Slot()
+    def _on_scope_step_plus(self) -> None:
+        pages = parse_page_ranges(self.input_page_scope.text())
+        if pages:
+            doc_total = getattr(self, "_current_doc_total_pages", 9999) or 9999
+            new_end = min(doc_total, pages[-1] + 1)
+            self.input_page_scope.setText(f"{pages[0]}-{new_end}")
+
+    @Slot()
+    def _on_page_scope_changed(self) -> None:
+        scope_text = self.input_page_scope.text().strip()
+        doc_total = getattr(self, "_current_doc_total_pages", 9999) or 9999
+        pages = parse_page_ranges(scope_text, max_pages=doc_total)
+
+        if not pages:
+            self.scope_badge.setText("0 page")
+            self.scope_badge.set_variant("danger")
+            self.lbl_scope_stats.setText("Aucune page sélectionnée")
+            return
+
+        count = len(pages)
+        if count == 1:
+            self.scope_badge.setText("1 page")
+            self.scope_badge.set_variant("neutral")
+        else:
+            self.scope_badge.setText(f"{count} pages")
+            self.scope_badge.set_variant("success")
+
+        # Estimation dynamique
+        approx_words = count * 280
+        approx_cards = max(1, count * 2)
+        self.lbl_scope_stats.setText(f"~{approx_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+
+        start = pages[0]
+        end = pages[-1]
+
+        # Synchroniser spin_page_start et spin_page_end pour rétro-compatibilité
+        self.spin_page_start.blockSignals(True)
+        self.spin_page_end.blockSignals(True)
+        self.spin_page_start.setValue(start)
+        self.spin_page_end.setValue(end)
+        self.spin_page_start.blockSignals(False)
+        self.spin_page_end.blockSignals(False)
 
         selected_items = self.file_tree.selectedItems()
         if not selected_items:
@@ -1131,7 +1690,7 @@ class CreationView(QWidget):
         if has_pages:
             chunks = list(
                 DocumentChunkModel.select()
-                .where((DocumentChunkModel.document == doc) & (DocumentChunkModel.page_number >= start) & (DocumentChunkModel.page_number <= end))
+                .where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.in_(pages))
                 .order_by(DocumentChunkModel.page_number, DocumentChunkModel.chunk_index)
             )
         else:
@@ -1142,13 +1701,13 @@ class CreationView(QWidget):
             )
 
         if not chunks:
-            msg = f"_Aucun contenu trouvé pour les pages {start} à {end}_" if has_pages else f"_Aucun contenu trouvé pour les sections {start} à {end}_"
+            msg = f"_Aucun contenu trouvé pour les pages {scope_text}_" if has_pages else f"_Aucun contenu trouvé pour les sections {scope_text}_"
             editor.set_content(msg)
             return
 
         content = "\n\n".join([c.content for c in chunks])
         editor.set_content(content)
-        editor.jump_pdf_to_page(start - 1)
+        editor.set_pdf_scope(pages)
 
     @Slot()
     def _on_generate_from_tree(self) -> None:
@@ -1295,6 +1854,8 @@ class CreationView(QWidget):
 
         # 2. Configurer et démarrer le PipelineOrchestrator dans QThreadPool
         self._set_all_generation_states(True)
+        self.results_panel.show()
+        self.center_splitter.setSizes([450, 350])
 
         self.orchestrator = PipelineOrchestrator(
             pipeline_id=pipe_id,
@@ -1427,8 +1988,10 @@ class CreationView(QWidget):
     @Slot(str)
     def _on_generation_error(self, err_msg: str) -> None:
         self._set_all_generation_states(False)
-        self.err_lbl.setText(f"⚠️ Erreur de génération : {err_msg}")
+        self.results_panel.show()
+        self.err_lbl.setText(f"Erreur de génération : {err_msg}")
         self.results_panel.set_tab_title(1, "Journal des Erreurs (1)")
+        self.results_panel.set_active_tab(1)
         show_toast(self, f"Erreur : {err_msg}", is_error=True)
 
     @Slot()
@@ -1461,6 +2024,10 @@ class CreationView(QWidget):
     def _populate_results_table(self) -> None:
         """Remplit le tableau des cartes générées avec sélecteur de modèle par ligne."""
         saved_index = self.current_preview_index
+
+        if len(self.generated_cards) > 0:
+            self.results_panel.show()
+            self.results_panel.set_active_tab(0)
 
         self.results_table.blockSignals(True)
         self.results_table.setRowCount(len(self.generated_cards))

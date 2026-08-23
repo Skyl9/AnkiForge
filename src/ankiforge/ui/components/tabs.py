@@ -312,9 +312,9 @@ class TabButton(QPushButton):
                     color: {DesignTokens.TEXT_SECONDARY};
                     border: none;
                     border-top: 2px solid transparent;
-                    padding: 0 {padding_right}px 0 12px;
+                    padding: 0 {padding_right}px 0 8px;
                     font-family: "{DesignTokens.FONT_MAIN}";
-                    font-size: {DesignTokens.FONT_SIZE_BASE}px;
+                    font-size: 12px;
                     text-align: left;
                 }}
                 TabButton:hover {{
@@ -325,7 +325,7 @@ class TabButton(QPushButton):
                     background-color: {DesignTokens.BG_PANEL};
                     color: {DesignTokens.TEXT_PRIMARY};
                     border-top: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                    font-weight: bold;
+                    font-weight: 600;
                 }}
             """)
 
