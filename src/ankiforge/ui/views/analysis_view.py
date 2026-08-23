@@ -49,6 +49,7 @@ from ankiforge.ui.components.linter_widgets import (
     KatexLivePreviewWidget,
     RetentionCurveCanvas,
     WozniakCardItemWidget,
+    WozniakHubWidget,
     WozniakKpiCard,
 )
 from ankiforge.ui.components.panels import IdePanel
@@ -78,47 +79,44 @@ class AIWozniakLinterTab(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
-        # 1. Header Wozniak
+        # 1. Header Wozniak (2 Lignes aérées et responsives)
         header = QFrame()
-        header.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
-        h_layout = QHBoxLayout(header)
-        h_layout.setContentsMargins(12, 8, 12, 8)
+        header.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        h_outer_layout = QVBoxLayout(header)
+        h_outer_layout.setContentsMargins(12, 10, 12, 10)
+        h_outer_layout.setSpacing(8)
 
-        lbl_title = QLabel("Audit Ergonomique Wozniak")
+        # Ligne 1 : Titre + Sélecteur de Paquet + Moteur IA + Boutons Action + Score
+        row1 = QHBoxLayout()
+        row1.setSpacing(8)
+
+        lbl_ico = QLabel()
+        lbl_ico.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE, weight="fill").pixmap(18, 18))
+        lbl_ico.setStyleSheet("border: none; background: transparent;")
+
+        lbl_title = QLabel("Audit Wozniak")
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
-        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.btn_deck = SecondaryButton("Sélectionner un paquet...")
-        self.btn_deck.setIcon(load_phosphor_icon("folder", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_deck = SecondaryButton("Choisir un paquet...")
+        self.btn_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
 
-        self.btn_analyze = PrimaryButton("Analyser ce paquet")
-        self.btn_analyze.setIcon(load_phosphor_icon("arrows-clockwise", color="#ffffff"))
-        self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
-
-        self.btn_rules = SecondaryButton("⚙️ Règles & Catégories")
-        self.btn_rules.setIcon(load_phosphor_icon("sliders", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_rules.clicked.connect(self.open_rules_dialog)
-
-        self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Rechercher une carte...")
-        self.search_input.setFixedWidth(160)
-        self.search_input.textChanged.connect(self.filter_items_by_search)
-
-        self.score_badge = QLabel("Score : -- / 100")
-        self.score_badge.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
-        self.score_badge.setStyleSheet(
-            f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 14px;"
-        )
-
         self.engine_combo = QComboBox()
-        self.engine_combo.setFixedWidth(200)
+        self.engine_combo.setMinimumWidth(150)
+        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 4px;
-                padding: 4px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 8px;
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
         """)
@@ -138,16 +136,50 @@ class AIWozniakLinterTab(QWidget):
 
         for c in configs:
             display_name = getattr(c, "display_name", getattr(c, "name", str(c)))
-            self.engine_combo.addItem(f"⚡ {display_name}", userData=c)
+            self.engine_combo.addItem(f"{display_name}", userData=c)
 
-        h_layout.addWidget(lbl_title)
-        h_layout.addWidget(self.btn_deck)
-        h_layout.addWidget(self.engine_combo)
-        h_layout.addWidget(self.btn_analyze)
-        h_layout.addWidget(self.btn_rules)
-        h_layout.addStretch()
-        h_layout.addWidget(self.search_input)
-        h_layout.addWidget(self.score_badge)
+        self.btn_rules = SecondaryButton("Règles")
+        self.btn_rules.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_rules.clicked.connect(self.open_rules_dialog)
+
+        self.btn_analyze = PrimaryButton("Lancer l'audit")
+        self.btn_analyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="#ffffff"))
+        self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
+
+        self.score_badge = QLabel("Score : --")
+        self.score_badge.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        self.score_badge.setStyleSheet(
+            f"background-color: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 4px 12px;"
+        )
+
+        row1.addWidget(lbl_ico)
+        row1.addWidget(lbl_title)
+        row1.addSpacing(4)
+        row1.addWidget(self.btn_deck)
+        row1.addWidget(self.engine_combo)
+        row1.addStretch()
+        row1.addWidget(self.btn_rules)
+        row1.addWidget(self.btn_analyze)
+        row1.addWidget(self.score_badge)
+        h_outer_layout.addLayout(row1)
+
+        # Ligne 2 : Recherche & Statistiques
+        row2 = QHBoxLayout()
+        row2.setSpacing(8)
+
+        self.search_input = GlowLineEdit()
+        self.search_input.setPlaceholderText("Rechercher une carte, un mot-clé ou une anomalie...")
+        self.search_input.setMinimumWidth(260)
+        self.search_input.textChanged.connect(self.filter_items_by_search)
+
+        self.lbl_status_summary = QLabel("Aucun paquet analysé")
+        self.lbl_status_summary.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+
+        row2.addWidget(self.search_input)
+        row2.addStretch()
+        row2.addWidget(self.lbl_status_summary)
+        h_outer_layout.addLayout(row2)
+
         layout.addWidget(header)
 
         # 2. KPI Cards Bar (Catégories dynamiques interactives)
@@ -197,7 +229,7 @@ class AIWozniakLinterTab(QWidget):
         self.scroll_area.setWidget(self.scroll_content)
         layout.addWidget(self.scroll_area)
 
-        self.show_empty_state("Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer l'audit Wozniak.")
+        self.show_empty_state()
 
     def load_categories(self) -> None:
         """Charge dynamiquement les catégories actives depuis la base de données LinterRuleModel."""
@@ -216,20 +248,29 @@ class AIWozniakLinterTab(QWidget):
             seed_default_linter_rules()
             rules = list(LinterRuleModel.select().order_by(LinterRuleModel.category, LinterRuleModel.name))
 
+        short_titles = {
+            "cat-atomicite": "Atomicité",
+            "cat-cloze": "Cloze & Univoque",
+            "cat-univoque": "Questions Univoques",
+            "cat-interference": "Désambiguïsation",
+            "cat-katex": "Formules KaTeX",
+        }
+
         seen_cats = set()
         for r in rules:
             cat_id = r.category or "cat-atomicite"
             if cat_id in seen_cats:
                 continue
             seen_cats.add(cat_id)
-            title = r.category_label or r.name
+            title = short_titles.get(cat_id, r.category_label or r.name)
             card = WozniakKpiCard(
-                cat_id,
-                title,
-                100,
-                "En attente d'analyse",
-                r.color or "#f87171",
-                r.icon_name or "squares-four",
+                cat_id=cat_id,
+                title=title,
+                pct=100,
+                subtitle="En attente",
+                color=r.color or DesignTokens.COLOR_RED,
+                icon_name=r.icon_name or "ph.squares-four",
+                is_pending=True,
             )
             card.clicked.connect(self.on_category_kpi_clicked)
             self.kpi_cards[cat_id] = card
@@ -253,26 +294,41 @@ class AIWozniakLinterTab(QWidget):
         if self.selected_deck_id is not None:
             self.refresh_audit(force=False)
 
-    def show_empty_state(self, message: str) -> None:
-        """Affiche un état d'attente neutre dans le conteneur principal."""
+    def show_empty_state(self, message: str = "") -> None:
+        """Affiche l'état d'accueil pédagogique (Hub Wozniak) ou un message d'attente/erreur."""
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
             widget = item.widget() if item is not None else None
             if widget is not None:
                 widget.deleteLater()
 
+        if self.selected_deck_id is None and not message:
+            hub = WozniakHubWidget(parent=self)
+            hub.select_deck_requested.connect(self.open_deck_select_dialog)
+            self.cards_layout.addWidget(hub)
+            return
+
         empty_box = QFrame()
-        empty_box.setStyleSheet(f".QFrame {{ background-color: {DesignTokens.BG_PANEL}; border: 1px dashed {DesignTokens.BORDER_COLOR}; border-radius: 8px; padding: 40px; }}")
+        empty_box.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 30px;
+            }}
+        """)
         eb_layout = QVBoxLayout(empty_box)
         eb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        eb_layout.setSpacing(8)
 
         lbl_icon = QLabel()
-        lbl_icon.setPixmap(load_phosphor_icon("sparkle", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
+        lbl_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE).pixmap(32, 32))
         lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_icon.setStyleSheet("border: none; background: transparent;")
 
-        lbl_text = QLabel(message)
+        lbl_text = QLabel(message or "Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer l'audit Wozniak.")
         lbl_text.setFont(QFont(DesignTokens.FONT_MAIN, 11))
-        lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none;")
+        lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
         lbl_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         eb_layout.addWidget(lbl_icon)
@@ -289,7 +345,9 @@ class AIWozniakLinterTab(QWidget):
         self.selected_deck_id = deck_id
         self.selected_deck_name = deck_name
         self.btn_deck.setText(deck_name)
+        self.lbl_status_summary.setText(f"Paquet actif : {deck_name} • Prêt pour l'audit")
         logger.info(f"Paquet sélectionné pour audit : {deck_name}")
+        self.show_empty_state(f"Paquet '{deck_name}' sélectionné. Cliquez sur 'Analyser ce paquet' pour lancer le linter Wozniak.")
 
     def on_category_kpi_clicked(self, cat_id: str) -> None:
         """Bascule activement la catégorie affichée lors du clic sur une puce KPI."""
@@ -434,8 +492,8 @@ class AIWozniakLinterTab(QWidget):
 
             if cat_id in self.kpi_cards:
                 kpi = self.kpi_cards[cat_id]
-                kpi.lbl_pct.setText(f"{cat_score}%")
-                kpi.lbl_sub.setText(f"{items_count} cartes avec problèmes")
+                sub_text = f"{items_count} problème(s)" if items_count > 0 else "Conforme"
+                kpi.update_pct(cat_score, sub_text)
 
         score_global = int(total_score / cat_count)
         self.score_badge.setText(f"Score : {score_global} / 100")
@@ -458,7 +516,7 @@ class AIWozniakLinterTab(QWidget):
         items = cast(List[Dict[str, Any]], current_cat_data.get("items", []))
 
         if not items:
-            self.show_empty_state("✨ Aucune carte malade détectée dans cette catégorie ! Tout est conforme.")
+            self.show_empty_state("Aucune anomalie détectée dans cette catégorie ! Toutes les cartes sont conformes.")
             return
 
         for item_data in items:
@@ -1746,6 +1804,7 @@ class AnalysisView(QWidget):
         self.main_panel.add_header_widget(btn_settings)
 
         layout.addWidget(self.main_panel)
+        self.main_panel.set_active_tab(0)
 
     def set_active_tab_by_name(self, tab_name: str) -> None:
         """Active l'onglet spécifié par son nom ou alias."""
