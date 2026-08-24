@@ -16,14 +16,17 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
-    QCheckBox,
+    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSlider,
     QSplitter,
     QTableWidgetItem,
@@ -47,6 +50,7 @@ from ankiforge.ui.components import (
     Badge,
     IconButton,
     IdePanel,
+    OptionToggleRow,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
@@ -61,6 +65,24 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 
 logger = logging.getLogger(__name__)
+
+
+def apply_pill_style(badge: QLabel, color_hex: str) -> None:
+    """Applique un style de capsule/pill parfaitement arrondie avec fond translucide et bordure assortie."""
+    hex_c = color_hex.lstrip("#")
+    r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+    badge.setStyleSheet(f"""
+        QLabel {{
+            background-color: rgba({r}, {g}, {b}, 0.15) !important;
+            color: {color_hex};
+            border: 1px solid rgba({r}, {g}, {b}, 0.35);
+            border-radius: 9999px;
+            padding: 2px 10px;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }}
+    """)
 
 
 class CicdMetricCard(QFrame):
@@ -127,14 +149,14 @@ class ProgressTableCellWidget(QWidget):
     def __init__(self, progress_pct: int = 0, status_text: str = "En attente...", color: str = "#6366f1", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(3)
 
         self.progress_pct = progress_pct
         self.status_text = status_text
         self.color = color
         self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setFixedHeight(5)
         self.progress_bar.setValue(progress_pct)
         self.progress_bar.setTextVisible(False)
         self._apply_style()
@@ -142,16 +164,16 @@ class ProgressTableCellWidget(QWidget):
 
         sub_row = QHBoxLayout()
         sub_row.setContentsMargins(0, 0, 0, 0)
+        sub_row.setSpacing(4)
 
         self.lbl_status = QLabel(status_text)
         self.lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}';")
 
         self.lbl_pct = QLabel(f"{progress_pct}%")
-        self.lbl_pct.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold;")
+        self.lbl_pct.setStyleSheet(f"color: {self.color}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold;")
 
-        sub_row.addWidget(self.lbl_status)
-        sub_row.addStretch()
-        sub_row.addWidget(self.lbl_pct)
+        sub_row.addWidget(self.lbl_status, 1)
+        sub_row.addWidget(self.lbl_pct, 0, Qt.AlignmentFlag.AlignRight)
 
         layout.addLayout(sub_row)
 
@@ -247,8 +269,6 @@ class BatchView(QWidget):
         self.build_panel.setMinimumWidth(320)
         self.build_panel.setMaximumWidth(380)
 
-        from PySide6.QtWidgets import QScrollArea
-
         build_content = QWidget()
         build_main_layout = QVBoxLayout(build_content)
         build_main_layout.setContentsMargins(0, 0, 0, 0)
@@ -257,109 +277,179 @@ class BatchView(QWidget):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; } QWidget#scrollContent { background: transparent; border: none; }")
 
         scroll_content = QWidget()
         scroll_content.setObjectName("scrollContent")
         build_layout = QVBoxLayout(scroll_content)
-        build_layout.setContentsMargins(16, 16, 16, 16)
-        build_layout.setSpacing(14)
+        build_layout.setContentsMargins(8, 8, 8, 8)
+        build_layout.setSpacing(8)
 
         scroll_area.setWidget(scroll_content)
         build_main_layout.addWidget(scroll_area)
 
-        def add_form_group(layout: QVBoxLayout, label_text: str, widget: QWidget) -> None:
-            grp = QVBoxLayout()
-            grp.setSpacing(4)
-            lbl = QLabel(label_text)
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px;")
-            grp.addWidget(lbl)
-            grp.addWidget(widget)
-            layout.addLayout(grp)
+        # --- Section 1: Source (Fichiers/Dossiers) ---
+        src_card = QFrame()
+        src_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        src_layout = QVBoxLayout(src_card)
+        src_layout.setContentsMargins(8, 8, 8, 8)
+        src_layout.setSpacing(6)
 
-        # 1. Source (Fichiers/Dossiers)
-        grp_src = QVBoxLayout()
-        grp_src.setSpacing(4)
-        self.lbl_src = QLabel("SOURCE (FICHIERS/DOSSIERS) :")
-        self.lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
+        src_top = QHBoxLayout()
+        src_top.setContentsMargins(0, 0, 0, 0)
+        src_top.setSpacing(6)
+        src_ico = QLabel()
+        src_ico.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        src_ico.setStyleSheet("border: none; background: transparent;")
+        self.lbl_src = QLabel("SOURCE (FICHIERS/DOSSIERS)")
+        self.lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        src_top.addWidget(src_ico)
+        src_top.addWidget(self.lbl_src)
+        src_top.addStretch()
+        src_layout.addLayout(src_top)
 
-        src_row = QHBoxLayout()
-        src_row.setSpacing(6)
         self.doc_combo = StyledComboBox()
-        src_row.addWidget(self.doc_combo, 1)
+        self.doc_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.doc_combo.setMinimumContentsLength(8)
+        self.doc_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        src_layout.addWidget(self.doc_combo)
+        build_layout.addWidget(src_card)
 
-        grp_src.addWidget(self.lbl_src)
-        grp_src.addLayout(src_row)
-        build_layout.addLayout(grp_src)
+        # --- Section 2: Cibles Anki ---
+        target_card = QFrame()
+        target_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        target_layout = QVBoxLayout(target_card)
+        target_layout.setContentsMargins(8, 8, 8, 8)
+        target_layout.setSpacing(6)
 
-        # 2. Paquet Cible — Bouton sélecteur modal (comme creation_view)
+        target_top = QHBoxLayout()
+        target_top.setContentsMargins(0, 0, 0, 0)
+        target_top.setSpacing(6)
+        target_ico = QLabel()
+        target_ico.setPixmap(load_phosphor_icon("ph.cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        target_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_target = QLabel("CIBLES ANKI")
+        lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        target_top.addWidget(target_ico)
+        target_top.addWidget(lbl_target)
+        target_top.addStretch()
+        target_layout.addLayout(target_top)
+
+        # Paquet Cible (Bouton Sélecteur)
         self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
         self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_deck.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_deck.setStyleSheet(
-            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+            f"text-align: left; padding: 6px 10px; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_PANEL}; font-weight: 500;"
         )
-        add_form_group(build_layout, "PAQUET CIBLE", self.btn_select_deck)
+        target_layout.addWidget(self.btn_select_deck)
 
-        # 3. Modèle de Carte — Bouton sélecteur modal (comme creation_view)
+        # Modèle de Carte (Bouton Sélecteur)
         self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
+        self.btn_select_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_model.setStyleSheet(
-            f"text-align: left; padding: 6px 10px; border-radius: 4px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_INPUT}; font-weight: normal;"
+            f"text-align: left; padding: 6px 10px; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_PANEL}; font-weight: 500;"
         )
-        add_form_group(build_layout, "MODÈLE DE CARTE", self.btn_select_model)
+        target_layout.addWidget(self.btn_select_model)
+        build_layout.addWidget(target_card)
 
-        # 4. Moteur IA + bouton d'aide si vide
+        # --- Section 3: Orchestration IA ---
+        ai_card = QFrame()
+        ai_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        ai_layout = QVBoxLayout(ai_card)
+        ai_layout.setContentsMargins(8, 8, 8, 8)
+        ai_layout.setSpacing(6)
+
+        ai_top = QHBoxLayout()
+        ai_top.setContentsMargins(0, 0, 0, 0)
+        ai_top.setSpacing(6)
+        ai_ico = QLabel()
+        ai_ico.setPixmap(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
+        ai_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_ai = QLabel("ORCHESTRATION IA")
+        lbl_ai.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        ai_top.addWidget(ai_ico)
+        ai_top.addWidget(lbl_ai)
+        ai_top.addStretch()
+        ai_layout.addLayout(ai_top)
+
+        # Moteur IA + bouton d'aide si vide
         self.engine_combo = StyledComboBox()
-        add_form_group(build_layout, "MOTEUR IA :", self.engine_combo)
+        self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.engine_combo.setMinimumContentsLength(8)
+        self.engine_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        ai_layout.addWidget(self.engine_combo)
 
-        self.btn_no_engine_help = SecondaryButton("⚙️ Configurer les Moteurs IA")
-        self.btn_no_engine_help.setStyleSheet("color: #eab308; border-color: rgba(234, 179, 8, 0.4); font-size: 11px;")
+        self.btn_no_engine_help = SecondaryButton("Configurer les Moteurs IA")
+        self.btn_no_engine_help.setIcon(load_phosphor_icon("ph.gear", color=DesignTokens.COLOR_YELLOW))
+        self.btn_no_engine_help.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW}; font-size: 11px;")
         self.btn_no_engine_help.hide()
-        build_layout.addWidget(self.btn_no_engine_help)
+        ai_layout.addWidget(self.btn_no_engine_help)
 
-        # 5. Pipeline Agentique + bouton d'aide si vide
+        # Pipeline Agentique + bouton d'aide si vide
         self.pipeline_combo = StyledComboBox()
-        add_form_group(build_layout, "PIPELINE AGÉNTIQUE :", self.pipeline_combo)
+        self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.pipeline_combo.setMinimumContentsLength(8)
+        self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        ai_layout.addWidget(self.pipeline_combo)
 
-        self.btn_no_pipeline_help = SecondaryButton("🔀 Créer un Pipeline d'Agents")
-        self.btn_no_pipeline_help.setStyleSheet("color: #a855f7; border-color: rgba(168, 85, 247, 0.4); font-size: 11px;")
+        self.btn_no_pipeline_help = SecondaryButton("Créer un Pipeline d'Agents")
+        self.btn_no_pipeline_help.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_no_pipeline_help.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
         self.btn_no_pipeline_help.hide()
-        build_layout.addWidget(self.btn_no_pipeline_help)
+        ai_layout.addWidget(self.btn_no_pipeline_help)
 
-        # 6. Options
-        self.cb_vision = QCheckBox("Vision (Images/PDF)")
-        self.cb_vision.setChecked(True)
-        self.cb_vision.setIcon(load_phosphor_icon("ph.eye", color="#eab308"))
-        self.cb_vision.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        # Options (Toggles modernes côte à côte)
+        opt_layout = QHBoxLayout()
+        opt_layout.setContentsMargins(0, 4, 0, 0)
+        opt_layout.setSpacing(6)
 
-        self.cb_autoval = QCheckBox("Validation automatique")
-        self.cb_autoval.setChecked(True)
-        self.cb_autoval.setIcon(load_phosphor_icon("ph.check-square-offset", color="#3b82f6"))
-        self.cb_autoval.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=True)
+        self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=True)
 
-        build_layout.addWidget(self.cb_vision)
-        build_layout.addWidget(self.cb_autoval)
+        opt_layout.addWidget(self.cb_vision, 1)
+        opt_layout.addWidget(self.cb_autoval, 1)
+        ai_layout.addLayout(opt_layout)
 
-        # 7. Séparateur + Paramètres Avancés pliables (Température + Max Tokens)
-        self.sep = QFrame()
-        self.sep.setFrameShape(QFrame.Shape.HLine)
-        self.sep.setFrameShadow(QFrame.Shadow.Sunken)
-        self.sep.setStyleSheet(f"border: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 6px 0;")
-        build_layout.addWidget(self.sep)
+        build_layout.addWidget(ai_card)
 
+        # --- Section 4: Paramètres Avancés pliables ---
         self.btn_toggle_advanced = QPushButton()
-        self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 0;")
+        self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
-        adv_header = QHBoxLayout(self.btn_toggle_advanced)
-        adv_header.setContentsMargins(0, 0, 0, 0)
+
+        advanced_header = QHBoxLayout(self.btn_toggle_advanced)
+        advanced_header.setContentsMargins(0, 0, 0, 0)
         self.adv_lbl = QLabel("Paramètres Avancés")
-        self.adv_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
+        self.adv_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; background: transparent; border: none;")
+
         self.advanced_icon = QLabel()
-        self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
-        self.advanced_icon.setStyleSheet("background: transparent;")
-        adv_header.addWidget(self.adv_lbl)
-        adv_header.addStretch()
-        adv_header.addWidget(self.advanced_icon)
+        self.advanced_icon.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(12, 12))
+        self.advanced_icon.setStyleSheet("background: transparent; border: none;")
+
+        advanced_header.addWidget(self.adv_lbl)
+        advanced_header.addStretch()
+        advanced_header.addWidget(self.advanced_icon)
         build_layout.addWidget(self.btn_toggle_advanced)
 
         self.advanced_container = QFrame()
@@ -367,38 +457,35 @@ class BatchView(QWidget):
         self.advanced_container.setVisible(False)
         self.advanced_container.setStyleSheet(f"""
             QFrame#batchAdvancedContainer {{
-                background: rgba(0,0,0,0.1);
-                padding: 10px;
+                background: {DesignTokens.BG_PANEL};
+                padding: 8px;
                 border-radius: 4px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
-        adv_layout = QVBoxLayout(self.advanced_container)
-        adv_layout.setContentsMargins(0, 0, 0, 0)
-        adv_layout.setSpacing(12)
+        advanced_layout = QVBoxLayout(self.advanced_container)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(8)
 
-        # Style partagé des sliders
         slider_style = f"""
-            QSlider {{
-                min-height: 24px;
-            }}
             QSlider::groove:horizontal {{
                 border-radius: 2px;
                 height: 4px;
                 margin: 0px;
-                background-color: rgba(255, 255, 255, 0.1);
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
             QSlider::sub-page:horizontal {{
                 background-color: {DesignTokens.ACCENT_PRIMARY};
                 border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
-                border: none;
-                height: 12px;
-                width: 12px;
-                margin: -4px 0;
-                border-radius: 6px;
+                background-color: #ffffff;
+                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                height: 14px;
+                width: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
             }}
             QSlider::handle:horizontal:hover {{
                 background-color: {DesignTokens.ACCENT_HOVER};
@@ -409,9 +496,9 @@ class BatchView(QWidget):
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
         self.temp_lbl = QLabel("Température")
-        self.temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
         self.val_temp_lbl = QLabel("0.7")
-        self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         temp_header.addWidget(self.temp_lbl)
         temp_header.addStretch()
         temp_header.addWidget(self.val_temp_lbl)
@@ -420,21 +507,20 @@ class BatchView(QWidget):
         self.slider_temp.setMinimum(0)
         self.slider_temp.setMaximum(10)
         self.slider_temp.setValue(7)
-        self.slider_temp.setCursor(Qt.CursorShape.PointingHandCursor)
         self.slider_temp.setStyleSheet(slider_style)
         self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v / 10:.1f}"))
 
         temp_layout.addLayout(temp_header)
         temp_layout.addWidget(self.slider_temp)
-        adv_layout.addLayout(temp_layout)
+        advanced_layout.addLayout(temp_layout)
 
         # Max Tokens
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
         self.tokens_lbl = QLabel("Max Tokens")
-        self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
         self.val_tokens_lbl = QLabel("4096")
-        self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         tokens_header.addWidget(self.tokens_lbl)
         tokens_header.addStretch()
         tokens_header.addWidget(self.val_tokens_lbl)
@@ -443,18 +529,17 @@ class BatchView(QWidget):
         self.slider_tokens.setMinimum(1)
         self.slider_tokens.setMaximum(32)
         self.slider_tokens.setValue(16)
-        self.slider_tokens.setCursor(Qt.CursorShape.PointingHandCursor)
         self.slider_tokens.setStyleSheet(slider_style)
         self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 256}"))
 
         tokens_layout.addLayout(tokens_header)
         tokens_layout.addWidget(self.slider_tokens)
-        adv_layout.addLayout(tokens_layout)
+        advanced_layout.addLayout(tokens_layout)
 
         build_layout.addWidget(self.advanced_container)
         build_layout.addStretch()
 
-        # 8. Bouton 'Ajouter à la Queue'
+        # 5. Bouton 'Ajouter à la Queue'
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue")
         self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
         apply_shadow(self.btn_add_to_queue, blur=20, offset_y=0, color="rgba(99, 102, 241, 0.75)")
@@ -462,7 +547,7 @@ class BatchView(QWidget):
 
         btn_container = QWidget()
         btn_layout = QVBoxLayout(btn_container)
-        btn_layout.setContentsMargins(16, 8, 16, 16)
+        btn_layout.setContentsMargins(10, 8, 10, 10)
         btn_layout.addWidget(self.btn_add_to_queue)
         build_main_layout.addWidget(btn_container)
 
@@ -504,15 +589,36 @@ class BatchView(QWidget):
         queue_layout.setSpacing(0)
 
         # Table (L1980-L2032)
-        self.queue_table = StyledTableWidget(["[ ]", "Statut", "Fichier / Source", "Progrès", "Tokens Est.", "Actions"])
+        self.queue_table = StyledTableWidget(["", "STATUT", "FICHIER / SOURCE", "PROGRÈS", "TOKENS EST.", "ACTIONS"])
         self.queue_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
+        self.queue_table.verticalHeader().setDefaultSectionSize(46)
 
-        # Explicit Column Widths matching mockup
-        self.queue_table.setColumnWidth(0, 40)
-        self.queue_table.setColumnWidth(1, 120)
-        self.queue_table.setColumnWidth(2, 220)
-        self.queue_table.setColumnWidth(4, 110)
+        header = self.queue_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+
+        self.queue_table.setColumnWidth(0, 36)
+        self.queue_table.setColumnWidth(1, 110)
+        self.queue_table.setColumnWidth(3, 160)
+        self.queue_table.setColumnWidth(4, 100)
         self.queue_table.setColumnWidth(5, 70)
+
+        self.queue_table.setStyleSheet(
+            self.queue_table.styleSheet()
+            + """
+            QHeaderView::section {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+            QTableWidget::item {
+                padding: 4px 6px;
+            }
+        """
+        )
 
         queue_layout.addWidget(self.queue_table, 1)
 
@@ -569,9 +675,14 @@ class BatchView(QWidget):
 
         self.middle_splitter.setCollapsible(0, False)
         self.middle_splitter.setCollapsible(1, False)
+        self.middle_splitter.setStretchFactor(0, 0)
+        self.middle_splitter.setStretchFactor(1, 1)
+
         self.main_splitter.setCollapsible(0, False)
         self.main_splitter.setCollapsible(1, False)
-        self.main_splitter.setSizes([500, 240])
+        self.main_splitter.setStretchFactor(0, 3)
+        self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setSizes([500, 180])
 
         self._log_formatted_line("INFO", "Pipeline worker initialized.")
         self._update_queue_table()
@@ -826,8 +937,17 @@ class BatchView(QWidget):
             self.queue_table.setItem(i, 0, cb_item)
 
             # Col 1: Statut Badge
-            badge_color = DesignTokens.COLOR_YELLOW if status == "En attente" else (DesignTokens.COLOR_BLUE if status == "En cours" else DesignTokens.COLOR_GREEN)
-            status_badge = Badge(status, variant="outline", color=badge_color)
+            if status == "Succès":
+                badge_color = DesignTokens.COLOR_GREEN
+            elif status == "En cours":
+                badge_color = DesignTokens.COLOR_BLUE
+            elif status == "Erreur":
+                badge_color = DesignTokens.COLOR_RED
+            else:
+                badge_color = DesignTokens.COLOR_YELLOW
+
+            status_badge = Badge(status, variant="status")
+            apply_pill_style(status_badge, badge_color)
             self.queue_table.setCellWidget(i, 1, status_badge)
 
             # Col 2: Fichier / Source (icône PDF/Doc)
@@ -835,7 +955,20 @@ class BatchView(QWidget):
             self.queue_table.setItem(i, 2, doc_item)
 
             # Col 3: Progrès (Progress Bar + text sub)
-            prog_widget = ProgressTableCellWidget(progress_pct=progress_pct, status_text="En attente...", color="#6366f1")
+            if status == "Succès":
+                p_color = DesignTokens.COLOR_GREEN
+                p_text = "Terminé"
+            elif status == "En cours":
+                p_color = DesignTokens.COLOR_BLUE
+                p_text = "En cours..."
+            elif status == "Erreur":
+                p_color = DesignTokens.COLOR_RED
+                p_text = "Erreur"
+            else:
+                p_color = DesignTokens.ACCENT_PRIMARY
+                p_text = "En attente..."
+
+            prog_widget = ProgressTableCellWidget(progress_pct=progress_pct, status_text=p_text, color=p_color)
             self.cell_widgets_map[i] = prog_widget
             self.queue_table.setCellWidget(i, 3, prog_widget)
 
@@ -1071,9 +1204,27 @@ class BatchView(QWidget):
             )
 
         if hasattr(self, "cb_vision"):
-            self.cb_vision.setStyleSheet(f"color: {profile.text_primary}; font-size: 11px;")
+            self.cb_vision.setStyleSheet(f"""
+                QWidget#optionToggleRow {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: 6px;
+                }}
+                QWidget#optionToggleRow:hover {{
+                    border-color: {profile.accent_primary};
+                }}
+            """)
         if hasattr(self, "cb_autoval"):
-            self.cb_autoval.setStyleSheet(f"color: {profile.text_primary}; font-size: 11px;")
+            self.cb_autoval.setStyleSheet(f"""
+                QWidget#optionToggleRow {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: 6px;
+                }}
+                QWidget#optionToggleRow:hover {{
+                    border-color: {profile.accent_primary};
+                }}
+            """)
 
         if hasattr(self, "sep"):
             self.sep.setStyleSheet(f"border: 1px dashed {profile.border_color}; margin: 6px 0;")

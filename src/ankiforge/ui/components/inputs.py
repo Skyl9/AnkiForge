@@ -144,6 +144,9 @@ class ToggleSwitch(QWidget):
     def is_checked(self) -> bool:
         return self._checked
 
+    def isChecked(self) -> bool:
+        return self._checked
+
     def set_checked(self, checked: bool) -> None:
         if self._checked == checked:
             return
@@ -151,6 +154,9 @@ class ToggleSwitch(QWidget):
         self.anim.setEndValue(18 if self._checked else 2)
         self.anim.start()
         self.toggled.emit(self._checked)
+
+    def setChecked(self, checked: bool) -> None:
+        self.set_checked(checked)
 
     def get_thumb_pos(self) -> int:
         return self._thumb_pos
@@ -179,6 +185,80 @@ class ToggleSwitch(QWidget):
 
         p.setBrush(QColor("#ffffff"))
         p.drawEllipse(self._thumb_pos, 2, 16, 16)
+
+
+class OptionToggleRow(QWidget):
+    """Ligne d'option moderne et interactive avec icône Phosphor, libellé et ToggleSwitch."""
+
+    toggled = Signal(bool)
+
+    def __init__(
+        self,
+        title: str,
+        icon_name: str = "",
+        checked: bool = True,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("optionToggleRow")
+        self.setFixedHeight(32)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(f"""
+            QWidget#optionToggleRow {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+            QWidget#optionToggleRow:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+
+        from PySide6.QtWidgets import QHBoxLayout, QLabel
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 3, 8, 3)
+        layout.setSpacing(6)
+
+        if icon_name:
+            from ankiforge.utils.icon_loader import load_phosphor_icon
+
+            self.icon_lbl = QLabel()
+            self.icon_name = icon_name
+            self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY).pixmap(14, 14))
+            self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+            layout.addWidget(self.icon_lbl)
+
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+        layout.addWidget(self.title_lbl, 1)
+
+        self.switch = ToggleSwitch()
+        self.switch.set_checked(checked)
+        self.switch.toggled.connect(self._on_switch_toggled)
+        layout.addWidget(self.switch)
+
+    def _on_switch_toggled(self, state: bool) -> None:
+        self.toggled.emit(state)
+
+    def is_checked(self) -> bool:
+        return self.switch.is_checked()
+
+    def isChecked(self) -> bool:
+        return self.switch.is_checked()
+
+    def set_checked(self, checked: bool) -> None:
+        self.switch.set_checked(checked)
+
+    def setChecked(self, checked: bool) -> None:
+        self.switch.set_checked(checked)
+
+    def mouseReleaseEvent(self, event) -> None:
+        from PySide6.QtGui import QMouseEvent
+
+        if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
+            self.set_checked(not self.is_checked())
+        super().mouseReleaseEvent(event)
 
 
 class StyledComboBox(QComboBox):

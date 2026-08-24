@@ -1,7 +1,7 @@
 from .buttons import PrimaryButton, SecondaryButton, DangerButton, IconButton, PremiumActionCard
 from .panels import IdePanel, GlassPanel, MetricCard, StatCard
 from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
-from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, StyledComboBox
+from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, OptionToggleRow, StyledComboBox
 from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem
 from .badges import Badge, TagButton, StatusBadge
 from .tables import StyledTableWidget, CicdTable
@@ -43,6 +43,7 @@ __all__ = [
     "StyledTextEdit",
     "GlowLineEdit",
     "ToggleSwitch",
+    "OptionToggleRow",
     "StyledComboBox",
     "StyledListItem",
     "ActivityItem",
