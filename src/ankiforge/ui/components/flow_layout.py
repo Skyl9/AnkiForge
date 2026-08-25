@@ -90,7 +90,7 @@ class FlowLayout(QLayout):
 
         for item in self._item_list:
             widget = item.widget()
-            if widget and not widget.isVisible():
+            if widget and widget.isHidden():
                 continue
 
             item_size = item.sizeHint()
@@ -128,6 +128,14 @@ class FlowWidget(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         self.flow_layout = FlowLayout(self, margin=margin, h_spacing=h_spacing, v_spacing=v_spacing)
+
+    def addWidget(self, widget: QWidget) -> None:
+        """Ajoute un widget au flow layout."""
+        self.flow_layout.addWidget(widget)
+
+    def add_widget(self, widget: QWidget) -> None:
+        """Alias snake_case pour addWidget."""
+        self.flow_layout.addWidget(widget)
 
     def clear(self) -> None:
         """Supprime immédiatement tous les widgets enfants du layout."""
