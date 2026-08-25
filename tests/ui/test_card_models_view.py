@@ -143,9 +143,8 @@ def test_card_models_view_cloze_and_css_class_detection(qtbot, mock_db):
             view.list_widget.setCurrentItem(item)
             break
 
-    # Le bouton Cloze doit être masqué pour un modèle basique
+    # Le modèle basique n'est pas Cloze
     assert view._is_cloze_active() is False
-    assert view.helper_category_buttons["Cloze"].isHidden() is True
 
     # Les classes CSS doivent être extraites dans le FlowLayout
     pills_text = _get_flow_layout_texts(view.tags_flow_layout)
@@ -172,7 +171,6 @@ def test_card_models_view_cloze_and_css_class_detection(qtbot, mock_db):
             break
 
     assert view._is_cloze_active() is True
-    assert view.helper_category_buttons["Cloze"].isHidden() is False
 
     pills_cloze = _get_flow_layout_texts(view.tags_flow_layout)
     assert "{{cloze:Texte}}" in pills_cloze
@@ -342,7 +340,7 @@ def test_glow_line_edit_hover_and_focus_state(qtbot, mock_db):
 
 
 def test_card_models_view_bottom_toolbar_buttons_affordance(qtbot, mock_db):
-    """Vérifie que les boutons Nouveau, Dupliquer, Importer JSON et Supprimer appliquent WA_Hover et leurs rôles."""
+    """Vérifie que les boutons Nouveau, Starter Pack, Dupliquer, Importer JSON et Supprimer appliquent WA_Hover et leurs rôles."""
     from PySide6.QtCore import QEvent, QPointF
     from PySide6.QtGui import QEnterEvent
 
@@ -350,18 +348,21 @@ def test_card_models_view_bottom_toolbar_buttons_affordance(qtbot, mock_db):
     qtbot.addWidget(view)
 
     btn_new = view.btn_new
+    btn_starter = view.btn_starter_pack
     btn_dup = view.btn_duplicate
     btn_imp = view.btn_import_json
     btn_del = view.btn_del
 
     # Vérification des rôles sémantiques
     assert btn_new.property("role") == "primary"
-    assert btn_dup.property("role") == "secondary"
-    assert btn_imp.property("role") == "secondary"
-    assert btn_del.property("role") == "danger"
+    assert btn_starter.property("role") == "secondary"
+    assert btn_dup.property("role") == "icon"
+    assert btn_imp.property("role") == "icon"
+    assert btn_del.property("role") == "icon"
 
     # Vérification de l'activation de WA_Hover pour les transitions
     assert btn_new.testAttribute(Qt.WidgetAttribute.WA_Hover)
+    assert btn_starter.testAttribute(Qt.WidgetAttribute.WA_Hover)
     assert btn_dup.testAttribute(Qt.WidgetAttribute.WA_Hover)
     assert btn_imp.testAttribute(Qt.WidgetAttribute.WA_Hover)
     assert btn_del.testAttribute(Qt.WidgetAttribute.WA_Hover)
@@ -716,16 +717,10 @@ def test_card_models_13inch_responsive_layout_and_flow_widget(qtbot, mock_db):
 
     # 1. Vérification de la Top Action Bar Responsive
     top_bar = view.top_action_bar
-    top_bar.resize(400, 38)
-    top_bar.resizeEvent(None)  # type: ignore
-    assert top_bar.btn_export_json.text() == ""
-    assert top_bar.btn_refresh.text() == ""
-    assert top_bar.btn_export_json.width() <= 30
-
-    top_bar.resize(600, 38)
-    top_bar.resizeEvent(None)  # type: ignore
-    assert top_bar.btn_export_json.text() == "Exporter JSON"
-    assert top_bar.btn_refresh.text() == "Rafraîchir"
+    assert top_bar.lbl_editor_title is not None
+    assert top_bar.btn_save.text() == "Sauvegarder"
+    assert top_bar.btn_export_json.property("role") == "icon"
+    assert top_bar.btn_refresh.property("role") == "icon"
 
     # 2. Vérification de FlowLayout
     flow_l = view.tags_flow_layout

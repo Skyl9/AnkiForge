@@ -19,7 +19,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -42,7 +42,7 @@ from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetItem
 from ankiforge.ui.components import (
-    DangerButton,
+    Badge,
     FlowWidget,
     GlowLineEdit,
     IconButton,
@@ -201,79 +201,66 @@ class SubTabButton(QPushButton):
 class ResponsiveTopActionBar(QFrame):
     """Barre d'action supérieure adaptative pour l'éditeur de modèles de cartes."""
 
+    preview_toggle_requested = Signal()
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("topActionBar")
-        self.setFixedHeight(38)
+        self.setFixedHeight(40)
         self.setStyleSheet(f"""
             QFrame#topActionBar {{
-                background-color: {DesignTokens.BG_SIDEBAR};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
+                background-color: {DesignTokens.BG_PANEL};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 4, 10, 4)
+        layout.setSpacing(8)
 
         # Badge Icône
         self.lbl_editor_icon = QLabel()
-        self.lbl_editor_icon.setPixmap(load_phosphor_icon("ph.swatches", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        self.lbl_editor_icon.setPixmap(load_phosphor_icon("ph.swatches", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
         self.lbl_editor_icon.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.lbl_editor_icon)
 
         # Titre du Modèle
         self.lbl_editor_title = QLabel("Modèle sélectionné")
-        self.lbl_editor_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: bold; border: none; background: transparent;")
-        self.lbl_editor_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        layout.addWidget(self.lbl_editor_title, 1)
+        self.lbl_editor_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
+        self.lbl_editor_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        layout.addWidget(self.lbl_editor_title)
+
+        self.model_type_badge = Badge("Standard", variant="neutral")
+        self.model_type_badge.setFixedHeight(20)
+        layout.addWidget(self.model_type_badge)
+
+        self.template_count_badge = Badge("1 gabarit", variant="neutral")
+        self.template_count_badge.setFixedHeight(20)
+        layout.addWidget(self.template_count_badge)
+
+        layout.addStretch(1)
 
         # Boutons d'action
-        self.btn_export_json = SecondaryButton("Exporter JSON")
-        self.btn_export_json.setIcon(load_phosphor_icon("ph.export", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_export_json.setFixedHeight(28)
-        self.btn_export_json.setToolTip("Exporter le modèle au format JSON standardisé AnkiForge")
+        self.btn_export_json = IconButton("ph.export", tooltip="Exporter le modèle au format JSON standardisé AnkiForge", size=24)
 
-        self.btn_refresh = SecondaryButton("Rafraîchir")
-        self.btn_refresh.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_refresh.setFixedHeight(28)
-        self.btn_refresh.setToolTip("Actualiser la prévisualisation temps réel")
+        self.btn_toggle_preview = SecondaryButton("Aperçu en direct")
+        self.btn_toggle_preview.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_toggle_preview.setFixedHeight(28)
+        self.btn_toggle_preview.setToolTip("Afficher / Masquer l'aperçu en direct à côté du code")
+        self.btn_toggle_preview.clicked.connect(self.preview_toggle_requested.emit)
+
+        self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip="Actualiser la prévisualisation temps réel", size=24)
 
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
         self.btn_save.setFixedHeight(28)
+        self.btn_save.setMinimumWidth(110)
         self.btn_save.setToolTip("Sauvegarder les modifications du modèle")
 
         layout.addWidget(self.btn_export_json)
+        layout.addWidget(self.btn_toggle_preview)
         layout.addWidget(self.btn_refresh)
         layout.addWidget(self.btn_save)
-
-    def resizeEvent(self, event: Any) -> None:
-        super().resizeEvent(event)
-        w = self.width()
-        if w < 480:
-            self.btn_export_json.setText("")
-            self.btn_export_json.setFixedWidth(28)
-            self.btn_refresh.setText("")
-            self.btn_refresh.setFixedWidth(28)
-            if w < 360:
-                self.btn_save.setText("")
-                self.btn_save.setFixedWidth(28)
-            else:
-                self.btn_save.setText("Sauvegarder")
-                self.btn_save.setMinimumWidth(0)
-                self.btn_save.setMaximumWidth(16777215)
-        else:
-            self.btn_export_json.setText("Exporter JSON")
-            self.btn_export_json.setMinimumWidth(0)
-            self.btn_export_json.setMaximumWidth(16777215)
-            self.btn_refresh.setText("Rafraîchir")
-            self.btn_refresh.setMinimumWidth(0)
-            self.btn_refresh.setMaximumWidth(16777215)
-            self.btn_save.setText("Sauvegarder")
-            self.btn_save.setMinimumWidth(0)
-            self.btn_save.setMaximumWidth(16777215)
 
 
 class CardModelsView(QWidget):
@@ -281,9 +268,10 @@ class CardModelsView(QWidget):
     Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge.
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Optional[Any] = None, profile_name: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.profile_name = profile_name
         self._current_model: Optional[NoteTypeModel] = None
         self._templates_list: List[Dict[str, Any]] = []
         self._current_template_idx: int = 0
@@ -298,8 +286,8 @@ class CardModelsView(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
 
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(self.main_splitter)
@@ -309,18 +297,31 @@ class CardModelsView(QWidget):
         # =========================================================================
         self.left_panel = IdePanel(detachable=True)
         self.left_panel.setMinimumWidth(240)
+        self.left_panel.setMaximumWidth(320)
 
         # --- Tab 1 : Modèles Disponibles ---
         list_content = QWidget()
         list_layout = QVBoxLayout(list_content)
         list_layout.setContentsMargins(8, 8, 8, 8)
-        list_layout.setSpacing(6)
+        list_layout.setSpacing(8)
 
-        self.model_search_input = GlowLineEdit(placeholder="Rechercher un modèle...")
+        # En-tête de recherche et création rapide
+        search_row = QHBoxLayout()
+        search_row.setSpacing(6)
+
+        self.model_search_input = GlowLineEdit(placeholder="Rechercher...")
         self.model_search_input.setObjectName("modelSearchInput")
         self.model_search_input.setProperty("role", "search")
         self.model_search_input.textChanged.connect(self._filter_models_list)
-        list_layout.addWidget(self.model_search_input)
+        search_row.addWidget(self.model_search_input, 1)
+
+        self.btn_new = PrimaryButton("Nouveau")
+        self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        self.btn_new.setFixedHeight(28)
+        self.btn_new.setToolTip("Créer un nouveau modèle de carte")
+        search_row.addWidget(self.btn_new)
+
+        list_layout.addLayout(search_row)
 
         self.list_widget = QListWidget()
         self.list_widget.setStyleSheet(f"""
@@ -332,8 +333,8 @@ class CardModelsView(QWidget):
                 padding: 4px;
             }}
             QListWidget::item {{
-                padding: 7px 9px;
-                margin: 2px 0px;
+                padding: 8px 10px;
+                margin-bottom: 2px;
                 border: 1px solid transparent;
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 font-weight: 500;
@@ -352,51 +353,23 @@ class CardModelsView(QWidget):
         """)
         list_layout.addWidget(self.list_widget, 1)
 
-        # Toolbar inférieure (Nouveau, Dupliquer, Importer, Supprimer)
-        list_toolbar = QVBoxLayout()
-        list_toolbar.setSpacing(5)
+        # Toolbar inférieure sur 1 seule ligne compacte
+        list_toolbar = QHBoxLayout()
+        list_toolbar.setSpacing(6)
 
-        row_actions1 = QHBoxLayout()
-        row_actions1.setSpacing(5)
-
-        self.btn_new = PrimaryButton("Nouveau")
-        self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
-        self.btn_new.setFixedHeight(28)
-
-        self.btn_duplicate = SecondaryButton("Dupliquer")
-        self.btn_duplicate.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_duplicate.setFixedHeight(28)
-
-        row_actions1.addWidget(self.btn_new, 1)
-        row_actions1.addWidget(self.btn_duplicate, 1)
-        list_toolbar.addLayout(row_actions1)
-
-        row_actions2 = QHBoxLayout()
-        row_actions2.setSpacing(5)
-
-        self.btn_import_json = SecondaryButton("Importer")
-        self.btn_import_json.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_json.setFixedHeight(28)
-        self.btn_import_json.setToolTip("Importer un modèle au format .afmodel ou .json")
-
-        self.btn_del = DangerButton("Supprimer", ghost=True)
-        self.btn_del.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
-        self.btn_del.setFixedHeight(28)
-
-        row_actions2.addWidget(self.btn_import_json, 1)
-        row_actions2.addWidget(self.btn_del, 1)
-        list_toolbar.addLayout(row_actions2)
-
-        row_actions3 = QHBoxLayout()
-        row_actions3.setSpacing(5)
-
-        self.btn_starter_pack = SecondaryButton("Pack Communautaire")
+        self.btn_starter_pack = SecondaryButton("Pack IA")
         self.btn_starter_pack.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
         self.btn_starter_pack.setFixedHeight(28)
         self.btn_starter_pack.setToolTip("Explorer et installer les modèles communautaires (Starter Pack)")
+        list_toolbar.addWidget(self.btn_starter_pack, 1)
 
-        row_actions3.addWidget(self.btn_starter_pack, 1)
-        list_toolbar.addLayout(row_actions3)
+        self.btn_duplicate = IconButton("ph.copy", tooltip="Dupliquer le modèle sélectionné", size=24)
+        self.btn_import_json = IconButton("ph.download-simple", tooltip="Importer un modèle (.afmodel ou .json)", size=24)
+        self.btn_del = IconButton("ph.trash", tooltip="Supprimer le modèle", size=24)
+
+        list_toolbar.addWidget(self.btn_duplicate)
+        list_toolbar.addWidget(self.btn_import_json)
+        list_toolbar.addWidget(self.btn_del)
 
         list_layout.addLayout(list_toolbar)
 
@@ -417,12 +390,14 @@ class CardModelsView(QWidget):
         editor_content = QWidget()
         editor_layout = QVBoxLayout(editor_content)
         editor_layout.setContentsMargins(8, 8, 8, 8)
-        editor_layout.setSpacing(6)
+        editor_layout.setSpacing(8)
 
-        # 1. TOP ACTION BAR : RESPONSIVE (38px), FIXE ET AVEC RELIEF ISOLÉ
+        # 1. TOP ACTION BAR : RESPONSIVE (40px)
         self.top_action_bar = ResponsiveTopActionBar()
         self.lbl_editor_icon = self.top_action_bar.lbl_editor_icon
         self.lbl_editor_title = self.top_action_bar.lbl_editor_title
+        self.model_type_badge = self.top_action_bar.model_type_badge
+        self.template_count_badge = self.top_action_bar.template_count_badge
         self.btn_export_json = self.top_action_bar.btn_export_json
         self.btn_refresh = self.top_action_bar.btn_refresh
         self.btn_save = self.top_action_bar.btn_save
@@ -446,115 +421,94 @@ class CardModelsView(QWidget):
         # --- ZONE SUPÉRIEURE : Champs de données + Volet d'Aides Repliable (Collider) ---
         top_resizable_container = QWidget()
         top_res_layout = QVBoxLayout(top_resizable_container)
-        top_res_layout.setContentsMargins(0, 0, 0, 2)
-        top_res_layout.setSpacing(5)
+        top_res_layout.setContentsMargins(0, 0, 0, 4)
+        top_res_layout.setSpacing(6)
 
-        # Champs de données
+        # Ligne 1 : Champs de données
         fields_row = QHBoxLayout()
         fields_row.setSpacing(6)
 
-        lbl_fields = QLabel("CHAMPS :")
-        lbl_fields.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_fields = QLabel("Champs :")
+        lbl_fields.setFixedWidth(55)
+        lbl_fields.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         fields_row.addWidget(lbl_fields)
 
         self.fields_input = StyledLineEdit()
         self.fields_input.setFixedHeight(26)
         self.fields_input.setText("Front, Back")
+        self.fields_input.setPlaceholderText("ex: Front, Back, Audio...")
         fields_row.addWidget(self.fields_input, 1)
 
         top_res_layout.addLayout(fields_row)
 
-        # Directives IA / Description
+        # Ligne 2 : Directives IA / Description
         desc_row = QHBoxLayout()
         desc_row.setSpacing(6)
 
-        lbl_desc = QLabel("RÔLE IA :")
-        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_desc = QLabel("Rôle IA :")
+        lbl_desc.setFixedWidth(55)
+        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         desc_row.addWidget(lbl_desc)
 
         self.description_input = StyledLineEdit()
         self.description_input.setFixedHeight(26)
-        self.description_input.setPlaceholderText("Instructions et rôle sémantique pour l'IA (ex: Questions directes, définitions...)")
+        self.description_input.setPlaceholderText("Directives sémantiques pour les agents IA...")
         desc_row.addWidget(self.description_input, 1)
 
         top_res_layout.addLayout(desc_row)
 
-        # Volet d'Aides d'Insertion Repliable (Collider / Accordéon)
+        # Volet d'Aides d'Insertion Repliable (Collider)
         self.helpers_frame = QFrame()
         self.helpers_frame.setObjectName("helpersFrame")
         self.helpers_frame.setStyleSheet(f"""
             QFrame#helpersFrame {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
         helpers_layout = QVBoxLayout(self.helpers_frame)
-        helpers_layout.setContentsMargins(6, 4, 6, 4)
+        helpers_layout.setContentsMargins(8, 6, 8, 6)
         helpers_layout.setSpacing(4)
 
-        # En-tête Collider (Bouton replier/déplier + Titre + Compteur + Filtres de catégories compacts)
+        # En-tête Collider
         helpers_header = QHBoxLayout()
         helpers_header.setContentsMargins(0, 0, 0, 0)
-        helpers_header.setSpacing(4)
+        helpers_header.setSpacing(6)
 
         self.btn_collapse_helpers = IconButton("ph.caret-down", tooltip="Replier / Déplier le volet d'aides", size=18)
         self.btn_collapse_helpers.clicked.connect(self._toggle_helpers_collapsed)
         helpers_header.addWidget(self.btn_collapse_helpers)
 
-        lbl_helpers_title = QLabel("AIDES :")
-        lbl_helpers_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
+        lbl_helpers_title = QLabel("Aides d'insertion")
+        lbl_helpers_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         helpers_header.addWidget(lbl_helpers_title)
 
-        self.lbl_helpers_count = QLabel("0")
-        self.lbl_helpers_count.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_helpers_count = Badge("0", variant="neutral")
         self.lbl_helpers_count.setFixedHeight(18)
-        self.lbl_helpers_count.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.lbl_helpers_count.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.ACCENT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 9px;
-                padding: 0px 5px;
-                font-size: 10px;
-                font-weight: bold;
-            }}
-        """)
         helpers_header.addWidget(self.lbl_helpers_count)
         helpers_header.addStretch()
 
-        # Boutons filtres de catégories compacts
-        cat_definitions = [
-            ("Tous", "ph.squares-four", "Tous"),
-            ("Champs", "ph.brackets-curly", "Champs"),
-            ("Cloze", "ph.eye-slash", "Cloze"),
-            ("Classes CSS", "ph.paint-brush", "CSS"),
-            ("Structure", "ph.tree-structure", "Structure"),
-        ]
-
-        for cat_id, icon_name, label_str in cat_definitions:
-            btn = QPushButton(label_str)
-            btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
-            btn.setFixedHeight(20)
-            btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setToolTip(f"Filtrer : {cat_id}")
-            btn.clicked.connect(lambda _, c=cat_id: self._on_helper_category_selected(c))
-            self.helper_category_buttons[cat_id] = btn
-            helpers_header.addWidget(btn)
+        self.helper_category_combo = StyledComboBox()
+        self.helper_category_combo.setFixedHeight(22)
+        self.helper_category_combo.setFixedWidth(130)
+        self.helper_category_combo.addItem("Toutes", userData="Tous")
+        self.helper_category_combo.addItem("Champs", userData="Champs")
+        self.helper_category_combo.addItem("Cloze", userData="Cloze")
+        self.helper_category_combo.addItem("Classes CSS", userData="Classes CSS")
+        self.helper_category_combo.addItem("Structure", userData="Structure")
+        self.helper_category_combo.currentIndexChanged.connect(self._on_helper_combo_category_selected)
+        helpers_header.addWidget(self.helper_category_combo)
 
         helpers_layout.addLayout(helpers_header)
 
-        # Zone scrollable pour le FlowWidget
         self.tags_scroll_area = QScrollArea()
         self.tags_scroll_area.setWidgetResizable(True)
         self.tags_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.tags_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self.tags_scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
-        self.tags_container = FlowWidget(margin=0, h_spacing=6, v_spacing=6)
+        self.tags_container = FlowWidget(margin=2, h_spacing=6, v_spacing=6)
         self.tags_container.setObjectName("tagsContainer")
         self.tags_container.setStyleSheet("QWidget#tagsContainer { background: transparent; border: none; }")
         self.tags_flow_layout = self.tags_container.flow_layout
@@ -568,19 +522,19 @@ class CardModelsView(QWidget):
         # --- ZONE INFÉRIEURE : Multi-Templates + Onglets + Éditeurs de Code ---
         bottom_resizable_container = QWidget()
         bottom_res_layout = QVBoxLayout(bottom_resizable_container)
-        bottom_res_layout.setContentsMargins(0, 2, 0, 0)
-        bottom_res_layout.setSpacing(5)
+        bottom_res_layout.setContentsMargins(0, 4, 0, 0)
+        bottom_res_layout.setSpacing(6)
 
-        # Multi-Templates ('Gabarit / Carte')
+        # 1. Barre de gestion des gabarits
         card_sel_widget = QWidget()
         card_sel_widget.setObjectName("cardSelWidget")
         card_sel_widget.setStyleSheet("QWidget#cardSelWidget { background: transparent; border: none; }")
         card_sel_row = QHBoxLayout(card_sel_widget)
-        card_sel_row.setContentsMargins(0, 2, 0, 2)
+        card_sel_row.setContentsMargins(0, 0, 0, 0)
         card_sel_row.setSpacing(6)
 
-        lbl_card_sel = QLabel("GABARIT :")
-        lbl_card_sel.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
+        lbl_card_sel = QLabel("Gabarit :")
+        lbl_card_sel.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         card_sel_row.addWidget(lbl_card_sel)
 
         self.card_selector_combo = StyledComboBox()
@@ -589,10 +543,10 @@ class CardModelsView(QWidget):
         self.card_selector_combo.currentIndexChanged.connect(self._on_template_index_changed)
         card_sel_row.addWidget(self.card_selector_combo)
 
-        self.btn_add_card_tmpl = IconButton("ph.plus", tooltip="Ajouter un nouveau gabarit de carte", size=22)
-        self.btn_dup_card_tmpl = IconButton("ph.copy", tooltip="Dupliquer le gabarit actuel", size=22)
-        self.btn_rename_card_tmpl = IconButton("ph.pencil-simple", tooltip="Renommer le gabarit", size=22)
-        self.btn_del_card_tmpl = IconButton("ph.trash", tooltip="Supprimer ce gabarit", size=22)
+        self.btn_add_card_tmpl = IconButton("ph.plus", tooltip="Ajouter un nouveau gabarit", size=20)
+        self.btn_dup_card_tmpl = IconButton("ph.copy", tooltip="Dupliquer le gabarit actuel", size=20)
+        self.btn_rename_card_tmpl = IconButton("ph.pencil-simple", tooltip="Renommer le gabarit", size=20)
+        self.btn_del_card_tmpl = IconButton("ph.trash", tooltip="Supprimer ce gabarit", size=20)
 
         card_sel_row.addWidget(self.btn_add_card_tmpl)
         card_sel_row.addWidget(self.btn_dup_card_tmpl)
@@ -602,21 +556,19 @@ class CardModelsView(QWidget):
 
         bottom_res_layout.addWidget(card_sel_widget)
 
-        # Sous-onglets de code style IDE (CSS, HTML Recto, HTML Verso) avec relief
+        # 2. Sous-onglets de code (CSS, Front HTML, Back HTML)
         subtabs_container = QFrame()
         subtabs_container.setObjectName("subtabsContainer")
         subtabs_container.setStyleSheet(f"""
             QFrame#subtabsContainer {{
-                background-color: {DesignTokens.BG_SIDEBAR};
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 4px;
             }}
         """)
         subtabs_row = QHBoxLayout(subtabs_container)
         subtabs_row.setContentsMargins(4, 2, 4, 2)
-        subtabs_row.setSpacing(4)
+        subtabs_row.setSpacing(6)
 
         self.btn_subtab_css = SubTabButton("Style CSS", "ph.file-css")
         self.btn_subtab_front = SubTabButton("HTML Recto", "ph.file-html")
@@ -654,55 +606,82 @@ class CardModelsView(QWidget):
 
         self.editor_vertical_splitter.addWidget(bottom_resizable_container)
 
-        # Répartition initiale : 110px haut (champs + aides), 450px bas (éditeurs)
-        self.editor_vertical_splitter.setSizes([110, 450])
+        # Répartition initiale : 90px haut (champs + aides), 480px bas (éditeurs)
+        self.editor_vertical_splitter.setSizes([90, 480])
         self.editor_vertical_splitter.setStretchFactor(0, 0)
         self.editor_vertical_splitter.setStretchFactor(1, 1)
-        editor_layout.addWidget(self.editor_vertical_splitter, 1)
 
-        self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
-        self.main_splitter.addWidget(self.editor_panel)
+        # Splitter Horizontal pour afficher le Code (Gauche) et le Live Preview (Droite) côte à côte
+        self.editor_horizontal_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.editor_horizontal_splitter.setChildrenCollapsible(False)
 
-        # =========================================================================
-        # 3. PANNEAU DROIT : Live Preview WebEngine Triple-Mode
-        # =========================================================================
-        self.preview_panel = IdePanel(detachable=True)
-        self.preview_panel.setMinimumWidth(240)
+        # 1. Conteneur Code (Splitter vertical avec formulaires + éditeur)
+        code_container = QWidget()
+        code_layout = QVBoxLayout(code_container)
+        code_layout.setContentsMargins(0, 0, 0, 0)
+        code_layout.setSpacing(0)
+        code_layout.addWidget(self.editor_vertical_splitter)
 
-        preview_content = QWidget()
-        preview_layout = QVBoxLayout(preview_content)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
+        self.editor_horizontal_splitter.addWidget(code_container)
+
+        # 2. Conteneur Live Preview (Repliable à la demande via bouton ou croix)
+        self.preview_container = QFrame()
+        self.preview_container.setObjectName("previewContainer")
+        self.preview_container.setStyleSheet(f"""
+            QFrame#previewContainer {{
+                background-color: {DesignTokens.BG_PANEL};
+                border-left: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        preview_layout = QVBoxLayout(self.preview_container)
+        preview_layout.setContentsMargins(8, 6, 8, 8)
         preview_layout.setSpacing(6)
 
-        # Barre supérieure de sélection de la source de test
-        witness_bar = QHBoxLayout()
-        witness_bar.setContentsMargins(8, 8, 8, 0)
-        witness_bar.setSpacing(6)
+        # Barre supérieure du Live Preview (Témoin + Raccourcis + Bouton Fermer)
+        preview_header = QHBoxLayout()
+        preview_header.setContentsMargins(0, 0, 0, 0)
+        preview_header.setSpacing(6)
 
-        lbl_witness = QLabel("TÉMOIN :")
-        lbl_witness.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
-        witness_bar.addWidget(lbl_witness)
+        lbl_witness = QLabel("Témoin :")
+        lbl_witness.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        preview_header.addWidget(lbl_witness)
 
         self.note_witness_combo = StyledComboBox()
-        self.note_witness_combo.setFixedHeight(26)
+        self.note_witness_combo.setFixedHeight(24)
+        self.note_witness_combo.setMinimumWidth(180)
         self.note_witness_combo.addItem("Données d'exemple automatiques", userData=None)
         self.note_witness_combo.currentIndexChanged.connect(self._on_witness_note_changed)
-        witness_bar.addWidget(self.note_witness_combo, 1)
+        preview_header.addWidget(self.note_witness_combo, 1)
 
-        preview_layout.addLayout(witness_bar)
+        self.btn_preview_refresh = IconButton("ph.arrows-clockwise", tooltip="Rafraîchir la prévisualisation", size=22)
+        preview_header.addWidget(self.btn_preview_refresh)
+
+        self.btn_close_preview = IconButton("ph.x", tooltip="Masquer l'aperçu en direct", size=22)
+        preview_header.addWidget(self.btn_close_preview)
+
+        preview_layout.addLayout(preview_header)
 
         # Composant WebEngine Anki Preview
         self.card_preview_widget = CardPreviewWidget()
         preview_layout.addWidget(self.card_preview_widget, 1)
 
-        self.preview_panel.add_tab("Live Preview Modèle", preview_content, "ph.monitor", closable=False)
-        self.main_splitter.addWidget(self.preview_panel)
+        self.editor_horizontal_splitter.addWidget(self.preview_container)
 
-        self.main_splitter.setSizes([260, 520, 360])
+        # Répartition initiale quand le preview est ouvert
+        self.editor_horizontal_splitter.setSizes([500, 420])
+        self.editor_horizontal_splitter.setStretchFactor(0, 1)
+        self.editor_horizontal_splitter.setStretchFactor(1, 1)
+
+        editor_layout.addWidget(self.editor_horizontal_splitter, 1)
+
+        # Panneau principal IDE
+        self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
+        self.main_splitter.addWidget(self.editor_panel)
+
+        self.main_splitter.setSizes([260, 820])
         self.main_splitter.setStretchFactor(0, 0)
-        self.main_splitter.setStretchFactor(1, 2)
-        self.main_splitter.setStretchFactor(2, 1)
-        self.editor_vertical_splitter.setSizes([110, 450])
+        self.main_splitter.setStretchFactor(1, 1)
         self._switch_subtab(0)
 
     def _connect_signals(self) -> None:
@@ -716,6 +695,7 @@ class CardModelsView(QWidget):
         self.btn_export_json.clicked.connect(self._on_export_json)
         self.btn_refresh.clicked.connect(self._update_preview)
         self.btn_save.clicked.connect(self._on_save_model)
+        self.top_action_bar.preview_toggle_requested.connect(self._toggle_preview_panel)
 
         self.btn_add_card_tmpl.clicked.connect(self._on_add_template)
         self.btn_dup_card_tmpl.clicked.connect(self._on_dup_template)
@@ -727,6 +707,9 @@ class CardModelsView(QWidget):
         self.btn_subtab_css.clicked.connect(lambda: self._switch_subtab(0))
         self.btn_subtab_front.clicked.connect(lambda: self._switch_subtab(1))
         self.btn_subtab_back.clicked.connect(lambda: self._switch_subtab(2))
+
+        self.btn_preview_refresh.clicked.connect(self._update_preview)
+        self.btn_close_preview.clicked.connect(self._hide_preview_panel)
 
         self.front_html_wrapper.editor.cursorPositionChanged.connect(lambda: self._set_last_active_editor("front"))
         self.back_html_wrapper.editor.cursorPositionChanged.connect(lambda: self._set_last_active_editor("back"))
@@ -740,16 +723,44 @@ class CardModelsView(QWidget):
         self._last_active_editor = ed_type
 
     def _switch_subtab(self, index: int) -> None:
-        self.editor_stack.setCurrentIndex(index)
-        self.btn_subtab_css.set_active(index == 0)
-        self.btn_subtab_front.set_active(index == 1)
-        self.btn_subtab_back.set_active(index == 2)
-        if index == 1:
-            self._last_active_editor = "front"
-        elif index == 2:
-            self._last_active_editor = "back"
-        elif index == 0:
-            self._last_active_editor = "css"
+        if index in (0, 1, 2):
+            self.editor_stack.setCurrentIndex(index)
+            self.btn_subtab_css.set_active(index == 0)
+            self.btn_subtab_front.set_active(index == 1)
+            self.btn_subtab_back.set_active(index == 2)
+            if index == 1:
+                self._last_active_editor = "front"
+            elif index == 2:
+                self._last_active_editor = "back"
+            elif index == 0:
+                self._last_active_editor = "css"
+
+    @Slot()
+    def _toggle_preview_panel(self) -> None:
+        """Bascule l'affichage côte à côte de la prévisualisation en direct."""
+        is_visible = not self.preview_container.isVisible()
+        self.preview_container.setVisible(is_visible)
+        if is_visible:
+            self._sync_current_template_from_editors()
+            self._update_preview()
+            self.editor_horizontal_splitter.setSizes([500, 420])
+            self.top_action_bar.btn_toggle_preview.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    font-weight: 600;
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+        else:
+            self.top_action_bar.btn_toggle_preview.setStyleSheet("")
+
+    @Slot()
+    def _hide_preview_panel(self) -> None:
+        """Masque le panneau de prévisualisation en direct."""
+        self.preview_container.setVisible(False)
+        self.top_action_bar.btn_toggle_preview.setStyleSheet("")
 
     def _on_code_changed(self) -> None:
         if self._is_syncing_template:
@@ -858,7 +869,7 @@ class CardModelsView(QWidget):
             return
 
         self._current_model = model
-        self.lbl_editor_title.setText(f"Modèle : {model.name}")
+        self.lbl_editor_title.setText(model.name)
         self.description_input.setText(getattr(model, "description", "") or "")
 
         # Décompilation des champs schema JSON
@@ -895,6 +906,11 @@ class CardModelsView(QWidget):
         self._current_template_idx = 0
         self._populate_template_selector()
         self._load_current_template_to_editors()
+
+        is_cloze = self._is_cloze_active()
+        self.model_type_badge.setText("Cloze" if is_cloze else "Standard")
+        cnt = len(self._templates_list)
+        self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
 
         self._update_witness_notes_combo()
         self._update_tags_toolbar()
@@ -943,6 +959,8 @@ class CardModelsView(QWidget):
             self._current_template_idx = len(self._templates_list) - 1
             self._populate_template_selector()
             self._load_current_template_to_editors()
+            cnt = len(self._templates_list)
+            self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
             self._update_tags_toolbar()
             self._update_preview()
             show_toast(self, f"Gabarit '{name.strip()}' ajouté.")
@@ -963,6 +981,8 @@ class CardModelsView(QWidget):
         self._current_template_idx = len(self._templates_list) - 1
         self._populate_template_selector()
         self._load_current_template_to_editors()
+        cnt = len(self._templates_list)
+        self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
         self._update_tags_toolbar()
         self._update_preview()
         show_toast(self, f"Gabarit dupliqué sous '{dup_name}'.")
@@ -996,6 +1016,8 @@ class CardModelsView(QWidget):
             self._current_template_idx = max(0, self._current_template_idx - 1)
             self._populate_template_selector()
             self._load_current_template_to_editors()
+            cnt = len(self._templates_list)
+            self.template_count_badge.setText(f"{cnt} gabarit{'s' if cnt > 1 else ''}")
             self._update_tags_toolbar()
             self._update_preview()
             show_toast(self, "Gabarit supprimé.")
@@ -1081,6 +1103,13 @@ class CardModelsView(QWidget):
         self._update_tags_toolbar()
         self._update_preview()
 
+    @Slot(int)
+    def _on_helper_combo_category_selected(self, index: int) -> None:
+        cat_data = self.helper_category_combo.currentData()
+        if cat_data:
+            self._current_helper_cat = str(cat_data)
+            self._update_tags_toolbar()
+
     @Slot(str)
     def _on_helper_category_selected(self, cat_name: str) -> None:
         self._current_helper_cat = cat_name
@@ -1094,51 +1123,7 @@ class CardModelsView(QWidget):
         """Met à jour dynamiquement les balises et classes CSS détectées avec FlowLayout."""
         is_cloze = self._is_cloze_active()
 
-        # 1. Mise à jour de l'état et de la visibilité des boutons de filtres de catégories
-        if "Cloze" in self.helper_category_buttons:
-            self.helper_category_buttons["Cloze"].setVisible(is_cloze)
-            if not is_cloze and self._current_helper_cat == "Cloze":
-                self._current_helper_cat = "Tous"
-
-        for cat_name, btn in self.helper_category_buttons.items():
-            is_selected = cat_name == self._current_helper_cat
-            if is_selected:
-                btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {DesignTokens.BG_ACTIVE};
-                        border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                        color: {DesignTokens.TEXT_PRIMARY};
-                        font-size: 10px;
-                        font-weight: bold;
-                        padding: 2px 8px;
-                        border-radius: {DesignTokens.RADIUS_SM}px;
-                    }}
-                    QPushButton:pressed {{
-                        padding-top: 3px;
-                    }}
-                """)
-            else:
-                btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {DesignTokens.BG_INPUT};
-                        border: 1px solid {DesignTokens.BORDER_COLOR};
-                        color: {DesignTokens.TEXT_MUTED};
-                        font-size: 10px;
-                        padding: 2px 8px;
-                        border-radius: {DesignTokens.RADIUS_SM}px;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {DesignTokens.BG_HOVER};
-                        border-color: {DesignTokens.BORDER_LIGHT};
-                        color: {DesignTokens.TEXT_PRIMARY};
-                    }}
-                    QPushButton:pressed {{
-                        background-color: {DesignTokens.BG_ACTIVE};
-                        padding-top: 3px;
-                    }}
-                """)
-
-        # 2. Nettoyage complet du FlowWidget
+        # 1. Nettoyage complet du FlowWidget
         self.tags_container.clear()
 
         raw_fields = [f.strip() for f in self.fields_input.text().split(",") if f.strip()]

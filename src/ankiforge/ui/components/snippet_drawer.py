@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.cards.snippet_library import SnippetItem, SnippetLibrary
-from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import DangerButton, IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 from ankiforge.ui.components.flow_layout import FlowWidget
@@ -33,7 +32,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class SnippetCardWidget(QFrame):
-    """Carte individuelle responsive représentant un snippet modulaire avec clic vers l'édition et bouton d'insertion au curseur."""
+    """Carte individuelle compacte et aérée représentant un snippet modulaire."""
 
     insert_requested = Signal(SnippetItem)
     edit_requested = Signal(SnippetItem)
@@ -50,78 +49,49 @@ class SnippetCardWidget(QFrame):
             QFrame#snippetCard {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
                 border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 2px;
             }}
             QFrame#snippetCard:hover {{
                 background-color: {DesignTokens.BG_PANEL};
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(4)
 
-        # Ligne 1 : Icône dans une pastille + Titre (word wrap) + Flèche d'édition
+        # Ligne 1 : Icône pastille + Titre + Actions (Insérer + Inspecter)
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(6)
 
-        icon_box = QWidget()
-        icon_box.setObjectName("snippetIconBox")
-        icon_box.setStyleSheet(f"""
-            QWidget#snippetIconBox {{
-                background-color: {DesignTokens.BG_ACTIVE};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-            }}
-        """)
-        icon_box_layout = QHBoxLayout(icon_box)
-        icon_box_layout.setContentsMargins(4, 3, 4, 3)
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon(snippet.icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        icon_lbl.setPixmap(load_phosphor_icon(snippet.icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
         icon_lbl.setStyleSheet("border: none; background: transparent;")
-        icon_box_layout.addWidget(icon_lbl)
-        header_layout.addWidget(icon_box)
+        header_layout.addWidget(icon_lbl)
 
         title_lbl = QLabel(snippet.name)
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: bold; border: none; background: transparent;")
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        title_lbl.setWordWrap(True)
         header_layout.addWidget(title_lbl, 1)
 
-        btn_edit = IconButton("ph.caret-right", tooltip="Inspecter et modifier le snippet", size=20)
+        self.btn_insert = IconButton("ph.plus", tooltip="Insérer dans le code au curseur", size=18)
+        self.btn_insert.clicked.connect(lambda: self.insert_requested.emit(self.snippet))
+        header_layout.addWidget(self.btn_insert)
+
+        btn_edit = IconButton("ph.caret-right", tooltip="Inspecter et modifier le snippet", size=18)
         btn_edit.clicked.connect(lambda: self.edit_requested.emit(self.snippet))
         header_layout.addWidget(btn_edit)
         layout.addLayout(header_layout)
 
-        # Ligne 2 : Badge de catégorie dédié (sur toute la largeur pour éviter toute troncature)
-        badge_layout = QHBoxLayout()
-        badge_layout.setContentsMargins(0, 0, 0, 0)
-        badge_layout.setSpacing(4)
-        category_badge = Badge(snippet.category, variant="neutral")
-        category_badge.setFixedHeight(18)
-        category_badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        badge_layout.addWidget(category_badge)
-        badge_layout.addStretch()
-        layout.addLayout(badge_layout)
-
-        # Ligne 3 : Description responsive avec passage à la ligne
-        desc_lbl = QLabel(snippet.description)
-        desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        desc_lbl.setWordWrap(True)
-        layout.addWidget(desc_lbl)
-
-        # Ligne 4 : Bouton d'insertion au curseur unique et responsive
-        self.btn_insert = SecondaryButton("Insérer au curseur")
-        self.btn_insert.setIcon(load_phosphor_icon("ph.cursor-click", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_insert.setFixedHeight(28)
-        self.btn_insert.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.btn_insert.setToolTip("Insérer le balisage HTML à la position actuelle du curseur et fusionner le style CSS.")
-        self.btn_insert.clicked.connect(lambda: self.insert_requested.emit(self.snippet))
-
-        layout.addWidget(self.btn_insert)
+        # Ligne 2 : Description courte
+        if snippet.description:
+            desc_lbl = QLabel(snippet.description)
+            desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+            desc_lbl.setWordWrap(True)
+            layout.addWidget(desc_lbl)
 
     def mousePressEvent(self, event) -> None:
         """Le clic sur la carte bascule vers la vue d'édition/détail du snippet."""
