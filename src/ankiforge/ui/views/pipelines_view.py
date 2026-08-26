@@ -13,22 +13,21 @@
 - 100% Icônes Phosphor natives.
 """
 
+import html
 import json
 import logging
 from typing import Any, Dict, List, Optional
 
 from jinja2 import BaseLoader, Environment
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QSize, Qt, Signal, Slot
 from PySide6.QtGui import QCursor, QFont
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QInputDialog,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -36,7 +35,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QSplitter,
-    QTabWidget,
+    QStackedWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -55,11 +54,15 @@ from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import (
     Badge,
+    FlowWidget,
+    GlowLineEdit,
     IconButton,
     IdePanel,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
+    StyledLineEdit,
+    StyledTextEdit,
 )
 from ankiforge.ui.dialogs.tool_editor_dialog import ToolEditorDialog
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
@@ -210,12 +213,117 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
             color: {color_hex};
             border: 1px solid rgba({r}, {g}, {b}, 0.35);
             border-radius: 9999px;
-            padding: 3px 12px;
+            padding: 2px 10px;
             font-size: 10px;
             font-weight: bold;
             letter-spacing: 0.5px;
         }}
     """)
+
+
+class TagPillButton(QPushButton):
+    """Pastille cliquable pour l'insertion rapide de variable Jinja2."""
+
+    def __init__(
+        self,
+        text: str,
+        template_code: str,
+        tooltip: str = "",
+        variant: str = "field",
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self.template_code = template_code
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(24)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setToolTip(f"{tooltip}\nInsère : {template_code}")
+
+        if variant == "cloze":
+            bg_tint = "rgba(168, 85, 247, 0.12)"
+            border_color = "rgba(168, 85, 247, 0.45)"
+            text_color = "#c084fc"
+        elif variant == "warning":
+            bg_tint = "rgba(245, 158, 11, 0.12)"
+            border_color = "rgba(245, 158, 11, 0.45)"
+            text_color = "#fcd34d"
+        elif variant == "success":
+            bg_tint = "rgba(16, 185, 129, 0.12)"
+            border_color = "rgba(16, 185, 129, 0.45)"
+            text_color = "#6ee7b7"
+        elif variant == "info":
+            bg_tint = "rgba(6, 182, 212, 0.12)"
+            border_color = "rgba(6, 182, 212, 0.45)"
+            text_color = "#67e8f9"
+        else:  # field
+            bg_tint = "rgba(99, 102, 241, 0.10)"
+            border_color = "rgba(99, 102, 241, 0.40)"
+            text_color = "#a5b4fc"
+
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {bg_tint};
+                border: 1px solid {border_color};
+                border-radius: 12px;
+                color: {text_color};
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 11px;
+                font-weight: 600;
+                padding: 1px 10px;
+            }}
+            QPushButton:hover {{
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+        """)
+
+
+class SubTabButton(QPushButton):
+    """Bouton d'onglet style IDE avec relief et affordance tactile."""
+
+    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: Optional[QWidget] = None) -> None:
+        super().__init__(text, parent)
+        self.icon_name = icon_name
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(32)
+        self.setIconSize(QSize(15, 15))
+        self.set_active(is_active)
+
+    def set_active(self, active: bool) -> None:
+        if active:
+            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.ACCENT_PRIMARY))
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 2px 14px;
+                    font-size: 11.5px;
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED))
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    border: 1px solid transparent;
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 2px 14px;
+                    font-size: 11.5px;
+                    font-weight: normal;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                }}
+            """)
 
 
 # =====================================================================
@@ -232,11 +340,15 @@ class StatusPillBadge(QFrame):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(28)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 4, 12, 4)
+        layout.setContentsMargins(10, 2, 12, 2)
         layout.setSpacing(6)
 
         self.lbl_icon = QLabel()
+        self.lbl_icon.setFixedSize(16, 16)
+        self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         self.lbl_text = QLabel("DAG Valide")
         self.lbl_text.setStyleSheet("font-size: 11px; font-weight: bold;")
 
@@ -284,30 +396,42 @@ class DagFlowOverviewWidget(QFrame):
         super().__init__(parent)
         self.setObjectName("DagFlowOverview")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFixedHeight(46)
         self.setStyleSheet(f"""
             QFrame#DagFlowOverview {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px;
             }}
             QFrame#DagFlowOverview QLabel {{
                 background: transparent;
             }}
         """)
         self.layout_main = QHBoxLayout(self)
-        self.layout_main.setContentsMargins(12, 6, 12, 6)
+        self.layout_main.setContentsMargins(12, 4, 12, 4)
         self.layout_main.setSpacing(8)
 
-        # Conteneur des étapes horizontales
-        self.nodes_layout = QHBoxLayout()
+        # Conteneur scrollable ou horizontal des étapes
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        inner_nodes = QWidget()
+        inner_nodes.setStyleSheet("background: transparent;")
+        self.nodes_layout = QHBoxLayout(inner_nodes)
+        self.nodes_layout.setContentsMargins(0, 0, 0, 0)
         self.nodes_layout.setSpacing(6)
         self.nodes_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.layout_main.addLayout(self.nodes_layout, 1)
+        scroll_area.setWidget(inner_nodes)
+
+        self.layout_main.addWidget(scroll_area, 1)
 
         # Badge d'état de santé du DAG avec icône Phosphor native
         self.health_badge = StatusPillBadge()
-        self.layout_main.addWidget(self.health_badge)
+        self.layout_main.addWidget(self.health_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
     def render_flow(self, steps: List[Dict[str, Any]], active_index: int = 0) -> None:
         """Re-dessine les badges interactifs du flux d'étapes et évalue la santé du graphe."""
@@ -316,6 +440,7 @@ class DagFlowOverviewWidget(QFrame):
             if item:
                 w = item.widget()
                 if w:
+                    w.setParent(None)
                     w.deleteLater()
 
         if not steps:
@@ -334,26 +459,33 @@ class DagFlowOverviewWidget(QFrame):
 
         # 2. Point de départ
         lbl_start = QLabel()
-        lbl_start.setPixmap(load_phosphor_icon("ph.play-circle", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        lbl_start.setFixedSize(18, 18)
+        lbl_start.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_start.setPixmap(load_phosphor_icon("ph.play-circle", color=DesignTokens.TEXT_MUTED).pixmap(15, 15))
         lbl_start.setToolTip("Point d'entrée du pipeline")
         self.nodes_layout.addWidget(lbl_start)
 
         for idx, step_data in enumerate(steps, start=1):
-            # Flèche de liaison
-            arrow = QLabel("➔")
-            arrow.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+            # Chevron vectoriel Phosphor
+            arrow = QLabel()
+            arrow.setFixedSize(14, 14)
+            arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            arrow.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(12, 12))
             self.nodes_layout.addWidget(arrow)
 
             step_type = step_data.get("type", "LLM_PROMPT")
             meta = STEP_TYPES_META.get(step_type, STEP_TYPES_META["LLM_PROMPT"])
             persona = step_data.get("persona")
-            title = step_data.get("custom_title") or (persona.name if persona else meta["badge"])
+            raw_title = step_data.get("custom_title") or (persona.name if persona else meta["badge"])
+            # Échapper les esperluettes pour éviter les mnémoniques Qt '_'
+            title_escaped = str(raw_title).replace("&", "&&")
 
             is_active = (idx - 1) == active_index
 
-            btn_node = QPushButton(f"{idx}. {title}")
+            btn_node = QPushButton(f"{idx}. {title_escaped}")
             btn_node.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_node.setIcon(load_phosphor_icon(meta["icon"], color=meta["badge_color"]))
+            btn_node.setIconSize(QSize(14, 14))
             border_color = meta["badge_color"] if is_active else DesignTokens.BORDER_COLOR
             bg_color = "rgba(99, 102, 241, 0.15)" if is_active else DesignTokens.BG_INPUT
 
@@ -384,12 +516,16 @@ class DagFlowOverviewWidget(QFrame):
                 self.nodes_layout.addWidget(lbl_jump)
 
         # Point d'arrivée
-        arrow_end = QLabel("➔")
-        arrow_end.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        arrow_end = QLabel()
+        arrow_end.setFixedSize(14, 14)
+        arrow_end.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        arrow_end.setPixmap(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_MUTED).pixmap(12, 12))
         self.nodes_layout.addWidget(arrow_end)
 
         lbl_end = QLabel()
-        lbl_end.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
+        lbl_end.setFixedSize(18, 18)
+        lbl_end.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_end.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(15, 15))
         lbl_end.setToolTip("Sortie finale : cartes forgées et prêtes")
         self.nodes_layout.addWidget(lbl_end)
 
@@ -400,7 +536,7 @@ class DagFlowOverviewWidget(QFrame):
 
 
 class StepItemWidget(QFrame):
-    """Ligne représentant une étape dans la liste de gauche (sélectionnable, enrichie et ergonomique)."""
+    """Ligne représentant une étape dans la liste de gauche (sélectionnable, enrichie, 2 lignes sans scroll horizontal)."""
 
     clicked = Signal(int)
 
@@ -419,64 +555,81 @@ class StepItemWidget(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._apply_style()
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(8)
+        layout.setSpacing(4)
 
-        # 1. Poignée
-        handle_lbl = QLabel()
-        handle_lbl.setPixmap(load_phosphor_icon("ph.dots-six-vertical", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
-        layout.addWidget(handle_lbl)
-
-        # 2. Icône du type
         step_type = step_data.get("type", "LLM_PROMPT")
         meta = STEP_TYPES_META.get(step_type, STEP_TYPES_META["LLM_PROMPT"])
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon(meta["icon"], color=meta["badge_color"]).pixmap(18, 18))
-        layout.addWidget(icon_lbl)
-
-        # 3. Titre et sous-titre des variables de flux
-        col_text = QVBoxLayout()
-        col_text.setSpacing(2)
-
         persona = step_data.get("persona")
         title = step_data.get("custom_title") or (persona.name if persona else meta["default_title"])
-        self.title_lbl = QLabel(f"<b>{order}.</b> {title}")
-        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
-        col_text.addWidget(self.title_lbl)
 
-        # Variables de flux
+        # ── Ligne 1 : Poignée, Icône, Titre, Badge ───────────────────────────
+        row1 = QHBoxLayout()
+        row1.setSpacing(6)
+
+        # 1. Poignée drag
+        handle_lbl = QLabel()
+        handle_lbl.setFixedSize(14, 14)
+        handle_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        handle_lbl.setPixmap(load_phosphor_icon("ph.dots-six-vertical", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        row1.addWidget(handle_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # 2. Icône du type d'étape
+        icon_lbl = QLabel()
+        icon_lbl.setFixedSize(18, 18)
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setPixmap(load_phosphor_icon(meta["icon"], color=meta["badge_color"]).pixmap(16, 16))
+        row1.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # 3. Titre
+        title_escaped = html.escape(str(title))
+        self.title_lbl = QLabel(f"<b>{order}.</b> {title_escaped}")
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; background: transparent;")
+        self.title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        row1.addWidget(self.title_lbl, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # 4. Badge de rôle
+        badge = Badge(meta["badge"], variant="status")
+        apply_pill_style(badge, meta["badge_color"])
+        badge.setFixedHeight(18)
+        row1.addWidget(badge, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        layout.addLayout(row1)
+
+        # ── Ligne 2 : Variables d'entrée/sortie + Actions (▲, ▼, 🗑) ─────────
+        row2 = QHBoxLayout()
+        row2.setSpacing(6)
+
         cfg = step_data.get("config", {})
         var_in = cfg.get("input_variable", meta.get("default_input", "text_source"))
         var_out = cfg.get("output_variable", meta.get("default_output", "generated_cards"))
         lbl_vars = QLabel(f"📥 {var_in} ➔ 📤 {var_out}")
-        lbl_vars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: monospace;")
-        col_text.addWidget(lbl_vars)
-
-        layout.addLayout(col_text, 1)
-
-        # 4. Badge de rôle en capsule pill arrondie
-        badge = Badge(meta["badge"], variant="status")
-        apply_pill_style(badge, meta["badge_color"])
-        layout.addWidget(badge)
+        lbl_vars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: monospace; background: transparent;")
+        lbl_vars.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        row2.addWidget(lbl_vars, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # 5. Boutons Monter / Descendre / Supprimer (Phosphor Icons)
-        self.btn_up = IconButton("ph.arrow-up", tooltip="Monter d'un rang", size=16)
-        self.btn_down = IconButton("ph.arrow-down", tooltip="Descendre d'un rang", size=16)
-        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer cette étape", size=16)
+        self.btn_up = IconButton("ph.arrow-up", tooltip="Monter d'un rang", size=20)
+        self.btn_down = IconButton("ph.arrow-down", tooltip="Descendre d'un rang", size=20)
+        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer cette étape", size=20)
 
-        layout.addWidget(self.btn_up)
-        layout.addWidget(self.btn_down)
-        layout.addWidget(self.btn_delete)
+        row2.addWidget(self.btn_up, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row2.addWidget(self.btn_down, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row2.addWidget(self.btn_delete, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        layout.addLayout(row2)
 
     def _apply_style(self) -> None:
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        bg = DesignTokens.BG_HOVER if self.is_selected else DesignTokens.BG_PANEL
+        bg = DesignTokens.BG_ACTIVE if self.is_selected else DesignTokens.BG_PANEL
         border = DesignTokens.ACCENT_PRIMARY if self.is_selected else DesignTokens.BORDER_COLOR
+        border_left = f"3px solid {DesignTokens.ACCENT_PRIMARY}" if self.is_selected else f"1px solid {border}"
         self.setStyleSheet(f"""
             StepItemWidget {{
                 background-color: {bg};
                 border: 1px solid {border};
+                border-left: {border_left};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
             StepItemWidget:hover {{
@@ -586,8 +739,10 @@ class StepPickerCard(QFrame):
 
         # Icône
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=badge_color).pixmap(20, 20))
-        layout.addWidget(icon_lbl)
+        icon_lbl.setFixedSize(22, 22)
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=badge_color).pixmap(18, 18))
+        layout.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Texte principal et descriptif
         col = QVBoxLayout()
@@ -606,12 +761,17 @@ class StepPickerCard(QFrame):
         # Badge de rôle
         badge = Badge(badge_text, variant="status")
         apply_pill_style(badge, badge_color)
-        layout.addWidget(badge)
+        badge.setFixedHeight(18)
+        layout.addWidget(badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
     def mousePressEvent(self, event: Any) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.payload)
         super().mousePressEvent(event)
+
+    def click(self) -> None:
+        """Déclenche la sélection de cette carte par programmation."""
+        self.clicked.emit(self.payload)
 
 
 class StepPickerDialog(QDialog):
@@ -639,21 +799,9 @@ class StepPickerDialog(QDialog):
         layout_main.setSpacing(14)
 
         # Champ de recherche instantanée
-        self.edit_search = QLineEdit()
+        self.edit_search = GlowLineEdit()
         self.edit_search.setPlaceholderText("Rechercher un agent, un prompt ou une action système...")
-        self.edit_search.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 12px;
-                padding: 8px 12px;
-            }}
-            QLineEdit:focus {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+        self.edit_search.setFixedHeight(34)
         self.edit_search.textChanged.connect(self._filter_items)
         layout_main.addWidget(self.edit_search)
 
@@ -903,32 +1051,35 @@ class PersonaIdentityCard(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
             PersonaIdentityCard {{
-                background-color: {DesignTokens.BG_INPUT};
+                background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 8px;
-                padding: 10px;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
             PersonaIdentityCard QLabel {{
                 background: transparent;
             }}
         """)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(8)
 
         # Header Row
         h_row = QHBoxLayout()
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon("ph.sparkle", color="#8b5cf6").pixmap(18, 18))
-        h_row.addWidget(icon_lbl)
+        h_row.setSpacing(8)
+        self.lbl_persona_icon = QLabel()
+        self.lbl_persona_icon.setFixedSize(18, 18)
+        self.lbl_persona_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_persona_icon.setPixmap(load_phosphor_icon("ph.sparkle", color="#8b5cf6").pixmap(16, 16))
+        h_row.addWidget(self.lbl_persona_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.lbl_title = QLabel("<b>Agent : Non défini</b>")
-        self.lbl_title.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
-        h_row.addWidget(self.lbl_title, 1)
+        self.lbl_title.setStyleSheet(f"font-size: 12.5px; color: {DesignTokens.TEXT_PRIMARY};")
+        h_row.addWidget(self.lbl_title, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.badge_role = Badge("Agent IA", variant="status")
         apply_pill_style(self.badge_role, "#8b5cf6")
-        h_row.addWidget(self.badge_role)
+        self.badge_role.setFixedHeight(18)
+        h_row.addWidget(self.badge_role, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout.addLayout(h_row)
 
         # Description / System Prompt preview
@@ -941,7 +1092,8 @@ class PersonaIdentityCard(QFrame):
         b_row = QHBoxLayout()
         self.btn_switch = SecondaryButton("Changer d'Agent...")
         self.btn_switch.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_switch.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; font-size: 11px; padding: 3px 10px;")
+        self.btn_switch.setIconSize(QSize(14, 14))
+        self.btn_switch.setFixedHeight(28)
         self.btn_switch.clicked.connect(self.change_persona_requested.emit)
         b_row.addWidget(self.btn_switch)
         b_row.addStretch()
@@ -989,9 +1141,19 @@ class PromptPreviewDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        lbl_header = QLabel("👁️ Ce que recevra l'Agent IA (variables résolues) :")
+        row_header = QHBoxLayout()
+        row_header.setSpacing(8)
+        icon_eye = QLabel()
+        icon_eye.setFixedSize(18, 18)
+        icon_eye.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_eye.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        row_header.addWidget(icon_eye)
+
+        lbl_header = QLabel("Ce que recevra l'Agent IA (variables résolues) :")
         lbl_header.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        layout.addWidget(lbl_header)
+        row_header.addWidget(lbl_header)
+        row_header.addStretch()
+        layout.addLayout(row_header)
 
         # Rendu Jinja2 avec état de démonstration (texte brut pour invite LLM)
         rendered_text = ""
@@ -1075,61 +1237,50 @@ class StepInspectorPanel(QFrame):
         header_layout.setSpacing(10)
 
         self.lbl_step_icon = QLabel()
-        header_layout.addWidget(self.lbl_step_icon)
+        self.lbl_step_icon.setFixedSize(22, 22)
+        self.lbl_step_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(self.lbl_step_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.edit_step_title = QLineEdit()
-        self.edit_step_title.setPlaceholderText("Nom personnalisé de l'étape...")
-        self.edit_step_title.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-weight: bold;
-                font-size: 13px;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }}
-        """)
+        self.edit_step_title = StyledLineEdit(placeholder="Nom personnalisé de l'étape...")
+        self.edit_step_title.setFixedHeight(30)
+        self.edit_step_title.setStyleSheet("font-weight: bold; font-size: 13px;")
         self.edit_step_title.textChanged.connect(self._on_title_changed)
-        header_layout.addWidget(self.edit_step_title, 1)
+        header_layout.addWidget(self.edit_step_title, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.role_badge = Badge("LLM", variant="status")
         apply_pill_style(self.role_badge, "#8b5cf6")
-        header_layout.addWidget(self.role_badge)
+        self.role_badge.setFixedHeight(20)
+        header_layout.addWidget(self.role_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_test_step = SecondaryButton("Tester l'étape")
         self.btn_test_step.setIcon(load_phosphor_icon("ph.flask", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_test_step.setIconSize(QSize(14, 14))
+        self.btn_test_step.setFixedHeight(30)
         self.btn_test_step.clicked.connect(self._on_test_step_clicked)
-        header_layout.addWidget(self.btn_test_step)
+        header_layout.addWidget(self.btn_test_step, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         layout.addLayout(header_layout)
 
-        # ── 2. Onglets de Configuration ─────────────────────────────────────────
-        self.tabs = QTabWidget()
-        self.tabs.setStyleSheet(f"""
-            QTabWidget::pane {{
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                background: {DesignTokens.BG_MAIN};
-                border-radius: 6px;
-                padding: 10px;
-            }}
-            QTabBar::tab {{
-                background: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_SECONDARY};
-                padding: 6px 14px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                font-size: 11px;
-                font-weight: bold;
-            }}
-            QTabBar::tab:selected {{
-                background: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.ACCENT_PRIMARY};
-                border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+        # ── 2. Barre de Sous-Onglets Style IDE ──────────────────────────────────
+        subtabs_bar = QHBoxLayout()
+        subtabs_bar.setSpacing(4)
+        subtabs_bar.setContentsMargins(0, 0, 0, 0)
 
-        # Tab 1: Paramètres Métier (avec ScrollArea dédiée pour éliminer tout chevauchement)
+        self.btn_subtab_params = SubTabButton("Paramètres && Prompt", "ph.gear", is_active=True)
+        self.btn_subtab_params.clicked.connect(lambda: self._switch_subtab(0))
+        subtabs_bar.addWidget(self.btn_subtab_params)
+
+        self.btn_subtab_dag = SubTabButton("Transitions DAG && Erreurs", "ph.git-branch", is_active=False)
+        self.btn_subtab_dag.clicked.connect(lambda: self._switch_subtab(1))
+        subtabs_bar.addWidget(self.btn_subtab_dag)
+
+        subtabs_bar.addStretch()
+        layout.addLayout(subtabs_bar)
+
+        # ── 3. Contenu des Sous-Onglets (QStackedWidget) ────────────────────────
+        self.tabs = QStackedWidget()
+
+        # Tab 1: Paramètres Métier
         self.tab_params = QWidget()
         layout_tab_params = QVBoxLayout(self.tab_params)
         layout_tab_params.setContentsMargins(0, 0, 0, 0)
@@ -1138,51 +1289,110 @@ class StepInspectorPanel(QFrame):
         self.params_scroll = QScrollArea()
         self.params_scroll.setWidgetResizable(True)
         self.params_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.params_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.params_scroll.setStyleSheet(f"""
             QScrollArea {{ background: transparent; border: none; }}
             QScrollBar:vertical {{ background: {DesignTokens.BG_INPUT}; width: 6px; border-radius: 3px; }}
             QScrollBar::handle:vertical {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; min-height: 20px; }}
         """)
         layout_tab_params.addWidget(self.params_scroll)
-        self.tabs.addTab(self.tab_params, "⚙️ Paramètres & Prompt")
+        self.tabs.addWidget(self.tab_params)
 
         # Tab 2: Branchements DAG
         self.tab_dag = QWidget()
-        self.layout_dag = QGridLayout(self.tab_dag)
-        self.layout_dag.setContentsMargins(12, 12, 12, 12)
-        self.layout_dag.setHorizontalSpacing(12)
-        self.layout_dag.setVerticalSpacing(10)
-        self.tabs.addTab(self.tab_dag, "🔀 Transitions DAG & Erreurs")
+        self.layout_dag = QVBoxLayout(self.tab_dag)
+        self.layout_dag.setContentsMargins(0, 4, 0, 0)
+        self.layout_dag.setSpacing(10)
+        self.tabs.addWidget(self.tab_dag)
 
         self._setup_dag_tab()
 
         layout.addWidget(self.tabs, 1)
 
+    def _switch_subtab(self, index: int) -> None:
+        self.tabs.setCurrentIndex(index)
+        self.btn_subtab_params.set_active(index == 0)
+        self.btn_subtab_dag.set_active(index == 1)
+
     def _setup_dag_tab(self) -> None:
-        """Construit le contenu de l'onglet Transitions DAG."""
-        lbl_succ = QLabel("Transition de Succès :")
-        lbl_succ.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        """Construit le contenu de l'onglet Transitions DAG avec des cartes élégantes."""
+        while self.layout_dag.count():
+            item = self.layout_dag.takeAt(0)
+            if item and item.widget():
+                item.widget().deleteLater()
+
+        # Carte 1 : Transition de Succès
+        card_succ = QFrame()
+        card_succ.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        card_succ.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame QLabel {{
+                background: transparent;
+            }}
+        """)
+        layout_succ = QVBoxLayout(card_succ)
+        layout_succ.setContentsMargins(12, 10, 12, 10)
+        layout_succ.setSpacing(6)
+
+        lbl_succ_title = QLabel("✅ TRANSITION DE SUCCÈS")
+        lbl_succ_title.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
+        layout_succ.addWidget(lbl_succ_title)
+
+        lbl_succ = QLabel("Étape suivante à exécuter :")
+        lbl_succ.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        layout_succ.addWidget(lbl_succ)
+
         self.combo_succ = StyledComboBox()
         self.combo_succ.currentIndexChanged.connect(self._on_branching_changed)
-        self.layout_dag.addWidget(lbl_succ, 0, 0)
-        self.layout_dag.addWidget(self.combo_succ, 0, 1)
+        layout_succ.addWidget(self.combo_succ)
+        self.layout_dag.addWidget(card_succ)
 
-        lbl_fail_beh = QLabel("En cas d'Erreur :")
-        lbl_fail_beh.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        # Carte 2 : Gestion des Erreurs & Repli
+        card_fail = QFrame()
+        card_fail.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        card_fail.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame QLabel {{
+                background: transparent;
+            }}
+        """)
+        layout_fail = QVBoxLayout(card_fail)
+        layout_fail.setContentsMargins(12, 10, 12, 10)
+        layout_fail.setSpacing(6)
+
+        lbl_fail_title = QLabel("⚠️ EN CAS D'ERREUR OU ÉCHEC")
+        lbl_fail_title.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: bold;")
+        layout_fail.addWidget(lbl_fail_title)
+
+        lbl_fail_beh = QLabel("Comportement d'interruption :")
+        lbl_fail_beh.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        layout_fail.addWidget(lbl_fail_beh)
+
         self.combo_fail_beh = StyledComboBox()
         self.combo_fail_beh.addItem("🛑 Arrêter le pipeline (stop)", userData="stop")
         self.combo_fail_beh.addItem("⏭️ Continuer malgré l'erreur (continue)", userData="continue")
-        self.combo_fail_beh.addItem("🔀 Sauter vers étape de secours", userData="goto_failure_step")
+        self.combo_fail_beh.addItem("🔀 Sauter vers une étape de secours", userData="goto_failure_step")
         self.combo_fail_beh.currentIndexChanged.connect(self._on_fail_beh_changed)
-        self.layout_dag.addWidget(lbl_fail_beh, 1, 0)
-        self.layout_dag.addWidget(self.combo_fail_beh, 1, 1)
+        layout_fail.addWidget(self.combo_fail_beh)
 
         self.lbl_fail_target = QLabel("Étape de Secours :")
-        self.lbl_fail_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.lbl_fail_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-top: 4px;")
+        layout_fail.addWidget(self.lbl_fail_target)
+
         self.combo_fail_target = StyledComboBox()
         self.combo_fail_target.currentIndexChanged.connect(self._on_branching_changed)
-        self.layout_dag.addWidget(self.lbl_fail_target, 2, 0)
-        self.layout_dag.addWidget(self.combo_fail_target, 2, 1)
+        layout_fail.addWidget(self.combo_fail_target)
+
+        self.layout_dag.addWidget(card_fail)
+        self.layout_dag.addStretch()
 
     def inspect_step(
         self,
@@ -1224,7 +1434,7 @@ class StepInspectorPanel(QFrame):
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         layout_params = QVBoxLayout(container)
-        layout_params.setContentsMargins(10, 10, 10, 10)
+        layout_params.setContentsMargins(4, 4, 4, 4)
         layout_params.setSpacing(12)
 
         if not self.step_data:
@@ -1232,6 +1442,7 @@ class StepInspectorPanel(QFrame):
             return
 
         cfg = self.step_data.get("config", {})
+        meta = STEP_TYPES_META.get(step_type, STEP_TYPES_META["LLM_PROMPT"])
 
         if step_type in ("LLM_PROMPT", "MAP_REDUCE"):
             # 1. Carte d'identité enrichie du Persona IA
@@ -1280,7 +1491,10 @@ class StepInspectorPanel(QFrame):
                 spin_batch = QSpinBox()
                 spin_batch.setRange(1, 10)
                 spin_batch.setValue(int(cfg.get("batch_size", 3)))
-                spin_batch.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR};")
+                spin_batch.setFixedHeight(30)
+                spin_batch.setStyleSheet(
+                    f"background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 6px;"
+                )
                 spin_batch.valueChanged.connect(lambda v: self._on_config_changed("batch_size", v))
                 row_mr.addWidget(lbl_batch)
                 row_mr.addWidget(spin_batch)
@@ -1296,20 +1510,38 @@ class StepInspectorPanel(QFrame):
                 row_mr.addWidget(combo_mode, 1)
                 layout_params.addLayout(row_mr)
 
-            # 3. Variables Entrée / Sortie & Format
-            grid_vars = QGridLayout()
+            # 3. Variables Entrée / Sortie & Format (disposition ergonomique pour éviter toute troncature)
+            vars_row = QHBoxLayout()
+            vars_row.setSpacing(10)
+
+            col_in = QVBoxLayout()
+            col_in.setSpacing(4)
             lbl_in = QLabel("Variable d'entrée :")
             lbl_in.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-            edit_in = QLineEdit(cfg.get("input_variable", "text_source"))
-            edit_in.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 4px; border-radius: 4px;")
+            edit_in = StyledLineEdit(placeholder="ex: text_source")
+            edit_in.setText(cfg.get("input_variable", meta.get("default_input", "text_source")))
+            edit_in.setFixedHeight(30)
+            edit_in.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
             edit_in.textChanged.connect(lambda t: self._on_config_changed("input_variable", t))
+            col_in.addWidget(lbl_in)
+            col_in.addWidget(edit_in)
+            vars_row.addLayout(col_in, 1)
 
+            col_out = QVBoxLayout()
+            col_out.setSpacing(4)
             lbl_out = QLabel("Variable de sortie :")
             lbl_out.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-            edit_out = QLineEdit(cfg.get("output_variable", "generated_cards"))
-            edit_out.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 4px; border-radius: 4px;")
+            edit_out = StyledLineEdit(placeholder="ex: generated_cards")
+            edit_out.setText(cfg.get("output_variable", meta.get("default_output", "generated_cards")))
+            edit_out.setFixedHeight(30)
+            edit_out.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
             edit_out.textChanged.connect(lambda t: self._on_config_changed("output_variable", t))
+            col_out.addWidget(lbl_out)
+            col_out.addWidget(edit_out)
+            vars_row.addLayout(col_out, 1)
 
+            col_fmt = QVBoxLayout()
+            col_fmt.setSpacing(4)
             lbl_fmt = QLabel("Format de sortie :")
             lbl_fmt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             combo_fmt = StyledComboBox()
@@ -1318,14 +1550,11 @@ class StepInspectorPanel(QFrame):
             cur_fmt = cfg.get("output_format", "json")
             combo_fmt.setCurrentIndex(0 if cur_fmt == "json" else 1)
             combo_fmt.currentIndexChanged.connect(lambda: self._on_config_changed("output_format", combo_fmt.currentData()))
+            col_fmt.addWidget(lbl_fmt)
+            col_fmt.addWidget(combo_fmt)
+            vars_row.addLayout(col_fmt, 1)
 
-            grid_vars.addWidget(lbl_in, 0, 0)
-            grid_vars.addWidget(edit_in, 0, 1)
-            grid_vars.addWidget(lbl_out, 0, 2)
-            grid_vars.addWidget(edit_out, 0, 3)
-            grid_vars.addWidget(lbl_fmt, 1, 0)
-            grid_vars.addWidget(combo_fmt, 1, 1)
-            layout_params.addLayout(grid_vars)
+            layout_params.addLayout(vars_row)
 
             # 4. Surcharge Prompt Jinja2 avec Palette de Chips d'insertion rapide
             row_prompt_header = QHBoxLayout()
@@ -1336,70 +1565,50 @@ class StepInspectorPanel(QFrame):
 
             btn_preview_prompt = SecondaryButton("Aperçu Prompt")
             btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
-            btn_preview_prompt.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; font-size: 10px; padding: 2px 8px;")
+            btn_preview_prompt.setIconSize(QSize(14, 14))
+            btn_preview_prompt.setFixedHeight(26)
             row_prompt_header.addWidget(btn_preview_prompt)
             layout_params.addLayout(row_prompt_header)
 
-            edit_prompt = QTextEdit()
+            edit_prompt = StyledTextEdit()
             edit_prompt.setPlaceholderText("Laisser vide pour utiliser le prompt par défaut du Persona...")
-            edit_prompt.setText(cfg.get("prompt_override", ""))
+            edit_prompt.setPlainText(cfg.get("prompt_override", ""))
             edit_prompt.setMinimumHeight(150)
             edit_prompt.setStyleSheet(f"""
-                QTextEdit {{
+                QPlainTextEdit {{
                     background: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     color: {DesignTokens.TEXT_PRIMARY};
-                    font-family: monospace;
+                    font-family: '{DesignTokens.FONT_CODE}';
                     font-size: 12px;
                     border-radius: 4px;
-                    padding: 6px;
+                    padding: 8px;
                 }}
             """)
             edit_prompt.textChanged.connect(lambda: self._on_config_changed("prompt_override", edit_prompt.toPlainText()))
 
             btn_preview_prompt.clicked.connect(lambda: PromptPreviewDialog(edit_prompt.toPlainText(), parent=self).exec())
 
-            # Palette de Chips Jinja2
-            row_chips = QHBoxLayout()
-            row_chips.setSpacing(4)
-            lbl_chips = QLabel("Insérer :")
-            lbl_chips.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold;")
-            row_chips.addWidget(lbl_chips)
-
+            # Palette de Chips Jinja2 avec FlowWidget et TagPillButton
+            chips_flow = FlowWidget(margin=0, h_spacing=6, v_spacing=6)
             jinja_chips = [
-                ("text_source", "{{ state.variables.text_source }}"),
-                ("generated_cards", "{{ state.variables.generated_cards }}"),
-                ("initial_prompt", "{{ state.initial_prompt }}"),
-                ("last_output", "{{ state.variables.last_output }}"),
+                ("text_source", "{{ state.variables.text_source }}", "Contenu source ou contexte RAG", "field"),
+                ("generated_cards", "{{ state.variables.generated_cards }}", "Flashcards générées par les étapes précédentes", "cloze"),
+                ("initial_prompt", "{{ state.initial_prompt }}", "Requête initiale soumise par l'utilisateur", "info"),
+                ("last_output", "{{ state.variables.last_output }}", "Dernier résultat produit", "warning"),
+                ("plan_cours", "{{ state.variables.plan_cours }}", "Plan de cours validé", "success"),
             ]
 
-            for label, tag in jinja_chips:
-                chip_btn = QPushButton(f"+ {label}")
-                chip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                chip_btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {DesignTokens.BG_PANEL};
-                        border: 1px solid {DesignTokens.BORDER_COLOR};
-                        color: {DesignTokens.ACCENT_PRIMARY};
-                        font-size: 10px;
-                        font-family: monospace;
-                        border-radius: 3px;
-                        padding: 2px 6px;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {DesignTokens.BG_HOVER};
-                        border-color: {DesignTokens.ACCENT_PRIMARY};
-                    }}
-                """)
+            for label, tag, tip, var_style in jinja_chips:
+                chip_btn = TagPillButton(f"+ {label}", tag, tooltip=tip, variant=var_style)
 
                 def _make_insert(t: str) -> Any:
                     return lambda: (edit_prompt.textCursor().insertText(t), edit_prompt.setFocus())
 
                 chip_btn.clicked.connect(_make_insert(tag))
-                row_chips.addWidget(chip_btn)
+                chips_flow.addWidget(chip_btn)
 
-            row_chips.addStretch()
-            layout_params.addLayout(row_chips)
+            layout_params.addWidget(chips_flow)
             layout_params.addWidget(edit_prompt)
 
         elif step_type == "RAG_RETRIEVAL":
@@ -1409,7 +1618,8 @@ class StepInspectorPanel(QFrame):
             spin_topk = QSpinBox()
             spin_topk.setRange(1, 20)
             spin_topk.setValue(int(cfg.get("top_k", 5)))
-            spin_topk.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR};")
+            spin_topk.setFixedHeight(30)
+            spin_topk.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 6px;")
             spin_topk.valueChanged.connect(lambda v: self._on_config_changed("top_k", v))
             row_rag.addWidget(lbl_topk)
             row_rag.addWidget(spin_topk)
@@ -1420,8 +1630,10 @@ class StepInspectorPanel(QFrame):
             lbl_query.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
             layout_params.addWidget(lbl_query)
 
-            edit_query = QLineEdit(cfg.get("rag_query_template", "{{ state.initial_prompt }}"))
-            edit_query.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 6px; border-radius: 4px;")
+            edit_query = StyledLineEdit(icon_name="ph.magnifying-glass", placeholder="{{ state.initial_prompt }}")
+            edit_query.setText(cfg.get("rag_query_template", "{{ state.initial_prompt }}"))
+            edit_query.setFixedHeight(30)
+            edit_query.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
             edit_query.textChanged.connect(lambda t: self._on_config_changed("rag_query_template", t))
             layout_params.addWidget(edit_query)
             layout_params.addStretch()
@@ -1431,8 +1643,9 @@ class StepInspectorPanel(QFrame):
             lbl_ht.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
             layout_params.addWidget(lbl_ht)
 
-            edit_ht = QLineEdit(cfg.get("human_title", "Validation du Plan de Cours"))
-            edit_ht.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 6px; border-radius: 4px;")
+            edit_ht = StyledLineEdit(icon_name="ph.hand-palm", placeholder="Validation du Plan de Cours")
+            edit_ht.setText(cfg.get("human_title", "Validation du Plan de Cours"))
+            edit_ht.setFixedHeight(30)
             edit_ht.textChanged.connect(lambda t: self._on_config_changed("human_title", t))
             layout_params.addWidget(edit_ht)
 
@@ -1440,10 +1653,9 @@ class StepInspectorPanel(QFrame):
             lbl_hm.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
             layout_params.addWidget(lbl_hm)
 
-            edit_hm = QTextEdit()
-            edit_hm.setText(cfg.get("human_message", "Veuillez vérifier et ajuster les sections avant de forger les cartes."))
+            edit_hm = StyledTextEdit()
+            edit_hm.setPlainText(cfg.get("human_message", "Veuillez vérifier et ajuster les sections avant de forger les cartes."))
             edit_hm.setMinimumHeight(140)
-            edit_hm.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; border-radius: 4px; padding: 6px;")
             edit_hm.textChanged.connect(lambda: self._on_config_changed("human_message", edit_hm.toPlainText()))
             layout_params.addWidget(edit_hm)
 
@@ -1455,7 +1667,8 @@ class StepInspectorPanel(QFrame):
 
             btn_new_tool = SecondaryButton("Nouvel Outil")
             btn_new_tool.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
-            btn_new_tool.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; font-size: 11px; padding: 3px 8px;")
+            btn_new_tool.setIconSize(QSize(14, 14))
+            btn_new_tool.setFixedHeight(28)
             row_sel.addWidget(btn_new_tool)
             row_sel.addStretch()
             layout_params.addLayout(row_sel)
@@ -1477,7 +1690,8 @@ class StepInspectorPanel(QFrame):
             row_tool_actions = QHBoxLayout()
             btn_edit_code = SecondaryButton("Voir / Modifier le Script")
             btn_edit_code.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
-            btn_edit_code.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; font-size: 11px; padding: 4px 10px;")
+            btn_edit_code.setIconSize(QSize(14, 14))
+            btn_edit_code.setFixedHeight(28)
 
             def _open_editor() -> None:
                 sel_name = combo_tool.currentData()
@@ -1502,8 +1716,10 @@ class StepInspectorPanel(QFrame):
             lbl_out.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
             layout_params.addWidget(lbl_out)
 
-            edit_out = QLineEdit(cfg.get("output_variable", "tool_result"))
-            edit_out.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 6px; border-radius: 4px;")
+            edit_out = StyledLineEdit(placeholder="tool_result")
+            edit_out.setText(cfg.get("output_variable", "tool_result"))
+            edit_out.setFixedHeight(30)
+            edit_out.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
             edit_out.textChanged.connect(lambda t: self._on_config_changed("output_variable", t))
             layout_params.addWidget(edit_out)
             layout_params.addStretch()
@@ -1774,9 +1990,10 @@ class PipelineRunDialog(QDialog):
 class PipelinesView(QWidget):
     """Vue Pipelines de Génération — Architecture Maître-Détail JetBrains."""
 
-    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.profile_name = profile_name
         self._current_pipeline: Optional[PipelineModel] = None
         self.current_steps: List[Dict[str, Any]] = []
         self._step_widgets: List[StepItemWidget] = []
@@ -1809,44 +2026,50 @@ class PipelinesView(QWidget):
 
         # Titre et icône Phosphor
         lbl_pipe_icon = QLabel()
+        lbl_pipe_icon.setFixedSize(20, 20)
+        lbl_pipe_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_pipe_icon.setPixmap(load_phosphor_icon("ph.git-branch", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
-        pipeline_sel_row.addWidget(lbl_pipe_icon)
+        pipeline_sel_row.addWidget(lbl_pipe_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         lbl_pipe = QLabel("PIPELINE :")
         lbl_pipe.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
-        pipeline_sel_row.addWidget(lbl_pipe)
+        pipeline_sel_row.addWidget(lbl_pipe, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.pipeline_combo = StyledComboBox()
         self.pipeline_combo.setMinimumWidth(220)
-        pipeline_sel_row.addWidget(self.pipeline_combo)
+        self.pipeline_combo.setFixedHeight(30)
+        pipeline_sel_row.addWidget(self.pipeline_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.lbl_pipeline_steps_badge = Badge("0 étapes", variant="neutral")
         apply_pill_style(self.lbl_pipeline_steps_badge, "#94a3b8")
-        pipeline_sel_row.addWidget(self.lbl_pipeline_steps_badge)
+        self.lbl_pipeline_steps_badge.setFixedHeight(20)
+        pipeline_sel_row.addWidget(self.lbl_pipeline_steps_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_rename_pipeline = IconButton("ph.pencil-simple", tooltip="Renommer le pipeline", size=16)
-        pipeline_sel_row.addWidget(self.btn_rename_pipeline)
+        self.btn_rename_pipeline = IconButton("ph.pencil-simple", tooltip="Renommer le pipeline", size=28)
+        pipeline_sel_row.addWidget(self.btn_rename_pipeline, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         pipeline_sel_row.addStretch()
 
         # Action Principale : Tester DAG
         self.btn_test_full = SecondaryButton("Tester le DAG")
         self.btn_test_full.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_test_full.setIconSize(QSize(14, 14))
+        self.btn_test_full.setFixedHeight(30)
         self.btn_test_full.clicked.connect(self._on_test_full_pipeline)
-        pipeline_sel_row.addWidget(self.btn_test_full)
+        pipeline_sel_row.addWidget(self.btn_test_full, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Action Secondaire : Sauvegarder
         self.btn_save_pipeline = PrimaryButton("Enregistrer")
         self.btn_save_pipeline.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save_pipeline.setIconSize(QSize(14, 14))
+        self.btn_save_pipeline.setFixedHeight(30)
         apply_shadow(self.btn_save_pipeline, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
-        pipeline_sel_row.addWidget(self.btn_save_pipeline)
+        pipeline_sel_row.addWidget(self.btn_save_pipeline, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Menu d'Actions Groupées (•••)
-        self.btn_more_menu = SecondaryButton("")
-        self.btn_more_menu.setIcon(load_phosphor_icon("ph.dots-three-vertical", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_more_menu.setToolTip("Options avancées (Nouveau, Dupliquer, Modèles, Export/Import, Supprimer)")
+        self.btn_more_menu = IconButton("ph.dots-three-vertical", tooltip="Options avancées (Nouveau, Dupliquer, Modèles, Export/Import, Supprimer)", size=28)
         self.btn_more_menu.clicked.connect(self._on_open_more_menu)
-        pipeline_sel_row.addWidget(self.btn_more_menu)
+        pipeline_sel_row.addWidget(self.btn_more_menu, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         content_layout.addLayout(pipeline_sel_row)
 
@@ -1879,6 +2102,7 @@ class PipelinesView(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet(f"QScrollArea {{ background: transparent; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
 
         self.steps_inner = QWidget()
@@ -1890,7 +2114,10 @@ class PipelinesView(QWidget):
         left_layout.addWidget(scroll, 1)
 
         # Bouton d'Ajout d'Étape (Palette / Catalogue Moderne)
-        self.btn_add_step = PrimaryButton("Ajouter une étape à la fin du workflow")
+        self.btn_add_step = PrimaryButton("Ajouter une étape au workflow")
+        self.btn_add_step.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        self.btn_add_step.setIconSize(QSize(14, 14))
+        self.btn_add_step.setFixedHeight(32)
         self.btn_add_step.clicked.connect(lambda: self._on_add_step_clicked(insert_at=None))
         left_layout.addWidget(self.btn_add_step)
 
@@ -1902,8 +2129,8 @@ class PipelinesView(QWidget):
         self.inspector.test_step_requested.connect(self._on_test_single_step)
         self.splitter.addWidget(self.inspector)
 
-        # Proportions 40% gauche / 60% droite
-        self.splitter.setSizes([380, 580])
+        # Proportions 380px gauche / 620px droite
+        self.splitter.setSizes([380, 620])
         content_layout.addWidget(self.splitter, 1)
 
         self.pipeline_panel.add_tab("Éditeur de Pipelines DAG", content_widget, icon_name="ph.git-branch", closable=False)
@@ -2025,6 +2252,7 @@ class PipelinesView(QWidget):
             if item:
                 w = item.widget()
                 if w:
+                    w.setParent(None)
                     w.deleteLater()
 
         self._step_widgets.clear()
@@ -2081,7 +2309,8 @@ class PipelinesView(QWidget):
             persona = cur.get("persona")
             meta = STEP_TYPES_META.get(cur.get("type", "LLM_PROMPT"), STEP_TYPES_META["LLM_PROMPT"])
             title = cur.get("custom_title") or (persona.name if persona else meta["default_title"])
-            self._step_widgets[self._selected_step_index].title_lbl.setText(f"<b>{self._selected_step_index + 1}.</b> {title}")
+            title_escaped = html.escape(str(title))
+            self._step_widgets[self._selected_step_index].title_lbl.setText(f"<b>{self._selected_step_index + 1}.</b> {title_escaped}")
 
     def _move_step_up(self, index: int) -> None:
         if index > 0:
