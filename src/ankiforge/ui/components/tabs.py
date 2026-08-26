@@ -5,8 +5,8 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 from PySide6.QtGui import QDrag, QDropEvent, QDragEnterEvent, QDragMoveEvent, QMouseEvent, QPainter, QColor, QPen
 from typing import Any, Tuple
 
-_dragged_tab_info = None
-_floating_windows = []
+_dragged_tab_info: Any = None
+_floating_windows: list[Any] = []
 
 
 class IdeTabBar(QWidget):

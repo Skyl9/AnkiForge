@@ -1400,13 +1400,10 @@ class CreationView(QWidget):
             # 2. Note Types
             note_types = list(NoteTypeModel.select())
             if not note_types:
-
-                class DummyModel:
-                    def __init__(self, name: str):
-                        self.name = name
-                        self.fields_schema = ""
-
-                note_types = [DummyModel("Basique (Recto/Verso)"), DummyModel("Texte à trous (Cloze)")]
+                note_types = [
+                    NoteTypeModel(name="Basique (Recto/Verso)", fields_schema="[]"),
+                    NoteTypeModel(name="Texte à trous (Cloze)", fields_schema="[]"),
+                ]
             self.models_cache = note_types
             if not self.selected_models and self.models_cache:
                 self.selected_models = list(self.models_cache)

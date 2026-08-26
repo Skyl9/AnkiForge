@@ -5,7 +5,7 @@ Seule la largeur du conteneur varie selon le mode sélectionné.
 """
 
 import json
-from typing import Any, cast, Optional
+from typing import Any, Optional
 
 from PySide6.QtCore import QUrl, Slot, Qt, QCoreApplication, QTimer
 from PySide6.QtGui import QResizeEvent
@@ -249,7 +249,7 @@ class CardPreviewWidget(QWidget):
         if override_templates is not None:
             self.current_templates = override_templates
         else:
-            self.current_templates = json.loads(cast(str, note_type.templates)) if note_type and note_type.templates else []
+            self.current_templates = json.loads(note_type.templates) if note_type and note_type.templates else []
 
         if override_css is not None:
             self.current_css = override_css
