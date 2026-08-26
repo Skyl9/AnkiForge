@@ -6,32 +6,41 @@ Vue Laboratoire A/B (Tests A/B) — Modernisée, Conforme au Design System et au
   * Mode 2 : Prompt vs Prompt (ex: Persona A vs Persona B sur le même moteur).
   * Mode 3 : Pipeline vs Pipeline (ex: Pipeline DAG A vs Pipeline DAG B).
 - KPIs & Métriques Comparatives en Direct :
-  * Durée d'exécution en secondes (⏱️).
-  * Nombre de flashcards extraites (🃏).
-  * Estimation des tokens et coût estimé (💰).
-  * Statut de conformité du format JSON (🏷️).
+  * Durée d'exécution en secondes avec mise en valeur de la branche gagnante (⚡ Winner Badge).
+  * Nombre de flashcards extraites.
+  * Estimation des tokens et coût estimé.
+  * Statut de conformité du format JSON.
 - Vue Côte-à-Côte Symétrique (Splitter Branche A / Branche B) :
   * Onglet 1 : Rendu Visuel des Cartes (CardPreviewWidget avec gabarit NoteType).
   * Onglet 2 : Tableau Structuré des Champs (Clés/Valeurs).
   * Onglet 3 : JSON Brut formaté.
 - Fonctionnalités Avancées :
+  * Cockpit supérieur 2 lignes parfaitement proportionné (Zéro chevauchement, Zéro troncature).
+  * Commutateur de représentation unifié synchronisant les deux branches instantanément.
+  * Tiroir de texte source repliable avec presets de démonstration en 1-clic (+100px utiles).
+  * Tiroir de paramètres d'inférence (Température, Max Tokens) évitant l'encombrement vertical (+60px utiles).
+  * Suppression de l'en-tête interne de prévisualisation redondant (+40px utiles).
   * Navigation synchronisée (A ↔ B) ou indépendante.
-  * Bouton 'Importer dans la Forge' en 1-clic pour injecter les cartes gagnantes dans la base de données.
+  * Bouton 'Importer dans la Forge' en 1-clic avec sélection du Deck cible et retour visuel.
   * Exécution asynchrone multithread via deux instances concurrentes de PipelineOrchestrator dans QThreadPool.
+  * Réactivité dynamique totale aux thèmes Sombre et Clair (Zéro couleur en dur).
 """
 
 import json
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from PySide6.QtCore import Qt, QThreadPool, Slot
+from PySide6.QtCore import QSize, Qt, QThreadPool, Slot
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
+    QSizePolicy,
     QSlider,
     QSplitter,
     QStackedWidget,
@@ -56,7 +65,6 @@ from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.ui.components import (
-    Badge,
     IconButton,
     IdePanel,
     PrimaryButton,
@@ -64,8 +72,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledTextEdit,
 )
-from ankiforge.ui.components.tabs import IdeTabBar
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -76,19 +83,137 @@ logger = logging.getLogger(__name__)
 def apply_pill_style(badge: QLabel, color_hex: str) -> None:
     """Applique un style de capsule/pill parfaitement arrondie avec fond translucide et bordure assortie."""
     hex_c = color_hex.lstrip("#")
-    r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+    try:
+        r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+    except Exception:
+        r, g, b = 99, 102, 241
     badge.setStyleSheet(f"""
         QLabel {{
             background-color: rgba({r}, {g}, {b}, 0.15) !important;
             color: {color_hex};
-            border: 1px solid rgba({r}, {g}, {b}, 0.35);
+            border: 1px solid rgba({r}, {g}, {b}, 0.40);
             border-radius: 9999px;
-            padding: 3px 12px;
-            font-size: 10px;
+            padding: 2px 10px;
+            font-size: 10.5px;
             font-weight: bold;
             letter-spacing: 0.5px;
         }}
     """)
+
+
+# =====================================================================
+# COMPOSANT : PASTILLE D'INSERTION RAPIDE (TagPillButton)
+# =====================================================================
+
+
+class TagPillButton(QPushButton):
+    """Bouton pill interactif pour les exemples et actions rapides."""
+
+    def __init__(
+        self,
+        text: str,
+        content: str = "",
+        tooltip: str = "",
+        variant: str = "field",
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self.content = content
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(24)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        if tooltip:
+            self.setToolTip(tooltip)
+
+        if variant == "success":
+            bg_tint = "rgba(16, 185, 129, 0.12)"
+            border_color = "rgba(16, 185, 129, 0.45)"
+            text_color = "#6ee7b7"
+        elif variant == "warning":
+            bg_tint = "rgba(245, 158, 11, 0.12)"
+            border_color = "rgba(245, 158, 11, 0.45)"
+            text_color = "#fcd34d"
+        elif variant == "info":
+            bg_tint = "rgba(6, 182, 212, 0.12)"
+            border_color = "rgba(6, 182, 212, 0.45)"
+            text_color = "#67e8f9"
+        elif variant == "cloze":
+            bg_tint = "rgba(168, 85, 247, 0.12)"
+            border_color = "rgba(168, 85, 247, 0.45)"
+            text_color = "#c084fc"
+        else:  # field
+            bg_tint = "rgba(99, 102, 241, 0.10)"
+            border_color = "rgba(99, 102, 241, 0.40)"
+            text_color = "#a5b4fc"
+
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {bg_tint};
+                border: 1px solid {border_color};
+                border-radius: 12px;
+                color: {text_color};
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 11px;
+                font-weight: 600;
+                padding: 1px 10px;
+            }}
+            QPushButton:hover {{
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+        """)
+
+
+# =====================================================================
+# COMPOSANT : SOUS-ONGLETS STYLE IDE (SubTabButton)
+# =====================================================================
+
+
+class SubTabButton(QPushButton):
+    """Bouton d'onglet style IDE avec relief et indicateur d'accent."""
+
+    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: Optional[QWidget] = None) -> None:
+        super().__init__(text, parent)
+        self.icon_name = icon_name
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(30)
+        self.setIconSize(QSize(15, 15))
+        self.set_active(is_active)
+
+    def set_active(self, active: bool) -> None:
+        if active:
+            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.ACCENT_PRIMARY))
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 2px 14px;
+                    font-size: 11.5px;
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED))
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    border: 1px solid transparent;
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 2px 14px;
+                    font-size: 11.5px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                    color: {DesignTokens.TEXT_PRIMARY};
+                }}
+            """)
 
 
 # =====================================================================
@@ -97,75 +222,92 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
 
 
 class BranchKpiWidget(QFrame):
-    """Affiche les métriques de performance d'une branche de test A/B."""
+    """Bannière aérée et structurée de KPIs de performance pour une branche A/B."""
 
     def __init__(self, branch_title: str, color_hex: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.branch_title = branch_title
         self.color_hex = color_hex
+        self._last_elapsed: float = 0.0
+        self._last_cards: int = 0
+        self._last_tokens: int = 0
+        self._last_cost: float = 0.0
+
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._apply_style()
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(12)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(4)
 
-        # Badge Titre Branche
-        self.badge_title = Badge(branch_title, variant="status")
-        apply_pill_style(self.badge_title, color_hex)
-        layout.addWidget(self.badge_title)
+        # Ligne 1 : Titre Branche + Winner Badge + Statut
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        top_row.setSpacing(8)
 
-        # Durée
+        self.lbl_branch = QLabel(branch_title)
+        self.lbl_branch.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        apply_pill_style(self.lbl_branch, color_hex)
+        top_row.addWidget(self.lbl_branch, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.badge_winner = QLabel("⚡ Plus rapide")
+        self.badge_winner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        apply_pill_style(self.badge_winner, DesignTokens.COLOR_GREEN)
+        self.badge_winner.hide()
+        top_row.addWidget(self.badge_winner, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        top_row.addStretch()
+
+        self.lbl_status = QLabel("Prêt")
+        self.lbl_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        apply_pill_style(self.lbl_status, DesignTokens.TEXT_MUTED)
+        top_row.addWidget(self.lbl_status, alignment=Qt.AlignmentFlag.AlignVCenter)
+        layout.addLayout(top_row)
+
+        # Ligne 2 : Métriques compactes
+        metrics_row = QHBoxLayout()
+        metrics_row.setContentsMargins(0, 0, 0, 0)
+        metrics_row.setSpacing(12)
+
         self.lbl_time = QLabel("⏱️ 0.00s")
-        self.lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        layout.addWidget(self.lbl_time)
+        self.lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent;")
+        metrics_row.addWidget(self.lbl_time, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        # Cartes
         self.lbl_cards = QLabel("🃏 0 cartes")
-        self.lbl_cards.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        layout.addWidget(self.lbl_cards)
+        self.lbl_cards.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent;")
+        metrics_row.addWidget(self.lbl_cards, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        # Tokens
         self.lbl_tokens = QLabel("🪙 ~0 tok")
-        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        layout.addWidget(self.lbl_tokens)
+        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
+        metrics_row.addWidget(self.lbl_tokens, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        # Coût estimé
         self.lbl_cost = QLabel("💰 $0.000")
-        self.lbl_cost.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        layout.addWidget(self.lbl_cost)
+        self.lbl_cost.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
+        metrics_row.addWidget(self.lbl_cost, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        layout.addStretch()
+        metrics_row.addStretch()
+        layout.addLayout(metrics_row)
 
-        # Statut
-        self.lbl_status = Badge("Prêt", variant="neutral")
-        self.lbl_status.setStyleSheet(f"""
-            QLabel {{
+    def _apply_style(self) -> None:
+        self.setStyleSheet(f"""
+            QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_MUTED};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 9999px;
-                padding: 2px 8px;
-                font-size: 9px;
-                font-weight: bold;
+                border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
-        layout.addWidget(self.lbl_status)
 
     def set_running(self) -> None:
+        self.badge_winner.hide()
         self.lbl_status.setText("⏳ En cours...")
-        self.lbl_status.setStyleSheet("""
-            QLabel {
-                background-color: rgba(59, 130, 246, 0.2);
-                color: #60a5fa;
-                border: 1px solid #3b82f6;
-                border-radius: 9999px;
-                padding: 2px 8px;
-                font-size: 9px;
-                font-weight: bold;
-            }
-        """)
+        apply_pill_style(self.lbl_status, DesignTokens.COLOR_BLUE)
 
     def set_results(self, elapsed: float, cards_count: int, tokens: int, cost_usd: float, is_success: bool = True, err_msg: str = "") -> None:
+        self._last_elapsed = elapsed
+        self._last_cards = cards_count
+        self._last_tokens = tokens
+        self._last_cost = cost_usd
+
         self.lbl_time.setText(f"⏱️ {elapsed:.2f}s")
         self.lbl_cards.setText(f"🃏 {cards_count} carte{'s' if cards_count > 1 else ''}")
         self.lbl_tokens.setText(f"🪙 ~{tokens} tok")
@@ -173,31 +315,61 @@ class BranchKpiWidget(QFrame):
 
         if is_success:
             self.lbl_status.setText("✅ Terminé")
-            self.lbl_status.setStyleSheet("""
-                QLabel {
-                    background-color: rgba(16, 185, 129, 0.2);
-                    color: #34d399;
-                    border: 1px solid #10b981;
-                    border-radius: 9999px;
-                    padding: 2px 8px;
-                    font-size: 9px;
-                    font-weight: bold;
-                }
-            """)
+            apply_pill_style(self.lbl_status, DesignTokens.COLOR_GREEN)
         else:
             self.lbl_status.setText("❌ Erreur")
             self.lbl_status.setToolTip(err_msg)
-            self.lbl_status.setStyleSheet("""
-                QLabel {
-                    background-color: rgba(239, 68, 68, 0.2);
-                    color: #f87171;
-                    border: 1px solid #ef4444;
-                    border-radius: 9999px;
-                    padding: 2px 8px;
-                    font-size: 9px;
-                    font-weight: bold;
-                }
-            """)
+            apply_pill_style(self.lbl_status, DesignTokens.COLOR_RED)
+
+    def set_winner(self, text: str = "⚡ Plus rapide") -> None:
+        self.badge_winner.setText(text)
+        self.badge_winner.show()
+
+    def clear_winner(self) -> None:
+        self.badge_winner.hide()
+
+
+# =====================================================================
+# ÉCHANTILLONS DE DÉMONSTRATION PRÉDÉFINIS
+# =====================================================================
+
+PRESET_SAMPLES: List[Tuple[str, str, str]] = [
+    (
+        "Cas Médical",
+        (
+            "L'insuffisance cardiaque droite est caractérisée par l'incapacité du ventricule droit "
+            "à assurer un débit sanguin pulmonaire suffisant. Les signes cliniques prédominants "
+            "associent turgescence jugulaire, reflux hépato-jugulaire, hépatomégalie douloureuse "
+            "et œdèmes des membres inférieurs."
+        ),
+        "field",
+    ),
+    (
+        "Maths (Algèbre)",
+        (
+            "Soit E un espace vectoriel de dimension finie n et u un endomorphisme de E. "
+            "u est diagonalisable si et seulement si son polynôme caractéristique est scindé sur K "
+            "et si pour toute valeur propre λ, la dimension du sous-espace propre associé "
+            "Ker(u - λ·id) est égale à la multiplicité algébrique de λ."
+        ),
+        "cloze",
+    ),
+    (
+        "Droit Civil",
+        (
+            "Selon l'article 1101 du Code civil, le contrat est une convention par laquelle une ou "
+            "plusieurs personnes s'obligent envers d'autres à donner, à faire ou à ne pas faire quelque "
+            "chose. Sa validité requiert le consentement libre et éclairé, la capacité juridique et un "
+            "contenu licite et certain."
+        ),
+        "warning",
+    ),
+    (
+        "Anglais (Idiomes)",
+        ("A blessing in disguise is an apparent misfortune that eventually results in something good happening. To bite the bullet means to face a difficult situation with courage and fortitude."),
+        "info",
+    ),
+]
 
 
 # =====================================================================
@@ -210,9 +382,10 @@ class ABTestsView(QWidget):
     Vue Laboratoire A/B — Comparateur haute précision de Moteurs, Prompts et Pipelines DAG.
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.profile_name = profile_name
 
         self.cards_a: List[Dict[str, Any]] = []
         self.index_a: int = 0
@@ -226,6 +399,10 @@ class ABTestsView(QWidget):
         self._start_time_b: float = 0.0
         self._completed_a: bool = False
         self._completed_b: bool = False
+        self._source_collapsed: bool = False
+        self._adv_collapsed: bool = True
+
+        self.source_text_edit: StyledTextEdit = StyledTextEdit()
 
         self._setup_ui()
         self._connect_signals()
@@ -233,18 +410,19 @@ class ABTestsView(QWidget):
         self._insert_mock_initial_data()
 
     def _build_advanced_settings(self) -> tuple[QWidget, QSlider, QSlider]:
+        """Génère un widget compact pour les réglages de température et tokens."""
         adv_widget = QWidget()
         adv_layout = QHBoxLayout(adv_widget)
-        adv_layout.setContentsMargins(8, 2, 8, 2)
+        adv_layout.setContentsMargins(8, 4, 8, 4)
         adv_layout.setSpacing(14)
 
         lbl_temp = QLabel("Température :")
-        lbl_temp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        lbl_temp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
 
         temp_slider = QSlider(Qt.Orientation.Horizontal)
         temp_slider.setRange(0, 200)
         temp_slider.setValue(70)
-        temp_slider.setFixedWidth(100)
+        temp_slider.setFixedWidth(110)
 
         slider_style = f"""
             QSlider::groove:horizontal {{
@@ -277,12 +455,12 @@ class ABTestsView(QWidget):
         adv_layout.addWidget(lbl_temp_val)
 
         lbl_tok = QLabel("Max Tokens :")
-        lbl_tok.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        lbl_tok.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-left: 12px;")
 
         tok_slider = QSlider(Qt.Orientation.Horizontal)
         tok_slider.setRange(256, 8192)
         tok_slider.setValue(4096)
-        tok_slider.setFixedWidth(100)
+        tok_slider.setFixedWidth(110)
         tok_slider.setStyleSheet(slider_style)
 
         lbl_tok_val = QLabel("4096")
@@ -299,39 +477,41 @@ class ABTestsView(QWidget):
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
+        main_layout.setSpacing(0)
 
         self.ab_panel = IdePanel(detachable=True)
+        self.ab_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         ab_content = QWidget()
         ab_layout = QVBoxLayout(ab_content)
-        ab_layout.setContentsMargins(10, 10, 10, 10)
+        ab_layout.setContentsMargins(12, 12, 12, 12)
         ab_layout.setSpacing(10)
 
-        # ── 1. BARRE DE CONFIGURATION SUPÉRIEURE ──────────────────────────────
-        config_bar_widget = QWidget()
-        config_bar_widget.setObjectName("ConfigBarWidget")
-        config_bar_widget.setStyleSheet(
-            f"QWidget#ConfigBarWidget {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}"
-        )
-        config_bar = QHBoxLayout(config_bar_widget)
-        config_bar.setContentsMargins(10, 8, 10, 8)
-        config_bar.setSpacing(10)
+        # ── 1. BARRE DE CONFIGURATION SUPÉRIEURE (Cockpit 2 Lignes Aéré) ──────
+        self.config_bar_widget = QWidget()
+        self.config_bar_widget.setObjectName("ConfigBarWidget")
+        self._apply_config_bar_style()
 
-        # Sélecteur de Mode
-        lbl_mode = QLabel("MODE DE TEST :")
-        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        config_bar.addWidget(lbl_mode)
+        config_bar_layout = QVBoxLayout(self.config_bar_widget)
+        config_bar_layout.setContentsMargins(12, 10, 12, 10)
+        config_bar_layout.setSpacing(8)
+
+        # Ligne 1 : Sélections (Mode, Contexte Commun, Modèle Cible)
+        row1 = QHBoxLayout()
+        row1.setContentsMargins(0, 0, 0, 0)
+        row1.setSpacing(12)
+
+        lbl_mode = QLabel("MODE :")
+        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
+        row1.addWidget(lbl_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.mode_combo = StyledComboBox()
-        self.mode_combo.addItems(
-            [
-                "🤖 Comparer deux Moteurs IA",
-                "✨ Comparer deux Prompts / Personas",
-                "⚡ Comparer deux Pipelines DAG",
-            ]
-        )
-        config_bar.addWidget(self.mode_combo)
+        self.mode_combo.setMinimumWidth(220)
+        self.mode_combo.setFixedHeight(30)
+        self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), "Comparer deux Moteurs IA")
+        self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), "Comparer deux Prompts / Personas")
+        self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), "Comparer deux Pipelines DAG")
+        row1.addWidget(self.mode_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Agent Commun (affiché en mode Modèle vs Modèle)
         self.global_persona_widget = QWidget()
@@ -341,9 +521,11 @@ class ABTestsView(QWidget):
         lbl_gp = QLabel("Agent Commun :")
         lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.persona_combo = StyledComboBox()
+        self.persona_combo.setMinimumWidth(170)
+        self.persona_combo.setFixedHeight(30)
         gp_layout.addWidget(lbl_gp)
         gp_layout.addWidget(self.persona_combo)
-        config_bar.addWidget(self.global_persona_widget)
+        row1.addWidget(self.global_persona_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Moteur Commun (affiché en mode Prompt vs Prompt et Pipeline vs Pipeline)
         self.global_engine_widget = QWidget()
@@ -353,73 +535,191 @@ class ABTestsView(QWidget):
         lbl_ge = QLabel("Moteur Commun :")
         lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.global_engine_combo = StyledComboBox()
+        self.global_engine_combo.setMinimumWidth(170)
+        self.global_engine_combo.setFixedHeight(30)
         ge_layout.addWidget(lbl_ge)
         ge_layout.addWidget(self.global_engine_combo)
-        config_bar.addWidget(self.global_engine_widget)
+        row1.addWidget(self.global_engine_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
         self.global_engine_widget.hide()
 
         # Modèle NoteType cible
         lbl_nt = QLabel("Modèle Cible :")
         lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        config_bar.addWidget(lbl_nt)
+        row1.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
         self.model_combo = StyledComboBox()
-        config_bar.addWidget(self.model_combo)
+        self.model_combo.setMinimumWidth(160)
+        self.model_combo.setFixedHeight(30)
+        row1.addWidget(self.model_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        row1.addStretch()
+
+        config_bar_layout.addLayout(row1)
+
+        # Ligne 2 : Paquet Cible, Actions, Options et Lancement
+        row2 = QHBoxLayout()
+        row2.setContentsMargins(0, 0, 0, 0)
+        row2.setSpacing(12)
+
+        # Paquet Cible (Deck)
+        lbl_deck = QLabel("Paquet Cible :")
+        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        row2.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.deck_combo = StyledComboBox()
+        self.deck_combo.setMinimumWidth(140)
+        self.deck_combo.setFixedHeight(30)
+        row2.addWidget(self.deck_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Bouton Paramètres Inférence
+        self.btn_adv_toggle = SecondaryButton("Réglages Inférence")
+        self.btn_adv_toggle.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_adv_toggle.setFixedHeight(28)
+        self.btn_adv_toggle.clicked.connect(self._toggle_advanced_drawer)
+        row2.addWidget(self.btn_adv_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Option de synchronisation de navigation
-        self.chk_sync_nav = QCheckBox("Synchro A ↔ B")
+        self.chk_sync_nav = QCheckBox("Synchronisation Navigation A ↔ B")
         self.chk_sync_nav.setChecked(True)
         self.chk_sync_nav.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        config_bar.addWidget(self.chk_sync_nav)
+        self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
+        row2.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        config_bar.addStretch()
+        row2.addStretch()
 
         # Bouton Lancement A/B
         self.btn_run = PrimaryButton("Lancer le Test A/B")
         self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
-        config_bar.addWidget(self.btn_run)
+        self.btn_run.setIconSize(QSize(15, 15))
+        self.btn_run.setFixedHeight(32)
+        self.btn_run.setMinimumWidth(200)
+        apply_shadow(self.btn_run, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
+        row2.addWidget(self.btn_run, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        ab_layout.addWidget(config_bar_widget)
+        config_bar_layout.addLayout(row2)
 
-        # Paramètres Avancés Globaux
+        ab_layout.addWidget(self.config_bar_widget)
+
+        # ── 2. TIROIR PARAMÈTRES AVANCÉS (Inférence) ──────────────────────────
+        self.adv_drawer = QFrame()
+        self.adv_drawer.setObjectName("AdvDrawer")
+        adv_drawer_layout = QVBoxLayout(self.adv_drawer)
+        adv_drawer_layout.setContentsMargins(10, 6, 10, 6)
+        adv_drawer_layout.setSpacing(6)
+
         self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_advanced_settings()
-        self.global_adv_widget.hide()
-        ab_layout.addWidget(self.global_adv_widget)
+        self.temp_slider_a = self.global_temp_slider
+        self.tok_slider_a = self.global_tok_slider
+        self.temp_slider_b = self.global_temp_slider
+        self.tok_slider_b = self.global_tok_slider
 
-        # ── 2. SECTION TEXTE SOURCE ───────────────────────────────────────────
-        source_box = QFrame()
-        source_box.setObjectName("SourceBox")
-        source_box.setFixedHeight(100)
-        source_box.setStyleSheet(f"QFrame#SourceBox {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
-        source_layout = QVBoxLayout(source_box)
-        source_layout.setContentsMargins(10, 6, 10, 6)
-        source_layout.setSpacing(4)
+        adv_drawer_layout.addWidget(self.global_adv_widget)
+        self.adv_drawer.hide()
+        ab_layout.addWidget(self.adv_drawer)
+
+        # ── 3. TIROIR TEXTE SOURCE REPLIABLE ──────────────────────────────────
+        self.source_box = QFrame()
+        self.source_box.setObjectName("SourceBox")
+        self._apply_source_box_style()
+
+        source_layout = QVBoxLayout(self.source_box)
+        source_layout.setContentsMargins(12, 8, 12, 8)
+        source_layout.setSpacing(6)
 
         src_header = QHBoxLayout()
+        src_header.setSpacing(8)
+
+        lbl_src_icon = QLabel()
+        lbl_src_icon.setFixedSize(16, 16)
+        lbl_src_icon.setPixmap(load_phosphor_icon("ph.text-align-left", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        src_header.addWidget(lbl_src_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         lbl_src_title = QLabel("TEXTE SOURCE D'ENTRÉE :")
         lbl_src_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        src_header.addWidget(lbl_src_title)
+        src_header.addWidget(lbl_src_title, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Presets d'exemples rapides
+        for label, text_content, var_style in PRESET_SAMPLES:
+            btn_preset = TagPillButton(f"+ {label}", text_content, tooltip=f"Insère un exemple : {label}", variant=var_style)
+            btn_preset.clicked.connect(lambda _, txt=text_content: self.source_text_edit.setPlainText(txt))
+            src_header.addWidget(btn_preset, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         src_header.addStretch()
 
         self.lbl_src_chars = QLabel("0 caractères")
-        self.lbl_src_chars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: monospace;")
-        src_header.addWidget(self.lbl_src_chars)
+        self.lbl_src_chars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-family: monospace;")
+        src_header.addWidget(self.lbl_src_chars, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Bouton Effacer
+        btn_clear_src = IconButton("ph.trash", tooltip="Effacer le texte source", size=22)
+        btn_clear_src.clicked.connect(lambda: self.source_text_edit.clear())
+        src_header.addWidget(btn_clear_src, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Bouton Replier/Déplier le texte source
+        self.btn_toggle_source = IconButton("ph.caret-up", tooltip="Replier / Déplier le texte source", size=22)
+        self.btn_toggle_source.clicked.connect(self._toggle_source_drawer)
+        src_header.addWidget(self.btn_toggle_source, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         source_layout.addLayout(src_header)
 
-        self.source_text_edit = StyledTextEdit()
         self.source_text_edit.setPlaceholderText("Collez ici l'extrait de cours ou la consigne à tester dans le laboratoire A/B...")
-        self.source_text_edit.setStyleSheet("border: none; background: transparent; font-size: 12px;")
-        self.source_text_edit.textChanged.connect(lambda: self.lbl_src_chars.setText(f"{len(self.source_text_edit.toPlainText())} caractères"))
-        source_layout.addWidget(self.source_text_edit, 1)
+        self.source_text_edit.setFixedHeight(75)
+        self.source_text_edit.textChanged.connect(self._on_source_text_changed)
+        source_layout.addWidget(self.source_text_edit)
 
-        ab_layout.addWidget(source_box)
+        ab_layout.addWidget(self.source_box)
 
-        # ── 3. COMPARATIF CÔTE-À-CÔTE (BRANCHE A VS BRANCHE B) ─────────────────
+        # ── 4. BARRE CENTRALE DE COMMUTATION DE REPRÉSENTATION ─────────────────
+        switcher_bar = QHBoxLayout()
+        switcher_bar.setSpacing(6)
+
+        lbl_view_mode = QLabel("VUE COMPARATIVE :")
+        lbl_view_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        switcher_bar.addWidget(lbl_view_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.btn_subtab_preview = SubTabButton("Rendu Visuel", "ph.eye", is_active=True)
+        self.btn_subtab_preview.clicked.connect(lambda: self._switch_view_mode(0))
+        switcher_bar.addWidget(self.btn_subtab_preview, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.btn_subtab_table = SubTabButton("Tableau des Champs", "ph.table", is_active=False)
+        self.btn_subtab_table.clicked.connect(lambda: self._switch_view_mode(1))
+        switcher_bar.addWidget(self.btn_subtab_table, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.btn_subtab_json = SubTabButton("JSON Brut", "ph.code", is_active=False)
+        self.btn_subtab_json.clicked.connect(lambda: self._switch_view_mode(2))
+        switcher_bar.addWidget(self.btn_subtab_json, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        switcher_bar.addStretch()
+
+        # Outils de Rendu (Flip & Devices)
+        self.btn_flip_both = SecondaryButton("Retourner (Verso)")
+        self.btn_flip_both.setIcon(load_phosphor_icon("ph.arrow-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_flip_both.setFixedHeight(28)
+        self.btn_flip_both.clicked.connect(self._on_flip_both_cards)
+        switcher_bar.addWidget(self.btn_flip_both, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.btn_device_desktop = IconButton("ph.monitor", tooltip="Mode Bureau (100% largeur)", size=24)
+        self.btn_device_desktop.clicked.connect(lambda: self._set_both_device_mode("desktop"))
+        switcher_bar.addWidget(self.btn_device_desktop, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.btn_device_tablet = IconButton("ph.device-tablet", tooltip="Mode Tablette (768px)", size=24)
+        self.btn_device_tablet.clicked.connect(lambda: self._set_both_device_mode("tablet"))
+        switcher_bar.addWidget(self.btn_device_tablet, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.btn_device_mobile = IconButton("ph.device-mobile", tooltip="Mode Mobile (375px)", size=24)
+        self.btn_device_mobile.clicked.connect(lambda: self._set_both_device_mode("mobile"))
+        switcher_bar.addWidget(self.btn_device_mobile, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        ab_layout.addLayout(switcher_bar)
+
+        # ── 5. COMPARATIF CÔTE-À-CÔTE (BRANCHE A VS BRANCHE B) ─────────────────
         self.compare_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.compare_splitter.setStyleSheet(f"""
             QSplitter::handle {{
                 background-color: {DesignTokens.BORDER_COLOR};
-                width: 2px;
+                width: 3px;
+                border-radius: 1px;
+            }}
+            QSplitter::handle:hover {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
         ab_layout.addWidget(self.compare_splitter, 1)
@@ -427,92 +727,57 @@ class ABTestsView(QWidget):
         # ── PANNEAU A (Thème Violet/Indigo) ──
         self.panel_a = QFrame()
         self.panel_a.setObjectName("PanelA")
-        self.panel_a.setStyleSheet(f"QFrame#PanelA {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         layout_a = QVBoxLayout(self.panel_a)
-        layout_a.setContentsMargins(0, 0, 0, 0)
-        layout_a.setSpacing(0)
+        layout_a.setContentsMargins(10, 10, 10, 10)
+        layout_a.setSpacing(8)
 
         # En-tête A
         toolbar_a = QHBoxLayout()
-        toolbar_a.setContentsMargins(10, 8, 10, 8)
+        toolbar_a.setContentsMargins(0, 0, 0, 0)
+        toolbar_a.setSpacing(8)
+
         self.lbl_a = QLabel("Moteur A :")
         self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.engine_a_combo = StyledComboBox()
+        self.engine_a_combo.setFixedHeight(30)
         self.persona_a_combo = StyledComboBox()
+        self.persona_a_combo.setFixedHeight(30)
         self.persona_a_combo.hide()
         self.pipeline_a_combo = StyledComboBox()
+        self.pipeline_a_combo.setFixedHeight(30)
         self.pipeline_a_combo.hide()
 
-        toolbar_a.addWidget(self.lbl_a)
-        toolbar_a.addWidget(self.engine_a_combo, 1)
-        toolbar_a.addWidget(self.persona_a_combo, 1)
-        toolbar_a.addWidget(self.pipeline_a_combo, 1)
+        self.btn_import_a = SecondaryButton("Importer dans la Forge")
+        self.btn_import_a.setIcon(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import_a.setFixedHeight(28)
+        self.btn_import_a.clicked.connect(lambda: self._on_import_branch_to_forge("A"))
+
+        toolbar_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.engine_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.persona_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.pipeline_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.btn_import_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_a.addLayout(toolbar_a)
 
         # KPIs A
         self.kpi_a = BranchKpiWidget("BRANCHE A", color_hex="#8b5cf6")
         layout_a.addWidget(self.kpi_a)
 
-        self.adv_widget_a, self.temp_slider_a, self.tok_slider_a = self._build_advanced_settings()
-        layout_a.addWidget(self.adv_widget_a)
-
-        # Sous-onglets A (Rendu Cartes / Tableau Champs / JSON Brut)
-        self.subtabs_a = IdeTabBar()
-        self.subtabs_a.add_tab("Rendu Cartes", "ph.eye")
-        self.subtabs_a.add_tab("Tableau des Champs", "ph.table")
-        self.subtabs_a.add_tab("JSON Brut", "ph.code")
-        layout_a.addWidget(self.subtabs_a)
-
-        # Navigation A
-        nav_a = QHBoxLayout()
-        nav_a.setContentsMargins(10, 4, 10, 4)
-        self.btn_prev_a = IconButton("ph.caret-left", size=18)
-        self.lbl_count_a = QLabel("0 / 0")
-        self.lbl_count_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
-        self.btn_next_a = IconButton("ph.caret-right", size=18)
-
-        self.btn_import_a = SecondaryButton("Importer dans la Forge")
-        self.btn_import_a.setIcon(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_a.clicked.connect(lambda: self._on_import_branch_to_forge("A"))
-
-        nav_a.addWidget(self.btn_prev_a)
-        nav_a.addStretch()
-        nav_a.addWidget(self.lbl_count_a)
-        nav_a.addStretch()
-        nav_a.addWidget(self.btn_next_a)
-        nav_a.addWidget(self.btn_import_a)
-        layout_a.addLayout(nav_a)
-
         # Stack de visualisation A
         self.stack_a = QStackedWidget()
-        self.preview_a = CardPreviewWidget(show_header=True)
+        self.preview_a = CardPreviewWidget(show_header=False)
+        if hasattr(self.preview_a, "controls_container"):
+            self.preview_a.controls_container.hide()
 
         self.table_a = QTableWidget()
         self.table_a.setColumnCount(2)
         self.table_a.setHorizontalHeaderLabels(["Champ NoteType", "Valeur Générée"])
         self.table_a.horizontalHeader().setStretchLastSection(True)
-        self.table_a.setStyleSheet(f"""
-            QTableWidget {{
-                background-color: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: none;
-                gridline-color: {DesignTokens.BORDER_COLOR};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_MUTED};
-                font-weight: bold;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                padding: 4px;
-            }}
-        """)
+        self.table_a.verticalHeader().setVisible(False)
+        self.table_a.setColumnWidth(0, 140)
 
         self.json_edit_a = StyledTextEdit()
         self.json_edit_a.setReadOnly(True)
-        self.json_edit_a.setStyleSheet(
-            f"QPlainTextEdit {{ background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; "
-            f"font-family: '{DesignTokens.FONT_CODE}', monospace; font-size: 12px; border: none; padding: 10px; }}"
-        )
 
         self.stack_a.addWidget(self.preview_a)
         self.stack_a.addWidget(self.table_a)
@@ -524,92 +789,57 @@ class ABTestsView(QWidget):
         # ── PANNEAU B (Thème Cyan/Émeraude) ──
         self.panel_b = QFrame()
         self.panel_b.setObjectName("PanelB")
-        self.panel_b.setStyleSheet(f"QFrame#PanelB {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}")
         layout_b = QVBoxLayout(self.panel_b)
-        layout_b.setContentsMargins(0, 0, 0, 0)
-        layout_b.setSpacing(0)
+        layout_b.setContentsMargins(10, 10, 10, 10)
+        layout_b.setSpacing(8)
 
         # En-tête B
         toolbar_b = QHBoxLayout()
-        toolbar_b.setContentsMargins(10, 8, 10, 8)
+        toolbar_b.setContentsMargins(0, 0, 0, 0)
+        toolbar_b.setSpacing(8)
+
         self.lbl_b = QLabel("Moteur B :")
         self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.engine_b_combo = StyledComboBox()
+        self.engine_b_combo.setFixedHeight(30)
         self.persona_b_combo = StyledComboBox()
+        self.persona_b_combo.setFixedHeight(30)
         self.persona_b_combo.hide()
         self.pipeline_b_combo = StyledComboBox()
+        self.pipeline_b_combo.setFixedHeight(30)
         self.pipeline_b_combo.hide()
 
-        toolbar_b.addWidget(self.lbl_b)
-        toolbar_b.addWidget(self.engine_b_combo, 1)
-        toolbar_b.addWidget(self.persona_b_combo, 1)
-        toolbar_b.addWidget(self.pipeline_b_combo, 1)
+        self.btn_import_b = SecondaryButton("Importer dans la Forge")
+        self.btn_import_b.setIcon(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import_b.setFixedHeight(28)
+        self.btn_import_b.clicked.connect(lambda: self._on_import_branch_to_forge("B"))
+
+        toolbar_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.engine_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.persona_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.pipeline_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.btn_import_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_b.addLayout(toolbar_b)
 
         # KPIs B
         self.kpi_b = BranchKpiWidget("BRANCHE B", color_hex="#06b6d4")
         layout_b.addWidget(self.kpi_b)
 
-        self.adv_widget_b, self.temp_slider_b, self.tok_slider_b = self._build_advanced_settings()
-        layout_b.addWidget(self.adv_widget_b)
-
-        # Sous-onglets B
-        self.subtabs_b = IdeTabBar()
-        self.subtabs_b.add_tab("Rendu Cartes", "ph.eye")
-        self.subtabs_b.add_tab("Tableau des Champs", "ph.table")
-        self.subtabs_b.add_tab("JSON Brut", "ph.code")
-        layout_b.addWidget(self.subtabs_b)
-
-        # Navigation B
-        nav_b = QHBoxLayout()
-        nav_b.setContentsMargins(10, 4, 10, 4)
-        self.btn_prev_b = IconButton("ph.caret-left", size=18)
-        self.lbl_count_b = QLabel("0 / 0")
-        self.lbl_count_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
-        self.btn_next_b = IconButton("ph.caret-right", size=18)
-
-        self.btn_import_b = SecondaryButton("Importer dans la Forge")
-        self.btn_import_b.setIcon(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_b.clicked.connect(lambda: self._on_import_branch_to_forge("B"))
-
-        nav_b.addWidget(self.btn_prev_b)
-        nav_b.addStretch()
-        nav_b.addWidget(self.lbl_count_b)
-        nav_b.addStretch()
-        nav_b.addWidget(self.btn_next_b)
-        nav_b.addWidget(self.btn_import_b)
-        layout_b.addLayout(nav_b)
-
         # Stack de visualisation B
         self.stack_b = QStackedWidget()
-        self.preview_b = CardPreviewWidget(show_header=True)
+        self.preview_b = CardPreviewWidget(show_header=False)
+        if hasattr(self.preview_b, "controls_container"):
+            self.preview_b.controls_container.hide()
 
         self.table_b = QTableWidget()
         self.table_b.setColumnCount(2)
         self.table_b.setHorizontalHeaderLabels(["Champ NoteType", "Valeur Générée"])
         self.table_b.horizontalHeader().setStretchLastSection(True)
-        self.table_b.setStyleSheet(f"""
-            QTableWidget {{
-                background-color: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: none;
-                gridline-color: {DesignTokens.BORDER_COLOR};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_MUTED};
-                font-weight: bold;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                padding: 4px;
-            }}
-        """)
+        self.table_b.verticalHeader().setVisible(False)
+        self.table_b.setColumnWidth(0, 140)
 
         self.json_edit_b = StyledTextEdit()
         self.json_edit_b.setReadOnly(True)
-        self.json_edit_b.setStyleSheet(
-            f"QPlainTextEdit {{ background-color: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY}; "
-            f"font-family: '{DesignTokens.FONT_CODE}', monospace; font-size: 12px; border: none; padding: 10px; }}"
-        )
 
         self.stack_b.addWidget(self.preview_b)
         self.stack_b.addWidget(self.table_b)
@@ -619,14 +849,167 @@ class ABTestsView(QWidget):
         self.compare_splitter.addWidget(self.panel_b)
         self.compare_splitter.setSizes([500, 500])
 
+        # ── 6. BARRE DE PAGINATION INTÉGRÉE (Inférieure) ──────────────────────
+        pagination_bar = QHBoxLayout()
+        pagination_bar.setContentsMargins(10, 4, 10, 4)
+        pagination_bar.setSpacing(12)
+
+        # Pagination A
+        nav_a_box = QHBoxLayout()
+        nav_a_box.setSpacing(6)
+        lbl_pag_a = QLabel("Branche A :")
+        lbl_pag_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.btn_prev_a = IconButton("ph.caret-left", size=22)
+        self.lbl_count_a = QLabel("0 / 0")
+        self.lbl_count_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: bold;")
+        self.btn_next_a = IconButton("ph.caret-right", size=22)
+        nav_a_box.addWidget(lbl_pag_a)
+        nav_a_box.addWidget(self.btn_prev_a)
+        nav_a_box.addWidget(self.lbl_count_a)
+        nav_a_box.addWidget(self.btn_next_a)
+        pagination_bar.addLayout(nav_a_box)
+
+        pagination_bar.addStretch()
+
+        # Indicateur de raccourci
+        lbl_shortcut = QLabel("Raccourci : Ctrl+Entrée pour lancer")
+        lbl_shortcut.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-style: italic;")
+        pagination_bar.addWidget(lbl_shortcut)
+
+        pagination_bar.addStretch()
+
+        # Pagination B
+        nav_b_box = QHBoxLayout()
+        nav_b_box.setSpacing(6)
+        lbl_pag_b = QLabel("Branche B :")
+        lbl_pag_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.btn_prev_b = IconButton("ph.caret-left", size=22)
+        self.lbl_count_b = QLabel("0 / 0")
+        self.lbl_count_b.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: bold;")
+        self.btn_next_b = IconButton("ph.caret-right", size=22)
+        nav_b_box.addWidget(lbl_pag_b)
+        nav_b_box.addWidget(self.btn_prev_b)
+        nav_b_box.addWidget(self.lbl_count_b)
+        nav_b_box.addWidget(self.btn_next_b)
+        pagination_bar.addLayout(nav_b_box)
+
+        ab_layout.addLayout(pagination_bar)
+
+        self._apply_theme_to_widgets()
+
         self.ab_panel.add_tab("Laboratoire A/B", ab_content, "ph.scales", closable=False)
-        main_layout.addWidget(self.ab_panel)
+        main_layout.addWidget(self.ab_panel, 1)
+
+        # Raccourci Ctrl+Entrée pour lancer le test A/B
+        shortcut_run = QShortcut(QKeySequence("Ctrl+Return"), self)
+        shortcut_run.activated.connect(self._on_run_ab_test)
+
+    def _apply_config_bar_style(self) -> None:
+        self.config_bar_widget.setStyleSheet(f"""
+            QWidget#ConfigBarWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QWidget#ConfigBarWidget QLabel {{
+                background: transparent;
+            }}
+        """)
+
+    def _apply_source_box_style(self) -> None:
+        self.source_box.setStyleSheet(f"""
+            QFrame#SourceBox {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#SourceBox QLabel {{
+                background: transparent;
+            }}
+        """)
+
+    def _apply_theme_to_widgets(self) -> None:
+        """Applique les styles dérivés de DesignTokens de façon dynamique et cohérente."""
+        self._apply_config_bar_style()
+        self._apply_source_box_style()
+
+        panel_css = f"""
+            QFrame#PanelA, QFrame#PanelB {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#PanelA QLabel, QFrame#PanelB QLabel {{
+                background: transparent;
+            }}
+        """
+        self.panel_a.setStyleSheet(panel_css)
+        self.panel_b.setStyleSheet(panel_css)
+
+        self.adv_drawer.setStyleSheet(f"""
+            QFrame#AdvDrawer {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+
+        self.source_text_edit.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 6px;
+                font-size: 12px;
+            }}
+        """)
+
+        table_css = f"""
+            QTableWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                gridline-color: {DesignTokens.BORDER_COLOR};
+                selection-background-color: {DesignTokens.BG_HOVER};
+                selection-color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_MUTED};
+                font-weight: bold;
+                font-size: 11px;
+                border: none;
+                border-right: 1px solid {DesignTokens.BORDER_COLOR};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 6px 12px;
+            }}
+        """
+        self.table_a.setStyleSheet(table_css)
+        self.table_b.setStyleSheet(table_css)
+
+        json_css = f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.COLOR_BLUE};
+                font-family: '{DesignTokens.FONT_CODE}', monospace;
+                font-size: 11.5px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 8px;
+            }}
+        """
+        self.json_edit_a.setStyleSheet(json_css)
+        self.json_edit_b.setStyleSheet(json_css)
+
+        if hasattr(self, "kpi_a"):
+            self.kpi_a._apply_style()
+        if hasattr(self, "kpi_b"):
+            self.kpi_b._apply_style()
 
     def _connect_signals(self) -> None:
         self.btn_run.clicked.connect(self._on_run_ab_test)
-
-        self.subtabs_a.tab_changed.connect(self.stack_a.setCurrentIndex)
-        self.subtabs_b.tab_changed.connect(self.stack_b.setCurrentIndex)
 
         self.btn_prev_a.clicked.connect(self._prev_a)
         self.btn_next_a.clicked.connect(self._next_a)
@@ -636,6 +1019,43 @@ class ABTestsView(QWidget):
 
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
+    def _on_source_text_changed(self) -> None:
+        cnt = len(self.source_text_edit.toPlainText())
+        self.lbl_src_chars.setText(f"{cnt} caractère{'s' if cnt > 1 else ''}")
+
+    def _toggle_source_drawer(self) -> None:
+        self._source_collapsed = not self._source_collapsed
+        self.source_text_edit.setVisible(not self._source_collapsed)
+        if self._source_collapsed:
+            self.btn_toggle_source.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_MUTED))
+            self.btn_toggle_source.setToolTip("Déplier le texte source")
+        else:
+            self.btn_toggle_source.setIcon(load_phosphor_icon("ph.caret-up", color=DesignTokens.TEXT_MUTED))
+            self.btn_toggle_source.setToolTip("Replier le texte source")
+
+    def _toggle_advanced_drawer(self) -> None:
+        self._adv_collapsed = not self._adv_collapsed
+        self.adv_drawer.setVisible(not self._adv_collapsed)
+
+    def _switch_view_mode(self, mode_idx: int) -> None:
+        self.btn_subtab_preview.set_active(mode_idx == 0)
+        self.btn_subtab_table.set_active(mode_idx == 1)
+        self.btn_subtab_json.set_active(mode_idx == 2)
+        self.stack_a.setCurrentIndex(mode_idx)
+        self.stack_b.setCurrentIndex(mode_idx)
+
+    def _on_flip_both_cards(self) -> None:
+        if hasattr(self.preview_a, "flip_card"):
+            self.preview_a.flip_card()
+        if hasattr(self.preview_b, "flip_card"):
+            self.preview_b.flip_card()
+
+    def _set_both_device_mode(self, mode: str) -> None:
+        if hasattr(self.preview_a, "set_device_mode"):
+            self.preview_a.set_device_mode(mode)
+        if hasattr(self.preview_b, "set_device_mode"):
+            self.preview_b.set_device_mode(mode)
+
     @Slot()
     def _on_mode_changed(self) -> None:
         idx = self.mode_combo.currentIndex()
@@ -643,56 +1063,47 @@ class ABTestsView(QWidget):
             # Mode "Comparer deux Moteurs IA"
             self.global_persona_widget.show()
             self.global_engine_widget.hide()
-            self.global_adv_widget.hide()
 
             self.lbl_a.setText("Moteur A :")
             self.engine_a_combo.show()
             self.persona_a_combo.hide()
             self.pipeline_a_combo.hide()
-            self.adv_widget_a.show()
 
             self.lbl_b.setText("Moteur B :")
             self.engine_b_combo.show()
             self.persona_b_combo.hide()
             self.pipeline_b_combo.hide()
-            self.adv_widget_b.show()
         elif idx == 1:
             # Mode "Comparer deux Prompts / Personas"
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
-            self.global_adv_widget.show()
 
             self.lbl_a.setText("Prompt A :")
             self.engine_a_combo.hide()
             self.persona_a_combo.show()
             self.pipeline_a_combo.hide()
-            self.adv_widget_a.hide()
 
             self.lbl_b.setText("Prompt B :")
             self.engine_b_combo.hide()
             self.persona_b_combo.show()
             self.pipeline_b_combo.hide()
-            self.adv_widget_b.hide()
         else:
             # Mode "Comparer deux Pipelines DAG"
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
-            self.global_adv_widget.show()
 
             self.lbl_a.setText("Pipeline A :")
             self.engine_a_combo.hide()
             self.persona_a_combo.hide()
             self.pipeline_a_combo.show()
-            self.adv_widget_a.hide()
 
             self.lbl_b.setText("Pipeline B :")
             self.engine_b_combo.hide()
             self.persona_b_combo.hide()
             self.pipeline_b_combo.show()
-            self.adv_widget_b.hide()
 
     def refresh_data(self) -> None:
-        """Recharge les moteurs, agents, pipelines et modèles depuis Peewee DB."""
+        """Recharge les moteurs, agents, pipelines, decks et modèles depuis Peewee DB."""
         try:
             self.engine_a_combo.blockSignals(True)
             self.engine_b_combo.blockSignals(True)
@@ -703,9 +1114,10 @@ class ABTestsView(QWidget):
 
             engines = list(LLMConfigModel.select())
             for eg in engines:
-                self.engine_a_combo.addItem(eg.display_name or eg.provider, userData=eg)
-                self.engine_b_combo.addItem(eg.display_name or eg.provider, userData=eg)
-                self.global_engine_combo.addItem(eg.display_name or eg.provider, userData=eg)
+                name = eg.display_name or eg.provider
+                self.engine_a_combo.addItem(name, userData=eg)
+                self.engine_b_combo.addItem(name, userData=eg)
+                self.global_engine_combo.addItem(name, userData=eg)
             if len(engines) > 1:
                 self.engine_b_combo.setCurrentIndex(1)
 
@@ -749,6 +1161,16 @@ class ABTestsView(QWidget):
                 self.model_combo.addItem(nt.name, userData=nt)
             self.model_combo.blockSignals(False)
 
+            self.deck_combo.blockSignals(True)
+            self.deck_combo.clear()
+            decks = list(DeckModel.select())
+            if not decks:
+                default_d = DeckModel.create(name="Défaut")
+                decks = [default_d]
+            for d in decks:
+                self.deck_combo.addItem(d.name, userData=d)
+            self.deck_combo.blockSignals(False)
+
         except Exception as e:
             logger.warning("Erreur refresh_data ab_tests_view: %s", e)
 
@@ -757,7 +1179,7 @@ class ABTestsView(QWidget):
 
     def _insert_mock_initial_data(self) -> None:
         """Données initiales de démonstration."""
-        self.source_text_edit.setPlainText("L'insuffisance cardiaque droite est caractérisée par l'incapacité du ventricule droit à assurer un débit sanguin suffisant.")
+        self.source_text_edit.setPlainText(PRESET_SAMPLES[0][1])
 
         self.cards_a = [
             {
@@ -1017,9 +1439,36 @@ class ABTestsView(QWidget):
         show_toast(self, f"Erreur Branche B: {err}", is_error=True)
         self._check_test_complete()
 
+    def _evaluate_winner(self) -> None:
+        """Compare les métriques et met en avant la branche gagnante."""
+        time_a = self.kpi_a._last_elapsed
+        time_b = self.kpi_b._last_elapsed
+        cost_a = self.kpi_a._last_cost
+        cost_b = self.kpi_b._last_cost
+
+        if time_a > 0 and time_b > 0:
+            if time_a < time_b * 0.90:
+                ratio = time_b / time_a if time_a > 0 else 1.0
+                self.kpi_a.set_winner(f"⚡ {ratio:.1f}x plus rapide")
+                self.kpi_b.clear_winner()
+            elif time_b < time_a * 0.90:
+                ratio = time_a / time_b if time_b > 0 else 1.0
+                self.kpi_b.set_winner(f"⚡ {ratio:.1f}x plus rapide")
+                self.kpi_a.clear_winner()
+            elif cost_a < cost_b * 0.85:
+                self.kpi_a.set_winner("💰 Plus économique")
+                self.kpi_b.clear_winner()
+            elif cost_b < cost_a * 0.85:
+                self.kpi_b.set_winner("💰 Plus économique")
+                self.kpi_a.clear_winner()
+            else:
+                self.kpi_a.clear_winner()
+                self.kpi_b.clear_winner()
+
     def _check_test_complete(self) -> None:
         if self._completed_a and self._completed_b:
             self.btn_run.setEnabled(True)
+            self._evaluate_winner()
             self._update_views()
             show_toast(self, "Test A/B terminé avec succès !")
 
@@ -1033,12 +1482,13 @@ class ABTestsView(QWidget):
         if not selected_nt:
             selected_nt = NoteTypeModel.select().first()
 
-        try:
-            # Récupérer ou créer un Deck par défaut
-            deck = DeckModel.get_or_none(DeckModel.name == "Défaut")
-            if not deck:
-                deck = DeckModel.create(name="Défaut")
+        selected_deck = self.deck_combo.currentData()
+        if not selected_deck:
+            selected_deck = DeckModel.get_or_none(DeckModel.name == "Défaut")
+            if not selected_deck:
+                selected_deck = DeckModel.create(name="Défaut")
 
+        try:
             imported_count = 0
             with db.atomic():
                 for card_dict in cards:
@@ -1048,24 +1498,26 @@ class ABTestsView(QWidget):
                         tags="ab_test",
                     )
                     note.add_version(card_dict, source="ai_ab_test")
-                    CardModel.create(note=note, deck=deck, template_index=0)
+                    CardModel.create(note=note, deck=selected_deck, template_index=0)
                     imported_count += 1
 
-            show_toast(self, f"{imported_count} cartes de la Branche {branch} importées avec succès dans la Forge !")
+            # Feedback visuel sur le bouton
+            btn = self.btn_import_a if branch == "A" else self.btn_import_b
+            btn.setText(f"✓ {imported_count} Importées")
+            btn.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
+
+            show_toast(self, f"{imported_count} cartes de la Branche {branch} importées dans le paquet '{selected_deck.name}' !")
         except Exception as e:
             logger.exception("Erreur lors de l'import des cartes A/B dans la Forge")
             show_toast(self, f"Erreur lors de l'import : {e}", is_error=True)
 
     def refresh_theme(self, profile: Any) -> None:
         """Rafraîchit à chaud les composants et aperçus de cartes A/B lors d'un changement de thème."""
+        self._apply_theme_to_widgets()
         if hasattr(self, "preview_a") and hasattr(self.preview_a, "refresh_theme"):
             self.preview_a.refresh_theme(profile)
         if hasattr(self, "preview_b") and hasattr(self.preview_b, "refresh_theme"):
             self.preview_b.refresh_theme(profile)
-        if hasattr(self, "tab_bar_a"):
-            self.tab_bar_a.update()
-        if hasattr(self, "tab_bar_b"):
-            self.tab_bar_b.update()
 
 
 ABTestsTab = ABTestsView

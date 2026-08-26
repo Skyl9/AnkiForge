@@ -1,9 +1,11 @@
-import pytest
 import json
 import uuid
 from typing import Any
 
+import pytest
+
 from ankiforge.database.models import (
+    DeckModel,
     LLMConfigModel,
     NoteModel,
     NoteTypeModel,
@@ -11,6 +13,7 @@ from ankiforge.database.models import (
     PipelineModel,
 )
 from ankiforge.services.ai.base import LLMProvider
+from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.views.ab_tests_view import ABTestsView
 
 
@@ -62,6 +65,7 @@ def test_ab_tests_view_engine_comparison(qtbot):
         templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
         css_style=".card { font-family: arial; }",
     )
+    deck = DeckModel.create(name=f"Deck AB {uid}")
 
     persona = PersonaModel.create(name=f"Agent Commun {uid}", system_prompt="Prompt Commun", output_format="json")
 
@@ -89,6 +93,10 @@ def test_ab_tests_view_engine_comparison(qtbot):
     idx_p = view.persona_combo.findText(str(persona.name))
     if idx_p != -1:
         view.persona_combo.setCurrentIndex(idx_p)
+
+    idx_d = view.deck_combo.findText(deck.name)
+    if idx_d != -1:
+        view.deck_combo.setCurrentIndex(idx_d)
 
     # Lancer le test A/B
     view.source_text_edit.setPlainText("Texte d'évaluation comparatif Moteurs A/B.")
@@ -163,3 +171,61 @@ def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
     view._prev_a()
     assert view.index_a == 0
     assert view.index_b == 0
+
+
+@pytest.mark.ui
+def test_ab_tests_view_features_and_theme_reactivity(qtbot):
+    """Vérifie le commutateur de vue, les tiroirs repliables, le winner badging et la réactivité du thème."""
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # 1. Commutateur de vue
+    view._switch_view_mode(1)  # Tableau des Champs
+    assert view.stack_a.currentIndex() == 1
+    assert view.stack_b.currentIndex() == 1
+
+    view._switch_view_mode(2)  # JSON Brut
+    assert view.stack_a.currentIndex() == 2
+    assert view.stack_b.currentIndex() == 2
+
+    view._switch_view_mode(0)  # Rendu Visuel
+    assert view.stack_a.currentIndex() == 0
+    assert view.stack_b.currentIndex() == 0
+
+    # 2. Tiroir texte source
+    assert not view._source_collapsed
+    view._toggle_source_drawer()
+    assert view._source_collapsed
+    assert view.source_text_edit.isHidden()
+    view._toggle_source_drawer()
+    assert not view._source_collapsed
+    assert not view.source_text_edit.isHidden()
+
+    # 3. Tiroir paramètres d'inférence
+    assert view._adv_collapsed
+    view._toggle_advanced_drawer()
+    assert not view._adv_collapsed
+    assert not view.adv_drawer.isHidden()
+    view._toggle_advanced_drawer()
+    assert view._adv_collapsed
+    assert view.adv_drawer.isHidden()
+
+    # 4. Winner badging
+    view.kpi_a.set_results(elapsed=1.0, cards_count=2, tokens=300, cost_usd=0.001, is_success=True)
+    view.kpi_b.set_results(elapsed=3.0, cards_count=2, tokens=350, cost_usd=0.002, is_success=True)
+    view._evaluate_winner()
+    assert not view.kpi_a.badge_winner.isHidden()
+    assert "rapide" in view.kpi_a.badge_winner.text()
+    assert view.kpi_b.badge_winner.isHidden()
+
+    # 5. Flip & Device mode
+    view._on_flip_both_cards()
+    view._set_both_device_mode("mobile")
+    assert view.preview_a._device_mode == "mobile"
+    assert view.preview_b._device_mode == "mobile"
+
+    # 6. Theme reactivity
+    engine = get_style_engine()
+    light_profile = engine.get_theme("jetbrains_light")
+    if light_profile:
+        view.refresh_theme(light_profile)

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QScrollArea,
@@ -197,11 +198,25 @@ class AddonDetailWidget(QWidget):
         self.layout.setContentsMargins(16, 16, 16, 16)
         self.layout.setSpacing(12)
 
-        # Placeholder si aucun addon sélectionné
+        # Placeholder stylisé si aucun addon sélectionné
+        self.placeholder_widget = QWidget()
+        ph_layout = QVBoxLayout(self.placeholder_widget)
+        ph_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph_layout.setSpacing(10)
+
+        self.ph_icon = QLabel()
+        self.ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ph_icon.setPixmap(load_phosphor_icon("ph.puzzle-piece", color=DesignTokens.TEXT_MUTED).pixmap(36, 36))
+        ph_layout.addWidget(self.ph_icon)
+
         self.lbl_placeholder = QLabel("Sélectionnez une extension dans la liste pour voir ses détails.")
         self.lbl_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_placeholder.setWordWrap(True)
+        self.lbl_placeholder.setMaximumWidth(380)
         self.lbl_placeholder.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 13px; font-style: italic;")
-        self.layout.addWidget(self.lbl_placeholder)
+        ph_layout.addWidget(self.lbl_placeholder)
+
+        self.layout.addWidget(self.placeholder_widget)
 
         # Conteneur principal
         self.content_box = QWidget()
@@ -309,11 +324,11 @@ class AddonDetailWidget(QWidget):
     def set_addon(self, addon_info: Optional[AddonInfo]) -> None:
         self.current_addon = addon_info
         if not addon_info:
-            self.lbl_placeholder.setVisible(True)
+            self.placeholder_widget.setVisible(True)
             self.content_box.setVisible(False)
             return
 
-        self.lbl_placeholder.setVisible(False)
+        self.placeholder_widget.setVisible(False)
         self.content_box.setVisible(True)
 
         self.lbl_name.setText(addon_info.name)
@@ -395,6 +410,23 @@ class AddonDetailWidget(QWidget):
             self.set_addon(None)
             self.addon_updated.emit()
 
+    def refresh_theme(self, profile: Any) -> None:
+        """Met à jour les styles dynamiques selon le profil de thème."""
+        if hasattr(self, "ph_icon"):
+            self.ph_icon.setPixmap(load_phosphor_icon("ph.puzzle-piece", color=profile.text_muted).pixmap(36, 36))
+        if hasattr(self, "header_card"):
+            self.header_card.setStyleSheet(f"QFrame {{ background-color: {profile.bg_panel}; border: 1px solid {profile.border_color}; border-radius: {profile.radius_md}px; padding: 12px; }}")
+        if hasattr(self, "lbl_name"):
+            self.lbl_name.setStyleSheet(f"color: {profile.text_primary}; font-size: 16px; font-weight: bold;")
+        if hasattr(self, "lbl_meta"):
+            self.lbl_meta.setStyleSheet(f"color: {profile.text_muted}; font-size: 11px;")
+        if hasattr(self, "lbl_desc"):
+            self.lbl_desc.setStyleSheet(f"color: {profile.text_secondary}; font-size: 12px; margin-top: 4px;")
+        if hasattr(self, "doc_edit"):
+            self.doc_edit.setStyleSheet(f"background-color: {profile.bg_panel}; color: {profile.text_primary}; border: none; padding: 12px;")
+        if hasattr(self, "error_edit"):
+            self.error_edit.setStyleSheet(f"background-color: {profile.bg_input}; color: {profile.color_red}; border: none; font-family: monospace; font-size: 11px; padding: 10px;")
+
 
 class AddonManagerWidget(QWidget):
     """
@@ -441,6 +473,7 @@ class AddonManagerWidget(QWidget):
 
         # Panneau gauche : Table des addons
         left_panel = QWidget()
+        left_panel.setMinimumWidth(280)
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
@@ -449,11 +482,10 @@ class AddonManagerWidget(QWidget):
         self.search_input.textChanged.connect(self._filter_addons)
         left_layout.addWidget(self.search_input)
 
-        self.table = StyledTableWidget(["Nom de l'extension", "Statut", "Version"])
-        self.table.horizontalHeader().setStretchLastSection(False)
-        self.table.setColumnWidth(0, 200)
-        self.table.setColumnWidth(1, 90)
-        self.table.setColumnWidth(2, 60)
+        self.table = StyledTableWidget(["Nom", "Statut", "Version"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table.itemSelectionChanged.connect(self._on_table_selection)
         left_layout.addWidget(self.table, 1)
 
@@ -464,8 +496,9 @@ class AddonManagerWidget(QWidget):
         self.detail_widget.addon_updated.connect(self.refresh_addons_list)
         self.splitter.addWidget(self.detail_widget)
 
-        self.splitter.setStretchFactor(0, 4)
-        self.splitter.setStretchFactor(1, 6)
+        self.splitter.setSizes([300, 600])
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 7)
 
         main_layout.addWidget(self.splitter, 1)
 
@@ -524,6 +557,13 @@ class AddonManagerWidget(QWidget):
                 self.refresh_addons_list()
             else:
                 QMessageBox.critical(self, "Erreur d'installation", msg)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Met à jour les composants internes selon le thème actif."""
+        if hasattr(self, "table") and hasattr(self.table, "refresh_theme"):
+            self.table.refresh_theme(profile)
+        if hasattr(self, "detail_widget") and hasattr(self.detail_widget, "refresh_theme"):
+            self.detail_widget.refresh_theme(profile)
 
 
 class AddonManagerDialog(QDialog):

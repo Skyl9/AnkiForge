@@ -669,6 +669,11 @@ class MainWindow(QMainWindow):
                     panel.refresh_theme(profile)
                 except Exception:
                     pass  # nosec B110
+        if hasattr(self, "_settings_window") and self._settings_window is not None and hasattr(self._settings_window, "refresh_theme"):
+            try:
+                self._settings_window.refresh_theme(profile)
+            except Exception:
+                pass  # nosec B110
 
     def _show_notif_popup(self) -> None:
         """Affiche le menu déroulant des notifications rattaché à la cloche TopBar."""
