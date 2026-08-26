@@ -5,20 +5,9 @@ Tests unitaires pour le service d'import/export de modèles de cartes (CardModel
 import json
 from pathlib import Path
 
-import pytest
 
-from ankiforge.database.models import NoteTypeModel, db
+from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.card_model_io import BUNDLE_EXTENSION, CardModelIO
-
-
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    db.init(":memory:")
-    db.connect()
-    db.create_tables([NoteTypeModel])
-    yield
-    if not db.is_closed():
-        db.close()
 
 
 def test_export_to_dict_and_json():

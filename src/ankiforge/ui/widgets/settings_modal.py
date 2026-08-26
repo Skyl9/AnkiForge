@@ -732,9 +732,11 @@ class AIEnginesTab(QWidget):
 
     def _scan_ollama(self) -> None:
         url = self.le_ollama_url.text().strip().rstrip("/")
+        if not (url.startswith("http://") or url.startswith("https://")):
+            url = f"http://{url}"
         try:
             req = urllib.request.Request(f"{url}/api/tags", headers={"User-Agent": "AnkiForge"})
-            with urllib.request.urlopen(req, timeout=1.2) as resp:
+            with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310
                 data = json.loads(resp.read().decode())
                 models = [m.get("name") for m in data.get("models", [])]
                 if models:

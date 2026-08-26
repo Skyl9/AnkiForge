@@ -4,7 +4,7 @@
 # 1. On se place à la racine du projet
 cd "$(dirname "$0")/.." || exit
 
-APP_NAME="__main__"
+APP_NAME="AnkiForge"
 APP_PATH="dist_prod/${APP_NAME}.app"
 DMG_NAME="dist_prod/${APP_NAME}_Installer.dmg"
 

@@ -4,31 +4,32 @@ import os
 import pytest
 from peewee import SqliteDatabase
 from ankiforge.database.models import (
-    DeckModel,
-    NoteTypeModel,
-    NoteModel,
+    AICacheModel,
+    AuditRecordModel,
     CardModel,
+    DeckModel,
+    DocumentChunkModel,
+    DocumentModel,
+    FolderModel,
+    IgnoredDuplicateModel,
+    LinterRuleModel,
+    LLMConfigModel,
+    MediaModel,
+    NoteChunkLinkModel,
+    NoteModel,
+    NoteTypeModel,
+    NoteVersionMediaModel,
     NoteVersionModel,
     PersonaFolderModel,
     PersonaModel,
     PersonaVersionModel,
     PipelineModel,
     PipelineStepModel,
-    FolderModel,
-    DocumentModel,
-    IgnoredDuplicateModel,
-    LLMConfigModel,
     PromptModel,
-    MediaModel,
-    NoteVersionMediaModel,
-    AICacheModel,
-    DocumentChunkModel,
-    NoteChunkLinkModel,
     PythonToolModel,
-    LinterRuleModel,
-    AuditRecordModel,
     SettingModel,
     TokenUsageModel,
+    db,
 )
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -41,6 +42,7 @@ def mock_db():
     """Cette base fantôme en RAM sera automatiquement utilisée pour TOUS les tests."""
     # On crée une base en mémoire partagée entre threads pour supporter QThreadPool
     test_db = SqliteDatabase("file:memdb_test?mode=memory&cache=shared", uri=True)
+    db.init("file:memdb_test?mode=memory&cache=shared", uri=True)
 
     # On liste TOUTES les tables de l'application
     models = [
@@ -80,6 +82,10 @@ def mock_db():
 
     yield test_db  # Le test s'exécute ici
 
+    try:
+        test_db.execute_sql("DROP TABLE IF EXISTS migratehistory;")
+    except Exception:
+        pass
     test_db.drop_tables(models)
     test_db.close()
 
@@ -105,7 +111,8 @@ def cleanup_qt_widgets():
 
 
 def pytest_unconfigure(config):
-    """S'assure d'une sortie propre (code 0) sans crash C++ Chromium WebEngine en fin de tests."""
+    """S'assure d'une sortie propre sans crash C++ Chromium WebEngine en fin de tests."""
     import os
 
-    os._exit(0)
+    exit_code = getattr(config, "exitstatus", 0)
+    os._exit(exit_code)

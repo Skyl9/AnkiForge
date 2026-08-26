@@ -3,47 +3,19 @@ Tests unitaires pour MetricsService (calcul des KPIs, agrégation 7 jours et dia
 """
 
 from datetime import datetime, timedelta
-import pytest
 from ankiforge.database.models import (
     AuditRecordModel,
     CardModel,
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
-    FolderModel,
-    LinterRuleModel,
-    MediaModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
     TokenUsageModel,
-    db,
 )
 from ankiforge.services.audit.metrics_service import MetricsService
-
-
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    models = [
-        FolderModel,
-        MediaModel,
-        NoteModel,
-        CardModel,
-        DeckModel,
-        NoteTypeModel,
-        NoteVersionModel,
-        DocumentModel,
-        DocumentChunkModel,
-        NoteChunkLinkModel,
-        TokenUsageModel,
-        LinterRuleModel,
-        AuditRecordModel,
-    ]
-    db.bind(models)
-    db.create_tables(models)
-    yield
-    db.drop_tables(models)
 
 
 def test_wozniak_health_score_empty_db():

@@ -6,30 +6,14 @@ ModelExportDialog, ModelImportDialog et StarterPackDialog.
 import json
 from pathlib import Path
 
-import pytest
 from pytestqt.qtbot import QtBot
 
 from ankiforge.database.models import (
-    CardModel,
-    DeckModel,
-    NoteModel,
     NoteTypeModel,
-    NoteVersionModel,
-    db,
 )
 from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
-
-
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    db.init(":memory:")
-    db.connect()
-    db.create_tables([NoteTypeModel, NoteModel, NoteVersionModel, DeckModel, CardModel])
-    yield
-    if not db.is_closed():
-        db.close()
 
 
 def test_model_export_dialog(qtbot: QtBot, tmp_path: Path):
