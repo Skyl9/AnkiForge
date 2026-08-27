@@ -2,7 +2,8 @@
 Main Window & Navigation for AnkiForge.
 """
 
-from typing import Dict, Tuple, Optional, Type, Any, cast
+import logging
+from typing import Any, Dict, Optional, Tuple, Type, cast
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
 from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
 from PySide6.QtGui import QMouseEvent, QKeySequence, QShortcut
@@ -15,6 +16,8 @@ from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.misc import DaemonStatusWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
+
+logger = logging.getLogger(__name__)
 
 
 class ClickableLabel(QLabel):
@@ -645,7 +648,7 @@ class MainWindow(QMainWindow):
         output_path = output_dir / "analyse_screenshot.png"
         pixmap = self.grab()
         pixmap.save(str(output_path))
-        print(f"[Debug] Capture d'écran de l'UI enregistrée dans : {output_path}")
+        logger.debug("Capture d'écran de l'UI enregistrée dans : %s", output_path)
 
     def _on_theme_changed(self, profile: Any) -> None:
         """Propagé immédiatement à la sidebar, la topbar et toutes les vues instanciées."""
