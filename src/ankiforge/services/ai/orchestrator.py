@@ -353,6 +353,11 @@ class PipelineOrchestrator(QRunnable):
                 cfg = {}
 
         top_k = int(cfg.get("top_k", 5))
+        mode = str(cfg.get("retrieval_mode", "hybrid"))
+        w_dense = float(cfg.get("w_dense", 0.6))
+        w_sparse = float(cfg.get("w_sparse", 0.4))
+        rrf_k = int(cfg.get("rrf_k", 60))
+
         query = (
             cfg.get("rag_query_template")
             or self.state.get_variable("rag_query")
@@ -364,15 +369,23 @@ class PipelineOrchestrator(QRunnable):
 
         doc_id = str(self.state.document_id) if self.state.document_id else "default_doc"
         retrieved: List[str] = []
+        rag_results: List[Dict[str, Any]] = []
 
         try:
             llm_config = LLMConfigModel.select().first()
-            if llm_config:
-                rag = RAGService(llm_config)
-                rag_results = rag.search(doc_id, rendered_query, top_k=top_k)
-                retrieved = [r.get("content", "") if isinstance(r, dict) else str(r) for r in rag_results]
+            rag = RAGService(llm_config)
+            rag_results = rag.search(
+                doc_id=doc_id,
+                query=rendered_query,
+                top_k=top_k,
+                mode=mode,
+                w_dense=w_dense,
+                w_sparse=w_sparse,
+                rrf_k=rrf_k,
+            )
+            retrieved = [r.get("content", "") if isinstance(r, dict) else str(r) for r in rag_results]
         except Exception as e:
-            logger.warning(f"Recherche RAG FAISS non disponible: {e}. Utilisation du fallback mémoire.")
+            logger.warning(f"Recherche RAG Hybride FAISS/BM25 non disponible: {e}. Utilisation du fallback mémoire.")
 
         # Fallback en mémoire si aucun chunk FAISS n'est retourné
         if not retrieved:
@@ -384,6 +397,7 @@ class PipelineOrchestrator(QRunnable):
 
         out_var = cfg.get("output_variable") or "retrieved_chunks"
         self.state.set_variable(out_var, retrieved)
+        self.state.set_variable(f"{out_var}_details", rag_results)
         self.state.add_retrieved_chunks(retrieved)
         self.state.set_variable("last_output", "\n\n".join(retrieved))
 

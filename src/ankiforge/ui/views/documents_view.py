@@ -23,6 +23,7 @@ from PySide6.QtGui import QColor, QDropEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -378,13 +379,13 @@ class DocumentDelimitationDialog(QDialog):
 
 
 class RAGTestDialog(QDialog):
-    """Permet de tester instantanément la recherche sémantique FAISS sur le document."""
+    """Permet de tester instantanément la recherche RAG Hybride (FAISS + BM25 avec RRF) sur le document."""
 
     def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.doc = doc
-        self.setWindowTitle(f"Recherche Sémantique RAG — {doc.title}")
-        self.resize(620, 500)
+        self.setWindowTitle(f"Recherche RAG Hybride — {doc.title}")
+        self.resize(680, 540)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {DesignTokens.BG_MAIN};
@@ -399,16 +400,43 @@ class RAGTestDialog(QDialog):
         header_top = QHBoxLayout()
         ico = QLabel()
         ico.setPixmap(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN).pixmap(20, 20))
-        title_lbl = QLabel(f"Interroger l'index FAISS : <b>{doc.title}</b>")
+        title_lbl = QLabel(f"Interroger l'index RAG : <b>{doc.title}</b>")
         title_lbl.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
         header_top.addWidget(ico)
         header_top.addWidget(title_lbl, 1)
         layout.addLayout(header_top)
 
+        # Ligne de configuration de mode
+        mode_row = QHBoxLayout()
+        lbl_mode = QLabel("Canal de recherche :")
+        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
+        self.mode_cb = QComboBox()
+        self.mode_cb.setFixedHeight(28)
+        self.mode_cb.addItem("🧬 RAG Hybride (FAISS Dense + BM25 Sparse avec RRF)", "hybrid")
+        self.mode_cb.addItem("🌌 Sémantique Dense Pure (FAISS L2)", "dense")
+        self.mode_cb.addItem("🔤 Lexicale Exacte Pure (BM25 Okapi)", "sparse")
+        self.mode_cb.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 8px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 11px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 18px;
+            }}
+        """)
+        mode_row.addWidget(lbl_mode)
+        mode_row.addWidget(self.mode_cb, 1)
+        layout.addLayout(mode_row)
+
         # Barre de recherche
         search_row = QHBoxLayout()
         self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Posez une question ou entrez des mots-clés sémantiques...")
+        self.search_input.setPlaceholderText("Posez une question ou entrez des mots-clés techniques...")
         self.search_input.returnPressed.connect(self._on_search)
 
         btn_search = PrimaryButton("Rechercher")
@@ -448,19 +476,32 @@ class RAGTestDialog(QDialog):
 
         self.results_list.clear()
         try:
+            mode = self.mode_cb.currentData() or "hybrid"
             rag = RAGService()
-            results = rag.search(self.doc.id, query, top_k=4)
+            results = rag.search(self.doc.id, query, top_k=4, mode=mode)
             if not results:
                 self.results_list.addItem(QListWidgetItem("Aucun fragment pertinent trouvé pour cette requête."))
                 return
 
             for r in results:
-                loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else "Section")
-                score_val = r.get("score", 1.0)
-                sim_pct = max(0, min(100, int((1.0 - min(score_val, 1.0)) * 100))) if score_val <= 1.0 else int(100 / (1.0 + score_val))
+                loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else f"Section #{r.get('chunk_index', 0) + 1}")
+                channel = r.get("channel", "hybrid")
+                rel_pct = r.get("relevance_pct", 0)
+
+                if channel == "hybrid":
+                    badge_info = f"🧬 RRF: {r.get('rrf_score', 0.0):.5f} • FAISS: #{r.get('dense_rank', '-')} • BM25: #{r.get('sparse_rank', '-')}"
+                elif channel == "dense_only":
+                    badge_info = f"🌌 FAISS: #{r.get('dense_rank', '-')} (score: {r.get('dense_score', 0.0)})"
+                elif channel == "sparse_only":
+                    badge_info = f"🔤 BM25: #{r.get('sparse_rank', '-')} (score: {r.get('sparse_score', 0.0)})"
+                else:
+                    badge_info = "📄 BDD Directe"
+
                 content_snippet = r.get("content", "")[:180] + "..." if len(r.get("content", "")) > 180 else r.get("content", "")
-                item_txt = f"📍 {loc} (Pertinence: {sim_pct}%)\n{content_snippet}"
-                self.results_list.addItem(QListWidgetItem(item_txt))
+                item_txt = f"📍 {loc}  (Pertinence : {rel_pct}%)  [{badge_info}]\n{content_snippet}"
+                item = QListWidgetItem(item_txt)
+                item.setData(Qt.ItemDataRole.UserRole, r)
+                self.results_list.addItem(item)
 
         except Exception as e:
             self.results_list.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
@@ -1643,10 +1684,13 @@ class DocumentsView(QWidget):
 
             for r in results:
                 loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else f"Section #{r.get('chunk_index', 0) + 1}")
-                score_val = r.get("score", 1.0)
-                sim_pct = max(0, min(100, int((1.0 - min(score_val, 1.0)) * 100))) if score_val <= 1.0 else int(100 / (1.0 + score_val))
+                rel_pct = r.get("relevance_pct", 0)
+                if rel_pct == 0:
+                    score_val = r.get("score", 1.0)
+                    rel_pct = max(0, min(100, int((1.0 - min(score_val, 1.0)) * 100))) if score_val <= 1.0 else int(100 / (1.0 + score_val))
+
                 content_snippet = r.get("content", "")[:160] + "..." if len(r.get("content", "")) > 160 else r.get("content", "")
-                item_txt = f"📍 {loc} (Pertinence: {sim_pct}%)\n{content_snippet}"
+                item_txt = f"📍 {loc} (Pertinence: {rel_pct}%)\n{content_snippet}"
                 item = QListWidgetItem(item_txt)
                 item.setData(Qt.ItemDataRole.UserRole, r)
                 self.rag_sandbox_results.addItem(item)
