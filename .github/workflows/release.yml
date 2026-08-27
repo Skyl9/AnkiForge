@@ -69,10 +69,18 @@ jobs:
           gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
         shell: bash
 
+      - name: Set up MSVC x64 Developer Command Prompt (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       # ── BUILD MACOS AVEC NUITKA ─────────────────────────────────
       - name: Build Standalone macOS Bundle (Nuitka)
         if: runner.os == 'macOS'
         run: |
+          export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
+          export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
           uv run python -m nuitka \
             --standalone \
             --macos-create-app-bundle \
@@ -84,16 +92,24 @@ jobs:
             --include-data-dir=src/ressources=ressources \
             --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
             --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
+            --low-memory \
+            --lto=no \
             --output-dir=dist \
             --assume-yes-for-downloads \
             src/ankiforge/__main__.py
           cd dist
+          if [ -d "__main__.app" ]; then
+            rm -rf AnkiForge.app
+            mv __main__.app AnkiForge.app
+          fi
           zip -r ../${{ matrix.asset_name }} AnkiForge.app
 
       # ── BUILD LINUX AVEC NUITKA ─────────────────────────────────
       - name: Build Standalone Linux App (Nuitka)
         if: runner.os == 'Linux'
         run: |
+          export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
+          export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
           uv run python -m nuitka \
             --standalone \
             --enable-plugin=pyside6 \
@@ -102,6 +118,8 @@ jobs:
             --include-data-dir=src/ressources=ressources \
             --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
             --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
+            --low-memory \
+            --lto=no \
             --output-dir=dist \
             --output-filename=AnkiForge \
             --assume-yes-for-downloads \
@@ -118,6 +136,7 @@ jobs:
       - name: Build Standalone Windows App (Nuitka)
         if: runner.os == 'Windows'
         run: |
+          $env:_CL_ = "/bigobj /Zm200"
           uv run python -m nuitka `
             --standalone `
             --windows-console-mode=disable `
@@ -127,6 +146,8 @@ jobs:
             --include-data-dir=src/ressources=ressources `
             --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
             --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext `
+            --low-memory `
+            --lto=no `
             --output-dir=dist `
             --output-filename=AnkiForge.exe `
             --assume-yes-for-downloads `

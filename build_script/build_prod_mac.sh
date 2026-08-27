@@ -8,7 +8,10 @@ rm -rf dist_prod/
 echo "Compilation de l'extension C native Levenshtein..."
 gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
 
-echo "Démarrage de la compilation avec Nuitka (Cela peut prendre 5 à 15 minutes)..."
+echo "Démarrage de la compilation avec Nuitka..."
+
+export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
+export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
 
 uv run python -m nuitka \
     --standalone \
@@ -21,9 +24,16 @@ uv run python -m nuitka \
     --include-data-dir=src/ressources=ressources \
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
     --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
+    --low-memory \
+    --lto=no \
     --output-dir=dist_prod \
     --assume-yes-for-downloads \
     src/ankiforge/__main__.py
 
-echo "Compilation Nuitka terminée."
+if [ -d "dist_prod/__main__.app" ]; then
+    rm -rf dist_prod/AnkiForge.app
+    mv dist_prod/__main__.app dist_prod/AnkiForge.app
+fi
+
+echo "Compilation Nuitka terminée avec succès !"
 echo "L'application de production se trouve dans le dossier dist_prod/AnkiForge.app"

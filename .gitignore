@@ -21,7 +21,9 @@ venv/
 env/
 .ankiforge/
 .env
-.so
+*.so
+*.dylib
+*.dll
 llm_context.txt
 uv.lock
 superpowers/
