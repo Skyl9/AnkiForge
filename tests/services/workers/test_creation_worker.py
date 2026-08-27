@@ -1,5 +1,5 @@
 import json
-from ankiforge.database.models import AgentModel, NoteTypeModel, PipelineModel, PipelineStepModel
+from ankiforge.database.models import PersonaModel, NoteTypeModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.workers.creation_worker import CreationWorker, CreationTaskPayload
 
@@ -10,16 +10,16 @@ def test_creation_worker_success(mock_db):
     # 1. PRÉPARATION DE LA BASE DE DONNÉES
     nt = NoteTypeModel.create(name="Test", fields_schema=json.dumps(["Front", "Back"]), templates="[]", css_style="")
     pipe = PipelineModel.create(name="Test Pipe")
-    agent = AgentModel.create(name="Test Agent", system_prompt="Prompt test", output_format="json")
-    PipelineStepModel.create(pipeline=pipe, agent=agent, step_order=1)
+    agent = PersonaModel.create(name="Test Agent", system_prompt="Prompt test", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=agent, step_order=1)
 
     # 2. PRÉPARATION DU PAYLOAD (MAIN THREAD STYLE)
     payload = CreationTaskPayload(
         text_source="Texte de cours",
         note_type_id=nt.id,
-        note_type_fields_schema=nt.fields_schema,
+        note_type_fields_schema=str(nt.fields_schema),
         pipeline_id=pipe.id,
-        pipeline_name=pipe.name,
+        pipeline_name=str(pipe.name),
         pipeline_steps=[{"name": agent.name, "system_prompt": agent.system_prompt, "output_format": agent.output_format}],
         use_vision=False,
     )
@@ -54,7 +54,7 @@ def test_creation_worker_empty_pipeline(mock_db):
     pipe_vide = PipelineModel.create(name="Pipe Vide")
 
     payload = CreationTaskPayload(
-        text_source="Texte", note_type_id=nt.id, note_type_fields_schema=nt.fields_schema, pipeline_id=pipe_vide.id, pipeline_name=pipe_vide.name, pipeline_steps=[], use_vision=False
+        text_source="Texte", note_type_id=nt.id, note_type_fields_schema=str(nt.fields_schema), pipeline_id=pipe_vide.id, pipeline_name=str(pipe_vide.name), pipeline_steps=[], use_vision=False
     )
 
     worker = CreationWorker(MockProvider(), payload=payload)

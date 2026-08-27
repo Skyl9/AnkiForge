@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ---
-Note on the full license text: 
-Due to its length, the full text of the GNU General Public License 
-version 3 is not included inline here, but applies to this software in its entirety. 
+Note on the full license text:
+Due to its length, the full text of the GNU General Public License
+version 3 is not included inline here, but applies to this software in its entirety.
 You can read the full text at: https://www.gnu.org/licenses/gpl-3.0.txt

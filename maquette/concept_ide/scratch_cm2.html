@@ -1,0 +1,94 @@
+            <div class="view" id="view-card-models">
+              <div class="view-header flex-row items-center justify-between pb-15 mb-15 border-bottom">
+                <h2>Édition des Modèles (Note Types)</h2>
+                <div class="toolbar">
+                  <button class="btn btn-secondary"><i class="ph ph-plus"></i> Nouveau Modèle</button>
+                  <button class="btn btn-secondary"><i class="ph ph-arrows-clockwise"></i> Rafraîchir</button>
+                  <button class="btn btn-success"><i class="ph ph-floppy-disk"></i> Sauvegarder</button>
+                </div>
+              </div>
+              <div class="split-view flex-1" style="gap: 15px;">
+                <!-- Left Pane: Models List -->
+                <div class="panel flex-col outline" style="width: 250px; flex-shrink: 0;">
+                  <h4 class="muted uppercase small mb-10">Modèles Disponibles</h4>
+                  <div class="list-area flex-grow">
+                    <div class="list-item active">Texte à trous (Cloze)</div>
+                    <div class="list-item">Basique</div>
+                    <div class="list-item">Basique (Inversé)</div>
+                  </div>
+                  <button class="btn btn-danger ghost w-full mt-10"><i class="ph ph-trash"></i> Supprimer le modèle</button>
+                </div>
+
+                <!-- Center Pane: Code Editors -->
+                <div class="panel flex-1 flex-col outline view-scrollable">
+                  <h4 class="muted uppercase small mb-15">Éditeur de Modèle</h4>
+
+                  <div class="form-group mb-15">
+                    <label class="muted uppercase small mb-5">Champs de données (séparés par des virgules) :</label>
+                    <input type="text" class="input-element w-full" value="Texte, Extra" />
+                  </div>
+
+                  <div class="ide-tabs mb-10" style="margin: 0 -12px;">
+                    <div class="ide-tabs-list pl-10">
+                      <button class="ide-tab active" data-target="tab-cm-css"><i class="ph ph-file-css"></i> Style CSS</button>
+                      <button class="ide-tab" data-target="tab-cm-html-front"><i class="ph ph-file-html"></i> HTML Recto</button>
+                      <button class="ide-tab" data-target="tab-cm-html-back"><i class="ph ph-file-html"></i> HTML Verso</button>
+                    </div>
+                  </div>
+
+                  <div class="toolbar mb-10 gap-5 flex-wrap">
+                    <button class="tag-btn">{{Texte}}</button>
+                    <button class="tag-btn">{{Extra}}</button>
+                    <button class="tag-btn">{{FrontSide}}</button>
+                    <button class="tag-btn">{{cloze:Texte}}</button>
+                    <button class="tag-btn">&lt;hr id="answer"&gt;</button>
+                  </div>
+
+                  <!-- Tab Contents -->
+                  <div id="tab-cm-css" class="sub-pane active flex-col flex-grow">
+                    <textarea class="code-editor-element w-full flex-grow" style="min-height: 200px;">.card {
+  font-family: var(--font-code);
+  font-size: 20px;
+  text-align: center;
+  color: #f8fafc;
+  background-color: #0f1115;
+}
+
+.cloze {
+  font-weight: bold;
+  color: #6366f1;
+}</textarea>
+                  </div>
+
+                  <div id="tab-cm-html-front" class="sub-pane hidden flex-col flex-grow">
+                    <textarea class="code-editor-element w-full flex-grow" style="min-height: 200px;">{{cloze:Texte}}</textarea>
+                  </div>
+
+                  <div id="tab-cm-html-back" class="sub-pane hidden flex-col flex-grow">
+                    <textarea class="code-editor-element w-full flex-grow" style="min-height: 200px;">{{cloze:Texte}}
+<br>
+<hr id="answer">
+<br>
+{{Extra}}</textarea>
+                  </div>
+
+                </div>
+
+                <!-- Right Pane: Live Preview -->
+                <div class="panel flex-col outline" style="width: 350px; flex-shrink: 0; background: var(--bg-main);">
+                  <div class="toolbar items-center pb-15 mb-15 border-bottom justify-between">
+                    <h4 class="muted uppercase small">Live Preview</h4>
+                    <select class="input-element small">
+                      <option>Voir Recto</option>
+                      <option>Voir Verso</option>
+                    </select>
+                  </div>
+                  <div class="preview-container flex-grow flex-col items-center justify-center p-20" style="border: 1px dashed var(--border-color); border-radius: var(--radius-md);">
+                    <!-- Simulated Anki Card -->
+                    <div style="font-family: 'Fira Code', monospace; font-size: 20px; text-align: center; color: #f8fafc;">
+                      La capitale de la France est <span style="font-weight: bold; color: #6366f1;">[...]</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>

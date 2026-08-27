@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnkiForge - Concept Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dash-layout">
+        <!-- Top Navigation -->
+        <header class="top-nav">
+            <div class="brand">
+                <i class="ph-fill ph-cube"></i>
+                <span>AnkiForge</span>
+            </div>
+
+            <nav class="main-menu">
+                <button class="nav-btn active" data-view="dashboard">Tableau de Bord</button>
+                <button class="nav-btn" data-view="editor">Éditeur</button>
+                <button class="nav-btn" data-view="ai-studio">Studio IA</button>
+            </nav>
+
+            <div class="nav-actions">
+                <div class="search-bar" onclick="openOmnibox()">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <span>Rechercher...</span>
+                </div>
+                <button class="icon-btn"><i class="ph ph-bell"></i><span class="badge">2</span></button>
+                <img src="https://ui-avatars.com/api/?name=TR&background=0D8ABC&color=fff" class="avatar" alt="Avatar">
+            </div>
+        </header>
+
+        <!-- Sub-header context -->
+        <div class="sub-header">
+            <div class="breadcrumb">Workspace / <strong>Médecine</strong></div>
+            <div class="daemon-pill">
+                <i class="ph ph-spinner spin"></i> Traitement de 5 documents...
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="content-area">
+
+            <!-- VUE DASHBOARD -->
+            <div id="view-dashboard" class="view active">
+                <div class="grid-layout">
+                    <!-- Column 1 -->
+                    <div class="col-main">
+                        <div class="card elevated">
+                            <div class="card-header">
+                                <h2>Activité Récente</h2>
+                                <button class="icon-btn"><i class="ph ph-dots-three"></i></button>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-placeholder">
+                                    Graphique d'activité (Simulation)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card elevated" style="margin-top: 24px;">
+                            <div class="card-header">
+                                <h2>Tâches d'IA en attente</h2>
+                            </div>
+                            <ul class="list-group">
+                                <li class="list-item">
+                                    <i class="ph ph-file-pdf"></i> Cours Cardiologie.pdf
+                                    <span class="tag warning">En parsing</span>
+                                </li>
+                                <li class="list-item">
+                                    <i class="ph ph-youtube-logo"></i> Vidéo Anatomie
+                                    <span class="tag info">En file d'attente</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Column 2 -->
+                    <div class="col-side">
+                        <div class="card summary-card elevated">
+                            <i class="ph ph-coins text-primary"></i>
+                            <div>
+                                <div class="label">Coût API Mensuel</div>
+                                <div class="value">$2.40</div>
+                            </div>
+                        </div>
+                        <div class="card summary-card elevated">
+                            <i class="ph ph-cards text-success"></i>
+                            <div>
+                                <div class="label">Cartes Nouvelles</div>
+                                <div class="value">+124</div>
+                            </div>
+                        </div>
+
+                        <div class="card action-card elevated" style="margin-top:24px;">
+                            <h3>Actions Rapides</h3>
+                            <button class="btn-primary full-width" onclick="openAutoTagModal()">
+                                <i class="ph ph-magic-wand"></i> Auto-Tagging
+                            </button>
+                            <button class="btn-secondary full-width" style="margin-top:12px;">
+                                <i class="ph ph-download"></i> Forcer Synchro
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VUE EDITEUR -->
+            <div id="view-editor" class="view hidden">
+                <div class="editor-card elevated">
+                    <div class="editor-toolbar">
+                        <button class="btn-text">Anatomie Cœur.md <i class="ph ph-x"></i></button>
+                        <div class="spacer"></div>
+                        <button class="btn-primary">Sauvegarder</button>
+                    </div>
+                    <div class="editor-split">
+                        <div class="editor-write" contenteditable="true">
+                            <h1>Le cycle cardiaque</h1>
+                            <p>Systole et diastole. {{c1::70 mL}}.</p>
+                        </div>
+                        <div class="editor-preview">
+                            <div class="simulated-card">
+                                <h3>Le cycle cardiaque</h3>
+                                <p>Systole et diastole. <span style="color:#0288D1">[...]</span>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="omnibox-modal" class="modal-overlay hidden" onclick="closeModals(event)">
+        <div class="dash-omnibox">
+            <div class="search-input-wrapper">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" placeholder="Rechercher..." autofocus>
+            </div>
+            <div class="results">
+                <div class="res-item">Cycle Cardiaque</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="auto-tag-modal" class="modal-overlay hidden" onclick="closeModals(event)">
+        <div class="dash-modal">
+            <h2>Validation Auto-Tagging</h2>
+            <div class="table-container">
+                <table>
+                    <tr>
+                        <td>Le cycle cardiaque</td>
+                        <td><span class="tag primary">#cardio</span></td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="closeModals()">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,3 +1,5 @@
+from typing import cast
+
 import qtawesome as qta
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QGraphicsOpacityEffect
@@ -58,13 +60,13 @@ class Toast(QWidget):
 
     def show_toast(self, duration=2500):
         self.adjustSize()
-        parent = self.parent()
-        if parent:
+        parent_widget = cast(QWidget, self.parent())
+        if parent_widget:
             # 1. Calcul des coordonnées locales relatives à la fenêtre parente
-            local_x = parent.width() // 2 - self.width() // 2
-            local_y = parent.height() - self.height() - 40
+            local_x = parent_widget.width() // 2 - self.width() // 2
+            local_y = parent_widget.height() - self.height() - 40
 
-            global_pos = parent.mapToGlobal(QPoint(local_x, local_y))
+            global_pos = parent_widget.mapToGlobal(QPoint(local_x, local_y))
             self.move(global_pos)
 
         self.show()

@@ -1,10 +1,10 @@
 #!/bin/bash
-# Script de génération du fichier .dmg pour AnkiForge
+# Script de génération du fichier .dmg pour ankiforge_obsidian
 
 # 1. On se place à la racine du projet
 cd "$(dirname "$0")/.." || exit
 
-APP_NAME="__main__"
+APP_NAME="AnkiForge"
 APP_PATH="dist_prod/${APP_NAME}.app"
 DMG_NAME="dist_prod/${APP_NAME}_Installer.dmg"
 

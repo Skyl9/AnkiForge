@@ -4,10 +4,12 @@ from unittest.mock import patch
 from ankiforge.database.backup import backup_database
 
 
-def test_backup_database_skips_if_no_db():
+def test_backup_database_skips_if_no_db(tmp_path: Path):
     """Vérifie que la fonction s'arrête silencieusement si la base source n'existe pas."""
-    with patch("ankiforge.database.backup.DB_PATH") as mock_db_path:
-        mock_db_path.exists.return_value = False
+    fake_db_path = tmp_path / "non_existent.db"
+
+    with patch("ankiforge.database.backup.ProfileManager.get_db_path") as mock_get_db_path:
+        mock_get_db_path.return_value = fake_db_path
 
         # L'exécution ne doit lever aucune exception
         backup_database()
@@ -22,17 +24,18 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
     fake_db = tmp_path / "ankiforge.db"
     fake_db.write_text("fake sqlite data")
 
-    fake_app_dir = tmp_path / "appdata"
-    fake_app_dir.mkdir()
+    fake_profile_dir = tmp_path / "profile"
+    fake_profile_dir.mkdir()
 
     # On détourne les variables globales pour pointer vers notre dossier temporaire
     with (
-        patch("ankiforge.database.backup.DB_PATH", fake_db),
-        patch("ankiforge.database.backup.get_app_data_dir", return_value=fake_app_dir),
+        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=fake_db),
+        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
+        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
     ):
         # Création de 3 fausses anciennes sauvegardes avec des dates antérieures
-        backup_dir = fake_app_dir / "backups"
-        backup_dir.mkdir()
+        backup_dir = fake_profile_dir / "default" / "backups"
+        backup_dir.mkdir(parents=True)
         (backup_dir / "ankiforge_backup_20200101_000000.db").write_text("old1")
         (backup_dir / "ankiforge_backup_20200102_000000.db").write_text("old2")
         (backup_dir / "ankiforge_backup_20200103_000000.db").write_text("old3")

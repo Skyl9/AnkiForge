@@ -1,0 +1,194 @@
+            <!-- VUE : BATCH FACTORY - CI/CD (Power User) -->
+            <div class="view" id="view-batch-factory-cicd">
+              <div class="split-view flex-1" style="gap: 12px; height: 100%">
+                <!-- LEFT PANEL : SOURCE -->
+                <div class="ide-panel flex-col glass-panel" style="width: 280px">
+                  <div class="ide-tabs">
+                    <div class="ide-tabs-list">
+                      <button class="ide-tab active">
+                        <i class="ph ph-folder"></i> 1. Source (Cours)
+                      </button>
+                    </div>
+                  </div>
+                  <div class="ide-panel-content p-0">
+                    <div class="sub-pane active flex-col h-full" style="padding: 16px">
+                      <div class="list-area flex-grow outline" style="border-radius: var(--radius-sm); padding: 10px; background: rgba(0,0,0,0.1);">
+                        <div class="list-item">
+                          <i class="ph-fill ph-folder text-blue mr-5"></i> Non classés
+                        </div>
+                      </div>
+                      <button class="btn btn-secondary w-full mt-15 hover-glow">
+                        <i class="ph ph-arrow-right"></i> Ajouter à la file
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- RIGHT PANEL : CONFIG & QUEUE -->
+                <div class="flex-1 flex-col" style="gap: 12px">
+                  <div class="ide-panel flex-1 flex-col glass-panel">
+                    <div class="ide-tabs">
+                      <div class="ide-tabs-list">
+                        <button class="ide-tab active">
+                          <i class="ph ph-gear"></i> Configuration et File d'attente
+                        </button>
+                      </div>
+                    </div>
+                    <div class="ide-panel-content flex-col" style="padding: 16px">
+                      <h4 class="muted uppercase small mb-10">Configuration par défaut</h4>
+                      <div class="toolbar wrap gap-10 mb-20">
+                        <div class="form-group flex-1" style="min-width: 120px">
+                          <label>Paquet :</label><input type="text" class="input-element glow-input" />
+                        </div>
+                        <div class="form-group flex-1" style="min-width: 150px">
+                          <label>Modèle :</label><select class="input-element glow-input"><option>Texte à trous (Cloze)</option></select>
+                        </div>
+                        <div class="form-group flex-1" style="min-width: 150px">
+                          <label>Moteur :</label><select class="input-element glow-input"><option>Claude 3.5 Sonnet</option></select>
+                        </div>
+                        <div class="form-group flex-2" style="min-width: 250px">
+                          <label>Pipeline :</label><select class="input-element glow-input"><option>Excellence Math/Info</option></select>
+                        </div>
+                        <div class="form-group flex-1" style="min-width: 150px">
+                          <label>Découpage :</label><select class="input-element glow-input"><option>Sémantique (Titres)</option></select>
+                        </div>
+                        <div class="form-group">
+                          <label>Option :</label>
+                          <label class="checkbox-label" style="height: 32px; display: flex; align-items: center;">
+                            <input type="checkbox" /> <i class="ph ph-eye text-yellow"></i> Vision
+                          </label>
+                        </div>
+                      </div>
+
+                      <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 10px 0; padding-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                          <h4 class="muted uppercase small m-0"><i class="ph ph-caret-down"></i> Paramètres Avancés</h4>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                          <div class="form-group mb-10">
+                            <div style="display: flex; justify-content: space-between;">
+                              <label style="color: var(--text-muted); font-size: 11px;">Température</label>
+                              <span style="color: var(--text-primary); font-family: var(--font-code); font-size: 11px;">0.7</span>
+                            </div>
+                            <input type="range" min="0" max="1" step="0.1" value="0.7" style="width: 100%; accent-color: var(--accent-primary);" />
+                          </div>
+                          <div class="form-group">
+                            <div style="display: flex; justify-content: space-between;">
+                              <label style="color: var(--text-muted); font-size: 11px;">Max Tokens</label>
+                              <span style="color: var(--text-primary); font-family: var(--font-code); font-size: 11px;">4096</span>
+                            </div>
+                            <input type="range" min="256" max="8192" step="256" value="4096" style="width: 100%; accent-color: var(--accent-primary);" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <h4 class="muted uppercase small mb-10">2. File d'attente</h4>
+                      <div class="table-container flex-grow outline" style="border-radius: var(--radius-sm); background: rgba(0,0,0,0.15);">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Document</th><th>Paquet</th><th>Modèle</th><th>Moteur IA</th><th>Pipeline IA</th><th>Découpage</th><th>Vision</th><th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td colspan="8" class="text-center muted p-20">La file d'attente est vide. Sélectionnez des documents à gauche pour commencer.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="ide-panel flex-col terminal-glow" style="height: 220px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <div class="ide-tabs">
+                      <div class="ide-tabs-list">
+                        <button class="ide-tab active code-font">
+                          <i class="ph ph-terminal"></i> root@ankiforge:~/console_de_suivi
+                        </button>
+                      </div>
+                    </div>
+                    <div class="ide-panel-content flex-col p-0" style="padding: 16px; background-color: #0c0c0c;">
+                      <div class="flex-grow code-font text-green" style="overflow-y: auto; padding: 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap;">
+> Initializing AnkiForge CI/CD Engine... OK
+> Waiting for tasks...
+                      </div>
+                      <div class="toolbar space-between border-top pt-10" style="border-color: #333;">
+                        <div class="flex-col">
+                          <span class="tech-font text-blue"><i class="ph ph-chart-bar"></i> Estimation : 0 tokens | <i class="ph ph-coin text-yellow"></i> Coût : Gratuit</span>
+                        </div>
+                        <div class="toolbar gap-10">
+                          <span class="code-font text-green">[READY]</span>
+                          <button class="btn btn-primary" style="background-color: #10b981; border-color: #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.3);">
+                            <i class="ph ph-rocket-launch"></i> Démarrer l'Usine
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : BATCH FACTORY - KANBAN -->
+            <div class="view hidden" id="view-batch-factory-kanban">
+              <div class="kanban-board flex-1 flex-row gap-10 h-full" style="padding-bottom: 10px; overflow-x: auto;">
+                <!-- Column 1 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active">À traiter (Sources) <span class="badge">0</span></div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone">
+                    <button class="btn btn-secondary w-full border-dashed"><i class="ph ph-plus"></i> Ajouter Document</button>
+                  </div>
+                </div>
+                <!-- Column 2 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active">En Cours (IA) <i class="ph ph-spinner-gap spin ml-5"></i></div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone" style="background: rgba(59, 130, 246, 0.05);">
+                    <div class="text-center muted mt-20"><i class="ph ph-robot" style="font-size: 24px;"></i><br>Déposez une tâche ici pour lancer l'IA</div>
+                  </div>
+                </div>
+                <!-- Column 3 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active text-yellow">Validation Requise</div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone" style="background: rgba(245, 158, 11, 0.05);">
+                  </div>
+                </div>
+                <!-- Column 4 -->
+                <div class="ide-panel flex-col kanban-col">
+                  <div class="ide-tabs"><div class="ide-tabs-list"><div class="ide-tab active text-green">Terminé (Prêt Anki)</div></div></div>
+                  <div class="ide-panel-content flex-col gap-10 kanban-dropzone" style="background: rgba(16, 185, 129, 0.05);">
+                    <button class="btn btn-primary w-full mt-auto" style="background-color: #10b981;"><i class="ph ph-export"></i> Exporter vers Anki</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VUE : BATCH FACTORY - WIZARD -->
+            <div class="view hidden" id="view-batch-factory-wizard">
+              <div class="center-content h-full w-full">
+                <div class="ide-panel flex-col wizard-panel glass-panel" style="width: 800px; height: 600px; border-radius: var(--radius-lg); box-shadow: var(--shadow-glass);">
+                  <div class="wizard-header space-between p-20 border-bottom">
+                    <h2><i class="ph ph-magic-wand text-blue"></i> Assistant de Création</h2>
+                    <div class="wizard-steps flex-row gap-10">
+                      <div class="step active"><span class="step-num">1</span> Source</div>
+                      <div class="step-line"></div>
+                      <div class="step"><span class="step-num">2</span> IA & Config</div>
+                      <div class="step-line"></div>
+                      <div class="step"><span class="step-num">3</span> Terminer</div>
+                    </div>
+                  </div>
+                  <div class="wizard-body flex-grow p-20 flex-col center-content text-center">
+                    <div class="upload-zone outline mb-20 flex-col center-content" style="width: 100%; height: 250px; border-radius: var(--radius-md); border-style: dashed; border-width: 2px;">
+                      <i class="ph ph-upload-simple text-blue" style="font-size: 48px; margin-bottom: 15px;"></i>
+                      <h3>Glissez-déposez vos documents ici</h3>
+                      <p class="muted mt-10">PDF, TXT, DOCX, ou dossiers complets supportés.</p>
+                      <button class="btn btn-secondary mt-20"><i class="ph ph-folder-open"></i> Parcourir</button>
+                    </div>
+                  </div>
+                  <div class="wizard-footer space-between p-20 border-top">
+                    <button class="btn btn-secondary" disabled>Retour</button>
+                    <button class="btn btn-primary px-20">Suivant <i class="ph ph-caret-right"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>

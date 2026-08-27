@@ -1,20 +1,21 @@
-import logging
 import json
+import logging
 import re
-from typing import Optional, cast
+from typing import cast
 
-import qtawesome
-from PySide6.QtCore import Qt, Signal, QPoint, QSettings
+from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTableWidget, QTableWidgetItem, QAbstractItemView, QFrame, QMenu, QMessageBox
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView
+from peewee import prefetch
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.components.components import RoundedPanel, PrimaryButton, DangerButton, ActionButton
+from ankiforge.ui.components.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
+from ankiforge.ui.theme import StyledMenu
 
 logger = logging.getLogger(__name__)
 
 
-def strip_html(text: Optional[str]) -> str:
+def strip_html(text: str | None) -> str:
     """Retire toutes les balises HTML d'une chaîne pour l'affichage brut dans les tableaux."""
     if not text:
         return ""
@@ -47,12 +48,13 @@ class NoteTableWidget(RoundedPanel):
     scan_dupes_requested = Signal()
     batch_ai_requested = Signal(list)  # Liste des IDs
     auto_tag_requested = Signal(list)  # Liste des IDs
+    audit_ai_requested = Signal(list)  # Liste des IDs
     approve_requested = Signal(list)  # Liste des IDs
     reject_requested = Signal(list)  # Liste des IDs
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
         self._setup_ui()
         self._connect_signals()
 
@@ -71,12 +73,12 @@ class NoteTableWidget(RoundedPanel):
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
-        self.btn_approve = PrimaryButton(qtawesome.icon("fa5s.check", color="white"), " Approuver")
+        self.btn_approve = PrimaryButton("Approuver")
         self.btn_approve.setVisible(False)
-        self.btn_reject = DangerButton(qtawesome.icon("fa5s.trash", color="white"), " Rejeter")
+        self.btn_reject = DangerButton("Rejeter")
         self.btn_reject.setVisible(False)
 
-        self.btn_new_note = PrimaryButton(qtawesome.icon("fa5s.plus", color="white"), " Nouvelle Note")
+        self.btn_new_note = PrimaryButton("Nouvelle Note")
         self.btn_new_note.setEnabled(False)
 
         self.btn_scan_dupes = ActionButton("fa5s.search", " Traquer les doublons")
@@ -87,9 +89,13 @@ class NoteTableWidget(RoundedPanel):
         self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA")
         self.btn_auto_tag.setEnabled(False)
 
+        self.btn_audit_ai = ActionButton("fa5s.clipboard-check", " Auditer IA")
+        self.btn_audit_ai.setEnabled(False)
+
         toolbar_layout.addWidget(self.btn_new_note)
         toolbar_layout.addWidget(self.btn_batch_ai)
         toolbar_layout.addWidget(self.btn_auto_tag)
+        toolbar_layout.addWidget(self.btn_audit_ai)
         toolbar_layout.addWidget(self.btn_scan_dupes)
         toolbar_layout.addWidget(self.btn_approve)
         toolbar_layout.addWidget(self.btn_reject)
@@ -97,7 +103,11 @@ class NoteTableWidget(RoundedPanel):
         layout.addLayout(toolbar_layout)
 
         # --- Table ---
+        self.container_layout = QVBoxLayout()
+        self.container_layout.setContentsMargins(0, 0, 0, 0)
+
         self.data_table = QTableWidget()
+
         self.data_table.setFrameShape(QFrame.Shape.NoFrame)
         self.data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.data_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -107,7 +117,18 @@ class NoteTableWidget(RoundedPanel):
         self.data_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.data_table.setSortingEnabled(True)
 
-        layout.addWidget(self.data_table)
+        self.empty_overlay = EmptyStateWidget(
+            icon_name="fa5s.clone",
+            title=self.tr("Aucune carte à afficher"),
+            description=self.tr("Sélectionnez un paquet dans l'explorateur à gauche ou créez votre première carte pour la voir apparaître ici."),
+        )
+
+        self.container_layout.addWidget(self.data_table)
+        self.container_layout.addWidget(self.empty_overlay)
+        layout.addLayout(self.container_layout)
+
+        # État initial
+        self.data_table.hide()
 
     def _connect_signals(self):
         self.view_mode_cb.currentIndexChanged.connect(self._on_view_mode_changed)
@@ -115,6 +136,7 @@ class NoteTableWidget(RoundedPanel):
         self.btn_scan_dupes.clicked.connect(self.scan_dupes_requested.emit)
         self.btn_batch_ai.clicked.connect(self._on_batch_ai_clicked)
         self.btn_auto_tag.clicked.connect(self._on_auto_tag_clicked)
+        self.btn_audit_ai.clicked.connect(self._on_audit_ai_clicked)
         self.btn_approve.clicked.connect(self._on_approve_clicked)
         self.btn_reject.clicked.connect(self._on_reject_clicked)
 
@@ -126,10 +148,14 @@ class NoteTableWidget(RoundedPanel):
     def _on_view_mode_changed(self):
         self.view_mode_changed.emit(self.view_mode_cb.currentText())
 
+    def get_current_view_mode(self) -> str:
+        return self.view_mode_cb.currentText()
+
     def _on_selection_changed(self):
         selected_ids = self.get_selected_note_ids()
         self.btn_batch_ai.setEnabled(bool(selected_ids))
         self.btn_auto_tag.setEnabled(bool(selected_ids))
+        self.btn_audit_ai.setEnabled(bool(selected_ids))
 
         is_quarantine = self.view_mode_cb.currentText() == "Vue : Quarantaine (À valider)"
         if is_quarantine:
@@ -157,11 +183,24 @@ class NoteTableWidget(RoundedPanel):
                         note_ids.append(note_id)
         return note_ids
 
+    def select_and_scroll_to_note(self, note_id: int) -> bool:
+        """Selects a note in the table and scrolls to it. Returns True if found."""
+        for row in range(self.data_table.rowCount()):
+            table_item = self.data_table.item(row, 0)
+            if table_item and table_item.data(Qt.ItemDataRole.UserRole) == note_id:
+                self.data_table.selectRow(row)
+                self.data_table.scrollToItem(table_item)
+                return True
+        return False
+
     def _on_batch_ai_clicked(self):
         self.batch_ai_requested.emit(self.get_selected_note_ids())
 
     def _on_auto_tag_clicked(self):
         self.auto_tag_requested.emit(self.get_selected_note_ids())
+
+    def _on_audit_ai_clicked(self):
+        self.audit_ai_requested.emit(self.get_selected_note_ids())
 
     def _on_approve_clicked(self):
         self.approve_requested.emit(self.get_selected_note_ids())
@@ -169,9 +208,10 @@ class NoteTableWidget(RoundedPanel):
     def _on_reject_clicked(self):
         self.reject_requested.emit(self.get_selected_note_ids())
 
-    def refresh_table(self, deck_id: int | None, tag_filter: str | None = None):
+    def refresh_table(self, deck_id: int | None, tag_filter: str | None = None) -> None:
         if not deck_id:
-            self.data_table.setRowCount(0)
+            self.data_table.hide()
+            self.empty_overlay.show()
             return
 
         self.data_table.setSortingEnabled(False)
@@ -195,6 +235,12 @@ class NoteTableWidget(RoundedPanel):
             if mode == "Vue : Cartes (Métadonnées)":
                 self.data_table.setColumnCount(4)
                 self.data_table.setHorizontalHeaderLabels(["ID Carte", "Modèle", "Paquet", "Template"])
+
+                self.data_table.horizontalHeader().setStretchLastSection(False)
+                self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Le nom du paquet s'étire
+                self.data_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
 
                 cards = (
                     CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
@@ -226,7 +272,14 @@ class NoteTableWidget(RoundedPanel):
                 self.data_table.setColumnCount(5)
                 self.data_table.setHorizontalHeaderLabels(["Question (Aperçu)", "Réponse (Aperçu)", "Modèle", "Tags", "Version"])
 
-                notes = (
+                self.data_table.horizontalHeader().setStretchLastSection(False)
+                self.data_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Question s'étire
+                self.data_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Réponse s'étire aussi
+                self.data_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+                self.data_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+
+                notes_query = (
                     NoteModel.select(NoteModel, NoteTypeModel)
                     .join(NoteTypeModel)
                     .switch(NoteModel)
@@ -235,12 +288,20 @@ class NoteTableWidget(RoundedPanel):
                     .where(DeckModel.id.in_(matching_decks) & status_condition)
                     .distinct()
                 )
+                # 2. Requête secondaire (uniquement les versions actives)
+                versions_query = NoteVersionModel.select().where(NoteVersionModel.is_active)
 
-                for row_index, note in enumerate(notes):
+                # 3. LA MAGIE PEEWEE : On précharge tout en mémoire en 2 requêtes SQL !
+                notes_with_versions = prefetch(notes_query, versions_query)
+
+                for row_index, note in enumerate(notes_with_versions):
                     self.data_table.insertRow(row_index)
 
-                    active_version = NoteVersionModel.get_or_none(note=note, is_active=True)
-                    content_dict = json.loads(active_version.content) if active_version else {}
+                    # Puisque prefetch a déjà attaché les versions, on y accède directement en RAM
+                    # Note: note.versions est maintenant une liste Python peuplée automatiquement
+                    active_version = note.versions[0] if len(note.versions) > 0 else None
+
+                    content_dict = json.loads(str(active_version.content)) if active_version else {}
 
                     values = list(content_dict.values())
                     recto = strip_html(values[0]) if len(values) > 0 else ""
@@ -272,8 +333,15 @@ class NoteTableWidget(RoundedPanel):
             logger.exception("Erreur lors du rafraîchissement du tableau de données :")
             QMessageBox.critical(self, "Erreur d'affichage", f"Impossible de charger le tableau :\n{e}")
 
+        if self.data_table.rowCount() == 0:
+            self.data_table.hide()
+            self.empty_overlay.show()
+        else:
+            self.empty_overlay.hide()
+            self.data_table.show()
+
     def _show_header_menu(self, pos: QPoint) -> None:
-        menu = QMenu(self)
+        menu = StyledMenu(self)
         visible_count = sum(not self.data_table.isColumnHidden(i) for i in range(self.data_table.columnCount()))
         for i in range(self.data_table.columnCount()):
             header_item = self.data_table.horizontalHeaderItem(i)
@@ -328,5 +396,7 @@ class NoteTableWidget(RoundedPanel):
                     item_version.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.data_table.setItem(row, 4, item_version)
                     # On remet l'ID car setItem l'écrase
-                    self.data_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, note_id)
+                    item_first = self.data_table.item(row, 0)
+                    if item_first:
+                        item_first.setData(Qt.ItemDataRole.UserRole, note_id)
                 break

@@ -1,3 +1,4 @@
+import pytest
 import json
 from unittest.mock import patch
 
@@ -16,8 +17,9 @@ def test_generate_stable_id():
     assert isinstance(id1, int)
 
 
+@pytest.mark.integration
 @patch("genanki.Package.write_to_file")
-@patch("ankiforge.services.cards.export_manager.get_app_data_dir")
+@patch("ankiforge.services.cards.export_manager.get_media_dir")
 def test_export_deck(mock_get_dir, mock_write, tmp_path):
     """Vérifie l'export global en créant de vraies fausses données dans la DB RAM."""
     mock_get_dir.return_value = tmp_path

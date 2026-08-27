@@ -49,7 +49,7 @@ class NoteManager:
             tags = []
 
         templates_str = note_type.templates
-        templates = json.loads(templates_str) if templates_str else []
+        templates = json.loads(str(templates_str)) if templates_str else []
 
         is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 

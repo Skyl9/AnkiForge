@@ -45,5 +45,5 @@ def setup_logging(level=logging.INFO):
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
 
-    logging.info("--- Démarrage de la session AnkiForge ---")
+    logging.info("--- Démarrage de la session ankiforge_obsidian ---")
     logging.info(f"Fichier de log : {log_file}")

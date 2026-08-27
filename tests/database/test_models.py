@@ -1,6 +1,7 @@
 # tests/test_models.py
 import json
 import pytest
+from typing import Any, cast
 from peewee import IntegrityError
 
 from ankiforge.database.models import (
@@ -9,9 +10,13 @@ from ankiforge.database.models import (
     NoteVersionModel,
     FolderModel,
     DocumentModel,
-    AgentModel,
+    PersonaModel,
     PipelineModel,
     PipelineStepModel,
+    MediaModel,
+    NoteVersionMediaModel,
+    AICacheModel,
+    SettingModel,
 )
 
 
@@ -64,13 +69,13 @@ def test_seed_initial_data_is_idempotent():
     from ankiforge.database.models import seed_initial_data, LLMConfigModel
 
     # Vidons les tables pour le test
-    AgentModel.delete().execute()
+    PersonaModel.delete().execute()
     PipelineModel.delete().execute()
     LLMConfigModel.delete().execute()
 
     # Premier appel
     seed_initial_data()
-    agent_count = AgentModel.select().count()
+    agent_count = PersonaModel.select().count()
     assert agent_count > 0
 
     llm_count = LLMConfigModel.select().count()
@@ -78,7 +83,7 @@ def test_seed_initial_data_is_idempotent():
 
     # Deuxième appel
     seed_initial_data()
-    assert AgentModel.select().count() == agent_count
+    assert PersonaModel.select().count() == agent_count
     assert LLMConfigModel.select().count() == llm_count
 
 
@@ -98,7 +103,7 @@ def test_note_versioning_system():
     v2 = note.add_version(v2_content, source="manual")
 
     # 3. VÉRIFICATION (Then)
-    assert note.versions.count() == 2, "La note devrait posséder exactement 2 versions."
+    assert cast(Any, note).versions.count() == 2, "La note devrait posséder exactement 2 versions."
 
     # On recharge les versions depuis la base pour être sûr de leur état actuel
     v1_reloaded = NoteVersionModel.get_by_id(v1.id)
@@ -164,8 +169,8 @@ def test_cascade_deletion_note_versions():
 def test_cascade_deletion_agent_pipeline_step():
     """Vérifie que la suppression d'un Agent supprime ses étapes dans le pipeline."""
     pipeline = PipelineModel.create(name="Pipe Test Agent Cascade")
-    agent = AgentModel.create(name="Agent à supprimer", system_prompt="Prompt")
-    PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=1)
+    agent = PersonaModel.create(name="Agent à supprimer", system_prompt="Prompt")
+    PipelineStepModel.create(pipeline=pipeline, persona=agent, step_order=1)
 
     assert PipelineStepModel.select().count() == 1
 
@@ -177,15 +182,15 @@ def test_cascade_deletion_agent_pipeline_step():
 def test_cascade_deletion_pipeline_steps():
     """Vérifie que la suppression d'un Pipeline supprime toutes ses étapes."""
     pipeline = PipelineModel.create(name="Pipe à supprimer")
-    agent = AgentModel.create(name="Agent survivant", system_prompt="Prompt")
-    PipelineStepModel.create(pipeline=pipeline, agent=agent, step_order=1)
+    agent = PersonaModel.create(name="Agent survivant", system_prompt="Prompt")
+    PipelineStepModel.create(pipeline=pipeline, persona=agent, step_order=1)
 
     assert PipelineStepModel.select().count() == 1
 
     pipeline.delete_instance()
 
     assert PipelineStepModel.select().count() == 0, "L'étape du pipeline n'a pas été supprimée en cascade !"
-    assert AgentModel.select().where(AgentModel.id == agent.id).exists(), "L'Agent aurait dû survivre à la suppression du Pipeline."
+    assert PersonaModel.select().where(PersonaModel.id == agent.id).exists(), "L'Agent aurait dû survivre à la suppression du Pipeline."
 
 
 def test_ignored_duplicate_unique_constraint():
@@ -236,15 +241,15 @@ def test_pipeline_step_unique_constraint():
 
     # 1. PRÉPARATION
     pipeline = PipelineModel.create(name="Génération Standard")
-    agent_extract = AgentModel.create(name="Extracteur", system_prompt="Test")
-    agent_control = AgentModel.create(name="Controleur", system_prompt="Test")
+    agent_extract = PersonaModel.create(name="Extracteur", system_prompt="Test")
+    agent_control = PersonaModel.create(name="Controleur", system_prompt="Test")
 
     # 2. ACTION - On assigne l'extracteur à l'étape 1 (Succès)
-    PipelineStepModel.create(pipeline=pipeline, agent=agent_extract, step_order=1)
+    PipelineStepModel.create(pipeline=pipeline, persona=agent_extract, step_order=1)
 
     # 3. VÉRIFICATION - Tenter d'assigner le contrôleur à l'étape 1 doit faire crasher la base
     with pytest.raises(IntegrityError):
-        PipelineStepModel.create(pipeline=pipeline, agent=agent_control, step_order=1)
+        PipelineStepModel.create(pipeline=pipeline, persona=agent_control, step_order=1)
 
 
 def test_purge_old_versions():
@@ -256,15 +261,113 @@ def test_purge_old_versions():
     for i in range(1, 9):
         note.add_version({"Test": f"Version {i}"})
 
-    assert note.versions.count() == 8
+    assert cast(Any, note).versions.count() == 8
 
     # 2. Action (On ne garde que les 3 dernières)
     deleted = NoteModel.purge_old_versions(keep_last=3)
 
     # 3. Vérification
     assert deleted == 5
-    assert note.versions.count() == 3
+    assert cast(Any, note).versions.count() == 3
 
     # On vérifie que ce sont bien les versions 6, 7 et 8 qui ont survécu
-    remaining_versions = [v.version_number for v in note.versions.order_by(NoteVersionModel.version_number)]
+    remaining_versions = [v.version_number for v in cast(Any, note).versions.order_by(NoteVersionModel.version_number)]
     assert remaining_versions == [6, 7, 8]
+
+
+def test_media_version_cascade_and_restrict():
+    """Vérifie le versionnement des médias : restriction sur suppression de média lié et cascade sur version."""
+    # 1. Préparation
+    note_type = NoteTypeModel.create(name="Media Test", fields_schema="[]", templates="[]", css_style="")
+    note = NoteModel.create(guid="media_guid", note_type=note_type)
+    version = note.add_version({"Front": "Test"})
+
+    media = MediaModel.create(filename="abc.png", original_name="test.png", checksum="sha256_hash", mime_type="image/png")
+
+    # Associer le média à la version de note
+    _liaison = NoteVersionMediaModel.create(note_version=version, media=media)
+
+    assert NoteVersionMediaModel.select().count() == 1
+
+    # 2. Vérification de RESTRICT sur le média
+    # Si on tente de détruire le média alors qu'il est lié, cela doit lever une IntegrityError (due à la contrainte SQLite foreign key)
+    with pytest.raises(IntegrityError):
+        media.delete_instance()
+
+    # 3. Vérification de CASCADE sur la version de note
+    # Si on détruit la version de la note, la liaison NoteVersionMediaModel doit être supprimée
+    version.delete_instance()
+    assert NoteVersionMediaModel.select().count() == 0
+
+    # Maintenant que la liaison est supprimée, on doit pouvoir détruire le média physique
+    media.delete_instance()
+    assert MediaModel.select().count() == 0
+
+
+def test_pipeline_conditional_steps():
+    """Vérifie que les étapes de pipeline supportent les branchements conditionnels."""
+    pipeline = PipelineModel.create(name="Conditional Pipeline")
+    agent_gen = PersonaModel.create(name="Générateur", system_prompt="Prompt")
+    agent_ok = PersonaModel.create(name="Succès", system_prompt="Prompt")
+    agent_err = PersonaModel.create(name="Erreur", system_prompt="Prompt")
+
+    step_ok = PipelineStepModel.create(pipeline=pipeline, persona=agent_ok, step_order=2)
+    step_err = PipelineStepModel.create(pipeline=pipeline, persona=agent_err, step_order=3)
+
+    # Étape principale qui branche vers step_ok en cas de succès et step_err en cas d'échec
+    step_gen = PipelineStepModel.create(pipeline=pipeline, persona=agent_gen, step_order=1, on_success_step=step_ok, on_failure_step=step_err, failure_behavior="goto_failure_step")
+
+    # Recharger et vérifier
+    step_gen_reloaded = PipelineStepModel.get_by_id(step_gen.id)
+    assert step_gen_reloaded.on_success_step == step_ok
+    assert step_gen_reloaded.on_failure_step == step_err
+    assert step_gen_reloaded.failure_behavior == "goto_failure_step"
+
+    # Vérifier le comportement SET NULL en cas de suppression d'une cible
+    step_ok.delete_instance()
+    step_gen_after_delete = PipelineStepModel.get_by_id(step_gen.id)
+    assert step_gen_after_delete.on_success_step is None
+    assert step_gen_after_delete.on_failure_step == step_err
+
+
+def test_ai_cache_uniqueness():
+    """Vérifie l'unicité de la clé composite (prompt_hash, system_prompt_hash, model_id, temperature) dans le cache d'IA."""
+    AICacheModel.create(prompt_hash="p1", system_prompt_hash="s1", model_id="m1", temperature=0.7, response_content="Response 1")
+
+    assert AICacheModel.select().count() == 1
+
+    # Tenter d'insérer le même hash d'appel doit lever une IntegrityError
+    with pytest.raises(IntegrityError):
+        AICacheModel.create(prompt_hash="p1", system_prompt_hash="s1", model_id="m1", temperature=0.7, response_content="Response 2")
+
+
+def test_setting_model_crud_and_json():
+    """Vérifie la persistance, la mise à jour et la conversion JSON de SettingModel."""
+    # 1. Enregistrement scalaire
+    SettingModel.set_value("theme_id", "jetbrains_light", category="appearance")
+    assert SettingModel.get_value("theme_id") == "jetbrains_light"
+
+    # 2. Mise à jour de la même clé (upsert)
+    SettingModel.set_value("theme_id", "emerald_light", category="appearance")
+    assert SettingModel.get_value("theme_id") == "emerald_light"
+
+    # 3. Enregistrement de structures JSON complexes (dict, bool, list)
+    SettingModel.set_value("layout_config", {"sidebar_width": 240, "compact": True}, category="appearance")
+    config = SettingModel.get_value("layout_config")
+    assert isinstance(config, dict)
+    assert config["sidebar_width"] == 240
+    assert config["compact"] is True
+
+    # 4. get_category
+    cat_settings = SettingModel.get_category("appearance")
+    assert "theme_id" in cat_settings
+    assert "layout_config" in cat_settings
+    assert cat_settings["theme_id"] == "emerald_light"
+
+    # 5. set_many (lot atomique)
+    SettingModel.set_many({"ui/language": "English", "app/export_path": "/tmp/export"}, category="general")
+    assert SettingModel.get_value("ui/language") == "English"
+    assert SettingModel.get_value("app/export_path") == "/tmp/export"
+
+    # 6. Fallback par défaut
+    assert SettingModel.get_value("non_existent_key", default="default_val") == "default_val"

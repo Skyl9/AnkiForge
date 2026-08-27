@@ -4,6 +4,8 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 
+from ankiforge.ui.theme import DesignTokens
+
 
 class DonutChartWidget(QWidget):
     """
@@ -18,8 +20,8 @@ class DonutChartWidget(QWidget):
         # Palette de couleurs générique (Thème moderne)
         self.theme_colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#E7E9ED", "#8D6E63"]
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
 
         # 1. La Série
         self.series = QPieSeries()
@@ -35,7 +37,7 @@ class DonutChartWidget(QWidget):
         self.chart.layout().setContentsMargins(0, 0, 0, 0)
         self.chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
         self.chart.legend().setLabelColor(QColor("palette(text)"))
-        self.chart.legend().setFont(QFont("sans-serif", 10, QFont.Weight.Bold))
+        self.chart.legend().setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
 
         # 3. La Vue
         self.chart_view = QChartView(self.chart)
@@ -47,7 +49,7 @@ class DonutChartWidget(QWidget):
         self.center_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.center_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        self.layout.addWidget(self.chart_view)
+        self.main_layout.addWidget(self.chart_view)
 
     def update_data(self, data_dict: dict[str, int]):
         """

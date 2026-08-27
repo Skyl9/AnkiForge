@@ -87,13 +87,20 @@ class DocumentParser:
     def _parse_web(self, url: str) -> str:
         """
         Télécharge et extrait le contenu principal d'une page Web.
-
-        Args:
-            url (str): L'URL à analyser.
-
-        Returns:
-            str: Le contenu utile de la page (sans publicités ni menus).
         """
+        if "youtube.com/watch" in url or "youtu.be/" in url:
+            from ankiforge.services.parsing.youtube_parser import YouTubeParser
+
+            try:
+                parser = YouTubeParser()
+                # Extraction basique des sous-titres sans l'agent IA (l'IA interviendra lors du batching dans CreationView)
+                result = parser.parse(url, ai_manager=None)
+                if result:
+                    return result
+                raise ValueError("Impossible de récupérer les sous-titres YouTube pour cette vidéo.")
+            except Exception as e:
+                raise ValueError(f"Erreur d'extraction YouTube : {e}") from e
+
         if trafilatura is None:
             raise RuntimeError("Le module trafilatura n'est pas installé. Lancez 'uv add trafilatura'")
         if "wikipedia.org/wiki/" in url:
@@ -136,7 +143,7 @@ class DocumentParser:
             # CHANGEMENT CRUCIAL : action=parse & prop=text ramène le vrai HTML de la page
             api_url = f"https://{lang}.wikipedia.org/w/api.php?action=parse&format=json&page={urllib.parse.quote(title)}&prop=text"
 
-            req = urllib.request.Request(api_url, headers={"User-Agent": "AnkiForge/0.2"})
+            req = urllib.request.Request(api_url, headers={"User-Agent": "ankiforge_obsidian/0.2"})
             with urllib.request.urlopen(req) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
@@ -196,7 +203,7 @@ class DocumentParser:
             if not executable:
                 raise FileNotFoundError("L'outil Marker n'est pas installé ou introuvable dans le PATH.")
 
-            cmd = [executable, str(file_path), "--output_dir", str(temp_dir)]
+            cmd = [executable, str(file_path), "--output_dir", str(temp_dir), "--paginate_output"]
 
             if progress_callback:
                 progress_callback("Lancement du moteur de Deep Learning (Marker)...")
@@ -307,7 +314,7 @@ class DocumentParser:
             if slide_text:
                 slide_content = "\n".join(slide_text)
                 # Force un titre Markdown pour chaque slide.
-                # Le Chunking "Sémantique" d'AnkiForge découpera donc la prez' slide par slide !
+                # Le Chunking "Sémantique" d'ankiforge_obsidian découpera donc la prez' slide par slide !
                 full_text.append(f"## Diapositive {i + 1}\n{slide_content}")
 
         # Séparation forte entre les slides

@@ -7,7 +7,7 @@ from PySide6.QtCore import QMimeData
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QTextEdit
 
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_media_dir
 
 
 class DropImageTextEdit(QTextEdit):
@@ -17,7 +17,7 @@ class DropImageTextEdit(QTextEdit):
     """
 
     def insertFromMimeData(self, source: QMimeData) -> None:
-        media_dir = get_app_data_dir() / "media"
+        media_dir = get_media_dir()
         media_dir.mkdir(parents=True, exist_ok=True)
 
         inserted_image = False

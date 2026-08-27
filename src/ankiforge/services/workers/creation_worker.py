@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QThread, Signal
 
-from ankiforge.services.ai.utils import parse_ai_json_response, format_system_prompt
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.services.ai.utils import AIReponseParser, format_system_prompt
+from ankiforge.utils.paths import get_media_dir
 from ankiforge.utils.vision_utils import prepare_multimodal_payload, strip_image_tags
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ class CreationWorker(QThread):
                 self.log.emit(f"ENTRÉE UTILISATEUR :\n{current_input}\n")
 
                 if self.payload.use_vision:
-                    media_dir = get_app_data_dir() / "media"
+                    media_dir = get_media_dir()
                     payload_multimodal = prepare_multimodal_payload(current_input, media_dir)
                     raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=payload_multimodal, response_format=output_format)
                 else:
@@ -126,7 +126,7 @@ class CreationWorker(QThread):
                 cleaned_output = self._clean_json(raw_response)
                 current_input = f"Voici les données à traiter (provenant de l'étape précédente) :\n{cleaned_output}"
 
-            data = parse_ai_json_response(raw_response)
+            data = AIReponseParser.parse(raw_response)
 
             if "notes" not in data:
                 raise ValueError("Le JSON final ne contient pas la clé 'notes'.")

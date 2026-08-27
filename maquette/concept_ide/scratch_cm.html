@@ -1,0 +1,97 @@
+            <div class="view" id="view-card-models">
+              <div class="view-header flex-row items-center justify-between pb-15 mb-15 border-bottom">
+                <h2>Édition des Modèles (Note Types)</h2>
+                <div class="toolbar">
+                  <button class="btn btn-secondary"><i class="ph ph-plus"></i> Nouveau Modèle</button>
+                  <button class="btn btn-secondary"><i class="ph ph-arrows-clockwise"></i> Rafraîchir</button>
+                </div>
+              </div>
+              <div class="split-view flex-1" style="gap: 15px;">
+                <!-- Left Pane -->
+                <div class="panel flex-col outline" style="width: 250px;">
+                  <h4 class="muted uppercase small mb-10">Modèles Disponibles</h4>
+                  <div class="list-area flex-grow">
+                    <div class="list-item active">Texte à trous (Cloze)</div>
+                    <div class="list-item">Basique</div>
+                    <div class="list-item">Basique (Inversé)</div>
+                  </div>
+                </div>
+
+                <!-- Right Pane -->
+                <div class="flex-1 flex-col view-scrollable" style="gap: 15px; padding-right: 5px;">
+                  <!-- Config Globale -->
+                  <div class="panel outline flex-col">
+                    <h4 class="muted uppercase small mb-15">Configuration Globale</h4>
+
+                    <div class="form-group mb-15">
+                      <label class="muted uppercase small mb-5">Champs de données (séparés par des virgules) :</label>
+                      <input type="text" class="input-element w-full" value="Texte, Extra" />
+                    </div>
+
+                    <div class="form-group mb-15">
+                      <label class="muted uppercase small mb-5">Style Global (CSS) :</label>
+                      <textarea class="code-editor-element w-full" rows="6">.card {
+  font-family: arial;
+  font-size: 20px;
+  text-align: center;
+  color: black;
+  background-color: white;
+}
+
+.cloze {
+  font-weight: bold;
+  color: blue;
+}</textarea>
+                    </div>
+
+                    <div class="toolbar flex-end">
+                      <button class="btn btn-danger ghost mr-10"><i class="ph ph-trash"></i> Supprimer le modèle</button>
+                      <button class="btn btn-success"><i class="ph ph-floppy-disk"></i> Sauvegarder le modèle</button>
+                    </div>
+                  </div>
+
+                  <!-- Editor -->
+                  <div class="panel outline flex-col">
+                    <div class="toolbar items-center pb-15 mb-15 border-bottom flex-wrap gap-10">
+                      <span class="muted uppercase small">Sélection de la carte :</span>
+                      <input type="text" class="input-element" style="width: 150px;" value="Carte 1" />
+                      <button class="btn btn-secondary icon-btn"><i class="ph ph-plus"></i></button>
+                      <button class="btn btn-secondary icon-btn"><i class="ph ph-pencil-simple"></i></button>
+                      <button class="btn btn-secondary icon-btn"><i class="ph ph-trash"></i></button>
+
+                      <div class="flex-grow"></div>
+
+                      <button class="btn btn-secondary"><i class="ph ph-corners-out"></i> Mode Focus</button>
+                      <span class="muted uppercase small ml-10">Prévisualisation :</span>
+                      <select class="input-element">
+                        <option>Voir Recto</option>
+                        <option>Voir Verso</option>
+                      </select>
+                      <button class="btn btn-secondary icon-btn"><i class="ph ph-cards"></i></button>
+                    </div>
+
+                    <div class="toolbar mb-15 gap-5 flex-wrap">
+                      <button class="tag-btn">{{Texte}}</button>
+                      <button class="tag-btn">{{Extra}}</button>
+                      <button class="tag-btn">{{FrontSide}}</button>
+                      <button class="tag-btn">{{cloze:Texte}}</button>
+                      <button class="tag-btn">&lt;hr id="answer"&gt;</button>
+                    </div>
+
+                    <div class="form-group mb-15">
+                      <label class="muted uppercase small mb-5">HTML du Recto :</label>
+                      <textarea class="code-editor-element w-full" rows="8">{{cloze:Texte}}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="muted uppercase small mb-5">HTML du Verso :</label>
+                      <textarea class="code-editor-element w-full" rows="8">{{cloze:Texte}}
+<br>
+<hr id="answer">
+<br>
+{{Extra}}</textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>

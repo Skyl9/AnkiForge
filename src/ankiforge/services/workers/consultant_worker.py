@@ -1,67 +1,108 @@
+"""
+Worker asynchrone pour le Consultant IA AnkiForge.
+Orchestre l'exécution en arrière-plan du moteur ReAct et transmet les signaux à l'UI PySide6.
+"""
+
+import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, Dict, Optional
 
 from PySide6.QtCore import QThread, Signal
+
+from ankiforge.database.models import LLMConfigModel
+from ankiforge.services.ai.consultant_engine import ConsultantEngine
 
 logger = logging.getLogger(__name__)
 
 
 class ConsultantWorker(QThread):
     """
-    Expert IA interactif pour l'analyse de collection.
-
-    Envoie une synthèse massive de la base de données (notes, docs) à l'IA
-    pour obtenir des audits pédagogiques ou des conseils personnalisés.
+    Expert IA interactif pour l'analyse de collection et le diagnostic.
+    Utilise ConsultantEngine pour la boucle ReAct (Thought ➔ Action ➔ Observation) en arrière-plan.
     """
 
+    thought_emitted = Signal(int, str)
+    tool_call_emitted = Signal(str, str, str, bool)  # tool_name, args_json, result_str, is_error
     progress = Signal(str)
     finished_signal = Signal(str)
     error_signal = Signal(str)
 
-    def __init__(self, ai_provider: Any, context_data: dict[str, Any], instruction: str):
-        """
-        Initialise le consultant IA.
-
-        Args:
-            ai_provider (Any): Le moteur IA.
-            context_data (dict[str, Any]): Synthèse des données Anki (notes, doublons).
-            instruction (str): La question ou commande de l'utilisateur.
-        """
+    def __init__(
+        self,
+        llm_config: Optional[LLMConfigModel] = None,
+        persona: Any = None,
+        context_data: Optional[Dict[str, Any]] = None,
+        instruction: str = "",
+        ai_provider: Any = None,
+    ) -> None:
         super().__init__()
-        self.ai_provider = ai_provider
-        self.context_data = context_data
+        self.llm_config = llm_config
+        self.persona = persona
+        self.context_data = context_data or {}
         self.instruction = instruction
+        self.ai_provider = ai_provider
 
-    def run(self):
-        """Prépare le payload contextuel et récupère la réponse de l'IA."""
+    def run(self) -> None:
+        """Prépare le payload contextuel et lance le moteur ReAct via asyncio."""
         try:
-            self.progress.emit("Extraction et structuration du contexte...")
+            self.progress.emit("Initialisation du moteur IA et connexion aux outils MCP...")
 
-            system_prompt = (
-                "Tu es un expert en mémorisation, pédagogie et création de flashcards Anki.\n"
-                "Ton rôle est d'analyser les documents et les paquets de cartes fournis en contexte.\n"
-                "Réponds aux questions de l'utilisateur pour l'aider à améliorer son apprentissage.\n"
-                "RÈGLES :\n"
-                "1. Réponds en Markdown avec une structure claire.\n"
-                "2. Si l'utilisateur demande un audit (/audit), cherche les incohérences ou les cartes trop complexes.\n"
-                "3. Sois direct, pédagogique et critique si nécessaire."
-            )
+            # Construire un prompt augmenté avec le contexte si disponible
+            if self.context_data and (self.context_data.get("documents") or self.context_data.get("paquets")):
+                context_str = json.dumps(self.context_data, ensure_ascii=False, indent=2)
+                full_prompt = f"Contexte actuel des documents et paquets attachés :\n```json\n{context_str}\n```\n\nRequête de l'utilisateur :\n{self.instruction}"
+            else:
+                full_prompt = self.instruction
 
-            user_payload = {"contexte_fourni": self.context_data, "requete_utilisateur": self.instruction}
+            active_config = self.llm_config or LLMConfigModel.select().first()
+            if not active_config and self.ai_provider is None:
+                active_config = LLMConfigModel(provider="openai", model_id="gpt-4o")
 
-            user_prompt = json.dumps(user_payload, ensure_ascii=False, indent=2)
+            model_name = getattr(active_config, "display_name", getattr(active_config, "model_id", "l'IA")) if active_config else "l'IA"
+            self.progress.emit(f"Exécution ReAct MCP via {model_name}...")
 
-            # On récupère le nom du modèle de manière sécurisée pour l'affichage
-            model_name = getattr(self.ai_provider, "model_name", "l'IA")
-            self.progress.emit(f"Envoi des données au modèle {model_name}...")
+            async def _run_engine() -> str:
+                engine = ConsultantEngine(llm_config=active_config, persona=self.persona, ai_provider=self.ai_provider)
+                final_text = ""
+                curr_tool_name = ""
+                curr_tool_args: Dict[str, Any] = {}
 
-            # Appel API
-            raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="text")
+                async for event in engine.chat_stream(full_prompt):
+                    ev_type = event.get("type")
 
-            self.progress.emit("Réponse reçue, formatage en cours...")
-            self.finished_signal.emit(raw_response)
+                    if ev_type == "thought":
+                        step = event.get("step", 1)
+                        content = event.get("content", "")
+                        self.thought_emitted.emit(step, content)
+                        self.progress.emit(f"🤔 Étape {step} : Réflexion ReAct...")
+
+                    elif ev_type == "tool_start":
+                        curr_tool_name = event.get("tool", "unknown")
+                        curr_tool_args = event.get("args", {})
+                        self.progress.emit(f"🔧 Exécution de l'outil MCP `{curr_tool_name}`...")
+
+                    elif ev_type == "tool_result":
+                        t_name = event.get("tool", curr_tool_name)
+                        result = str(event.get("result", ""))
+                        is_err = bool(event.get("is_error", False))
+                        args_str = json.dumps(curr_tool_args, ensure_ascii=False)
+                        self.tool_call_emitted.emit(t_name, args_str, result, is_err)
+                        self.progress.emit(f"✅ Résultat MCP reçu de `{t_name}`.")
+
+                    elif ev_type == "text":
+                        final_text += event.get("content", "")
+
+                    elif ev_type == "finished":
+                        if not final_text:
+                            final_text = event.get("content", "")
+
+                return final_text
+
+            final_output = asyncio.run(_run_engine())
+            self.progress.emit("Réponse finalisée.")
+            self.finished_signal.emit(final_output)
 
         except Exception as e:
-            logger.exception("Erreur dans le ChatConsultantThread :")
+            logger.exception("Erreur dans le ConsultantWorker : %s", e)
             self.error_signal.emit(str(e))

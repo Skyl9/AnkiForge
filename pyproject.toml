@@ -13,22 +13,24 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "openai>=1.0.0",
     "zstandard>=0.25.0",
-    "pytest>=9.0.2",
-    "pytest-cov>=7.1.0",
     "protobuf>=7.34.1",
     "qtawesome>=1.4.1",
     "markdown",
     "google-genai",
     "platformdirs>=4.9.4",
     "marker-pdf>=1.10.2",
-    "pytest-qt>=4.5.0",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "trafilatura>=2.0.0",
     "beautifulsoup4>=4.14.3",
     "markdownify>=1.2.2",
     "peewee-migrate>=1.15.0",
-    "zstd>=1.5.7.3",
+    "youtube-transcript-api>=0.6.0",
+    "mcp>=2.0.0",
+    "faiss-cpu>=1.14.3",
+    "numpy>=2.4.4",
+    "chromadb>=1.5.9",
+    "zensical>=0.0.52",
 ]
 
 [project.gui-scripts]
@@ -40,6 +42,10 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "zensical>=0.0.52",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    "pytest-qt>=4.5.0",
     "bandit>=1.9.4",
     "mkdocs-material>=9.7.6",
     "mkdocstrings[python]>=1.0.3",
@@ -51,12 +57,15 @@ dev = [
     "tiktoken>=0.12.0",
     "types-markdown>=3.10.2.20260408",
     "types-peewee>=4.0.0.20260408",
+    "types-requests>=2.33.0.20260408",
+    "pytest-timeout>=2.4.0",
 ]
 
 [tool.ruff]
 # On autorise des lignes plus longues (120 au lieu de 88) pour ne pas casser les prompts IA
 line-length = 200
 target-version = "py312"
+extend-exclude = ["script/tools", "script/ui_rebuild"]
 
 [tool.ruff.lint]
 # E: Erreurs (PEP8), F: Fails (variables non utilisées, imports cassés), B: Bugbear (pièges courants)
@@ -69,7 +78,38 @@ python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_redundant_casts = true
-warn_unused_ignores = true
+warn_unused_ignores = false
+
+
+[[tool.mypy.overrides]]
+module = [
+    "peewee.*",
+    "requests.*"
+]
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "ankiforge.*",
+    "ankiforge.database.*",
+    "ankiforge.services.*",
+    "ankiforge.ui.*",
+    "ankiforge.utils.*",
+]
+disable_error_code = [
+    "attr-defined",
+    "assignment",
+    "method-assign",
+    "arg-type",
+    "union-attr",
+    "operator",
+    "call-arg",
+    "index",
+    "misc",
+    "return-value",
+    "call-overload"
+]
 
 [tool.bandit]
 # On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données

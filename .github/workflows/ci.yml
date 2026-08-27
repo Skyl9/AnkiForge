@@ -1,0 +1,135 @@
+name: CI - Quality & Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - refonte
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  QT_QPA_PLATFORM: "offscreen"
+  QTWEBENGINE_DISABLE_SANDBOX: "1"
+  QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
+
+jobs:
+  quality:
+    name: 🔍 Linters, Types & Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run Ruff Linting
+        run: uv run ruff check .
+
+      - name: Run Ruff Formatting Check
+        run: uv run ruff format --check .
+
+      - name: Run Mypy Type Checking
+        run: uv run mypy src/ankiforge
+
+      - name: Run Bandit Security Analysis
+        run: uv run bandit -c pyproject.toml -r src/
+
+  test:
+    name: 🧪 Tests on ${{ matrix.os }} (Python ${{ matrix.python-version }})
+    needs: quality
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux GUI & Qt Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb \
+            libgl1 \
+            libegl1 \
+            libxkbcommon-x11-0 \
+            libdbus-1-3 \
+            libxcb1 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-shm0 \
+            libxcb-sync1 \
+            libxcb-xfixes0 \
+            libxcb-xinerama0 \
+            libxcb-xkb1 \
+            gcc
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Compile Native C Levenshtein Extension (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: |
+          gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+
+      - name: Compile Native C Levenshtein Extension (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
+        shell: bash
+
+      - name: Run Tests with Coverage (Linux with Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run --auto-servernum uv run pytest --cov=ankiforge --cov-report=xml --cov-report=term
+
+      - name: Run Tests with Coverage (macOS & Windows)
+        if: runner.os != 'Linux'
+        run: |
+          uv run pytest --cov=ankiforge --cov-report=xml --cov-report=term
+
+      - name: Upload Test Coverage Artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: ignore

@@ -35,7 +35,7 @@ class DuplicateManager:
     """
 
     @staticmethod
-    def find_duplicates(deck_id: int) -> list[tuple[NoteModel, dict[str, Any], NoteModel, dict[str, Any]]]:
+    def find_duplicates(deck_id: int) -> list[tuple[NoteModel, dict[str, Any], NoteModel, dict[str, Any], float]]:
         """
         Recherche les doublons au sein d'un paquet et de ses sous-paquets.
 
@@ -47,8 +47,11 @@ class DuplicateManager:
         """
         conflicts = []
 
-        selected_deck = DeckModel.get_by_id(deck_id)
-        matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+        if deck_id == -1:
+            matching_decks = DeckModel.select()
+        else:
+            selected_deck = DeckModel.get_by_id(deck_id)
+            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
 
         # Récupère toutes les notes du paquet
         all_notes = (
@@ -113,11 +116,12 @@ class DuplicateManager:
                     if (id_1, id_2) in ignored_pairs:
                         continue
 
-                    if get_similarity(clean_a, clean_b) > 0.90:
+                    sim = get_similarity(clean_a, clean_b)
+                    if sim > 0.90:
                         if note_a.id < note_b.id:
-                            conflicts.append((note_a, content_a, note_b, content_b))
+                            conflicts.append((note_a, content_a, note_b, content_b, sim))
                         else:
-                            conflicts.append((note_b, content_b, note_a, content_a))
+                            conflicts.append((note_b, content_b, note_a, content_a, sim))
 
                         matched_ids.add(note_b.id)
                         break

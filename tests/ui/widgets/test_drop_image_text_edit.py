@@ -10,11 +10,11 @@ from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 @pytest.fixture
 def mock_media_dir(tmp_path):
     """
-    Détourne la fonction get_app_data_dir() pour qu'elle pointe
+    Détourne la fonction get_media_dir() pour qu'elle pointe
     vers un dossier temporaire géré par pytest (tmp_path).
     Cela évite de créer de fausses images dans les vrais dossiers de l'utilisateur !
     """
-    with patch("ankiforge.ui.widgets.drop_image_text_edit.get_app_data_dir", return_value=tmp_path):
+    with patch("ankiforge.ui.widgets.drop_image_text_edit.get_media_dir", return_value=tmp_path):
         yield tmp_path
 
 
@@ -62,8 +62,7 @@ def test_insert_image_file_url(editor, tmp_path, mock_media_dir):
     assert inserted_text.endswith('.png">\n')
 
     # 5. Vérifications du Système de Fichiers (le fichier a-t-il été copié ?)
-    # On navigue dans le sous-dossier "media" créé par ta fonction
-    media_folder = mock_media_dir / "media"
+    media_folder = mock_media_dir
     assert media_folder.exists()
 
     # On cherche tous les fichiers commençant par "img_"
@@ -91,6 +90,6 @@ def test_insert_raw_image_data(editor, mock_media_dir):
     assert inserted_text.endswith('.png">\n')
 
     # 5. Vérification du Système de Fichiers
-    media_folder = mock_media_dir / "media"
+    media_folder = mock_media_dir
     saved_files = list(media_folder.glob("img_*.png"))
     assert len(saved_files) == 1

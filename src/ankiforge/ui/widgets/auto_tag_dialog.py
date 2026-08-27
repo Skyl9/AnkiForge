@@ -4,12 +4,12 @@ from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QProgressBar
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QProgressBar, QStackedWidget, QWidget, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
 
 from ankiforge.database.models import NoteModel, LLMConfigModel, NoteVersionModel, db
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.utils import parse_ai_json_response
+from ankiforge.services.ai.utils import AIReponseParser
 from ankiforge.ui.components.components import PrimaryButton
 
 logger = logging.getLogger(__name__)
@@ -19,20 +19,21 @@ class AutoTaggingThread(QThread):
     """Analyse les cartes en lots et génère des tags pertinents."""
 
     progress = Signal(int, str)
-    finished_signal = Signal(int)  # Nombre de cartes taguées
+    finished_signal = Signal(list)  # Liste des propositions de tags
     error_signal = Signal(str)
+    log_signal = Signal(str)
 
-    def __init__(self, ai_provider: LLMProvider, note_ids: list[int], instruction: str):
+    def __init__(self, ai_provider: LLMProvider, note_ids: list[int], instruction: str) -> None:
         super().__init__()
         self.ai_provider = ai_provider
         self.note_ids = note_ids
         self.instruction = instruction
         self.chunk_size = 15  # On traite par lots de 15 pour ne pas saturer la sortie JSON de l'IA
 
-    def run(self):
+    def run(self) -> None:
         try:
-            total_tagged = 0
             total_notes = len(self.note_ids)
+            all_proposals: list[dict[str, Any]] = []
 
             system_prompt = (
                 "Tu es un documentaliste expert chargé de classer des flashcards Anki.\n"
@@ -63,34 +64,26 @@ class AutoTaggingThread(QThread):
 
                 # Appel API (On force le format JSON)
                 raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="json")
-                print(raw_response)
-                # Extraction et Sauvegarde
+                self.log_signal.emit(str(raw_response))
+
+                # Extraction
                 try:
-                    tagged_results = parse_ai_json_response(raw_response)
+                    tagged_results = AIReponseParser.parse(raw_response)
                     if not isinstance(tagged_results, list):
                         raise ValueError("L'IA n'a pas renvoyé une liste JSON.")
 
-                    with db.atomic():
-                        for result in tagged_results:
-                            nid = result.get("note_id")
-                            new_tags = result.get("nouveaux_tags", [])
+                    all_proposals.extend(tagged_results)
 
-                            if nid and new_tags:
-                                note = NoteModel.get_by_id(nid)
-                                # On fusionne les anciens tags avec les nouveaux sans faire de doublons
-                                existing_tags = json.loads(note.tags) if note.tags else []
-                                merged_tags = list(set(existing_tags + new_tags))
-
-                                note.tags = json.dumps(merged_tags, ensure_ascii=False)
-                                note.save()
-                                total_tagged += 1
-
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Erreur de décodage JSON sur le lot {i}: {e}")
+                    self.log_signal.emit(f"Erreur JSON : {e}")
+                    continue
                 except Exception as e:
                     logger.warning(f"Échec du parsing IA sur le lot {i}: {e}")
                     continue  # On continue même si un lot échoue
 
             self.progress.emit(100, "Terminé !")
-            self.finished_signal.emit(total_tagged)
+            self.finished_signal.emit(all_proposals)
 
         except Exception as e:
             logger.exception("Erreur fatale lors de l'auto-tagging :")
@@ -100,16 +93,27 @@ class AutoTaggingThread(QThread):
 class AutoTagDialog(QDialog):
     """Fenêtre de configuration pour lancer l'Archiviste IA."""
 
-    def __init__(self, parent: Any, note_ids: list[int]):
+    def __init__(self, parent: Any, note_ids: list[int]) -> None:
         super().__init__(parent)
         self.note_ids = note_ids
         self.worker: AutoTaggingThread | None = None
 
         self.setWindowTitle("🏷️ L'Archiviste IA (Auto-Tagging)")
-        self.resize(450, 350)
+        self.resize(600, 500)
         self.setModal(True)
 
-        layout = QVBoxLayout(self)
+        self.main_layout = QVBoxLayout(self)
+        self.stacked_widget = QStackedWidget()
+        self.main_layout.addWidget(self.stacked_widget)
+
+        self._setup_page_1()
+        self._setup_page_2()
+
+        self.stacked_widget.setCurrentIndex(0)
+
+    def _setup_page_1(self) -> None:
+        self.page1 = QWidget()
+        layout = QVBoxLayout(self.page1)
         layout.setSpacing(15)
 
         # Info
@@ -147,13 +151,50 @@ class AutoTagDialog(QDialog):
         btn_layout.addWidget(self.btn_start)
 
         layout.addLayout(btn_layout)
+        self.stacked_widget.addWidget(self.page1)
 
-    def _populate_llms(self):
+    def _setup_page_2(self) -> None:
+        self.page2 = QWidget()
+        layout = QVBoxLayout(self.page2)
+
+        layout.addWidget(QLabel("Validation des tags proposés :"))
+
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["ID Note", "Tags Proposés", "Valider"])
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+
+        layout.addWidget(self.table)
+
+        # Boutons de sélection
+        sel_layout = QHBoxLayout()
+        btn_check_all = QPushButton("Tout cocher")
+        btn_uncheck_all = QPushButton("Tout décocher")
+        btn_check_all.clicked.connect(self._check_all)
+        btn_uncheck_all.clicked.connect(self._uncheck_all)
+        sel_layout.addWidget(btn_check_all)
+        sel_layout.addWidget(btn_uncheck_all)
+        sel_layout.addStretch()
+        layout.addLayout(sel_layout)
+
+        # Action finale
+        btn_layout = QHBoxLayout()
+        btn_apply = PrimaryButton(qta.icon("fa5s.check", color="white"), " Appliquer la sélection")
+        btn_apply.clicked.connect(self.apply_tags)
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_apply)
+
+        layout.addLayout(btn_layout)
+        self.stacked_widget.addWidget(self.page2)
+
+    def _populate_llms(self) -> None:
         for llm in LLMConfigModel.select().order_by(LLMConfigModel.display_name):
             self.llm_selector.addItem(llm.display_name, userData=llm.id)
 
     @Slot()
-    def start_tagging(self):
+    def start_tagging(self) -> None:
         llm_id = self.llm_selector.currentData()
         llm_config = LLMConfigModel.get_or_none(LLMConfigModel.id == llm_id)
         if not llm_config:
@@ -172,20 +213,82 @@ class AutoTagDialog(QDialog):
         # Lancement
         self.worker = AutoTaggingThread(active_provider, self.note_ids, instruction)
         self.worker.progress.connect(self.update_progress)
-        self.worker.finished_signal.connect(self.on_success)
+        self.worker.finished_signal.connect(self.on_generation_finished)
         self.worker.error_signal.connect(self.on_error)
         self.worker.start()
 
     @Slot(int, str)
-    def update_progress(self, val: int, text: str):
+    def update_progress(self, val: int, text: str) -> None:
         self.progress_bar.setValue(val)
         self.lbl_status.setText(text)
 
-    @Slot(int)
-    def on_success(self, count: int):
-        self.accept()  # Ferme la boîte de dialogue avec un code de succès
+    @Slot(list)
+    def on_generation_finished(self, proposals: list[dict[str, Any]]) -> None:
+        self.table.setRowCount(0)
+        for row_idx, prop in enumerate(proposals):
+            note_id = prop.get("note_id")
+            tags = prop.get("nouveaux_tags", [])
+            if not note_id or not tags:
+                continue
+
+            self.table.insertRow(row_idx)
+
+            id_item = QTableWidgetItem(str(note_id))
+            id_item.setFlags(id_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.setItem(row_idx, 0, id_item)
+
+            tags_str = ", ".join(tags)
+            tags_item = QTableWidgetItem(tags_str)
+            tags_item.setFlags(tags_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            tags_item.setData(Qt.ItemDataRole.UserRole, tags)
+            self.table.setItem(row_idx, 1, tags_item)
+
+            check_item = QTableWidgetItem("")
+            check_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            check_item.setCheckState(Qt.CheckState.Checked)
+            self.table.setItem(row_idx, 2, check_item)
+
+        self.stacked_widget.setCurrentIndex(1)
 
     @Slot(str)
-    def on_error(self, err: str):
+    def on_error(self, err: str) -> None:
         self.lbl_status.setText(f"<span style='color:red;'>Erreur : {err}</span>")
         self.btn_start.setEnabled(True)
+
+    def _check_all(self) -> None:
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 2)
+            if item:
+                item.setCheckState(Qt.CheckState.Checked)
+
+    def _uncheck_all(self) -> None:
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 2)
+            if item:
+                item.setCheckState(Qt.CheckState.Unchecked)
+
+    @Slot()
+    def apply_tags(self) -> None:
+        with db.atomic():
+            for row in range(self.table.rowCount()):
+                check_item = self.table.item(row, 2)
+                if check_item and check_item.checkState() == Qt.CheckState.Checked:
+                    id_item = self.table.item(row, 0)
+                    tags_item = self.table.item(row, 1)
+                    if not id_item or not tags_item:
+                        continue
+
+                    try:
+                        note_id = int(id_item.text())
+                        new_tags: list[str] = tags_item.data(Qt.ItemDataRole.UserRole)
+
+                        note = NoteModel.get_by_id(note_id)
+                        existing_tags = json.loads(note.tags) if note.tags else []
+                        merged_tags = list(set(existing_tags + new_tags))
+
+                        note.tags = json.dumps(merged_tags, ensure_ascii=False)
+                        note.save()
+                    except Exception as e:
+                        logger.error(f"Erreur lors de la sauvegarde de la note {id_item.text()}: {e}")
+
+        self.accept()

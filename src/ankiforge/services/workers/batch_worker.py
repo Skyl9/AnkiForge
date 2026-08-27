@@ -8,7 +8,7 @@ from jinja2 import Template
 
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.utils.chunker import smart_chunk_text
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_media_dir
 from ankiforge.utils.vision_utils import strip_image_tags, prepare_multimodal_payload
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ class BatchWorker(QThread):
                 doc_content = task.doc_content
                 chunk_strategy = task.chunk_strategy
                 use_vision = task.use_vision
-                media_dir = get_app_data_dir() / "media"
+                media_dir = get_media_dir()
 
                 llm_cfg = task.llm_config
                 max_tokens = llm_cfg["context_limit"]

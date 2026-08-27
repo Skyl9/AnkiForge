@@ -38,7 +38,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake=False):
     """Write your migrations here."""
 
     @migrator.create_model
-    class AgentModel(pw.Model):
+    class PersonaModel(pw.Model):
         id = pw.AutoField()
         name = pw.CharField(max_length=255, unique=True)
         description = pw.TextField(null=True)

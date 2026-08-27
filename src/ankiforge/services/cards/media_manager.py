@@ -2,6 +2,7 @@ import hashlib
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -24,6 +25,28 @@ class MediaManager:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
+    def store_document_source(self, file_path: str) -> Any:
+        """Copie le fichier source dans media/ et retourne son MediaModel."""
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            return None
+
+        file_hash = self._calculate_md5(str(file_path_obj))
+        new_filename = f"{file_hash}{file_path_obj.suffix.lower()}"
+        destination_path = self.media_dir / new_filename
+
+        if not destination_path.exists():
+            shutil.copy2(str(file_path_obj), destination_path)
+
+        import mimetypes
+        from ankiforge.database.models import MediaModel
+
+        mime_type, _ = mimetypes.guess_type(str(file_path_obj))
+        mime_type = mime_type or "application/octet-stream"
+
+        media, _ = MediaModel.get_or_create(checksum=file_hash, defaults={"filename": new_filename, "original_name": file_path_obj.name, "mime_type": mime_type})
+        return media
+
     def process_extracted_folder(self, source_folder: str, markdown_content: str) -> str:
         """
         1. Trouve toutes les images dans le dossier source (généré par Marker).
@@ -39,6 +62,9 @@ class MediaManager:
         # Dictionnaire pour garder la trace des renommages : { "ancien_nom.jpeg" : "hash123.jpeg" }
         image_mapping = {}
 
+        from ankiforge.database.models import MediaModel
+        import mimetypes
+
         # 1. Traitement des fichiers images
         for file in source_path.iterdir():
             if file.is_file() and file.suffix.lower() in [".jpeg", ".jpg", ".png", ".webp", ".gif"]:
@@ -52,6 +78,11 @@ class MediaManager:
                 # Copie du fichier s'il n'existe pas déjà (évite les doublons parfaits)
                 if not destination_path.exists():
                     shutil.copy2(str(file), destination_path)
+
+                mime_type, _ = mimetypes.guess_type(str(file))
+                mime_type = mime_type or "image/" + file.suffix.lower().strip(".")
+
+                MediaModel.get_or_create(checksum=file_hash, defaults={"filename": new_filename, "original_name": file.name, "mime_type": mime_type})
 
                 # On enregistre la correspondance
                 image_mapping[file.name] = new_filename
@@ -87,7 +118,7 @@ class MediaManager:
         Returns:
             int: Le nombre de fichiers supprimés.
         """
-        from ankiforge.database.models import NoteVersionModel
+        from ankiforge.database.models import NoteVersionModel, MediaModel
 
         # 1. Lister tous les médias réellement utilisés en base
         used_media = set()
@@ -105,6 +136,7 @@ class MediaManager:
                 if file_path.is_file() and file_path.name not in used_media:
                     try:
                         file_path.unlink()  # Supprime le fichier du disque
+                        MediaModel.delete().where(MediaModel.filename == file_path.name).execute()
                         deleted_count += 1
                     except OSError:
                         pass  # Fichier verrouillé par le système, on l'ignorera pour cette fois

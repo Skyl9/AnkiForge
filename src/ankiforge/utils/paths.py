@@ -3,7 +3,7 @@ from pathlib import Path
 
 import platformdirs
 
-APP_NAME = "AnkiForge"
+APP_NAME = "ankiforge_obsidian"
 
 
 def get_project_root() -> Path:
@@ -38,9 +38,9 @@ def get_app_data_dir() -> Path:
     """
     if getattr(sys, "frozen", False):
         # 📦 MODE PRODUCTION (App empaquetée via PyInstaller/cx_Freeze)
-        # Windows : C:\Users\<User>\AppData\Local\AnkiForge
-        # macOS   : ~/Library/Application Support/AnkiForge
-        # Linux   : ~/.local/share/AnkiForge
+        # Windows : C:\Users\<User>\AppData\Local\ankiforge_obsidian
+        # macOS   : ~/Library/Application Support/ankiforge_obsidian
+        # Linux   : ~/.local/share/ankiforge_obsidian
         app_dir = platformdirs.user_data_path(appname=APP_NAME, appauthor=False)
     else:
         # 🛠️ MODE DÉVELOPPEMENT
@@ -51,3 +51,31 @@ def get_app_data_dir() -> Path:
     app_dir.mkdir(parents=True, exist_ok=True)
 
     return app_dir
+
+
+_active_profile = "default"
+
+
+def get_active_profile() -> str:
+    """Retourne le nom du profil actif."""
+    return _active_profile
+
+
+def set_active_profile(name: str) -> None:
+    """Modifie le profil actif."""
+    global _active_profile
+    _active_profile = name
+
+
+def get_profile_dir(name: str) -> Path:
+    """Retourne le chemin vers le dossier d'un profil spécifique."""
+    profile_dir = get_app_data_dir() / "profiles" / name
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return profile_dir
+
+
+def get_media_dir() -> Path:
+    """Retourne le chemin vers le dossier media du profil actif."""
+    media_dir = get_profile_dir(get_active_profile()) / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    return media_dir

@@ -1,13 +1,14 @@
 import logging
-from typing import Optional, cast
+from typing import cast
 import json
 
 from PySide6.QtCore import Qt, Signal, Slot, QPoint
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QListWidget, QListWidgetItem, QFrame, QMenu
+from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QListWidget, QListWidgetItem, QFrame
 from PySide6.QtGui import QAction
 
 from ankiforge.database.models import DeckModel, NoteModel, CardModel
 from ankiforge.ui.components.components import RoundedPanel
+from ankiforge.ui.theme import StyledMenu
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,8 @@ class FilterSidebar(RoundedPanel):
         layout.addWidget(separator)
 
         lbl_tags = QLabel("FILTRES (TAGS)")
-        lbl_tags.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-top: 10px;")
+        layout.addSpacing(10)
+        lbl_tags.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px;")
         layout.addWidget(lbl_tags)
 
         self.tag_list = QListWidget()
@@ -82,7 +84,7 @@ class FilterSidebar(RoundedPanel):
         except Exception as e:
             logger.error(f"Erreur lors du rafraîchissement des paquets : {e}")
 
-    def refresh_tags(self, deck_id: Optional[int], is_quarantine: bool = False):
+    def refresh_tags(self, deck_id: int | None, is_quarantine: bool = False):
         self.tag_list.clear()
 
         all_item = QListWidgetItem("🏷️ Tous les tags")
@@ -124,6 +126,19 @@ class FilterSidebar(RoundedPanel):
         if deck_id:
             self.deck_selected.emit(deck_id)
 
+    def select_deck(self, deck_id: int) -> bool:
+        """Selects a deck programmatically in the tree."""
+        from PySide6.QtWidgets import QTreeWidgetItemIterator
+
+        iterator = QTreeWidgetItemIterator(self.deck_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.data(0, Qt.ItemDataRole.UserRole) == deck_id:
+                self.deck_tree.setCurrentItem(item)
+                return True
+            iterator += 1
+        return False
+
     @Slot(QListWidgetItem)
     def _on_tag_clicked(self, item: QListWidgetItem):
         tag = item.data(Qt.ItemDataRole.UserRole)
@@ -139,9 +154,7 @@ class FilterSidebar(RoundedPanel):
         if tag is None:
             return
 
-        menu = QMenu(self)
-        # On pourrait ajouter des actions comme "Renommer le tag" ou "Supprimer le tag" ici
-        # Pour l'instant on garde ça simple pour le refactoring
+        menu = StyledMenu(self)
         action = QAction(f"Options pour '{tag}'", self)
         menu.addAction(action)
         menu.exec(self.tag_list.mapToGlobal(pos))

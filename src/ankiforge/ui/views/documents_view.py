@@ -1,747 +1,1790 @@
-import logging
-import re
+"""
+Vue Library (Hub Documentaire & RAG Local) — Conforme au Design System & Maquette AnkiForge.
 
-import markdown
-import qtawesome as qta
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal, Slot
-from PySide6.QtGui import QColor, QFont, QKeySequence, QShortcut, QSyntaxHighlighter, QTextCharFormat
+- Explorateur d'arborescence à gauche avec recherche dynamique et gestion de dossiers récursifs.
+- Éditeur & Lecteur central détachable (PDF natif, Markdown KaTeX en direct, Terminal de logs).
+- Barre d'actions responsive compacte et épurée :
+  * ✂️ Délimiter / Chapitres : Dialogue interactif de sélection de plages de pages et filtrage de sections.
+  * 🔮 Marker OCR : Extraction Deep Learning PDF vers Markdown KaTeX.
+  * 📊 Vectoriser (RAG FAISS) : Statut en capsule et indexation vectorielle locale.
+  * 💾 Sauvegarder & Compteur de mots live.
+- Volet Droit à 2 onglets :
+  * 📑 Onglet 1 : Sommaire & Couverture SRS (Jauge de couverture de cours, liste des sections et bouton ⚡ Forger).
+  * 🔍 Onglet 2 : Recherche & Sandbox RAG (Banc de test sémantique vectoriel FAISS en temps réel).
+"""
+
+import logging
+import pathlib
+import shutil
+from typing import Any, Dict, Optional
+
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QColor, QDropEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
+    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QSpinBox,
     QSplitter,
-    QTextEdit,
+    QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from ankiforge.database.models import DocumentModel, FolderModel, db
+from ankiforge.database.models import (
+    DocumentChunkModel,
+    DocumentModel,
+    FolderModel,
+    NoteChunkLinkModel,
+)
+from ankiforge.services.ai.rag_service import RAGService
+from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankiforge.services.workers.coverage_worker import CoverageWorker
 from ankiforge.services.workers.document_worker import DocumentWorker
-from ankiforge.ui.components.components import ActionButton, DangerButton, HeaderLabel, PrimaryButton, RoundedPanel
-from ankiforge.ui.theme import is_dark_mode
-from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
+from ankiforge.ui.components import (
+    Badge,
+    GlowLineEdit,
+    IconButton,
+    IdePanel,
+    PrimaryButton,
+    SecondaryButton,
+)
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.anki_renderer import get_mathjax_script
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
 
-# ==========================================
-# COLORATION SYNTAXIQUE MARKDOWN
-# ==========================================
-class MarkdownHighlighter(QSyntaxHighlighter):
-    def __init__(self, document):
-        super().__init__(document)
-        self.rules = []
-
-        header_format = QTextCharFormat()
-        header_format.setFontWeight(QFont.Weight.Bold)  # Standard Qt6
-        header_format.setForeground(QColor("#569CD6"))
-        self.rules.append((r"^(#+)(.*)", header_format))
-
-        bold_format = QTextCharFormat()
-        bold_format.setFontWeight(QFont.Weight.Bold)
-        bold_format.setForeground(QColor("#CE9178"))
-        self.rules.append((r"\*\*(.*?)\*\*", bold_format))
-
-        italic_format = QTextCharFormat()
-        italic_format.setFontItalic(True)
-        italic_format.setForeground(QColor("#CE9178"))
-        self.rules.append((r"\*(.*?)\*", italic_format))
-
-        math_format = QTextCharFormat()
-        math_format.setForeground(QColor("#4EC9B0"))
-        self.rules.append((r"(\$\$.*?\$\$|\$.*?\$)", math_format))
-
-        img_format = QTextCharFormat()
-        img_format.setForeground(QColor("#C586C0"))
-        self.rules.append((r"!\[.*?\]\(.*?\)", img_format))
-
-    def highlightBlock(self, text):
-        for pattern, fmt in self.rules:
-            for match in re.finditer(pattern, text):
-                self.setFormat(match.start(), match.end() - match.start(), fmt)
+def apply_pill_style(badge: QLabel, color_hex: str) -> None:
+    """Applique un style de capsule/pill parfaitement arrondie avec fond translucide et bordure assortie."""
+    hex_c = color_hex.lstrip("#")
+    if len(hex_c) == 6:
+        r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+    else:
+        r, g, b = 100, 116, 139
+    badge.setStyleSheet(f"""
+        QLabel {{
+            background-color: rgba({r}, {g}, {b}, 0.15) !important;
+            color: {color_hex};
+            border: 1px solid rgba({r}, {g}, {b}, 0.35);
+            border-radius: 9999px;
+            padding: 3px 10px;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }}
+    """)
 
 
-class DraggableTreeWidget(QTreeWidget):
-    doc_moved = Signal(int, object)
+# =====================================================================
+# MODALE DE DÉLIMITATION DE DOCUMENT (DOCUMENTDELIMITATIONDIALOG)
+# =====================================================================
 
-    def dropEvent(self, event):
-        dragged_item = self.currentItem()
-        if not dragged_item:
-            super().dropEvent(event)
+
+class DocumentDelimitationDialog(QDialog):
+    """
+    Dialogue interactif de délimitation de documents :
+    Permet de sélectionner des plages de pages utiles, de filtrer les sections
+    et d'exclure les parties non pédagogiques (sommaires, remerciements, bibliographies).
+    """
+
+    def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.doc = doc
+        self.setWindowTitle(f"Délimitation du Document — {doc.title}")
+        self.resize(640, 540)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # 1. En-tête descriptif
+        header_card = QFrame()
+        header_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 4px;
+            }}
+        """)
+        h_layout = QVBoxLayout(header_card)
+        h_layout.setContentsMargins(12, 10, 12, 10)
+        h_layout.setSpacing(4)
+
+        header_top = QHBoxLayout()
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
+        title_lbl = QLabel(f"Délimitation : <b>{doc.title}</b>")
+        title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY};")
+        header_top.addWidget(icon_lbl)
+        header_top.addWidget(title_lbl, 1)
+        h_layout.addLayout(header_top)
+
+        desc_lbl = QLabel("Sélectionnez les chapitres et plages de pages pertinents pour exclure le bruit documentaire avant la forge et le RAG.")
+        desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        desc_lbl.setWordWrap(True)
+        h_layout.addWidget(desc_lbl)
+        layout.addWidget(header_card)
+
+        # 2. Plage de pages
+        pages_card = QFrame()
+        pages_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        pages_card_layout = QVBoxLayout(pages_card)
+        pages_card_layout.setContentsMargins(12, 10, 12, 10)
+        pages_card_layout.setSpacing(8)
+
+        lbl_sec1 = QLabel("1. BORNES DE PAGINATION")
+        lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;")
+        pages_card_layout.addWidget(lbl_sec1)
+
+        pages_inputs = QHBoxLayout()
+        lbl_p_start = QLabel("Page Début :")
+        lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        self.spin_p_start = QSpinBox()
+        self.spin_p_start.setRange(1, 9999)
+        self.spin_p_start.setValue(1)
+        self.spin_p_start.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                padding: 4px 8px;
+            }}
+        """)
+
+        lbl_p_end = QLabel("Page Fin :")
+        lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        self.spin_p_end = QSpinBox()
+        self.spin_p_end.setRange(1, 9999)
+        self.spin_p_end.setValue(100)
+        self.spin_p_end.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                padding: 4px 8px;
+            }}
+        """)
+
+        pages_inputs.addWidget(lbl_p_start)
+        pages_inputs.addWidget(self.spin_p_start)
+        pages_inputs.addSpacing(16)
+        pages_inputs.addWidget(lbl_p_end)
+        pages_inputs.addWidget(self.spin_p_end)
+        pages_inputs.addStretch()
+        pages_card_layout.addLayout(pages_inputs)
+        layout.addWidget(pages_card)
+
+        # 3. Liste des sections et chapitres cochables
+        sections_card = QFrame()
+        sections_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        sections_layout = QVBoxLayout(sections_card)
+        sections_layout.setContentsMargins(12, 10, 12, 10)
+        sections_layout.setSpacing(8)
+
+        lbl_sec2 = QLabel("2. SÉLECTION DES CHAPITRES & SECTIONS DÉTECTÉS")
+        lbl_sec2.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;")
+        sections_layout.addWidget(lbl_sec2)
+
+        # Actions rapides
+        quick_btns = QHBoxLayout()
+        btn_check_all = SecondaryButton("Tout sélectionner")
+        btn_check_all.setFixedHeight(28)
+        btn_check_all.setStyleSheet(f"font-size: 11px; padding: 4px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        btn_check_all.clicked.connect(lambda: self._set_all_checked(True))
+
+        btn_uncheck_all = SecondaryButton("Tout désélectionner")
+        btn_uncheck_all.setFixedHeight(28)
+        btn_uncheck_all.setStyleSheet(f"font-size: 11px; padding: 4px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        btn_uncheck_all.clicked.connect(lambda: self._set_all_checked(False))
+
+        btn_smart_filter = SecondaryButton("Filtre Intelligent IA")
+        btn_smart_filter.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
+        btn_smart_filter.setFixedHeight(28)
+        btn_smart_filter.setStyleSheet(f"font-size: 11px; padding: 4px 10px; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW};")
+        btn_smart_filter.clicked.connect(self._apply_smart_filter)
+
+        quick_btns.addWidget(btn_check_all)
+        quick_btns.addWidget(btn_uncheck_all)
+        quick_btns.addStretch()
+        quick_btns.addWidget(btn_smart_filter)
+        sections_layout.addLayout(quick_btns)
+
+        self.sections_list = QListWidget()
+        self.sections_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                padding: 4px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QListWidget::item {{
+                padding: 6px 8px;
+                border-radius: 4px;
+                margin-bottom: 2px;
+            }}
+            QListWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+        sections_layout.addWidget(self.sections_list, 1)
+        layout.addWidget(sections_card, 1)
+
+        self._populate_sections()
+        self._apply_smart_filter(notify=False)
+
+        # 4. Pied de page & validation
+        footer = QHBoxLayout()
+        self.chk_revectorize = QCheckBox("Re-vectoriser automatiquement dans FAISS après délimitation")
+        self.chk_revectorize.setChecked(True)
+        self.chk_revectorize.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        footer.addWidget(self.chk_revectorize)
+        footer.addStretch()
+
+        btn_cancel = SecondaryButton("Annuler")
+        btn_cancel.clicked.connect(self.reject)
+        footer.addWidget(btn_cancel)
+
+        btn_apply = PrimaryButton("Appliquer la délimitation")
+        btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
+        btn_apply.clicked.connect(self._on_apply)
+        footer.addWidget(btn_apply)
+
+        layout.addLayout(footer)
+
+    def _populate_sections(self) -> None:
+        """Remplit la liste avec les sections sémantiques déjà indexées ou déduites."""
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
+        if chunks:
+            for c in chunks:
+                title_str = c.heading_path or (f"Page {c.page_number}" if c.page_number else f"Section #{c.chunk_index + 1}")
+                item = QListWidgetItem(title_str)
+                item.setIcon(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_SECONDARY))
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Checked)
+                item.setData(Qt.ItemDataRole.UserRole, title_str)
+                self.sections_list.addItem(item)
+        else:
+            raw_content = self.doc.content or ""
+            extracted = ChunkingService.extract_chunks(raw_content, file_type=self.doc.file_type or "md")
+            for c_data in extracted:
+                title_str = c_data.get("heading_path") or (f"Page {c_data.get('page_number')}" if c_data.get("page_number") else f"Section #{c_data.get('index', 0) + 1}")
+                item = QListWidgetItem(title_str)
+                item.setIcon(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_SECONDARY))
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Checked)
+                item.setData(Qt.ItemDataRole.UserRole, title_str)
+                self.sections_list.addItem(item)
+
+    def _set_all_checked(self, checked: bool) -> None:
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        for i in range(self.sections_list.count()):
+            self.sections_list.item(i).setCheckState(state)
+
+    def _apply_smart_filter(self, notify: bool = True) -> None:
+        """Décoche automatiquement les sections de métadonnées et bruit documentaire."""
+        noise_keywords = ["sommaire", "table des matières", "remerciements", "avant-propos", "préface", "bibliographie", "références", "annexes", "index", "glossaire", "copyright"]
+        for i in range(self.sections_list.count()):
+            item = self.sections_list.item(i)
+            txt = item.text().lower()
+            if any(k in txt for k in noise_keywords):
+                item.setCheckState(Qt.CheckState.Unchecked)
+            else:
+                item.setCheckState(Qt.CheckState.Checked)
+        if notify:
+            show_toast(self, "Filtre intelligent appliqué : bruit documentaire exclu.")
+
+    def _on_apply(self) -> None:
+        """Applique la délimitation et régénère les DocumentChunkModel."""
+        selected_headings = []
+        for i in range(self.sections_list.count()):
+            item = self.sections_list.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                selected_headings.append(item.data(Qt.ItemDataRole.UserRole))
+
+        raw_content = self.doc.content or ""
+        all_chunks = ChunkingService.extract_chunks(raw_content, file_type=self.doc.file_type or "md")
+
+        retained_chunks = []
+        for chunk in all_chunks:
+            h_path = chunk.get("heading_path", "")
+            if not selected_headings or any(sh in h_path for sh in selected_headings) or not h_path:
+                retained_chunks.append(chunk)
+
+        if not retained_chunks:
+            retained_chunks = all_chunks
+
+        with DocumentChunkModel._meta.database.atomic():
+            DocumentChunkModel.delete().where(DocumentChunkModel.document == self.doc).execute()
+            for idx, c_data in enumerate(retained_chunks):
+                DocumentChunkModel.create(
+                    document=self.doc,
+                    chunk_index=idx,
+                    content=c_data["content"],
+                    page_number=c_data.get("page_number"),
+                    heading_path=c_data.get("heading_path"),
+                    content_hash=c_data.get("content_hash") or ChunkingService.hash_content(c_data["content"]),
+                )
+
+        if self.chk_revectorize.isChecked():
+            try:
+                rag = RAGService()
+                rag.create_index(self.doc.id)
+            except Exception as e:
+                logger.warning("Erreur re-vectorisation FAISS : %s", e)
+
+        self.accept()
+
+
+# =====================================================================
+# MODALE DE TEST SÉMANTIQUE RAG (RAGTESTDIALOG)
+# =====================================================================
+
+
+class RAGTestDialog(QDialog):
+    """Permet de tester instantanément la recherche sémantique FAISS sur le document."""
+
+    def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.doc = doc
+        self.setWindowTitle(f"Recherche Sémantique RAG — {doc.title}")
+        self.resize(620, 500)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        header_top = QHBoxLayout()
+        ico = QLabel()
+        ico.setPixmap(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN).pixmap(20, 20))
+        title_lbl = QLabel(f"Interroger l'index FAISS : <b>{doc.title}</b>")
+        title_lbl.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
+        header_top.addWidget(ico)
+        header_top.addWidget(title_lbl, 1)
+        layout.addLayout(header_top)
+
+        # Barre de recherche
+        search_row = QHBoxLayout()
+        self.search_input = GlowLineEdit()
+        self.search_input.setPlaceholderText("Posez une question ou entrez des mots-clés sémantiques...")
+        self.search_input.returnPressed.connect(self._on_search)
+
+        btn_search = PrimaryButton("Rechercher")
+        btn_search.setIcon(load_phosphor_icon("ph.magnifying-glass", color="white"))
+        btn_search.clicked.connect(self._on_search)
+
+        search_row.addWidget(self.search_input, 1)
+        search_row.addWidget(btn_search)
+        layout.addLayout(search_row)
+
+        self.results_list = QListWidget()
+        self.results_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 6px;
+            }}
+            QListWidget::item {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                margin-bottom: 6px;
+                padding: 8px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QListWidget::item:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        layout.addWidget(self.results_list, 1)
+
+    def _on_search(self) -> None:
+        query = self.search_input.text().strip()
+        if not query:
             return
 
-        # Standard Qt6: ItemDataRole.UserRole
-        data = dragged_item.data(0, Qt.ItemDataRole.UserRole)
-        if not data or data.get("type") != "doc":
+        self.results_list.clear()
+        try:
+            rag = RAGService()
+            results = rag.search(self.doc.id, query, top_k=4)
+            if not results:
+                self.results_list.addItem(QListWidgetItem("Aucun fragment pertinent trouvé pour cette requête."))
+                return
+
+            for r in results:
+                loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else "Section")
+                score_val = r.get("score", 1.0)
+                sim_pct = max(0, min(100, int((1.0 - min(score_val, 1.0)) * 100))) if score_val <= 1.0 else int(100 / (1.0 + score_val))
+                content_snippet = r.get("content", "")[:180] + "..." if len(r.get("content", "")) > 180 else r.get("content", "")
+                item_txt = f"📍 {loc} (Pertinence: {sim_pct}%)\n{content_snippet}"
+                self.results_list.addItem(QListWidgetItem(item_txt))
+
+        except Exception as e:
+            self.results_list.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
+
+
+# =====================================================================
+# WIDGET D'ARBRE DE DOCUMENTS AVEC DRAG & DROP & FILTRAGE DYNAMIQUE
+# =====================================================================
+
+
+class DocumentTreeWidget(QTreeWidget):
+    """QTreeWidget customisé pour supporter le Drag & Drop, l'arborescence et le filtrage rapide."""
+
+    itemMoved = Signal(object, object)
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        source_item = self.currentItem()
+        if not source_item:
             event.ignore()
             return
 
-        super().dropEvent(event)
+        source_data = source_item.data(0, Qt.ItemDataRole.UserRole)
+        target_item = self.itemAt(event.position().toPoint())
+        target_data = target_item.data(0, Qt.ItemDataRole.UserRole) if target_item else None
 
-        new_parent = dragged_item.parent()
-        new_folder_id = None
+        event.ignore()
+        if source_item == target_item:
+            return
 
-        if new_parent:
-            parent_data = new_parent.data(0, Qt.ItemDataRole.UserRole)
-            if parent_data and parent_data.get("type") == "folder":
-                new_folder_id = parent_data.get("id")
+        if source_data:
+            self.itemMoved.emit(source_data, target_data)
 
-        self.doc_moved.emit(data.get("id"), new_folder_id)
+    def filter_text(self, query: str) -> None:
+        """Filtre récursivement les documents et dossiers affichés."""
+        query = query.strip().lower()
+
+        def _filter_item(item: QTreeWidgetItem) -> bool:
+            match = query in item.text(0).lower()
+            child_match = False
+            for i in range(item.childCount()):
+                child = item.child(i)
+                if _filter_item(child):
+                    child_match = True
+            is_visible = match or child_match or not query
+            item.setHidden(not is_visible)
+            if child_match and query:
+                item.setExpanded(True)
+            return is_visible
+
+        for i in range(self.topLevelItemCount()):
+            _filter_item(self.topLevelItem(i))
 
 
-class DocumentsTab(QWidget):
+# =====================================================================
+# CLASSE PRINCIPALE : DOCUMENTSVIEW (HUB DOCUMENTAIRE & RAG)
+# =====================================================================
+
+
+class DocumentsView(QWidget):
     """
-    Vue de gestion de la bibliothèque de documents (Cours).
-    Permet d'importer (PDF, Web, Markdown), d'éditer, de scinder et de classer
-    les documents sources qui seront utilisés pour générer les cartes Anki.
+    Vue My Documents / Library — 100% Conforme au Design System AnkiForge.
     """
 
-    def __init__(self) -> None:
-        """Initialise l'onglet de gestion des documents."""
-        super().__init__()
+    request_navigation = Signal(str, object)
 
-        # État interne
-        self.worker: DocumentWorker | None = None
-        self.shortcut_insert_split: QShortcut | None = None
-        self.shortcut_backspace: QShortcut | None = None
-        self.shortcut_delete: QShortcut | None = None
-        self.shortcut_save: QShortcut | None = None
-
-        self.current_folder_id_for_import = None
-        self.current_doc_id_editing = None
+    def __init__(self, ai_manager: Optional[Any] = None, profile_name: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.ai_manager = ai_manager
+        self.profile_name = profile_name
+        self._current_doc_id: Optional[int] = None
+        self._dirty = False
+        self.worker: Optional[DocumentWorker] = None
+        self._coverage_worker: Optional[CoverageWorker] = None
 
         self._setup_ui()
         self._connect_signals()
-        self._setup_shortcuts()
-
-        self.load_tree()
+        self.refresh_data()
 
     def _setup_ui(self) -> None:
-        """Construit et organise les layouts et widgets de la vue."""
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
-        self.layout.setSpacing(20)
-
-        self._build_header()
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
 
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.main_splitter.setHandleWidth(10)
+        main_layout.addWidget(self.main_splitter)
 
-        self._build_explorer_panel()
-        self._build_editor_panel()
+        # ── 1. Panneau Gauche : Explorateur de Documents ──────────────────────
+        self.explorer_panel = IdePanel(detachable=True)
+        self.explorer_panel.setMinimumWidth(220)
+        self.explorer_panel.setMaximumWidth(280)
 
-        self.main_splitter.setSizes([250, 750])
-        self.layout.addWidget(self.main_splitter)
+        explorer_content = QWidget()
+        explorer_layout = QVBoxLayout(explorer_content)
+        explorer_layout.setContentsMargins(8, 8, 8, 8)
+        explorer_layout.setSpacing(8)
 
-    def _build_header(self) -> None:
-        """Construit l'en-tête contenant le titre et les boutons d'importation."""
-        header_layout = QHBoxLayout()
-        header_layout.addWidget(HeaderLabel("Bibliothèque de Cours"))
-        header_layout.addStretch()
+        # Barre d'outils supérieure (Importer, URL, Nouveau dossier, Supprimer)
+        explorer_toolbar = QHBoxLayout()
+        explorer_toolbar.setSpacing(6)
 
-        self.btn_import = ActionButton("fa5s.file-import", " Analyser un PDF/TXT (Marker)")
-        self.btn_import_web = ActionButton("fa5s.globe", " Depuis le Web (URL)")
-        self.btn_cancel_import = DangerButton(qta.icon("fa5s.stop", color="white"), " Annuler l'analyse")
-        self.btn_cancel_import.hide()
+        self.btn_import = SecondaryButton("Importer")
+        self.btn_import.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import.clicked.connect(self._on_import_file)
 
-        header_layout.addWidget(self.btn_import)
-        header_layout.addWidget(self.btn_import_web)
-        header_layout.addWidget(self.btn_cancel_import)
+        self.btn_import_url = IconButton("ph.link", tooltip="Importer depuis le Web / YouTube", size=24)
+        self.btn_import_url.clicked.connect(self._on_import_url)
 
-        self.layout.addLayout(header_layout)
+        self.btn_new_folder = IconButton("ph.folder-plus", tooltip="Nouveau dossier", size=24)
+        self.btn_new_folder.clicked.connect(self._on_new_folder)
 
-    def _build_explorer_panel(self) -> None:
-        """Construit le panneau latéral gauche (Arborescence des dossiers et documents)."""
-        left_panel = RoundedPanel()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(15, 15, 15, 15)
+        self.btn_delete = IconButton("ph.trash", tooltip="Supprimer", size=24)
+        self.btn_delete.setEnabled(False)
+        self.btn_delete.clicked.connect(self._on_delete_item)
 
-        lbl_explorateur = QLabel("EXPLORATEUR DE DOCUMENTS")
-        lbl_explorateur.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; letter-spacing: 1px; margin-bottom: 5px;")
-        left_layout.addWidget(lbl_explorateur)
+        explorer_toolbar.addWidget(self.btn_import, 1)
+        explorer_toolbar.addWidget(self.btn_import_url)
+        explorer_toolbar.addWidget(self.btn_new_folder)
+        explorer_toolbar.addWidget(self.btn_delete)
+        explorer_layout.addLayout(explorer_toolbar)
 
-        toolbar = QHBoxLayout()
-        self.btn_new_folder = ActionButton("fa5s.folder-plus", " Dossier")
-        self.btn_new_doc = ActionButton("fa5s.file-medical", " Doc")
-        self.btn_delete = DangerButton(qta.icon("fa5s.trash", color="white"), "")
-        self.btn_delete.setToolTip("Supprimer (Suppr)")
+        # Champ de recherche dynamique
+        self.doc_search_input = GlowLineEdit()
+        self.doc_search_input.setPlaceholderText("Rechercher un document...")
+        self.doc_search_input.textChanged.connect(self._on_search_filter_changed)
+        explorer_layout.addWidget(self.doc_search_input)
 
-        toolbar.addWidget(self.btn_new_folder)
-        toolbar.addWidget(self.btn_new_doc)
-        toolbar.addWidget(self.btn_delete)
-        left_layout.addLayout(toolbar)
+        # Tree Widget
+        self.tree_explorer = DocumentTreeWidget()
+        self.tree_explorer.setHeaderHidden(True)
+        self.tree_explorer.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 4px;
+            }}
+            QTreeWidget::item {{
+                padding: 6px;
+                border-radius: 4px;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        explorer_layout.addWidget(self.tree_explorer, 1)
 
-        self.tree = DraggableTreeWidget()
-        self.tree.setHeaderHidden(True)
-        self.tree.setFrameShape(QFrame.Shape.NoFrame)
-        self.tree.viewport().setAutoFillBackground(False)
-        self.tree.setDragEnabled(True)
-        self.tree.setAcceptDrops(True)
-        self.tree.setDropIndicatorShown(True)
-        self.tree.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.explorer_panel.add_tab("Documents", explorer_content, "ph.files", closable=False)
+        self.main_splitter.addWidget(self.explorer_panel)
 
-        left_layout.addWidget(self.tree)
-        self.main_splitter.addWidget(left_panel)
+        # ── 2. Panneau Central : Éditeur & Lecteur de Document ────────────────
+        self.editor_panel = IdePanel(detachable=True)
+        self.editor_stack = QStackedWidget()
 
-    def _build_editor_panel(self) -> None:
-        """Construit le panneau principal de droite (Éditeur Markdown et Rendu Web)."""
-        right_panel = RoundedPanel()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(15, 15, 15, 15)
+        # PAGE 0 : État vide
+        empty_page = QWidget()
+        empty_layout = QVBoxLayout(empty_page)
+        empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.setSpacing(12)
 
-        editor_toolbar = QHBoxLayout()
-        self.lbl_doc_title = QLabel("AUCUN DOCUMENT SÉLECTIONNÉ")
-        self.lbl_doc_title.setStyleSheet("font-weight: bold; color: palette(placeholder-text); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;")
+        empty_icon = QLabel()
+        empty_icon.setPixmap(load_phosphor_icon("ph.files", color=DesignTokens.TEXT_MUTED).pixmap(56, 56))
+        empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_insert_split = ActionButton("fa5s.cut", " Insérer Coupure (Ctrl+D)")
-        self.btn_insert_split.setEnabled(False)
+        empty_title = QLabel("Aucun document sélectionné")
+        empty_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 16px; font-weight: bold;")
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_split_doc = ActionButton("fa5s.cut", " Scinder aux balises [SPLIT]")
-        self.btn_split_doc.setEnabled(False)
+        empty_subtitle = QLabel("Choisissez un document dans l'explorateur à gauche ou importez un nouveau support de cours (PDF, Markdown, Word, Page Web).")
+        empty_subtitle.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
+        empty_subtitle.setWordWrap(True)
+        empty_subtitle.setMaximumWidth(440)
+        empty_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_save_doc = PrimaryButton(qta.icon("fa5s.save", color="white"), " Sauvegarder (Ctrl+S)")
-        self.btn_save_doc.setEnabled(False)
+        empty_layout.addWidget(empty_icon)
+        empty_layout.addWidget(empty_title)
+        empty_layout.addWidget(empty_subtitle)
 
-        editor_toolbar.addWidget(self.lbl_doc_title)
-        editor_toolbar.addStretch()
-        editor_toolbar.addWidget(self.btn_insert_split)
-        editor_toolbar.addWidget(self.btn_split_doc)
-        editor_toolbar.addWidget(self.btn_save_doc)
+        empty_actions = QHBoxLayout()
+        empty_actions.setSpacing(10)
+        btn_quick_import = PrimaryButton("Importer un fichier")
+        btn_quick_import.setIcon(load_phosphor_icon("ph.upload-simple", color="white"))
+        btn_quick_import.clicked.connect(self._on_import_file)
 
-        right_layout.addLayout(editor_toolbar)
+        btn_quick_url = SecondaryButton("Importer depuis le Web")
+        btn_quick_url.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.TEXT_PRIMARY))
+        btn_quick_url.clicked.connect(self._on_import_url)
 
-        self.editor_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.editor_splitter.setHandleWidth(10)
+        empty_actions.addWidget(btn_quick_import)
+        empty_actions.addWidget(btn_quick_url)
+        empty_layout.addLayout(empty_actions)
 
-        # Éditeur de texte (Markdown)
-        self.preview_text = QTextEdit()
-        self.preview_text.setFrameShape(QFrame.Shape.NoFrame)
-        self.preview_text.viewport().setAutoFillBackground(False)
+        self.editor_stack.addWidget(empty_page)
 
-        font = QFont("Consolas", 11)
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        self.preview_text.setFont(font)
+        # PAGE 1 : Conteneur Éditeur
+        editor_container = QWidget()
+        editor_layout = QVBoxLayout(editor_container)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.setSpacing(0)
 
-        self.highlighter = MarkdownHighlighter(self.preview_text.document())
+        # Toolbar du document (2 rangées aérées et responsives)
+        doc_header_card = QFrame()
+        doc_header_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        header_main_layout = QVBoxLayout(doc_header_card)
+        header_main_layout.setContentsMargins(10, 8, 10, 8)
+        header_main_layout.setSpacing(6)
 
-        # Rendu Web (HTML rendu)
-        self.render_view = SafeWebEngineView()
-        self.render_view.page().setBackgroundColor(Qt.GlobalColor.transparent)
+        # Rangée 1 : Titre + Métriques + Sauvegarde
+        row1 = QHBoxLayout()
+        row1.setContentsMargins(0, 0, 0, 0)
+        row1.setSpacing(8)
 
-        self.editor_splitter.addWidget(self.preview_text)
-        self.editor_splitter.addWidget(self.render_view)
-        self.editor_splitter.setSizes([400, 400])
+        self.doc_title_lbl = QLabel("Sélectionnez un document")
+        self.doc_title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 15px; font-weight: bold;")
+        row1.addWidget(self.doc_title_lbl, 1)
 
-        right_layout.addWidget(self.editor_splitter)
-        self.main_splitter.addWidget(right_panel)
+        self.lbl_word_count = QLabel("0 mots")
+        self.lbl_word_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px;")
+        row1.addWidget(self.lbl_word_count)
 
-        # Timer pour le rafraîchissement dynamique du rendu
-        self.render_timer = QTimer(self)
-        self.render_timer.setSingleShot(True)
-        self.render_timer.setInterval(500)
+        self.rag_status_pill = Badge("Non indexé", variant="status")
+        apply_pill_style(self.rag_status_pill, "#94a3b8")
+        row1.addWidget(self.rag_status_pill)
+
+        self.btn_save = PrimaryButton("Sauvegarder")
+        self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save.setFixedHeight(28)
+        self.btn_save.setStyleSheet("font-size: 11px; padding: 4px 10px;")
+        self.btn_save.clicked.connect(self._on_save_document)
+        row1.addWidget(self.btn_save)
+
+        header_main_layout.addLayout(row1)
+
+        # Rangée 2 : Sélecteur de Mode + Outils IA
+        row2 = QHBoxLayout()
+        row2.setContentsMargins(0, 0, 0, 0)
+        row2.setSpacing(6)
+
+        # Basculeur de mode (PDF / Markdown / Terminal)
+        self.view_toggle_frame = QFrame()
+        self.view_toggle_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 12px;
+            }}
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                color: {DesignTokens.TEXT_MUTED};
+                font-weight: 600;
+                border-radius: 10px;
+                padding: 3px 8px;
+                font-size: 11px;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+            }}
+        """)
+        toggle_layout = QHBoxLayout(self.view_toggle_frame)
+        toggle_layout.setContentsMargins(2, 2, 2, 2)
+        toggle_layout.setSpacing(1)
+
+        self.btn_view_pdf = QPushButton("PDF")
+        self.btn_view_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
+        self.btn_view_pdf.setCheckable(True)
+        self.btn_view_pdf.setChecked(True)
+
+        self.btn_view_md = QPushButton("MD")
+        self.btn_view_md.setIcon(load_phosphor_icon("ph.markdown-logo", color=DesignTokens.COLOR_YELLOW))
+        self.btn_view_md.setCheckable(True)
+
+        self.btn_view_term = QPushButton("Logs")
+        self.btn_view_term.setIcon(load_phosphor_icon("ph.terminal-window", color=DesignTokens.COLOR_BLUE))
+        self.btn_view_term.setCheckable(True)
+
+        toggle_layout.addWidget(self.btn_view_pdf)
+        toggle_layout.addWidget(self.btn_view_md)
+        toggle_layout.addWidget(self.btn_view_term)
+
+        self.btn_view_pdf.clicked.connect(lambda: self._on_view_toggled("pdf"))
+        self.btn_view_md.clicked.connect(lambda: self._on_view_toggled("md"))
+        self.btn_view_term.clicked.connect(lambda: self._on_view_toggled("term"))
+
+        row2.addWidget(self.view_toggle_frame)
+        row2.addStretch()
+
+        # Outils IA & Actions
+        self.btn_delimit = SecondaryButton("Délimiter")
+        self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color="#38bdf8"))
+        self.btn_delimit.setToolTip("Délimiter les plages de pages et chapitres utiles")
+        self.btn_delimit.setFixedHeight(26)
+        self.btn_delimit.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_delimit.clicked.connect(self._on_open_delimitation_dialog)
+        row2.addWidget(self.btn_delimit)
+
+        self.btn_marker = SecondaryButton("Marker OCR")
+        self.btn_marker.setIcon(load_phosphor_icon("ph.magic-wand", color=DesignTokens.COLOR_PURPLE))
+        self.btn_marker.setToolTip("Extraction Deep Learning PDF vers Markdown KaTeX via Marker")
+        self.btn_marker.setFixedHeight(26)
+        self.btn_marker.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_marker.clicked.connect(self._on_run_marker_analysis)
+        row2.addWidget(self.btn_marker)
+
+        self.btn_rag = SecondaryButton("Vectoriser")
+        self.btn_rag.setIcon(load_phosphor_icon("ph.database", color="#10b981"))
+        self.btn_rag.setToolTip("Indexer ce document dans la base vectorielle locale FAISS")
+        self.btn_rag.setFixedHeight(26)
+        self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_rag.clicked.connect(self._on_vectorize_rag)
+        row2.addWidget(self.btn_rag)
+
+        self.btn_test_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique instantanée", size=22)
+        self.btn_test_rag.clicked.connect(self._on_open_rag_test_dialog)
+        row2.addWidget(self.btn_test_rag)
+
+        header_main_layout.addLayout(row2)
+        editor_layout.addWidget(doc_header_card)
+
+        self.inner_editor_stack = QStackedWidget()
+
+        from PySide6.QtPdf import QPdfDocument
+        from PySide6.QtPdfWidgets import QPdfView
+
+        self.pdf_document = QPdfDocument(self)
+        self.pdf_viewer = QPdfView()
+        self.pdf_viewer.setDocument(self.pdf_document)
+        self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
+        self.inner_editor_stack.addWidget(self.pdf_viewer)
+
+        # Éditeur Markdown pleine hauteur
+        from ankiforge.ui.widgets.katex_editor import KaTeXEditor
+
+        self.text_editor = KaTeXEditor()
+        self.text_editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        if hasattr(self.text_editor, "editor"):
+            self.text_editor.editor.setReadOnly(False)
+        self.inner_editor_stack.addWidget(self.text_editor)
+
+        # Terminal view
+        from PySide6.QtWidgets import QTextBrowser
+
+        self.terminal_view = QTextBrowser()
+        self.terminal_view.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-family: '{DesignTokens.FONT_CODE}', Courier, monospace;
+                padding: 12px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        self.inner_editor_stack.addWidget(self.terminal_view)
+        editor_layout.addWidget(self.inner_editor_stack, 1)
+
+        self.editor_stack.addWidget(editor_container)
+        self.editor_panel.add_tab("Éditeur", self.editor_stack, "ph.file-text", closable=False)
+        self.main_splitter.addWidget(self.editor_panel)
+
+        # ── 3. Panneau Droit : Sommaire, Couverture & Sandbox RAG ──────────────
+        self.coverage_panel = IdePanel(detachable=True)
+        self.coverage_panel.setMinimumWidth(250)
+        self.coverage_panel.setMaximumWidth(320)
+
+        # --- TAB 1: Sommaire & Couverture SRS ---
+        coverage_content = QWidget()
+        cov_layout = QVBoxLayout(coverage_content)
+        cov_layout.setContentsMargins(10, 10, 10, 10)
+        cov_layout.setSpacing(10)
+
+        # Carte de synthèse de couverture
+        self.coverage_card = QFrame()
+        self.coverage_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        cov_card_layout = QVBoxLayout(self.coverage_card)
+        cov_card_layout.setContentsMargins(12, 10, 12, 10)
+        cov_card_layout.setSpacing(6)
+
+        self.lbl_coverage_summary = QLabel("📊 Couverture : 0%")
+        self.lbl_coverage_summary.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 13px;")
+        cov_card_layout.addWidget(self.lbl_coverage_summary)
+
+        self.coverage_bar = QProgressBar()
+        self.coverage_bar.setRange(0, 100)
+        self.coverage_bar.setValue(0)
+        self.coverage_bar.setTextVisible(False)
+        self.coverage_bar.setFixedHeight(8)
+        self.coverage_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignTokens.COLOR_GREEN};
+                border-radius: 3px;
+            }}
+        """)
+        cov_card_layout.addWidget(self.coverage_bar)
+
+        self.lbl_coverage_details = QLabel("0 sections analysées • 0 cartes liées")
+        self.lbl_coverage_details.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
+        cov_card_layout.addWidget(self.lbl_coverage_details)
+
+        cov_layout.addWidget(self.coverage_card)
+
+        # Liste des chapitres
+        self.chapters_list = QListWidget()
+        self.chapters_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 4px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                font-size: 11px;
+            }}
+            QListWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QListWidget::item:selected {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        cov_layout.addWidget(self.chapters_list, 1)
+
+        self.btn_forge_chapter = PrimaryButton("⚡ Forger la section")
+        self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
+        cov_layout.addWidget(self.btn_forge_chapter)
+
+        self.coverage_panel.add_tab("Sommaire", coverage_content, "ph.list-checks", closable=False)
+
+        # --- TAB 2: Bac à Sable RAG (RAG Test Sandbox) ---
+        rag_sandbox_content = QWidget()
+        rag_layout = QVBoxLayout(rag_sandbox_content)
+        rag_layout.setContentsMargins(10, 10, 10, 10)
+        rag_layout.setSpacing(8)
+
+        lbl_rag_desc = QLabel("Recherche Sémantique FAISS")
+        lbl_rag_desc.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 11px; letter-spacing: 0.5px;")
+        rag_layout.addWidget(lbl_rag_desc)
+
+        rag_search_row = QHBoxLayout()
+        self.rag_sandbox_input = GlowLineEdit()
+        self.rag_sandbox_input.setPlaceholderText("Poser une question au document...")
+        self.rag_sandbox_input.returnPressed.connect(self._on_sandbox_search)
+
+        self.btn_sandbox_search = PrimaryButton("")
+        self.btn_sandbox_search.setIcon(load_phosphor_icon("ph.magnifying-glass", color="white"))
+        self.btn_sandbox_search.setFixedWidth(36)
+        self.btn_sandbox_search.clicked.connect(self._on_sandbox_search)
+
+        rag_search_row.addWidget(self.rag_sandbox_input, 1)
+        rag_search_row.addWidget(self.btn_sandbox_search)
+        rag_layout.addLayout(rag_search_row)
+
+        self.rag_sandbox_results = QListWidget()
+        self.rag_sandbox_results.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QListWidget::item {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                margin-bottom: 6px;
+                padding: 8px;
+                font-size: 11px;
+            }}
+            QListWidget::item:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        rag_layout.addWidget(self.rag_sandbox_results, 1)
+
+        self.btn_forge_rag_result = SecondaryButton("⚡ Forger ce fragment")
+        self.btn_forge_rag_result.setIcon(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW))
+        self.btn_forge_rag_result.clicked.connect(self._on_forge_sandbox_result)
+        rag_layout.addWidget(self.btn_forge_rag_result)
+
+        self.coverage_panel.add_tab("RAG", rag_sandbox_content, "ph.database", closable=False)
+
+        self.main_splitter.addWidget(self.coverage_panel)
+
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
+        self.main_splitter.setCollapsible(2, False)
+        self.main_splitter.setStretchFactor(0, 0)
+        self.main_splitter.setStretchFactor(1, 1)
+        self.main_splitter.setStretchFactor(2, 0)
+        self.main_splitter.setSizes([230, 600, 270])
+        self.editor_stack.setCurrentIndex(0)
 
     def _connect_signals(self) -> None:
-        """Centralise le branchement des signaux (UI et Custom) vers leurs slots."""
-        # En-tête
-        self.btn_import.clicked.connect(self.import_document)
-        self.btn_import_web.clicked.connect(self.import_web_url)
-        self.btn_cancel_import.clicked.connect(self.cancel_import)
+        self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
+        self.tree_explorer.itemMoved.connect(self._on_item_moved)
+        self.text_editor.content_changed.connect(self._on_document_text_changed)
 
-        # Explorateur
-        self.btn_new_folder.clicked.connect(self.create_folder)
-        self.btn_new_doc.clicked.connect(self.create_manual_document)
-        self.btn_delete.clicked.connect(self.delete_item)
-        self.tree.itemClicked.connect(self.on_item_selected)
-        self.tree.doc_moved.connect(self._on_document_moved)
+    def _on_search_filter_changed(self, text: str) -> None:
+        """Filtre instantanément l'explorateur de documents."""
+        self.tree_explorer.filter_text(text)
 
-        # Éditeur
-        self.btn_insert_split.clicked.connect(self.insert_split_tag)
-        self.btn_split_doc.clicked.connect(self.split_document_multiple)
-        self.btn_save_doc.clicked.connect(self.save_document_edits)
-
-        self.preview_text.textChanged.connect(self._on_text_changed)
-        self.render_timer.timeout.connect(self.update_live_preview)
-
-    def _setup_shortcuts(self) -> None:
-        """Initialise les raccourcis clavier globaux pour cet onglet."""
-        # Sauvegarde (Ctrl+S ou Cmd+S sur Mac)
-        self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
-        self.shortcut_save.activated.connect(self.save_document_edits)
-
-        # Suppression (Touche Suppr / Delete)
-        self.shortcut_delete = QShortcut(QKeySequence.StandardKey.Delete, self.tree)
-        self.shortcut_delete.activated.connect(self.delete_item)
-
-        # Suppression Mac (Touche Retour Arrière)
-        self.shortcut_backspace = QShortcut(QKeySequence("Backspace"), self.tree)
-        self.shortcut_backspace.activated.connect(self.delete_item)
-
-        # Insérer un tag [SPLIT] (Ctrl+D)
-        self.shortcut_insert_split = QShortcut(QKeySequence("Ctrl+D"), self)
-        self.shortcut_insert_split.activated.connect(self.insert_split_tag)
-
-    @Slot()
-    def _enable_save(self) -> None:
-        if self.current_doc_id_editing:
-            self.btn_save_doc.setEnabled(True)
-
-    @Slot()
-    def _on_text_changed(self) -> None:
-        """Déclenché à chaque frappe au clavier."""
-        self._enable_save()
-        self.render_timer.start()  # Relance le chrono de 500ms
-
-    @Slot()
-    def insert_split_tag(self) -> None:
-        """Insère la balise de découpage à l'emplacement du curseur."""
-        if not self.current_doc_id_editing:
+    def _on_item_moved(self, source_data: dict, target_data: Optional[dict]) -> None:
+        """Gère le déplacement (drag and drop) d'un document ou d'un dossier."""
+        if not source_data:
             return
 
-        cursor = self.preview_text.textCursor()
-        cursor.insertText("\n\n[SPLIT]\n\n")
-        self.preview_text.setTextCursor(cursor)
-        self.preview_text.setFocus()
+        source_type = source_data.get("type")
+        source_id = source_data.get("id")
+        target_type = target_data.get("type") if target_data else None
+        target_id = target_data.get("id") if target_data else None
 
-    @Slot()
-    def update_live_preview(self) -> None:
-        """Met à jour le rendu HTML avec le style visuel de coupure."""
-        if not self.current_doc_id_editing:
-            return
+        if target_type == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == target_id)
+            if doc and doc.folder:
+                target_id = doc.folder.id
+            else:
+                target_id = None
 
-        raw_md = self.preview_text.toPlainText()
+        if source_type == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == source_id)
+            if doc:
+                current_folder_id = doc.folder.id if doc.folder else None
+                if current_folder_id == target_id:
+                    return
+                doc.folder = target_id
+                doc.save()
+                self.refresh_data()
 
-        visual_split_html = """
-                <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: rgba(255, 152, 0, 0.1); border: 2px dashed #ff9800; border-radius: 8px;">
-                    <span style="color: #ff9800; font-weight: bold; font-size: 16px;">✂️ --- POINT DE DÉCOUPAGE --- ✂️</span>
-                    <br><span style="color: #888; font-size: 12px;">Le document sera scindé ici</span>
-                </div>
-                """
-        vis_md = raw_md.replace("[SPLIT]", f"\n\n{visual_split_html}\n\n")
+        elif source_type == "folder":
+            folder = FolderModel.get_or_none(FolderModel.id == source_id)
+            if not folder:
+                return
 
-        html_content = markdown.markdown(vis_md, extensions=["tables", "fenced_code"])
+            target_folder = FolderModel.get_or_none(FolderModel.id == target_id) if target_id else None
+            old_name = folder.name
+            base_name = old_name.split("::")[-1]
+            new_name = (target_folder.name + "::" + base_name) if target_folder else base_name
 
-        # Palette dynamique
-        dark = is_dark_mode()
-        text_color = "#E0E0E0" if dark else "#333333"
-        header_color = "#90CAF9" if dark else "#1976D2"
-        code_bg = "#1E1E1E" if dark else "#F5F5F5"
-        code_border = "#333" if dark else "#DDD"
-        inline_code_color = "#CE9178" if dark else "#A31515"
+            if new_name == old_name:
+                return
 
-        final_html = f"""
-                <html><head><meta charset="utf-8">
-                {get_mathjax_script()}
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 10px; line-height: 1.6; color: {text_color}; background-color: transparent; margin: 0; }}
-                    h1, h2, h3 {{ color: {header_color}; border-bottom: 1px solid {code_border}; padding-bottom: 5px; }}
-                    img {{ max-width: 100%; border-radius: 5px; }}
-                    code {{ background-color: {code_bg}; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: {inline_code_color}; }}
-                    pre code {{ display: block; padding: 10px; overflow-x: auto; background-color: {code_bg}; border: 1px solid {code_border}; color: {text_color}; }}
-                    table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
-                    th, td {{ border: 1px solid {code_border}; padding: 8px; text-align: left; }}
-                    th {{ background-color: {code_bg}; }}
+            if target_folder and (target_folder.name == old_name or target_folder.name.startswith(old_name + "::")):
+                show_toast(self, "Vous ne pouvez pas déplacer un dossier dans lui-même.", is_error=True)
+                return
 
-                    ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
-                    ::-webkit-scrollbar-track {{ background: transparent; }}
-                    ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 5px; }}
-                    ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
-                </style>
-                </head><body>
-                {html_content}
-                </body></html>
-                """
+            try:
+                with FolderModel._meta.database.atomic():
+                    folders_to_update = FolderModel.select().where((FolderModel.name == old_name) | (FolderModel.name.startswith(old_name + "::")))
+                    for f in folders_to_update:
+                        if f.name == old_name:
+                            f.name = new_name
+                        else:
+                            suffix = f.name[len(old_name) :]
+                            f.name = new_name + suffix
+                        f.save()
+                self.refresh_data()
+            except Exception as e:
+                logger.error(f"Erreur déplacement dossier: {e}")
+                show_toast(self, "Un dossier avec ce nom existe déjà à cet emplacement.", is_error=True)
 
-        media_dir = get_app_data_dir() / "media"
-        media_dir.mkdir(exist_ok=True)
-
-        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
-        self.render_view.setHtmlSafe(final_html, base_url)
-
-    @Slot()
     def refresh_data(self) -> None:
-        """Méthode standardisée appelée par la MainWindow au changement d'onglet."""
-        self.load_tree()
-
-    @Slot()
-    def load_tree(self) -> None:
-        self.tree.clear()
-
-        folders = FolderModel.select().order_by(FolderModel.name)
-        for folder in folders:
-            folder_item = QTreeWidgetItem(self.tree, [f" {folder.name}"])
-            folder_item.setIcon(0, qta.icon("fa5s.folder", color="#FFC107"))
-            folder_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
-            # Standard Qt6 : Qt.ItemFlag
-            folder_item.setFlags(folder_item.flags() | Qt.ItemFlag.ItemIsDropEnabled)
-
-            docs = DocumentModel.select().where(DocumentModel.folder == folder).order_by(DocumentModel.title)
-            for doc in docs:
-                doc_item = QTreeWidgetItem(folder_item, [f" {doc.title}"])
-                doc_item.setIcon(0, qta.icon("fa5s.file-alt", color="#90CAF9"))
-                doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
-                doc_item.setFlags((doc_item.flags() | Qt.ItemFlag.ItemIsDragEnabled) & ~Qt.ItemFlag.ItemIsDropEnabled)
-
-        orphan_docs = DocumentModel.select().where(DocumentModel.folder.is_null()).order_by(DocumentModel.title)
-        orphan_root = QTreeWidgetItem(self.tree, [" Non classés"])
-        orphan_root.setIcon(0, qta.icon("fa5s.box-open", color="#B0BEC5"))
-        orphan_root.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": None})
-        orphan_root.setFlags(orphan_root.flags() | Qt.ItemFlag.ItemIsDropEnabled)
-
-        for doc in orphan_docs:
-            doc_item = QTreeWidgetItem(orphan_root, [f" {doc.title}"])
-            doc_item.setIcon(0, qta.icon("fa5s.file-alt", color="#90CAF9"))
-            doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
-            doc_item.setFlags((doc_item.flags() | Qt.ItemFlag.ItemIsDragEnabled) & ~Qt.ItemFlag.ItemIsDropEnabled)
-
-        self.tree.expandAll()
-
-    @Slot(int, object)
-    def _on_document_moved(self, doc_id: int, new_folder_id: object) -> None:
+        """Recharge l'arborescence des dossiers et documents depuis Peewee."""
         try:
-            with db.atomic():
-                doc = DocumentModel.get_by_id(doc_id)
-                folder = FolderModel.get_by_id(new_folder_id) if new_folder_id else None
-                doc.folder = folder
-                doc.save()
-            logger.info(f"Document {doc_id} déplacé vers le dossier {new_folder_id}.")
+            self.tree_explorer.blockSignals(True)
+            self.tree_explorer.clear()
+
+            folder_items: Dict[int, QTreeWidgetItem] = {}
+            path_items: Dict[str, QTreeWidgetItem] = {}
+            folders = list(FolderModel.select())
+            sorted_folders = sorted(folders, key=lambda f: f.name)
+
+            for folder in sorted_folders:
+                parts = folder.name.split("::")
+                parent_item = None
+                for i in range(1, len(parts)):
+                    parent_path = "::".join(parts[:i])
+                    if parent_path in path_items:
+                        parent_item = path_items[parent_path]
+                    else:
+                        new_item = QTreeWidgetItem(parent_item or self.tree_explorer, [parts[i - 1]])
+                        new_item.setIcon(0, load_phosphor_icon("ph.folder", weight="fill", color=DesignTokens.COLOR_BLUE))
+                        path_items[parent_path] = new_item
+                        parent_item = new_item
+
+                node_name = parts[-1]
+                item = QTreeWidgetItem(parent_item or self.tree_explorer, [node_name])
+                item.setIcon(0, load_phosphor_icon("ph.folder", weight="fill", color=DesignTokens.COLOR_BLUE))
+                item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
+                folder_items[folder.id] = item
+                path_items[folder.name] = item
+
+            documents = list(DocumentModel.select())
+            for doc in documents:
+                parent_item = folder_items[doc.folder_id] if hasattr(doc, "folder_id") and doc.folder_id and doc.folder_id in folder_items else self.tree_explorer
+                title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+                item = QTreeWidgetItem(parent_item, [title_to_display])
+                item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
+
+                title_lower = doc.title.lower()
+                is_pdf = getattr(doc, "file_type", "") == "pdf"
+                has_content = bool(doc.content and doc.content.strip())
+
+                if is_pdf:
+                    if has_content:
+                        item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
+                    else:
+                        item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
+                        item.setText(0, f"{title_to_display} (Non extrait)")
+                        item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
+                elif getattr(doc, "file_type", "") == "txt" or title_lower.endswith(".txt"):
+                    item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
+                elif getattr(doc, "file_type", "") == "md" or title_lower.endswith(".md"):
+                    item.setIcon(0, load_phosphor_icon("ph.file-code", color="#eab308"))
+                elif getattr(doc, "file_type", "") == "web":
+                    item.setIcon(0, load_phosphor_icon("ph.globe", color=DesignTokens.ACCENT_PRIMARY))
+                elif getattr(doc, "file_type", "") == "youtube":
+                    item.setIcon(0, load_phosphor_icon("ph.youtube-logo", color=DesignTokens.COLOR_RED))
+                else:
+                    item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
+
+            self.tree_explorer.expandAll()
+            self.tree_explorer.blockSignals(False)
+
+            if not self._current_doc_id:
+                self.editor_stack.setCurrentIndex(0)
+
         except Exception as e:
-            logger.exception(f"Impossible de déplacer le document {doc_id} :")
-            QMessageBox.critical(self, "Erreur BDD", f"Impossible de déplacer le document :\n{e}")
-            self.load_tree()
+            logger.warning("Erreur refresh_data documents_view: %s", e)
+
+    def is_dirty(self) -> bool:
+        return self._dirty
 
     @Slot()
-    def create_folder(self) -> None:
-        name, ok = QInputDialog.getText(self, "Nouveau dossier", "Nom du dossier :")
-        if ok and name.strip():
-            with db.atomic():
-                FolderModel.create(name=name.strip())
-            logger.info(f"Dossier créé : {name.strip()}")
-            self.load_tree()
-
-    @Slot()
-    def create_manual_document(self) -> None:
-        name, ok = QInputDialog.getText(self, "Nouveau Document", "Titre du document :")
-        if not ok or not name.strip():
+    def _on_document_selected(self) -> None:
+        items = self.tree_explorer.selectedItems()
+        if not items:
+            self.btn_delete.setEnabled(False)
+            self._current_doc_id = None
+            self.editor_stack.setCurrentIndex(0)
             return
 
-        selected_items = self.tree.selectedItems()
-        target_folder = None
-        if selected_items:
-            data = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
-            if data and data.get("type") == "folder" and data.get("id") is not None:
-                target_folder = FolderModel.get_by_id(data.get("id"))
+        self.btn_delete.setEnabled(True)
+        item = items[0]
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if data and data.get("type") == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == data["id"])
+            if doc:
+                self._current_doc_id = doc.id
+                title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+                self.doc_title_lbl.setText(title_to_display)
+                self.text_editor.blockSignals(True)
+                self.text_editor.set_content(doc.content if hasattr(doc, "content") else "")
+                self.text_editor.blockSignals(False)
+                self._dirty = False
+                self._update_word_count()
+                self._update_rag_status_pill()
 
-        with db.atomic():
-            DocumentModel.create(title=name.strip(), content="# Nouveau Cours\n\n...", folder=target_folder)
-        logger.info(f"Document manuel créé : {name.strip()}")
-        self.load_tree()
+                # Show PDF if available
+                if doc.file_type == "pdf" and doc.original_media:
+                    from ankiforge.utils.paths import get_app_data_dir
+
+                    pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
+                    if pdf_path.exists():
+                        self.pdf_document.load(str(pdf_path))
+                        self.view_toggle_frame.show()
+                        self._on_view_toggled("pdf")
+                    else:
+                        self.view_toggle_frame.hide()
+                        self._on_view_toggled("md")
+                else:
+                    self.view_toggle_frame.hide()
+                    self._on_view_toggled("md")
+
+                self.editor_stack.setCurrentIndex(1)
+                self._refresh_chapters_list()
+        else:
+            self._current_doc_id = None
+            self.editor_stack.setCurrentIndex(0)
+            self._refresh_chapters_list()
+
+    def _update_rag_status_pill(self) -> None:
+        """Met à jour le badge pill de vectorisation FAISS."""
+        if not self._current_doc_id:
+            self.rag_status_pill.setText("Non indexé")
+            apply_pill_style(self.rag_status_pill, "#94a3b8")
+            return
+
+        chunk_count = DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).count()
+        if chunk_count > 0:
+            self.rag_status_pill.setText(f"Indexé ({chunk_count} chunks)")
+            apply_pill_style(self.rag_status_pill, "#10b981")
+        else:
+            self.rag_status_pill.setText("Non indexé")
+            apply_pill_style(self.rag_status_pill, "#eab308")
 
     @Slot()
-    def save_document_edits(self) -> None:
-        if not self.current_doc_id_editing or not self.btn_save_doc.isEnabled():
+    def _on_document_text_changed(self) -> None:
+        self._dirty = True
+        self.btn_save.setEnabled(True)
+        self._update_word_count()
+
+    def _update_word_count(self) -> None:
+        text = self.text_editor.get_content()
+        words = len(text.split())
+        self.lbl_word_count.setText(f"{words:,} mots")
+
+    @Slot()
+    def _on_import_file(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importer un document",
+            "",
+            "Documents (*.pdf *.txt *.md *.docx *.pptx);;Tous les fichiers (*.*)",
+        )
+        if file_path:
+            ext = pathlib.Path(file_path).suffix.lower()
+            if ext == ".pdf":
+                self._import_pdf_directly(file_path)
+            else:
+                self._start_document_worker(file_path)
+
+    @Slot()
+    def _on_import_url(self) -> None:
+        url, ok = QInputDialog.getText(self, "Importer depuis le Web", "Entrez l'URL de la page web ou de la vidéo YouTube :")
+        if ok and url.strip():
+            self._start_document_worker(url.strip())
+
+    @Slot(str)
+    def _on_view_toggled(self, mode: str) -> None:
+        self.btn_view_pdf.setChecked(mode == "pdf")
+        self.btn_view_md.setChecked(mode == "md")
+        self.btn_view_term.setChecked(mode == "term")
+
+        if mode == "pdf":
+            self.inner_editor_stack.setCurrentIndex(0)
+        elif mode == "md":
+            self.inner_editor_stack.setCurrentIndex(1)
+        else:
+            self.inner_editor_stack.setCurrentIndex(2)
+
+    def _import_pdf_directly(self, file_path: str) -> None:
+        from ankiforge.services.cards.media_manager import MediaManager
+
+        media_manager = MediaManager()
+        media = media_manager.store_document_source(file_path)
+        if not media:
+            show_toast(self, "Erreur lors de l'import du PDF.", is_error=True)
             return
+
+        file_path_obj = pathlib.Path(file_path)
+        doc = DocumentModel.create(
+            title=file_path_obj.stem,
+            content="",
+            original_media_id=media.id,
+            file_type="pdf",
+            source_url=None,
+        )
+
+        self.refresh_data()
+        self._current_doc_id = doc.id
+        title_to_display = media.original_name
+        self.doc_title_lbl.setText(title_to_display)
+        self.text_editor.set_content("Cliquer sur 'Marker OCR' pour extraire le texte et les formules en KaTeX...")
+        self.editor_stack.setCurrentIndex(1)
+
+        from ankiforge.utils.paths import get_app_data_dir
+
+        pdf_path = get_app_data_dir() / "media" / media.filename
+        if pdf_path.exists():
+            self.pdf_document.load(str(pdf_path))
+            self.view_toggle_frame.show()
+            self._on_view_toggled("pdf")
+        else:
+            self.view_toggle_frame.hide()
+            self._on_view_toggled("md")
+
+        show_toast(self, f"PDF '{title_to_display}' importé. Démarrage de l'analyse Marker OCR...")
+        if pdf_path.exists():
+            self._start_document_worker(str(pdf_path), doc_id=doc.id)
+
+    def _start_document_worker(self, path_or_url: str, doc_id: Optional[int] = None) -> None:
+        self.btn_import.setEnabled(False)
+        self.btn_import_url.setEnabled(False)
+        show_toast(self, "Extraction et analyse du document en cours...")
+
+        self.worker = DocumentWorker(path_or_url)
+        self.worker.doc_id_to_update = doc_id
+        self.worker.finished_signal.connect(self._on_worker_finished)
+        self.worker.error_signal.connect(self._on_worker_error)
+        self.worker.log_signal.connect(self._on_worker_log)
+
+        self._on_view_toggled("term")
+        self.terminal_view.clear()
+        self.terminal_view.append("--- Démarrage de l'extraction documentaire ---")
+        self.worker.start()
+
+    @Slot(str)
+    def _on_worker_log(self, msg: str) -> None:
+        if hasattr(self, "terminal_view"):
+            self.terminal_view.append(msg)
+
+    @Slot(str, str)
+    def _on_worker_finished(self, title: str, content: str) -> None:
+        if hasattr(self, "terminal_view"):
+            self.terminal_view.append("--- Extraction terminée avec succès ! ---")
+
+        self._on_view_toggled("md")
+        self.btn_import.setEnabled(True)
+        self.btn_import_url.setEnabled(True)
+
         try:
-            with db.atomic():
-                doc = DocumentModel.get_by_id(self.current_doc_id_editing)
-                doc.content = self.preview_text.toPlainText()
+            doc_id_to_update = getattr(self.worker, "doc_id_to_update", None)
+            file_type = "md"
+
+            if doc_id_to_update:
+                doc = DocumentModel.get_by_id(doc_id_to_update)
+                doc.content = content
                 doc.save()
-            logger.info(f"Modifications du document '{doc.title}' sauvegardées.")
-            self.btn_save_doc.setEnabled(False)
-            self.btn_save_doc.setText(" Sauvegardé !")
-            self.btn_save_doc.setIcon(qta.icon("fa5s.check", color="white"))
+                file_type = doc.file_type or "md"
+            else:
+                from ankiforge.services.cards.media_manager import MediaManager
 
-            from PySide6.QtCore import QTimer
+                original_media_id = None
+                source_url = None
 
-            QTimer.singleShot(1500, self._reset_save_btn)
+                if self.worker and self.worker.file_path:
+                    path_or_url = self.worker.file_path
+                    if path_or_url.startswith("http"):
+                        source_url = path_or_url
+                        file_type = "web"
+                    else:
+                        media_manager = MediaManager()
+                        media = media_manager.store_document_source(path_or_url)
+                        if media:
+                            original_media_id = media.id
+                        file_type = pathlib.Path(path_or_url).suffix.replace(".", "") or "txt"
+
+                doc = DocumentModel.create(
+                    title=title,
+                    content=content,
+                    original_media_id=original_media_id,
+                    file_type=file_type,
+                    source_url=source_url,
+                )
+
+            extracted_chunks = ChunkingService.extract_chunks(content, file_type=file_type)
+            with DocumentChunkModel._meta.database.atomic():
+                DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
+                for idx, chunk_data in enumerate(extracted_chunks):
+                    DocumentChunkModel.create(
+                        document=doc,
+                        chunk_index=idx,
+                        content=chunk_data["content"],
+                        page_number=chunk_data.get("page_number"),
+                        heading_path=chunk_data.get("heading_path"),
+                        content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
+                    )
+
+            self.refresh_data()
+            self._current_doc_id = doc.id
+            title_to_display = doc.original_media.original_name if doc.original_media else doc.title
+            self.doc_title_lbl.setText(title_to_display)
+            self.text_editor.set_content(content)
+            self.editor_stack.setCurrentIndex(1)
+            self._update_rag_status_pill()
+
+            show_toast(self, f"Document '{title_to_display}' importé avec succès !")
         except Exception as e:
-            logger.exception("Erreur lors de la sauvegarde du document :")
-            QMessageBox.critical(self, "Erreur BDD", str(e))
+            logger.exception("Erreur enregistrement document : %s", e)
+            QMessageBox.critical(self, "Erreur", f"Échec de l'enregistrement du document : {e}")
+
+    @Slot(str)
+    def _on_worker_error(self, error: str) -> None:
+        self.btn_import.setEnabled(True)
+        self.btn_import_url.setEnabled(True)
+        QMessageBox.critical(self, "Erreur d'importation", f"Impossible d'extraire le document :\n{error}")
 
     @Slot()
-    def _reset_save_btn(self):
-        self.btn_save_doc.setText(" Sauvegarder (Ctrl+S)")
-        self.btn_save_doc.setIcon(qta.icon("fa5s.save", color="white"))
+    def _on_new_folder(self) -> None:
+        folder_name, ok = QInputDialog.getText(self, "Nouveau dossier", "Nom du dossier :")
+        if ok and folder_name.strip():
+            target_name = folder_name.strip()
+            items = self.tree_explorer.selectedItems()
+            if items:
+                data = items[0].data(0, Qt.ItemDataRole.UserRole)
+                if data:
+                    item_type = data.get("type")
+                    item_id = data.get("id")
+                    target_folder_id = item_id if item_type == "folder" else (DocumentModel.get_by_id(item_id).folder.id if DocumentModel.get_by_id(item_id).folder else None)
+                    if target_folder_id:
+                        folder = FolderModel.get_or_none(FolderModel.id == target_folder_id)
+                        if folder:
+                            target_name = f"{folder.name}::{target_name}"
+
+            try:
+                FolderModel.create(name=target_name)
+                self.refresh_data()
+                show_toast(self, f"Dossier '{target_name}' créé.")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Impossible de créer le dossier : {e}")
 
     @Slot()
-    def delete_item(self) -> None:
-        selected_items = self.tree.selectedItems()
-        if not selected_items:
+    def _on_delete_item(self) -> None:
+        items = self.tree_explorer.selectedItems()
+        if not items:
             return
-        data = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+
+        item = items[0]
+        data = item.data(0, Qt.ItemDataRole.UserRole)
         if not data:
             return
 
         item_type = data.get("type")
         item_id = data.get("id")
 
-        if item_type == "folder":
-            if item_id is None:
-                QMessageBox.critical(self, "Erreur", "Impossible de supprimer le dossier système 'Non classés'.")
-                return
-            folder = FolderModel.get_by_id(item_id)
-            # Standard Qt6 : QMessageBox.StandardButton
-            reply = QMessageBox.question(
-                self,
-                "Confirmation",
-                f"Supprimer le dossier '{folder.name}' et TOUS ses documents ?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                try:
-                    with db.atomic():
-                        DocumentModel.delete().where(DocumentModel.folder == folder).execute()
-                        folder.delete_instance()
-                    logger.info(f"Dossier '{folder.name}' et son contenu supprimés.")
-                    self._reset_editor_after_delete()
-                except Exception as e:
-                    logger.exception(f"Erreur lors de la suppression du dossier '{folder.name}' :")
-                    QMessageBox.critical(self, "Erreur de suppression", f"Erreur :\n{e}")
-
-        elif item_type == "doc":
-            doc = DocumentModel.get_by_id(item_id)
-            reply = QMessageBox.question(
-                self,
-                "Confirmation",
-                f"Supprimer le document '{doc.title}' ?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                with db.atomic():
+        if item_type == "doc":
+            doc = DocumentModel.get_or_none(DocumentModel.id == item_id)
+            if doc:
+                reply = QMessageBox.question(
+                    self,
+                    "Confirmer la suppression",
+                    f"Voulez-vous vraiment supprimer le document '{doc.title}' ?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply == QMessageBox.StandardButton.Yes:
                     doc.delete_instance()
-                logger.info(f"Document '{doc.title}' supprimé.")
-                self._reset_editor_after_delete()
-
-    def _reset_editor_after_delete(self):
-        self.preview_text.clear()
-        self.render_view.setHtml("<html><body style='background: transparent;'></body></html>")
-        self.current_doc_id_editing = None
-        self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
-        self.btn_save_doc.setEnabled(False)
-        self.btn_split_doc.setEnabled(False)
-        self.btn_insert_split.setEnabled(False)
-        self.load_tree()
-
-    @Slot(QTreeWidgetItem, int)
-    def on_item_selected(self, item: QTreeWidgetItem, column: int) -> None:
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not data:
-            return
-
-        if data.get("type") == "doc":
-            doc_id = data.get("id")
-            doc = DocumentModel.get_by_id(doc_id)
-
-            self.lbl_doc_title.setText(f"<b>📄 {doc.title}</b>")
-            self.preview_text.blockSignals(True)
-            self.preview_text.setPlainText(doc.content)
-            self.preview_text.blockSignals(False)
-
-            self.current_doc_id_editing = doc_id
-            self.btn_save_doc.setEnabled(False)
-            self.btn_split_doc.setEnabled(True)
-
-            self.btn_insert_split.setEnabled(True)  # Active le bouton Ciseaux
-            self.update_live_preview()  # Force le rendu immédiat
-
-        else:
-            self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
-            self.preview_text.clear()
-            self.render_view.setHtml("<html><body style='background: transparent;'></body></html>")
-            self.current_doc_id_editing = None
-            self.btn_save_doc.setEnabled(False)
-            self.btn_split_doc.setEnabled(False)
-            self.btn_insert_split.setEnabled(False)
+                    self.refresh_data()
+                    self.editor_stack.setCurrentIndex(0)
+                    show_toast(self, "Document supprimé.")
+        elif item_type == "folder":
+            folder = FolderModel.get_or_none(FolderModel.id == item_id)
+            if folder:
+                reply = QMessageBox.question(
+                    self,
+                    "Confirmer la suppression",
+                    f"Voulez-vous vraiment supprimer le dossier '{folder.name}' et son contenu ?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    with FolderModel._meta.database.atomic():
+                        folders_to_delete = FolderModel.select().where((FolderModel.name == folder.name) | (FolderModel.name.startswith(folder.name + "::")))
+                        for f in folders_to_delete:
+                            f.delete_instance()
+                    self.refresh_data()
+                    self.editor_stack.setCurrentIndex(0)
+                    show_toast(self, "Dossier supprimé.")
 
     @Slot()
-    def import_document(self) -> None:
-        self.current_folder_id_for_import = None
-        selected_items = self.tree.selectedItems()
-        if selected_items:
-            data = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
-            if data and data.get("type") == "folder":
-                self.current_folder_id_for_import = data.get("id")
-
-        path, _ = QFileDialog.getOpenFileName(self, "Importer un cours", "", "Documents (*.pdf *.txt *.md)")
-        if not path:
+    def _on_open_delimitation_dialog(self) -> None:
+        """Ouvre la boîte de dialogue de délimitation de pages et chapitres utiles."""
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document.", is_error=True)
             return
 
-        self.btn_import.hide()
-        self.btn_cancel_import.show()
-        self.btn_cancel_import.setEnabled(True)
-        self.tree.setEnabled(False)
-
-        self.lbl_doc_title.setText("<b>⏳ Importation et Analyse en cours...</b>")
-        self.preview_text.blockSignals(True)
-        self.preview_text.setPlainText("🤖 Démarrage du script d'importation...\n")
-        self.preview_text.blockSignals(False)
-
-        self.worker = DocumentWorker(path)
-        self.worker.log_signal.connect(self._on_parsing_log)
-        self.worker.finished_signal.connect(self._on_parsing_success)
-        self.worker.error_signal.connect(self._on_parsing_error)
-        self.worker.cancelled_signal.connect(self._on_parsing_cancelled)
-        self.worker.start()
+        doc = DocumentModel.get_by_id(self._current_doc_id)
+        dlg = DocumentDelimitationDialog(doc, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            show_toast(self, "Délimitation et sections appliquées avec succès !")
+            self._refresh_chapters_list()
+            self._update_rag_status_pill()
 
     @Slot()
-    def cancel_import(self):
-        if self.worker is not None and self.worker.isRunning():
-            self.worker.cancel()
-            self.btn_cancel_import.setEnabled(False)
-            self.btn_cancel_import.setText(" Arrêt de l'IA...")
-
-    @Slot()
-    def _on_parsing_cancelled(self):
-        self._reset_import_ui()
-        self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
-        logger.info("Analyse interrompue par l'utilisateur.")
-        show_toast(self, "Analyse interrompue.", is_error=True)
-
-    def _reset_import_ui(self):
-        self.btn_cancel_import.hide()
-        self.btn_cancel_import.setText(" Annuler l'analyse")
-        self.btn_import.show()
-        self.btn_import_web.show()
-        self.btn_import_web.setEnabled(True)
-        self.btn_import.setEnabled(True)
-        self.tree.setEnabled(True)
-
-    @Slot(str, str)
-    def _on_parsing_success(self, base_title: str, content: str) -> None:
-        self._reset_import_ui()
-        folder = FolderModel.get_by_id(self.current_folder_id_for_import) if self.current_folder_id_for_import else None
-        title = base_title
-        counter = 1
-        while DocumentModel.get_or_none(DocumentModel.title == title):
-            title = f"{base_title} ({counter})"
-            counter += 1
-        try:
-            with db.atomic():
-                new_doc = DocumentModel.create(title=title, content=content, folder=folder)
-
-            self.btn_import.setEnabled(True)
-            self.tree.setEnabled(True)
-
-            # 👇 FEEDBACK : On prévient et on affiche immédiatement le résultat !
-            logger.info(f"Document '{title}' importé avec succès.")
-            show_toast(self, f"✨ Document '{title}' importé avec succès !")
-            self.load_tree()
-            self.jump_to_document(new_doc.id)
-
-        except Exception as e:
-            logger.exception(f"Impossible de sauvegarder le document '{title}' :")
-            QMessageBox.critical(self, "Erreur BDD", f"Impossible de sauvegarder le document :\n{e}")
-
-    @Slot(str)
-    def _on_parsing_log(self, log_line: str) -> None:
-        """Affiche les logs de Marker en temps réel"""
-        self.preview_text.append(log_line)
-        # Scroll automatique vers le bas
-        scrollbar = self.preview_text.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-
-    @Slot(str)
-    def _on_parsing_error(self, error_msg: str) -> None:
-        self._reset_import_ui()
-        self.btn_import.setEnabled(True)
-        self.tree.setEnabled(True)
-        self.lbl_doc_title.setText("<b>Aucun document sélectionné</b>")
-        QMessageBox.critical(self, "Erreur", error_msg)
-
-    @Slot()
-    def split_document_multiple(self) -> None:
-        if not self.current_doc_id_editing:
+    def _on_open_rag_test_dialog(self) -> None:
+        """Ouvre la boîte de dialogue de test de recherche sémantique RAG."""
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document.", is_error=True)
             return
 
-        full_text = self.preview_text.toPlainText()
-        parts = full_text.split("[SPLIT]")
+        doc = DocumentModel.get_by_id(self._current_doc_id)
+        dlg = RAGTestDialog(doc, parent=self)
+        dlg.exec()
 
-        if len(parts) <= 1:
-            logger.info("Tentative de scission sans balise [SPLIT].")
-            show_toast(self, "Astuce : Insérez [SPLIT] dans le texte pour scinder le document.")
+    @Slot()
+    def _on_run_marker_analysis(self) -> None:
+        """Lance l'extraction Deep Learning Marker OCR pour les PDF avec vérification du Lazy Loading."""
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
             return
 
-        try:
-            with db.atomic():
-                original_doc = DocumentModel.get_by_id(self.current_doc_id_editing)
-                base_title = original_doc.title
+        doc = DocumentModel.get_by_id(self._current_doc_id)
 
-                original_doc.title = f"{base_title} (Partie 1)"
-                original_doc.content = parts[0].strip()
-                original_doc.save()
-
-                for i in range(1, len(parts)):
-                    content_part = parts[i].strip()
-                    if len(content_part) > 0:
-                        DocumentModel.create(title=f"{base_title} (Partie {i + 1})", content=content_part, folder=original_doc.folder)
-
-            logger.info(f"Document '{base_title}' scindé en {len(parts)} parties.")
-            self.load_tree()
-            self.preview_text.setPlainText(original_doc.content)
-            show_toast(self, f"Document découpé en {len(parts)} parties !")
-        except Exception as e:
-            logger.exception(f"Échec de la scission du document '{base_title}' :")
-            show_toast(self, f"Échec de la sauvegarde : {str(e)}", is_error=True)
-
-    @Slot(int)
-    def jump_to_document(self, doc_id: int) -> None:
-        """Déplie l'arbre et sélectionne le document demandé."""
-        from PySide6.QtWidgets import QTreeWidgetItemIterator
-
-        iterator = QTreeWidgetItemIterator(self.tree)
-        while iterator.value():
-            item = iterator.value()
-            data = item.data(0, Qt.ItemDataRole.UserRole)
-            if data and data.get("type") == "doc" and data.get("id") == doc_id:
-                parent = item.parent()
-                if parent:
-                    parent.setExpanded(True)
-                self.tree.setCurrentItem(item)
-                self.on_item_selected(item, 0)
+        marker_exec = shutil.which("marker_single")
+        if not marker_exec:
+            reply = QMessageBox.information(
+                self,
+                "Marker OCR (Lazy Loading)",
+                "Le moteur Marker OCR (Deep Learning) n'est pas encore installé sur votre environnement local.\n\n"
+                "Souhaitez-vous continuer avec l'extraction standard immédiate (PyPDF/Texte) ?\n"
+                "(Pour installer Marker à la volée : 'uv pip install marker-pdf')",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
                 return
-            iterator += 1
+
+        if doc.file_type == "pdf" and doc.original_media:
+            from ankiforge.utils.paths import get_app_data_dir
+
+            pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
+            if pdf_path.exists():
+                self._start_document_worker(str(pdf_path), doc_id=doc.id)
+                return
+
+        show_toast(self, "Analyse Marker : Document déjà textuel.")
 
     @Slot()
-    def import_web_url(self) -> None:
-        self.current_folder_id_for_import = None
-        selected_items = self.tree.selectedItems()
-        if selected_items:
-            data = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
-            if data and data.get("type") == "folder":
-                self.current_folder_id_for_import = data.get("id")
-
-        # Demander l'URL à l'utilisateur
-        url, ok = QInputDialog.getText(self, "Import Web", "Entrez l'URL de l'article ou du cours :")
-        if not ok or not url.strip():
+    def _on_save_document(self) -> None:
+        if not self._current_doc_id:
+            show_toast(self, "Aucun document sélectionné à sauvegarder.", is_error=True)
             return
 
-        url = url.strip()
-        if not url.startswith("http"):
-            url = "https://" + url
+        try:
+            doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+            if doc:
+                doc.title = self.doc_title_lbl.text()
+                content = self.text_editor.get_content()
+                doc.content = content
+                doc.word_count = len(content.split())
+                doc.save()
+                self._dirty = False
+                self.btn_save.setStyleSheet("")
+                show_toast(self, f"Document '{doc.title}' enregistré avec succès !")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible d'enregistrer le document : {e}")
 
-        self.btn_import.hide()
-        self.btn_import_web.hide()
-        self.btn_cancel_import.show()
-        self.btn_cancel_import.setEnabled(True)
-        self.tree.setEnabled(False)
+    def _refresh_chapters_list(self) -> None:
+        """Met à jour le sommaire des chapitres et les indicateurs de couverture du document actif."""
+        self.chapters_list.clear()
+        if not self._current_doc_id:
+            self.lbl_coverage_summary.setText("📊 Couverture : 0%")
+            self.coverage_bar.setValue(0)
+            self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
+            return
 
-        self.lbl_doc_title.setText("<b>⏳ Aspiration de la page Web en cours...</b>")
-        self.preview_text.blockSignals(True)
-        self.preview_text.setPlainText(f"🤖 Connexion à {url}...\n")
-        self.preview_text.blockSignals(False)
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
+        if not chunks:
+            item = QListWidgetItem("Aucun fragment indexé (cliquez sur 'Vectoriser')")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.chapters_list.addItem(item)
+            self.lbl_coverage_summary.setText("📊 Couverture : 0%")
+            self.coverage_bar.setValue(0)
+            self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
+            return
 
-        # On utilise le même worker que pour les PDF !
-        self.worker = DocumentWorker(url)
-        self.worker.log_signal.connect(self._on_parsing_log)
-        self.worker.finished_signal.connect(self._on_parsing_success)
-        self.worker.error_signal.connect(self._on_parsing_error)
-        self.worker.cancelled_signal.connect(self._on_parsing_cancelled)
-        self.worker.start()
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == self._current_doc_id)}
+
+        covered_count = 0
+        for chunk in chunks:
+            is_covered = chunk.id in linked_chunk_ids
+            if is_covered:
+                covered_count += 1
+                badge = "🟢"
+                status_text = "Couvert"
+            else:
+                badge = "⚠️"
+                status_text = "Non couvert"
+
+            title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+            item_text = f"{badge} {title_str} ({status_text})"
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.ItemDataRole.UserRole, chunk.id)
+            self.chapters_list.addItem(item)
+
+        total_chunks = len(chunks)
+        percent = int(covered_count / total_chunks * 100) if total_chunks > 0 else 0
+        self.lbl_coverage_summary.setText(f"📊 Couverture : {percent}% ({covered_count}/{total_chunks} sections)")
+        self.coverage_bar.setValue(percent)
+        self.lbl_coverage_details.setText(f"{total_chunks} sections • {covered_count} couvertes • {len(linked_chunk_ids)} liens")
+
+    @Slot()
+    def _on_forge_selected_chapter(self) -> None:
+        """Bascule sur l'Usine de Création en préchargeant la section sélectionnée."""
+        items = self.chapters_list.selectedItems()
+        if not items:
+            show_toast(self, "Veuillez sélectionner un chapitre dans le sommaire.", is_error=True)
+            return
+
+        chunk_id = items[0].data(Qt.ItemDataRole.UserRole)
+        if not chunk_id:
+            return
+
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+        if not chunk:
+            return
+
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        doc_title = doc.title if doc else "Document"
+        section_name = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+
+        self.request_navigation.emit(
+            "creation",
+            {
+                "text_source": chunk.content,
+                "source_title": f"{doc_title} - {section_name}",
+                "chunk_id": chunk.id,
+            },
+        )
+
+    @Slot()
+    def _on_vectorize_rag(self) -> None:
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document à vectoriser.", is_error=True)
+            return
+
+        self.btn_rag.setEnabled(False)
+        self.btn_rag.setText("Vectorisation FAISS...")
+
+        self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, parent=self)
+        self._coverage_worker.finished_processing.connect(self._on_vectorization_success)
+        self._coverage_worker.error_occurred.connect(self._on_vectorization_error)
+        self._coverage_worker.finished.connect(self._coverage_worker.deleteLater)
+        self._coverage_worker.start()
+
+    @Slot()
+    def _on_vectorization_success(self) -> None:
+        self.btn_rag.setEnabled(True)
+        self.btn_rag.setText("Vectoriser (RAG)")
+        show_toast(self, "Document indexé avec succès dans FAISS !")
+        self._refresh_chapters_list()
+        self._update_rag_status_pill()
+
+    @Slot(str)
+    def _on_vectorization_error(self, err: str) -> None:
+        self.btn_rag.setEnabled(True)
+        self.btn_rag.setText("Vectoriser (RAG)")
+        show_toast(self, f"Échec de la vectorisation : {err}", is_error=True)
+
+    @Slot()
+    def _on_sandbox_search(self) -> None:
+        """Exécute la recherche sémantique dans l'onglet Sandbox RAG."""
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
+            return
+
+        query = self.rag_sandbox_input.text().strip()
+        if not query:
+            return
+
+        self.rag_sandbox_results.clear()
+        try:
+            rag = RAGService()
+            results = rag.search(self._current_doc_id, query, top_k=4)
+            if not results:
+                self.rag_sandbox_results.addItem(QListWidgetItem("Aucun fragment pertinent trouvé."))
+                return
+
+            for r in results:
+                loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else f"Section #{r.get('chunk_index', 0) + 1}")
+                score_val = r.get("score", 1.0)
+                sim_pct = max(0, min(100, int((1.0 - min(score_val, 1.0)) * 100))) if score_val <= 1.0 else int(100 / (1.0 + score_val))
+                content_snippet = r.get("content", "")[:160] + "..." if len(r.get("content", "")) > 160 else r.get("content", "")
+                item_txt = f"📍 {loc} (Pertinence: {sim_pct}%)\n{content_snippet}"
+                item = QListWidgetItem(item_txt)
+                item.setData(Qt.ItemDataRole.UserRole, r)
+                self.rag_sandbox_results.addItem(item)
+
+        except Exception as e:
+            self.rag_sandbox_results.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
+
+    @Slot()
+    def _on_forge_sandbox_result(self) -> None:
+        """Bascule sur la Forge avec le fragment sélectionné dans la Sandbox RAG."""
+        items = self.rag_sandbox_results.selectedItems()
+        if not items:
+            show_toast(self, "Veuillez sélectionner un fragment dans la liste des résultats.", is_error=True)
+            return
+
+        data = items[0].data(Qt.ItemDataRole.UserRole)
+        if not data or not isinstance(data, dict):
+            return
+
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        doc_title = doc.title if doc else "Document"
+        section_name = data.get("heading_path") or (f"Page {data.get('page_number')}" if data.get("page_number") else "Section RAG")
+
+        self.request_navigation.emit(
+            "creation",
+            {
+                "text_source": data.get("content", ""),
+                "source_title": f"{doc_title} - {section_name}",
+                "chunk_id": data.get("chunk_id"),
+            },
+        )
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Rafraîchit dynamiquement les styles de la vue lors d'un changement de thème."""
+        if hasattr(self, "tree_explorer"):
+            self.tree_explorer.setStyleSheet(f"""
+                QTreeWidget {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_sm}px;
+                    color: {profile.text_primary};
+                    padding: 4px;
+                }}
+                QTreeWidget::item {{
+                    padding: 6px;
+                    border-radius: 4px;
+                }}
+                QTreeWidget::item:hover {{
+                    background-color: {profile.bg_hover};
+                }}
+                QTreeWidget::item:selected {{
+                    background-color: {profile.bg_hover};
+                    color: {profile.text_primary};
+                }}
+            """)
+
+        if hasattr(self, "doc_page_frame"):
+            self.doc_page_frame.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_md}px;
+                }}
+            """)
+
+        if hasattr(self, "doc_title_lbl"):
+            self.doc_title_lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 18px; font-weight: bold; border-bottom: 1px solid {profile.border_color}; padding-bottom: 8px;")
+
+        if hasattr(self, "coverage_card"):
+            self.coverage_card.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_md}px;
+                }}
+            """)
+
+        if hasattr(self, "lbl_coverage_summary"):
+            self.lbl_coverage_summary.setStyleSheet(f"color: {profile.text_primary}; font-weight: bold; font-size: 13px;")
+
+        if hasattr(self, "coverage_bar"):
+            self.coverage_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: 4px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: {profile.color_green};
+                    border-radius: 3px;
+                }}
+            """)
+
+        if hasattr(self, "chapters_list"):
+            self.chapters_list.setStyleSheet(f"""
+                QListWidget {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_sm}px;
+                    color: {profile.text_primary};
+                    padding: 4px;
+                }}
+                QListWidget::item {{
+                    padding: 8px;
+                    border-bottom: 1px solid {profile.border_color};
+                    border-radius: 4px;
+                    font-size: 11px;
+                }}
+                QListWidget::item:hover {{
+                    background-color: {profile.bg_hover};
+                }}
+                QListWidget::item:selected {{
+                    background-color: {profile.bg_hover};
+                    color: {profile.text_primary};
+                }}
+            """)
+
+        if hasattr(self, "rag_sandbox_results"):
+            self.rag_sandbox_results.setStyleSheet(f"""
+                QListWidget {{
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_sm}px;
+                    padding: 4px;
+                    color: {profile.text_primary};
+                }}
+                QListWidget::item {{
+                    background-color: {profile.bg_panel};
+                    border: 1px solid {profile.border_color};
+                    border-radius: 6px;
+                    margin-bottom: 6px;
+                    padding: 8px;
+                    font-size: 11px;
+                }}
+                QListWidget::item:hover {{
+                    border-color: {profile.accent_primary};
+                }}
+            """)
+
+
+DocumentsTab = DocumentsView

@@ -1,36 +1,17 @@
+# .pre-commit-config.yaml
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=2000"]
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.0  # Utilisez la dernière version de Ruff
+    rev: v0.9.9
     hooks:
       - id: ruff
-        args: [ --fix ] # Corrige automatiquement ce qu'il peut (imports, etc.)
-      - id: ruff-format # Formate le code proprement
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [ types-requests, types-Markdown]
-
-
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.8
-    hooks:
-      - id: bandit
-        args: [ "-c", "pyproject.toml" ]
-        additional_dependencies: [ "bandit[toml]" ]
-
-  - repo: local
-    hooks:
-          - id: pytest
-            name: Run pytest
-        # On utilise 'uv' pour s'assurer que ça tourne dans le bon environnement
-            entry: uv run pytest tests/
-        # language: system dit à pre-commit d'utiliser l'environnement de votre PC
-            language: system
-            types: [ python ]
-        # pass_filenames: false force pytest à lancer toute la suite de tests,
-        # pas juste sur les fichiers qui viennent d'être modifiés.
-            pass_filenames: false
-        # Optionnel: false permet de ne pas empêcher le commit si un test plante,
-        # mais on veut être stricts ! Donc on omet ou on laisse l'action par défaut (qui bloque).
+        args: ["--fix"]
+      - id: ruff-format

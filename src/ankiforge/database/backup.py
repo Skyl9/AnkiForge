@@ -2,8 +2,8 @@ import datetime
 import logging
 import shutil
 
-from ankiforge.database.models import DB_PATH
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_active_profile
+from ankiforge.services.profile_manager import ProfileManager
 
 
 def backup_database(keep_last: int = 5) -> None:
@@ -11,11 +11,15 @@ def backup_database(keep_last: int = 5) -> None:
     Crée une copie de sécurité de la base de données SQLite.
     Conserve uniquement les `keep_last` fichiers les plus récents.
     """
-    if not DB_PATH.exists():
+    pm = ProfileManager()
+    active_profile = get_active_profile()
+    db_path = pm.get_db_path(active_profile)
+
+    if not db_path.exists():
         return
 
-    backup_dir = get_app_data_dir() / "backups"
-    backup_dir.mkdir(exist_ok=True)
+    backup_dir = pm.PROFILES_DIR / active_profile / "backups"
+    backup_dir.mkdir(exist_ok=True, parents=True)
 
     # Création du nom de fichier avec horodatage
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -23,7 +27,7 @@ def backup_database(keep_last: int = 5) -> None:
 
     try:
         # Copie physique du fichier SQLite
-        shutil.copy2(DB_PATH, backup_file)
+        shutil.copy2(db_path, backup_file)
         logging.info(f"Sauvegarde de la base de données créée : {backup_file.name}")
 
         # Rotation : Nettoyage des anciennes sauvegardes

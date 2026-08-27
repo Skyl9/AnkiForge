@@ -1,0 +1,231 @@
+import json
+import uuid
+from typing import Any
+
+import pytest
+
+from ankiforge.database.models import (
+    DeckModel,
+    LLMConfigModel,
+    NoteModel,
+    NoteTypeModel,
+    PersonaModel,
+    PipelineModel,
+)
+from ankiforge.services.ai.base import LLMProvider
+from ankiforge.ui.style_engine import get_style_engine
+from ankiforge.ui.views.ab_tests_view import ABTestsView
+
+
+class DummyABProviderA(LLMProvider):
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+        return json.dumps(
+            {
+                "cards": [
+                    {"Front": "Question Branche A", "Back": "Réponse Branche A"},
+                ]
+            }
+        )
+
+
+class DummyABProviderB(LLMProvider):
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+        return json.dumps(
+            {
+                "cards": [
+                    {"Front": "Question Branche B", "Back": "Réponse Branche B"},
+                ]
+            }
+        )
+
+
+class DummyABManager:
+    def __init__(self, cfg_a_id: int):
+        self.cfg_a_id = cfg_a_id
+
+    def create_provider_from_config(self, config: Any) -> LLMProvider:
+        if config and getattr(config, "id", None) == self.cfg_a_id:
+            return DummyABProviderA()
+        return DummyABProviderB()
+
+
+class DummySingleABManager:
+    def create_provider_from_config(self, config: Any) -> LLMProvider:
+        return DummyABProviderA()
+
+
+@pytest.mark.slow
+@pytest.mark.ui
+def test_ab_tests_view_engine_comparison(qtbot):
+    """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA et importer les cartes."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(
+        name=f"NoteType AB {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
+        css_style=".card { font-family: arial; }",
+    )
+    deck = DeckModel.create(name=f"Deck AB {uid}")
+
+    persona = PersonaModel.create(name=f"Agent Commun {uid}", system_prompt="Prompt Commun", output_format="json")
+
+    cfg_a = LLMConfigModel.create(provider="mock_a", model_id=f"model_a_{uid}", display_name=f"Model A {uid}")
+    LLMConfigModel.create(provider="mock_b", model_id=f"model_b_{uid}", display_name=f"Model B {uid}")
+
+    ai_mgr = DummyABManager(cfg_a_id=cfg_a.id)
+
+    view = ABTestsView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+
+    view.refresh_data()
+
+    # Mode 0 : Comparer deux moteurs
+    view.mode_combo.setCurrentIndex(0)
+
+    idx_ea = view.engine_a_combo.findText(f"Model A {uid}")
+    if idx_ea != -1:
+        view.engine_a_combo.setCurrentIndex(idx_ea)
+
+    idx_eb = view.engine_b_combo.findText(f"Model B {uid}")
+    if idx_eb != -1:
+        view.engine_b_combo.setCurrentIndex(idx_eb)
+
+    idx_p = view.persona_combo.findText(str(persona.name))
+    if idx_p != -1:
+        view.persona_combo.setCurrentIndex(idx_p)
+
+    idx_d = view.deck_combo.findText(deck.name)
+    if idx_d != -1:
+        view.deck_combo.setCurrentIndex(idx_d)
+
+    # Lancer le test A/B
+    view.source_text_edit.setPlainText("Texte d'évaluation comparatif Moteurs A/B.")
+    view._on_run_ab_test()
+
+    # Attendre que les deux branches asynchrones terminent
+    qtbot.waitUntil(lambda: view.btn_run.isEnabled() is True, timeout=7000)
+
+    assert len(view.cards_a) == 1
+    assert view.cards_a[0]["Front"] == "Question Branche A"
+    assert len(view.cards_b) == 1
+    assert view.cards_b[0]["Front"] == "Question Branche B"
+
+    # Vérification des KPIs affichés
+    assert "⏱️" in view.kpi_a.lbl_time.text()
+    assert "1 carte" in view.kpi_a.lbl_cards.text()
+
+    # Tester l'import dans la forge
+    view.model_combo.setCurrentIndex(view.model_combo.findText(nt.name))
+    initial_notes = NoteModel.select().count()
+    view._on_import_branch_to_forge("A")
+    assert NoteModel.select().count() == initial_notes + 1
+
+
+@pytest.mark.ui
+def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
+    """Vérifie le test A/B en Mode 1 (Prompts) et Mode 2 (Pipelines) ainsi que la navigation synchro."""
+    uid = uuid.uuid4().hex[:6]
+    NoteTypeModel.create(
+        name=f"NoteType Prompt {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
+        css_style=".card { font-family: arial; }",
+    )
+
+    PersonaModel.create(name=f"Agent Simple {uid}", system_prompt="Prompt Simple", output_format="json")
+    PersonaModel.create(name=f"Agent Complexe {uid}", system_prompt="Prompt Complexe", output_format="json")
+
+    PipelineModel.create(name=f"Pipe A {uid}")
+    PipelineModel.create(name=f"Pipe B {uid}")
+
+    LLMConfigModel.create(provider="mock", model_id=f"model_{uid}", display_name=f"Model Global {uid}")
+
+    ai_mgr = DummySingleABManager()
+
+    view = ABTestsView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+
+    view.refresh_data()
+
+    # Mode 1 : Comparer deux prompts
+    view.mode_combo.setCurrentIndex(1)
+    assert not view.persona_a_combo.isHidden()
+    assert not view.persona_b_combo.isHidden()
+
+    # Mode 2 : Comparer deux pipelines
+    view.mode_combo.setCurrentIndex(2)
+    assert not view.pipeline_a_combo.isHidden()
+    assert not view.pipeline_b_combo.isHidden()
+
+    # Test navigation synchronisée
+    view.cards_a = [{"Front": "A1"}, {"Front": "A2"}]
+    view.cards_b = [{"Front": "B1"}, {"Front": "B2"}]
+    view.index_a = 0
+    view.index_b = 0
+    view.chk_sync_nav.setChecked(True)
+
+    view._next_a()
+    assert view.index_a == 1
+    assert view.index_b == 1
+
+    view._prev_a()
+    assert view.index_a == 0
+    assert view.index_b == 0
+
+
+@pytest.mark.ui
+def test_ab_tests_view_features_and_theme_reactivity(qtbot):
+    """Vérifie le commutateur de vue, les tiroirs repliables, le winner badging et la réactivité du thème."""
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # 1. Commutateur de vue
+    view._switch_view_mode(1)  # Tableau des Champs
+    assert view.stack_a.currentIndex() == 1
+    assert view.stack_b.currentIndex() == 1
+
+    view._switch_view_mode(2)  # JSON Brut
+    assert view.stack_a.currentIndex() == 2
+    assert view.stack_b.currentIndex() == 2
+
+    view._switch_view_mode(0)  # Rendu Visuel
+    assert view.stack_a.currentIndex() == 0
+    assert view.stack_b.currentIndex() == 0
+
+    # 2. Tiroir texte source
+    assert not view._source_collapsed
+    view._toggle_source_drawer()
+    assert view._source_collapsed
+    assert view.source_text_edit.isHidden()
+    view._toggle_source_drawer()
+    assert not view._source_collapsed
+    assert not view.source_text_edit.isHidden()
+
+    # 3. Tiroir paramètres d'inférence
+    assert view._adv_collapsed
+    view._toggle_advanced_drawer()
+    assert not view._adv_collapsed
+    assert not view.adv_drawer.isHidden()
+    view._toggle_advanced_drawer()
+    assert view._adv_collapsed
+    assert view.adv_drawer.isHidden()
+
+    # 4. Winner badging
+    view.kpi_a.set_results(elapsed=1.0, cards_count=2, tokens=300, cost_usd=0.001, is_success=True)
+    view.kpi_b.set_results(elapsed=3.0, cards_count=2, tokens=350, cost_usd=0.002, is_success=True)
+    view._evaluate_winner()
+    assert not view.kpi_a.badge_winner.isHidden()
+    assert "rapide" in view.kpi_a.badge_winner.text()
+    assert view.kpi_b.badge_winner.isHidden()
+
+    # 5. Flip & Device mode
+    view._on_flip_both_cards()
+    view._set_both_device_mode("mobile")
+    assert view.preview_a._device_mode == "mobile"
+    assert view.preview_b._device_mode == "mobile"
+
+    # 6. Theme reactivity
+    engine = get_style_engine()
+    light_profile = engine.get_theme("jetbrains_light")
+    if light_profile:
+        view.refresh_theme(light_profile)

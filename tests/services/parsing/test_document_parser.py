@@ -47,6 +47,7 @@ def test_parse_text_file(tmp_path):
 # ==========================================
 
 
+@pytest.mark.integration
 def test_parse_docx_success(tmp_path):
     """Test 4: Vérifie l'extraction d'un Word et la traduction des styles en Markdown."""
     fake_docx_path = tmp_path / "test_cours.docx"
@@ -67,6 +68,7 @@ def test_parse_docx_success(tmp_path):
     assert "## Démonstration" in result
 
 
+@pytest.mark.integration
 def test_parse_pptx_success(tmp_path):
     """Test 5: Vérifie l'extraction d'un PowerPoint slide par slide avec balise SPLIT."""
     fake_pptx_path = tmp_path / "test_prez.pptx"
