@@ -2,9 +2,9 @@ from .buttons import PrimaryButton, SecondaryButton, DangerButton, IconButton, P
 from .panels import IdePanel, GlassPanel, MetricCard, StatCard
 from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
 from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, OptionToggleRow, StyledComboBox
-from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem
+from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem, VirtualListView
 from .badges import Badge, TagButton, StatusBadge
-from .tables import StyledTableWidget, CicdTable
+from .tables import StyledTableWidget, CicdTable, VirtualTableView
 from .misc import UserAvatar, StyledToolbar, DaemonStatusWidget
 from .flow_layout import FlowLayout, FlowWidget
 from .code_editor import (
@@ -49,11 +49,13 @@ __all__ = [
     "ActivityItem",
     "DocTreeItem",
     "ContextItem",
+    "VirtualListView",
     "Badge",
     "StatusBadge",
     "TagButton",
     "StyledTableWidget",
     "CicdTable",
+    "VirtualTableView",
     "UserAvatar",
     "StyledToolbar",
     "DaemonStatusWidget",

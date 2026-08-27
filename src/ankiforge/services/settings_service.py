@@ -6,6 +6,7 @@ avec synchronisation transparente et fallback sur QSettings.
 
 import logging
 from typing import Any, Optional
+
 from PySide6.QtCore import QSettings
 
 from ankiforge.database.models import SettingModel
@@ -30,11 +31,11 @@ class SettingsService:
 
         # Fallback sur QSettings
         try:
-            q_settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+            q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
             if q_settings.contains(key):
                 return q_settings.value(key, default)
-        except Exception:
-            pass  # nosec B110
+        except Exception as q_err:
+            logger.debug("Lecture QSettings fallback pour '%s' échouée: %s", key, q_err)
 
         return default
 
@@ -45,12 +46,13 @@ class SettingsService:
         """
         try:
             SettingModel.set_value(key, value, category=category)
+            logger.debug("Paramètre '%s' mis à jour en BDD (catégorie: '%s')", key, category)
         except Exception as e:
             logger.warning("Écriture SettingModel '%s' échouée: %s", key, e)
 
         if sync_qsettings:
             try:
-                q_settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+                q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
                 q_settings.setValue(key, value)
             except Exception as e:
                 logger.debug("Synchronisation QSettings '%s' échouée: %s", key, e)
@@ -69,12 +71,13 @@ class SettingsService:
         """Enregistre un lot de paramètres de manière atomique en BDD."""
         try:
             SettingModel.set_many(settings_dict, category=category)
+            logger.info("Enregistrement par lot de %d paramètres (catégorie: '%s')", len(settings_dict), category)
         except Exception as e:
-            logger.warning("set_batch échoué: %s", e)
+            logger.warning("set_batch échoué pour la catégorie '%s': %s", category, e)
 
         try:
-            q_settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+            q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
             for k, v in settings_dict.items():
                 q_settings.setValue(k, v)
-        except Exception:
-            pass  # nosec B110
+        except Exception as q_err:
+            logger.debug("Synchronisation QSettings en lot échouée: %s", q_err)

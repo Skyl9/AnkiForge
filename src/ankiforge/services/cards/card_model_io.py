@@ -143,7 +143,7 @@ class CardModelIO:
                 for asset_name, asset_bytes in assets.items():
                     zf.writestr(f"assets/{asset_name}", asset_bytes)
 
-        logger.info(f"📦 Paquet modèle .afmodel créé avec succès dans : {out}")
+        logger.info("Paquet modèle .afmodel créé avec succès dans : %s", out)
         return out
 
     @classmethod
@@ -299,6 +299,7 @@ class CardModelIO:
             templates=templates_json,
             css_style=css_style,
         )
+        logger.info("Modèle de carte '%s' enregistré en base de données avec succès.", name)
         return created, True
 
     @classmethod

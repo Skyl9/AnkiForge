@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import QCoreApplication, QTranslator, QSettings
+from PySide6.QtCore import QCoreApplication, QSettings, QTranslator
 from dotenv import load_dotenv
 
 from ankiforge.database.backup import backup_database
@@ -10,23 +10,27 @@ from ankiforge.database.models import init_db, seed_initial_data
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.theme import setup_dynamic_theme
-from ankiforge.utils.logger import setup_logging
+from ankiforge.utils.logger import install_crash_handlers, setup_logging, shutdown_logging
 from ankiforge.utils.paths import get_resource_path
 
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
 from PySide6.QtWidgets import QApplication
-from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 from ankiforge.services.profile_manager import ProfileManager
+from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
 
-def main():
+def main() -> None:
+    # 1. Initialisation du logging asynchrone et des gestionnaires de crash
     setup_logging()
+    install_crash_handlers()
+
     QCoreApplication.setOrganizationName("AnkiForgeOrg")
-    QCoreApplication.setApplicationName("ankiforge_obsidian")
+    QCoreApplication.setApplicationName("AnkiForge")
 
     app = QApplication(sys.argv)
+    app.aboutToQuit.connect(shutdown_logging)
 
     pm = ProfileManager()
     profiles = pm.list_profiles()
@@ -42,6 +46,7 @@ def main():
         if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
             selected_profile = dialog.get_selected_profile()
         else:
+            shutdown_logging()
             sys.exit(0)  # Annulé
 
     pm.switch_profile(selected_profile)
@@ -53,7 +58,7 @@ def main():
     seed_initial_data()
     ai_manager = AIManager()
 
-    settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+    settings = QSettings("AnkiForgeOrg", "AnkiForge")
     lang = settings.value("ui/language", "English")
     if lang == "Français":
         translator = QTranslator()
@@ -75,7 +80,9 @@ def main():
     window = MainWindow(ai_manager, selected_profile)
     window.show()
 
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    shutdown_logging()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

@@ -14,10 +14,9 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import QSettings, Qt, Slot
-from PySide6.QtGui import QBrush, QColor, QFont, QKeySequence, QShortcut
+from PySide6.QtCore import QModelIndex, QSettings, Qt, Slot
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -28,13 +27,11 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QStackedWidget,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from ankiforge.database.models import CardModel, DeckModel, LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.store_manager import StoreManager
@@ -43,7 +40,15 @@ from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 from ankiforge.ui.components.buttons import IconButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.panels import IdePanel
+from ankiforge.ui.components.tables import VirtualTableView
 from ankiforge.ui.components.tag_select_window import TagSelectWindow
+from ankiforge.ui.models import (
+    BadgeItemDelegate,
+    CheckboxItemDelegate,
+    NoteVirtualTableModel,
+    TagItemDelegate,
+    TextSnippetDelegate,
+)
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
@@ -264,43 +269,23 @@ class EditionView(QWidget):
 
         table_box_layout.addWidget(filter_bar)
 
-        # Tableau des cartes (Pleine largeur)
-        self.card_table = QTableWidget()
+        # Tableau des cartes virtualisé (Pleine largeur 60 FPS)
+        self.card_table = VirtualTableView()
+        self.note_table_model = NoteVirtualTableModel(parent=self)
+        self.card_table.setModel(self.note_table_model)
+
+        self.checkbox_delegate = CheckboxItemDelegate(self.card_table)
+        self.text_code_delegate = TextSnippetDelegate(is_code_font=True, parent=self.card_table)
+        self.text_regular_delegate = TextSnippetDelegate(is_code_font=False, parent=self.card_table)
+        self.badge_delegate = BadgeItemDelegate(parent=self.card_table)
+        self.tag_delegate = TagItemDelegate(parent=self.card_table)
+
         self._update_table_headers()
 
-        self.card_table.verticalHeader().setVisible(False)
-        self.card_table.setShowGrid(False)
-        self.card_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.card_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.card_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-
-        self.card_table.setStyleSheet(f"""
-            QTableWidget {{
-                background-color: {DesignTokens.BG_MAIN};
-                border: none;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 12px;
-                font-family: '{DesignTokens.FONT_MAIN}';
-            }}
-            QHeaderView::section {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_MUTED};
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                font-size: 11px;
-                font-weight: bold;
-                text-transform: uppercase;
-                padding: 6px;
-            }}
-            QTableWidget::item {{
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                padding: 6px 10px;
-            }}
-            QTableWidget::item:selected {{
-                background-color: rgba(99, 102, 241, 0.14);
-            }}
-        """)
-        self.card_table.itemClicked.connect(self._on_card_selected)
-        self.card_table.verticalScrollBar().valueChanged.connect(self._on_card_list_scrolled)
+        self.card_table.clicked.connect(self._on_card_selected)
+        selection_model = self.card_table.selectionModel()
+        if selection_model is not None:
+            selection_model.currentRowChanged.connect(self._on_table_row_changed)
         self.card_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.card_table.customContextMenuRequested.connect(self._show_card_context_menu)
 
@@ -500,8 +485,9 @@ class EditionView(QWidget):
             self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
             return
 
-        current_row = self.card_table.currentRow()
-        total_rows = self.card_table.rowCount()
+        selected_rows = self.card_table.get_selected_rows()
+        current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
+        total_rows = self.note_table_model.rowCount()
         recto_text = ""
         for widget in self.dynamic_field_widgets.values():
             recto_text = strip_html_tags(widget.get_text())
@@ -514,24 +500,22 @@ class EditionView(QWidget):
     @Slot()
     def _select_previous_card(self) -> None:
         """Sélectionne la carte précédente dans la liste."""
-        current_row = self.card_table.currentRow()
+        selected_rows = self.card_table.get_selected_rows()
+        current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
         if current_row > 0:
             target_row = current_row - 1
-            item = self.card_table.item(target_row, 0)
-            if item:
-                self.card_table.setCurrentItem(item)
-                self._on_card_selected(item)
+            self.card_table.select_row(target_row)
+            self._on_card_selected()
 
     @Slot()
     def _select_next_card(self) -> None:
         """Sélectionne la carte suivante dans la liste."""
-        current_row = self.card_table.currentRow()
-        if current_row >= 0 and current_row < self.card_table.rowCount() - 1:
+        selected_rows = self.card_table.get_selected_rows()
+        current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
+        if current_row >= 0 and current_row < self.note_table_model.rowCount() - 1:
             target_row = current_row + 1
-            item = self.card_table.item(target_row, 0)
-            if item:
-                self.card_table.setCurrentItem(item)
-                self._on_card_selected(item)
+            self.card_table.select_row(target_row)
+            self._on_card_selected()
 
     # --- Gestion du Volet de Prévisualisation ---
 
@@ -634,9 +618,10 @@ class EditionView(QWidget):
         fields = ["Front", "Back"]
         if note.note_type and note.note_type.fields_schema:
             try:
-                fields = json.loads(note.note_type.fields_schema)
+                fields = json.loads(str(note.note_type.fields_schema)) if note.note_type and note.note_type.fields_schema else []
             except Exception as e:
-                logger.warning(f"Failed to load fields_schema: {e}")
+                logger.warning("Échec du chargement du schéma des champs : %s", e)
+                fields = []
 
         for i, field_name in enumerate(fields):
             val = data.get(field_name, data.get(field_name.lower(), ""))
@@ -676,8 +661,30 @@ class EditionView(QWidget):
         self._update_preview()
         self._update_nav_ribbon_info()
 
-    def _on_card_selected(self, item: QTableWidgetItem) -> None:
-        if self._dirty and self._current_note:
+    def _on_table_row_changed(self, current: QModelIndex, previous: QModelIndex) -> None:
+        """Gère le changement de sélection de ligne au clavier ou à la souris."""
+        if not current.isValid():
+            return
+        self._on_card_selected(current)
+
+    def _on_card_selected(self, item_or_index: Any = None) -> None:
+        """Charge et affiche la carte sélectionnée dans l'éditeur et l'aperçu."""
+        if isinstance(item_or_index, QModelIndex):
+            row = item_or_index.row()
+        elif hasattr(item_or_index, "row"):
+            row = item_or_index.row()
+        else:
+            selected_rows = self.card_table.get_selected_rows()
+            row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
+
+        if row < 0:
+            return
+
+        note = self.note_table_model.get_note_at(row)
+        if not note:
+            return
+
+        if self._dirty and self._current_note and self._current_note.id != note.id:
             reply = QMessageBox.question(
                 self,
                 "Modifications non enregistrées",
@@ -690,15 +697,7 @@ class EditionView(QWidget):
             elif reply == QMessageBox.StandardButton.Cancel:
                 return
 
-        row = item.row()
-        checkbox_item = self.card_table.item(row, 0)
-        if not checkbox_item:
-            return
-        note: Optional[NoteModel] = checkbox_item.data(Qt.ItemDataRole.UserRole)
-        if not note:
-            return
         self._current_note = note
-
         self.editor_stack.setCurrentIndex(1)
         data = self._get_note_content_dynamic(note)
         self._build_dynamic_editors(note, data)
@@ -743,28 +742,8 @@ class EditionView(QWidget):
             self._original_content = new_content.copy()
             self._dirty = False
 
-            # Mise à jour de la ligne du tableau avec texte épuré
-            for row in range(self.card_table.rowCount()):
-                item = self.card_table.item(row, 0)
-                if item and item.data(Qt.ItemDataRole.UserRole) == self._current_note:
-                    vals = list(new_content.values())
-                    recto = strip_html_tags(vals[0]) if vals else ""
-                    verso = " | ".join(strip_html_tags(v) for v in vals[1:]) if len(vals) > 1 else ""
-
-                    if self._current_table_fields:
-                        for idx, f in enumerate(self._current_table_fields):
-                            cell = self.card_table.item(row, 1 + idx)
-                            if cell:
-                                cell.setText(strip_html_tags(new_content.get(f, ""))[:100])
-                    else:
-                        item_recto = self.card_table.item(row, 1)
-                        if item_recto:
-                            item_recto.setText(recto[:100] + ("..." if len(recto) > 100 else ""))
-                        item_verso = self.card_table.item(row, 2)
-                        if item_verso:
-                            item_verso.setText(verso[:100] + ("..." if len(verso) > 100 else ""))
-                    break
-
+            # Mise à jour instantanée du modèle virtuel en O(1)
+            self.note_table_model.update_note_content(note_id, new_content)
             self._update_nav_ribbon_info()
             show_toast(self, f"Carte #{note_id} sauvegardée avec succès.")
         except Exception as e:
@@ -858,7 +837,7 @@ class EditionView(QWidget):
             self._tag_modal = None
 
         current_tags = set()
-        for note in self._all_notes:
+        for note in NoteModel.select(NoteModel.tags).where(NoteModel.tags.is_null(False)).limit(500):
             if note.tags:
                 try:
                     tags = json.loads(str(note.tags))
@@ -866,8 +845,10 @@ class EditionView(QWidget):
                         for t in tags:
                             if t.strip():
                                 current_tags.add(t.strip())
+                    elif isinstance(tags, str) and tags.strip():
+                        current_tags.add(tags.strip())
                 except Exception as e:
-                    logger.warning(f"Failed to parse tags: {e}")
+                    logger.warning("Échec du parsing des tags : %s", e)
 
         self._tag_modal = TagSelectWindow(allowed_tags=current_tags, parent=self)
         self._tag_modal.tag_selected.connect(self._on_tag_selected_from_modal)
@@ -930,7 +911,7 @@ class EditionView(QWidget):
                 action = menu.addAction(m.name)
                 action.triggered.connect(lambda checked=False, mid=m.id, mname=m.name: self._on_model_selected(mid, mname))
         except Exception as e:
-            logger.warning(f"Erreur chargement modèles: {e}")
+            logger.warning("Erreur chargement modèles : %s", e)
 
         menu.exec(self.btn_open_model.mapToGlobal(self.btn_open_model.rect().bottomLeft()))
 
@@ -966,7 +947,6 @@ class EditionView(QWidget):
         self.refresh_data()
 
     def _update_table_headers(self) -> None:
-        self.card_table.clear()
         if self._active_model_id:
             try:
                 model = NoteTypeModel.get_or_none(NoteTypeModel.id == self._active_model_id)
@@ -974,46 +954,53 @@ class EditionView(QWidget):
                     fields = json.loads(model.fields_schema)
                     current_fields = fields[:3]
                     self._current_table_fields = current_fields
-                    headers = [""] + current_fields + ["Deck", "Tags"]
-                    self.card_table.setColumnCount(len(headers))
-                    self.card_table.setHorizontalHeaderLabels(headers)
-                    self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+                    self.note_table_model.set_active_model_fields(current_fields)
+
+                    self.card_table.setColumnWidth(0, 36)
+                    self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
                     for i in range(1, len(current_fields) + 1):
                         self.card_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+                        if i == 1:
+                            self.card_table.setItemDelegateForColumn(i, self.text_code_delegate)
+                        else:
+                            self.card_table.setItemDelegateForColumn(i, self.text_regular_delegate)
 
                     deck_col = len(current_fields) + 1
-                    self.card_table.setColumnWidth(0, 36)
+                    tags_col = deck_col + 1
                     self.card_table.setColumnWidth(deck_col, 140)
-                    self.card_table.setColumnWidth(deck_col + 1, 140)
+                    self.card_table.setColumnWidth(tags_col, 140)
+                    self.card_table.setItemDelegateForColumn(deck_col, self.badge_delegate)
+                    self.card_table.setItemDelegateForColumn(tags_col, self.tag_delegate)
                     return
             except Exception as e:
-                logger.warning(f"An error occurred: {e}")
+                logger.warning("Erreur lors de la mise à jour des en-têtes du tableau : %s", e)
 
         # Default (Mixed / All Models) : Tableau Spacieux
         self._current_table_fields = None
-        headers = ["", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
-        self.card_table.setColumnCount(6)
-        self.card_table.setHorizontalHeaderLabels(headers)
+        self.note_table_model.set_active_model_fields(None)
+        self.card_table.setColumnWidth(0, 36)
         self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.card_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.card_table.setColumnWidth(0, 36)
         self.card_table.setColumnWidth(3, 110)  # Modèle
         self.card_table.setColumnWidth(4, 140)  # Deck
         self.card_table.setColumnWidth(5, 140)  # Tags
+        self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
+        self.card_table.setItemDelegateForColumn(1, self.text_code_delegate)
+        self.card_table.setItemDelegateForColumn(2, self.text_regular_delegate)
+        self.card_table.setItemDelegateForColumn(3, self.badge_delegate)
+        self.card_table.setItemDelegateForColumn(4, self.badge_delegate)
+        self.card_table.setItemDelegateForColumn(5, self.tag_delegate)
 
     # --- Menu Contextuel & Opérations de Masse ---
 
     def _show_card_context_menu(self, pos: Any) -> None:
-        item = self.card_table.itemAt(pos)
-        if not item:
+        index = self.card_table.indexAt(pos)
+        if not index.isValid():
             return
 
-        row = item.row()
-        chk = self.card_table.item(row, 0)
-        if not chk:
-            return
-        note: Optional[NoteModel] = chk.data(Qt.ItemDataRole.UserRole)
+        row = index.row()
+        note = self.note_table_model.get_note_at(row)
         if not note:
             return
 
@@ -1048,7 +1035,7 @@ class EditionView(QWidget):
             dialog.version_restored.connect(self._on_version_restored)
             dialog.exec()
         except Exception as e:
-            logger.warning(f"Erreur ouverture TimeMachine: {e}")
+            logger.warning("Erreur ouverture TimeMachine : %s", e)
 
     @Slot(list)
     def open_linter_dialog(self, note_ids: List[int]) -> None:
@@ -1163,101 +1150,15 @@ class EditionView(QWidget):
                 if isinstance(parsed, dict):
                     data = {str(k): str(v) for k, v in parsed.items()}
             except Exception as e:
-                logger.warning(f"An error occurred: {e}")
+                logger.warning("Erreur parsing contenu note pour rendu dynamique : %s", e)
         return data
 
     def _load_next_card_batch(self) -> None:
-        if self._displayed_count >= len(self._all_notes):
-            return
-
-        next_batch = self._all_notes[self._displayed_count : self._displayed_count + self.BATCH_SIZE]
-        note_ids = [n.id for n in next_batch if n.id]
-
-        # Pré-chargement par lot (Batch prefetch) pour éradiquer les requêtes N+1
-        content_by_note_id: Dict[int, Dict[str, str]] = {}
-        deck_by_note_id: Dict[int, str] = {}
-        if note_ids:
-            active_versions = NoteVersionModel.select().where(
-                (NoteVersionModel.note.in_(note_ids)) & (NoteVersionModel.is_active == True)  # noqa: E712
-            )
-            for v in active_versions:
-                if v.content:
-                    try:
-                        parsed = json.loads(v.content)
-                        if isinstance(parsed, dict):
-                            content_by_note_id[v.note_id] = {str(k): str(val) for k, val in parsed.items()}
-                    except Exception:
-                        pass  # nosec B110
-
-            cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
-            for c in cards:
-                if c.note_id not in deck_by_note_id and c.deck:
-                    deck_by_note_id[c.note_id] = c.deck.name
-
-        for note in next_batch:
-            row = self.card_table.rowCount()
-            self.card_table.insertRow(row)
-
-            # Checkbox
-            chk = QTableWidgetItem()
-            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            chk.setCheckState(Qt.CheckState.Unchecked)
-            chk.setData(Qt.ItemDataRole.UserRole, note)
-            self.card_table.setItem(row, 0, chk)
-
-            data = content_by_note_id.get(note.id) if note.id in content_by_note_id else self._get_note_content_dynamic(note)
-
-            col_offset = 1
-            if self._current_table_fields:
-                for idx, field in enumerate(self._current_table_fields):
-                    val = strip_html_tags(data.get(field, ""))
-                    item = QTableWidgetItem(val[:100] + ("..." if len(val) > 100 else ""))
-                    if idx == 0:
-                        item.setFont(QFont(DesignTokens.FONT_CODE, 10))
-                    else:
-                        item.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
-                    self.card_table.setItem(row, col_offset + idx, item)
-
-                col_offset += len(self._current_table_fields)
-            else:
-                vals = list(data.values())
-                recto = strip_html_tags(vals[0]) if vals else ""
-                verso = " | ".join(strip_html_tags(v) for v in vals[1:]) if len(vals) > 1 else ""
-
-                item_recto = QTableWidgetItem(recto[:100] + ("..." if len(recto) > 100 else ""))
-                item_recto.setFont(QFont(DesignTokens.FONT_CODE, 10))
-                self.card_table.setItem(row, 1, item_recto)
-
-                item_verso = QTableWidgetItem(verso[:100] + ("..." if len(verso) > 100 else ""))
-                item_verso.setForeground(QBrush(QColor(DesignTokens.TEXT_SECONDARY)))
-                self.card_table.setItem(row, 2, item_verso)
-
-                model_name = note.note_type.name if (note.note_type and hasattr(note.note_type, "name")) else "Inconnu"
-                item_model = QTableWidgetItem(model_name)
-                item_model.setForeground(QBrush(QColor(DesignTokens.TEXT_MUTED)))
-                self.card_table.setItem(row, 3, item_model)
-
-                col_offset = 4
-
-            # Deck
-            folder_name = getattr(note, "_deck_name", None) or deck_by_note_id.get(note.id, "Par défaut")
-            item_deck = QTableWidgetItem(folder_name)
-            item_deck.setForeground(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
-            self.card_table.setItem(row, col_offset, item_deck)
-
-            # Tags (Formatés sans [])
-            tags_display = format_tags_display(note.tags)
-            item_tags = QTableWidgetItem(tags_display)
-            item_tags.setForeground(QBrush(QColor("#c084fc")))
-            self.card_table.setItem(row, col_offset + 1, item_tags)
-
-        self._displayed_count += len(next_batch)
+        """Alias de compatibilité (la virtualisation Qt gère le défilement et le fetchMore nativement)."""
+        if self.note_table_model.canFetchMore():
+            self.note_table_model.fetchMore()
 
     def refresh_data(self) -> None:
-        self.card_table.setRowCount(0)
-        self._all_notes = []
-        self._displayed_count = 0
-
         self._current_note = None
         if hasattr(self, "editor_stack"):
             self.editor_stack.setCurrentIndex(0)
@@ -1265,7 +1166,7 @@ class EditionView(QWidget):
             self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
 
         try:
-            query = NoteModel.select()
+            query = NoteModel.select().order_by(NoteModel.id.asc())
             if self._active_folder_id is not None:
                 from ankiforge.database.models import CardModel, DeckModel
 
@@ -1281,33 +1182,25 @@ class EditionView(QWidget):
             if self._active_model_id is not None:
                 query = query.where(NoteModel.note_type == self._active_model_id)
 
-            self._all_notes = list(query)
-            self._load_next_card_batch()
+            self.note_table_model.set_filter_query(query, active_model_fields=self._current_table_fields)
+            self._update_table_headers()
 
         except Exception as e:
             logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
 
     def select_note_by_id(self, note_id: int) -> None:
         try:
-            for row in range(self.card_table.rowCount()):
-                item = self.card_table.item(row, 0)
-                if item:
-                    note = item.data(Qt.ItemDataRole.UserRole)
-                    if note and note.id == note_id:
-                        self.card_table.setCurrentItem(item)
-                        self._on_card_selected(item)
-                        return
+            row = self.note_table_model.find_row_by_note_id(note_id)
+            if row >= 0:
+                self.card_table.select_row(row)
+                self._on_card_selected()
+                return
 
             target_note = NoteModel.get_or_none(NoteModel.id == note_id)
             if target_note:
-                self._all_notes.insert(0, target_note)
-                self.card_table.setRowCount(0)
-                self._displayed_count = 0
-                self._load_next_card_batch()
-                item = self.card_table.item(0, 0)
-                if item:
-                    self.card_table.setCurrentItem(item)
-                    self._on_card_selected(item)
+                self.note_table_model.prepend_note(target_note)
+                self.card_table.select_row(0)
+                self._on_card_selected()
         except Exception as e:
             logger.warning("Impossible de sélectionner la note %s: %s", note_id, e)
 

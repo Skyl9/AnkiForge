@@ -669,7 +669,7 @@ class AgentTestDialog(QDialog):
             try:
                 provider = self.ai_manager.create_provider_from_config(self.persona.llm_config)
             except Exception as e:
-                logger.warning(f"Impossible de créer le provider dédié : {e}")
+                logger.warning("Impossible de créer le provider dédié : %s", e)
 
         if not provider:
             provider = MockProvider()

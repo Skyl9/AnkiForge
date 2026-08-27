@@ -309,8 +309,8 @@ class ImportManager:
                     try:
                         cursor.execute("SELECT name FROM fields WHERE ntid=? ORDER BY ord", (mid,))
                         field_names = [f[0] for f in cursor.fetchall()]
-                    except Exception:
-                        pass  # nosec B110
+                    except Exception as f_err:
+                        logger.debug("Remarque sur l'extraction des champs pour notetype ID=%s : %s", mid, f_err)
                     css_style = self.extract_pb_string(config_blob, 3) if config_blob else ""
                     tmpls = []
                     try:
@@ -320,8 +320,8 @@ class ImportManager:
                             qfmt = self.extract_pb_string(t_config, 1) if t_config else ""
                             afmt = self.extract_pb_string(t_config, 2) if t_config else ""
                             tmpls.append({"name": t_name, "qfmt": qfmt, "afmt": afmt})
-                    except Exception:
-                        pass  # nosec B110
+                    except Exception as t_err:
+                        logger.debug("Remarque sur l'extraction des templates pour notetype ID=%s : %s", mid, t_err)
                     raw_models[mid] = {"name": name, "fields": field_names, "templates": tmpls, "css": css_style}
         except Exception as e:
             logger.warning("Erreur extraction models: %s", e)
@@ -382,8 +382,8 @@ class ImportManager:
                     if local_version and local_version.content:
                         try:
                             local_content = json.loads(local_version.content)
-                        except Exception:
-                            pass  # nosec B110
+                        except Exception as c_err:
+                            logger.debug("Remarque sur le décodage du contenu local note ID=%d : %s", existing_note.id, c_err)
 
                     # Normalisation pour comparaison
                     local_text = " ".join(str(v).strip() for v in local_content.values())
@@ -410,8 +410,8 @@ class ImportManager:
                                 parsed = json.loads(existing_note.tags)
                                 if isinstance(parsed, list):
                                     local_tags = parsed
-                            except Exception:
-                                pass  # nosec B110
+                            except Exception as tag_err:
+                                logger.debug("Remarque sur le décodage des tags de la note ID=%d : %s", existing_note.id, tag_err)
 
                         conflicts.append(
                             ConflictItem(
@@ -724,6 +724,14 @@ class ImportManager:
         # Nettoyage dossier temporaire
         if analysis.temp_dir and Path(analysis.temp_dir).exists():
             shutil.rmtree(analysis.temp_dir, ignore_errors=True)
+
+        logger.info(
+            "Validation de l'import achevée : %d créées, %d synchronisées, %d fusionnées, %d médias",
+            created_count,
+            updated_count,
+            merged_count,
+            media_count,
+        )
 
         if progress_callback:
             progress_callback(f"Import terminé : {created_count} créées, {updated_count} synchronisées, {merged_count} conflits fusionnés.")

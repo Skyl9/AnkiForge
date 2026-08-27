@@ -41,7 +41,7 @@ def query_peewee(sql_query: str) -> str:
 
         return formatted
     except Exception as e:
-        logger.warning(f"Tool query_peewee échoué avec la requête : {sql_query}. Erreur : {e}")
+        logger.warning("Tool query_peewee échoué avec la requête : %s. Erreur : %s", sql_query, e)
         return f"Erreur SQL : {str(e)}"
 
 
@@ -69,7 +69,7 @@ def get_deck_stats(deck_name: str) -> str:
             f"- Nombre total d'oublis (lapses) : {total_lapses}\n"
         )
     except Exception as e:
-        logger.error(f"Erreur get_deck_stats: {e}")
+        logger.error("Erreur get_deck_stats : %s", e)
         return f"Erreur lors de la récupération des statistiques : {e}"
 
 
@@ -113,7 +113,7 @@ def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20
 
         return json.dumps(result_cards, ensure_ascii=False, indent=2)
     except Exception as e:
-        logger.error(f"Erreur get_cards_by_deck_or_tag: {e}")
+        logger.error("Erreur get_cards_by_deck_or_tag : %s", e)
         return f"Erreur lors de la recherche des cartes : {e}"
 
 
@@ -135,7 +135,7 @@ def update_card_model_css(note_type_name: str, css_rule: str) -> str:
 
         return f"Succès : Le style CSS du modèle '{nt.name}' a été enrichi avec succès !"
     except Exception as e:
-        logger.error(f"Erreur update_card_model_css: {e}")
+        logger.error("Erreur update_card_model_css : %s", e)
         return f"Erreur lors de la mise à jour CSS : {e}"
 
 
@@ -144,7 +144,7 @@ def search_document(query: str, document_id: int) -> str:
     """
     Recherche une information précise dans un document spécifique via FAISS.
     """
-    logger.info(f"Recherche dans le document {document_id} avec la requête : {query}")
+    logger.info("Recherche dans le document %d avec la requête : %s", document_id, query)
 
     llm_config = LLMConfigModel.select().first()
     if not llm_config:
@@ -164,7 +164,7 @@ def search_document(query: str, document_id: int) -> str:
         formatted = "Extraits trouvés :\n" + "\n---\n".join(snippets)
         return formatted
     except Exception as e:
-        logger.error(f"Erreur lors de la recherche RAG : {e}")
+        logger.error("Erreur lors de la recherche RAG : %s", e)
         return f"Erreur lors de la recherche : {e}"
 
 

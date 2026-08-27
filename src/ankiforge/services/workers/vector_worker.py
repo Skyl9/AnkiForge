@@ -1,7 +1,8 @@
 import logging
+import time
 from typing import Optional
 
-from PySide6.QtCore import QThread, Signal, QObject
+from PySide6.QtCore import QObject, QThread, Signal
 
 from ankiforge.database.models import DocumentModel
 from ankiforge.services.rag.vector_manager import VectorManager
@@ -18,12 +19,20 @@ class VectorWorker(QThread):
         self.document_id = document_id
         self.manager = VectorManager()
 
-    def run(self):
+    def run(self) -> None:
+        t0 = time.perf_counter()
         try:
             document = DocumentModel.get_by_id(self.document_id)
-            logger.info(f"VectorWorker: Démarrage de la vectorisation du document {document.title}")
+            logger.info("VectorWorker: Démarrage de la vectorisation du document '%s' (ID: %d)", document.title, document.id)
             collection_name = self.manager.index_document(document)
+            elapsed = time.perf_counter() - t0
+            logger.info(
+                "VectorWorker: Indexation RAG terminée avec succès pour '%s' (collection: %s) en %.2fs",
+                document.title,
+                collection_name,
+                elapsed,
+            )
             self.finished_indexing.emit(collection_name)
         except Exception as e:
-            logger.error(f"Erreur lors de la vectorisation (RAG) : {e}", exc_info=True)
+            logger.error("Erreur lors de la vectorisation (RAG) du document ID=%d : %s", self.document_id, e, exc_info=True)
             self.error_occurred.emit(str(e))

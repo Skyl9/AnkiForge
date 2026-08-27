@@ -335,3 +335,73 @@ def test_orchestrator_multi_model_jinja_and_parsing():
     assert 'Modèle : "Basique Test"' in system_prompt
     assert "Questions directes et définitions." in system_prompt
     assert 'Modèle : "Cloze Test"' in system_prompt
+
+
+def test_orchestrator_rag_retrieval_hybrid_step(tmp_path, monkeypatch):
+    """Vérifie l'exécution de l'étape RAG_RETRIEVAL avec le moteur hybride FAISS/BM25."""
+    import json
+    from ankiforge.database.models import DocumentChunkModel, DocumentModel
+    from ankiforge.services.rag.vector_manager import VectorManager
+
+    monkeypatch.setattr("ankiforge.services.rag.vector_manager.get_app_data_dir", lambda: tmp_path)
+
+    # Création d'un document avec fragments
+    doc = DocumentModel.create(title="Cours Pharmacologie RRF", content="Texte brut", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        content="La pénicilline est un antibiotique bêta-lactamine qui inhibe la synthèse de la paroi bactérienne.",
+        heading_path="Antibiotiques > Pénicilline",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=2,
+        content="L'aspirine (acide acétylsalicylique) est un anti-inflammatoire non stéroïdien (AINS) inhibiteur de COX-1 et COX-2.",
+        heading_path="Antalgiques > Aspirine",
+    )
+
+    # Indexation
+    vm = VectorManager(llm_config=None)
+    vm.index_document(doc)
+
+    pipeline = PipelineModel.create(name="Pipeline RAG Hybride")
+    step_cfg = {
+        "top_k": 1,
+        "retrieval_mode": "hybrid",
+        "w_dense": 0.6,
+        "w_sparse": 0.4,
+        "rrf_k": 60,
+        "output_variable": "retrieved_chunks",
+    }
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="RAG_RETRIEVAL",
+        config_data=json.dumps(step_cfg),
+    )
+
+    initial_state = PipelineRunState(document_id=doc.id, initial_prompt="Recherche sur la pénicilline et paroi bactérienne")
+    provider = DummyProvider()
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        initial_state=initial_state,
+        ai_provider=provider,
+    )
+
+    finished_states = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    final_state = finished_states[0]
+    assert "retrieved_chunks" in final_state.variables
+    chunks = final_state.variables["retrieved_chunks"]
+    assert len(chunks) == 1
+    assert "pénicilline" in chunks[0].lower() or "bactérienne" in chunks[0].lower()
+
+    # Détails RRF
+    assert "retrieved_chunks_details" in final_state.variables
+    details = final_state.variables["retrieved_chunks_details"]
+    assert len(details) == 1
+    assert "rrf_score" in details[0]

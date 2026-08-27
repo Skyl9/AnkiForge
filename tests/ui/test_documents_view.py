@@ -151,3 +151,57 @@ def test_rag_test_dialog(qtbot):
     assert dlg.results_list.count() >= 1
     res_text = dlg.results_list.item(0).text()
     assert "Bioénergétique" in res_text or "ATP" in res_text
+
+
+def test_rag_test_dialog_modes(qtbot, tmp_path, monkeypatch):
+    """Vérifie le dialogue de recherche interactive avec bascule des modes RAG Hybride, Dense et Sparse."""
+    from ankiforge.services.ai.rag_service import RAGService
+
+    monkeypatch.setattr("ankiforge.services.rag.vector_manager.get_app_data_dir", lambda: tmp_path)
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc RAG Multimodal {uid}",
+        content="# Section A\nL'insuline régule la glycémie sanguine.\n\n# Section B\nLe glucagon stimule la glycogénolyse hépatique.",
+        file_type="md",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Endocrinologie > Insuline",
+        page_number=1,
+        content="L'insuline régule la glycémie sanguine.",
+        content_hash=f"hash_ins_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Endocrinologie > Glucagon",
+        page_number=2,
+        content="Le glucagon stimule la glycogénolyse hépatique.",
+        content_hash=f"hash_gluc_{uid}",
+    )
+
+    rag = RAGService()
+    rag.create_index(doc.id)
+
+    dlg = RAGTestDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # 1. Mode Hybride (défaut)
+    dlg.search_input.setText("insuline glycémie")
+    dlg._on_search()
+    assert dlg.results_list.count() >= 1
+    assert "insuline" in dlg.results_list.item(0).text().lower()
+
+    # 2. Mode Sparse BM25
+    dlg.mode_cb.setCurrentIndex(2)  # sparse
+    dlg.search_input.setText("glucagon")
+    dlg._on_search()
+    assert dlg.results_list.count() >= 1
+    assert "glucagon" in dlg.results_list.item(0).text().lower()
+
+    # 3. Mode Dense FAISS
+    dlg.mode_cb.setCurrentIndex(1)  # dense
+    dlg.search_input.setText("glycémie régulation")
+    dlg._on_search()
+    assert dlg.results_list.count() >= 1

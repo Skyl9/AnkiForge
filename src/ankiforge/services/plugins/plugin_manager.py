@@ -74,7 +74,7 @@ class PluginManager:
                     data = json.load(f)
                     self._disabled_addon_ids = set(data.get("disabled", []))
             except Exception as e:
-                logger.warning(f"Impossible de lire {self.meta_file}: {e}")
+                logger.warning("Impossible de lire %s : %s", self.meta_file, e)
                 self._disabled_addon_ids = set()
         else:
             self._disabled_addon_ids = set()
@@ -85,7 +85,7 @@ class PluginManager:
             with open(self.meta_file, "w", encoding="utf-8") as f:
                 json.dump({"disabled": sorted(list(self._disabled_addon_ids))}, f, indent=2)
         except Exception as e:
-            logger.error(f"Erreur d'enregistrement de {self.meta_file}: {e}")
+            logger.error("Erreur d'enregistrement de %s : %s", self.meta_file, e)
 
     def discover_addons(self) -> List[AddonInfo]:
         """
@@ -101,7 +101,7 @@ class PluginManager:
 
             manifest_file = entry / "manifest.json"
             if not manifest_file.exists():
-                logger.debug(f"Dossier {entry.name} ignoré : aucun manifest.json trouvé.")
+                logger.debug("Dossier %s ignoré : aucun manifest.json trouvé.", entry.name)
                 continue
 
             try:
@@ -109,7 +109,7 @@ class PluginManager:
                     manifest_data = json.load(f)
                 manifest = AddonManifest(**manifest_data)
             except Exception as e:
-                logger.warning(f"Manifest invalide pour {entry.name} : {e}")
+                logger.warning("Manifest invalide pour %s : %s", entry.name, e)
                 continue
 
             # Vérifier l'existence de la doc (config.md ou README.md)
@@ -208,14 +208,14 @@ class PluginManager:
         """
         info = self._addons.get(addon_id)
         if not info:
-            logger.warning(f"Addon introuvable : {addon_id}")
+            logger.warning("Addon introuvable : %s", addon_id)
             return False
 
         init_file = info.folder_path / info.manifest.entry_point
         if not init_file.exists():
             info.status = AddonStatus.ERROR
             info.error_message = f"Point d'entrée '{info.manifest.entry_point}' introuvable."
-            logger.error(f"Addon '{addon_id}' : {info.error_message}")
+            logger.error("Addon '%s' : %s", addon_id, info.error_message)
             return False
 
         # 1. Vendoring sys.path
@@ -244,19 +244,19 @@ class PluginManager:
                 info.status = AddonStatus.ACTIVE
                 info.error_message = None
                 self._modules[addon_id] = module
-                logger.info(f"✅ Addon '{addon_id}' (v{info.version}) initialisé avec succès.")
+                logger.info("Addon '%s' (v%s) initialisé avec succès.", addon_id, info.manifest.version)
                 return True
             else:
                 info.status = AddonStatus.ERROR
                 info.error_message = "La fonction 'init_addon(api)' est manquante dans __init__.py."
-                logger.warning(f"Addon '{addon_id}' : {info.error_message}")
+                logger.warning("Addon '%s' : %s", addon_id, info.error_message)
                 return False
 
         except Exception as e:
             tb = traceback.format_exc()
             info.status = AddonStatus.ERROR
             info.error_message = f"{type(e).__name__}: {str(e)}"
-            logger.error(f"❌ Erreur lors du chargement de l'addon '{addon_id}' :\n{tb}")
+            logger.error("Erreur lors du chargement de l'addon '%s' :\n%s", addon_id, tb)
             return False
 
     def unload_addon(self, addon_id: str) -> bool:
@@ -346,7 +346,7 @@ class PluginManager:
                 return True, f"Addon '{manifest.name}' (v{manifest.version}) installé avec succès !"
 
         except Exception as e:
-            logger.error(f"Erreur lors de l'installation de l'archive {zip_path} : {e}\n{traceback.format_exc()}")
+            logger.error("Erreur lors de l'installation de l'archive %s : %s", zip_path, e, exc_info=True)
             return False, f"Erreur d'installation : {str(e)}"
 
     def uninstall_addon(self, addon_id: str) -> bool:
@@ -360,10 +360,10 @@ class PluginManager:
         if info and info.folder_path.exists():
             try:
                 shutil.rmtree(info.folder_path)
-                logger.info(f"Addon '{addon_id}' désinstallé avec succès.")
+                logger.info("Addon '%s' désinstallé avec succès.", addon_id)
                 return True
             except Exception as e:
-                logger.error(f"Erreur lors de la suppression de {info.folder_path} : {e}")
+                logger.error("Erreur lors de la suppression de %s : %s", info.folder_path, e)
                 return False
         return False
 
@@ -401,7 +401,7 @@ class PluginManager:
             else:
                 subprocess.Popen(["xdg-open", str(folder_path)])  # nosec B603 B607
         except Exception as e:
-            logger.error(f"Impossible d'ouvrir le dossier {folder_path} : {e}")
+            logger.error("Impossible d'ouvrir le dossier %s : %s", folder_path, e)
 
 
 def get_plugin_manager(addons_dir: Optional[Path] = None) -> PluginManager:

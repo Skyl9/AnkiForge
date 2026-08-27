@@ -1,6 +1,7 @@
 import ast
 import dataclasses
 import json
+import logging
 import re
 from typing import Any, Type, TypeVar, cast, get_args, get_origin
 
@@ -8,6 +9,8 @@ from jinja2 import Template
 from PySide6.QtCore import QCoreApplication, QTimer
 
 from ankiforge.database.models import LLMConfigModel, TokenUsageModel
+
+logger = logging.getLogger(__name__)
 
 
 def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int, task_type: str) -> None:
@@ -31,6 +34,15 @@ def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, comple
         estimated_cost_usd=cost,
         task_type=task_type,
     )
+    logger.debug(
+        "Télémétrie Tokens BDD : %s (%s) - Prompt: %d, Completion: %d (Coût: $%.5f, Tâche: '%s')",
+        provider,
+        model_id,
+        prompt_tokens,
+        completion_tokens,
+        cost,
+        task_type,
+    )
 
 
 def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int, task_type: str = "1. Reformulation & Génération Wozniak") -> None:
@@ -44,6 +56,13 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
         completion_tokens (int): Nombre de jetons générés en sortie.
         task_type (str): Type de tâche IA pour répartition dans le suivi.
     """
+    logger.info(
+        "Consommation tokens : %s / %s - %d tokens (tâche: '%s')",
+        provider,
+        model_id,
+        prompt_tokens + completion_tokens,
+        task_type,
+    )
     app = QCoreApplication.instance()
     if app:
         # Téléportation vers l'Event Loop du thread principal de l'UI

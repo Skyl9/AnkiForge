@@ -76,8 +76,15 @@ class NoteManager:
                     for i, _ in enumerate(templates):
                         CardModel.create(note=new_note, deck=deck, template_index=i)
 
+                logger.info(
+                    "Note ID=%d créée avec succès (modèle: '%s', deck: '%s', source: '%s')",
+                    new_note.id,
+                    note_type.name,
+                    deck.name,
+                    source,
+                )
                 return new_note
 
         except Exception as e:
-            logger.exception(f"Erreur lors de la création transactionnelle de la note ({note_type.name}) :")
+            logger.exception("Erreur lors de la création transactionnelle de la note (%s) : %s", note_type.name, e)
             raise RuntimeError(f"Échec de la création de la note : {e}") from e

@@ -125,13 +125,13 @@ class BatchWorker(QThread):
 
                 optimal_max_chars = min(4000, int((max_tokens * 0.5) * 4))
 
-                logger.info(f"Traitement du document '{doc_title}' ({task_idx + 1}/{total_tasks}).")
+                logger.info("Traitement du document '%s' (%d/%d).", doc_title, task_idx + 1, total_tasks)
                 self.progress_text.emit(f"Traitement : {doc_title} ({task_idx + 1}/{total_tasks})...")
                 self.log.emit(f"\n{'=' * 40}\n DEBUT : {doc_title}\n⚙ Moteur : {llm_cfg['display_name']} ({max_tokens} tks)\n{'=' * 40}")
 
                 # PARTITIONNEMENT DU DOCUMENT
                 chunks = smart_chunk_text(doc_content, strategy=chunk_strategy, max_chars=optimal_max_chars)
-                logger.info(f"Document '{doc_title}' découpé en {len(chunks)} morceaux.")
+                logger.info("Document '%s' découpé en %d morceaux.", doc_title, len(chunks))
                 self.log.emit(f"️ Découpé en {len(chunks)} morceau(x) (Max chars: {optimal_max_chars}).")
 
                 doc_success_notes = 0
@@ -159,7 +159,7 @@ class BatchWorker(QThread):
                         agent_system_prompt = agent_data["system_prompt"]
                         output_format = agent_data.get("output_format", "json")
 
-                        logger.info(f"Agent '{agent_name}' en action sur morceau {chunk_idx}/{len(chunks)} de '{doc_title}'.")
+                        logger.info("Agent '%s' en action sur morceau %d/%d de '%s'.", agent_name, chunk_idx, len(chunks), doc_title)
                         self.log.emit(f"🤖 Agent '{agent_name}' en action...")
 
                         jinja_template = Template(agent_system_prompt)
@@ -176,7 +176,7 @@ class BatchWorker(QThread):
                             cleaned_output = self._clean_json(raw_response)
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"
                         except Exception as e:
-                            logger.exception(f"Erreur IA sur le morceau {chunk_idx} du document '{doc_title}' :")
+                            logger.exception("Erreur IA sur le morceau %d du document '%s' : %s", chunk_idx, doc_title, e)
                             self.log.emit(f" ERREUR IA sur le morceau {chunk_idx}: {str(e)}")
                             chunk_failed = True
                             break
@@ -218,19 +218,19 @@ class BatchWorker(QThread):
                             self.batch_data_ready.emit(prepared_chunk_data, task.deck_id, task.model_id)
 
                             doc_success_notes += len(notes_to_process)
-                            logger.info(f"{len(notes_to_process)} notes préparées pour le morceau {chunk_idx} de '{doc_title}'.")
+                            logger.info("%d notes préparées pour le morceau %d de '%s'.", len(notes_to_process), chunk_idx, doc_title)
                             self.log.emit(f"✅ {len(notes_to_process)} cartes extraites.")
                     except json.JSONDecodeError:
-                        logger.exception(f"Format JSON invalide pour le morceau {chunk_idx} de '{doc_title}'.")
+                        logger.exception("Format JSON invalide pour le morceau %d de '%s'.", chunk_idx, doc_title)
                         self.log.emit("❌ ERREUR JSON : Format invalide.")
 
                 if doc_success_notes > 0:
                     success_count += 1
-                    logger.info(f"Bilan '{doc_title}' : {doc_success_notes} cartes générées.")
+                    logger.info("Bilan '%s' : %d cartes générées.", doc_title, doc_success_notes)
                     self.log.emit(f"🎉 BILAN : {doc_success_notes} cartes générées au total pour '{doc_title}'.")
                 else:
                     error_count += 1
-                    logger.warning(f"Échec total pour '{doc_title}'.")
+                    logger.warning("Échec total pour '%s'.", doc_title)
                     self.log.emit(f"❌ ÉCHEC TOTAL : Aucune carte générée pour '{doc_title}'.")
 
                 progress_pct = int(((task_idx + 1) / total_tasks) * 100)
@@ -239,5 +239,5 @@ class BatchWorker(QThread):
             self.finished.emit(success_count, error_count)
 
         except Exception as e:
-            logger.exception("Erreur fatale lors du traitement par lots :")
+            logger.exception("Erreur fatale lors du traitement par lots : %s", e)
             self.error.emit(f"Erreur fatale du BatchWorker : {str(e)}")

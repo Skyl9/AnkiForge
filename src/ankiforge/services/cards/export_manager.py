@@ -71,6 +71,18 @@ class ExportManager:
         Returns:
             int: Nombre de notes exportées.
         """
+        import time
+
+        t0 = time.perf_counter()
+        logger.info(
+            "Démarrage de l'exportation vers '%s' (deck_id=%s, tags=%s, statut=%s, médias=%s)",
+            output_path,
+            deck_id,
+            tags,
+            status_filter,
+            include_media,
+        )
+
         if progress_callback:
             progress_callback("Préparation de l'exportation...")
 
@@ -85,6 +97,7 @@ class ExportManager:
             matching_decks = list(DeckModel.select())
 
         if not matching_decks:
+            logger.warning("Aucun paquet trouvé pour l'exportation.")
             raise ValueError("Aucun paquet trouvé pour l'exportation.")
 
         # Construction de la requête
@@ -121,8 +134,8 @@ class ExportManager:
                         parsed = json.loads(note.tags)
                         if isinstance(parsed, list):
                             note_tags = parsed
-                    except Exception:
-                        pass  # nosec B110
+                    except Exception as err:
+                        logger.debug("Remarque sur le parsing des tags de la note ID=%d : %s", note.id, err)
                 if not any(t in note_tags for t in tags):
                     continue
 
@@ -169,8 +182,8 @@ class ExportManager:
             if active_version and active_version.content:
                 try:
                     content_dict = json.loads(active_version.content)
-                except Exception:
-                    pass  # nosec B110
+                except Exception as err:
+                    logger.debug("Remarque sur le parsing du contenu de la note ID=%d : %s", note.id, err)
 
             field_values = []
             for field_name in fields_list:
@@ -199,8 +212,8 @@ class ExportManager:
                     parsed = json.loads(note.tags)
                     if isinstance(parsed, list):
                         tags_list = parsed
-                except Exception:
-                    pass  # nosec B110
+                except Exception as err:
+                    logger.debug("Remarque sur le parsing des tags de la note ID=%d : %s", note.id, err)
 
             g_note = genanki.Note(model=g_model, fields=field_values, guid=note.guid, tags=tags_list)
 
@@ -214,6 +227,7 @@ class ExportManager:
                 progress_callback(f"Exportation : {len(processed_notes)} notes traitées...")
 
         if not processed_notes:
+            logger.warning("Aucune carte ne correspond aux critères d'exportation sélectionnés.")
             raise ValueError("Aucune carte ne correspond aux critères d'exportation sélectionnés.")
 
         # Emballage final
@@ -232,6 +246,15 @@ class ExportManager:
         # Mise à jour du statut des notes exportées
         with db.atomic():
             NoteModel.update(status="exported").where(NoteModel.id.in_(exported_note_ids)).execute()
+
+        elapsed = time.perf_counter() - t0
+        logger.info(
+            "Exportation .apkg réussie vers '%s' : %d notes et %d médias exportés en %.2fs",
+            out_path.name,
+            len(processed_notes),
+            len(media_files_to_export),
+            elapsed,
+        )
 
         if progress_callback:
             progress_callback(f"Exportation terminée avec succès ({len(processed_notes)} notes exportées) !")

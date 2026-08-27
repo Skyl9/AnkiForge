@@ -45,6 +45,9 @@ class ConsultantWorker(QThread):
 
     def run(self) -> None:
         """Prépare le payload contextuel et lance le moteur ReAct via asyncio."""
+        import time
+
+        t0 = time.perf_counter()
         try:
             self.progress.emit("Initialisation du moteur IA et connexion aux outils MCP...")
 
@@ -60,6 +63,7 @@ class ConsultantWorker(QThread):
                 active_config = LLMConfigModel(provider="openai", model_id="gpt-4o")
 
             model_name = getattr(active_config, "display_name", getattr(active_config, "model_id", "l'IA")) if active_config else "l'IA"
+            logger.info("Démarrage de la session ConsultantWorker (modèle: %s, requête: %s...)", model_name, self.instruction[:60])
             self.progress.emit(f"Exécution ReAct MCP via {model_name}...")
 
             async def _run_engine() -> str:
@@ -100,6 +104,8 @@ class ConsultantWorker(QThread):
                 return final_text
 
             final_output = asyncio.run(_run_engine())
+            elapsed = time.perf_counter() - t0
+            logger.info("Session ConsultantWorker terminée avec succès en %.2fs (%d caractères générés)", elapsed, len(final_output))
             self.progress.emit("Réponse finalisée.")
             self.finished_signal.emit(final_output)
 

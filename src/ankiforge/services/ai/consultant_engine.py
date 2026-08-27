@@ -162,8 +162,8 @@ class ConsultantToolRegistry:
         try:
             for t in ToolService.list_tools():
                 tools_info.append(f"- PythonTool:{t.name} ({t.display_name}) : {t.description}")
-        except Exception:
-            pass  # nosec B110
+        except Exception as err:
+            logger.debug("Remarque lors du listage des outils pour Consultant : %s", err)
         return "\n".join(tools_info)
 
 
@@ -256,8 +256,8 @@ def extract_tool_call_from_text(content_text: str) -> Tuple[bool, str, Dict[str,
             parsed = json.loads(match.group(1).strip())
             if isinstance(parsed, dict) and "tool" in parsed:
                 return True, str(parsed["tool"]), parsed.get("args", {})
-        except Exception:
-            pass  # nosec B110
+        except Exception as err:
+            logger.debug("Tentative de parsing JSON markdown d'outil échouée : %s", err)
 
     # 2. Matcher un JSON brut avec clé "tool"
     tool_match = re.search(r'\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"args"\s*:\s*(\{[\s\S]*?\})\s*\}', content_text)
@@ -266,8 +266,8 @@ def extract_tool_call_from_text(content_text: str) -> Tuple[bool, str, Dict[str,
         try:
             t_args = json.loads(tool_match.group(2))
             return True, t_name, t_args
-        except Exception:
-            pass  # nosec B110
+        except Exception as err:
+            logger.debug("Tentative de parsing JSON brut d'outil échouée : %s", err)
 
     # 3. Chercher de la première accolade '{' à la dernière '}'
     start_idx = content_text.find("{")
@@ -278,8 +278,8 @@ def extract_tool_call_from_text(content_text: str) -> Tuple[bool, str, Dict[str,
             parsed = json.loads(candidate)
             if isinstance(parsed, dict) and "tool" in parsed:
                 return True, str(parsed["tool"]), parsed.get("args", {})
-        except Exception:
-            pass  # nosec B110
+        except Exception as err:
+            logger.debug("Tentative de parsing candidate JSON d'outil échouée : %s", err)
 
     return False, "", {}
 
@@ -391,6 +391,11 @@ Si ton client ne gère pas les appels de fonctions natifs, renvoie UNIQUEMENT ce
 
         max_steps = 6
         final_answer = ""
+        logger.info(
+            "Démarrage de session Consultant IA (Max étapes: %d, Provider: %s)",
+            max_steps,
+            type(self.ai_provider).__name__ if self.ai_provider else "None",
+        )
 
         for step in range(1, max_steps + 1):
             yield {"type": "thought", "step": step, "content": f"Analyse de la requête et planification ReAct (Étape {step}/{max_steps})..."}
@@ -460,6 +465,7 @@ Si ton client ne gère pas les appels de fonctions natifs, renvoie UNIQUEMENT ce
                     yield {"type": "tool_start", "step": step, "tool": t_name, "args": t_args}
 
                     observation, is_err = self._execute_tool_call(t_name, t_args)
+                    logger.info("Étape %d/%d - Outil '%s' exécuté (is_error: %s)", step, max_steps, t_name, is_err)
 
                     yield {"type": "tool_result", "step": step, "tool": t_name, "result": observation, "is_error": is_err}
 
@@ -481,4 +487,5 @@ Si ton client ne gère pas les appels de fonctions natifs, renvoie UNIQUEMENT ce
                 yield {"type": "text", "content": final_answer}
                 break
 
+        logger.info("Session Consultant IA achevée avec succès.")
         yield {"type": "finished", "content": final_answer}

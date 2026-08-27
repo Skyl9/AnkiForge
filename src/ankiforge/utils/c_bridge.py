@@ -1,17 +1,19 @@
 import ctypes
 import logging
+from pathlib import Path
 import platform
+from typing import Optional
 
 from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
 
 ext = "dll" if platform.system() == "Windows" else "so"
-lib_path = get_resource_path("src", "ankiforge", "c_ext", f"levenshtein_distance.{ext}")
+lib_path: Path = get_resource_path("src", "ankiforge", "c_ext", f"levenshtein_distance.{ext}")
 if not lib_path.exists():
     lib_path = get_resource_path("ankiforge", "c_ext", f"levenshtein_distance.{ext}")
 
-_matcher_lib = None
+_matcher_lib: Optional[ctypes.CDLL] = None
 C_MATCHER_LOADED = False
 
 try:
@@ -20,11 +22,12 @@ try:
         _matcher_lib.calculate_similarity.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         _matcher_lib.calculate_similarity.restype = ctypes.c_double
         C_MATCHER_LOADED = True
+        logger.info("Extension C Levenshtein chargée avec succès depuis %s", lib_path)
     else:
-        logger.info(f"Extension C Levenshtein non trouvée à {lib_path}, fallback en Python pur (difflib).")
+        logger.debug("Extension C Levenshtein non trouvée à %s, repli transparent sur difflib.", lib_path)
         C_MATCHER_LOADED = False
 except Exception as e:
-    logger.warning(f"⚠️ Erreur lors du chargement de l'extension C ({e}), fallback en Python pur.")
+    logger.warning("Erreur lors du chargement de l'extension C (%s) : %s. Repli sur difflib.", lib_path, e)
     C_MATCHER_LOADED = False
 
 
@@ -43,9 +46,12 @@ def get_similarity(text1: str, text2: str) -> float:
         float: Indice de similarité entre 0.0 (totalement différent) et 1.0 (identique).
     """
     if C_MATCHER_LOADED and _matcher_lib is not None:
-        # En C, les chaînes doivent être encodées en bytes
-        return _matcher_lib.calculate_similarity(text1.encode("utf-8"), text2.encode("utf-8"))
-    else:
-        import difflib
+        try:
+            # En C, les chaînes doivent être encodées en bytes
+            return float(_matcher_lib.calculate_similarity(text1.encode("utf-8"), text2.encode("utf-8")))
+        except Exception as exec_err:
+            logger.warning("Erreur à l'exécution de l'extension C Levenshtein : %s. Repli sur difflib.", exec_err)
 
-        return difflib.SequenceMatcher(None, text1, text2).ratio()
+    import difflib
+
+    return float(difflib.SequenceMatcher(None, text1, text2).ratio())

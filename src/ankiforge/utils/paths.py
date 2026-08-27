@@ -1,7 +1,6 @@
 import logging
-import sys
 from pathlib import Path
-
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +31,13 @@ def get_project_root() -> Path:
             if (parent / "pyproject.toml").exists():
                 return parent
     except Exception as e:
-        logger.debug(f"Recherche de pyproject.toml échouée: {e}")
+        logger.debug("Recherche de pyproject.toml échouée: %s", e)
 
     # 4. Fallback safe vers le répertoire parent du package
     try:
         return Path(__file__).resolve().parent.parent.parent
     except Exception as e:
-        logger.debug(f"Fallback racine échoué: {e}")
+        logger.debug("Fallback racine échoué: %s", e)
         return Path.cwd()
 
 
@@ -82,7 +81,7 @@ def get_resource_path(*subpaths: str) -> Path:
         if rel.parts and rel.parts[0] == "src":
             candidates.append(root / Path(*rel.parts[1:]))
     except Exception as e:
-        logger.debug(f"Résolution ressource racine impossible: {e}")
+        logger.debug("Résolution ressource racine impossible: %s", e)
 
     # 4. Relatif au module python ankiforge
     try:
@@ -93,7 +92,7 @@ def get_resource_path(*subpaths: str) -> Path:
             candidates.append(pkg_dir.parent / Path(*rel.parts[1:]))
             candidates.append(pkg_dir / Path(*rel.parts[1:]))
     except Exception as e:
-        logger.debug(f"Résolution ressource package impossible: {e}")
+        logger.debug("Résolution ressource package impossible: %s", e)
 
     # Renvoie la première candidate existante
     for c in candidates:
@@ -107,6 +106,7 @@ def get_resource_path(*subpaths: str) -> Path:
 def get_app_data_dir() -> Path:
     """
     Retourne le chemin vers le dossier de données persistant de l'application (~/.ankiforge).
+    Garantit que le dossier existe sur le disque avant de le retourner.
     Conforme à la règle 9 de GEMINI.md.
 
     Returns:
@@ -128,6 +128,8 @@ def get_active_profile() -> str:
 def set_active_profile(name: str) -> None:
     """Modifie le profil actif."""
     global _active_profile
+    if _active_profile != name:
+        logger.info("Basculement du profil actif vers : '%s'", name)
     _active_profile = name
 
 
@@ -138,8 +140,9 @@ def get_profile_dir(name: str) -> Path:
     return profile_dir
 
 
-def get_media_dir() -> Path:
-    """Retourne le chemin vers le dossier media du profil actif."""
-    media_dir = get_profile_dir(get_active_profile()) / "media"
+def get_media_dir(profile_name: str | None = None) -> Path:
+    """Retourne le chemin vers le dossier des médias d'un profil."""
+    target_prof = profile_name if profile_name is not None else get_active_profile()
+    media_dir = get_profile_dir(target_prof) / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     return media_dir

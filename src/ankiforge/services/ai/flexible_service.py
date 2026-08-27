@@ -85,7 +85,7 @@ class OpenAICompatibleProvider(LLMProvider):
             content = response.choices[0].message.content or ""
             return content
         except (openai.APIError, openai.APIConnectionError) as e:
-            logger.exception(f"Erreur API ({self.model_name}) :")
+            logger.exception("Erreur API (%s) : %s", self.model_name, e)
             human_msg = get_human_readable_api_error(e)
             raise RuntimeError(f"Erreur API ({self.model_name}) : {human_msg}") from e
 
@@ -187,7 +187,7 @@ class AnthropicProvider(LLMProvider):
             data = response.json()
             return data["content"][0]["text"]
         except requests.RequestException as e:
-            logger.exception(f"Erreur API ({self.model_name}) :")
+            logger.exception("Erreur API Anthropic (%s) : %s", self.model_name, e)
             raise RuntimeError(f"Erreur API Anthropic ({self.model_name}) : {e}") from e
 
 
@@ -253,10 +253,10 @@ class AIManager:
             config = LLMConfigModel.select().first()
             if config:
                 self.provider = self.create_provider_from_config(config)
-                logger.info(f"Fournisseur d'IA rechargé : {config.provider} ({config.model_id})")
+                logger.info("Fournisseur d'IA rechargé : %s (%s)", config.provider, config.model_id)
             else:
                 self.provider = MockProvider()
                 logger.warning("Aucune configuration d'IA trouvée, utilisation du MockProvider.")
         except Exception as e:
             self.provider = MockProvider()
-            logger.error(f"Erreur lors du rechargement de l'IA, utilisation du MockProvider: {e}")
+            logger.error("Erreur lors du rechargement de l'IA, utilisation du MockProvider: %s", e)

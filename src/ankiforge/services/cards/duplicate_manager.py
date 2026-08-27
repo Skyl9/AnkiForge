@@ -54,7 +54,7 @@ class DuplicateManager:
             matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
 
         # Récupère toutes les notes du paquet
-        all_notes = (
+        all_notes = list(
             NoteModel.select(NoteModel, NoteTypeModel)
             .join(NoteTypeModel)
             .switch(NoteModel)
@@ -63,6 +63,7 @@ class DuplicateManager:
             .where(DeckModel.id.in_(matching_decks))
             .distinct()
         )
+        logger.info("Démarrage de la recherche de doublons (deck_id=%d, %d notes candidates)", deck_id, len(all_notes))
 
         notes_by_model: dict[int, list[NoteModel]] = {}
         for note in all_notes:
@@ -126,4 +127,5 @@ class DuplicateManager:
                         matched_ids.add(note_b.id)
                         break
 
+        logger.info("Recherche de doublons terminée : %d conflits détectés", len(conflicts))
         return conflicts

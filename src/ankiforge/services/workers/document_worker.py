@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import time
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QThread, Signal
@@ -33,7 +34,7 @@ class DocumentWorker(QThread):
         self.file_path = file_path
         self._is_cancelled = False
 
-    def cancel(self):
+    def cancel(self) -> None:
         """Demande l'annulation de l'extraction."""
         self._is_cancelled = True
 
@@ -41,8 +42,10 @@ class DocumentWorker(QThread):
         """Vérifie si le worker doit s'arrêter."""
         return self._is_cancelled
 
-    def run(self):
+    def run(self) -> None:
         """Exécute le parseur approprié et retourne le texte extrait."""
+        logger.info("Démarrage de l'analyse documentaire pour : %s", self.file_path)
+        t0 = time.perf_counter()
         try:
             parser = DocumentParser()
             if self.file_path.startswith("http"):
@@ -57,11 +60,18 @@ class DocumentWorker(QThread):
             title = title[:50]
             content = parser.parse_document(self.file_path, progress_callback=self.log_signal.emit, check_cancel=self.is_cancelled)
             if not self._is_cancelled:
+                elapsed = time.perf_counter() - t0
+                logger.info(
+                    "Analyse documentaire terminée avec succès pour '%s' (%d caractères extraits en %.2fs)",
+                    title,
+                    len(content),
+                    elapsed,
+                )
                 self.finished_signal.emit(title, content)
         except InterruptedError as e:
-            logger.info(f"Analyse annulée par l'utilisateur : {str(e)}")
+            logger.info("Analyse annulée par l'utilisateur : %s", e)
             self.log_signal.emit(f"\n {str(e)}")
             self.cancelled_signal.emit()
         except Exception as e:
-            logger.exception("Erreur lors de l'analyse du document :")
+            logger.exception("Erreur lors de l'analyse du document (%s) : %s", self.file_path, e)
             self.error_signal.emit(str(e))

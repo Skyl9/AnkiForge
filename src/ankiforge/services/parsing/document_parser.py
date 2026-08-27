@@ -56,33 +56,42 @@ class DocumentParser:
             RuntimeError: En cas d'échec d'un moteur tiers (ex: Marker).
         """
         source_str = str(source_file_path).strip()
+        logger.info("Extraction de document démarrée pour : %s", source_str)
+
         if source_str.startswith("http"):
             if progress_callback:
                 progress_callback("Téléchargement et extraction de la page Web...")
-            return self._parse_web(source_str)
+            res = self._parse_web(source_str)
+            logger.info("Extraction Web terminée pour '%s' (%d caractères)", source_str, len(res))
+            return res
 
         file_path = Path(source_file_path)
         if not os.path.exists(file_path):
+            logger.error("Fichier introuvable sur le disque : %s", file_path)
             raise FileNotFoundError(f"Le fichier {file_path} est introuvable.")
 
         ext = file_path.suffix.lower()
 
         if ext == ".pdf":
-            return self._parse_pdf_with_marker(file_path, progress_callback, check_cancel)
+            res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel)
         elif ext in [".txt", ".md"]:
             if progress_callback:
                 progress_callback("Lecture du fichier texte immédiate...")
-            return self._parse_text(file_path)
+            res = self._parse_text(file_path)
         elif ext == ".docx":
             if progress_callback:
                 progress_callback("Analyse du document Word en cours...")
-            return self._parse_docx(file_path)
+            res = self._parse_docx(file_path)
         elif ext == ".pptx":
             if progress_callback:
                 progress_callback("Analyse de la présentation PowerPoint en cours...")
-            return self._parse_pptx(file_path)
+            res = self._parse_pptx(file_path)
         else:
+            logger.warning("Format de fichier non supporté : %s", ext)
             raise ValueError(f"Format de fichier non supporté : {ext}")
+
+        logger.info("Extraction locale terminée pour '%s' (%d caractères)", file_path.name, len(res))
+        return res
 
     def _parse_web(self, url: str) -> str:
         """
@@ -143,7 +152,7 @@ class DocumentParser:
             # CHANGEMENT CRUCIAL : action=parse & prop=text ramène le vrai HTML de la page
             api_url = f"https://{lang}.wikipedia.org/w/api.php?action=parse&format=json&page={urllib.parse.quote(title)}&prop=text"
 
-            req = urllib.request.Request(api_url, headers={"User-Agent": "ankiforge_obsidian/0.2"})
+            req = urllib.request.Request(api_url, headers={"User-Agent": "AnkiForge/1.0"})
             with urllib.request.urlopen(req) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 

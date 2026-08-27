@@ -1,6 +1,15 @@
+"""
+Gestionnaire d'Indexation et de Recherche RAG Hybride (FAISS Dense + BM25 Sparse + RRF).
+Fournit une recherche sémantique et lexicale 100% locale, sans fuite de données,
+et compatible avec les contraintes d'exécutable autonome Nuitka.
+"""
+
+from __future__ import annotations
+
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import faiss
 import numpy as np
@@ -8,6 +17,13 @@ from openai import OpenAI
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, LLMConfigModel
 from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankiforge.services.rag.bm25_index import BM25OkapiIndex
+from ankiforge.services.rag.hybrid_retriever import (
+    DEFAULT_RRF_K,
+    DEFAULT_WEIGHT_DENSE,
+    DEFAULT_WEIGHT_SPARSE,
+    HybridRAGRetriever,
+)
 from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
@@ -15,13 +31,13 @@ logger = logging.getLogger(__name__)
 
 class VectorManager:
     """
-    Gestionnaire d'Indexation et de Recherche Vectorielle RAG avec FAISS 100% local.
-    S'appuie sur Peewee DocumentChunkModel pour le stockage des métadonnées (titre, page, hash).
+    Gestionnaire d'Indexation et de Recherche RAG Hybride avec FAISS et BM25 100% local.
+    S'appuie sur Peewee DocumentChunkModel pour le stockage des métadonnées.
     """
 
-    def __init__(self, llm_config: Optional[LLMConfigModel] = None):
+    def __init__(self, llm_config: Optional[LLMConfigModel] = None) -> None:
         self.llm_config = llm_config
-        self.faiss_dir = get_app_data_dir() / "faiss_indexes"
+        self.faiss_dir: Path = get_app_data_dir() / "faiss_indexes"
         self.faiss_dir.mkdir(parents=True, exist_ok=True)
 
         if llm_config:
@@ -45,7 +61,7 @@ class VectorManager:
                 embeddings = [data.embedding for data in response.data]
                 return np.array(embeddings, dtype=np.float32)
             except Exception as e:
-                logger.warning(f"Impossible de contacter l'API d'embeddings ({e}). Repli sur hash vectoriel.")
+                logger.warning("Impossible de contacter l'API d'embeddings (%s). Repli sur hash vectoriel.", e)
 
         # Fallback local pseudo-embedding (vecteur normalisé basé sur hash de fréquence)
         dim = 128
@@ -55,16 +71,54 @@ class VectorManager:
             for word in text.lower().split():
                 h = hash(word) % dim
                 vec[h] += 1.0
-            norm = np.linalg.norm(vec)
+            norm = float(np.linalg.norm(vec))
             if norm > 0:
                 vec = vec / norm
             vectors.append(vec)
         return np.array(vectors, dtype=np.float32)
 
+    def is_indexed(self, document_id: int) -> bool:
+        """Indique si les index (FAISS ou BM25) sont disponibles sur le disque pour ce document."""
+        doc_dir = self.faiss_dir / f"doc_{document_id}"
+        faiss_ready = (doc_dir / "index.faiss").exists() and (doc_dir / "chunk_ids.json").exists()
+        bm25_ready = (doc_dir / "bm25_index.json").exists()
+        return faiss_ready or bm25_ready
+
+    def get_index_stats(self, document_id: int) -> Dict[str, Any]:
+        """Retourne les métriques détaillées de l'indexation pour un document."""
+        doc_dir = self.faiss_dir / f"doc_{document_id}"
+        stats: Dict[str, Any] = {
+            "document_id": document_id,
+            "has_faiss": (doc_dir / "index.faiss").exists(),
+            "has_bm25": (doc_dir / "bm25_index.json").exists(),
+            "chunk_count": 0,
+            "embedding_dimension": 0,
+            "bm25_vocabulary_size": 0,
+        }
+
+        if stats["has_faiss"]:
+            try:
+                index = faiss.read_index(str(doc_dir / "index.faiss"))
+                stats["chunk_count"] = index.ntotal
+                stats["embedding_dimension"] = index.d
+            except Exception as e:
+                logger.warning("Erreur lecture index FAISS doc %d: %s", document_id, e)
+
+        if stats["has_bm25"]:
+            try:
+                bm25 = BM25OkapiIndex.load(doc_dir / "bm25_index.json")
+                stats["bm25_vocabulary_size"] = len(bm25.doc_freqs)
+                if stats["chunk_count"] == 0:
+                    stats["chunk_count"] = bm25.total_docs
+            except Exception as e:
+                logger.warning("Erreur lecture index BM25 doc %d: %s", document_id, e)
+
+        return stats
+
     def index_document(self, document: DocumentModel) -> bool:
         """
-        Découpe un DocumentModel en DocumentChunkModel (s'ils n'existent pas encore)
-        et construit l'index binaire FAISS correspondant.
+        Découpe un DocumentModel en DocumentChunkModel (s'ils n'existent pas encore),
+        construit l'index binaire FAISS (Dense) ET l'index lexical BM25 (Sparse).
         """
         try:
             chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == document).order_by(DocumentChunkModel.chunk_index))
@@ -85,103 +139,232 @@ class VectorManager:
                         chunks.append(c)
 
             if not chunks:
-                logger.warning(f"Aucun fragment à indexer pour le document {document.id}")
+                logger.warning("Aucun fragment à indexer pour le document %s", document.id)
                 return False
 
+            doc_dir = self.faiss_dir / f"doc_{document.id}"
+            doc_dir.mkdir(parents=True, exist_ok=True)
+
+            # ── 1. Indexation Dense FAISS ──
             chunk_texts = [c.content for c in chunks]
             embeddings = self._get_embeddings(chunk_texts)
 
-            # Création de l'index FAISS (L2 distance)
             dimension = embeddings.shape[1]
             index = faiss.IndexFlatL2(dimension)
             index.add(embeddings)
 
-            # Persistance sur le disque
-            doc_dir = self.faiss_dir / f"doc_{document.id}"
-            doc_dir.mkdir(parents=True, exist_ok=True)
-
             index_path = doc_dir / "index.faiss"
             faiss.write_index(index, str(index_path))
 
-            # Mapping des chunk_ids dans chunks_map.json
             chunk_ids = [c.id for c in chunks]
             with open(doc_dir / "chunk_ids.json", "w", encoding="utf-8") as f:
                 json.dump(chunk_ids, f)
 
-            logger.info(f"Document {document.id} ({len(chunks)} fragments) indexé avec succès dans FAISS.")
+            # ── 2. Indexation Lexicale BM25 ──
+            corpus_dict: Dict[int, str] = {c.id: c.content for c in chunks}
+            bm25 = BM25OkapiIndex()
+            bm25.fit(corpus_dict)
+            bm25.save(doc_dir / "bm25_index.json")
+
+            logger.info(
+                "Document %s (%d fragments) indexé avec succès (FAISS Dense + BM25 Sparse).",
+                document.id,
+                len(chunks),
+            )
             return True
+
         except Exception as e:
-            logger.exception(f"Erreur lors de l'indexation FAISS du document {document.id} : {e}")
+            logger.exception("Erreur lors de l'indexation RAG hybride du document %s : %s", document.id, e)
             return False
 
-    def search(self, document_id: int, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def search(
+        self,
+        document_id: int,
+        query: str,
+        top_k: int = 5,
+        mode: str = "hybrid",
+        w_dense: float = DEFAULT_WEIGHT_DENSE,
+        w_sparse: float = DEFAULT_WEIGHT_SPARSE,
+        rrf_k: int = DEFAULT_RRF_K,
+    ) -> List[Dict[str, Any]]:
         """
-        Recherche sémantique des fragments les plus pertinents pour un document donné.
-        Retourne une liste de dictionnaires avec 'chunk_id', 'content', 'heading_path', 'page_number', 'score'.
+        Recherche RAG multimodale dans un document :
+        - mode="hybrid" (défaut) : Fusion Dense (FAISS) + Sparse (BM25) par RRF
+        - mode="dense" : Recherche vectorielle sémantique pure FAISS
+        - mode="sparse" : Recherche lexicale pure BM25
         """
+        if not query or not query.strip():
+            return []
+
         doc_dir = self.faiss_dir / f"doc_{document_id}"
         index_path = doc_dir / "index.faiss"
         map_path = doc_dir / "chunk_ids.json"
+        bm25_path = doc_dir / "bm25_index.json"
 
-        if not index_path.exists() or not map_path.exists():
-            logger.info(f"Index FAISS inexistant pour le document {document_id}, recherche directe en BDD.")
-            # Fallback direct en BDD (recherche par mots-clés)
-            terms = [t.lower() for t in query.split() if len(t) > 2]
-            query_filter = None
-            for t in terms:
-                cond = DocumentChunkModel.content.contains(t)
-                query_filter = cond if query_filter is None else (query_filter | cond)
+        # Fallback si aucun index n'existe du tout
+        if not index_path.exists() and not bm25_path.exists():
+            logger.info("Index RAG inexistant pour le document %d, recherche directe en base de données.", document_id)
+            return self._db_fallback_search(document_id, query, top_k)
 
-            q = DocumentChunkModel.select().where(DocumentChunkModel.document_id == document_id)
-            if query_filter is not None:
-                q = q.where(query_filter)
-            chunks = list(q.limit(top_k))
+        # ── 1. Récupération des candidats Denses (FAISS) ──
+        dense_results: List[Tuple[int, float]] = []
+        candidate_count = max(top_k * 3, 20)
 
-            return [
-                {
-                    "chunk_id": c.id,
-                    "chunk_index": c.chunk_index,
-                    "content": c.content,
-                    "heading_path": c.heading_path,
-                    "page_number": c.page_number,
-                    "score": 1.0,
-                }
-                for c in chunks
-            ]
+        if mode in ("hybrid", "dense") and index_path.exists() and map_path.exists():
+            try:
+                faiss_index = faiss.read_index(str(index_path))
+                with open(map_path, "r", encoding="utf-8") as f:
+                    chunk_ids = json.load(f)
 
-        try:
-            index = faiss.read_index(str(index_path))
-            with open(map_path, "r", encoding="utf-8") as f:
-                chunk_ids = json.load(f)
+                query_emb = self._get_embeddings([query])
+                actual_k = min(candidate_count, faiss_index.ntotal)
+                if actual_k > 0:
+                    distances, indices = faiss_index.search(query_emb, actual_k)
+                    for rank, idx in enumerate(indices[0]):
+                        if idx != -1 and idx < len(chunk_ids):
+                            cid = chunk_ids[idx]
+                            raw_dist = float(distances[0][rank])
+                            # Conversion distance L2 -> score de similarité (plus haut = meilleur)
+                            dense_sim = 1.0 / (1.0 + raw_dist)
+                            dense_results.append((cid, dense_sim))
+            except Exception as e:
+                logger.warning("Erreur recherche Dense FAISS pour doc %d: %s", document_id, e)
 
-            query_emb = self._get_embeddings([query])
-            distances, indices = index.search(query_emb, top_k)
+        # ── 2. Récupération des candidats Sparses (BM25) ──
+        sparse_results: List[Tuple[int, float]] = []
+        if mode in ("hybrid", "sparse"):
+            if bm25_path.exists():
+                try:
+                    bm25 = BM25OkapiIndex.load(bm25_path)
+                    sparse_results = bm25.search(query, top_k=candidate_count)
+                except Exception as e:
+                    logger.warning("Erreur recherche Sparse BM25 pour doc %d: %s", document_id, e)
+            else:
+                # Si BM25 n'a pas encore été sérialisé, on le construit à la volée depuis la BDD
+                try:
+                    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == document_id))
+                    if chunks:
+                        corpus_dict = {c.id: c.content for c in chunks}
+                        bm25 = BM25OkapiIndex()
+                        bm25.fit(corpus_dict)
+                        bm25.save(bm25_path)
+                        sparse_results = bm25.search(query, top_k=candidate_count)
+                except Exception as e:
+                    logger.warning("Erreur construction BM25 à la volée pour doc %d: %s", document_id, e)
 
-            selected_ids = []
-            results = []
-            for idx in indices[0]:
-                if idx != -1 and idx < len(chunk_ids):
-                    selected_ids.append(chunk_ids[idx])
+        # ── 3. Routage selon le mode sélectionné ──
+        if mode == "dense":
+            if not dense_results and sparse_results:
+                # Bascule de secours si FAISS vide
+                return self._format_sparse_only_results(sparse_results[:top_k])
+            return self._format_dense_only_results(dense_results[:top_k])
 
-            if selected_ids:
-                chunks_by_id = {c.id: c for c in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(selected_ids))}
-                for rank, idx in enumerate(indices[0]):
-                    if idx != -1 and idx < len(chunk_ids):
-                        c_id = chunk_ids[idx]
-                        chunk = chunks_by_id.get(c_id)
-                        if chunk:
-                            results.append(
-                                {
-                                    "chunk_id": chunk.id,
-                                    "chunk_index": chunk.chunk_index,
-                                    "content": chunk.content,
-                                    "heading_path": chunk.heading_path,
-                                    "page_number": chunk.page_number,
-                                    "score": float(distances[0][rank]),
-                                }
-                            )
+        if mode == "sparse":
+            if not sparse_results and dense_results:
+                # Bascule de secours si BM25 vide
+                return self._format_dense_only_results(dense_results[:top_k])
+            return self._format_sparse_only_results(sparse_results[:top_k])
 
-            return results
-        except Exception as e:
-            logger.exception(f"Erreur lors de la recherche FAISS pour le document {document_id} : {e}")
-            return []
+        # Mode Hybrid (défaut) avec Reciprocal Rank Fusion
+        if not dense_results and not sparse_results:
+            return self._db_fallback_search(document_id, query, top_k)
+
+        return HybridRAGRetriever.fuse_rankings(
+            dense_results=dense_results,
+            sparse_results=sparse_results,
+            k=rrf_k,
+            w_dense=w_dense,
+            w_sparse=w_sparse,
+            top_k=top_k,
+        )
+
+    def _format_dense_only_results(self, dense_results: List[Tuple[int, float]]) -> List[Dict[str, Any]]:
+        """Formate les résultats du canal Dense seul."""
+        candidate_ids = [cid for cid, _ in dense_results]
+        chunks_by_id = {c.id: c for c in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(candidate_ids))}
+
+        results = []
+        for rank, (cid, sim) in enumerate(dense_results):
+            chunk = chunks_by_id.get(cid)
+            if chunk:
+                rel_pct = int(min(100.0, max(0.0, sim * 100.0)))
+                results.append(
+                    {
+                        "chunk_id": chunk.id,
+                        "chunk_index": chunk.chunk_index,
+                        "content": chunk.content,
+                        "heading_path": chunk.heading_path or "",
+                        "page_number": chunk.page_number,
+                        "score": round(sim, 4),
+                        "dense_score": round(sim, 4),
+                        "dense_rank": rank + 1,
+                        "sparse_score": 0.0,
+                        "sparse_rank": None,
+                        "rrf_score": round(sim, 6),
+                        "relevance_pct": rel_pct,
+                        "channel": "dense_only",
+                    }
+                )
+        return results
+
+    def _format_sparse_only_results(self, sparse_results: List[Tuple[int, float]]) -> List[Dict[str, Any]]:
+        """Formate les résultats du canal Sparse seul."""
+        candidate_ids = [cid for cid, _ in sparse_results]
+        chunks_by_id = {c.id: c for c in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(candidate_ids))}
+
+        max_bm25 = max([s for _, s in sparse_results], default=1.0)
+        results = []
+        for rank, (cid, bm25_s) in enumerate(sparse_results):
+            chunk = chunks_by_id.get(cid)
+            if chunk:
+                rel_pct = int(min(100.0, max(0.0, (bm25_s / max_bm25) * 100.0))) if max_bm25 > 0 else 50
+                results.append(
+                    {
+                        "chunk_id": chunk.id,
+                        "chunk_index": chunk.chunk_index,
+                        "content": chunk.content,
+                        "heading_path": chunk.heading_path or "",
+                        "page_number": chunk.page_number,
+                        "score": round(bm25_s, 4),
+                        "dense_score": 0.0,
+                        "dense_rank": None,
+                        "sparse_score": round(bm25_s, 4),
+                        "sparse_rank": rank + 1,
+                        "rrf_score": round(bm25_s, 6),
+                        "relevance_pct": rel_pct,
+                        "channel": "sparse_only",
+                    }
+                )
+        return results
+
+    def _db_fallback_search(self, document_id: int, query: str, top_k: int) -> List[Dict[str, Any]]:
+        """Recherche par mots-clés de secours directement sur Peewee DocumentChunkModel."""
+        terms = [t.lower() for t in query.split() if len(t) > 2]
+        query_filter = None
+        for t in terms:
+            cond = DocumentChunkModel.content.contains(t)
+            query_filter = cond if query_filter is None else (query_filter | cond)
+
+        q = DocumentChunkModel.select().where(DocumentChunkModel.document_id == document_id)
+        if query_filter is not None:
+            q = q.where(query_filter)
+        chunks = list(q.limit(top_k))
+
+        return [
+            {
+                "chunk_id": c.id,
+                "chunk_index": c.chunk_index,
+                "content": c.content,
+                "heading_path": c.heading_path or "",
+                "page_number": c.page_number,
+                "score": 1.0,
+                "dense_score": 0.0,
+                "dense_rank": None,
+                "sparse_score": 1.0,
+                "sparse_rank": idx + 1,
+                "rrf_score": 1.0,
+                "relevance_pct": 100,
+                "channel": "db_fallback",
+            }
+            for idx, c in enumerate(chunks)
+        ]
