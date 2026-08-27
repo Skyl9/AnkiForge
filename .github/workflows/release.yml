@@ -1,4 +1,4 @@
-name: Release - Multi-Platform Binaries
+name: Release - Multi-Platform Binaries (Nuitka)
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-binaries:
-    name: 📦 Build Binary on ${{ matrix.os }}
+    name: 📦 Build Nuitka Binary on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -31,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Linux GUI Build Dependencies
+      - name: Install Linux Build Dependencies & Compiler
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -41,7 +41,10 @@ jobs:
             libxkbcommon-x11-0 \
             libdbus-1-3 \
             libxcb1 \
-            gcc
+            gcc \
+            g++ \
+            ccache \
+            patchelf
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -66,50 +69,66 @@ jobs:
           gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
         shell: bash
 
-      # ── BUILD MACOS ─────────────────────────────────────────────
-      - name: Build Standalone macOS App (PyInstaller)
+      # ── BUILD MACOS AVEC NUITKA ─────────────────────────────────
+      - name: Build Standalone macOS Bundle (Nuitka)
         if: runner.os == 'macOS'
         run: |
-          uv run pyinstaller build_script/AnkiForge.spec --noconfirm --distpath dist
+          uv run python -m nuitka \
+            --standalone \
+            --macos-create-app-bundle \
+            --macos-app-name="AnkiForge" \
+            --macos-app-version="0.2.0" \
+            --enable-plugin=pyside6 \
+            --include-package-data=qtawesome \
+            --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
+            --output-dir=dist \
+            --assume-yes-for-downloads \
+            src/ankiforge/__main__.py
           cd dist
           zip -r ../${{ matrix.asset_name }} AnkiForge.app
 
-      # ── BUILD LINUX ─────────────────────────────────────────────
-      - name: Build Standalone Linux App (PyInstaller)
+      # ── BUILD LINUX AVEC NUITKA ─────────────────────────────────
+      - name: Build Standalone Linux App (Nuitka)
         if: runner.os == 'Linux'
         run: |
-          uv run pyinstaller \
-            --name="AnkiForge" \
-            --onedir \
-            --windowed \
-            --add-data="src/ankiforge/c_ext/levenshtein_distance.so:ankiforge/c_ext" \
-            --collect-data="qtawesome" \
-            --hidden-import="peewee" \
-            --hidden-import="jinja2.ext" \
-            --hidden-import="PySide6.QtWebEngineCore" \
-            --hidden-import="PySide6.QtWebEngineWidgets" \
-            --noconfirm \
-            --distpath dist \
+          uv run python -m nuitka \
+            --standalone \
+            --enable-plugin=pyside6 \
+            --include-package-data=qtawesome \
+            --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
+            --output-dir=dist \
+            --output-filename=AnkiForge \
+            --assume-yes-for-downloads \
             src/ankiforge/__main__.py
-          tar -czf ${{ matrix.asset_name }} -C dist AnkiForge
+          cd dist
+          if [ -d "AnkiForge.dist" ]; then
+            mv AnkiForge.dist AnkiForge
+          elif [ -d "__main__.dist" ]; then
+            mv __main__.dist AnkiForge
+          fi
+          tar -czf ../${{ matrix.asset_name }} AnkiForge
 
-      # ── BUILD WINDOWS ───────────────────────────────────────────
-      - name: Build Standalone Windows App (PyInstaller)
+      # ── BUILD WINDOWS AVEC NUITKA ───────────────────────────────
+      - name: Build Standalone Windows App (Nuitka)
         if: runner.os == 'Windows'
         run: |
-          uv run pyinstaller `
-            --name="AnkiForge" `
-            --onedir `
-            --windowed `
-            --collect-data="qtawesome" `
-            --hidden-import="peewee" `
-            --hidden-import="jinja2.ext" `
-            --hidden-import="PySide6.QtWebEngineCore" `
-            --hidden-import="PySide6.QtWebEngineWidgets" `
-            --noconfirm `
-            --distpath dist `
+          uv run python -m nuitka `
+            --standalone `
+            --windows-console-mode=disable `
+            --enable-plugin=pyside6 `
+            --include-package-data=qtawesome `
+            --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext `
+            --output-dir=dist `
+            --output-filename=AnkiForge.exe `
+            --assume-yes-for-downloads `
             src/ankiforge/__main__.py
-          Compress-Archive -Path dist/AnkiForge -DestinationPath ${{ matrix.asset_name }}
+          cd dist
+          if (Test-Path "AnkiForge.dist") {
+            Rename-Item -Path "AnkiForge.dist" -NewName "AnkiForge"
+          } elseif (Test-Path "__main__.dist") {
+            Rename-Item -Path "__main__.dist" -NewName "AnkiForge"
+          }
+          Compress-Archive -Path AnkiForge -DestinationPath ../${{ matrix.asset_name }}
         shell: pwsh
 
       - name: Upload Artifact
