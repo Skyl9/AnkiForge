@@ -1519,5 +1519,29 @@ class ABTestsView(QWidget):
         if hasattr(self, "preview_b") and hasattr(self.preview_b, "refresh_theme"):
             self.preview_b.refresh_theme(profile)
 
+    def closeEvent(self, event: Any) -> None:
+        """Nettoie proprement les tâches asynchrones et widgets web lors de la fermeture de la vue."""
+        if hasattr(self, "orchestrator_a") and self.orchestrator_a is not None:
+            try:
+                self.orchestrator_a.cancel()
+            except Exception:
+                pass  # nosec B110
+        if hasattr(self, "orchestrator_b") and self.orchestrator_b is not None:
+            try:
+                self.orchestrator_b.cancel()
+            except Exception:
+                pass  # nosec B110
+        if hasattr(self, "preview_a") and self.preview_a is not None:
+            try:
+                self.preview_a.close()
+            except Exception:
+                pass  # nosec B110
+        if hasattr(self, "preview_b") and self.preview_b is not None:
+            try:
+                self.preview_b.close()
+            except Exception:
+                pass  # nosec B110
+        super().closeEvent(event)
+
 
 ABTestsTab = ABTestsView

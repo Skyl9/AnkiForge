@@ -50,13 +50,11 @@ class SafeWebEngineView(QWebEngineView):
         self.setHtml(html, base_url)
 
     def cleanup(self):
-        """Détruit proprement la QWebEnginePage lors du démontage du composant."""
+        """Arrête proprement les chargements WebEngine lors du démontage du composant."""
         try:
-            page = self.page()
-            if page is not None:
-                page.deleteLater()
-        except RuntimeError:
-            pass  # Nosec B110
+            self.stop()
+        except Exception:
+            pass  # nosec B110
 
     def closeEvent(self, event):
         self.cleanup()

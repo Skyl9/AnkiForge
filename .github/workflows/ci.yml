@@ -91,7 +91,13 @@ jobs:
             libxcb-xfixes0 \
             libxcb-xinerama0 \
             libxcb-xkb1 \
-            gcc
+            libnss3 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libgbm1 \
+            gcc || true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -118,8 +124,12 @@ jobs:
 
       - name: Run Tests with Coverage (Linux with Xvfb)
         if: runner.os == 'Linux'
+        env:
+          QT_QPA_PLATFORM: "offscreen"
+          QTWEBENGINE_DISABLE_SANDBOX: "1"
+          QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
         run: |
-          xvfb-run --auto-servernum uv run pytest --cov=ankiforge --cov-report=xml --cov-report=term
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render -noreset" uv run pytest --cov=ankiforge --cov-report=xml --cov-report=term
 
       - name: Run Tests with Coverage (macOS & Windows)
         if: runner.os != 'Linux'

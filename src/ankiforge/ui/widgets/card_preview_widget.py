@@ -7,7 +7,7 @@ Seule la largeur du conteneur varie selon le mode sélectionné.
 import json
 from typing import Any, Optional
 
-from PySide6.QtCore import QUrl, Slot, Qt, QCoreApplication, QTimer
+from PySide6.QtCore import QUrl, Slot, Qt, QCoreApplication
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea, QSizePolicy
 
@@ -145,7 +145,7 @@ class CardPreviewWidget(QWidget):
         frame_layout.setContentsMargins(8, 8, 8, 8)
 
         # SafeWebEngineView pour le rendu MathJax + HTML/CSS
-        self.web_view = SafeWebEngineView()
+        self.web_view = SafeWebEngineView(self.flashcard_frame)
         self.web_view.setMinimumHeight(240)
         frame_layout.addWidget(self.web_view)
 
@@ -216,7 +216,6 @@ class CardPreviewWidget(QWidget):
         QCoreApplication.sendEvent(self.web_view, QResizeEvent(web_size, web_size))
 
         self._render()
-        QTimer.singleShot(10, self._render)
 
     def set_empty_state(self, message: str = "Sélectionnez une carte pour la prévisualiser.") -> None:
         """Affiche un message par défaut quand aucune carte n'est chargée."""

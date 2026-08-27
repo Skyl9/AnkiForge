@@ -94,8 +94,14 @@ def mock_db():
 def cleanup_qt_widgets():
     """Nettoie les fenêtres et widgets Qt à la fin de chaque test."""
     yield
-    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtCore import QCoreApplication, QEvent, QThreadPool
     from PySide6.QtWidgets import QApplication
+
+    # 1. Attendre que les tâches en cours du QThreadPool terminent
+    try:
+        QThreadPool.globalInstance().waitForDone(3000)
+    except Exception:
+        pass
 
     app = QApplication.instance()
     if app:
@@ -108,6 +114,11 @@ def cleanup_qt_widgets():
                 pass
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         app.processEvents()
+
+    try:
+        QThreadPool.globalInstance().waitForDone(1000)
+    except Exception:
+        pass
 
 
 def pytest_unconfigure(config):

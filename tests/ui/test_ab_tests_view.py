@@ -104,6 +104,9 @@ def test_ab_tests_view_engine_comparison(qtbot):
 
     # Attendre que les deux branches asynchrones terminent
     qtbot.waitUntil(lambda: view.btn_run.isEnabled() is True, timeout=7000)
+    from PySide6.QtCore import QThreadPool
+
+    QThreadPool.globalInstance().waitForDone(5000)
 
     assert len(view.cards_a) == 1
     assert view.cards_a[0]["Front"] == "Question Branche A"
