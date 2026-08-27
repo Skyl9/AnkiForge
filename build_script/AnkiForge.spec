@@ -16,6 +16,10 @@ hidden_imports = [
 
 # 2. COLLECTE DES RESSOURCES (ASSETS)
 datas = collect_data_files('qtawesome')
+datas += [
+    ('../src/ressources', 'src/ressources'),
+    ('../src/ressources', 'ressources'),
+]
 
 # 3. COLLECTE DES FICHIERS BINAIRES COMPILÉS (EXTENSION C)
 binaries = [

@@ -1,55 +1,119 @@
+import logging
 import sys
 from pathlib import Path
 
-import platformdirs
 
-APP_NAME = "ankiforge_obsidian"
+logger = logging.getLogger(__name__)
+
+APP_NAME = "ankiforge"
 
 
 def get_project_root() -> Path:
     """
-    Localise dynamiquement la racine du projet sur le disque.
-
-    Remonte l'arborescence depuis le fichier actuel jusqu'à trouver le fichier pyproject.toml.
+    Localise dynamiquement la racine du projet ou du bundle sur le disque.
+    Ne lève jamais d'exception pour garantir le démarrage en binaire autonome.
 
     Returns:
-        Path: Chemin absolu vers la racine du projet.
-
-    Raises:
-        RuntimeError: Si le projet n'est pas trouvé.
+        Path: Chemin absolu vers la racine du projet ou du bundle.
     """
-    current_path = Path(__file__).resolve().parent
+    # 1. PyInstaller
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
 
-    # On remonte les dossiers un par un
-    for parent in [current_path, *current_path.parents]:
-        if (parent / "pyproject.toml").exists():
-            return parent
+    # 2. Nuitka standalone ou exécutable gelé
+    if getattr(sys, "frozen", False) or "__compiled__" in globals() or "__compiled__" in sys.modules:
+        exe_path = Path(sys.executable).resolve()
+        return exe_path.parent
 
-    # Fallback si le fichier n'est pas trouvé (utile en cas de structure exotique)
-    raise RuntimeError("Impossible de trouver la racine du projet (pyproject.toml manquant).")
+    # 3. Recherche de pyproject.toml en remontant l'arborescence (Mode Dev)
+    try:
+        current_path = Path(__file__).resolve().parent
+        for parent in [current_path, *current_path.parents]:
+            if (parent / "pyproject.toml").exists():
+                return parent
+    except Exception as e:
+        logger.debug(f"Recherche de pyproject.toml échouée: {e}")
+
+    # 4. Fallback safe vers le répertoire parent du package
+    try:
+        return Path(__file__).resolve().parent.parent.parent
+    except Exception as e:
+        logger.debug(f"Fallback racine échoué: {e}")
+        return Path.cwd()
+
+
+def get_resource_path(*subpaths: str) -> Path:
+    """
+    Localise un fichier de ressource (icône SVG, traduction .qm, prompt Jinja2, extension C)
+    de manière robuste selon le mode d'exécution (Dev, Nuitka, PyInstaller, macOS App Bundle).
+
+    Args:
+        *subpaths: Segments du chemin relatif (ex: "src", "ressources", "icons", "logo.svg").
+
+    Returns:
+        Path: Le chemin absolu vers la ressource existante ou candidate.
+    """
+    rel = Path(*subpaths)
+    candidates: list[Path] = []
+
+    # 1. PyInstaller _MEIPASS
+    if hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)
+        candidates.append(base / rel)
+        if rel.parts and rel.parts[0] == "src":
+            candidates.append(base / Path(*rel.parts[1:]))
+
+    # 2. Nuitka standalone ou exécutable gelé
+    if getattr(sys, "frozen", False) or "__compiled__" in globals() or "__compiled__" in sys.modules:
+        exe_dir = Path(sys.executable).resolve().parent
+        candidates.append(exe_dir / rel)
+        if rel.parts and rel.parts[0] == "src":
+            candidates.append(exe_dir / Path(*rel.parts[1:]))
+        # macOS App Bundle : Contents/Resources
+        resources_dir = exe_dir.parent / "Resources"
+        candidates.append(resources_dir / rel)
+        if rel.parts and rel.parts[0] == "src":
+            candidates.append(resources_dir / Path(*rel.parts[1:]))
+
+    # 3. Racine du projet (Mode Dev)
+    try:
+        root = get_project_root()
+        candidates.append(root / rel)
+        if rel.parts and rel.parts[0] == "src":
+            candidates.append(root / Path(*rel.parts[1:]))
+    except Exception as e:
+        logger.debug(f"Résolution ressource racine impossible: {e}")
+
+    # 4. Relatif au module python ankiforge
+    try:
+        pkg_dir = Path(__file__).resolve().parent.parent  # src/ankiforge
+        candidates.append(pkg_dir.parent / rel)  # src / ...
+        candidates.append(pkg_dir / rel)  # src/ankiforge / ...
+        if rel.parts and rel.parts[0] == "src":
+            candidates.append(pkg_dir.parent / Path(*rel.parts[1:]))
+            candidates.append(pkg_dir / Path(*rel.parts[1:]))
+    except Exception as e:
+        logger.debug(f"Résolution ressource package impossible: {e}")
+
+    # Renvoie la première candidate existante
+    for c in candidates:
+        if c.exists():
+            return c
+
+    # Fallback par défaut
+    return candidates[0] if candidates else rel
 
 
 def get_app_data_dir() -> Path:
     """
-    Retourne le chemin vers le dossier de données de l'application selon l'environnement.
+    Retourne le chemin vers le dossier de données persistant de l'application (~/.ankiforge).
+    Conforme à la règle 9 de GEMINI.md.
 
     Returns:
         Path: Objet Path représentant le dossier de données.
     """
-    if getattr(sys, "frozen", False):
-        # 📦 MODE PRODUCTION (App empaquetée via PyInstaller/cx_Freeze)
-        # Windows : C:\Users\<User>\AppData\Local\ankiforge_obsidian
-        # macOS   : ~/Library/Application Support/ankiforge_obsidian
-        # Linux   : ~/.local/share/ankiforge_obsidian
-        app_dir = platformdirs.user_data_path(appname=APP_NAME, appauthor=False)
-    else:
-        # 🛠️ MODE DÉVELOPPEMENT
-        # Crée un dossier .ankiforge proprement à la racine du projet
-        app_dir = get_project_root() / ".ankiforge"
-
-    # S'assure que le dossier existe avant de le renvoyer
+    app_dir = Path.home() / ".ankiforge"
     app_dir.mkdir(parents=True, exist_ok=True)
-
     return app_dir
 
 

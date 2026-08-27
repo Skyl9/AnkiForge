@@ -1,38 +1,69 @@
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
+from ankiforge.utils.paths import (
+    get_project_root,
+    get_app_data_dir,
+    get_resource_path,
+    get_active_profile,
+    set_active_profile,
+    get_profile_dir,
+    get_media_dir,
+)
 
-from ankiforge.utils.paths import get_project_root, get_app_data_dir
 
-
-def test_get_project_root_success():
-    """Vérifie qu'on trouve bien la racine (là où est pyproject.toml)."""
+def test_get_project_root_dev():
+    """Vérifie qu'en mode dev on trouve bien la racine avec pyproject.toml."""
     root = get_project_root()
     assert isinstance(root, Path)
     assert (root / "pyproject.toml").exists(), "La racine trouvée ne contient pas pyproject.toml"
 
 
-@patch("ankiforge.utils.paths.Path.exists")
-def test_get_project_root_failure(mock_exists):
-    """Vérifie que ça plante proprement si le pyproject.toml a disparu."""
-    # On force exists() à renvoyer False pour simuler l'absence du fichier
-    mock_exists.return_value = False
-
-    with pytest.raises(RuntimeError) as exc_info:
-        get_project_root()
-
-    assert "Impossible de trouver la racine" in str(exc_info.value)
+def test_get_project_root_frozen():
+    """Vérifie qu'en mode gelé (bundle/nuitka/pyinstaller) on ne crash pas et on renvoie un Path valide."""
+    with patch.object(sys, "frozen", True, create=True):
+        root = get_project_root()
+        assert isinstance(root, Path)
 
 
-@patch("ankiforge.utils.paths.sys")
-def test_get_app_data_dir_dev_mode(mock_sys):
+def test_get_app_data_dir_dev_mode():
     """Test le chemin en mode Développement (sys.frozen = False)."""
-    mock_sys.frozen = False
+    with patch.object(sys, "frozen", False, create=True):
+        app_dir = get_app_data_dir()
+        assert isinstance(app_dir, Path)
+        assert app_dir.exists()
 
-    app_dir = get_app_data_dir()
 
-    # En mode dev, ça doit être dans le dossier du projet, sous ".ankiforge"
-    assert app_dir.name == ".ankiforge"
-    assert app_dir.parent == get_project_root()
-    assert app_dir.exists()
+def test_get_app_data_dir_frozen_mode():
+    """Test le chemin en mode Production / Frozen."""
+    with patch.object(sys, "frozen", True, create=True):
+        app_dir = get_app_data_dir()
+        assert isinstance(app_dir, Path)
+        assert app_dir.exists()
+
+
+def test_get_resource_path():
+    """Vérifie que get_resource_path trouve les icônes existantes."""
+    logo = get_resource_path("src", "ressources", "icons", "logo.svg")
+    assert isinstance(logo, Path)
+    assert logo.exists(), f"logo.svg non trouvé à {logo}"
+
+
+def test_profiles_and_media_paths():
+    """Vérifie la gestion des profils et dossiers media."""
+    orig_profile = get_active_profile()
+    try:
+        set_active_profile("test_profile")
+        assert get_active_profile() == "test_profile"
+
+        p_dir = get_profile_dir("test_profile")
+        assert p_dir.exists()
+        assert p_dir.name == "test_profile"
+
+        m_dir = get_media_dir()
+        assert m_dir.exists()
+        assert m_dir.name == "media"
+        assert m_dir.parent == p_dir
+    finally:
+        set_active_profile(orig_profile)

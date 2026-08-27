@@ -80,6 +80,9 @@ jobs:
             --macos-app-version="0.2.0" \
             --enable-plugin=pyside6 \
             --include-package-data=qtawesome \
+            --include-data-dir=src/ressources=src/ressources \
+            --include-data-dir=src/ressources=ressources \
+            --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
             --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
             --output-dir=dist \
             --assume-yes-for-downloads \
@@ -95,6 +98,9 @@ jobs:
             --standalone \
             --enable-plugin=pyside6 \
             --include-package-data=qtawesome \
+            --include-data-dir=src/ressources=src/ressources \
+            --include-data-dir=src/ressources=ressources \
+            --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
             --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
             --output-dir=dist \
             --output-filename=AnkiForge \
@@ -117,6 +123,9 @@ jobs:
             --windows-console-mode=disable `
             --enable-plugin=pyside6 `
             --include-package-data=qtawesome `
+            --include-data-dir=src/ressources=src/ressources `
+            --include-data-dir=src/ressources=ressources `
+            --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
             --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext `
             --output-dir=dist `
             --output-filename=AnkiForge.exe `

@@ -17,6 +17,9 @@ uv run python -m nuitka `
     --windows-console-mode=disable `
     --enable-plugin=pyside6 `
     --include-package-data=qtawesome `
+    --include-data-dir=src/ressources=src/ressources `
+    --include-data-dir=src/ressources=ressources `
+    --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
     --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext `
     --output-dir=dist_prod `
     --output-filename=AnkiForge.exe `

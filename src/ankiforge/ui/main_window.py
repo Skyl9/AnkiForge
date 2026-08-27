@@ -637,10 +637,10 @@ class MainWindow(QMainWindow):
 
     def _take_debug_screenshot(self) -> None:
         """Capture l'état actuel de la fenêtre et le sauvegarde."""
-        from ankiforge.utils.paths import get_project_root
+        from ankiforge.utils.paths import get_app_data_dir
 
-        output_dir = get_project_root() / "temp"
-        output_dir.mkdir(exist_ok=True)
+        output_dir = get_app_data_dir() / "temp"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         output_path = output_dir / "analyse_screenshot.png"
         pixmap = self.grab()
