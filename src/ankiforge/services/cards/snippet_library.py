@@ -412,6 +412,7 @@ class SnippetLibrary:
             serialized = [asdict(s) for s in customs]
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(serialized, f, indent=2, ensure_ascii=False)
+            logger.info("Snippet modulaire '%s' (%s) enregistré avec succès.", snippet.name, snippet.id)
         except Exception as e:
             logger.error("Impossible d'enregistrer le snippet custom: %s", e)
             raise
@@ -430,6 +431,7 @@ class SnippetLibrary:
             serialized = [asdict(s) for s in customs]
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(serialized, f, indent=2, ensure_ascii=False)
+            logger.info("Snippet modulaire '%s' supprimé avec succès.", snippet_id)
             return True
         except Exception as e:
             logger.error("Erreur lors de la suppression du snippet: %s", e)

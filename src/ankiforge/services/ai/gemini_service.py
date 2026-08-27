@@ -97,6 +97,6 @@ class GeminiService(LLMProvider):
 
             return response.text or ""
         except genai.errors.APIError as e:
-            logger.exception(f"Erreur API Gemini brute ({self.model_name}) :")
+            logger.exception("Erreur API Gemini brute (%s) : %s", self.model_name, e)
             human_msg = get_human_readable_api_error(e)
             raise RuntimeError(f"Erreur API Gemini ({self.model_name}) : {human_msg}") from e

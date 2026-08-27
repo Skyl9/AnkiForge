@@ -64,7 +64,12 @@ class PersonaVersionService:
                 is_active=True,
             )
 
-        logger.info(f"📸 Snapshot v{next_version_num} créé pour le persona '{persona.name}' (ID: {persona.id}).")
+        logger.info(
+            "Snapshot v%d créé pour le persona '%s' (ID: %s).",
+            next_version_num,
+            persona.name,
+            persona.id,
+        )
         return new_version
 
     @classmethod
@@ -118,7 +123,11 @@ class PersonaVersionService:
             target_version.is_active = True
             target_version.save()
 
-        logger.info(f"🔄 Persona '{persona.name}' restauré avec succès à la version v{target_version.version_number}.")
+        logger.info(
+            "Persona '%s' restauré avec succès à la version v%d.",
+            persona.name,
+            target_version.version_number,
+        )
         return persona
 
     @classmethod

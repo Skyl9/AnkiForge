@@ -78,7 +78,7 @@ class PipelineOrchestrator(QRunnable):
                 else:
                     self._ai_provider = MockProvider()
             except Exception as e:
-                logger.warning(f"Impossible d'instancier le provider LLM, fallback Mock: {e}")
+                logger.warning("Impossible d'instancier le provider LLM, fallback Mock: %s", e)
                 self._ai_provider = MockProvider()
         return self._ai_provider
 
@@ -140,13 +140,13 @@ class PipelineOrchestrator(QRunnable):
             template = Template(template_str)
             return template.render(**context)
         except Exception as e:
-            logger.warning(f"Erreur de rendu Jinja2 sur prompt: {e}. Utilisation du texte brut.")
+            logger.warning("Erreur de rendu Jinja2 sur prompt: %s. Utilisation du texte brut.", e)
             return template_str
 
     @Slot()
     def run(self) -> None:
         """Point d'entrée de l'exécution asynchrone du DAG."""
-        logger.info(f"[Orchestrateur DAG] Démarrage du pipeline (id={self.pipeline_id})")
+        logger.info("[Orchestrateur DAG] Démarrage du pipeline (id=%s)", self.pipeline_id)
         steps = self._load_steps()
         if not steps:
             msg = f"Le pipeline {self.pipeline_id} ne contient aucune étape à exécuter."
@@ -177,7 +177,7 @@ class PipelineOrchestrator(QRunnable):
                 persona_name = current_step.persona.name if current_step.persona else "Action Système"
                 desc = f"Étape {step_order} [{step_type}] : {persona_name}"
 
-                logger.info(f"[Orchestrateur DAG] Exécution de {desc}")
+                logger.info("[Orchestrateur DAG] Exécution de %s", desc)
                 self.signals.step_started.emit(step_order, desc)
 
                 self.state.current_step_id = current_step.id
@@ -212,13 +212,13 @@ class PipelineOrchestrator(QRunnable):
                         self._execute_python_tool(current_step)
 
                     else:
-                        logger.warning(f"Type d'étape inconnu '{step_type}', exécution standard LLM.")
+                        logger.warning("Type d'étape inconnu '%s', exécution standard LLM.", step_type)
                         self._execute_llm_prompt(current_step)
 
                 except Exception as ex:
                     step_succeeded = False
                     step_error_msg = str(ex)
-                    logger.exception(f"Erreur lors de l'exécution de l'étape {step_order}: {ex}")
+                    logger.exception("Erreur lors de l'exécution de l'étape %d: %s", step_order, ex)
                     self.state.add_error(f"Étape {step_order} ({step_type}): {step_error_msg}")
 
                 duration = time.perf_counter() - t_start
@@ -275,7 +275,7 @@ class PipelineOrchestrator(QRunnable):
                 self.signals.pipeline_finished.emit(self.state)
 
         except Exception as e:
-            logger.exception(f"[Orchestrateur DAG Fatal Error] {e}")
+            logger.exception("[Orchestrateur DAG Fatal Error] %s", e)
             self.state.add_error(str(e))
             self.signals.error_occurred.emit(str(e))
 
@@ -328,7 +328,7 @@ class PipelineOrchestrator(QRunnable):
             try:
                 parsed_output = AIReponseParser.parse(response_text)
             except Exception as e:
-                logger.warning(f"Parsing JSON impossible pour l'étape {step.step_order}, conservation du brut: {e}")
+                logger.warning("Parsing JSON impossible pour l'étape %d, conservation du brut: %s", step.step_order, e)
                 parsed_output = response_text
 
         # Mise à jour des variables de l'état partagé
@@ -385,7 +385,7 @@ class PipelineOrchestrator(QRunnable):
             )
             retrieved = [r.get("content", "") if isinstance(r, dict) else str(r) for r in rag_results]
         except Exception as e:
-            logger.warning(f"Recherche RAG Hybride FAISS/BM25 non disponible: {e}. Utilisation du fallback mémoire.")
+            logger.warning("Recherche RAG Hybride FAISS/BM25 non disponible: %s. Utilisation du fallback mémoire.", e)
 
         # Fallback en mémoire si aucun chunk FAISS n'est retourné
         if not retrieved:
@@ -466,7 +466,7 @@ class PipelineOrchestrator(QRunnable):
                     if res is not None:
                         ordered_results[idx] = res
                 except Exception as e:
-                    logger.error(f"Erreur sur l'élément {idx} en Map-Reduce: {e}")
+                    logger.error("Erreur sur l'élément %d en Map-Reduce: %s", idx, e)
 
         # Recomposer les résultats dans l'ordre
         for i in range(total_items):
@@ -492,7 +492,7 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_human_validation(self, step: PipelineStepModel) -> None:
         """Met le DAG en pause et attend l'interaction de l'utilisateur sur l'UI."""
-        logger.info(f"[Orchestrateur DAG] Pause pour validation humaine (étape {step.step_order})")
+        logger.info("[Orchestrateur DAG] Pause pour validation humaine (étape %d)", step.step_order)
         cfg: Dict[str, Any] = {}
         if step.config_data:
             try:

@@ -1,16 +1,20 @@
 import hashlib
+import logging
+import mimetypes
+from pathlib import Path
 import re
 import shutil
-from pathlib import Path
 from typing import Any
 
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 class MediaManager:
     """Gère l'importation, le hachage et le formatage HTML des images extraites."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # On s'assure que le dossier "data/media" existe
         self.base_dir = get_app_data_dir()
         self.media_dir = self.base_dir / "media"
@@ -29,6 +33,7 @@ class MediaManager:
         """Copie le fichier source dans media/ et retourne son MediaModel."""
         file_path_obj = Path(file_path)
         if not file_path_obj.exists():
+            logger.warning("Fichier source introuvable pour archivage média : %s", file_path)
             return None
 
         file_hash = self._calculate_md5(str(file_path_obj))
@@ -37,14 +42,21 @@ class MediaManager:
 
         if not destination_path.exists():
             shutil.copy2(str(file_path_obj), destination_path)
+            logger.info("Document source archivé : %s (hash: %s)", file_path_obj.name, file_hash)
 
-        import mimetypes
         from ankiforge.database.models import MediaModel
 
         mime_type, _ = mimetypes.guess_type(str(file_path_obj))
         mime_type = mime_type or "application/octet-stream"
 
-        media, _ = MediaModel.get_or_create(checksum=file_hash, defaults={"filename": new_filename, "original_name": file_path_obj.name, "mime_type": mime_type})
+        media, _ = MediaModel.get_or_create(
+            checksum=file_hash,
+            defaults={
+                "filename": new_filename,
+                "original_name": file_path_obj.name,
+                "mime_type": mime_type,
+            },
+        )
         return media
 
     def process_extracted_folder(self, source_folder: str, markdown_content: str) -> str:
@@ -63,7 +75,6 @@ class MediaManager:
         image_mapping = {}
 
         from ankiforge.database.models import MediaModel
-        import mimetypes
 
         # 1. Traitement des fichiers images
         for file in source_path.iterdir():
@@ -82,10 +93,19 @@ class MediaManager:
                 mime_type, _ = mimetypes.guess_type(str(file))
                 mime_type = mime_type or "image/" + file.suffix.lower().strip(".")
 
-                MediaModel.get_or_create(checksum=file_hash, defaults={"filename": new_filename, "original_name": file.name, "mime_type": mime_type})
+                MediaModel.get_or_create(
+                    checksum=file_hash,
+                    defaults={
+                        "filename": new_filename,
+                        "original_name": file.name,
+                        "mime_type": mime_type,
+                    },
+                )
 
                 # On enregistre la correspondance
                 image_mapping[file.name] = new_filename
+
+        logger.info("Traitement du dossier extrait terminé : %d image(s) archivée(s)", len(image_mapping))
 
         # 2. Remplacement dans le texte Markdown
         # Marker génère généralement des liens comme ça : ![Description](_page_1_Figure_2.jpeg)
@@ -118,16 +138,17 @@ class MediaManager:
         Returns:
             int: Le nombre de fichiers supprimés.
         """
-        from ankiforge.database.models import NoteVersionModel, MediaModel
+        from ankiforge.database.models import MediaModel, NoteVersionModel
 
         # 1. Lister tous les médias réellement utilisés en base
         used_media = set()
 
         # On itère sur toutes les versions de notes (actives et inactives)
         for version in NoteVersionModel.select(NoteVersionModel.content):
-            # La même regex que tu utilises dans ton ExportManager
             matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', version.content)
             used_media.update(matches)
+
+        logger.info("Démarrage du nettoyage des médias orphelins (%d médias actifs référencés)", len(used_media))
 
         # 2. Comparer avec les fichiers physiques et supprimer les orphelins
         deleted_count = 0
@@ -138,7 +159,13 @@ class MediaManager:
                         file_path.unlink()  # Supprime le fichier du disque
                         MediaModel.delete().where(MediaModel.filename == file_path.name).execute()
                         deleted_count += 1
-                    except OSError:
-                        pass  # Fichier verrouillé par le système, on l'ignorera pour cette fois
+                        logger.debug("Média orphelin supprimé : %s", file_path.name)
+                    except OSError as err:
+                        logger.warning(
+                            "Impossible de supprimer le média orphelin %s (fichier verrouillé) : %s",
+                            file_path.name,
+                            err,
+                        )
 
+        logger.info("Nettoyage des médias orphelins terminé : %d fichier(s) supprimé(s)", deleted_count)
         return deleted_count

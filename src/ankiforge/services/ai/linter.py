@@ -121,7 +121,7 @@ class WozniakLinterEngine:
                     }
                 )
         except Exception as e:
-            logger.warning(f"Note: Analyse BDD Peewee différée ou fallback: {e}")
+            logger.warning("Note: Analyse BDD Peewee différée ou fallback: %s", e)
 
         # Catégories réelles
         cat_atomicite_items = WozniakLinterEngine._detect_atomicite_issues(notes_with_version)
@@ -135,6 +135,15 @@ class WozniakLinterEngine:
         score_interference = max(0, 100 - len(cat_interference_items) * 3)
 
         score_global = int((score_atomicite + score_katex + score_cloze + score_interference) / 4)
+        logger.info(
+            "Audit Wozniak calculé : %d notes analysées, Score global: %d/100 (atomicité: %d, katex: %d, cloze: %d, interférence: %d)",
+            len(notes_with_version),
+            score_global,
+            score_atomicite,
+            score_katex,
+            score_cloze,
+            score_interference,
+        )
 
         return {
             "score_global": score_global,

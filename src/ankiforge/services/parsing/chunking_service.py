@@ -1,6 +1,9 @@
 import hashlib
+import logging
 import re
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class ChunkingService:
@@ -49,10 +52,20 @@ class ChunkingService:
         markers = list(cls.PAGE_MARKER_REGEX.finditer(content))
         is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx"))
 
+        logger.debug(
+            "Extraction de chunks pour document (%d caractères, file_type=%s, paginé=%s)",
+            len(content),
+            file_type,
+            is_paginated,
+        )
+
         if is_paginated and markers:
-            return cls._extract_by_page(content, markers)
+            result = cls._extract_by_page(content, markers)
         else:
-            return cls._extract_by_section(content)
+            result = cls._extract_by_section(content)
+
+        logger.info("Extraction de chunks achevée : %d fragments créés", len(result))
+        return result
 
     @classmethod
     def _extract_by_page(cls, content: str, markers: List[re.Match]) -> List[Dict[str, Any]]:

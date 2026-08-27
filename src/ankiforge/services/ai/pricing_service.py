@@ -1,4 +1,6 @@
-# src/ankiforge/services/ai/pricing_service.py
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_job_estimate(
@@ -49,5 +51,14 @@ def calculate_job_estimate(
 
     # Calcul financier
     total_cost = (input_tokens / 1_000_000 * prompt_pricing) + (output_tokens / 1_000_000 * completion_pricing)
+
+    logger.debug(
+        "Estimation de coût job IA : %d caractères -> ~%d tokens, coût estimé: $%.5f (étapes: %d, vision: %s)",
+        text_length,
+        total_tokens,
+        total_cost,
+        steps,
+        use_vision,
+    )
 
     return total_tokens, total_cost

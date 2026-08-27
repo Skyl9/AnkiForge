@@ -65,11 +65,13 @@ class StoreManager:
         """Approuve une liste de notes en mettant leur statut à 'new'."""
         with db.atomic():
             NoteModel.update(status="new").where(NoteModel.id.in_(note_ids)).execute()
+        logger.info("Approbation de %d notes (statut basculé à 'new').", len(note_ids))
 
     def delete_notes(self, note_ids: List[int]) -> None:
         """Supprime une liste de notes de la base de données."""
         with db.atomic():
             NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()
+        logger.info("Suppression définitive de %d notes en base de données.", len(note_ids))
 
     def apply_linter_suggestion(self, note_id: int, suggestion: dict) -> None:
         """Applique les suggestions du linter à une note via StoreManager."""
@@ -80,3 +82,4 @@ class StoreManager:
                 content = json.loads(active_version.content)
                 content.update(suggestion)
                 note.add_version(content, source="Linter AI")
+                logger.info("Correction Linter IA appliquée sur la note ID=%d (nouvelle version générée).", note_id)
