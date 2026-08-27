@@ -28,6 +28,8 @@ jobs:
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
