@@ -6,6 +6,7 @@ from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QAbstractItemView, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankiforge.ui.models import SimilarityBadgeDelegate, SrsMasteryDelegate
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import get_mathjax_script
@@ -162,12 +163,19 @@ class DuplicateMatrixTable(QFrame):
         self.table.setColumnWidth(5, 95)
 
         self.table.verticalHeader().setDefaultSectionSize(38)
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
 
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setShowGrid(False)
         self.table.verticalHeader().setVisible(False)
+
+        # Attachement des délégués vectoriels haute performance (0 QWidget par ligne)
+        self.similarity_delegate = SimilarityBadgeDelegate(self.table)
+        self.srs_delegate = SrsMasteryDelegate(self.table)
+        self.table.setItemDelegateForColumn(1, self.similarity_delegate)
+        self.table.setItemDelegateForColumn(4, self.srs_delegate)
 
         # Style the header and table to match the maquette
         self.table.horizontalHeader().setStyleSheet(f"""
@@ -208,44 +216,25 @@ class DuplicateMatrixTable(QFrame):
         self.check_all.stateChanged.connect(self._toggle_all_rows)
 
     def _toggle_all_rows(self, state: int):
-        is_checked = state == Qt.CheckState.Checked.value
+        new_state = Qt.CheckState.Checked if state == Qt.CheckState.Checked.value else Qt.CheckState.Unchecked
         for row in range(self.table.rowCount()):
-            widget = self.table.cellWidget(row, 0)
-            if widget:
-                cb = widget.findChild(QCheckBox)
-                if cb:
-                    cb.setChecked(is_checked)
+            item = self.table.item(row, 0)
+            if item:
+                item.setCheckState(new_state)
 
     def add_row(self, note_a, content_a, note_b, content_b, similarity, row_data):
         row = self.table.rowCount()
         self.table.insertRow(row)
 
-        cb = QCheckBox()
-        cb.setChecked(True)
-        cb_widget = QWidget()
-        cb_layout = QHBoxLayout(cb_widget)
-        cb_layout.addWidget(cb)
-        cb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cb_layout.setContentsMargins(0, 0, 0, 0)
-        self.table.setCellWidget(row, 0, cb_widget)
+        chk = QTableWidgetItem()
+        chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        chk.setCheckState(Qt.CheckState.Checked)
+        self.table.setItem(row, 0, chk)
 
+        # Similitude via SimilarityBadgeDelegate
         sim_str = f"{similarity * 100:.1f}%"
-        if similarity > 0.95:
-            rgba_bg = "rgba(239,68,68,0.2)"
-            color = DesignTokens.COLOR_RED
-        else:
-            rgba_bg = "rgba(245,158,11,0.2)"
-            color = DesignTokens.COLOR_YELLOW
-
-        lbl_sim = QLabel(sim_str)
-        lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        lbl_sim.setStyleSheet(f"background: {rgba_bg}; color: {color}; padding: 2px 8px; border-radius: 9999px; border: 1px solid {color};")
-        sim_widget = QWidget()
-        sim_layout = QHBoxLayout(sim_widget)
-        sim_layout.addWidget(lbl_sim)
-        sim_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        sim_layout.setContentsMargins(8, 4, 4, 4)
-        self.table.setCellWidget(row, 1, sim_widget)
+        item_sim = QTableWidgetItem(sim_str)
+        self.table.setItem(row, 1, item_sim)
 
         cardA = content_a.get("Recto", content_a.get("Text", str(note_a.id)))
         item_a = QTableWidgetItem(cardA[:100] + "..." if len(cardA) > 100 else cardA)
@@ -274,19 +263,10 @@ class DuplicateMatrixTable(QFrame):
         str_a, color_a = _get_srs_str_color(note_a)
         str_b, color_b = _get_srs_str_color(note_b)
 
-        lbl_srs = QLabel(
-            f"<span style='color: {color_a}; font-weight: bold;'>{str_a}</span> "
-            f"<span style='color: {DesignTokens.TEXT_MUTED}; font-weight: normal;'> vs </span> "
-            f"<span style='color: {color_b}; font-weight: bold;'>{str_b}</span>"
-        )
-        lbl_srs.setFont(QFont(DesignTokens.FONT_MAIN, 8))
-
-        srs_cell_widget = QWidget()
-        srs_cell_layout = QHBoxLayout(srs_cell_widget)
-        srs_cell_layout.addWidget(lbl_srs)
-        srs_cell_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        srs_cell_layout.setContentsMargins(8, 0, 0, 0)
-        self.table.setCellWidget(row, 4, srs_cell_widget)
+        # SRS Mastery via SrsMasteryDelegate
+        item_srs = QTableWidgetItem(f"{str_a} vs {str_b}")
+        item_srs.setData(Qt.ItemDataRole.UserRole, ((str_a, color_a), (str_b, color_b)))
+        self.table.setItem(row, 4, item_srs)
 
         status = "En attente"
         item_status = QTableWidgetItem(status)

@@ -1,8 +1,77 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Signal, Qt
-from ankiforge.ui.theme import DesignTokens
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QHBoxLayout,
+    QLabel,
+    QListView,
+    QVBoxLayout,
+    QWidget,
+)
+
 from ankiforge.ui.components.buttons import IconButton
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+
+
+class VirtualListView(QListView):
+    """
+    Vue de liste virtualisée haute performance (60 FPS).
+    Conçue pour se connecter à des QAbstractListModel paginés (VirtualChunkListModel).
+    Active par défaut : uniformItemSizes, ScrollPerPixel, masquage des focus rings lourds,
+    et réactivité complète aux thèmes DesignTokens.
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        # 1. Optimisations critiques de virtualisation
+        self.setUniformItemSizes(True)
+        self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setWordWrap(False)
+
+        self._apply_style()
+
+    def _apply_style(self, profile: Any = None) -> None:
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        radius_md = profile.radius_md if profile else DesignTokens.RADIUS_MD
+        text_primary = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+        bg_active = profile.bg_active if profile else DesignTokens.BG_ACTIVE
+        bg_hover = profile.bg_hover if profile else DesignTokens.BG_HOVER
+
+        self.setStyleSheet(f"""
+            QListView {{
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+                color: {text_primary};
+                outline: none;
+                padding: 4px;
+            }}
+            QListView::item {{
+                padding: 8px 12px;
+                border-bottom: 1px solid {border_col};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QListView::item:selected {{
+                background-color: {bg_active};
+                color: {text_primary};
+            }}
+            QListView::item:hover {{
+                background-color: {bg_hover};
+            }}
+        """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self._apply_style(profile)
 
 
 class StyledListItem(QWidget):
@@ -24,7 +93,7 @@ class StyledListItem(QWidget):
             }}
         """)
 
-    def mouseReleaseEvent(self, event) -> None:
+    def mouseReleaseEvent(self, event: Any) -> None:
         from PySide6.QtGui import QMouseEvent
 
         if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
