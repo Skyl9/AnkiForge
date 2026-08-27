@@ -1,9 +1,10 @@
 # ruff: noqa: E501
 import datetime
 import json
-import uuid
+import logging
 from pathlib import Path
 from typing import Any
+import uuid
 
 from peewee import (
     SQL,
@@ -20,6 +21,8 @@ from peewee import (
 )
 
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 # 3. On définit le chemin final de la base de données
 DEFAULT_DB_PATH = get_app_data_dir() / "ankiforge.db"
@@ -445,6 +448,7 @@ class AuditRecordModel(BaseModel):
 
 def init_db() -> None:
     db.connect(reuse_if_open=True)
+    logger.info("Connexion établie à la base de données SQLite : %s", db.database)
     # La création des tables est désormais entièrement déléguée à peewee-migrate.
 
 
@@ -473,7 +477,8 @@ class SettingModel(BaseModel):
                 return json.loads(record.value)
             except (json.JSONDecodeError, TypeError):
                 return record.value
-        except Exception:
+        except Exception as e:
+            logger.debug("Remarque sur la récupération du paramètre '%s': %s", key, e)
             return default
 
     @classmethod
@@ -510,8 +515,8 @@ class SettingModel(BaseModel):
                     results[record.key] = json.loads(record.value)
                 except (json.JSONDecodeError, TypeError):
                     results[record.key] = record.value
-        except Exception:
-            pass  # nosec B110
+        except Exception as e:
+            logger.debug("Remarque sur la récupération de la catégorie de paramètres '%s': %s", category, e)
         return results
 
     @classmethod

@@ -79,6 +79,9 @@ class CreationWorker(QThread):
 
     def run(self) -> None:
         """Exécute les étapes du pipeline et émet la liste des notes générées."""
+        import time
+
+        t0 = time.perf_counter()
         cleaned_output = ""
         raw_response = ""
         try:
@@ -91,6 +94,8 @@ class CreationWorker(QThread):
 
             current_input = f"TEXTE SOURCE :\n{self.payload.text_source}"
             total_steps = len(steps)
+
+            logger.info("Démarrage du pipeline de création '%s' (%d étapes)", self.payload.pipeline_name, total_steps)
 
             for i, step_data in enumerate(steps, 1):
                 if self._is_cancelled:
@@ -107,7 +112,7 @@ class CreationWorker(QThread):
 
                 system_prompt = format_system_prompt(agent_system_prompt, self.payload.note_type_fields_schema)
 
-                logger.info(f"Début étape {i}/{total_steps} : Agent '{agent_name}'")
+                logger.info("Début étape %d/%d : Agent '%s'", i, total_steps, agent_name)
                 self.log.emit(f"--- DÉBUT ÉTAPE {i} : {agent_name.upper()} ---\n")
                 self.log.emit(f"PROMPT SYSTÈME :\n{system_prompt}\n")
                 self.log.emit(f"ENTRÉE UTILISATEUR :\n{current_input}\n")
@@ -120,7 +125,7 @@ class CreationWorker(QThread):
                     clean_input = strip_image_tags(current_input)
                     raw_response = self.ai_provider.generate(system_prompt=system_prompt, user_prompt=clean_input, response_format=output_format)
 
-                logger.debug(f"Réponse brute de l'IA pour l'étape {i} : {raw_response[:100]}...")
+                logger.debug("Réponse brute de l'IA pour l'étape %d : %s...", i, raw_response[:100])
                 self.log.emit(f"RÉPONSE BRUTE DE L'IA :\n{raw_response}\n\n")
 
                 cleaned_output = self._clean_json(raw_response)
@@ -160,11 +165,13 @@ class CreationWorker(QThread):
 
                 cleaned_notes_to_create.append(cleaned_note_data)
 
+            elapsed = time.perf_counter() - t0
+            logger.info("Génération terminée avec succès : %d cartes extraites en %.2fs", len(cleaned_notes_to_create), elapsed)
             self.finished.emit(cleaned_notes_to_create)
 
         except json.JSONDecodeError as e:
-            logger.exception("Erreur de décodage JSON lors de la génération :")
+            logger.exception("Erreur de décodage JSON lors de la génération : %s", e)
             self.error.emit(f"L'un des agents a brisé le format JSON.\nErreur : {e}\n\nDernière sortie:\n{cleaned_output[:200]}")
         except Exception as e:
-            logger.exception("Erreur critique lors du pipeline de génération :")
+            logger.exception("Erreur critique lors du pipeline de génération : %s", e)
             self.error.emit(f"Erreur lors du pipeline IA : {str(e)}")

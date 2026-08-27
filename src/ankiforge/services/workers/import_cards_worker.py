@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import time
 from typing import Any, Optional
 
 from PySide6.QtCore import QThread, Signal
@@ -41,15 +42,21 @@ class ImportCardsWorker(QThread):
 
     def run(self) -> None:
         """Exécute l'analyse ou l'import complet en arrière-plan."""
+        logger.info("ImportCardsWorker démarré (mode='%s', fichier='%s')", self.mode, self.path.name)
+        t0 = time.perf_counter()
         try:
             analysis = self.import_manager.analyze_archive(self.path, progress_callback=self.progress.emit)
+            notes_count = len(getattr(analysis, "notes", []))
+            logger.info("Analyse d'archive complétée pour '%s' : %d note(s) identifiée(s)", self.path.name, notes_count)
             self.analysis_ready.emit(analysis)
 
             if self.mode == "full":
                 result = self.import_manager.commit_import(analysis, progress_callback=self.progress.emit)
+                elapsed = time.perf_counter() - t0
+                logger.info("Importation complète achevée pour '%s' en %.2fs : %s", self.path.name, elapsed, result)
                 self.commit_finished.emit(result)
                 self.finished_signal.emit()
 
         except Exception as e:
-            logger.exception("Erreur lors de l'analyse / importation :")
+            logger.exception("Erreur lors de l'analyse ou de l'importation de '%s' : %s", self.path.name, e)
             self.error_signal.emit(str(e))

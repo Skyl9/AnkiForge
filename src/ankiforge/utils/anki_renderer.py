@@ -1,4 +1,7 @@
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 AnkiFields = dict[str, str | list[str]]
 
@@ -152,6 +155,13 @@ def render_anki_card(
     Returns:
         str: Le code HTML complet, prêt à être affiché dans un QWebEngineView.
     """
+    logger.debug(
+        "Rendu de carte Anki (recto=%s, dark_mode=%s, template_index=%d, %d champs)",
+        is_recto,
+        is_dark_mode,
+        template_index,
+        len(fields_dict),
+    )
     safe_fields = _sanitize_fields(fields_dict)
 
     html = raw_html

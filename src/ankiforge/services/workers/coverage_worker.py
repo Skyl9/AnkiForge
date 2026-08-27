@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import time
 from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
@@ -31,16 +32,20 @@ class CoverageWorker(QThread):
         return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     def run(self) -> None:
+        logger.info("CoverageWorker démarré pour le document ID=%d", self.document_id)
+        t0 = time.perf_counter()
         try:
             self.progress_update.emit("Initialisation de la structuration documentaire...")
             doc = DocumentModel.get_or_none(DocumentModel.id == self.document_id)
             if not doc:
+                logger.error("CoverageWorker : Document ID=%d introuvable en base.", self.document_id)
                 self.error_occurred.emit(f"Document {self.document_id} introuvable.")
                 return
 
             # 1. DÉCOUPAGE DU DOCUMENT via ChunkingService
             extracted_chunks = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type)
             if not extracted_chunks:
+                logger.warning("Document '%s' vide ou trop court pour générer des chunks.", doc.title)
                 self.progress_update.emit("Document vide ou trop court.")
                 self.finished_processing.emit()
                 return
@@ -60,6 +65,7 @@ class CoverageWorker(QThread):
                         heading_path=chunk_data["heading_path"],
                         content_hash=chunk_data["content_hash"],
                     )
+            logger.info("Persistance de %d chunks en BDD pour le document '%s'", len(extracted_chunks), doc.title)
 
             # 3. Construction de l'index vectoriel FAISS local
             self.progress_update.emit("Génération de l'index vectoriel FAISS...")
@@ -67,9 +73,16 @@ class CoverageWorker(QThread):
             vector_mgr = VectorManager(llm_config=cfg)
             vector_mgr.index_document(doc)
 
+            elapsed = time.perf_counter() - t0
+            logger.info(
+                "CoverageWorker terminé avec succès pour '%s' (%d chunks, indexation FAISS) en %.2fs",
+                doc.title,
+                len(extracted_chunks),
+                elapsed,
+            )
             self.progress_update.emit("Indexation et structuration terminées avec succès !")
             self.finished_processing.emit()
 
         except Exception as e:
-            logger.exception("Erreur dans le CoverageWorker :")
+            logger.exception("Erreur dans le CoverageWorker pour document ID=%d : %s", self.document_id, e)
             self.error_occurred.emit(str(e))

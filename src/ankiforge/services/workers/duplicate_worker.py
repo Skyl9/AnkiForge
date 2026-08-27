@@ -1,7 +1,7 @@
-from typing import Optional
 import logging
+from typing import Optional
 
-from PySide6.QtCore import QThread, Signal, QObject
+from PySide6.QtCore import QObject, QThread, Signal
 
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 
@@ -16,11 +16,12 @@ class DuplicateWorker(QThread):
         super().__init__(parent)
         self.deck_id = deck_id
 
-    def run(self):
+    def run(self) -> None:
         try:
-            logger.info(f"Démarrage de la recherche de doublons pour le paquet {self.deck_id}...")
+            logger.info("Démarrage de la recherche de doublons pour le paquet ID=%d...", self.deck_id)
             conflicts = DuplicateManager.find_duplicates(self.deck_id)
+            logger.info("Recherche de doublons terminée pour le paquet ID=%d : %d conflit(s) détecté(s)", self.deck_id, len(conflicts))
             self.finished_processing.emit(conflicts)
         except Exception as e:
-            logger.error(f"Erreur DuplicateWorker: {e}", exc_info=True)
+            logger.error("Erreur DuplicateWorker pour le paquet ID=%d : %s", self.deck_id, e, exc_info=True)
             self.error_occurred.emit(str(e))

@@ -73,7 +73,15 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
     chunks = []
     protected_intervals = _get_protected_intervals(text)
 
-    if strategy == "Sémantique (Titres)":
+    logger.debug(
+        "Découpage de texte démarré (taille=%d car., stratégie='%s', max_chars=%d, overlap=%d)",
+        len(text),
+        strategy,
+        max_chars,
+        overlap,
+    )
+
+    if strategy in ("Sémantique (Titres)", "Par Titre / Chapitre (Sémantique)"):
         # On trouve tous les débuts de titres
         splits = [0] + [m.start() for m in re.finditer(r"(^|\n)(#{1,3})\s", text)] + [len(text)]
         splits = sorted(list(set(splits)))
@@ -87,7 +95,7 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
         # RÈGLE VITALE : On vérifie si un chapitre ne dépasse pas la limite
         for chunk in semantic_chunks:
             if len(chunk) > max_chars:
-                logger.debug(f"Chapitre trop long ({len(chunk)} chars), sous-découpage activé.")
+                logger.debug("Chapitre trop long (%d car.), sous-découpage activé.", len(chunk))
                 # Appel récursif !
                 sub_chunks = smart_chunk_text(chunk, "Chevauchement (Overlap)", max_chars, overlap)
                 chunks.extend(sub_chunks)
@@ -97,6 +105,7 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
         if not chunks:
             return smart_chunk_text(text, "Chevauchement (Overlap)", max_chars, overlap)
 
+        logger.info("Découpage de texte terminé : %d fragment(s) généré(s) (Sémantique)", len(chunks))
         return chunks
 
     elif strategy in ("Chevauchement (Overlap)", "Classique"):
@@ -107,7 +116,7 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
             split_idx = _find_best_split(text, start, max_end, protected_intervals)
 
             if split_idx <= start:
-                logger.warning(f"Tronçonnage forcé à l'index {start + max_chars} (aucun espace trouvé).")
+                logger.warning("Tronçonnage forcé à l'index %d (aucun séparateur trouvé).", start + max_chars)
                 split_idx = start + max_chars
 
             chunks.append(text[start:split_idx].strip())
@@ -129,6 +138,7 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
             else:
                 start = split_idx
 
+        logger.info("Découpage de texte terminé : %d fragment(s) généré(s) (%s)", len(chunks), strategy)
         return chunks
 
     return [text]

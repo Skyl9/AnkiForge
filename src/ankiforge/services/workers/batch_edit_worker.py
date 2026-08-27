@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any
 
 from PySide6.QtCore import QThread, Signal
@@ -42,10 +43,13 @@ class BatchEditWorker(QThread):
 
     def cancel(self) -> None:
         """Demande l'arrêt du processus de modification."""
+        logger.info("Demande d'annulation reçue pour BatchEditWorker.")
         self._is_cancelled = True
 
     def run(self) -> None:
         """Parcourt les notes par lots et enregistre les versions modifiées."""
+        logger.info("Démarrage du BatchEditWorker (%d notes, taille de lot=%d)", len(self.note_ids), self.chunk_size)
+        t0 = time.perf_counter()
         try:
             total_processed = 0
 
@@ -59,14 +63,16 @@ class BatchEditWorker(QThread):
                 "Ne rajoute AUCUN texte autour de ta réponse, uniquement du JSON valide."
             )
 
+            total_chunks = (len(self.note_ids) + self.chunk_size - 1) // self.chunk_size
             for i in range(0, len(self.note_ids), self.chunk_size):
+                chunk_index = i // self.chunk_size + 1
                 if self._is_cancelled:
                     logger.info("Traitement par lots AI annulé par l'utilisateur.")
                     self.cancelled.emit()
                     return
 
                 chunk_ids = self.note_ids[i : i + self.chunk_size]
-                self.progress.emit(f"Traitement du lot {i // self.chunk_size + 1} (Cartes {i + 1} à {min(i + self.chunk_size, len(self.note_ids))})...")
+                self.progress.emit(f"Traitement du lot {chunk_index}/{total_chunks} (Cartes {i + 1} à {min(i + self.chunk_size, len(self.note_ids))})...")
 
                 payload = []
                 for nid in chunk_ids:
@@ -108,13 +114,19 @@ class BatchEditWorker(QThread):
                             total_processed += 1
 
                 except (ValueError, TypeError) as e:
-                    logger.exception("Erreur de parsing lors du batch edit :")
+                    logger.exception("Erreur de parsing lors du batch edit sur le lot %d : %s", chunk_index, e)
                     self.error_signal.emit(f"Erreur de parsing sur un lot : {e}\nRéponse brute : {raw_response[:100]}...")
                     return
 
             if not self._is_cancelled:
+                elapsed = time.perf_counter() - t0
+                logger.info(
+                    "BatchEditWorker terminé avec succès : %d notes modifiées en %.2fs",
+                    total_processed,
+                    elapsed,
+                )
                 self.finished_signal.emit(total_processed)
 
         except (ValueError, TypeError, RuntimeError) as e:
-            logger.exception("Erreur critique lors du batch edit :")
+            logger.exception("Erreur critique lors du batch edit : %s", e)
             self.error_signal.emit(f"Erreur critique du Batch Edit : {e}")

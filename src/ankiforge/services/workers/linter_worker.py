@@ -204,14 +204,16 @@ Retourne UNIQUEMENT le tableau JSON valide, sans texte d'introduction ni de conc
                         final_results.extend(llm_results)
 
                     except Exception as e:
-                        logger.error(f"Erreur de parsing ou d'insertion sur le lot {current_chunk_index}: {e}", exc_info=True)
+                        logger.error("Erreur de parsing ou d'insertion sur le lot %d: %s", current_chunk_index, e, exc_info=True)
                         raise RuntimeError(f"Le lot {current_chunk_index} a échoué : {e}") from e
 
+            logger.info("Démarrage de l'audit Linter Wozniak (%d notes, force_recheck=%s)", len(self.note_ids), self.force_recheck)
             self.progress_update.emit("Audit terminé !")
+            logger.info("Audit Linter Wozniak terminé avec succès : %d résultats générés", len(final_results))
             self.finished_processing.emit(final_results)
 
         except Exception as e:
-            logger.error(f"Linter error: {e}", exc_info=True)
+            logger.error("Erreur d'audit Linter : %s", e, exc_info=True)
             if db.is_closed():
                 db.connect(reuse_if_open=True)
             self.error_occurred.emit(str(e))
