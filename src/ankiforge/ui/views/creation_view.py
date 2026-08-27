@@ -1747,7 +1747,7 @@ class CreationView(QWidget):
             deck = DeckModel.get_by_id(deck_id)
             self._set_current_deck(deck)
         except Exception as e:
-            logger.error(f"Impossible de trouver le paquet {deck_name}: {e}")
+            logger.error("Impossible de trouver le paquet %s : %s", deck_name, e)
 
     def _set_current_deck(self, deck: Any) -> None:
         self.current_deck = deck

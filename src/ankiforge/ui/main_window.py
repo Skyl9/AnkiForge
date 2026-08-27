@@ -582,6 +582,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(new_layout)
         LayoutManager.save_layout_id(self.profile_name, layout_id)
         LayoutManager.apply_theme_for_layout(layout_id)
+        logger.info("Application du layout '%s' (profil: '%s')", layout_id, self.profile_name)
 
         if self._current_view_id:
             new_layout.set_active_view(self._current_view_id)
@@ -757,6 +758,7 @@ class MainWindow(QMainWindow):
         if widget:
             self.stacked_widget.setCurrentWidget(widget)
             self._current_view_id = view_id
+            logger.info("Navigation vers la vue '%s' (avec contexte: %s)", view_id, bool(data))
             if hasattr(self, "current_layout") and self.current_layout:
                 self.current_layout.set_active_view(view_id)
 
@@ -808,36 +810,29 @@ class MainWindow(QMainWindow):
 
         from ankiforge.ui.widgets.settings_modal import SettingsModal
 
-        self._settings_window = SettingsModal(ai_manager=self.ai_manager, parent=self)
-        self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
-        if self.sidebar and hasattr(self.sidebar, "settings_btn"):
-            self.sidebar.settings_btn.setChecked(True)
+        self._settings_window = SettingsModal(ai_manager=self.ai_manager, profile_name=self.profile_name, parent=self)
+        self._settings_window.theme_applied.connect(lambda theme_id: self.engine.apply_theme(theme_id))
+        self._settings_window.layout_applied.connect(self.apply_layout)
         self._settings_window.show()
-        self._settings_window.raise_()
-        self._settings_window.activateWindow()
 
     def _on_settings_focus_changed(self, focused: bool) -> None:
         if self.sidebar and hasattr(self.sidebar, "settings_btn"):
             self.sidebar.settings_btn.setChecked(focused)
 
     def _open_command_palette(self) -> None:
-        """Ouvre le CommandPalette (Phase 3). Raccourci: Ctrl/⌘+K."""
-        pass
+        """Ouvre la palette de commandes (Omnibox globale)."""
+        from ankiforge.ui.widgets.command_palette import CommandPaletteModal
+
+        palette = CommandPaletteModal(self.VIEW_REGISTRY, parent=self)
+        palette.view_requested.connect(self._on_view_selected)
+        palette.exec()
 
     def _open_import_dialog(self) -> None:
-        """Ouvre la boîte de dialogue d'importation d'archive Anki."""
+        """Ouvre la boîte de dialogue d'importation de paquets Anki."""
         from ankiforge.ui.dialogs.import_dialog import ImportDialog
 
-        if hasattr(self, "_import_dialog") and self._import_dialog is not None and self._import_dialog.isVisible():
-            self._import_dialog.raise_()
-            self._import_dialog.activateWindow()
-            return
-
-        self._import_dialog = ImportDialog(parent=self)
-        self._import_dialog.import_finished.connect(self._on_import_finished)
-        self._import_dialog.show()
-        self._import_dialog.raise_()
-        self._import_dialog.activateWindow()
+        dialog = ImportDialog(parent=self)
+        dialog.exec()
 
     def _on_import_finished(self, summary: dict) -> None:
         """Rafraîchit la vue active après importation."""
@@ -877,6 +872,8 @@ class MainWindow(QMainWindow):
         from ankiforge.services.profile_manager import ProfileManager
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.widgets.toast import show_toast
+
+        logger.info("Bascule de l'espace de travail vers le profil '%s'", new_profile)
 
         # 1. Basculer la base de données Peewee et le répertoire média
         pm = ProfileManager()

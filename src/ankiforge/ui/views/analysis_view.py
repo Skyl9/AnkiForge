@@ -345,7 +345,7 @@ class AIWozniakLinterTab(QWidget):
         self.selected_deck_name = deck_name
         self.btn_deck.setText(deck_name)
         self.lbl_status_summary.setText(f"Paquet actif : {deck_name} • Prêt pour l'audit")
-        logger.info(f"Paquet sélectionné pour audit : {deck_name}")
+        logger.info("Paquet sélectionné pour audit : %s", deck_name)
         self.show_empty_state(f"Paquet '{deck_name}' sélectionné. Cliquez sur 'Analyser ce paquet' pour lancer le linter Wozniak.")
 
     def on_category_kpi_clicked(self, cat_id: str) -> None:
@@ -562,12 +562,12 @@ class AIWozniakLinterTab(QWidget):
                 AuditRecordModel.delete().where(AuditRecordModel.note == note).execute()
                 AuditRecordModel.create(note=note, note_version=new_version, is_compliant=True, rule_broken=None, reason="Corrigé manuellement via Linter")
 
-            logger.info(f"Proposition appliquée avec succès pour la note #{note_id}")
+            logger.info("Proposition appliquée avec succès pour la note #%d", note_id)
             show_toast(self, f"Note #{note_id} mise à jour avec succès !")
             widget_to_remove.deleteLater()
 
         except Exception as e:
-            logger.error(f"Erreur lors de l'application de la proposition pour la note #{note_id}: {e}")
+            logger.error("Erreur lors de l'application de la proposition pour la note #%d : %s", note_id, e)
 
     @Slot(int, QWidget)
     def _on_card_ignored(self, note_id: int, widget_to_remove: QWidget) -> None:
@@ -585,11 +585,11 @@ class AIWozniakLinterTab(QWidget):
                 AuditRecordModel.create(note=note, note_version=active_ver, is_compliant=True, reason="Ignoré par l'utilisateur (Faux positif)")
 
             widget_to_remove.deleteLater()
-            logger.info(f"Note #{note_id} ignorée et marquée comme conforme.")
+            logger.info("Note #%d ignorée et marquée comme conforme.", note_id)
             show_toast(self, f"Note #{note_id} marquée comme conforme.")
 
         except Exception as e:
-            logger.error(f"Erreur lors de l'ignorance de la note #{note_id}: {e}")
+            logger.error("Erreur lors de l'ignorance de la note #%d : %s", note_id, e)
 
     def filter_items_by_search(self, query: str) -> None:
         """Filtre dynamiquement les cartes affichées selon le texte de recherche."""
@@ -1972,7 +1972,7 @@ class AIDuplicatesMergeTab(QWidget):
     def on_scan_error(self, err: str) -> None:
         self.matrix_table.btn_reanalyze.setEnabled(True)
         self.matrix_table.btn_reanalyze.setText("Relancer l'analyse")
-        logger.error(f"Duplicate scan error: {err}")
+        logger.error("Erreur lors du scan des doublons : %s", err)
 
     def on_table_selection_changed(self) -> None:
         selected = self.matrix_table.table.selectedItems()
@@ -2018,7 +2018,7 @@ class AIDuplicatesMergeTab(QWidget):
             # Remove row from table
             self.remove_current_conflict()
         except Exception as e:
-            logger.error(f"Erreur fusion: {e}", exc_info=True)
+            logger.error("Erreur lors de la fusion : %s", e, exc_info=True)
 
     def on_ignore_requested(self, note_a, note_b) -> None:
         from ankiforge.database.models import IgnoredDuplicateModel
@@ -2028,7 +2028,7 @@ class AIDuplicatesMergeTab(QWidget):
             IgnoredDuplicateModel.get_or_create(note_a_id=id_1, note_b_id=id_2)
             self.remove_current_conflict()
         except Exception as e:
-            logger.error(f"Erreur ignore: {e}", exc_info=True)
+            logger.error("Erreur lors de l'ignorance du doublon : %s", e, exc_info=True)
 
     def remove_current_conflict(self):
         selected = self.matrix_table.table.selectedItems()

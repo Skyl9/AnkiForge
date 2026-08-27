@@ -1094,7 +1094,7 @@ class DocumentsView(QWidget):
                         f.save()
                 self.refresh_data()
             except Exception as e:
-                logger.error(f"Erreur déplacement dossier: {e}")
+                logger.error("Erreur déplacement dossier : %s", e)
                 show_toast(self, "Un dossier avec ce nom existe déjà à cet emplacement.", is_error=True)
 
     def refresh_data(self) -> None:

@@ -1275,6 +1275,7 @@ class CardModelsView(QWidget):
                         "  font-weight: bold;\n  color: #3b82f6;\n}"
                     ),
                 )
+                logger.info("Nouveau modèle de carte créé : '%s' (ID: %s)", new_model.name, new_model.id)
                 self.refresh_data()
                 # Sélectionner le nouveau modèle
                 for i in range(self.list_widget.count()):
@@ -1284,6 +1285,7 @@ class CardModelsView(QWidget):
                         break
                 show_toast(self, f"Modèle '{name.strip()}' créé avec succès.")
             except Exception as e:
+                logger.error("Impossible de créer le modèle : %s", e)
                 QMessageBox.critical(self, "Erreur", f"Impossible de créer le modèle : {str(e)}")
 
     @Slot()
@@ -1304,14 +1306,16 @@ class CardModelsView(QWidget):
                 templates=self._current_model.templates,
                 css_style=self._current_model.css_style,
             )
+            logger.info("Modèle de carte '%s' dupliqué sous '%s'", self._current_model.name, dup_name)
             self.refresh_data()
             for i in range(self.list_widget.count()):
                 item = self.list_widget.item(i)
                 if item.data(Qt.ItemDataRole.UserRole).id == created.id:
                     self.list_widget.setCurrentItem(item)
                     break
-            show_toast(self, f"Modèle dupliqué sous '{dup_name}'.")
+                show_toast(self, f"Modèle dupliqué sous '{dup_name}'.")
         except Exception as e:
+            logger.error("Impossible de dupliquer le modèle : %s", e)
             QMessageBox.critical(self, "Erreur", f"Impossible de dupliquer le modèle : {str(e)}")
 
     @Slot()
@@ -1349,6 +1353,7 @@ class CardModelsView(QWidget):
                             break
                     show_toast(self, f"Modèle '{dialog.imported_model.name}' importé avec succès.")
             except Exception as e:
+                logger.error("Échec de l'import de modèle : %s", e)
                 QMessageBox.critical(self, "Erreur d'importation", f"Échec de l'import : {str(e)}")
 
     @Slot()
@@ -1370,19 +1375,22 @@ class CardModelsView(QWidget):
         if not self._current_model:
             return
 
+        model_name = self._current_model.name
         res = QMessageBox.question(
             self,
             "Supprimer le modèle",
-            f"Voulez-vous vraiment supprimer le modèle '{self._current_model.name}' ?",
+            f"Voulez-vous vraiment supprimer le modèle '{model_name}' ?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if res == QMessageBox.StandardButton.Yes:
             try:
                 self._current_model.delete_instance()
                 self._current_model = None
+                logger.info("Modèle de carte '%s' supprimé.", model_name)
                 self.refresh_data()
                 show_toast(self, "Modèle supprimé.")
             except Exception as e:
+                logger.error("Impossible de supprimer le modèle : %s", e)
                 QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le modèle : {str(e)}")
 
     @Slot()
@@ -1405,9 +1413,11 @@ class CardModelsView(QWidget):
             self._current_model.css_style = css
             self._current_model.save()
 
+            logger.info("Modèle de carte '%s' sauvegardé avec succès.", self._current_model.name)
             show_toast(self, f"Modèle '{self._current_model.name}' sauvegardé avec succès.")
             self._update_preview()
         except Exception as e:
+            logger.error("Impossible de sauvegarder le modèle : %s", e)
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible de sauvegarder le modèle : {str(e)}")
 
     def refresh_theme(self, profile: Any) -> None:

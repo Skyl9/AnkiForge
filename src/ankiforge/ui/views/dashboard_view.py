@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from PySide6.QtWidgets import (
@@ -20,6 +21,8 @@ from ankiforge.ui.components import IdePanel, SecondaryButton, PrimaryButton
 from ankiforge.services.audit.metrics_service import MetricsService
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
+logger = logging.getLogger(__name__)
+
 
 class DashboardWorker(QThread):
     """Worker asynchrone pour charger les métriques du cockpit sans bloquer l'UI."""
@@ -31,7 +34,7 @@ class DashboardWorker(QThread):
             data = MetricsService.get_full_dashboard_data()
             self.data_loaded.emit(data)
         except Exception:
-            pass  # nosec B110
+            logger.exception("Erreur lors du calcul des métriques du tableau de bord")
 
 
 # Alias rétrocompatible
@@ -738,6 +741,7 @@ class DashboardView(QWidget):
 
     def refresh_data(self):
         """Lance l'actualisation asynchrone des données du tableau de bord."""
+        logger.debug("Actualisation asynchrone des métriques du tableau de bord…")
         self.worker = DashboardWorker()
         self.worker.data_loaded.connect(self._on_data_loaded)
         self.worker.start()

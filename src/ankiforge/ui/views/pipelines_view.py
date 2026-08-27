@@ -2177,7 +2177,7 @@ class PipelinesView(QWidget):
             self._cached_personas = list(PersonaModel.select().order_by(PersonaModel.name.asc()))
             self._cached_llms = list(LLMConfigModel.select().order_by(LLMConfigModel.display_name.asc()))
         except Exception as e:
-            logger.warning(f"Erreur refresh_data personas/llms: {e}")
+            logger.warning("Erreur refresh_data personas/llms : %s", e)
             self._cached_personas = []
             self._cached_llms = []
 
@@ -2190,7 +2190,7 @@ class PipelinesView(QWidget):
             for p in pipelines:
                 self.pipeline_combo.addItem(p.name, userData=p)
         except Exception as e:
-            logger.warning(f"Erreur refresh_data pipelines: {e}")
+            logger.warning("Erreur refresh_data pipelines : %s", e)
 
         self.pipeline_combo.blockSignals(False)
 
@@ -2217,7 +2217,7 @@ class PipelinesView(QWidget):
         try:
             steps_models = list(PipelineStepModel.select().where(PipelineStepModel.pipeline == selected_pipe).order_by(PipelineStepModel.step_order.asc()))
         except Exception as e:
-            logger.warning(f"Erreur chargement étapes : {e}")
+            logger.warning("Erreur chargement étapes : %s", e)
             steps_models = []
 
         for s in steps_models:

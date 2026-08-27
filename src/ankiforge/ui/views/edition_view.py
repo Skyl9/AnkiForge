@@ -618,9 +618,10 @@ class EditionView(QWidget):
         fields = ["Front", "Back"]
         if note.note_type and note.note_type.fields_schema:
             try:
-                fields = json.loads(note.note_type.fields_schema)
+                fields = json.loads(str(note.note_type.fields_schema)) if note.note_type and note.note_type.fields_schema else []
             except Exception as e:
-                logger.warning(f"Failed to load fields_schema: {e}")
+                logger.warning("Échec du chargement du schéma des champs : %s", e)
+                fields = []
 
         for i, field_name in enumerate(fields):
             val = data.get(field_name, data.get(field_name.lower(), ""))
@@ -847,7 +848,7 @@ class EditionView(QWidget):
                     elif isinstance(tags, str) and tags.strip():
                         current_tags.add(tags.strip())
                 except Exception as e:
-                    logger.warning(f"Failed to parse tags: {e}")
+                    logger.warning("Échec du parsing des tags : %s", e)
 
         self._tag_modal = TagSelectWindow(allowed_tags=current_tags, parent=self)
         self._tag_modal.tag_selected.connect(self._on_tag_selected_from_modal)
@@ -910,7 +911,7 @@ class EditionView(QWidget):
                 action = menu.addAction(m.name)
                 action.triggered.connect(lambda checked=False, mid=m.id, mname=m.name: self._on_model_selected(mid, mname))
         except Exception as e:
-            logger.warning(f"Erreur chargement modèles: {e}")
+            logger.warning("Erreur chargement modèles : %s", e)
 
         menu.exec(self.btn_open_model.mapToGlobal(self.btn_open_model.rect().bottomLeft()))
 
@@ -972,7 +973,7 @@ class EditionView(QWidget):
                     self.card_table.setItemDelegateForColumn(tags_col, self.tag_delegate)
                     return
             except Exception as e:
-                logger.warning(f"An error occurred: {e}")
+                logger.warning("Erreur lors de la mise à jour des en-têtes du tableau : %s", e)
 
         # Default (Mixed / All Models) : Tableau Spacieux
         self._current_table_fields = None
@@ -1034,7 +1035,7 @@ class EditionView(QWidget):
             dialog.version_restored.connect(self._on_version_restored)
             dialog.exec()
         except Exception as e:
-            logger.warning(f"Erreur ouverture TimeMachine: {e}")
+            logger.warning("Erreur ouverture TimeMachine : %s", e)
 
     @Slot(list)
     def open_linter_dialog(self, note_ids: List[int]) -> None:
@@ -1149,7 +1150,7 @@ class EditionView(QWidget):
                 if isinstance(parsed, dict):
                     data = {str(k): str(v) for k, v in parsed.items()}
             except Exception as e:
-                logger.warning(f"An error occurred: {e}")
+                logger.warning("Erreur parsing contenu note pour rendu dynamique : %s", e)
         return data
 
     def _load_next_card_batch(self) -> None:
