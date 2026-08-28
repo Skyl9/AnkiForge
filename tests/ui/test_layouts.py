@@ -47,7 +47,6 @@ def test_layout_instantiation_and_theme_sync(qtbot):
         layout.set_stacked_widget(stack)
         layout.populate_navigation(MainWindow.VIEW_REGISTRY)
         layout.set_active_view("dashboard")
-        layout.update_daemon_status("idle", "Daemon Prêt")
         layout.update_token_tracker("0.05", "1500")
 
 

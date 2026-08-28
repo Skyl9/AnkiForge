@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.components.misc import DaemonStatusWidget
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
@@ -172,10 +171,6 @@ class GlassmorphismLayout(BaseLayout):
         """)
         header_layout.addWidget(self.token_lbl)
 
-        self.daemon_status = DaemonStatusWidget()
-        self.daemon_status.set_status("idle", "Prêt")
-        header_layout.addWidget(self.daemon_status)
-
         self.search_btn = IconButton("magnifying-glass", tooltip="Rechercher (Ctrl+K)", size=22)
         self.search_btn.clicked.connect(self.search_clicked.emit)
         header_layout.addWidget(self.search_btn)
@@ -233,9 +228,6 @@ class GlassmorphismLayout(BaseLayout):
             self._nav_buttons[view_id] = btn
             self._button_group.addButton(btn)
             self.nav_layout.addWidget(btn)
-
-    def update_daemon_status(self, status: str, text: str) -> None:
-        self.daemon_status.set_status(status, text)
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()

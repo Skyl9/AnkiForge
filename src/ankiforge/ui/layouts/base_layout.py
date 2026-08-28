@@ -63,10 +63,6 @@ class BaseLayout(QWidget):
         """Construit les éléments de navigation à partir du registre central des vues."""
         pass
 
-    def update_daemon_status(self, status: str, text: str) -> None:
-        """Met à jour l'indicateur de statut du daemon en arrière-plan."""
-        pass
-
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         """Met à jour l'affichage des dépenses IA."""
         pass

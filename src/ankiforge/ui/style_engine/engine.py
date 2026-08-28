@@ -492,12 +492,88 @@ class StyleEngine(QObject):
             color: {p.accent_primary};
             font-weight: bold;
         }}
+
+        /* --- Sidebar sub-elements --- */
+        QLabel#SidebarLogoText {{
+            color: {p.text_primary};
+            font-weight: bold;
+            font-size: 16px;
+            border: none;
+        }}
+        QWidget#SidebarHeader {{
+            border-bottom: 1px solid {p.border_color};
+            background-color: transparent;
+        }}
+        QFrame#SidebarSeparator {{
+            background-color: {p.border_color};
+            border: none;
+            margin: 4px 0px;
+        }}
+        QLabel#SidebarSectionTitle {{
+            color: {p.text_muted};
+            font-size: 11px;
+            font-weight: bold;
+            border: none;
+        }}
+        QFrame#SidebarSectionSep {{
+            background-color: {p.border_color};
+            border: none;
+            margin: 11px 4px;
+        }}
+        QLabel#SidebarUserName {{
+            color: {p.text_primary};
+            border: none;
+            font-weight: bold;
+            font-size: 12px;
+        }}
+        QLabel#SidebarCardsIcon {{
+            border: none;
+            background: transparent;
+        }}
+
+        /* --- TopBar & sub-elements --- */
         TopBar, QWidget#TopBar {{
             background-color: {p.bg_sidebar};
             border-bottom: 1px solid {p.border_color};
         }}
-        GlobalTitleBar {{
+        QLabel#TopBarBreadcrumbLabel {{
+            color: {p.text_primary};
+            font-weight: 600;
+            font-size: 13px;
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarBreadcrumbIcon {{
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarTokenLabel {{
+            color: {p.text_secondary};
+            font-family: '{p.font_code}';
+            font-size: 11px;
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarDollarIcon {{
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarNotifBadge {{
+            background-color: {p.color_red};
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 9px;
+            border: none;
+        }}
+
+        /* --- GlobalTitleBar --- */
+        GlobalTitleBar, QFrame#GlobalTitleBar {{
             background-color: {p.bg_main};
+        }}
+        QLabel#GlobalTitleBarLabel {{
+            color: {p.text_muted};
+            font-size: 11px;
         }}
 
         /* Zone de défilement générique */

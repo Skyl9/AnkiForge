@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.components.misc import DaemonStatusWidget
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
@@ -196,11 +195,6 @@ class MacosLayout(BaseLayout):
         """)
         top_layout.addWidget(self.token_lbl)
 
-        # Daemon status
-        self.daemon_status = DaemonStatusWidget()
-        self.daemon_status.set_status("idle", "Prêt")
-        top_layout.addWidget(self.daemon_status)
-
         # Profile Button
         self.profile_btn = IconButton("user-circle", tooltip=f"Espace de travail : {self.profile_name}", size=22)
         self.profile_btn.clicked.connect(self.profile_switch_requested.emit)
@@ -250,9 +244,6 @@ class MacosLayout(BaseLayout):
             self._nav_buttons[view_id] = btn
             self._button_group.addButton(btn)
             self.nav_layout.addWidget(btn)
-
-    def update_daemon_status(self, status: str, text: str) -> None:
-        self.daemon_status.set_status(status, text)
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()

@@ -5,7 +5,10 @@ from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, 
 from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem, VirtualListView
 from .badges import Badge, TagButton, StatusBadge
 from .tables import StyledTableWidget, CicdTable, VirtualTableView
-from .misc import UserAvatar, StyledToolbar, DaemonStatusWidget
+from .misc import UserAvatar, StyledToolbar
+from .sidebar import Sidebar, SidebarItem, ClickableLabel
+from .topbar import TopBar
+from .title_bar import GlobalTitleBar
 from .flow_layout import FlowLayout, FlowWidget
 from .code_editor import (
     CSSFormatter,
@@ -58,7 +61,11 @@ __all__ = [
     "VirtualTableView",
     "UserAvatar",
     "StyledToolbar",
-    "DaemonStatusWidget",
+    "Sidebar",
+    "SidebarItem",
+    "ClickableLabel",
+    "TopBar",
+    "GlobalTitleBar",
     "FlowLayout",
     "FlowWidget",
     "CodeEditorWithGutter",

@@ -37,7 +37,8 @@ class IdeLayout(BaseLayout):
         return "Barre latérale sombre rétractable, recherche globale Omnibox et panneaux modulaires."
 
     def _setup_ui(self) -> None:
-        from ankiforge.ui.main_window import Sidebar, TopBar
+        from ankiforge.ui.components.sidebar import Sidebar
+        from ankiforge.ui.components.topbar import TopBar
 
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
@@ -104,9 +105,6 @@ class IdeLayout(BaseLayout):
 
         for cat, items in categories.items():
             self.sidebar.add_section(cat, items)
-
-    def update_daemon_status(self, status: str, text: str) -> None:
-        self.topbar.update_daemon_status(status, text)
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         self.topbar.update_token_tracker(cost, tokens)
