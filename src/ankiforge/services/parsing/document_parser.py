@@ -9,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import docx
 import markdownify
@@ -38,7 +39,7 @@ class DocumentParser:
         """
         self.media_manager = media_manager or MediaManager()
 
-    def parse_document(self, source_file_path: str | Path, progress_callback=None, check_cancel=None) -> str:
+    def parse_document(self, source_file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
         """
         Détermine le type de document et invoque le parseur approprié.
 
@@ -120,12 +121,12 @@ class DocumentParser:
             raise ValueError("Accès refusé ou URL invalide. Le site est peut-être protégé contre les robots (Cloudflare, connexion requise...).")
 
         # Extraction intelligente (format markdown activé pour garder la structure h1, h2, listes)
-        result = trafilatura.extract(downloaded, output_format="markdown", include_links=False, include_images=False)
+        extracted_text: str = str(trafilatura.extract(downloaded, output_format="markdown", include_links=False, include_images=False) or "")
 
-        if not result:
+        if not extracted_text:
             raise ValueError("Aucun contenu textuel principal détecté. Il s'agit peut-être d'une page vide ou générée dynamiquement via JavaScript (SPA).")
 
-        return result
+        return extracted_text
 
     @staticmethod
     def _parse_wikipedia(url: str) -> str:
@@ -202,7 +203,7 @@ class DocumentParser:
             logger.exception("Erreur lors du traitement Wikipédia :")
             raise RuntimeError(f"Erreur lors du traitement Wikipédia : {str(e)}") from e
 
-    def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback=None, check_cancel=None) -> str:
+    def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
         # On a retiré le grand "try:" global
         with tempfile.TemporaryDirectory() as temp_dir_str:

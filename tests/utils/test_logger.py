@@ -5,9 +5,9 @@ le buffer circulaire RingBuffer, le pipeline asynchrone QueueHandler et les gest
 """
 
 import logging
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 from ankiforge.utils.logger import (
     AnkiForgeLogFormatter,

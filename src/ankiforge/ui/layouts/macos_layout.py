@@ -3,7 +3,6 @@ Layout macOS (Apple Native Style) pour AnkiForge.
 Barre supérieure unifiée (Unified Toolbar), contrôles segmentés arrondis, typographie épurée et affichage pleine largeur.
 """
 
-from typing import Dict, Optional, Tuple, Type
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -26,7 +25,7 @@ from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
 class MacosSegmentButton(QPushButton):
     """Bouton pour la barre segmentée de style macOS natif."""
 
-    def __init__(self, view_id: str, icon_name: str, title: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.view_id = view_id
         self.icon_name = icon_name
@@ -89,9 +88,9 @@ class MacosLayout(BaseLayout):
     - Look épuré et minimaliste
     """
 
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(profile_name, parent)
-        self._nav_buttons: Dict[str, MacosSegmentButton] = {}
+        self._nav_buttons: dict[str, MacosSegmentButton] = {}
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
         self._setup_ui()
@@ -230,7 +229,7 @@ class MacosLayout(BaseLayout):
         if btn:
             btn.setChecked(True)
 
-    def populate_navigation(self, view_registry: Dict[str, Tuple[str, str, str, Type[QWidget]]]) -> None:
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
         # Nettoyer
         for btn in self._nav_buttons.values():
             self._button_group.removeButton(btn)

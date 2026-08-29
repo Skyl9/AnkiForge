@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from jinja2 import BaseLoader, Environment
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
@@ -43,7 +44,7 @@ class PersonaIdentityCard(QFrame):
 
     change_persona_requested = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
@@ -96,7 +97,7 @@ class PersonaIdentityCard(QFrame):
         b_row.addStretch()
         layout.addLayout(b_row)
 
-    def set_persona(self, persona: Optional[PersonaModel]) -> None:
+    def set_persona(self, persona: PersonaModel | None) -> None:
         if persona:
             self.lbl_title.setText(f"<b>Agent : {persona.name}</b>")
             desc = persona.system_prompt.strip().replace("\n", " ") if persona.system_prompt else "Agent IA spécialisé."
@@ -115,7 +116,7 @@ class PersonaIdentityCard(QFrame):
 class PromptPreviewDialog(QDialog):
     """Affiche la résolution dynamique du template Jinja2 avec des données échantillons réalistes."""
 
-    def __init__(self, template_str: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, template_str: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Aperçu du Prompt Interpolé (Jinja2)")
         self.resize(700, 500)
@@ -193,13 +194,13 @@ class StepInspectorPanel(QFrame):
     step_updated = Signal()
     test_step_requested = Signal(dict)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.step_data: Optional[Dict[str, Any]] = None
+        self.step_data: dict[str, Any] | None = None
         self.step_order: int = 1
         self.total_steps: int = 1
-        self.available_personas: List[PersonaModel] = []
-        self.available_llms: List[LLMConfigModel] = []
+        self.available_personas: list[PersonaModel] = []
+        self.available_llms: list[LLMConfigModel] = []
 
         self.setObjectName("StepInspector")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -379,11 +380,11 @@ class StepInspectorPanel(QFrame):
 
     def inspect_step(
         self,
-        step_data: Dict[str, Any],
+        step_data: dict[str, Any],
         step_order: int,
         total_steps: int,
-        personas: List[PersonaModel],
-        llms: List[LLMConfigModel],
+        personas: list[PersonaModel],
+        llms: list[LLMConfigModel],
     ) -> None:
         """Charge et affiche les données de l'étape sélectionnée."""
         self.step_data = step_data

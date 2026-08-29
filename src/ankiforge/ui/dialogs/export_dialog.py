@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtGui import QFont
@@ -44,20 +43,20 @@ class ExportDialog(QDialog):
 
     export_finished = Signal(str, int)  # file_path, count
 
-    def __init__(self, default_deck_id: Optional[int] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, default_deck_id: int | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.export_manager = ExportManager()
-        self.selected_tags: List[str] = []
-        self.selected_deck_id: Optional[int] = default_deck_id
+        self.selected_tags: list[str] = []
+        self.selected_deck_id: int | None = default_deck_id
         self.selected_deck_name: str = "Tous les paquets (Collection entière)"
-        self._deck_modal: Optional[DeckSelectWindow] = None
+        self._deck_modal: DeckSelectWindow | None = None
 
         self.setWindowTitle("Exporter un Paquet Anki")
         self.resize(600, 520)
 
         self._setup_ui(default_deck_id)
 
-    def _setup_ui(self, default_deck_id: Optional[int] = None) -> None:
+    def _setup_ui(self, default_deck_id: int | None = None) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)

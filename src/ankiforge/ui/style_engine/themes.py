@@ -4,7 +4,7 @@ Contient l'ensemble des 24 thèmes officiels (12 Sombres & 12 Clairs) organisés
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
 
 
@@ -755,7 +755,7 @@ ONE_LIGHT_PRO = ThemeProfile(
 # 🎨 LES 12 FAMILLES DE THÈMES (BIVALENTES SOMBRE / CLAIR)
 # ==============================================================================
 
-THEME_FAMILIES: Dict[str, ThemeFamily] = {
+THEME_FAMILIES: dict[str, ThemeFamily] = {
     "jetbrains": ThemeFamily(
         id="jetbrains",
         name="JetBrains IDE",
@@ -859,7 +859,7 @@ THEME_FAMILIES: Dict[str, ThemeFamily] = {
 # 📚 REGISTRE DE TOUS LES THÈMES INTÉGRÉS & ALIAS
 # ==============================================================================
 
-BUILTIN_THEMES: Dict[str, ThemeProfile] = {
+BUILTIN_THEMES: dict[str, ThemeProfile] = {
     # Dark themes
     "ide": JETBRAINS_DARK,
     "jetbrains_dark": JETBRAINS_DARK,
@@ -902,12 +902,12 @@ BUILTIN_THEMES: Dict[str, ThemeProfile] = {
 }
 
 
-def get_theme_families() -> List[ThemeFamily]:
+def get_theme_families() -> list[ThemeFamily]:
     """Retourne la liste des 12 familles de thèmes bivalentes."""
     return list(THEME_FAMILIES.values())
 
 
-def get_family_for_theme(theme_id: str) -> Optional[ThemeFamily]:
+def get_family_for_theme(theme_id: str) -> ThemeFamily | None:
     """Retrouve la famille de thème correspondante à un theme_id donné."""
     theme_id_clean = theme_id.lower().strip()
     if theme_id_clean in THEME_FAMILIES:
@@ -945,7 +945,7 @@ def get_family_for_theme(theme_id: str) -> Optional[ThemeFamily]:
     return None
 
 
-def get_unique_builtin_themes() -> List[ThemeProfile]:
+def get_unique_builtin_themes() -> list[ThemeProfile]:
     """Retourne la liste des thèmes intégrés sans doublons d'alias (12 sombres + 12 clairs)."""
     seen_ids = set()
     unique_list = []

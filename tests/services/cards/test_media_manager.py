@@ -58,8 +58,9 @@ def test_process_extracted_folder_missing_dir(media_manager):
 
 
 def test_clean_orphaned_media(media_manager, tmp_path):
-    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
     import json
+
+    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 
     # 1. Création de fausses images sur le disque
     media_dir = tmp_path / "media"

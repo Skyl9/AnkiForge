@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 import markdown
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
 from PySide6.QtWidgets import (
@@ -30,7 +31,7 @@ class DocumentEditorWidget(QWidget):
     generate_requested = Signal(str, str)  # text_source, source_title
     cancel_requested = Signal()
 
-    def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.source_title = source_title
         layout = QVBoxLayout(self)
@@ -342,16 +343,15 @@ class DocumentEditorWidget(QWidget):
             self.lbl_pdf_zoom.setText("Auto")
 
     def eventFilter(self, obj: Any, event: Any) -> bool:
-        if hasattr(self, "pdf_view") and (obj == self.pdf_view or (hasattr(self.pdf_view, "viewport") and obj == self.pdf_view.viewport())):
-            if event.type() == QEvent.Type.Wheel:
-                modifiers = event.modifiers()
-                if modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
-                    delta = event.angleDelta().y()
-                    if delta > 0:
-                        self._on_pdf_zoom_in()
-                    elif delta < 0:
-                        self._on_pdf_zoom_out()
-                    return True
+        if hasattr(self, "pdf_view") and (obj == self.pdf_view or (hasattr(self.pdf_view, "viewport") and obj == self.pdf_view.viewport())) and event.type() == QEvent.Type.Wheel:
+            modifiers = event.modifiers()
+            if modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
+                delta = event.angleDelta().y()
+                if delta > 0:
+                    self._on_pdf_zoom_in()
+                elif delta < 0:
+                    self._on_pdf_zoom_out()
+                return True
         return super().eventFilter(obj, event)
 
     def jump_pdf_to_page(self, page_index: int) -> None:

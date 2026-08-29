@@ -3,6 +3,7 @@ Tests unitaires pour le service de versioning des Personas / Agents IA (PersonaV
 """
 
 import json
+
 from ankiforge.database.models import LLMConfigModel, PersonaModel, PersonaVersionModel
 from ankiforge.services.ai.persona_version_service import PersonaVersionService
 

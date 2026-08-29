@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
@@ -10,7 +9,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class ResponsiveAgentTopActionBar(QFrame):
     """Barre d'action supérieure adaptative pour l'éditeur d'agents IA."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("agentTopActionBar")
         self.setFixedHeight(44)

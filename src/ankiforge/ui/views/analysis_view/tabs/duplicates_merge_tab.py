@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
@@ -16,11 +15,11 @@ logger = logging.getLogger(__name__)
 class AIDuplicatesMergeTab(QWidget):
     """Onglet de gestion des fusions et faux doublons."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.selected_deck_id: Optional[int] = None
+        self.selected_deck_id: int | None = None
         self.conflicts: list = []
-        self.worker: Optional[DuplicateWorker] = None
+        self.worker: DuplicateWorker | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)

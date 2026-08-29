@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
@@ -63,16 +63,16 @@ class CardModelsView(QWidget):
     Vue Card Models (Atelier de Modèles de Cartes) — Conforme Pilier 3 d'AnkiForge.
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, profile_name: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self._current_model: Optional[NoteTypeModel] = None
-        self._templates_list: List[Dict[str, Any]] = []
+        self._current_model: NoteTypeModel | None = None
+        self._templates_list: list[dict[str, Any]] = []
         self._current_template_idx: int = 0
         self._is_syncing_template: bool = False
         self._current_helper_cat: str = "Tous"
-        self.helper_category_buttons: Dict[str, QPushButton] = {}
+        self.helper_category_buttons: dict[str, QPushButton] = {}
         self._last_active_editor: str = "front"
 
         self._setup_ui()
@@ -627,13 +627,13 @@ class CardModelsView(QWidget):
             self.editor_vertical_splitter.setSizes([70, 500])
 
     @Slot()
-    def _on_item_selected(self, current: Optional[QListWidgetItem], previous: Optional[QListWidgetItem]) -> None:
+    def _on_item_selected(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
         if not current:
             self._current_model = None
             self.lbl_editor_title.setText("Aucun modèle sélectionné")
             return
 
-        model: Optional[NoteTypeModel] = current.data(Qt.ItemDataRole.UserRole)
+        model: NoteTypeModel | None = current.data(Qt.ItemDataRole.UserRole)
         if not model:
             return
 
@@ -816,7 +816,7 @@ class CardModelsView(QWidget):
         self._update_preview()
 
     @Slot(SnippetItem)
-    def _on_insert_snippet(self, snippet: SnippetItem, target: Optional[str] = None) -> None:
+    def _on_insert_snippet(self, snippet: SnippetItem, target: str | None = None) -> None:
         existing_css = self.css_editor_wrapper.toPlainText()
         conflicts = CSSConflictResolver.find_conflicts(existing_css, snippet.css_style)
 
@@ -976,7 +976,7 @@ class CardModelsView(QWidget):
             raw_fields = ["Front", "Back"]
 
         selected_note_id = self.note_witness_combo.currentData()
-        mock_fields: Dict[str, str] = {}
+        mock_fields: dict[str, str] = {}
 
         if selected_note_id:
             version = NoteVersionModel.get_or_none(NoteVersionModel.note_id == selected_note_id, is_active=True)

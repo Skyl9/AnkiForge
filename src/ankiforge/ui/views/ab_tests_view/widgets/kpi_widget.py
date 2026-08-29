@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -9,7 +8,7 @@ from ankiforge.ui.views.ab_tests_view.constants import apply_pill_style
 class BranchKpiWidget(QFrame):
     """Bannière aérée et structurée de KPIs de performance pour une branche A/B."""
 
-    def __init__(self, branch_title: str, color_hex: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, branch_title: str, color_hex: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.branch_title = branch_title
         self.color_hex = color_hex

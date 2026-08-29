@@ -1,4 +1,5 @@
-from typing import Any, Optional
+import contextlib
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -19,7 +20,7 @@ class AnalysisView(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
@@ -69,10 +70,8 @@ class AnalysisView(QWidget):
             self.btn_settings.refresh_theme(profile)
         for tab in [getattr(self, "tab_wozniak", None), getattr(self, "tab_sources", None), getattr(self, "tab_tokens", None), getattr(self, "tab_duplicates", None)]:
             if tab and hasattr(tab, "refresh_theme"):
-                try:
+                with contextlib.suppress(Exception):
                     tab.refresh_theme(profile)
-                except Exception:
-                    pass
 
     def set_active_tab_by_name(self, tab_name: str) -> None:
         """Active l'onglet spécifié par son nom ou alias."""

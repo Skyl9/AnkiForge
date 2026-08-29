@@ -1,8 +1,8 @@
 from ankiforge.services.ai.schemas import (
     GeneratedCardSchema,
     GeneratedCardsContainerSchema,
-    WozniakAuditResultSchema,
     SelfHealingValidator,
+    WozniakAuditResultSchema,
 )
 from ankiforge.services.ai.utils import extract_cards_from_data
 

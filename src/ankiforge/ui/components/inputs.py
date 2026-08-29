@@ -1,8 +1,10 @@
-from typing import Any
 import typing
-from PySide6.QtWidgets import QLineEdit, QPlainTextEdit, QWidget, QComboBox
-from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QPainter, QColor, QPaintEvent
+from typing import Any
+
+from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPaintEvent
+from PySide6.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 
 
@@ -54,8 +56,9 @@ class GlowLineEdit(QLineEdit):
             self.setPlaceholderText(placeholder)
         self.setClearButtonEnabled(True)
 
-        from ankiforge.utils.icon_loader import load_phosphor_icon
         from PySide6.QtWidgets import QGraphicsDropShadowEffect
+
+        from ankiforge.utils.icon_loader import load_phosphor_icon
 
         self._search_icon = load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED)
         self.addAction(self._search_icon, QLineEdit.ActionPosition.LeadingPosition)
@@ -309,6 +312,7 @@ class DBComboBox(StyledComboBox):
             self.refresh_from_model()
 
     def refresh_from_model(self) -> None:
+        prev_data = self.currentData()
         self.clear()
         if self.model_class is None:
             return
@@ -320,5 +324,15 @@ class DBComboBox(StyledComboBox):
                 text = getattr(item, self.display_field, str(item))
                 val = getattr(item, "id", text)
                 self.addItem(text, val)
+
+            if prev_data is not None:
+                for i in range(self.count()):
+                    if self.itemData(i) == prev_data:
+                        self.setCurrentIndex(i)
+                        break
         except Exception:
             pass  # nosec B110
+
+    def refresh_data(self) -> None:
+        """Alias pour refresh_from_model."""
+        self.refresh_from_model()

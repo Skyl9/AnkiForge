@@ -3,9 +3,9 @@
 
 from ankiforge.utils.anki_renderer import (
     _is_empty,
-    _sanitize_fields,
     _process_conditionals,
     _process_front_side,
+    _sanitize_fields,
     render_anki_card,
 )
 

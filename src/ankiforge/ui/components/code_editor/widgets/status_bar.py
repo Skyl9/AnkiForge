@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
+
 from PySide6.QtCore import QSize, Qt, Slot
 from PySide6.QtWidgets import (
     QFrame,
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 class LintStatusBar(QFrame):
     """Barre inférieure élégante affichant la synthèse du linter avec clic pour navigation et bouton formater."""
 
-    def __init__(self, editor: NativeCodeEditor, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, editor: NativeCodeEditor, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.editor = editor
         self.setObjectName("lintStatusBar")
@@ -80,7 +81,7 @@ class LintStatusBar(QFrame):
         self.update_status([])
 
     @Slot(list)
-    def update_status(self, issues: List[LintIssue]) -> None:
+    def update_status(self, issues: list[LintIssue]) -> None:
         if not issues:
             self.icon_lbl.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
             self.status_lbl.setText("Syntaxe valide")

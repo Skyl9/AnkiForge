@@ -4,7 +4,7 @@ Dialogue de Sélection et d'Installation des Modèles Communautaires Préconfigu
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -32,9 +32,9 @@ class StarterModelCardWidget(QFrame):
 
     def __init__(
         self,
-        pack: Dict[str, Any],
+        pack: dict[str, Any],
         on_install_callback: Any,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.pack = pack
@@ -115,7 +115,7 @@ class StarterPackDialog(QDialog):
 
     model_installed = Signal(int)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Catalogue de Modèles Communautaires (Starter Pack)")
         self.setMinimumSize(850, 600)
@@ -182,7 +182,7 @@ class StarterPackDialog(QDialog):
         footer.addWidget(btn_close)
         layout.addLayout(footer)
 
-    def _on_install_pack(self, pack: Dict[str, Any]) -> None:
+    def _on_install_pack(self, pack: dict[str, Any]) -> None:
         name = pack.get("name", "Modèle")
         exists = NoteTypeModel.get_or_none(NoteTypeModel.name == name) is not None
 

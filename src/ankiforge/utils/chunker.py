@@ -25,10 +25,7 @@ def _get_protected_intervals(text: str) -> list[tuple[int, int]]:
 
 def _is_safe_split(idx: int, protected_intervals: list[tuple[int, int]]) -> bool:
     """Vérifie si un index ne tombe pas au milieu d'un bloc protégé."""
-    for start, end in protected_intervals:
-        if start < idx < end:
-            return False
-    return True
+    return all(not start < idx < end for start, end in protected_intervals)
 
 
 def _find_best_split(text: str, start: int, max_end: int, protected_intervals: list[tuple[int, int]]) -> int:
@@ -126,15 +123,9 @@ def smart_chunk_text(text: str, strategy: str, max_chars: int = 6000, overlap: i
 
             if strategy == "Chevauchement (Overlap)":
                 overlap_target = split_idx - overlap
-                if overlap_target <= start:
-                    next_start = split_idx
-                else:
-                    next_start = _find_best_split(text, start, overlap_target, protected_intervals)
+                next_start = split_idx if overlap_target <= start else _find_best_split(text, start, overlap_target, protected_intervals)
 
-                if next_start <= start:
-                    start = split_idx
-                else:
-                    start = next_start
+                start = split_idx if next_start <= start else next_start
             else:
                 start = split_idx
 

@@ -1,8 +1,8 @@
 import json
 from unittest.mock import patch
 
-from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.database.models import NoteTypeModel
+from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 
 
 def test_preview_widget_empty_state(qtbot):
@@ -40,7 +40,8 @@ def test_preview_widget_update_preview(qtbot, mock_db):
         # 3. Vérifications de l'UI
         assert widget.card_selector.count() == 1
         assert widget.card_selector.itemText(0) == "Carte 1"
-        assert widget.side_selector.count() == 2
+        assert widget.is_recto is True
+        assert widget.btn_toggle_side is not None
 
         # 4. Vérifications du Rendu (le Recto doit être affiché par défaut)
         mock_set_html.assert_called_once()

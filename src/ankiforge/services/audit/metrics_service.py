@@ -2,9 +2,10 @@
 Service de calcul des métriques métier, de télémétrie et des diagnostics proactifs pour AnkiForge.
 """
 
-from datetime import datetime, timedelta, time
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import datetime, time, timedelta
+from typing import Any
+
 from peewee import fn
 
 from ankiforge.database.models import (
@@ -27,7 +28,7 @@ class MetricsService:
     """Calcul optimisé et asynchrone des métriques du Cockpit Global d'AnkiForge."""
 
     @classmethod
-    def get_wozniak_health_score(cls) -> Dict[str, Any]:
+    def get_wozniak_health_score(cls) -> dict[str, Any]:
         """Calcule le score de conformité aux 20 règles de Piotr Wozniak."""
         try:
             total_notes = NoteModel.select().count()
@@ -60,7 +61,7 @@ class MetricsService:
             return {"score": 100, "compliant_count": 0, "total_notes": 0, "issues_count": 0}
 
     @classmethod
-    def get_smart_coverage_rate(cls) -> Dict[str, Any]:
+    def get_smart_coverage_rate(cls) -> dict[str, Any]:
         """Calcule le taux de couverture documentaire RAG (Smart Coverage)."""
         try:
             total_chunks = DocumentChunkModel.select().count()
@@ -88,7 +89,7 @@ class MetricsService:
             return {"coverage": 100, "linked_chunks": 0, "total_chunks": 0, "unlinked_chunks": 0}
 
     @classmethod
-    def get_ai_telemetry(cls) -> Dict[str, Any]:
+    def get_ai_telemetry(cls) -> dict[str, Any]:
         """Extrait la télémétrie des jetons et dépenses IA."""
         try:
             cost_query = TokenUsageModel.select(fn.SUM(TokenUsageModel.estimated_cost_usd)).scalar()
@@ -131,9 +132,9 @@ class MetricsService:
             return 0
 
     @classmethod
-    def get_7_days_activity(cls) -> List[Dict[str, Any]]:
+    def get_7_days_activity(cls) -> list[dict[str, Any]]:
         """Agrège l'activité de création et de révision sur les 7 derniers jours."""
-        activity: List[Dict[str, Any]] = []
+        activity: list[dict[str, Any]] = []
         try:
             today = datetime.now().date()
             for i in range(6, -1, -1):
@@ -177,9 +178,9 @@ class MetricsService:
         return activity
 
     @classmethod
-    def get_proactive_diagnostics(cls) -> List[Dict[str, Any]]:
+    def get_proactive_diagnostics(cls) -> list[dict[str, Any]]:
         """Génère la liste des diagnostics d'action proactifs avec routage 1-clic."""
-        diagnostics: List[Dict[str, Any]] = []
+        diagnostics: list[dict[str, Any]] = []
 
         wozniak = cls.get_wozniak_health_score()
         if wozniak["issues_count"] > 0:
@@ -248,7 +249,7 @@ class MetricsService:
         return diagnostics
 
     @classmethod
-    def _format_macro_action(cls, group: Dict[str, Any]) -> Dict[str, Any]:
+    def _format_macro_action(cls, group: dict[str, Any]) -> dict[str, Any]:
         """Formate un groupe de versions en macro-action lisible."""
         source = group.get("source", "manual")
         count = group.get("count", 1)
@@ -292,9 +293,9 @@ class MetricsService:
         }
 
     @classmethod
-    def get_recent_macro_actions(cls, limit: int = 8) -> List[Dict[str, Any]]:
+    def get_recent_macro_actions(cls, limit: int = 8) -> list[dict[str, Any]]:
         """Agrège l'activité récente sous forme de grandes actions (batchs, imports, forges) plutôt que carte par carte."""
-        actions: List[Dict[str, Any]] = []
+        actions: list[dict[str, Any]] = []
         try:
             recent_versions = list(NoteVersionModel.select(NoteVersionModel, NoteModel).join(NoteModel).order_by(NoteVersionModel.created_at.desc()).limit(100))
 
@@ -302,14 +303,14 @@ class MetricsService:
                 return []
 
             note_ids = [v.note_id for v in recent_versions if v.note_id]
-            deck_name_by_note: Dict[int, str] = {}
+            deck_name_by_note: dict[int, str] = {}
             if note_ids:
                 cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
                 for c in cards:
                     if c.note_id not in deck_name_by_note and c.deck:
                         deck_name_by_note[c.note_id] = c.deck.name
 
-            current_group: Optional[Dict[str, Any]] = None
+            current_group: dict[str, Any] | None = None
 
             for v in recent_versions:
                 v_source = v.source or "manual"
@@ -349,9 +350,9 @@ class MetricsService:
         return actions
 
     @classmethod
-    def get_recent_feed(cls, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_recent_feed(cls, limit: int = 10) -> list[dict[str, Any]]:
         """Récupère les dernières versions de notes créées ou éditées (compatibilité)."""
-        feed_items: List[Dict[str, Any]] = []
+        feed_items: list[dict[str, Any]] = []
         try:
             recent_versions = NoteVersionModel.select(NoteVersionModel, NoteModel).join(NoteModel).order_by(NoteVersionModel.created_at.desc()).limit(limit)
 
@@ -370,7 +371,7 @@ class MetricsService:
         return feed_items
 
     @classmethod
-    def get_full_dashboard_data(cls) -> Dict[str, Any]:
+    def get_full_dashboard_data(cls) -> dict[str, Any]:
         """Agrège l'ensemble des données du tableau de bord en une seule passe."""
         wozniak = cls.get_wozniak_health_score()
         coverage = cls.get_smart_coverage_rate()

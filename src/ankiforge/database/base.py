@@ -1,7 +1,7 @@
 # ruff: noqa: E501
 import logging
-from typing import Any
 import uuid
+from typing import Any
 
 from peewee import Model, SqliteDatabase
 

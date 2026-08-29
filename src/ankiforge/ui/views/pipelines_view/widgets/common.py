@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -27,7 +28,7 @@ class TagPillButton(QPushButton):
         template_code: str,
         tooltip: str = "",
         variant: str = "field",
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
         self.template_code = template_code
@@ -81,7 +82,7 @@ class TagPillButton(QPushButton):
 class SubTabButton(QPushButton):
     """Bouton d'onglet style IDE avec relief et affordance tactile."""
 
-    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.icon_name = icon_name
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -128,7 +129,7 @@ class StatusPillBadge(QFrame):
 
     clicked = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -184,7 +185,7 @@ class DagFlowOverviewWidget(QFrame):
 
     step_selected = Signal(int)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("DagFlowOverview")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -223,7 +224,7 @@ class DagFlowOverviewWidget(QFrame):
         self.health_badge = StatusPillBadge()
         self.layout_main.addWidget(self.health_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-    def render_flow(self, steps: List[Dict[str, Any]], active_index: int = 0) -> None:
+    def render_flow(self, steps: list[dict[str, Any]], active_index: int = 0) -> None:
         """Re-dessine les badges interactifs du flux d'étapes et évalue la santé du graphe."""
         while self.nodes_layout.count():
             item = self.nodes_layout.takeAt(0)

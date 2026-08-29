@@ -1,10 +1,11 @@
 import json
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QWidget, QFrame, QMessageBox
-import qtawesome as qta
 
-from ankiforge.services.workers.linter_worker import LinterWorker
+import qtawesome as qta
+from PySide6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QScrollArea, QVBoxLayout, QWidget
+
 from ankiforge.services.cards.store_manager import StoreManager
-from ankiforge.ui.components.components import PrimaryButton, ActionButton, HeaderLabel
+from ankiforge.services.workers.linter_worker import LinterWorker
+from ankiforge.ui.components.components import ActionButton, HeaderLabel, PrimaryButton
 from ankiforge.ui.widgets.toast import show_toast
 
 

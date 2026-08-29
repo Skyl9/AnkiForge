@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import re
-from typing import Any, List, Optional
+from typing import Any
+
 from PySide6.QtCore import QRect, QStringListModel, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QFont,
-    QPaintEvent,
     QPainter,
+    QPaintEvent,
     QSyntaxHighlighter,
     QTextCharFormat,
     QTextCursor,
@@ -43,13 +44,13 @@ class NativeCodeEditor(QPlainTextEdit):
         self,
         mode: str = "html",
         placeholder: str = "",
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.mode = mode.lower()  # "html" | "css"
-        self._known_fields: List[str] = []
-        self._custom_classes: List[str] = []
-        self._lint_issues: List[LintIssue] = []
+        self._known_fields: list[str] = []
+        self._custom_classes: list[str] = []
+        self._lint_issues: list[LintIssue] = []
 
         # Police et styles de base
         font = QFont(DesignTokens.FONT_CODE, 12)
@@ -85,7 +86,7 @@ class NativeCodeEditor(QPlainTextEdit):
 
     def _init_highlighter(self) -> None:
         if self.mode == "html":
-            self.highlighter: Optional[QSyntaxHighlighter] = HTMLSyntaxHighlighter(self.document())
+            self.highlighter: QSyntaxHighlighter | None = HTMLSyntaxHighlighter(self.document())
         elif self.mode == "css":
             self.highlighter = CSSSyntaxHighlighter(self.document())
         else:
@@ -234,16 +235,16 @@ class NativeCodeEditor(QPlainTextEdit):
             self.run_linter()
 
     # --- Lintage Temps Réel & Visualisation ---
-    def set_known_fields(self, fields: List[str]) -> None:
+    def set_known_fields(self, fields: list[str]) -> None:
         self._known_fields = list(fields)
         self._update_autocomplete_model()
         self.run_linter()
 
-    def set_custom_classes(self, classes: List[str]) -> None:
+    def set_custom_classes(self, classes: list[str]) -> None:
         self._custom_classes = list(classes)
         self._update_autocomplete_model()
 
-    def get_lint_issues(self) -> List[LintIssue]:
+    def get_lint_issues(self) -> list[LintIssue]:
         return list(self._lint_issues)
 
     def jump_to_line(self, line_num: int) -> None:
@@ -271,7 +272,7 @@ class NativeCodeEditor(QPlainTextEdit):
         self.lint_issues_changed.emit(self._lint_issues)
 
     def _apply_extra_selections(self) -> None:
-        extra_selections: List[QTextEdit.ExtraSelection] = []
+        extra_selections: list[QTextEdit.ExtraSelection] = []
 
         # 1. Surlignage de la ligne courante
         if not self.isReadOnly():
@@ -333,7 +334,7 @@ class NativeCodeEditor(QPlainTextEdit):
         self._update_autocomplete_model()
 
     def _update_autocomplete_model(self) -> None:
-        words: List[str] = []
+        words: list[str] = []
         if self.mode == "html":
             for f in self._known_fields:
                 words.append(f"{{{{{f}}}}}")

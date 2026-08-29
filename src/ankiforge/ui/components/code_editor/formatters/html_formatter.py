@@ -1,11 +1,10 @@
 import re
-from typing import List, Set
 
 
 class HTMLFormatter:
     """Formateur de code HTML / Jinja2 / Anki pour harmoniser la structure et l'indentation."""
 
-    VOID_TAGS: Set[str] = {
+    VOID_TAGS: set[str] = {
         "area",
         "base",
         "br",
@@ -36,7 +35,7 @@ class HTMLFormatter:
         )
 
         raw_tokens = token_pattern.findall(raw)
-        result_lines: List[str] = []
+        result_lines: list[str] = []
         indent = 0
 
         for raw_tok in raw_tokens:

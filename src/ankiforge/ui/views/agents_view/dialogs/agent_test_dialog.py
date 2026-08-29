@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from jinja2 import BaseLoader, Environment
 from PySide6.QtWidgets import (
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class AgentTestDialog(QDialog):
     """Dialogue pour tester l'exécution unitaire d'un Persona avec un texte source."""
 
-    def __init__(self, persona: PersonaModel, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, persona: PersonaModel, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.persona = persona
         self.ai_manager = ai_manager

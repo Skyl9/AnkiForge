@@ -1,9 +1,9 @@
-from typing import Any, Dict, List
+from typing import Any
+
 from PySide6.QtWidgets import QLabel
 
-
 # Métadonnées des types d'étapes DAG
-STEP_TYPES_META: Dict[str, Dict[str, Any]] = {
+STEP_TYPES_META: dict[str, dict[str, Any]] = {
     "LLM_PROMPT": {
         "label": "Agent IA (LLM)",
         "badge": "LLM",
@@ -62,7 +62,7 @@ STEP_TYPES_META: Dict[str, Dict[str, Any]] = {
 }
 
 # Modèles de pipelines prédéfinis
-PRESET_TEMPLATES: List[Dict[str, Any]] = [
+PRESET_TEMPLATES: list[dict[str, Any]] = [
     {
         "name": "Pipeline Standard Cours",
         "description": "Workflow équilibré : Extraction RAG ➔ Architecte IA ➔ Linter Wozniak.",
@@ -101,9 +101,9 @@ PRESET_TEMPLATES: List[Dict[str, Any]] = [
 ]
 
 
-def audit_pipeline_dag(steps: List[Dict[str, Any]]) -> List[str]:
+def audit_pipeline_dag(steps: list[dict[str, Any]]) -> list[str]:
     """Analyse statique et linter du graphe DAG pour détecter les incohérences ou risques de cycles."""
-    issues: List[str] = []
+    issues: list[str] = []
     if not steps:
         return ["Workflow vide : ajoutez au moins une étape pour démarrer."]
 

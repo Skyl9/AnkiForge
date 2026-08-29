@@ -1,5 +1,3 @@
-from typing import Optional
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -22,9 +20,9 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class AITokensSrsTab(QWidget):
     """Onglet de suivi financier des jetons et de santé d'apprentissage FSRS-4.5."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.current_deck_id: Optional[int] = None
+        self.current_deck_id: int | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)

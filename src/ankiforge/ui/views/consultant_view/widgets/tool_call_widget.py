@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget
 
@@ -11,7 +12,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class ToolCallWidget(QFrame):
     """Affiche l'exécution d'un outil MCP / Python avec payload et observation."""
 
-    def __init__(self, tool_name: str, args_json: str, result_str: str, is_error: bool = False, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, tool_name: str, args_json: str, result_str: str, is_error: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.tool_name = tool_name
         self.is_error = is_error

@@ -5,12 +5,12 @@ Gère la virtualisation des milliers de fragments de texte extraits de gros manu
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
-from typing import Any, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QPersistentModelIndex, Qt
 import peewee
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QPersistentModelIndex, Qt
 
 from ankiforge.database.models import DocumentChunkModel
 
@@ -26,10 +26,10 @@ class ChunkItemData:
     chunk_index: int
     heading_path: str
     content_preview: str
-    page_number: Optional[int] = None
-    similarity_score: Optional[float] = None
+    page_number: int | None = None
+    similarity_score: float | None = None
     is_indexed: bool = True
-    raw_chunk: Optional[DocumentChunkModel] = None
+    raw_chunk: DocumentChunkModel | None = None
 
 
 class VirtualChunkListModel(QAbstractListModel):
@@ -39,10 +39,10 @@ class VirtualChunkListModel(QAbstractListModel):
 
     CHUNK_SIZE: int = 50
 
-    def __init__(self, parent: Optional[Any] = None) -> None:
+    def __init__(self, parent: Any | None = None) -> None:
         super().__init__(parent)
-        self._chunks: List[ChunkItemData] = []
-        self._base_query: Optional[peewee.Query] = None
+        self._chunks: list[ChunkItemData] = []
+        self._base_query: peewee.Query | None = None
         self._total_count: int = 0
 
     def rowCount(self, parent: QModelIndex | QPersistentModelIndex = _ROOT_INDEX) -> int:
@@ -95,7 +95,7 @@ class VirtualChunkListModel(QAbstractListModel):
         except Exception as e:
             logger.warning("Erreur fetchMore VirtualChunkListModel: %s", e)
 
-    def set_document_query(self, query: peewee.Query, total_count: Optional[int] = None) -> None:
+    def set_document_query(self, query: peewee.Query, total_count: int | None = None) -> None:
         """Charge une requête Peewee de fragments DocumentChunkModel."""
         self.beginResetModel()
         self._base_query = query
@@ -110,7 +110,7 @@ class VirtualChunkListModel(QAbstractListModel):
         if self._total_count > 0:
             self.fetchMore()
 
-    def set_static_results(self, search_results: List[dict[str, Any]]) -> None:
+    def set_static_results(self, search_results: list[dict[str, Any]]) -> None:
         """Charge des résultats d'inférence ou de recherche sémantique en mémoire."""
         self.beginResetModel()
         self._base_query = None
@@ -133,7 +133,7 @@ class VirtualChunkListModel(QAbstractListModel):
 
         self.endResetModel()
 
-    def _convert_chunks(self, items: List[Any]) -> List[ChunkItemData]:
+    def _convert_chunks(self, items: list[Any]) -> list[ChunkItemData]:
         results = []
         for c in items:
             content = str(getattr(c, "content", ""))
@@ -149,7 +149,7 @@ class VirtualChunkListModel(QAbstractListModel):
             results.append(c_data)
         return results
 
-    def get_chunk_at(self, row: int) -> Optional[ChunkItemData]:
+    def get_chunk_at(self, row: int) -> ChunkItemData | None:
         if 0 <= row < len(self._chunks):
             return self._chunks[row]
         return None

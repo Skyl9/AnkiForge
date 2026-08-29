@@ -2,8 +2,9 @@
 Tests d'intégration pour VectorManager et RAGService avec support RAG Hybride (FAISS + BM25 + RRF).
 """
 
-from pathlib import Path
 import uuid
+from pathlib import Path
+
 import pytest
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel

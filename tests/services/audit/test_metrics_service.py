@@ -3,6 +3,7 @@ Tests unitaires pour MetricsService (calcul des KPIs, agrégation 7 jours et dia
 """
 
 from datetime import datetime, timedelta
+
 from ankiforge.database.models import (
     AuditRecordModel,
     CardModel,

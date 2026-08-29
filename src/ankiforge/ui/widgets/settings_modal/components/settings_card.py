@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QLabel, QWidget
 
@@ -28,7 +29,7 @@ def apply_pill_badge_style(badge: QLabel, color_hex: str) -> None:
 class SettingsCard(QFrame):
     """Conteneur stylé garantissant l'absence de cascade QSS parasite sur les QLabel enfants."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("SettingsCard")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)

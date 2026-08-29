@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
 
@@ -8,7 +9,7 @@ from ankiforge.ui.theme import DesignTokens
 class ProgressTableCellWidget(QWidget):
     """Widget de cellule affichant la barre de progression et l'état textuel (%) sous la barre."""
 
-    def __init__(self, progress_pct: int = 0, status_text: str = "En attente...", color: str = "#6366f1", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, progress_pct: int = 0, status_text: str = "En attente...", color: str = "#6366f1", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)

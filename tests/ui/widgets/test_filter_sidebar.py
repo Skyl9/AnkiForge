@@ -1,7 +1,9 @@
-import pytest
-from ankiforge.ui.widgets.filter_sidebar import FilterSidebar
-from ankiforge.database.models import DeckModel, NoteModel, CardModel, NoteTypeModel, db
 import json
+
+import pytest
+
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
+from ankiforge.ui.widgets.filter_sidebar import FilterSidebar
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 import json
 import logging
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 
@@ -156,10 +156,7 @@ class CreationWorker(QThread):
                     else:
                         val = ""
 
-                    if isinstance(val, list):
-                        val = "<br>".join([str(item) for item in val])
-                    else:
-                        val = str(val) if val is not None else ""
+                    val = "<br>".join([str(item) for item in val]) if isinstance(val, list) else str(val) if val is not None else ""
 
                     cleaned_note_data[field] = val
 

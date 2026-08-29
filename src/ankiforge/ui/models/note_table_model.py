@@ -6,15 +6,15 @@ et une virtualisation totale compatible 100 000+ cartes à 60 FPS.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set
+from dataclasses import dataclass, field
+from typing import Any
 
+import peewee
 from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
 from PySide6.QtGui import QColor, QFont
-import peewee
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteVersionModel
 from ankiforge.ui.models.delegates import (
@@ -52,14 +52,14 @@ class NoteRowData:
     checked: bool = False
     recto: str = ""
     verso: str = ""
-    fields_dict: Dict[str, str] = field(default_factory=dict)
+    fields_dict: dict[str, str] = field(default_factory=dict)
     model_name: str = "Inconnu"
     deck_name: str = "Par défaut"
-    tags_list: List[str] = field(default_factory=list)
+    tags_list: list[str] = field(default_factory=list)
     tags_display: str = ""
     version_num: int = 1
     is_invalid: bool = False
-    raw_note: Optional[NoteModel] = None
+    raw_note: NoteModel | None = None
 
 
 class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
@@ -71,17 +71,17 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
 
     def __init__(
         self,
-        query: Optional[peewee.Query] = None,
-        total_count: Optional[int] = None,
-        active_model_fields: Optional[List[str]] = None,
+        query: peewee.Query | None = None,
+        total_count: int | None = None,
+        active_model_fields: list[str] | None = None,
         chunk_size: int = 100,
-        parent: Optional[Any] = None,
+        parent: Any | None = None,
     ) -> None:
-        self._active_model_fields: Optional[List[str]] = active_model_fields
-        self._checked_note_ids: Set[int] = set()
+        self._active_model_fields: list[str] | None = active_model_fields
+        self._checked_note_ids: set[int] = set()
         self._all_checked_mode: bool = False
-        self._unchecked_note_ids: Set[int] = set()
-        self._headers: List[str] = []
+        self._unchecked_note_ids: set[int] = set()
+        self._headers: list[str] = []
         self._update_headers()
         super().__init__(query=query, total_count=total_count, chunk_size=chunk_size, parent=parent)
 
@@ -93,7 +93,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
         else:
             self._headers = ["", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
 
-    def set_active_model_fields(self, fields: Optional[List[str]]) -> None:
+    def set_active_model_fields(self, fields: list[str] | None) -> None:
         """Change le schéma des colonnes affichées."""
         self.beginResetModel()
         self._active_model_fields = fields
@@ -103,8 +103,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
     def set_filter_query(
         self,
         query: peewee.Query,
-        total_count: Optional[int] = None,
-        active_model_fields: Optional[List[str]] = None,
+        total_count: int | None = None,
+        active_model_fields: list[str] | None = None,
     ) -> None:
         """Met à jour la requête de filtrage et recharge le premier lot."""
         self.beginResetModel()
@@ -275,7 +275,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
 
     # --- Traitement Haute Performance par Lot (Batch Prefetch) ---
 
-    def _process_batch(self, raw_items: List[Any]) -> List[NoteRowData]:
+    def _process_batch(self, raw_items: list[Any]) -> list[NoteRowData]:
         if not raw_items:
             return []
 
@@ -284,8 +284,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             return []
 
         # 1. Requête groupée des versions actives en 1 aller-retour SQL
-        content_by_note_id: Dict[int, Dict[str, str]] = {}
-        version_num_by_note_id: Dict[int, int] = {}
+        content_by_note_id: dict[int, dict[str, str]] = {}
+        version_num_by_note_id: dict[int, int] = {}
         try:
             active_versions = NoteVersionModel.select().where(
                 (NoteVersionModel.note.in_(note_ids)) & (NoteVersionModel.is_active == True)  # noqa: E712
@@ -303,7 +303,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             logger.warning("Erreur préchargement NoteVersionModel: %s", e)
 
         # 2. Requête groupée des paquets (CardModel ➔ DeckModel)
-        deck_by_note_id: Dict[int, str] = {}
+        deck_by_note_id: dict[int, str] = {}
         try:
             cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
             for c in cards:
@@ -313,7 +313,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             logger.warning("Erreur préchargement DeckModel: %s", e)
 
         # 3. Assemblage vectorisé des structures NoteRowData
-        results: List[NoteRowData] = []
+        results: list[NoteRowData] = []
         for note in raw_items:
             nid = note.id
             fields_data = content_by_note_id.get(nid, {})
@@ -358,7 +358,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
 
         return results
 
-    def _extract_fallback_content(self, note: NoteModel) -> Dict[str, str]:
+    def _extract_fallback_content(self, note: NoteModel) -> dict[str, str]:
         """Extrait le contenu depuis la dernière version si aucune active."""
         data = {}
         try:
@@ -371,7 +371,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             pass
         return data
 
-    def _parse_tags(self, tags_raw: Any) -> List[str]:
+    def _parse_tags(self, tags_raw: Any) -> list[str]:
         """Convertit la chaîne JSON ou la liste de tags en liste Python propre."""
         if not tags_raw:
             return []
@@ -390,13 +390,13 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
 
     # --- Opérations Métier & Mises à Jour en Direct ---
 
-    def get_note_at(self, row: int) -> Optional[NoteModel]:
+    def get_note_at(self, row: int) -> NoteModel | None:
         """Retourne l'objet NoteModel à l'indice de ligne donné."""
         if 0 <= row < len(self._loaded_rows):
             return self._loaded_rows[row].raw_note
         return None
 
-    def get_note_data_at(self, row: int) -> Optional[NoteRowData]:
+    def get_note_data_at(self, row: int) -> NoteRowData | None:
         """Retourne l'objet NoteRowData à l'indice de ligne donné."""
         if 0 <= row < len(self._loaded_rows):
             return self._loaded_rows[row]
@@ -409,7 +409,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
                 return idx
         return -1
 
-    def update_note_content(self, note_id: int, new_content: Dict[str, str]) -> None:
+    def update_note_content(self, note_id: int, new_content: dict[str, str]) -> None:
         """Met à jour instantanément les champs d'une note dans le modèle virtuel."""
         row_idx = self.find_row_by_note_id(note_id)
         if row_idx < 0:
@@ -439,7 +439,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             self._total_count += 1
             self.endInsertRows()
 
-    def remove_notes_by_ids(self, note_ids: List[int]) -> None:
+    def remove_notes_by_ids(self, note_ids: list[int]) -> None:
         """Supprime une liste de notes du modèle virtuel."""
         ids_to_remove = set(note_ids)
         for idx in range(len(self._loaded_rows) - 1, -1, -1):
@@ -462,7 +462,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             bottom_right = self.index(len(self._loaded_rows) - 1, 0)
             self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.CheckStateRole])
 
-    def get_checked_note_ids(self) -> List[int]:
+    def get_checked_note_ids(self) -> list[int]:
         """Retourne la liste complète des IDs de notes cochées."""
         if self._all_checked_mode:
             if self._base_query is not None:

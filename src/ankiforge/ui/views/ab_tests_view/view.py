@@ -2,7 +2,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QSize, Qt, QThreadPool, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -62,19 +62,19 @@ class ABTestsView(QWidget):
     Vue Laboratoire A/B — Comparateur haute précision de Moteurs, Prompts et Pipelines DAG.
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
 
-        self.cards_a: List[Dict[str, Any]] = []
+        self.cards_a: list[dict[str, Any]] = []
         self.index_a: int = 0
 
-        self.cards_b: List[Dict[str, Any]] = []
+        self.cards_b: list[dict[str, Any]] = []
         self.index_b: int = 0
 
-        self.orchestrator_a: Optional[PipelineOrchestrator] = None
-        self.orchestrator_b: Optional[PipelineOrchestrator] = None
+        self.orchestrator_a: PipelineOrchestrator | None = None
+        self.orchestrator_b: PipelineOrchestrator | None = None
         self._start_time_a: float = 0.0
         self._start_time_b: float = 0.0
         self._completed_a: bool = False
@@ -1043,7 +1043,7 @@ class ABTestsView(QWidget):
         QThreadPool.globalInstance().start(self.orchestrator_a)
         QThreadPool.globalInstance().start(self.orchestrator_b)
 
-    def _extract_cards_from_state(self, state: PipelineRunState) -> List[Dict[str, Any]]:
+    def _extract_cards_from_state(self, state: PipelineRunState) -> list[dict[str, Any]]:
         raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
         return extract_cards_from_data(raw_cards)
 

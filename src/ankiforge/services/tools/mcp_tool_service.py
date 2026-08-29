@@ -1,7 +1,7 @@
 """Interface MCP (Model Context Protocol) exposant la gestion des Outils Python pour le Consultant IA."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
@@ -13,7 +13,7 @@ class MCPToolService:
     """Expose les capacités de création et de gestion d'outils Python au Consultant IA via MCP."""
 
     @classmethod
-    def list_available_tools(cls) -> List[Dict[str, Any]]:
+    def list_available_tools(cls) -> list[dict[str, Any]]:
         """Liste tous les outils Python (natifs et personnalisés) disponibles dans la Forge."""
         tools = ToolService.list_tools()
         return [
@@ -21,14 +21,14 @@ class MCPToolService:
                 "name": t.name,
                 "display_name": t.display_name,
                 "description": t.description,
-                "is_builtin": t.is_builtin,
-                "code_snippet": t.code[:150] + "..." if len(t.code) > 150 else t.code,
+                "is_builtin": bool(t.is_builtin),
+                "code_snippet": (str(t.code)[:150] + "...") if len(str(t.code or "")) > 150 else str(t.code or ""),
             }
             for t in tools
         ]
 
     @classmethod
-    def get_tool_code(cls, tool_name: str) -> Dict[str, Any]:
+    def get_tool_code(cls, tool_name: str) -> dict[str, Any]:
         """Récupère le code source complet d'un outil Python."""
         tool = ToolService.get_tool(tool_name)
         if not tool:
@@ -49,7 +49,7 @@ class MCPToolService:
         display_name: str,
         description: str,
         python_code: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Permet au Consultant IA de concevoir ou mettre à jour un outil Python réutilisable.
         Le script doit contenir 'def run(state):'.
@@ -84,9 +84,9 @@ class MCPToolService:
     def test_tool_execution(
         cls,
         tool_name: str,
-        sample_cards: Optional[List[dict]] = None,
-        sample_text: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        sample_cards: list[dict] | None = None,
+        sample_text: str | None = None,
+    ) -> dict[str, Any]:
         """Simule l'exécution d'un outil sur des données échantillons."""
         state = PipelineRunState(initial_prompt="Test Consultant IA")
         if sample_cards:

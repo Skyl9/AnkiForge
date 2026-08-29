@@ -1,5 +1,5 @@
 # tests/utils/test_c_bridge.py
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 # On importe le module complet pour pouvoir patcher ses variables globales
 import ankiforge.utils.c_bridge as c_bridge

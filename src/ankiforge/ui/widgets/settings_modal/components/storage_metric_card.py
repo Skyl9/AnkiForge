@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -9,7 +10,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class StorageMetricCard(QFrame):
     """Carte d'affichage de statistique de stockage avec icône Phosphor et sous-titre."""
 
-    def __init__(self, title: str, value: str, icon_name: str, subtitle: str = "", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str, value: str, icon_name: str, subtitle: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.icon_name = icon_name
         self.setObjectName("StorageMetricCard")

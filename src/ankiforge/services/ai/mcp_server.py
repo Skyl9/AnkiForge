@@ -1,7 +1,9 @@
-import logging
 import asyncio
+import logging
+
 from mcp.server.mcpserver import MCPServer
-from ankiforge.database.models import db, LLMConfigModel
+
+from ankiforge.database.models import LLMConfigModel, db
 from ankiforge.services.ai.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
@@ -51,7 +53,8 @@ def get_deck_stats(deck_name: str) -> str:
     Récupère les statistiques détaillées d'un paquet Anki (nombre total de cartes, révisions et difficultés).
     """
     from peewee import fn
-    from ankiforge.database.models import DeckModel, CardModel
+
+    from ankiforge.database.models import CardModel, DeckModel
 
     try:
         deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
@@ -79,7 +82,8 @@ def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20
     Récupère une liste de cartes filtrée par nom de paquet ou par tag.
     """
     import json
-    from ankiforge.database.models import DeckModel, CardModel, NoteModel, NoteVersionModel
+
+    from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteVersionModel
 
     try:
         query = NoteModel.select().join(CardModel).distinct()
@@ -181,7 +185,7 @@ def get_db_schema() -> str:
         return f"Erreur lors de la récupération du schéma : {e}"
 
 
-def start_mcp_server_stdio():
+def start_mcp_server_stdio() -> None:
     """Démarre le serveur MCP en mode standard I/O."""
     asyncio.run(mcp.run_stdio_async())
 

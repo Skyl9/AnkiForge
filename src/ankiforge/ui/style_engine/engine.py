@@ -3,7 +3,9 @@ Moteur de Style Centralisé (StyleEngine) pour AnkiForge.
 Génère et applique dynamiquement les règles QSS sémantiques basées sur les sélecteurs de propriétés Qt.
 """
 
-from typing import Dict, List, Optional, Union
+import contextlib
+from typing import Optional
+
 from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
@@ -33,7 +35,7 @@ class StyleEngine(QObject):
     def __init__(self) -> None:
         super().__init__()
         self._current_theme: ThemeProfile = JETBRAINS_DARK
-        self._custom_themes: Dict[str, ThemeProfile] = {}
+        self._custom_themes: dict[str, ThemeProfile] = {}
 
     @classmethod
     def instance(cls) -> "StyleEngine":
@@ -55,7 +57,7 @@ class StyleEngine(QObject):
             return self._custom_themes[theme_id]
         return BUILTIN_THEMES.get(theme_id, JETBRAINS_DARK)
 
-    def get_available_themes(self, mode: Optional[str] = None) -> List[ThemeProfile]:
+    def get_available_themes(self, mode: str | None = None) -> list[ThemeProfile]:
         """Renvoie la liste de tous les thèmes disponibles, optionnellement filtrée par 'dark' ou 'light'."""
         all_themes = get_unique_builtin_themes()
         all_themes.extend(self._custom_themes.values())
@@ -65,7 +67,7 @@ class StyleEngine(QObject):
             return [t for t in all_themes if not t.is_dark]
         return all_themes
 
-    def generate_stylesheet(self, theme: Optional[ThemeProfile] = None) -> str:
+    def generate_stylesheet(self, theme: ThemeProfile | None = None) -> str:
         """
         Compile la feuille de style globale complète à partir d'un ThemeProfile.
         Définit tous les sélecteurs sémantiques pour éliminer le CSS codé en dur dans les composants.
@@ -854,14 +856,11 @@ class StyleEngine(QObject):
         }}
         """
 
-    def apply_theme(self, theme_or_id: Union[str, ThemeProfile], app: Optional[QApplication] = None) -> None:
+    def apply_theme(self, theme_or_id: str | ThemeProfile, app: QApplication | None = None) -> None:
         """
         Applique un thème à l'ensemble de l'application en mettant à jour DesignTokens, QPalette et QSS.
         """
-        if isinstance(theme_or_id, str):
-            profile = self.get_theme(theme_or_id)
-        else:
-            profile = theme_or_id
+        profile = self.get_theme(theme_or_id) if isinstance(theme_or_id, str) else theme_or_id
 
         self._current_theme = profile
 
@@ -895,7 +894,7 @@ class StyleEngine(QObject):
 
         self.theme_changed.emit(profile)
 
-    def force_global_repolish(self, app: Optional[QApplication] = None) -> None:
+    def force_global_repolish(self, app: QApplication | None = None) -> None:
         """
         Force le dé-polissage et re-polissage de tous les widgets actifs pour
         appliquer immédiatement la nouvelle feuille de style QSS sans redémarrage.
@@ -911,10 +910,8 @@ class StyleEngine(QObject):
                         try:
                             widget.refresh_theme(profile)
                         except TypeError:
-                            try:
+                            with contextlib.suppress(Exception):
                                 widget.refresh_theme()
-                            except Exception:
-                                pass
                         except Exception:
                             pass
                     style.unpolish(widget)
@@ -923,34 +920,28 @@ class StyleEngine(QObject):
                 except Exception:
                     pass  # nosec B110
 
-    def get_theme_families(self) -> List[ThemeFamily]:
+    def get_theme_families(self) -> list[ThemeFamily]:
         """Retourne la liste des 12 familles de thèmes bivalentes."""
         return get_theme_families()
 
-    def get_family_for_theme(self, theme_id: str) -> Optional[ThemeFamily]:
+    def get_family_for_theme(self, theme_id: str) -> ThemeFamily | None:
         """Retrouve la famille d'un thème."""
         return get_family_for_theme(theme_id)
 
-    def set_color_mode(self, mode: str, app: Optional[QApplication] = None) -> ThemeProfile:
+    def set_color_mode(self, mode: str, app: QApplication | None = None) -> ThemeProfile:
         """Définit le mode 'dark' ou 'light' pour la famille de thème active."""
         current = self._current_theme
         family = get_family_for_theme(current.id)
-        if mode == "light":
-            target = family.light_theme if family else self.get_theme("jetbrains_light")
-        else:
-            target = family.dark_theme if family else self.get_theme("ide")
+        target = (family.light_theme if family else self.get_theme("jetbrains_light")) if mode == "light" else family.dark_theme if family else self.get_theme("ide")
 
         self.apply_theme(target, app=app)
         return target
 
-    def toggle_color_mode(self, app: Optional[QApplication] = None) -> ThemeProfile:
+    def toggle_color_mode(self, app: QApplication | None = None) -> ThemeProfile:
         """Bascule intelligemment entre le mode Sombre et le mode Clair pour la famille active."""
         current = self._current_theme
         family = get_family_for_theme(current.id)
-        if current.is_dark:
-            target = family.light_theme if family else self.get_theme("jetbrains_light")
-        else:
-            target = family.dark_theme if family else self.get_theme("ide")
+        target = (family.light_theme if family else self.get_theme("jetbrains_light")) if current.is_dark else family.dark_theme if family else self.get_theme("ide")
 
         self.apply_theme(target, app=app)
         return target

@@ -3,7 +3,6 @@ Layout IDE (JetBrains / Power-User style) pour AnkiForge.
 Sidebar latérale sombre rétractable (260px <-> 68px), Topbar avec Omnibox et zone centrale pour QStackedWidget.
 """
 
-from typing import Dict, List, Optional, Tuple, Type
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -23,7 +22,7 @@ class IdeLayout(BaseLayout):
     - Zone centrale pour le QStackedWidget
     """
 
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(profile_name, parent)
         self._setup_ui()
 
@@ -105,8 +104,8 @@ class IdeLayout(BaseLayout):
         self._current_view_id = view_id
         self.sidebar.set_active_view(view_id)
 
-    def populate_navigation(self, view_registry: Dict[str, Tuple[str, str, str, Type[QWidget]]]) -> None:
-        categories: Dict[str, List[Tuple[str, str, str]]] = {}
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
+        categories: dict[str, list[tuple[str, str, str]]] = {}
         for view_id, (cat, icon, title, _cls) in view_registry.items():
             if cat not in categories:
                 categories[cat] = []

@@ -1,7 +1,7 @@
 import html
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QSize, Qt, Slot
 from PySide6.QtGui import QCursor, QFont
@@ -59,15 +59,15 @@ logger = logging.getLogger(__name__)
 class PipelinesView(QWidget):
     """Vue Pipelines de Génération — Architecture Maître-Détail JetBrains."""
 
-    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self._current_pipeline: Optional[PipelineModel] = None
-        self.current_steps: List[Dict[str, Any]] = []
-        self._step_widgets: List[StepItemWidget] = []
-        self._cached_personas: List[PersonaModel] = []
-        self._cached_llms: List[LLMConfigModel] = []
+        self._current_pipeline: PipelineModel | None = None
+        self.current_steps: list[dict[str, Any]] = []
+        self._step_widgets: list[StepItemWidget] = []
+        self._cached_personas: list[PersonaModel] = []
+        self._cached_llms: list[LLMConfigModel] = []
         self._selected_step_index: int = 0
 
         self._setup_ui()
@@ -268,7 +268,7 @@ class PipelinesView(QWidget):
 
     @Slot()
     def _on_pipeline_changed(self) -> None:
-        selected_pipe: Optional[PipelineModel] = self.pipeline_combo.currentData()
+        selected_pipe: PipelineModel | None = self.pipeline_combo.currentData()
         if not selected_pipe:
             self._current_pipeline = None
             self.current_steps.clear()
@@ -393,13 +393,13 @@ class PipelinesView(QWidget):
                 self._selected_step_index = max(0, len(self.current_steps) - 1)
             self._render_steps()
 
-    def add_step(self, step_payload: Dict[str, Any], insert_at: Optional[int] = None) -> None:
+    def add_step(self, step_payload: dict[str, Any], insert_at: int | None = None) -> None:
         """Ajoute une étape (Agent IA ou Action Système) au workflow courant."""
         stype = step_payload.get("type", "LLM_PROMPT")
         persona = step_payload.get("persona")
         meta = STEP_TYPES_META.get(stype, STEP_TYPES_META["LLM_PROMPT"])
 
-        new_step: Dict[str, Any] = {
+        new_step: dict[str, Any] = {
             "type": stype,
             "persona": persona,
             "custom_title": persona.name if persona else meta["default_title"],
@@ -424,7 +424,7 @@ class PipelinesView(QWidget):
         self._render_steps()
         show_toast(self, f"Étape '{new_step['custom_title']}' ajoutée", is_error=False)
 
-    def _on_add_step_clicked(self, insert_at: Optional[int] = None) -> None:
+    def _on_add_step_clicked(self, insert_at: int | None = None) -> None:
         """Ouvre la palette/catalogue de composants modernes pour choisir l'étape."""
         dlg = StepPickerDialog(personas=self._cached_personas, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.selected_step_data:
@@ -460,7 +460,7 @@ class PipelinesView(QWidget):
         clone_name = f"{self._current_pipeline.name} (Copie)"
         try:
             new_pipe = PipelineModel.create(name=clone_name, description=self._current_pipeline.description)
-            created_steps: Dict[int, PipelineStepModel] = {}
+            created_steps: dict[int, PipelineStepModel] = {}
             for idx, s in enumerate(self.current_steps, start=1):
                 ps = PipelineStepModel.create(
                     pipeline=new_pipe,
@@ -520,7 +520,7 @@ class PipelinesView(QWidget):
             with db.atomic():
                 PipelineStepModel.delete().where(PipelineStepModel.pipeline == self._current_pipeline).execute()
 
-                created_steps: Dict[int, PipelineStepModel] = {}
+                created_steps: dict[int, PipelineStepModel] = {}
                 for idx, s in enumerate(self.current_steps, start=1):
                     cfg_json = json.dumps(s.get("config", {}))
                     ps = PipelineStepModel.create(
@@ -680,7 +680,7 @@ class PipelinesView(QWidget):
         if not file_path:
             return
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             name = data.get("name", "Pipeline Importé")

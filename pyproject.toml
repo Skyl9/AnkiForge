@@ -59,44 +59,59 @@ dev = [
     "types-peewee>=4.0.0.20260408",
     "types-requests>=2.33.0.20260408",
     "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.5.0",
 ]
 
 [tool.ruff]
-# On autorise des lignes plus longues (120 au lieu de 88) pour ne pas casser les prompts IA
+# On autorise des lignes plus longues (200) pour ne pas casser les prompts IA
 line-length = 200
 target-version = "py312"
 extend-exclude = ["script/tools", "script/ui_rebuild"]
 
 [tool.ruff.lint]
-# E: Erreurs (PEP8), F: Fails (variables non utilisées, imports cassés), B: Bugbear (pièges courants)
-select = ["E", "F", "B"]
-ignore = []
+# E/F/B: PEP8 & bugs, I: isort, UP: pyupgrade 3.12, T20: zero print, PT: pytest style, SIM: simplify
+select = ["E", "F", "B", "I", "UP", "T20", "PT", "SIM"]
+ignore = ["SIM105", "UP038"]
+
+
+
+[tool.ruff.lint.per-file-ignores]
+"script/*" = ["T201", "T203"]  # Les scripts CLI utilisent print() pour la sortie console
+"tests/*" = ["T201", "PT004", "PT011", "PT018"]
 
 [tool.mypy]
-# Configuration Mypy souple pour commencer sans se dégoûter
 python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
+disallow_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = false
-
 
 [[tool.mypy.overrides]]
 module = [
     "peewee.*",
-    "requests.*"
+    "requests.*",
+    "genanki.*",
+    "marker.*",
+    "youtube_transcript_api.*",
+    "trafilatura.*",
+    "markdownify.*",
+    "docx.*",
+    "pptx.*",
+    "qtawesome.*",
+    "chromadb.*",
+    "faiss.*",
+    "zensical.*",
 ]
 ignore_missing_imports = true
-ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = [
-    "ankiforge.*",
-    "ankiforge.database.*",
-    "ankiforge.services.*",
-    "ankiforge.ui.*",
-    "ankiforge.utils.*",
-]
+module = "ankiforge.database.migrations.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "ankiforge.ui.*"
+disallow_untyped_defs = false
 disable_error_code = [
     "attr-defined",
     "assignment",
@@ -108,10 +123,13 @@ disable_error_code = [
     "index",
     "misc",
     "return-value",
-    "call-overload"
+    "call-overload",
 ]
+
+
+
 
 [tool.bandit]
 # On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données
 exclude_dirs = ["tests"]
-skips = ["B104"] # Exemple: ignorer l'avertissement "bind to all interfaces" si non pertinent
+skips = ["B104", "B110"] # B104 (bind), B110 (try-except-pass pour UI/fallbacks)

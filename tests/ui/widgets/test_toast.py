@@ -1,7 +1,8 @@
 # tests/test_toast.py
-import pytest
-from PySide6.QtWidgets import QWidget, QLabel
 from unittest.mock import patch
+
+import pytest
+from PySide6.QtWidgets import QLabel, QWidget
 
 from ankiforge.ui.widgets.toast import Toast, show_toast
 

@@ -1,5 +1,6 @@
-import io
 import base64
+import io
+
 from matplotlib.mathtext import math_to_image
 
 buf = io.BytesIO()

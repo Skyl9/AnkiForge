@@ -6,7 +6,7 @@ Permet à l'utilisateur de valider, corriger ou enrichir les données intermédi
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class HumanValidationDialog(QDialog):
     """Boîte de dialogue interactive pour la validation humaine au cours de l'exécution du DAG."""
 
-    def __init__(self, state: PipelineRunState, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, state: PipelineRunState, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.state = state
         self.setWindowTitle("Copilote Intentionnel — Validation Humaine")
@@ -53,7 +53,7 @@ class HumanValidationDialog(QDialog):
         layout.setSpacing(14)
 
         # Récupération de la configuration personnalisée éventuelle de l'étape
-        cfg: Dict[str, Any] = self.state.get_variable("human_validation_config", {})
+        cfg: dict[str, Any] = self.state.get_variable("human_validation_config", {})
         title_text = cfg.get("human_title") or "Validation Requise du Plan / Concepts"
         message_text = cfg.get("human_message") or (
             "L'IA a terminé l'étape d'analyse préliminaire et a extrait les éléments ci-dessous.\n"

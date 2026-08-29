@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -24,7 +23,7 @@ class CreationHubWidget(QWidget):
     open_free_text_requested = Signal()
     open_documents_requested = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")

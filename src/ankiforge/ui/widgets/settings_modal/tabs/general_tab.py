@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QFont
@@ -19,15 +19,15 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledLineEdit,
 )
-from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class GeneralTab(QWidget):
     """Onglet Paramètres Généraux et Apparence."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
 
@@ -62,7 +62,7 @@ class GeneralTab(QWidget):
             parent_layout.addLayout(row)
             return lbl
 
-        self.rows_labels: List[QLabel] = []
+        self.rows_labels: list[QLabel] = []
 
         # 1. Disposition (Layout)
         self.cb_layout = StyledComboBox()
@@ -229,7 +229,7 @@ class GeneralTab(QWidget):
         layout.addWidget(self.card_startup)
         layout.addStretch()
 
-    def _get_main_window(self) -> Optional[Any]:
+    def _get_main_window(self) -> Any | None:
         w = self.window()
         if w is not None:
             if hasattr(w, "apply_layout"):
@@ -257,7 +257,7 @@ class GeneralTab(QWidget):
 
         webbrowser.open(p.as_uri())
 
-    def save_tab(self) -> Tuple[bool, Optional[str], Optional[str]]:
+    def save_tab(self) -> tuple[bool, str | None, str | None]:
         """Sauvegarde les paramètres de l'onglet et retourne (has_theme_change, selected_layout_id, selected_theme_id)."""
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.style_engine import get_style_engine

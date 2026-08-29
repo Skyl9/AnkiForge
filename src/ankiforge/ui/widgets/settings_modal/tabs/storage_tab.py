@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtWidgets import (
     QGridLayout,
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class StorageMaintenanceTab(QWidget):
     """Onglet Métrologie Réelle, Optimisation SQLite, Nettoyage Médias et Backups."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
         self.refresh_metrics()

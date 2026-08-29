@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
@@ -12,7 +11,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class PersonaItemWidget(QWidget):
     """Widget personnalisé pour chaque feuille Persona de l'arbre."""
 
-    def __init__(self, persona: PersonaModel, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, persona: PersonaModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.persona = persona
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)

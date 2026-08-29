@@ -1,4 +1,4 @@
-with open("src/ankiforge/ui/views/analysis_view.py", "r") as f:
+with open("src/ankiforge/ui/views/analysis_view.py") as f:
     content = f.read()
 
 # On rajoute l'import de LinterWorker

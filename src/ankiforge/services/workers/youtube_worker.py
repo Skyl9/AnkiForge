@@ -1,5 +1,6 @@
 import logging
 from typing import TYPE_CHECKING, Optional
+
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 from ankiforge.services.parsing.youtube_parser import YouTubeParser

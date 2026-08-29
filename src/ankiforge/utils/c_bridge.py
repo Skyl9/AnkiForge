@@ -1,8 +1,7 @@
 import ctypes
 import logging
-from pathlib import Path
 import platform
-from typing import Optional
+from pathlib import Path
 
 from ankiforge.utils.paths import get_resource_path
 
@@ -13,7 +12,7 @@ lib_path: Path = get_resource_path("src", "ankiforge", "c_ext", f"levenshtein_di
 if not lib_path.exists():
     lib_path = get_resource_path("ankiforge", "c_ext", f"levenshtein_distance.{ext}")
 
-_matcher_lib: Optional[ctypes.CDLL] = None
+_matcher_lib: ctypes.CDLL | None = None
 C_MATCHER_LOADED = False
 
 try:

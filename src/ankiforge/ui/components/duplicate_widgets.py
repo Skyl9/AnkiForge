@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class DuplicateMatrixTable(QFrame):
     """Matrice des doublons détectés (Upper section)."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("DuplicateMatrixTable")
         self.setStyleSheet(f"""
@@ -280,11 +279,11 @@ class DuplicateMergeInspector(QFrame):
     merge_requested = Signal(object, object, dict)  # note_keep, note_delete, merged_content
     ignore_requested = Signal(object, object)  # note_a, note_b
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        from typing import Any, Dict
+        from typing import Any
 
-        self.current_conflict: Optional[Dict[str, Any]] = None
+        self.current_conflict: dict[str, Any] | None = None
         self.view_modes = {"A": "source", "B": "source", "Fusion": "source"}
         self.setObjectName("DuplicateMergeInspector")
         self.setStyleSheet(f"QFrame#DuplicateMergeInspector {{ background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 8px; }}")

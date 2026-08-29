@@ -1,4 +1,5 @@
 import uuid
+
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import (

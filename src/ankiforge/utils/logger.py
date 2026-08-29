@@ -12,16 +12,18 @@ Caractéristiques :
 
 from __future__ import annotations
 
-from collections import deque
+import contextlib
 import logging
-from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
-from pathlib import Path
 import platform
 import queue
 import re
 import sys
 import threading
-from typing import Any, Callable, List, Optional
+from collections import deque
+from collections.abc import Callable
+from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
+from pathlib import Path
+from typing import Any
 
 from ankiforge.utils.paths import get_active_profile, get_app_data_dir
 
@@ -156,17 +158,15 @@ class RingBufferHandler(logging.Handler):
         self.max_records = max_records
         self._buffer: deque[logging.LogRecord] = deque(maxlen=max_records)
         self._lock = threading.Lock()
-        self._callbacks: List[Callable[[str, int], None]] = []
+        self._callbacks: list[Callable[[str, int], None]] = []
 
     def emit(self, record: logging.LogRecord) -> None:
         with self._lock:
             self._buffer.append(record)
             msg_formatted = self.format(record)
             for cb in self._callbacks:
-                try:
+                with contextlib.suppress(Exception):
                     cb(msg_formatted, record.levelno)
-                except Exception:
-                    pass
 
     def add_callback(self, callback: Callable[[str, int], None]) -> None:
         """Enregistre un callback appelé à chaque nouvelle ligne de log émise."""
@@ -182,14 +182,14 @@ class RingBufferHandler(logging.Handler):
     def get_records(
         self,
         min_level: int = logging.DEBUG,
-        search_query: Optional[str] = None,
+        search_query: str | None = None,
         limit: int = 100,
-    ) -> List[str]:
+    ) -> list[str]:
         """Retourne les derniers messages formatés correspondant aux filtres."""
         with self._lock:
             records = list(self._buffer)
 
-        matched: List[str] = []
+        matched: list[str] = []
         for r in reversed(records):
             if r.levelno >= min_level:
                 formatted = self.format(r)
@@ -209,7 +209,7 @@ class RingBufferHandler(logging.Handler):
 # ── ÉTAT GLOBAL ET GESTION DU LISTENER ASYNCHRONE ──
 
 _log_queue: queue.SimpleQueue[logging.LogRecord] = queue.SimpleQueue()
-_global_listener: Optional[QueueListener] = None
+_global_listener: QueueListener | None = None
 _global_ring_buffer: RingBufferHandler = RingBufferHandler(max_records=500)
 
 
@@ -224,8 +224,8 @@ def setup_logging(
     log_to_console: bool = True,
     max_bytes: int = 10 * 1024 * 1024,  # 10 Mo par fichier
     backup_count: int = 5,  # 5 archives (Plafond 50 Mo)
-    log_dir: Optional[Path] = None,
-) -> Optional[QueueListener]:
+    log_dir: Path | None = None,
+) -> QueueListener | None:
     """
     Initialise le pipeline de logging asynchrone global d'AnkiForge.
 
@@ -242,7 +242,7 @@ def setup_logging(
     target_dir.mkdir(parents=True, exist_ok=True)
     log_file = target_dir / "ankiforge.log"
 
-    handlers: List[logging.Handler] = []
+    handlers: list[logging.Handler] = []
 
     # 3. Handler Console (Développement / Terminal)
     if log_to_console:
@@ -305,17 +305,15 @@ def shutdown_logging() -> None:
     """Arrête proprement le QueueListener en vidant les logs restants dans la file."""
     global _global_listener
     if _global_listener is not None:
-        try:
+        with contextlib.suppress(Exception):
             _global_listener.stop()
-        except Exception:
-            pass
         _global_listener = None
 
 
 # ── GESTIONNAIRE DE CRASH POST-MORTEM (UNHANDLED EXCEPTIONS) ──
 
 
-def install_crash_handlers(log_dir: Optional[Path] = None) -> None:
+def install_crash_handlers(log_dir: Path | None = None) -> None:
     """
     Installe les hooks globaux pour intercepter les exceptions non gérées
     sur le thread principal et les threads secondaires, avec écriture d'un crash.log dédié.
@@ -341,8 +339,8 @@ def install_crash_handlers(log_dir: Optional[Path] = None) -> None:
         try:
             with open(crash_file, "a", encoding="utf-8") as f:
                 f.write(f"\n{'=' * 70}\nCRASH REPORT - {platform.platform()} | Python {platform.python_version()}\nProfil actif : {get_active_profile()}\n{'=' * 70}\n{sanitized_tb}\n")
-        except Exception as write_err:
-            print(f"Échec de l'écriture dans crash.log : {write_err}", file=sys.stderr)
+        except Exception:
+            pass
 
     def handle_thread_exception(args: threading.ExceptHookArgs) -> None:
         handle_exception(args.exc_type, args.exc_value, args.exc_traceback)

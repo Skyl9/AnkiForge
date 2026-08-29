@@ -3,7 +3,7 @@ Base Layout for Pluggable UI Architecture in AnkiForge.
 """
 
 from abc import abstractmethod
-from typing import Dict, Optional, Tuple, Type
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QStackedWidget, QWidget
 
@@ -23,10 +23,10 @@ class BaseLayout(QWidget):
     notif_requested = Signal()
     profile_switch_requested = Signal()
 
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.profile_name = profile_name
-        self.stacked_widget: Optional[QStackedWidget] = None
+        self.stacked_widget: QStackedWidget | None = None
         self._current_view_id: str = "dashboard"
 
     def set_profile_name(self, profile_name: str) -> None:
@@ -59,7 +59,7 @@ class BaseLayout(QWidget):
         pass
 
     @abstractmethod
-    def populate_navigation(self, view_registry: Dict[str, Tuple[str, str, str, Type[QWidget]]]) -> None:
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
         """Construit les éléments de navigation à partir du registre central des vues."""
         pass
 

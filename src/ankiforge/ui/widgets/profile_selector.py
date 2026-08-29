@@ -5,7 +5,7 @@ Architecture moderne conforme aux DesignTokens et au référentiel DESIGN.md.
 
 import logging
 import re
-from typing import Any, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QFont
@@ -40,7 +40,7 @@ class ProfileItemWidget(QFrame):
         name: str,
         is_current: bool = False,
         is_selected: bool = False,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.name = name
@@ -139,7 +139,7 @@ class ProfileSelectorDialog(QDialog):
     Permet de sélectionner un profil existant, d'en créer un nouveau ou de supprimer un profil inutilisé.
     """
 
-    def __init__(self, profiles: list[str], current_profile: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profiles: list[str], current_profile: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Espaces de Travail & Profils — AnkiForge")
         self.setFixedSize(560, 630)
@@ -155,7 +155,7 @@ class ProfileSelectorDialog(QDialog):
         self.current_profile = current_profile
         self.profiles: list[str] = profiles if profiles else [current_profile or "default"]
         self.selected_profile: str = current_profile or (self.profiles[0] if self.profiles else "default")
-        self._card_widgets: List[ProfileItemWidget] = []
+        self._card_widgets: list[ProfileItemWidget] = []
 
         self._setup_ui()
         self._populate_profiles()
@@ -402,7 +402,7 @@ class ProfileSelectorDialog(QDialog):
             raw_name = item.data(Qt.ItemDataRole.UserRole) or ""
             item.setHidden(bool(q and q not in raw_name.lower()))
 
-    def _on_selection_changed(self, current: Optional[QListWidgetItem], _previous: Optional[QListWidgetItem]) -> None:
+    def _on_selection_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
         if not current:
             self.delete_btn.setEnabled(False)
             return

@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from ankiforge.ui.components import IconButton, StyledLineEdit
@@ -9,7 +10,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class PasswordLineEdit(QWidget):
     """Champ de saisie sécurisé pour clés API avec bouton œil pour afficher/masquer."""
 
-    def __init__(self, placeholder: str = "", initial_text: str = "", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, placeholder: str = "", initial_text: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._is_visible: bool = False
 

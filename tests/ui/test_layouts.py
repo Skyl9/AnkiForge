@@ -2,8 +2,9 @@
 Tests unitaires pour l'Architecture UI Enfichable (Layouts) d'AnkiForge.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from PySide6.QtWidgets import QStackedWidget, QWidget
 
 from ankiforge.ui.layouts.base_layout import BaseLayout
@@ -41,7 +42,7 @@ def test_layout_instantiation_and_theme_sync(qtbot):
         qtbot.addWidget(layout)
         assert isinstance(layout, BaseLayout)
         assert layout.get_layout_id() == layout_id
-        assert DesignTokens.ACTIVE_THEME_ID == layout_id
+        assert layout_id == DesignTokens.ACTIVE_THEME_ID
 
         # Injection du stack et navigation
         layout.set_stacked_widget(stack)
@@ -112,9 +113,11 @@ def test_ide_layout_sidebar_toggle(qtbot, mock_db):
     """Vérifie que le bouton de la sidebar et l'icône du logo rétractent et ré-étendent correctement la sidebar."""
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
+        window.apply_layout("ide")
         qtbot.addWidget(window)
 
         sidebar = window.sidebar
+
         assert sidebar is not None
         assert not sidebar.is_collapsed
         assert sidebar.width() == DesignTokens.SIDEBAR_WIDTH_EXPANDED
@@ -133,6 +136,7 @@ def test_ide_layout_sidebar_toggle(qtbot, mock_db):
 def test_flow_layout_wrapping_and_crud(qtbot):
     """Vérifie le bon fonctionnement du FlowLayout (ajout, calcul de taille, suppression)."""
     from PySide6.QtWidgets import QLabel, QWidget
+
     from ankiforge.ui.components.flow_layout import FlowLayout
 
     container = QWidget()

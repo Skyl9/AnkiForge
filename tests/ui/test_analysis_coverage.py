@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 from ankiforge.database.models import (
     CardModel,
@@ -131,7 +131,7 @@ def test_ai_wozniak_linter_tab_and_widgets(qtbot):
     assert tab.active_category == "cat-katex"
 
     # Tester le widget de carte problème Wozniak
-    item_data: Dict[str, Any] = {
+    item_data: dict[str, Any] = {
         "title": "Carte #42 - Liste trop longue",
         "badge": "Viol Atomicité",
         "badge_color": "#f87171",

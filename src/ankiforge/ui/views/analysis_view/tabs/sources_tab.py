@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, Union
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
@@ -85,7 +84,7 @@ class DocumentInspectorPanel(QWidget):
     back_requested = Signal()
     request_navigation = Signal(str, object)
 
-    def __init__(self, doc_or_id: Union[int, DocumentModel], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, doc_or_id: int | DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         if isinstance(doc_or_id, DocumentModel):
             self.doc = doc_or_id
@@ -370,6 +369,7 @@ class DocumentInspectorPanel(QWidget):
                 c_layout.setSpacing(6)
 
                 import json
+
                 from ankiforge.database.models import CardModel, NoteVersionModel
 
                 fields = {}
@@ -474,7 +474,7 @@ class AISourcesDiagnosticTab(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         main_layout = QVBoxLayout(self)
@@ -716,11 +716,7 @@ class AISourcesDiagnosticTab(QWidget):
                 continue
 
             status_idx = self.status_combo.currentIndex()
-            if status_idx == 1 and (not is_indexed or coverage_pct < 100):
-                continue
-            elif status_idx == 2 and (not is_indexed or orphan_chunks == 0):
-                continue
-            elif status_idx == 3 and is_indexed:
+            if status_idx == 1 and (not is_indexed or coverage_pct < 100) or status_idx == 2 and (not is_indexed or orphan_chunks == 0) or status_idx == 3 and is_indexed:
                 continue
 
             docs_data.append(

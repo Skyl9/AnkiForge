@@ -1,4 +1,5 @@
 from typing import Any
+
 from PySide6.QtCore import Signal
 from PySide6.QtGui import (
     QColor,

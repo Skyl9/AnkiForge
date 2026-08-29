@@ -3,8 +3,9 @@ Overlay d'animation de chargement et de transition de style / thème.
 Affiche un rideau fluide et élégant avec indicateur animé lors de l'application d'un nouveau thème.
 """
 
-from typing import Callable, Optional
-from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPropertyAnimation, QTimer, Qt
+from collections.abc import Callable
+
+from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPropertyAnimation, Qt, QTimer
 from PySide6.QtGui import QFont, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QFrame,
@@ -23,7 +24,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class SpinningIconLabel(QWidget):
     """Widget d'icône avec rotation fluide et gestion propre du cycle de vie QPainter."""
 
-    def __init__(self, icon_name: str = "ph.palette", color: str = "#6366f1", size: int = 36, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, icon_name: str = "ph.palette", color: str = "#6366f1", size: int = 36, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._angle = 0
         self._icon_name = icon_name
@@ -75,7 +76,7 @@ class ThemeTransitionOverlay(QWidget):
         theme_title: str = "Nouveau Thème",
         subtext: str = "Application des composants et du design system...",
         duration_ms: int = 400,
-        on_applied: Optional[Callable[[], None]] = None,
+        on_applied: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self._parent_widget = parent
@@ -208,12 +209,12 @@ class ThemeTransitionOverlay(QWidget):
 
 
 def show_theme_transition(
-    parent: Optional[QWidget],
+    parent: QWidget | None,
     theme_title: str = "Nouveau Thème",
     subtext: str = "Application des composants et du design system...",
     duration_ms: int = 400,
-    on_applied: Optional[Callable[[], None]] = None,
-) -> Optional[ThemeTransitionOverlay]:
+    on_applied: Callable[[], None] | None = None,
+) -> ThemeTransitionOverlay | None:
     """
     Lance une animation de transition fluide par-dessus le widget parent.
     """

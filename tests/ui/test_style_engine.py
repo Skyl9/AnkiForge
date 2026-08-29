@@ -51,29 +51,30 @@ def test_style_engine_apply_theme(qtbot):
     # 1. Appliquer macOS
     engine.apply_theme("macos", app)
     assert engine.current_theme.id == "macos"
-    assert DesignTokens.ACCENT_PRIMARY == MACOS_SLATE.accent_primary
-    assert DesignTokens.RADIUS_SM == MACOS_SLATE.radius_sm
+    assert MACOS_SLATE.accent_primary == DesignTokens.ACCENT_PRIMARY
+    assert MACOS_SLATE.radius_sm == DesignTokens.RADIUS_SM
 
     # 2. Appliquer Dashboard (Emerald)
     engine.apply_theme("dashboard", app)
     assert engine.current_theme.id == "dashboard"
-    assert DesignTokens.ACCENT_PRIMARY == EMERALD_DASHBOARD.accent_primary
+    assert EMERALD_DASHBOARD.accent_primary == DesignTokens.ACCENT_PRIMARY
 
     # 3. Appliquer Glassmorphism (Cyber Amethyst)
     engine.apply_theme("glassmorphism", app)
     assert engine.current_theme.id == "glassmorphism"
-    assert DesignTokens.ACCENT_PRIMARY == CYBER_GLASS.accent_primary
+    assert CYBER_GLASS.accent_primary == DesignTokens.ACCENT_PRIMARY
 
     # 4. Revenir à JetBrains Dark
     engine.apply_theme("ide", app)
     assert engine.current_theme.id == "ide"
-    assert DesignTokens.ACCENT_PRIMARY == JETBRAINS_DARK.accent_primary
+    assert JETBRAINS_DARK.accent_primary == DesignTokens.ACCENT_PRIMARY
 
 
 def test_semantic_buttons_properties(qtbot):
     """Vérifie que les composants de boutons appliquent correctement leurs propriétés sémantiques et animations."""
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QEnterEvent
+
     from ankiforge.ui.components.buttons import IconButton
 
     btn_p = PrimaryButton("Valider")
@@ -218,7 +219,8 @@ def test_toggle_color_mode(qtbot):
 
 def test_force_global_repolish_and_live_signal(qtbot):
     """Vérifie que force_global_repolish et theme_changed s'exécutent sans erreur sur des widgets actifs."""
-    from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+    from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
     from ankiforge.ui.components.buttons import IconButton, PrimaryButton
 
     engine = get_style_engine()

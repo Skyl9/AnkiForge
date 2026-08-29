@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -37,10 +36,10 @@ logger = logging.getLogger(__name__)
 class ModelExportDialog(QDialog):
     """Boîte de dialogue modale pour l'exportation de modèles au format .afmodel ou .json."""
 
-    def __init__(self, model: NoteTypeModel, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, model: NoteTypeModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.model = model
-        self.exported_file_path: Optional[Path] = None
+        self.exported_file_path: Path | None = None
 
         self.setWindowTitle(f"Exporter le Modèle — {self.model.name}")
         self.setMinimumSize(580, 520)

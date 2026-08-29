@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
@@ -9,7 +10,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class SettingsNavButton(QPushButton):
     """Bouton de navigation latérale avec indicateur d'accent vertical gauche."""
 
-    def __init__(self, title: str, icon_name: str, index: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str, icon_name: str, index: int, parent: QWidget | None = None) -> None:
         super().__init__(f"  {title}", parent)
         self.icon_name = icon_name
         self.tab_index = index

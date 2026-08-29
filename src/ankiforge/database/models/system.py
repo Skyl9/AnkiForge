@@ -32,9 +32,9 @@ class JobModel(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(default=datetime.datetime.now)
 
-    def save(self, *args, **kwargs):
-        self.updated_at = datetime.datetime.now()
-        return super().save(*args, **kwargs)
+    def save(self, *args: Any, **kwargs: Any) -> int:
+        self.updated_at = datetime.datetime.now()  # type: ignore[assignment]
+        return int(super().save(*args, **kwargs))
 
 
 class SettingModel(BaseModel):
@@ -70,10 +70,7 @@ class SettingModel(BaseModel):
     @db.atomic()
     def set_value(cls, key: str, value: Any, category: str = "general") -> "SettingModel":
         """Enregistre ou met à jour un paramètre en BDD."""
-        if isinstance(value, str):
-            value_str = value
-        else:
-            value_str = json.dumps(value, ensure_ascii=False)
+        value_str = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
         record = cls.get_or_none(cls.key == key)
         if record:

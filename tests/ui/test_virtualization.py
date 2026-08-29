@@ -7,10 +7,10 @@ VirtualListView et les délégués graphiques vectoriels QStyledItemDelegate.
 import json
 from unittest.mock import MagicMock
 
+import pytest
 from PySide6.QtCore import QModelIndex, QRect, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QStyleOptionViewItem, QWidget
-import pytest
 
 from ankiforge.database.models import (
     CardModel,

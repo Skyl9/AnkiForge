@@ -8,9 +8,9 @@ from __future__ import annotations
 import json
 import logging
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ankiforge.database.models import NoteTypeModel
 
@@ -30,17 +30,17 @@ class CardModelIO:
         author: str = "AnkiForge User",
         version: str = "1.0.0",
         description: str = "",
-        tags: Optional[List[str]] = None,
-        demo_cards: Optional[List[Dict[str, str]]] = None,
-    ) -> Dict[str, Any]:
+        tags: list[str] | None = None,
+        demo_cards: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
         """Convertit un NoteTypeModel en dictionnaire standardisé AnkiForge."""
         try:
-            fields = json.loads(model.fields_schema) if model.fields_schema else ["Front", "Back"]
+            fields = json.loads(str(model.fields_schema)) if model.fields_schema else ["Front", "Back"]
         except Exception:
             fields = ["Front", "Back"]
 
         try:
-            templates = json.loads(model.templates) if model.templates else []
+            templates = json.loads(str(model.templates)) if model.templates else []
         except Exception:
             templates = []
 
@@ -55,7 +55,7 @@ class CardModelIO:
                 "author": author or "AnkiForge User",
                 "version": version or "1.0.0",
                 "description": description or "",
-                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "exported_at": datetime.now(UTC).isoformat(),
                 "tags": tags or ["ankiforge", "card-model"],
             },
             "fields_schema": fields,
@@ -71,8 +71,8 @@ class CardModelIO:
         author: str = "AnkiForge User",
         version: str = "1.0.0",
         description: str = "",
-        tags: Optional[List[str]] = None,
-        demo_cards: Optional[List[Dict[str, str]]] = None,
+        tags: list[str] | None = None,
+        demo_cards: list[dict[str, str]] | None = None,
     ) -> str:
         """Sérialise un modèle de carte en JSON formaté."""
         data = cls.export_to_dict(
@@ -93,9 +93,9 @@ class CardModelIO:
         author: str = "AnkiForge User",
         version: str = "1.0.0",
         description: str = "",
-        tags: Optional[List[str]] = None,
-        demo_cards: Optional[List[Dict[str, str]]] = None,
-        assets: Optional[Dict[str, bytes]] = None,
+        tags: list[str] | None = None,
+        demo_cards: list[dict[str, str]] | None = None,
+        assets: dict[str, bytes] | None = None,
     ) -> Path:
         """
         Exporte un modèle au format bundle .afmodel (archive ZIP contenant templates, CSS, manifeste et démos).
@@ -147,7 +147,7 @@ class CardModelIO:
         return out
 
     @classmethod
-    def validate_and_parse_json(cls, json_str: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+    def validate_and_parse_json(cls, json_str: str) -> tuple[bool, dict[str, Any] | None, str]:
         """
         Valide et normalise la structure d'un modèle JSON AnkiForge.
         """
@@ -194,7 +194,7 @@ class CardModelIO:
         return True, normalized_data, ""
 
     @classmethod
-    def read_bundle_file(cls, bundle_path: Path | str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+    def read_bundle_file(cls, bundle_path: Path | str) -> tuple[bool, dict[str, Any] | None, str]:
         """
         Lit et extrait les métadonnées et gabarits d'une archive .afmodel.
         """
@@ -249,7 +249,7 @@ class CardModelIO:
             return False, None, f"Erreur lors de la lecture du paquet .afmodel : {str(e)}"
 
     @classmethod
-    def read_model_file(cls, file_path: Path | str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+    def read_model_file(cls, file_path: Path | str) -> tuple[bool, dict[str, Any] | None, str]:
         """
         Détecte automatiquement l'extension et charge le modèle depuis un fichier .afmodel ou .json.
         """
@@ -266,10 +266,10 @@ class CardModelIO:
     @classmethod
     def save_model_to_db(
         cls,
-        model_data: Dict[str, Any],
+        model_data: dict[str, Any],
         overwrite_existing: bool = False,
-        new_name: Optional[str] = None,
-    ) -> Tuple[NoteTypeModel, bool]:
+        new_name: str | None = None,
+    ) -> tuple[NoteTypeModel, bool]:
         """
         Enregistre les données du modèle en base SQLite Peewee.
         """
@@ -303,7 +303,7 @@ class CardModelIO:
         return created, True
 
     @classmethod
-    def get_starter_pack_models(cls) -> List[Dict[str, Any]]:
+    def get_starter_pack_models(cls) -> list[dict[str, Any]]:
         """
         Retourne la collection des 4 modèles communautaires préconfigurés (Starter Pack).
         """
@@ -524,7 +524,7 @@ class CardModelIO:
         ]
 
     @classmethod
-    def install_starter_pack(cls, pack_id: str, overwrite: bool = False) -> Optional[NoteTypeModel]:
+    def install_starter_pack(cls, pack_id: str, overwrite: bool = False) -> NoteTypeModel | None:
         """Installe un modèle du starter pack par son identifiant unique."""
         packs = {p["id"]: p for p in cls.get_starter_pack_models()}
         pack = packs.get(pack_id)

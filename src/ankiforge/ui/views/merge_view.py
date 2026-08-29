@@ -4,8 +4,6 @@ Vue et Composant SmartMergeView pour la résolution visuelle des conflits.
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QVBoxLayout,
@@ -23,7 +21,7 @@ class MergeView(QWidget):
 
     merge_resolved = Signal(dict)
 
-    def __init__(self, conflicts: Optional[List[ConflictItem]] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, conflicts: list[ConflictItem] | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.conflicts = conflicts or []
 

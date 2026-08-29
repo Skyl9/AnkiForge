@@ -1,6 +1,3 @@
-from typing import List, Tuple
-
-
 class CSSFormatter:
     """Formateur de code CSS moderne pour harmoniser l'indentation, les sauts de lignes et espacements."""
 
@@ -16,8 +13,8 @@ class CSSFormatter:
         n = len(raw)
         in_comment = False
         in_string = None
-        current_token: List[str] = []
-        tokens: List[Tuple[str, str]] = []
+        current_token: list[str] = []
+        tokens: list[tuple[str, str]] = []
 
         while i < n:
             ch = raw[i]
@@ -95,7 +92,7 @@ class CSSFormatter:
             if stmt:
                 tokens.append(("stmt", stmt))
 
-        result_lines: List[str] = []
+        result_lines: list[str] = []
         indent = 0
 
         for ttype, content in tokens:
@@ -138,7 +135,7 @@ class CSSFormatter:
                     clean_stmt = f"{pname}: {pval}"
                 result_lines.append((indent_str * indent) + clean_stmt)
 
-        final_lines: List[str] = []
+        final_lines: list[str] = []
         prev_blank = False
         for li in result_lines:
             if not li.strip():

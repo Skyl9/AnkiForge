@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -14,7 +13,7 @@ class VectorWorker(QThread):
     finished_indexing = Signal(str)  # Renvoie le nom de la collection
     error_occurred = Signal(str)
 
-    def __init__(self, document_id: int, parent: Optional[QObject] = None):
+    def __init__(self, document_id: int, parent: QObject | None = None):
         super().__init__(parent)
         self.document_id = document_id
         self.manager = VectorManager()

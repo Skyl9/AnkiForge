@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from ankiforge.ui.components.code_editor.models import LintIssue
 
 
@@ -12,22 +10,22 @@ class CSSLinter:
     """
 
     @classmethod
-    def lint(cls, code: str) -> List[LintIssue]:
-        issues: List[LintIssue] = []
+    def lint(cls, code: str) -> list[LintIssue]:
+        issues: list[LintIssue] = []
         if not code or not code.strip():
             return issues
 
-        brace_stack: List[tuple[int, int]] = []
+        brace_stack: list[tuple[int, int]] = []
         in_comment = False
         comment_start = (1, 1)
 
-        in_string: Optional[str] = None
+        in_string: str | None = None
         string_start = (1, 1)
 
         line_num = 1
         col_num = 0
 
-        current_token: List[str] = []
+        current_token: list[str] = []
         token_start_line = 1
         token_start_col = 1
 
@@ -183,7 +181,7 @@ class CSSLinter:
         return issues
 
     @classmethod
-    def _validate_declaration(cls, stmt: str, line: int, col: int, issues: List[LintIssue]) -> None:
+    def _validate_declaration(cls, stmt: str, line: int, col: int, issues: list[LintIssue]) -> None:
         # Ignorer les at-rules globales comme @import, @charset
         if stmt.startswith("@"):
             return

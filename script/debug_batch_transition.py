@@ -6,13 +6,14 @@ import os
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from PySide6.QtWidgets import QApplication
 from unittest.mock import patch
 
-from ankiforge.database.models import init_db
+from PySide6.QtWidgets import QApplication
+
 from ankiforge.database.migration import run_migrations
-from ankiforge.utils.paths import get_project_root
+from ankiforge.database.models import init_db
 from ankiforge.ui.style_engine import get_style_engine
+from ankiforge.utils.paths import get_project_root
 
 
 def test_batch_transition():

@@ -7,10 +7,10 @@ par blocs (limit/offset) pour garantir une empreinte mémoire constante et un d�
 from __future__ import annotations
 
 import logging
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Any, TypeVar
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex
 import peewee
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ T = TypeVar("T")
 _ROOT_INDEX = QModelIndex()
 
 
-class BasePaginatedPeeweeModel(QAbstractTableModel, Generic[T]):
+class BasePaginatedPeeweeModel[T](QAbstractTableModel):
     """
     Modèle de table virtuel paginé générique connecté à Peewee ORM.
 
@@ -30,16 +30,16 @@ class BasePaginatedPeeweeModel(QAbstractTableModel, Generic[T]):
 
     def __init__(
         self,
-        query: Optional[peewee.Query] = None,
-        total_count: Optional[int] = None,
+        query: peewee.Query | None = None,
+        total_count: int | None = None,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
-        parent: Optional[Any] = None,
+        parent: Any | None = None,
     ) -> None:
         super().__init__(parent)
         self._chunk_size: int = max(10, chunk_size)
-        self._base_query: Optional[peewee.Query] = query
+        self._base_query: peewee.Query | None = query
         self._total_count: int = total_count if total_count is not None else (query.count() if query is not None else 0)
-        self._loaded_rows: List[T] = []
+        self._loaded_rows: list[T] = []
 
         if self._base_query is not None and self._total_count > 0:
             self._load_initial_batch()
@@ -60,13 +60,13 @@ class BasePaginatedPeeweeModel(QAbstractTableModel, Generic[T]):
     def chunk_size(self) -> int:
         return self._chunk_size
 
-    def get_row(self, row_idx: int) -> Optional[T]:
+    def get_row(self, row_idx: int) -> T | None:
         """Retourne l'objet à l'index spécifié si disponible."""
         if 0 <= row_idx < len(self._loaded_rows):
             return self._loaded_rows[row_idx]
         return None
 
-    def get_all_loaded_rows(self) -> List[T]:
+    def get_all_loaded_rows(self) -> list[T]:
         """Retourne une copie de tous les éléments actuellement chargés."""
         return list(self._loaded_rows)
 
@@ -75,7 +75,7 @@ class BasePaginatedPeeweeModel(QAbstractTableModel, Generic[T]):
     def set_query(
         self,
         query: peewee.Query,
-        total_count: Optional[int] = None,
+        total_count: int | None = None,
         auto_fetch_first_batch: bool = True,
     ) -> None:
         """
@@ -162,7 +162,7 @@ class BasePaginatedPeeweeModel(QAbstractTableModel, Generic[T]):
 
     # --- Méthodes à surcharger par les classes dérivées ---
 
-    def _process_batch(self, raw_items: List[Any]) -> List[T]:
+    def _process_batch(self, raw_items: list[Any]) -> list[T]:
         """
         Hook de conversion et de préchargement des relations en lot.
         Par défaut, renvoie la liste brute.

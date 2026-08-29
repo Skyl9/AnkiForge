@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import difflib
 import json
-from typing import List, Optional
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
@@ -35,7 +34,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class PersonaPromptDiffViewer(QTextBrowser):
     """Afficheur HTML coloré comparant le prompt d'une version avec le prompt actuel."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setOpenExternalLinks(False)
         self.setStyleSheet(f"""
@@ -56,7 +55,7 @@ class PersonaPromptDiffViewer(QTextBrowser):
         old_lines = (old_prompt or "").splitlines()
         cur_lines = (current_prompt or "").splitlines()
 
-        html: List[str] = [
+        html: list[str] = [
             "<div style='font-family: monospace; line-height: 1.6;'>",
             f"<div style='padding-bottom: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; margin-bottom: 10px;'>",
             "DIFFÉRENTIEL DU PROMPT : <span style='color: #ef4444;'>[ROUGE = SUPPRIMÉ DANS CETTE VERSION]</span> | <span style='color: #10b981;'>[VERT = AJOUTÉ DANS CETTE VERSION]</span>",
@@ -89,7 +88,7 @@ class PersonaPromptDiffViewer(QTextBrowser):
 class PersonaVersionItemWidget(QWidget):
     """Widget de ligne personnalisée représentant une version dans la liste de l'historique."""
 
-    def __init__(self, version: PersonaVersionModel, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, version: PersonaVersionModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.version = version
 
@@ -147,11 +146,11 @@ class PersonaHistoryDialog(QDialog):
 
     version_restored = Signal(int)
 
-    def __init__(self, persona_id: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, persona_id: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.persona_id = persona_id
-        self.persona: Optional[PersonaModel] = PersonaModel.get_or_none(PersonaModel.id == persona_id)
-        self._selected_version: Optional[PersonaVersionModel] = None
+        self.persona: PersonaModel | None = PersonaModel.get_or_none(PersonaModel.id == persona_id)
+        self._selected_version: PersonaVersionModel | None = None
 
         self.setWindowTitle(f"Historique des Versions — {self.persona.name if self.persona else 'Agent'}")
         self.setMinimumSize(950, 650)
@@ -323,7 +322,7 @@ class PersonaHistoryDialog(QDialog):
             self.version_list.setCurrentRow(0)
 
     @Slot(QListWidgetItem, QListWidgetItem)
-    def _on_version_selected(self, current: Optional[QListWidgetItem], previous: Optional[QListWidgetItem]) -> None:
+    def _on_version_selected(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
         if not current:
             self._selected_version = None
             self.btn_restore.setEnabled(False)
@@ -348,7 +347,7 @@ class PersonaHistoryDialog(QDialog):
         self.diff_viewer.set_diff(old_prompt=version.system_prompt or "", current_prompt=current_prompt)
 
         # 2. Métadonnées HTML
-        tools_list: List[str] = []
+        tools_list: list[str] = []
         try:
             tools_list = json.loads(version.allowed_tools or "[]")
         except Exception:

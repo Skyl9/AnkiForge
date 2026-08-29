@@ -1,9 +1,9 @@
 import hashlib
 import logging
 import mimetypes
-from pathlib import Path
 import re
 import shutil
+from pathlib import Path
 from typing import Any
 
 from ankiforge.utils.paths import get_app_data_dir

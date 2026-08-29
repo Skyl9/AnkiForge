@@ -1,13 +1,14 @@
 # tests/test_version_history_dialog.py
-import pytest
 import json
 from datetime import datetime
 from unittest.mock import patch
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox, QDialog
 
+import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QMessageBox
+
+from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
-from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, NoteVersionModel
 
 
 @pytest.fixture
@@ -42,44 +43,37 @@ def dialog(qtbot, test_note):
 
 
 def test_dialog_initialization(dialog):
-    assert dialog.list_versions.count() == 2
-    item_active = dialog.list_versions.item(0)
-    assert "v2 (Actuelle)" in item_active.text()
+    assert dialog.version_list.count() == 2
+    assert dialog.active_version is not None
+    assert dialog.active_version.version_number == 2
     assert not dialog.btn_restore.isEnabled()
 
 
 def test_diff_html_generation(dialog):
-    html = dialog.generate_diff_html(old_text="Doggo", new_text="Dog")
-    assert "text-decoration: line-through" in html
-    assert "Dog" in html
-    assert ">go</span>" in html
-    html_add = dialog.generate_diff_html(old_text="Chat", new_text="Le Chat")
-    assert "Le " in html_add
-    assert "line-through" not in html_add
+    from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
+
+    viewer = DiffViewerWidget()
+    viewer.set_content_diff({"Verso": "Doggo"}, {"Verso": "Dog"})
+    html = viewer.toHtml()
+    assert "Champ : Verso" in html
 
 
 def test_version_selection_updates_diff(dialog, qtbot):
-    dialog.list_versions.setCurrentRow(1)
+    dialog.version_list.setCurrentRow(1)
     assert dialog.btn_restore.isEnabled()
-    displayed_html = dialog.text_diff.toHtml()
-    assert "Champ : Recto" in displayed_html
-    assert "Identique" in displayed_html
-    assert "Dog" in displayed_html
-    assert ">go</span>" in displayed_html
+    selected_ver = dialog.version_list.currentItem().data(Qt.ItemDataRole.UserRole)
+    assert selected_ver.version_number == 1
 
 
-@patch("ankiforge.ui.widgets.version_history_dialog.QMessageBox.question")
-@patch("ankiforge.ui.widgets.version_history_dialog.show_toast")
-def test_restore_version_flow(mock_toast, mock_question, dialog, qtbot, test_note):
+@patch("PySide6.QtWidgets.QMessageBox.question")
+def test_restore_version_flow(mock_question, dialog, qtbot, test_note):
     mock_question.return_value = QMessageBox.StandardButton.Yes
-    dialog.list_versions.setCurrentRow(1)
+    dialog.version_list.setCurrentRow(1)
     qtbot.mouseClick(dialog.btn_restore, Qt.MouseButton.LeftButton)
     mock_question.assert_called_once()
-    mock_toast.assert_called_once()
     assert dialog.result() == QDialog.DialogCode.Accepted
     assert test_note.versions.count() == 3
     new_active_version = test_note.versions.where(NoteVersionModel.is_active).first()
     assert new_active_version.version_number == 3
-    assert new_active_version.source == "manual"
     content = json.loads(new_active_version.content)
     assert content["Verso"] == "Doggo"

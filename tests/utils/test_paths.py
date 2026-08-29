@@ -3,13 +3,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ankiforge.utils.paths import (
-    get_project_root,
-    get_app_data_dir,
-    get_resource_path,
     get_active_profile,
-    set_active_profile,
-    get_profile_dir,
+    get_app_data_dir,
     get_media_dir,
+    get_profile_dir,
+    get_project_root,
+    get_resource_path,
+    set_active_profile,
 )
 
 

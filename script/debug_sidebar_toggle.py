@@ -6,11 +6,12 @@ import os
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from PySide6.QtWidgets import QApplication
 from unittest.mock import patch
 
-from ankiforge.database.models import init_db
+from PySide6.QtWidgets import QApplication
+
 from ankiforge.database.migration import run_migrations
+from ankiforge.database.models import init_db
 from ankiforge.ui.main_window import MainWindow
 
 

@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
@@ -8,7 +9,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class CicdMetricCard(QFrame):
     """Stat Card épurée et compacte conforme à la maquette concept_ide (L1888-L1916)."""
 
-    def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.title_text = title
         self.icon_name = icon_name

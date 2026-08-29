@@ -3,18 +3,18 @@ Main Window & Navigation for AnkiForge.
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple, Type, cast
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QStackedWidget, QLabel, QMessageBox
+from typing import Any, cast
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.ui.components.sidebar import Sidebar, SidebarItem, ClickableLabel  # noqa: F401 — re-export rétrocompatible
-from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
-from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — re-export rétrocompatible
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
+from ankiforge.ui.components.sidebar import ClickableLabel, Sidebar, SidebarItem  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.agents_view import AgentsView
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class DummyView(QWidget):
     """Vue temporaire pour le QStackedWidget."""
 
-    def __init__(self, title: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         lbl = QLabel(f"[{title}] View Content Placeholder")
@@ -40,18 +40,18 @@ class DummyView(QWidget):
 class MainWindow(QMainWindow):
     """Fenêtre principale ankiforge_obsidian."""
 
-    from ankiforge.ui.views.dashboard_view import DashboardView
-    from ankiforge.ui.views.creation_view import CreationView
-    from ankiforge.ui.views.edition_view import EditionView
-    from ankiforge.ui.views.analysis_view import AnalysisView
-    from ankiforge.ui.views.consultant_view import ConsultantView
-    from ankiforge.ui.views.batch_view import BatchView
-    from ankiforge.ui.views.documents_view import DocumentsView
-    from ankiforge.ui.views.card_models_view import CardModelsView
-    from ankiforge.ui.views.pipelines_view import PipelinesView
     from ankiforge.ui.views.ab_tests_view import ABTestsView
+    from ankiforge.ui.views.analysis_view import AnalysisView
+    from ankiforge.ui.views.batch_view import BatchView
+    from ankiforge.ui.views.card_models_view import CardModelsView
+    from ankiforge.ui.views.consultant_view import ConsultantView
+    from ankiforge.ui.views.creation_view import CreationView
+    from ankiforge.ui.views.dashboard_view import DashboardView
+    from ankiforge.ui.views.documents_view import DocumentsView
+    from ankiforge.ui.views.edition_view import EditionView
+    from ankiforge.ui.views.pipelines_view import PipelinesView
 
-    VIEW_REGISTRY: Dict[str, Tuple[str, str, str, Type[QWidget]]] = {
+    VIEW_REGISTRY: dict[str, tuple[str, str, str, type[QWidget]]] = {
         # view_id -> (category, icon, title, WidgetClass)
         "dashboard": ("Général", "squares-four", "Tableau de bord", DashboardView),
         "creation": ("Forge & Outils", "magic-wand", "Studio de Création", CreationView),
@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", ABTestsView),
     }
 
-    def __init__(self, ai_manager: Optional[AIManager], profile_name: str = "default") -> None:
+    def __init__(self, ai_manager: AIManager | None, profile_name: str = "default") -> None:
         super().__init__()
         self.ai_manager = ai_manager
         self.profile_name = profile_name
@@ -86,13 +86,13 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.layouts.base_layout import BaseLayout
         from ankiforge.ui.layouts.layout_manager import LayoutManager
 
-        self._view_widgets: Dict[str, QWidget] = {}
-        self._current_view_id: Optional[str] = None
-        self._settings_window: Optional[QWidget] = None
-        self._import_dialog: Optional[QWidget] = None
-        self._export_dialog: Optional[QWidget] = None
-        self._notif_popup: Optional[QWidget] = None
-        self.current_layout: Optional[BaseLayout] = None
+        self._view_widgets: dict[str, QWidget] = {}
+        self._current_view_id: str | None = None
+        self._settings_window: QWidget | None = None
+        self._import_dialog: QWidget | None = None
+        self._export_dialog: QWidget | None = None
+        self._notif_popup: QWidget | None = None
+        self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
         # Enregistrement initial des placeholders légers (Lazy Loading)
@@ -116,14 +116,14 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
 
     @property
-    def sidebar(self) -> Optional[Any]:
+    def sidebar(self) -> Any | None:
         """Propriété de compatibilité pour accéder à la sidebar si présente."""
         if self.current_layout is not None and hasattr(self.current_layout, "sidebar"):
             return self.current_layout.sidebar
         return None
 
     @property
-    def topbar(self) -> Optional[Any]:
+    def topbar(self) -> Any | None:
         """Propriété de compatibilité pour accéder à la topbar si présente."""
         if self.current_layout is not None and hasattr(self.current_layout, "topbar"):
             return self.current_layout.topbar
@@ -257,9 +257,10 @@ class MainWindow(QMainWindow):
 
     def _show_notif_popup(self) -> None:
         """Affiche le menu déroulant des notifications rattaché à la cloche TopBar."""
-        from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
-        from ankiforge.services.audit.metrics_service import MetricsService
         from PySide6.QtCore import QPoint
+
+        from ankiforge.services.audit.metrics_service import MetricsService
+        from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
 
         if not self._notif_popup:
             self._notif_popup = NotificationMenuPopup(self)
@@ -288,17 +289,16 @@ class MainWindow(QMainWindow):
             tokens_val = telemetry.get("total_tokens", 0)
             self.topbar.update_token_tracker(f"{cost_val:.2f}", f"{tokens_val:,}")
 
-    def _on_view_selected(self, view_id: str, data: Optional[dict] = None) -> None:
+    def _on_view_selected(self, view_id: str, data: dict | None = None) -> None:
         """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
         if self._current_view_id == view_id and not data:
             return
 
-        if self._current_view_id != view_id:
-            if not self._can_switch_view():
-                # Reset sidebar selection visually if rejected
-                if self._current_view_id and self.sidebar:
-                    self.sidebar.set_active_view(self._current_view_id)
-                return
+        if self._current_view_id != view_id and not self._can_switch_view():
+            # Reset sidebar selection visually if rejected
+            if self._current_view_id and self.sidebar:
+                self.sidebar.set_active_view(self._current_view_id)
+            return
 
         # Lazy Instantiation de la vue réelle si c'est encore un DummyView
         if view_id in self.VIEW_REGISTRY:
@@ -341,17 +341,14 @@ class MainWindow(QMainWindow):
             if hasattr(widget, "refresh_data"):
                 cast(Any, widget).refresh_data()
 
-            if view_id == "edition" and isinstance(data, dict) and "note_id" in data:
-                if hasattr(widget, "select_note_by_id"):
-                    cast(Any, widget).select_note_by_id(data["note_id"])
+            if view_id == "edition" and isinstance(data, dict) and "note_id" in data and hasattr(widget, "select_note_by_id"):
+                cast(Any, widget).select_note_by_id(data["note_id"])
 
-            if view_id == "creation" and isinstance(data, dict) and "prompt" in data:
-                if hasattr(widget, "_open_document_tab"):
-                    cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+            if view_id == "creation" and isinstance(data, dict) and "prompt" in data and hasattr(widget, "_open_document_tab"):
+                cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
 
-            if view_id == "analysis" and isinstance(data, dict) and "tab" in data:
-                if hasattr(widget, "set_active_tab_by_name"):
-                    cast(Any, widget).set_active_tab_by_name(data["tab"])
+            if view_id == "analysis" and isinstance(data, dict) and "tab" in data and hasattr(widget, "set_active_tab_by_name"):
+                cast(Any, widget).set_active_tab_by_name(data["tab"])
 
     def _can_switch_view(self) -> bool:
         """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""
@@ -359,16 +356,15 @@ class MainWindow(QMainWindow):
             return True
 
         current_widget = self._view_widgets.get(self._current_view_id)
-        if current_widget and hasattr(current_widget, "is_dirty"):
-            if cast(Any, current_widget).is_dirty():
-                reply = QMessageBox.question(
-                    self,
-                    "Modifications non sauvegardées",
-                    "Vous avez des modifications en cours. Voulez-vous vraiment quitter ?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                return reply == QMessageBox.StandardButton.Yes
+        if current_widget and hasattr(current_widget, "is_dirty") and cast(Any, current_widget).is_dirty():
+            reply = QMessageBox.question(
+                self,
+                "Modifications non sauvegardées",
+                "Vous avez des modifications en cours. Voulez-vous vraiment quitter ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            return reply == QMessageBox.StandardButton.Yes
         return True
 
     def _toggle_sidebar(self) -> None:
@@ -435,6 +431,7 @@ class MainWindow(QMainWindow):
     def _on_switch_profile_requested(self) -> None:
         """Ouvre la boîte de dialogue de sélection/création de profil et bascule à chaud."""
         from PySide6.QtWidgets import QDialog
+
         from ankiforge.services.profile_manager import ProfileManager
         from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
@@ -498,9 +495,9 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(placeholder)
             self._view_widgets[view_id] = placeholder
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: Any) -> None:
         # Close all floating windows
-        from ankiforge.ui.components.tabs import _floating_windows
+        from ankiforge.ui.components.tabs.floating_dock import _floating_windows
 
         for fw in list(_floating_windows):
             fw.close()

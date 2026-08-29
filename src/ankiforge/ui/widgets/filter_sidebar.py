@@ -1,12 +1,12 @@
+import json
 import logging
 from typing import cast
-import json
 
-from PySide6.QtCore import Qt, Signal, Slot, QPoint
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QListWidget, QListWidgetItem, QFrame
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QFrame, QLabel, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout
 
-from ankiforge.database.models import DeckModel, NoteModel, CardModel
+from ankiforge.database.models import CardModel, DeckModel, NoteModel
 from ankiforge.ui.components.components import RoundedPanel
 from ankiforge.ui.theme import StyledMenu
 

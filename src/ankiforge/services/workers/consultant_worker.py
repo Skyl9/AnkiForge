@@ -6,7 +6,7 @@ Orchestre l'exécution en arrière-plan du moteur ReAct et transmet les signaux 
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 
@@ -30,9 +30,9 @@ class ConsultantWorker(QThread):
 
     def __init__(
         self,
-        llm_config: Optional[LLMConfigModel] = None,
+        llm_config: LLMConfigModel | None = None,
         persona: Any = None,
-        context_data: Optional[Dict[str, Any]] = None,
+        context_data: dict[str, Any] | None = None,
         instruction: str = "",
         ai_provider: Any = None,
     ) -> None:
@@ -70,7 +70,7 @@ class ConsultantWorker(QThread):
                 engine = ConsultantEngine(llm_config=active_config, persona=self.persona, ai_provider=self.ai_provider)
                 final_text = ""
                 curr_tool_name = ""
-                curr_tool_args: Dict[str, Any] = {}
+                curr_tool_args: dict[str, Any] = {}
 
                 async for event in engine.chat_stream(full_prompt):
                     ev_type = event.get("type")

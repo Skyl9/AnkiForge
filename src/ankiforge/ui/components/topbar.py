@@ -6,7 +6,7 @@ import/export et cloche de notifications.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import (
@@ -47,7 +47,7 @@ class TopBar(QWidget):
     notif_clicked = Signal()
     toggle_requested = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("TopBar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)

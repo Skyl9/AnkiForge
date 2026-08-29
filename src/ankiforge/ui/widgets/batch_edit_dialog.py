@@ -1,8 +1,8 @@
 import qtawesome as qta
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QSpinBox
+from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QSpinBox, QTextEdit, QVBoxLayout
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
-from ankiforge.ui.components.components import PrimaryButton, ActionButton
+from ankiforge.ui.components.components import ActionButton, PrimaryButton
 
 
 class BatchEditDialog(QDialog):

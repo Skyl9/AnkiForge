@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableView, QTableWidget, QWidget
@@ -18,7 +18,7 @@ class VirtualTableView(QTableView):
 
     row_selected = Signal(int)  # (row_index)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         # 1. Optimisations critiques de virtualisation
@@ -100,7 +100,7 @@ class VirtualTableView(QTableView):
         )
         self.scrollTo(idx, QAbstractItemView.ScrollHint.EnsureVisible)
 
-    def get_selected_rows(self) -> List[int]:
+    def get_selected_rows(self) -> list[int]:
         """Retourne la liste des indices de lignes sélectionnées."""
         selection_model = self.selectionModel()
         if not selection_model:

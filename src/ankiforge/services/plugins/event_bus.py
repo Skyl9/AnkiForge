@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,10 @@ class EventBus:
     Chaque callback est exécuté de manière sécurisée (try/catch individuel).
     """
 
-    _instance: Optional[EventBus] = None
+    _instance: EventBus | None = None
 
     def __init__(self) -> None:
-        self._listeners: Dict[str, List[EventHandler]] = {}
+        self._listeners: dict[str, list[EventHandler]] = {}
 
     @classmethod
     def get_instance(cls) -> EventBus:
@@ -52,13 +53,12 @@ class EventBus:
     def off(self, event_name: str, handler: EventHandler) -> bool:
         """Désabonne une fonction d'un événement."""
         event_name = event_name.lower().strip()
-        if event_name in self._listeners:
-            if handler in self._listeners[event_name]:
-                self._listeners[event_name].remove(handler)
-                return True
+        if event_name in self._listeners and handler in self._listeners[event_name]:
+            self._listeners[event_name].remove(handler)
+            return True
         return False
 
-    def emit(self, event_name: str, *args: Any, **kwargs: Any) -> List[Any]:
+    def emit(self, event_name: str, *args: Any, **kwargs: Any) -> list[Any]:
         """
         Déclenche un événement et exécute tous les écouteurs enregistrés.
         Chaque écouteur est exécuté avec protection d'exception pour ne pas bloquer les autres.
@@ -66,7 +66,7 @@ class EventBus:
         """
         event_name = event_name.lower().strip()
         listeners = list(self._listeners.get(event_name, []))
-        results: List[Any] = []
+        results: list[Any] = []
 
         for listener in listeners:
             try:
@@ -77,7 +77,7 @@ class EventBus:
 
         return results
 
-    def clear(self, event_name: Optional[str] = None) -> None:
+    def clear(self, event_name: str | None = None) -> None:
         """Efface les écouteurs pour un événement donné ou pour tous les événements."""
         if event_name:
             self._listeners.pop(event_name.lower().strip(), None)

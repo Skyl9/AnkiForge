@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QPushButton, QWidget
 
@@ -9,7 +8,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class SubTabButton(QPushButton):
     """Bouton d'onglet style IDE avec relief et indicateur d'accent."""
 
-    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.icon_name = icon_name
         self.setCursor(Qt.CursorShape.PointingHandCursor)

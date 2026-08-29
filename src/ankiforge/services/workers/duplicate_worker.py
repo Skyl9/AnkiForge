@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -12,7 +11,7 @@ class DuplicateWorker(QThread):
     finished_processing = Signal(list)
     error_occurred = Signal(str)
 
-    def __init__(self, deck_id: int, parent: Optional[QObject] = None):
+    def __init__(self, deck_id: int, parent: QObject | None = None):
         super().__init__(parent)
         self.deck_id = deck_id
 

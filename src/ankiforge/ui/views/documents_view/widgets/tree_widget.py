@@ -1,5 +1,3 @@
-from typing import Optional
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import (
@@ -15,7 +13,7 @@ class DocumentTreeWidget(QTreeWidget):
 
     itemMoved = Signal(object, object)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)

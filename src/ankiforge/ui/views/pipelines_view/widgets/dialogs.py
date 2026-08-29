@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -26,7 +26,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class StepTestDialog(QDialog):
     """Dialogue modal pour tester l'exécution unitaire d'une étape spécifique."""
 
-    def __init__(self, step_data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, step_data: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.step_data = step_data
         step_type = step_data.get("type", "LLM_PROMPT")
@@ -89,7 +89,7 @@ class StepTestDialog(QDialog):
             self.output_text.append(f"Réponse simulée de l'IA :\n{res.content}")
 
         elif stype == "RAG_RETRIEVAL":
-            self.output_text.append("Recherche RAG vectorielle (Top-K = %s)" % cfg.get("top_k", 5))
+            self.output_text.append("Recherche RAG vectorielle (Top-K = {})".format(cfg.get("top_k", 5)))
             self.output_text.append("Fragments trouvés : 3 chunks simulés depuis FAISS.")
 
         elif stype == "PYTHON_TOOL":
@@ -104,7 +104,7 @@ class StepTestDialog(QDialog):
 class PipelineRunDialog(QDialog):
     """Dialogue de test en direct du pipeline complet avec logs et suivi pas à pas."""
 
-    def __init__(self, pipeline: PipelineModel, steps: List[Dict[str, Any]], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, pipeline: PipelineModel, steps: list[dict[str, Any]], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.pipeline = pipeline
         self.steps = steps
@@ -151,7 +151,7 @@ class PipelineRunDialog(QDialog):
         state = PipelineRunState(initial_prompt="Introduction à l'algèbre linéaire.")
         state.set_variable("text_source", "Une matrice est un tableau rectangulaire de nombres réels ou complexes.")
 
-        step_models: List[PipelineStepModel] = []
+        step_models: list[PipelineStepModel] = []
         for idx, s in enumerate(self.steps, start=1):
             cfg_json = json.dumps(s.get("config", {}))
             sm = PipelineStepModel(

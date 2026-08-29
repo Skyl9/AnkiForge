@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -44,7 +44,7 @@ class SettingsModal(QDialog):
     theme_applied = Signal(str)
     layout_applied = Signal(str)
 
-    def __init__(self, ai_manager: Any = None, profile_name: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name or get_active_profile()
@@ -118,7 +118,7 @@ class SettingsModal(QDialog):
         self.nav_btn_group = QButtonGroup(self)
         self.nav_btn_group.setExclusive(True)
 
-        self.nav_btns: List[SettingsNavButton] = []
+        self.nav_btns: list[SettingsNavButton] = []
 
         tabs_info = [
             ("Général", "ph.paint-brush-broad", 0),

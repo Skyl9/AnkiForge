@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -33,7 +32,7 @@ class DocumentDelimitationDialog(QDialog):
     et d'exclure les parties non pédagogiques (sommaires, remerciements, bibliographies).
     """
 
-    def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
         self.setWindowTitle(f"Délimitation du Document — {doc.title}")

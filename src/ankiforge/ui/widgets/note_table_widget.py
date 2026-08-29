@@ -3,10 +3,10 @@ import logging
 import re
 from typing import cast
 
+from peewee import prefetch
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QHeaderView
-from peewee import prefetch
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.components.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel

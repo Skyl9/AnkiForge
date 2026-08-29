@@ -1,5 +1,4 @@
 import re
-from typing import List, Optional, Set
 
 from ankiforge.ui.components.code_editor.models import LintIssue
 
@@ -7,7 +6,7 @@ from ankiforge.ui.components.code_editor.models import LintIssue
 class HTMLLinter:
     """Moteur d'analyse statique et de lintage syntaxique pour gabarits HTML / Anki."""
 
-    VOID_TAGS: Set[str] = {
+    VOID_TAGS: set[str] = {
         "area",
         "base",
         "br",
@@ -25,13 +24,13 @@ class HTMLLinter:
     }
 
     @classmethod
-    def lint(cls, code: str, known_fields: Optional[List[str]] = None) -> List[LintIssue]:
-        issues: List[LintIssue] = []
+    def lint(cls, code: str, known_fields: list[str] | None = None) -> list[LintIssue]:
+        issues: list[LintIssue] = []
         if not code or not code.strip():
             return issues
 
         lines = code.split("\n")
-        tag_stack: List[tuple[str, int, int]] = []  # (tag_name, line_num, col_num)
+        tag_stack: list[tuple[str, int, int]] = []  # (tag_name, line_num, col_num)
         tag_pattern = re.compile(r"<\s*(/)?\s*([a-zA-Z0-9_\-]+)(\s+[^>]*)?(/)?>")
 
         for line_num, line in enumerate(lines, start=1):

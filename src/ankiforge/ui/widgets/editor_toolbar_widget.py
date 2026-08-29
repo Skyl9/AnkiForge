@@ -6,8 +6,8 @@ sur le champ actif et de rajouter dynamiquement de nouvelles actions.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
@@ -40,10 +40,10 @@ class EditorToolbarWidget(QWidget):
     toggle_preview_requested = Signal()
     toggle_table_requested = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._actions: Dict[str, ToolbarAction] = {}
-        self._action_buttons: Dict[str, QWidget] = {}
+        self._actions: dict[str, ToolbarAction] = {}
+        self._action_buttons: dict[str, QWidget] = {}
 
         self._setup_ui()
         self._register_default_actions()
@@ -215,6 +215,6 @@ class EditorToolbarWidget(QWidget):
         if action_id in self._action_buttons:
             self._action_buttons[action_id].setEnabled(enabled)
 
-    def get_registered_actions(self) -> List[ToolbarAction]:
+    def get_registered_actions(self) -> list[ToolbarAction]:
         """Retourne la liste ordonnée des actions enregistrées."""
         return list(self._actions.values())

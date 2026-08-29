@@ -1,6 +1,8 @@
 from typing import Any
-from PySide6.QtWidgets import QLabel, QPushButton, QWidget, QHBoxLayout
-from PySide6.QtCore import Signal, Qt
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+
 from ankiforge.ui.theme import DesignTokens
 
 

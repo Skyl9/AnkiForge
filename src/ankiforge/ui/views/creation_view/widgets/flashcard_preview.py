@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -15,7 +14,7 @@ from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 class FlashcardPreview(QWidget):
     """Composant d'inspection et de validation des cartes générées."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")

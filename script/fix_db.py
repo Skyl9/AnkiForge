@@ -1,5 +1,6 @@
 import json
-from ankiforge.database.models import db, NoteVersionModel
+
+from ankiforge.database.models import NoteVersionModel, db
 
 db_path = "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db"
 db.init(db_path)

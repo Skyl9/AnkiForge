@@ -1,4 +1,5 @@
-from typing import Any, List
+from typing import Any
+
 from PySide6.QtCore import QRegularExpression
 from PySide6.QtGui import (
     QColor,
@@ -15,7 +16,7 @@ class CSSSyntaxHighlighter(QSyntaxHighlighter):
 
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
-        self.rules: List[tuple[QRegularExpression, QTextCharFormat]] = []
+        self.rules: list[tuple[QRegularExpression, QTextCharFormat]] = []
         self.comment_format = QTextCharFormat()
         self.comment_start_expression = QRegularExpression(r"/\*")
         self.comment_end_expression = QRegularExpression(r"\*/")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QModelIndex, QSettings, Qt, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -63,45 +63,45 @@ class EditionView(QWidget):
 
     BATCH_SIZE = 50
 
-    def __init__(self, ai_manager: Any = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.store = StoreManager()
         self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
 
-        self.batch_thread: Optional[BatchEditWorker] = None
-        self.import_thread: Optional[ImportCardsWorker] = None
-        self.progress_dialog: Optional[QProgressDialog] = None
+        self.batch_thread: BatchEditWorker | None = None
+        self.import_thread: ImportCardsWorker | None = None
+        self.progress_dialog: QProgressDialog | None = None
 
         self._dirty = False
-        self._current_note: Optional[NoteModel] = None
-        self._active_folder_id: Optional[int] = None
-        self._active_tags: List[str] = []
-        self._active_model_id: Optional[int] = None
-        self._current_table_fields: Optional[List[str]] = None
-        self._original_content: Dict[str, str] = {}
+        self._current_note: NoteModel | None = None
+        self._active_folder_id: int | None = None
+        self._active_tags: list[str] = []
+        self._active_model_id: int | None = None
+        self._current_table_fields: list[str] | None = None
+        self._original_content: dict[str, str] = {}
 
-        self.dynamic_field_widgets: Dict[str, NoteFieldEditorWidget] = {}
-        self._active_editor: Optional[NoteFieldTextEdit] = None
+        self.dynamic_field_widgets: dict[str, NoteFieldEditorWidget] = {}
+        self._active_editor: NoteFieldTextEdit | None = None
 
         self._table_collapsed: bool = False
         self._saved_table_height: int = 260
         self._preview_visible: bool = True
         self._saved_preview_width: int = 400
 
-        self._deck_modal: Optional[DeckSelectWindow] = None
-        self._tag_modal: Optional[TagSelectWindow] = None
-        self._import_dialog: Optional[QWidget] = None
-        self._export_dialog: Optional[QWidget] = None
+        self._deck_modal: DeckSelectWindow | None = None
+        self._tag_modal: TagSelectWindow | None = None
+        self._import_dialog: QWidget | None = None
+        self._export_dialog: QWidget | None = None
 
-        self._all_notes: List[NoteModel] = []
+        self._all_notes: list[NoteModel] = []
         self._displayed_count: int = 0
 
         self._setup_ui()
         self._setup_shortcuts()
 
     @property
-    def current_folder_id(self) -> Optional[int]:
+    def current_folder_id(self) -> int | None:
         return self._active_folder_id
 
     def _setup_ui(self) -> None:
@@ -491,7 +491,7 @@ class EditionView(QWidget):
             self.fields_scroll_area.show()
             self.fields_splitter.setSizes([500, 500])
 
-    def _get_target_editor(self) -> Optional[NoteFieldTextEdit]:
+    def _get_target_editor(self) -> NoteFieldTextEdit | None:
         if self._active_editor and not self._active_editor.isHidden():
             return self._active_editor
 
@@ -538,7 +538,7 @@ class EditionView(QWidget):
         elif action_id == "quote":
             editor.wrap_selection("<blockquote>", "</blockquote>")
 
-    def _build_dynamic_editors(self, note: NoteModel, data: Dict[str, str]) -> None:
+    def _build_dynamic_editors(self, note: NoteModel, data: dict[str, str]) -> None:
         while self.fields_layout.count():
             item = self.fields_layout.takeAt(0)
             if item is not None:
@@ -602,9 +602,7 @@ class EditionView(QWidget):
         self._on_card_selected(current)
 
     def _on_card_selected(self, item_or_index: Any = None) -> None:
-        if isinstance(item_or_index, QModelIndex):
-            row = item_or_index.row()
-        elif hasattr(item_or_index, "row"):
+        if isinstance(item_or_index, QModelIndex) or hasattr(item_or_index, "row"):
             row = item_or_index.row()
         else:
             selected_rows = self.card_table.get_selected_rows()
@@ -640,7 +638,7 @@ class EditionView(QWidget):
         self._dirty = False
 
     def _update_preview(self) -> None:
-        fields_dict: Dict[str, str] = {}
+        fields_dict: dict[str, str] = {}
         for field_name, widget in self.dynamic_field_widgets.items():
             fields_dict[field_name] = widget.get_text()
 
@@ -688,7 +686,7 @@ class EditionView(QWidget):
         dialog.version_restored.connect(self._on_version_restored)
         dialog.exec()
 
-    def _on_version_restored(self, note_id: int, restored_dict: Dict[str, str]) -> None:
+    def _on_version_restored(self, note_id: int, restored_dict: dict[str, str]) -> None:
         for field, widget in self.dynamic_field_widgets.items():
             if field in restored_dict:
                 widget.set_text(restored_dict[field])
@@ -842,7 +840,7 @@ class EditionView(QWidget):
 
         menu.exec(self.btn_open_model.mapToGlobal(self.btn_open_model.rect().bottomLeft()))
 
-    def _on_model_selected(self, model_id: Optional[int], model_name: str) -> None:
+    def _on_model_selected(self, model_id: int | None, model_name: str) -> None:
         self._active_model_id = model_id
         if model_id is None:
             self.btn_open_model.setText("Modèle : Tous ▾")
@@ -962,7 +960,7 @@ class EditionView(QWidget):
             logger.warning("Erreur ouverture TimeMachine : %s", e)
 
     @Slot(list)
-    def open_linter_dialog(self, note_ids: List[int]) -> None:
+    def open_linter_dialog(self, note_ids: list[int]) -> None:
         if not note_ids:
             return
         dialog = LinterDialog(note_ids, self)
@@ -970,7 +968,7 @@ class EditionView(QWidget):
         self.refresh_data()
 
     @Slot(list)
-    def open_auto_tag_dialog(self, note_ids: List[int]) -> None:
+    def open_auto_tag_dialog(self, note_ids: list[int]) -> None:
         if not note_ids:
             return
         if AutoTagDialog(self, note_ids).exec():
@@ -978,7 +976,7 @@ class EditionView(QWidget):
             self.refresh_data()
 
     @Slot(list)
-    def open_batch_edit_dialog(self, note_ids: List[int]) -> None:
+    def open_batch_edit_dialog(self, note_ids: list[int]) -> None:
         if not note_ids:
             return
         dialog = BatchEditDialog(self)
@@ -1029,7 +1027,7 @@ class EditionView(QWidget):
             QMessageBox.critical(self, "Erreur", str(e))
 
     @Slot(list)
-    def approve_selected_notes(self, note_ids: List[int]) -> None:
+    def approve_selected_notes(self, note_ids: list[int]) -> None:
         try:
             self.store.approve_notes(note_ids)
             show_toast(self, f"{len(note_ids)} note(s) approuvée(s) !")
@@ -1039,7 +1037,7 @@ class EditionView(QWidget):
             QMessageBox.critical(self, "Erreur", str(e))
 
     @Slot(list)
-    def reject_selected_notes(self, note_ids: List[int]) -> None:
+    def reject_selected_notes(self, note_ids: list[int]) -> None:
         reply = QMessageBox.question(
             self,
             "Confirmation",
@@ -1060,7 +1058,7 @@ class EditionView(QWidget):
         if scrollbar.maximum() > 0 and value >= int(scrollbar.maximum() * 0.85):
             self._load_next_card_batch()
 
-    def _get_note_content_dynamic(self, note: NoteModel) -> Dict[str, str]:
+    def _get_note_content_dynamic(self, note: NoteModel) -> dict[str, str]:
         data = {}
         version = NoteVersionModel.get_or_none(note=note, is_active=True)
         if not version:

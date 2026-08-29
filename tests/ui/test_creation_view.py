@@ -1,7 +1,8 @@
-import pytest
 import json
 import uuid
 from typing import Any
+
+import pytest
 
 from ankiforge.database.models import (
     DeckModel,

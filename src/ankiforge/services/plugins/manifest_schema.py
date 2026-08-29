@@ -4,15 +4,16 @@ Schémas de validation et modèles de données pour les addons AnkiForge.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field, field_validator
 import re
+from dataclasses import dataclass, field
+from enum import StrEnum
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 
-class AddonStatus(str, Enum):
+class AddonStatus(StrEnum):
     """Statut d'un addon dans le gestionnaire."""
 
     ACTIVE = "active"
@@ -31,10 +32,10 @@ class AddonManifest(BaseModel):
     version: str = Field(default="1.0.0", description="Version sémantique de l'addon (ex: 1.2.0)")
     author: str = Field(default="Anonyme", description="Auteur ou organisation")
     description: str = Field(default="", description="Description courte de l'addon")
-    min_ankiforge_version: Optional[str] = Field(default=None, description="Version minimale d'AnkiForge requise")
-    max_ankiforge_version: Optional[str] = Field(default=None, description="Version maximale d'AnkiForge supportée")
+    min_ankiforge_version: str | None = Field(default=None, description="Version minimale d'AnkiForge requise")
+    max_ankiforge_version: str | None = Field(default=None, description="Version maximale d'AnkiForge supportée")
     entry_point: str = Field(default="__init__.py", description="Fichier Python point d'entrée")
-    homepage: Optional[str] = Field(default=None, description="URL de documentation ou GitHub")
+    homepage: str | None = Field(default=None, description="URL de documentation ou GitHub")
 
     @field_validator("id")
     @classmethod
@@ -55,8 +56,8 @@ class AddonInfo:
     folder_path: Path
     status: AddonStatus = AddonStatus.DISABLED
     is_enabled: bool = True
-    error_message: Optional[str] = None
-    config_schema: Dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+    config_schema: dict[str, Any] = field(default_factory=dict)
     has_documentation: bool = False
     doc_markdown: str = ""
 

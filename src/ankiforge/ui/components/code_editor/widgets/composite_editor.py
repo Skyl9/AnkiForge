@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -27,7 +26,7 @@ class CodeEditorWithGutter(QFrame):
         self,
         placeholder: str = "",
         mode: str = "html",
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("codeEditorWrapper")
@@ -74,13 +73,13 @@ class CodeEditorWithGutter(QFrame):
     def clear(self) -> None:
         self.native_editor.clear()
 
-    def set_known_fields(self, fields: List[str]) -> None:
+    def set_known_fields(self, fields: list[str]) -> None:
         self.native_editor.set_known_fields(fields)
 
-    def set_custom_classes(self, classes: List[str]) -> None:
+    def set_custom_classes(self, classes: list[str]) -> None:
         self.native_editor.set_custom_classes(classes)
 
-    def get_lint_issues(self) -> List[LintIssue]:
+    def get_lint_issues(self) -> list[LintIssue]:
         return self.native_editor.get_lint_issues()
 
     def jump_to_line(self, line_num: int) -> None:

@@ -11,7 +11,8 @@ Moteur IA Autonome ReAct & MCP pour le Consultant AnkiForge.
 import json
 import logging
 import re
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from peewee import fn
 
@@ -51,9 +52,12 @@ class ConsultantToolRegistry:
             return "Erreur : Seules les requêtes SELECT (lecture seule) sont autorisées par mesure de sécurité."
 
         try:
-            active_db = DeckModel._meta.database
-            cursor = active_db.execute_sql(sql_clean)
+            from ankiforge.database.base import db
+
+            cursor = db.execute_sql(sql_clean)
+
             results = cursor.fetchall()
+
             if not results:
                 return "Aucun résultat trouvé."
 
@@ -171,7 +175,7 @@ class ConsultantToolRegistry:
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / MCP
 # =====================================================================
 
-DEFAULT_CONSULTANT_TOOLS: List[Dict[str, Any]] = [
+DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -244,7 +248,7 @@ DEFAULT_CONSULTANT_TOOLS: List[Dict[str, Any]] = [
 ]
 
 
-def extract_tool_call_from_text(content_text: str) -> Tuple[bool, str, Dict[str, Any]]:
+def extract_tool_call_from_text(content_text: str) -> tuple[bool, str, dict[str, Any]]:
     """Extrait de manière robuste un appel d'outil formaté en JSON dans une réponse textuelle."""
     if not content_text:
         return False, "", {}
@@ -296,9 +300,9 @@ class ConsultantEngine:
 
     def __init__(
         self,
-        llm_config: Optional[LLMConfigModel] = None,
-        persona: Optional[PersonaModel] = None,
-        ai_provider: Optional[LLMProvider] = None,
+        llm_config: LLMConfigModel | None = None,
+        persona: PersonaModel | None = None,
+        ai_provider: LLMProvider | None = None,
     ) -> None:
         self.llm_config = llm_config
         self.persona = persona
@@ -310,7 +314,7 @@ class ConsultantEngine:
             except Exception as e:
                 logger.warning("Erreur lors de la création du provider IA : %s", e)
 
-    def _execute_tool_call(self, tool_name: str, tool_args: Dict[str, Any]) -> Tuple[str, bool]:
+    def _execute_tool_call(self, tool_name: str, tool_args: dict[str, Any]) -> tuple[str, bool]:
         """Exécute l'outil demandé in-process et renvoie (observation, is_error)."""
         try:
             if tool_name == "query_peewee":
@@ -346,7 +350,7 @@ class ConsultantEngine:
             logger.exception("Erreur exécution outil %s : %s", tool_name, e)
             return f"Erreur lors de l'exécution de l'outil '{tool_name}' : {e}", True
 
-    async def chat_stream(self, user_query: str) -> AsyncGenerator[Dict[str, Any], None]:
+    async def chat_stream(self, user_query: str) -> AsyncGenerator[dict[str, Any], None]:
         """
         Générateur asynchrone exécutant la boucle ReAct.
         Émet des dictionnaires structurés :
@@ -384,7 +388,7 @@ Si ton client ne gère pas les appels de fonctions natifs, renvoie UNIQUEMENT ce
 }}
 ```
 """  # nosec B608
-        messages: List[Dict[str, Any]] = [
+        messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_query},
         ]
@@ -401,22 +405,23 @@ Si ton client ne gère pas les appels de fonctions natifs, renvoie UNIQUEMENT ce
             yield {"type": "thought", "step": step, "content": f"Analyse de la requête et planification ReAct (Étape {step}/{max_steps})..."}
 
             content_text = ""
-            tool_calls_detected: List[Tuple[str, Dict[str, Any], Optional[str]]] = []
+            tool_calls_detected: list[tuple[str, dict[str, Any], str | None]] = []
 
             # 1. Tentative d'appel via le client OpenAI natif s'il est disponible
             if isinstance(self.ai_provider, OpenAICompatibleProvider) and hasattr(self.ai_provider, "client"):
                 try:
                     response = self.ai_provider.client.chat.completions.create(
                         model=self.ai_provider.model_name,
-                        messages=messages,
-                        tools=DEFAULT_CONSULTANT_TOOLS,
+                        messages=messages,  # type: ignore[arg-type]
+                        tools=DEFAULT_CONSULTANT_TOOLS,  # type: ignore[arg-type]
                         temperature=0.1,
                     )
                     resp_msg = response.choices[0].message
                     content_text = resp_msg.content or ""
 
                     if resp_msg.tool_calls:
-                        messages.append(resp_msg)
+                        messages.append(resp_msg)  # type: ignore[arg-type]
+
                         for tc in resp_msg.tool_calls:
                             tc_func = getattr(tc, "function", tc)
                             t_name = getattr(tc_func, "name", "unknown")

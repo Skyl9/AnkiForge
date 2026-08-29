@@ -9,7 +9,7 @@ from ankiforge.ui.components.tabs.bars import (
     ScrollableTabBarWidget,
     SettingsTabBar,
 )
-from ankiforge.ui.components.tabs.floating_dock import FloatingDockWindow
+from ankiforge.ui.components.tabs.floating_dock import FloatingDockWindow, _floating_windows
 from ankiforge.ui.components.tabs.tab_button import TabButton
 from ankiforge.ui.components.tabs.tab_container import TabContainer
 
@@ -21,4 +21,5 @@ __all__ = [
     "TabContainer",
     "ScrollableTabBarWidget",
     "FloatingDockWindow",
+    "_floating_windows",
 ]

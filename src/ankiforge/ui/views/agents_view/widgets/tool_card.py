@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QCheckBox, QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -17,7 +18,7 @@ class ToolPermissionCard(QFrame):
         category: str = "Natif",
         category_color: str = "#3b82f6",
         is_checked: bool = False,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
         tool_name: str = "",
         display_name: str = "",
     ) -> None:

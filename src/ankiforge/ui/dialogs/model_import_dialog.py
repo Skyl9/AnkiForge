@@ -4,7 +4,7 @@ Dialogue de Prévisualisation et d'Importation de Modèle de Carte (.afmodel / .
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -31,10 +31,10 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class ModelImportDialog(QDialog):
     """Dialogue de validation et d'aperçu en direct avant enregistrement en base."""
 
-    def __init__(self, model_data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, model_data: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.model_data = model_data
-        self.imported_model: Optional[NoteTypeModel] = None
+        self.imported_model: NoteTypeModel | None = None
 
         self.setWindowTitle("Importer un Modèle de Carte")
         self.setMinimumSize(850, 580)
@@ -221,7 +221,7 @@ class ModelImportDialog(QDialog):
 
     def _render_preview(self) -> None:
         # Vérifier si des cartes témoins réelles sont incluses dans le paquet
-        demos: List[Dict[str, str]] = self.model_data.get("demo_cards", [])
+        demos: list[dict[str, str]] = self.model_data.get("demo_cards", [])
         if demos and isinstance(demos, list) and isinstance(demos[0], dict):
             preview_fields = dict(demos[0])
         else:

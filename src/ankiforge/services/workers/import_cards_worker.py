@@ -5,9 +5,9 @@ Worker asynchrone pour l'analyse préliminaire et l'importation de collections A
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 import time
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 
@@ -31,9 +31,9 @@ class ImportCardsWorker(QThread):
         self,
         path: str | Path,
         mode: str = "analyze",  # 'analyze' ou 'full'
-        import_manager: Optional[ImportManager] = None,
+        import_manager: ImportManager | None = None,
         store_manager: Any = None,
-        parent: Optional[Any] = None,
+        parent: Any | None = None,
     ) -> None:
         super().__init__(parent)
         self.path = Path(path)

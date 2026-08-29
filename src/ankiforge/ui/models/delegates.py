@@ -7,7 +7,7 @@ garantissant un taux de rafraîchissement constant à 60 FPS et une consommation
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtCore import QEvent, QModelIndex, QPersistentModelIndex, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
@@ -47,7 +47,7 @@ class CheckboxItemDelegate(QStyledItemDelegate):
 
     check_toggled = Signal(int, bool)  # (row, is_checked)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
@@ -159,7 +159,7 @@ class BadgeItemDelegate(QStyledItemDelegate):
         self,
         default_bg: str = "rgba(99, 102, 241, 0.15)",
         default_text_color: str = DesignTokens.ACCENT_PRIMARY,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._default_bg = default_bg
@@ -295,7 +295,7 @@ class TextSnippetDelegate(QStyledItemDelegate):
     Délégué de texte avec police monospace et détection d'anomalies (cartes vides/invalides).
     """
 
-    def __init__(self, is_code_font: bool = True, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, is_code_font: bool = True, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._is_code_font = is_code_font
 
@@ -312,10 +312,7 @@ class TextSnippetDelegate(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        if self._is_code_font:
-            font = QFont(DesignTokens.FONT_CODE, 10)
-        else:
-            font = QFont(DesignTokens.FONT_MAIN, 10)
+        font = QFont(DesignTokens.FONT_CODE, 10) if self._is_code_font else QFont(DesignTokens.FONT_MAIN, 10)
         painter.setFont(font)
         fm = painter.fontMetrics()
 

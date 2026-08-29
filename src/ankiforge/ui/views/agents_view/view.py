@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QPoint, QSize, Qt, Slot
 from PySide6.QtWidgets import (
@@ -72,19 +72,19 @@ class AgentsView(QWidget):
 
     def __init__(
         self,
-        ai_manager: Optional[Any] = None,
+        ai_manager: Any | None = None,
         profile_name: str = "default",
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self._current_agent: Optional[PersonaModel] = None
-        self._current_folder: Optional[PersonaFolderModel] = None
-        self._tool_cards: Dict[str, ToolPermissionCard] = {}
-        self._tool_checkboxes: Dict[str, QCheckBox] = {}  # Rétrocompatibilité tests
-        self._cached_personas: List[PersonaModel] = []
-        self._cached_folders: List[PersonaFolderModel] = []
+        self._current_agent: PersonaModel | None = None
+        self._current_folder: PersonaFolderModel | None = None
+        self._tool_cards: dict[str, ToolPermissionCard] = {}
+        self._tool_checkboxes: dict[str, QCheckBox] = {}  # Rétrocompatibilité tests
+        self._cached_personas: list[PersonaModel] = []
+        self._cached_folders: list[PersonaFolderModel] = []
         self._current_scope_filter: str = "all"  # 'all', 'pipeline', 'mcp', 'universal'
 
         self._setup_ui()
@@ -595,7 +595,7 @@ class AgentsView(QWidget):
         self.folder_combo.clear()
         self.folder_combo.addItem("📁 Aucun dossier (Racine)", userData=None)
 
-        def _add_folders_recursive(parent_id: Optional[int], prefix: str = "") -> None:
+        def _add_folders_recursive(parent_id: int | None, prefix: str = "") -> None:
             children = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == parent_id]
             for child in children:
                 icon_prefix = "📁 " if parent_id is None else "↳ 📁 "
@@ -641,7 +641,7 @@ class AgentsView(QWidget):
         q = self.edit_search.text().strip().lower()
         scope = self._current_scope_filter
 
-        filtered: List[PersonaModel] = []
+        filtered: list[PersonaModel] = []
         for ag in self._cached_personas:
             p_type = getattr(ag, "persona_type", "pipeline") or "pipeline"
             if scope != "all" and p_type != scope:
@@ -653,13 +653,13 @@ class AgentsView(QWidget):
 
         self._render_tree(filtered)
 
-    def _render_tree(self, personas: List[PersonaModel]) -> None:
+    def _render_tree(self, personas: list[PersonaModel]) -> None:
         self.persona_tree.blockSignals(True)
         self.persona_tree.clear()
 
         self.lbl_count_badge.setText(f"{len(personas)} agent{'s' if len(personas) > 1 else ''}")
 
-        personas_by_folder: Dict[Optional[int], List[PersonaModel]] = {}
+        personas_by_folder: dict[int | None, list[PersonaModel]] = {}
         for p in personas:
             f_id = p.folder.id if getattr(p, "folder", None) else None
             personas_by_folder.setdefault(f_id, []).append(p)
@@ -673,7 +673,7 @@ class AgentsView(QWidget):
                 cnt += _count_total_personas_in_folder_subtree(sf)
             return cnt
 
-        def _render_folder_recursive(parent_id: Optional[int], parent_tree_item: Optional[QTreeWidgetItem]) -> None:
+        def _render_folder_recursive(parent_id: int | None, parent_tree_item: QTreeWidgetItem | None) -> None:
             children_folders = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == parent_id]
             for folder in children_folders:
                 direct_personas = personas_by_folder.get(folder.id, [])
@@ -682,10 +682,7 @@ class AgentsView(QWidget):
                 if active_filter and total_cnt == 0:
                     continue
 
-                if parent_tree_item is None:
-                    folder_item = QTreeWidgetItem(self.persona_tree)
-                else:
-                    folder_item = QTreeWidgetItem(parent_tree_item)
+                folder_item = QTreeWidgetItem(self.persona_tree) if parent_tree_item is None else QTreeWidgetItem(parent_tree_item)
 
                 folder_item.setData(0, Qt.ItemDataRole.UserRole, ("folder", folder))
                 folder_item.setSizeHint(0, QSize(0, 32))
@@ -724,7 +721,7 @@ class AgentsView(QWidget):
         self.persona_tree.blockSignals(False)
 
     def _select_first_persona_in_tree(self) -> None:
-        def _find_first_persona(item: QTreeWidgetItem) -> Optional[QTreeWidgetItem]:
+        def _find_first_persona(item: QTreeWidgetItem) -> QTreeWidgetItem | None:
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if data and data[0] == "persona":
                 return item
@@ -788,7 +785,7 @@ class AgentsView(QWidget):
         dlg.exec()
 
     @Slot()
-    def _on_tree_item_selected(self, current: Optional[QTreeWidgetItem], previous: Optional[QTreeWidgetItem]) -> None:
+    def _on_tree_item_selected(self, current: QTreeWidgetItem | None, previous: QTreeWidgetItem | None) -> None:
         if not current:
             return
 
@@ -1045,9 +1042,9 @@ class AgentsView(QWidget):
                 return
 
             selected_tools = [key for key, card in self._tool_cards.items() if card.isChecked()]
-            selected_engine: Optional[LLMConfigModel] = self.engine_combo.currentData()
+            selected_engine: LLMConfigModel | None = self.engine_combo.currentData()
             selected_scope: str = self.scope_combo.currentData() or "pipeline"
-            selected_folder_id: Optional[int] = self.folder_combo.currentData()
+            selected_folder_id: int | None = self.folder_combo.currentData()
             if selected_folder_id in ("__NEW_ROOT__", "__NEW_SUB__"):
                 selected_folder_id = None
 

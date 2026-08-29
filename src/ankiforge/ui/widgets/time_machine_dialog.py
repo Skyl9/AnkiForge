@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import difflib
 import json
-from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -36,7 +35,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class DiffViewerWidget(QTextBrowser):
     """Afficheur HTML de Diff syntaxique coloré avec numéros de lignes."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setOpenExternalLinks(False)
         self.setStyleSheet(f"""
@@ -51,9 +50,9 @@ class DiffViewerWidget(QTextBrowser):
             }}
         """)
 
-    def set_content_diff(self, old_dict: Dict[str, str], current_dict: Dict[str, str]) -> None:
+    def set_content_diff(self, old_dict: dict[str, str], current_dict: dict[str, str]) -> None:
         """Génère le diff HTML comparant la version historique (old) à la version active (current)."""
-        html: List[str] = [
+        html: list[str] = [
             "<div style='font-family: monospace; line-height: 1.5;'>",
             f"<div style='padding-bottom: 8px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'>",
             "COMPARAISON AVEC LA VERSION ACTUELLE : <span style='color: #ef4444;'>[ROUGE = SUPPRESSION]</span> | <span style='color: #10b981;'>[VERT = AJOUT]</span>",
@@ -117,7 +116,7 @@ class TimeMachineDialog(QDialog):
         self,
         note: NoteModel | int | None = None,
         note_id: int | None = None,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
 
@@ -136,10 +135,10 @@ class TimeMachineDialog(QDialog):
         else:
             self.note = NoteModel.select().first() or NoteModel()
 
-        self.versions: List[NoteVersionModel] = []
-        self.active_version: Optional[NoteVersionModel] = None
-        self.selected_version: Optional[NoteVersionModel] = None
-        self.active_content: Dict[str, str] = {}
+        self.versions: list[NoteVersionModel] = []
+        self.active_version: NoteVersionModel | None = None
+        self.selected_version: NoteVersionModel | None = None
+        self.active_content: dict[str, str] = {}
 
         self.setWindowTitle(f"🕒 Machine à Remonter le Temps — Carte #{getattr(self.note, 'id', '?')}")
         self.resize(920, 580)

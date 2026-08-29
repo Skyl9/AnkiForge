@@ -1,12 +1,12 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QScrollArea, QStackedWidget
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QStackedWidget, QVBoxLayout, QWidget
 
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import StyledLineEdit
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget  # Ton composant existant !
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class WozniakKpiCard(QFrame):

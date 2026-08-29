@@ -100,6 +100,8 @@ def seed_default_linter_rules() -> None:
         },
     ]
 
-    with LinterRuleModel._meta.database.atomic():
+    from ankiforge.database.base import db
+
+    with db.atomic():
         for r in default_rules:
             LinterRuleModel.create(**r)

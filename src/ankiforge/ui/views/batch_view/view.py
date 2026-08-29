@@ -5,7 +5,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
@@ -69,18 +69,18 @@ class BatchView(QWidget):
     Batch Factory CI/CD View — 100% Conforme à la Maquette concept_ide/index.html (L1883-L2062).
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
-        self.worker: Optional[BatchWorker] = None
+        self.worker: BatchWorker | None = None
         self.queue_tasks_data: list[dict[str, Any]] = []
         self.cell_widgets_map: dict[int, ProgressTableCellWidget] = {}
         self.start_timestamp = 0.0
-        self.current_deck: Optional[DeckModel] = None
-        self.current_model: Optional[NoteTypeModel] = None
+        self.current_deck: DeckModel | None = None
+        self.current_model: NoteTypeModel | None = None
         self.decks_cache: list[DeckModel] = []
         self.models_cache: list[NoteTypeModel] = []
-        self._deck_modal: Optional[DeckSelectWindow] = None
+        self._deck_modal: DeckSelectWindow | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -696,7 +696,7 @@ class BatchView(QWidget):
 
     @Slot()
     def _on_add_to_queue_clicked(self) -> None:
-        doc: Optional[DocumentModel] = self.doc_combo.currentData()
+        doc: DocumentModel | None = self.doc_combo.currentData()
         if not doc or not isinstance(doc, DocumentModel):
             show_toast(self, "Veuillez sélectionner un document source valide.", is_error=True)
             return

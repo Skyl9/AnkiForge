@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -18,7 +17,7 @@ from ankiforge.ui.theme import DesignTokens
 class CardEditDialog(QDialog):
     """Dialogue d'édition rapide d'une carte générée."""
 
-    def __init__(self, front: str, back: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, front: str, back: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Éditer la carte")
         self.setMinimumWidth(500)

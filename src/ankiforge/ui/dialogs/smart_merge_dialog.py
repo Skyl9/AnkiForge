@@ -10,7 +10,7 @@ la base locale AnkiForge et une archive entrante (.apkg / .colpkg).
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -42,7 +42,7 @@ class ConflictFieldRow(QWidget):
         field_name: str,
         local_val: str,
         incoming_val: str,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.field_name = field_name
@@ -160,17 +160,17 @@ class SmartMergeDialog(QDialog):
 
     merge_completed = Signal(dict)  # Dict[guid, resolution_dict]
 
-    def __init__(self, conflicts: List[ConflictItem], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, conflicts: list[ConflictItem], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.conflicts = conflicts
         self.current_index = 0
-        self.resolutions: Dict[str, Dict[str, Any]] = {}  # guid -> {"content": ..., "choice": ...}
+        self.resolutions: dict[str, dict[str, Any]] = {}  # guid -> {"content": ..., "choice": ...}
 
         self.setWindowTitle("Smart Merge — Résolution de Conflits")
         self.resize(1100, 700)
         self.setModal(True)
 
-        self.field_rows: Dict[str, ConflictFieldRow] = {}
+        self.field_rows: dict[str, ConflictFieldRow] = {}
 
         self._setup_ui()
         self._load_current_conflict()
@@ -327,7 +327,7 @@ class SmartMergeDialog(QDialog):
 
         # Construction des lignes de champs
         all_keys = list(conflict.local_content.keys())
-        for k in conflict.incoming_content.keys():
+        for k in conflict.incoming_content:
             if k not in all_keys:
                 all_keys.append(k)
 
@@ -453,5 +453,5 @@ class SmartMergeDialog(QDialog):
         self.merge_completed.emit(self.resolutions)
         self.accept()
 
-    def get_resolutions(self) -> Dict[str, Dict[str, Any]]:
+    def get_resolutions(self) -> dict[str, dict[str, Any]]:
         return self.resolutions

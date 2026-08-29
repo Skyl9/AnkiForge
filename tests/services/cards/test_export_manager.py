@@ -1,8 +1,9 @@
-import pytest
 import json
 from unittest.mock import patch
 
-from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, CardModel, NoteVersionModel
+import pytest
+
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.export_manager import ExportManager
 
 

@@ -7,10 +7,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 from PySide6.QtWidgets import QApplication
+
+from ankiforge.database.migration import run_migrations
+from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.database.migration import run_migrations
 from script.capture_view import seed_rich_demo_data
 
 pm = ProfileManager()

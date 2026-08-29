@@ -1,5 +1,4 @@
-from typing import Tuple
-from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QTimer, Qt
+from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QTimer
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFrame,
@@ -72,7 +71,7 @@ class FloatingDockWindow(QWidget):
         self.content_stack.removeWidget(widget)
         self.content_stack.insertWidget(to_idx, widget)
 
-    def remove_tab_widget(self, index: int) -> Tuple[QWidget, str, bool]:
+    def remove_tab_widget(self, index: int) -> tuple[QWidget, str, bool]:
         widget = self.content_stack.widget(index)
         if widget is None:
             raise ValueError(f"No widget at index {index}")

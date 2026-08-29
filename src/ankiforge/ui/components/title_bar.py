@@ -3,8 +3,6 @@ Barre de titre globale AnkiForge.
 Barre 28px pour le drag macOS avec titre centré.
 """
 
-from typing import Optional
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
@@ -20,7 +18,7 @@ from ankiforge.ui.theme import DesignTokens
 class GlobalTitleBar(QFrame):
     """Barre de titre globale 28px pour macOS drag."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("GlobalTitleBar")
         self.setFixedHeight(DesignTokens.GLOBAL_TOPBAR_HEIGHT)

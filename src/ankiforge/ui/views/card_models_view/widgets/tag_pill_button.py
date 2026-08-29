@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QPushButton, QSizePolicy, QWidget
 
@@ -12,7 +11,7 @@ class TagPillButton(QPushButton):
         self,
         text: str,
         variant: str = "field",  # "field" | "cloze" | "css" | "structure" | "condition"
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)

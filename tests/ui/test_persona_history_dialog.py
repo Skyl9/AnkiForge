@@ -3,7 +3,9 @@ Tests d'interface graphique (pytest-qt) pour la modale PersonaHistoryDialog.
 """
 
 from unittest.mock import patch
+
 from PySide6.QtWidgets import QMessageBox
+
 from ankiforge.database.models import PersonaModel
 from ankiforge.services.ai.persona_version_service import PersonaVersionService
 from ankiforge.ui.dialogs.persona_history_dialog import PersonaHistoryDialog

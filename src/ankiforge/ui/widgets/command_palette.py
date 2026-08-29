@@ -3,7 +3,7 @@ Palette de commandes ⌘K style VS Code / Raycast / JetBrains Search Everywhere.
 Permet la recherche globale et la navigation rapide entre toutes les vues d'AnkiForge.
 """
 
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from PySide6.QtCore import QEvent, QObject, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent
@@ -28,7 +28,7 @@ class CommandPalette(QDialog):
     command_selected = Signal(str)  # émet le command_id
     view_requested = Signal(str)  # émet le view_id pour la navigation
 
-    def __init__(self, view_registry: Optional[Dict[str, Any]] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, view_registry: dict[str, Any] | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         # Dialog frameless, centré, 620px wide
@@ -36,7 +36,7 @@ class CommandPalette(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(620, 420)
 
-        self.commands: List[Dict[str, Any]] = []
+        self.commands: list[dict[str, Any]] = []
         self.view_registry = view_registry or {}
 
         self._setup_ui()

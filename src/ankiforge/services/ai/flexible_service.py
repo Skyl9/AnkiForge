@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import cast, Any
+from typing import Any, cast
 
 import openai
 import requests
@@ -10,7 +10,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, 
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.gemini_service import GeminiService
-from ankiforge.services.ai.utils import log_token_usage, get_human_readable_api_error
+from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +197,7 @@ class AIManager:
     Récupère les paramètres depuis la base de données SQLite.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialise le gestionnaire.
         """
@@ -243,7 +243,7 @@ class AIManager:
             return AnthropicProvider(api_key=key, model_name=model_id)
         return MockProvider()
 
-    def reload_provider(self):
+    def reload_provider(self) -> None:
         """
         Recharge l'IA active depuis la base de données.
         """

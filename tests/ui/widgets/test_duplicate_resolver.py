@@ -1,11 +1,12 @@
 # tests/test_duplicate_resolver.py
-import pytest
 from unittest.mock import patch
+
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog
 
+from ankiforge.database.models import DeckModel, IgnoredDuplicateModel, NoteModel, NoteTypeModel
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
-from ankiforge.database.models import DeckModel, NoteTypeModel, NoteModel, IgnoredDuplicateModel
 
 
 @pytest.fixture

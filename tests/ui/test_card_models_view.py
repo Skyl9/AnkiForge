@@ -1,10 +1,11 @@
-from typing import Any, List
 import json
 import uuid
+from typing import Any
 from unittest.mock import patch
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
+
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.snippet_library import SnippetLibrary
 from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
@@ -12,8 +13,8 @@ from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.views.card_models_view import CardModelsView
 
 
-def _get_flow_layout_texts(flow_layout: Any) -> List[str]:
-    texts: List[str] = []
+def _get_flow_layout_texts(flow_layout: Any) -> list[str]:
+    texts: list[str] = []
     for i in range(flow_layout.count()):
         item = flow_layout.itemAt(i)
         if item is not None:
@@ -305,6 +306,7 @@ def test_glow_line_edit_hover_and_focus_state(qtbot, mock_db):
     """Vérifie que la barre de recherche applique l'accentuation au survol et le contour persistant au focus."""
     from PySide6.QtCore import QEvent, QPointF
     from PySide6.QtGui import QEnterEvent, QFocusEvent
+
     from ankiforge.ui.components.inputs import GlowLineEdit
 
     search_input = GlowLineEdit(placeholder="Rechercher un modèle...")
@@ -379,8 +381,8 @@ def test_card_models_view_bottom_toolbar_buttons_affordance(qtbot, mock_db):
 
 def test_snippet_card_click_opens_detail_and_insert_at_cursor(qtbot):
     """Vérifie que le clic sur la carte bascule vers l'édition et que le bouton Insérer au curseur émet le signal."""
-    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
     from ankiforge.services.cards.snippet_library import SnippetLibrary
+    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
 
     snippet = SnippetLibrary.get_by_id("callout_info")
     assert snippet is not None
@@ -528,9 +530,10 @@ def test_code_editor_gutter_autocomplete_and_lint_status(qtbot):
 
 def test_code_editor_auto_closing_tags_and_braces(qtbot):
     """Vérifie l'auto-fermeture automatique des balises HTML (<test> -> <test></test>) et accolades."""
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
-    from PySide6.QtGui import QKeyEvent
     from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QKeyEvent
+
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="html")
     qtbot.addWidget(wrapper)
@@ -574,8 +577,9 @@ def test_code_editor_auto_closing_tags_and_braces(qtbot):
 
 def test_syntax_highlighters(qtbot):
     """Vérifie l'application de la coloration syntaxique HTML et CSS."""
-    from ankiforge.ui.components.code_editor import CSSSyntaxHighlighter, HTMLSyntaxHighlighter
     from PySide6.QtWidgets import QTextEdit
+
+    from ankiforge.ui.components.code_editor import CSSSyntaxHighlighter, HTMLSyntaxHighlighter
 
     # 1. HTML Highlighter
     ed_html = QTextEdit()
@@ -663,9 +667,10 @@ def test_color_swatches_detection():
 
 def test_code_formatter_css_and_html_and_shortcuts(qtbot):
     """Vérifie le formateur de code CSS et HTML et son déclenchement via raccourci clavier / bouton."""
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter, CSSFormatter, HTMLFormatter
-    from PySide6.QtGui import QKeyEvent
     from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QKeyEvent
+
+    from ankiforge.ui.components.code_editor import CodeEditorWithGutter, CSSFormatter, HTMLFormatter
 
     # 1. Formatage CSS
     unformatted_css = ":root{--bg:#fff;--fg:#000;}.card{padding:10px;margin:0 auto;}"

@@ -4,9 +4,9 @@ Barre latérale rétractable (260px <-> 68px) avec sections, profils et paramèt
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, cast
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -40,7 +40,7 @@ class ClickableLabel(QLabel):
 class SidebarItem(QPushButton):
     """Bouton de navigation dans la sidebar."""
 
-    def __init__(self, view_id: str, icon_name: str, title: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.view_id = view_id
         self.icon_name = icon_name
@@ -81,7 +81,7 @@ class SidebarItem(QPushButton):
 class SidebarProfileItem(QPushButton):
     """Bouton de profil utilisateur dans le footer de la barre latérale."""
 
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("SidebarUserBtn")
         self.profile_name = profile_name
@@ -121,7 +121,7 @@ class Sidebar(QWidget):
     toggle_requested = Signal()
     profile_switch_requested = Signal()
 
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("Sidebar")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -129,7 +129,7 @@ class Sidebar(QWidget):
 
         self.profile_name = profile_name
         self.is_collapsed = False
-        self._items: Dict[str, SidebarItem] = {}
+        self._items: dict[str, SidebarItem] = {}
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
 
@@ -208,7 +208,7 @@ class Sidebar(QWidget):
         if hasattr(self, "user_widget"):
             self.user_widget.refresh_theme(profile)
 
-    def add_section(self, title: str, items: list[Tuple[str, str, str]]) -> None:
+    def add_section(self, title: str, items: list[tuple[str, str, str]]) -> None:
         """Ajoute une section avec un titre, une ligne séparatrice et une liste de (view_id, icon, text)."""
         section_widget = QWidget()
         layout = QVBoxLayout(section_widget)

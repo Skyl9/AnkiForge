@@ -5,7 +5,7 @@ avec synchronisation transparente et fallback sur QSettings.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtCore import QSettings
 
@@ -18,7 +18,7 @@ class SettingsService:
     """Service d'accès et de persistance des préférences utilisateur par profil."""
 
     @staticmethod
-    def get(key: str, default: Any = None, category: Optional[str] = None) -> Any:
+    def get(key: str, default: Any = None, category: str | None = None) -> Any:
         """
         Récupère la valeur d'un paramètre depuis la BDD Peewee (avec repli sur QSettings si non défini).
         """

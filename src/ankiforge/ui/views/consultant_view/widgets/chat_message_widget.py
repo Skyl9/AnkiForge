@@ -3,7 +3,7 @@ import json
 import logging
 import re
 import uuid
-from typing import Any, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -45,9 +45,9 @@ class ChatMessageWidget(QWidget):
         sender: str,
         text: str,
         is_user: bool = False,
-        thoughts: Optional[List[tuple[int, str]]] = None,
-        tool_calls: Optional[List[tuple[str, str, str, bool]]] = None,
-        parent: Optional[QWidget] = None,
+        thoughts: list[tuple[int, str]] | None = None,
+        tool_calls: list[tuple[str, str, str, bool]] | None = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.is_user = is_user

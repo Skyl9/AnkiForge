@@ -1,5 +1,3 @@
-from typing import Optional
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -22,7 +20,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class RAGTestDialog(QDialog):
     """Permet de tester instantanément la recherche RAG Hybride (FAISS + BM25 avec RRF) sur le document."""
 
-    def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
         self.setWindowTitle(f"Recherche RAG Hybride — {doc.title}")

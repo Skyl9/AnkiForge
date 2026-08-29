@@ -1,4 +1,3 @@
-from typing import Dict, List
 from PySide6.QtWidgets import QLabel
 
 
@@ -21,7 +20,7 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
 
 
 # Types d'usage disponibles pour les Personas
-PERSONA_TYPE_SPECS: Dict[str, Dict[str, str]] = {
+PERSONA_TYPE_SPECS: dict[str, dict[str, str]] = {
     "pipeline": {
         "label": "⚡ Pipeline de Forge (DAG)",
         "badge_text": "Pipeline",
@@ -46,7 +45,7 @@ PERSONA_TYPE_SPECS: Dict[str, Dict[str, str]] = {
 }
 
 # Registre des outils de base MCP du Consultant
-MCP_BASE_TOOLS_SPEC: Dict[str, Dict[str, str]] = {
+MCP_BASE_TOOLS_SPEC: dict[str, dict[str, str]] = {
     "query_vector_db": {
         "label": "Recherche Vectorielle (RAG)",
         "desc": "Permet d'interroger l'index sémantique FAISS des documents importés.",
@@ -68,7 +67,7 @@ MCP_BASE_TOOLS_SPEC: Dict[str, Dict[str, str]] = {
 }
 
 # Snippets Jinja2 usuels pour les Prompts
-JINJA2_SNIPPETS: List[tuple[str, str, str]] = [
+JINJA2_SNIPPETS: list[tuple[str, str, str]] = [
     ("{{ text_source }}", "Texte Source", "Contenu brut du document ou de la section sélectionnée"),
     ("{{ last_output }}", "Sortie Précédente", "Résultat de l'étape DAG immédiatement antérieure"),
     ("{{ fields }}", "Champs NoteType", "Liste des champs du modèle de note cible (ex: Front, Back)"),

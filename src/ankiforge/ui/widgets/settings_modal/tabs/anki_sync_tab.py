@@ -1,6 +1,6 @@
 import platform
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -28,9 +28,9 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class AnkiSyncTab(QWidget):
     """Onglet Formats Anki, Règles de Conflits, Compression et Répertoires locaux (Zéro AnkiConnect)."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.lbl_anki_labels: List[QLabel] = []
+        self.lbl_anki_labels: list[QLabel] = []
         self._setup_ui()
 
     def _setup_ui(self) -> None:

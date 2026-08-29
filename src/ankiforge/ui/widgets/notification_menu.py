@@ -3,7 +3,8 @@ Menu / Fenêtre popup des notifications et diagnostics proactifs d'AnkiForge.
 Accessible depuis la cloche de notification de la barre supérieure (TopBar).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import (
@@ -25,7 +26,7 @@ class NotificationItemWidget(QFrame):
 
     action_clicked = Signal(str, object)
 
-    def __init__(self, notif_data: Dict[str, Any], parent: Optional[QWidget] = None):
+    def __init__(self, notif_data: dict[str, Any], parent: QWidget | None = None):
         super().__init__(parent)
         self.notif_data = notif_data
         self.setObjectName("NotificationItemWidget")
@@ -116,7 +117,7 @@ class NotificationMenuPopup(QFrame):
 
     action_triggered = Signal(str, object)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         self.setObjectName("NotificationMenuPopup")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -209,7 +210,7 @@ class NotificationMenuPopup(QFrame):
             }}
         """)
 
-    def set_notifications(self, alerts: List[Dict[str, Any]]) -> None:
+    def set_notifications(self, alerts: list[dict[str, Any]]) -> None:
         """Remplit la popup avec les alertes proactives."""
         # Nettoyer les anciens items (sauf le stretch et empty label)
         while self.items_layout.count() > 1:

@@ -1,8 +1,8 @@
 import os
 import sys
 
-from PySide6.QtCore import QCoreApplication, QSettings, QTranslator
 from dotenv import load_dotenv
+from PySide6.QtCore import QCoreApplication, QSettings, QTranslator
 
 from ankiforge.database.backup import backup_database
 from ankiforge.database.migration import run_migrations
@@ -17,6 +17,7 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --di
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
 from PySide6.QtWidgets import QApplication
+
 from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 

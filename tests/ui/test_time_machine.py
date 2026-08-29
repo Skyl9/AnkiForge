@@ -4,6 +4,7 @@ Tests unitaires pour la Machine à Remonter le Temps (Time Machine) et le Diff.
 
 import json
 import uuid
+
 import pytest
 
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel

@@ -4,7 +4,8 @@ Single point of truth for all visual values and multi-layout theme profiles.
 """
 
 import re
-from typing import Any, Optional, Union
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QMenu, QWidget
@@ -224,7 +225,7 @@ def get_icon_color() -> str:
     return DesignTokens.TEXT_PRIMARY
 
 
-def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: Union[str, QColor] = "rgba(0,0,0,0.5)") -> None:
+def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str | QColor = "rgba(0,0,0,0.5)") -> None:
     """Applique QGraphicsDropShadowEffect — JAMAIS de CSS box-shadow."""
     shadow = QGraphicsDropShadowEffect(widget)
     shadow.setBlurRadius(blur)
@@ -253,7 +254,7 @@ def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: Unio
 class StyledMenu(QMenu):
     """A premium custom QMenu with drop shadows and uniform styling."""
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)

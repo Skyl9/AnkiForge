@@ -1,5 +1,5 @@
 import html
-from typing import Any, Dict, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -29,9 +29,9 @@ class StepItemWidget(QFrame):
     def __init__(
         self,
         order: int,
-        step_data: Dict[str, Any],
+        step_data: dict[str, Any],
         is_selected: bool = False,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.order = order
@@ -132,7 +132,7 @@ class InlineInsertButton(QWidget):
 
     clicked = Signal(int)
 
-    def __init__(self, insert_index: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, insert_index: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.insert_index = insert_index
         self.setFixedHeight(22)

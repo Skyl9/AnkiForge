@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
@@ -24,13 +25,13 @@ class StepPickerCard(QFrame):
 
     def __init__(
         self,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         icon_name: str,
         title: str,
         subtitle: str,
         badge_text: str,
         badge_color: str,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.payload = payload
@@ -91,10 +92,10 @@ class StepPickerCard(QFrame):
 class StepPickerDialog(QDialog):
     """Catalogue & Palette de sélection en 2 colonnes (Prompts/Agents et Actions Système)."""
 
-    def __init__(self, personas: List[PersonaModel], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, personas: list[PersonaModel], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.personas = personas
-        self.selected_step_data: Optional[Dict[str, Any]] = None
+        self.selected_step_data: dict[str, Any] | None = None
         self.setWindowTitle("Ajouter une Étape au Workflow")
         self.resize(780, 520)
         self.setStyleSheet(f"""
@@ -121,7 +122,7 @@ class StepPickerDialog(QDialog):
         cols_layout = QHBoxLayout()
         cols_layout.setSpacing(14)
 
-        self._cards: List[tuple[StepPickerCard, str]] = []
+        self._cards: list[tuple[StepPickerCard, str]] = []
 
         # ── Colonne 1 : AGENTS IA & PROMPTS ──────────────────────────────────
         col1_widget = QWidget()
@@ -272,7 +273,7 @@ class StepPickerDialog(QDialog):
         for card, text in self._cards:
             card.setVisible(not q or q in text)
 
-    def _on_item_selected(self, payload: Dict[str, Any]) -> None:
+    def _on_item_selected(self, payload: dict[str, Any]) -> None:
         self.selected_step_data = payload
         self.accept()
 
@@ -280,10 +281,10 @@ class StepPickerDialog(QDialog):
 class PersonaSelectorDialog(QDialog):
     """Dialogue compact pour sélectionner un Persona ou passer en Prompt Pur."""
 
-    def __init__(self, personas: List[PersonaModel], current_persona: Optional[PersonaModel] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, personas: list[PersonaModel], current_persona: PersonaModel | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.personas = personas
-        self.selected_persona: Optional[PersonaModel] = None
+        self.selected_persona: PersonaModel | None = None
         self.setWindowTitle("Changer d'Agent IA")
         self.resize(460, 380)
         self.setStyleSheet(f"""
@@ -345,6 +346,6 @@ class PersonaSelectorDialog(QDialog):
         scroll.setWidget(inner)
         layout.addWidget(scroll, 1)
 
-    def _on_selected(self, payload: Dict[str, Any]) -> None:
+    def _on_selected(self, payload: dict[str, Any]) -> None:
         self.selected_persona = payload.get("persona")
         self.accept()

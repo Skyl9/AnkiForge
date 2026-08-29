@@ -60,9 +60,10 @@ def _process_cloze_fields(html: str, safe_fields: dict[str, str], template_index
     # Accepte les sauts de lignes dans les trous avec re.DOTALL
     cloze_pattern = re.compile(r"\{\{c(\d+)::(.*?)(?:::([^}]*?))?\}\}", re.DOTALL | re.IGNORECASE)
 
-    def cloze_replacer(match):
+    def cloze_replacer(match: re.Match[str]) -> str:
         c_idx = int(match.group(1))
         text = match.group(2)
+
         hint = match.group(3) if match.group(3) else "..."
 
         if c_idx == target_idx:

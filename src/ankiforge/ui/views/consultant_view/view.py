@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction
@@ -55,17 +55,17 @@ class ConsultantView(QWidget):
     AI Consultant Studio — Moteur ReAct, Intégration Outils Peewee/MCP et Visualisation Riche.
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self.worker: Optional[ConsultantWorker] = None
+        self.worker: ConsultantWorker | None = None
         self.used_tokens_count = 0
         self.modified_cards_count = 0
-        self.active_context: List[str] = []
+        self.active_context: list[str] = []
 
-        self._current_thoughts: List[tuple[int, str]] = []
-        self._current_tool_calls: List[tuple[str, str, str, bool]] = []
+        self._current_thoughts: list[tuple[int, str]] = []
+        self._current_tool_calls: list[tuple[str, str, str, bool]] = []
 
         self._setup_ui()
         self._connect_signals()
@@ -419,7 +419,7 @@ class ConsultantView(QWidget):
 
     @Slot()
     def _on_agent_changed(self) -> None:
-        agent: Optional[PersonaModel] = self.persona_combo.currentData()
+        agent: PersonaModel | None = self.persona_combo.currentData()
         if agent and hasattr(agent, "system_prompt") and agent.system_prompt:
             prompt_str = str(agent.system_prompt)
             prompt_snippet = prompt_str[:140] + "..." if len(prompt_str) > 140 else prompt_str
@@ -555,8 +555,8 @@ class ConsultantView(QWidget):
         self.lbl_tokens_usage.setText("0")
         show_toast(self, "Contexte et mémoire réinitialisés avec succès.")
 
-    def _build_context_data(self) -> Dict[str, List[Dict[str, Any]]]:
-        data: Dict[str, List[Dict[str, Any]]] = {"documents": [], "paquets": []}
+    def _build_context_data(self) -> dict[str, list[dict[str, Any]]]:
+        data: dict[str, list[dict[str, Any]]] = {"documents": [], "paquets": []}
 
         for ctx_id in self.active_context:
             if ctx_id.startswith("doc_"):

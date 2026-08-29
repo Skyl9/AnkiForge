@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from jinja2 import BaseLoader, Environment
 from PySide6.QtCore import Qt
@@ -12,7 +12,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class AgentPromptPreviewDialog(QDialog):
     """Affiche la résolution dynamique du template Jinja2 du Persona avec des variables réalistes."""
 
-    def __init__(self, template_str: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, template_str: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Aperçu du Prompt Interpolé (Jinja2)")
         self.resize(700, 500)
@@ -38,13 +38,13 @@ class AgentPromptPreviewDialog(QDialog):
         try:
             env = Environment(loader=BaseLoader(), autoescape=False)  # nosec B701
             tpl = env.from_string(template_str)
-            mock_vars: Dict[str, Any] = {
+            mock_vars: dict[str, Any] = {
                 "text_source": "Soit A une matrice carrée n x n. A est diagonalisable s'il existe une base de vecteurs propres.",
                 "generated_cards": [{"Front": "Définition diagonalisation", "Back": "Existe base de vecteurs propres"}],
                 "last_output": "Cartes générées avec succès.",
                 "plan_cours": "1. Définition\n2. Valeurs propres\n3. Sous-espaces propres",
             }
-            mock_state: Dict[str, Any] = {
+            mock_state: dict[str, Any] = {
                 "initial_prompt": "Créer 5 flashcards sur la diagonalisation matricielle.",
                 "variables": mock_vars,
             }

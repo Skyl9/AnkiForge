@@ -1,5 +1,5 @@
 path = "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/services/ai/linter.py"
-with open(path, "r", encoding="utf-8") as f:
+with open(path, encoding="utf-8") as f:
     content = f.read()
 
 start_marker = "    @staticmethod\n    def get_financial_summary(deck_id: Optional[int] = None) -> Dict[str, Any]:"

@@ -1,4 +1,3 @@
-from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
@@ -10,7 +9,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class FolderHeaderWidget(QWidget):
     """Widget représentant la ligne d'un dossier ou sous-dossier dans l'arbre."""
 
-    def __init__(self, name: str, count: int, is_root: bool = False, is_subfolder: bool = False, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, name: str, count: int, is_root: bool = False, is_subfolder: bool = False, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("background: transparent;")

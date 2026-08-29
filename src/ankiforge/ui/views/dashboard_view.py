@@ -1,24 +1,25 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QFrame,
-    QSplitter,
-    QScrollArea,
-    QGridLayout,
-    QSizePolicy,
-    QFileDialog,
-)
+from typing import Any
+
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.components import IdePanel, SecondaryButton, PrimaryButton
 from ankiforge.services.audit.metrics_service import MetricsService
+from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ class DashboardHeroBanner(QFrame):
         layout.addWidget(self.icon_wrapper, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Titre centré agrandi
-        self.title = QLabel('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % DesignTokens.ACCENT_PRIMARY)
+        self.title = QLabel(f'Bienvenue dans <span style="color: {DesignTokens.ACCENT_PRIMARY};">AnkiForge</span>')
         self.title.setFont(QFont(DesignTokens.FONT_MAIN, 20, QFont.Weight.Bold))
         self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -108,7 +109,7 @@ class DashboardHeroBanner(QFrame):
             }}
         """)
         self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(24, 24))
-        self.title.setText('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % profile.accent_primary)
+        self.title.setText(f'Bienvenue dans <span style="color: {profile.accent_primary};">AnkiForge</span>')
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
@@ -209,7 +210,7 @@ class DiagnosticCardWidget(QFrame):
 
     action_clicked = Signal(str, object)
 
-    def __init__(self, data: Dict[str, Any], parent=None):
+    def __init__(self, data: dict[str, Any], parent=None):
         super().__init__(parent)
         self.data = data
         self.severity = data.get("severity", "info")
@@ -363,7 +364,7 @@ class ProactiveDiagnosticsWidget(QFrame):
 
         self.cards_layout.addWidget(self.empty_card)
 
-    def set_diagnostics(self, diagnostics: List[Dict[str, Any]]) -> None:
+    def set_diagnostics(self, diagnostics: list[dict[str, Any]]) -> None:
         """Met à jour les cartes de diagnostics affichées."""
         while self.cards_layout.count() > 0:
             item = self.cards_layout.takeAt(0)
@@ -389,7 +390,7 @@ class ActivityItem(QFrame):
 
     clicked = Signal(int)
 
-    def __init__(self, note_id: Optional[int], title: str, subtitle: str, icon_name: str, bg_color: str, parent=None):
+    def __init__(self, note_id: int | None, title: str, subtitle: str, icon_name: str, bg_color: str, parent=None):
         super().__init__(parent)
         self.note_id = note_id or 0
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -591,7 +592,7 @@ class StatItem(QFrame):
             }}
         """)
 
-    def set_value(self, value: Any, value_color: Optional[str] = None):
+    def set_value(self, value: Any, value_color: str | None = None):
         self.val_label.setText(str(value))
         if value_color:
             self.value_color = value_color
@@ -612,12 +613,12 @@ class DashboardView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self._import_dialog: Optional[QWidget] = None
-        self._export_dialog: Optional[QWidget] = None
-        self.worker: Optional[DashboardWorker] = None
+        self._import_dialog: QWidget | None = None
+        self._export_dialog: QWidget | None = None
+        self.worker: DashboardWorker | None = None
         self.setup_ui()
 
-    def _navigate(self, view_id: str, data: Optional[dict] = None) -> None:
+    def _navigate(self, view_id: str, data: dict | None = None) -> None:
         self.request_navigation.emit(view_id, data)
 
     def setup_ui(self):
@@ -857,7 +858,7 @@ class DashboardView(QWidget):
         else:
             self._navigate("creation", {"prompt": f"Source chargée: {file_path}", "title": p.stem})
 
-    def _open_import_dialog(self, initial_path: Optional[str] = None) -> None:
+    def _open_import_dialog(self, initial_path: str | None = None) -> None:
         from ankiforge.ui.dialogs.import_dialog import ImportDialog
 
         if not self._import_dialog:

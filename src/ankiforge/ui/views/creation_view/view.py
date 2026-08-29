@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from peewee import fn
 from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
@@ -80,19 +80,19 @@ class CreationView(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, ai_manager: Any = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
-        self.orchestrator: Optional[PipelineOrchestrator] = None
-        self.current_deck: Optional[DeckModel] = None
-        self.current_model: Optional[NoteTypeModel] = None
+        self.orchestrator: PipelineOrchestrator | None = None
+        self.current_deck: DeckModel | None = None
+        self.current_model: NoteTypeModel | None = None
         self.selected_models: list[NoteTypeModel] = []
         self.current_source_title: str = "Saisie Libre"
         self.decks_cache: list[DeckModel] = []
-        self._deck_modal: Optional[DeckSelectWindow] = None
+        self._deck_modal: DeckSelectWindow | None = None
         self.models_cache: list[NoteTypeModel] = []
         self.open_editors: dict[str, DocumentEditorWidget] = {}
         self.thread_pool = QThreadPool(self)
@@ -101,7 +101,7 @@ class CreationView(QWidget):
         self._connect_signals()
         self.refresh_data()
 
-    def _navigate(self, view_id: str, data: Optional[dict] = None) -> None:
+    def _navigate(self, view_id: str, data: dict | None = None) -> None:
         self.request_navigation.emit(view_id, data)
 
     def _setup_ui(self) -> None:
@@ -846,7 +846,7 @@ class CreationView(QWidget):
         modal = SettingsModal(ai_manager=self.ai_manager, parent=self)
         modal.exec()
 
-    def _open_document_tab(self, title: str, content: str = "", doc_model: Optional[Any] = None) -> None:
+    def _open_document_tab(self, title: str, content: str = "", doc_model: Any | None = None) -> None:
         base_title = title
         counter = 1
         while title in self.open_editors:
@@ -1259,10 +1259,7 @@ class CreationView(QWidget):
                         else:
                             val = ""
 
-                        if isinstance(val, list):
-                            val = "<br>".join([str(v) for v in val])
-                        else:
-                            val = str(val) if val is not None else ""
+                        val = "<br>".join([str(v) for v in val]) if isinstance(val, list) else str(val) if val is not None else ""
                         note_dict[field_name] = val
 
                     for k, v in item.items():

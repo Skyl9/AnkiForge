@@ -1,4 +1,5 @@
 from typing import Any
+
 from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
 from PySide6.QtGui import QDrag, QMouseEvent
 from PySide6.QtWidgets import QApplication, QPushButton, QSizePolicy, QWidget

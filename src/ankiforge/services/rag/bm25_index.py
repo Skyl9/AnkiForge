@@ -6,19 +6,19 @@ optimisée pour Nuitka et compatible multi-plateformes.
 
 from __future__ import annotations
 
-from collections import Counter
 import json
 import logging
 import math
-from pathlib import Path
 import re
 import unicodedata
-from typing import Any, Dict, List, Optional, Set, Tuple
+from collections import Counter
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Stop words par défaut (Français & Anglais)
-DEFAULT_STOP_WORDS: Set[str] = {
+DEFAULT_STOP_WORDS: set[str] = {
     # Français
     "a",
     "au",
@@ -234,7 +234,7 @@ def normalize_text(text: str) -> str:
     return no_diacritics.lower()
 
 
-def tokenize(text: str, stop_words: Optional[Set[str]] = None) -> List[str]:
+def tokenize(text: str, stop_words: set[str] | None = None) -> list[str]:
     """
     Tokenise un texte en conservant les termes techniques et en filtrant les stop-words.
     """
@@ -245,7 +245,7 @@ def tokenize(text: str, stop_words: Optional[Set[str]] = None) -> List[str]:
     raw_tokens = _TOKEN_PATTERN.findall(norm_text)
     stops = stop_words if stop_words is not None else DEFAULT_STOP_WORDS
 
-    tokens: List[str] = []
+    tokens: list[str] = []
     for tok in raw_tokens:
         cleaned = tok.strip(".-_")
         if len(cleaned) >= 2 and cleaned not in stops:
@@ -269,28 +269,28 @@ class BM25OkapiIndex:
         self,
         k1: float = 1.5,
         b: float = 0.75,
-        stop_words: Optional[Set[str]] = None,
+        stop_words: set[str] | None = None,
     ) -> None:
         self.k1 = k1
         self.b = b
         self.stop_words = stop_words if stop_words is not None else DEFAULT_STOP_WORDS
 
         # Métriques de l'index
-        self.doc_ids: List[int] = []
-        self.doc_lengths: Dict[int, int] = {}
+        self.doc_ids: list[int] = []
+        self.doc_lengths: dict[int, int] = {}
         self.avg_doc_len: float = 0.0
         self.total_docs: int = 0
 
         # Term Frequencies: {doc_id: Counter({token: freq})}
-        self.doc_term_freqs: Dict[int, Dict[str, int]] = {}
+        self.doc_term_freqs: dict[int, dict[str, int]] = {}
 
         # Document Frequencies: {token: count_of_docs_containing_token}
-        self.doc_freqs: Dict[str, int] = {}
+        self.doc_freqs: dict[str, int] = {}
 
         # Precomputed IDF values: {token: idf_score}
-        self.idf_cache: Dict[str, float] = {}
+        self.idf_cache: dict[str, float] = {}
 
-    def fit(self, corpus: Dict[int, str]) -> BM25OkapiIndex:
+    def fit(self, corpus: dict[int, str]) -> BM25OkapiIndex:
         """
         Construit l'index BM25 à partir d'un dictionnaire {doc_id: text}.
         """
@@ -333,7 +333,7 @@ class BM25OkapiIndex:
         )
         return self
 
-    def score_document(self, query_tokens: List[str], doc_id: int) -> float:
+    def score_document(self, query_tokens: list[str], doc_id: int) -> float:
         """
         Calcule le score BM25 pour un document spécifique donné une liste de tokens de requête.
         """
@@ -360,7 +360,7 @@ class BM25OkapiIndex:
 
         return score
 
-    def search(self, query: str, top_k: int = 10) -> List[Tuple[int, float]]:
+    def search(self, query: str, top_k: int = 10) -> list[tuple[int, float]]:
         """
         Recherche les `top_k` documents les plus pertinents pour la requête.
         Retourne une liste triée de tuples (doc_id, bm25_score).
@@ -373,7 +373,7 @@ class BM25OkapiIndex:
             return []
 
         # Identifier les documents candidats contenant au moins un terme de la requête
-        candidate_doc_ids: Set[int] = set()
+        candidate_doc_ids: set[int] = set()
         for q_token in query_tokens:
             if q_token in self.doc_freqs:
                 for doc_id, tf_map in self.doc_term_freqs.items():
@@ -383,7 +383,7 @@ class BM25OkapiIndex:
         if not candidate_doc_ids:
             return []
 
-        scores: List[Tuple[int, float]] = []
+        scores: list[tuple[int, float]] = []
         for doc_id in candidate_doc_ids:
             s = self.score_document(query_tokens, doc_id)
             if s > 0.0:
@@ -393,7 +393,7 @@ class BM25OkapiIndex:
         scores.sort(key=lambda x: x[1], reverse=True)
         return scores[:top_k]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Sérialise l'index BM25 sous forme de dictionnaire JSON-compatible."""
         return {
             "version": "1.0",
@@ -409,7 +409,7 @@ class BM25OkapiIndex:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BM25OkapiIndex:
+    def from_dict(cls, data: dict[str, Any]) -> BM25OkapiIndex:
         """Désérialise un index BM25 depuis un dictionnaire."""
         idx = cls(k1=float(data.get("k1", 1.5)), b=float(data.get("b", 0.75)))
         idx.total_docs = int(data.get("total_docs", 0))
@@ -432,6 +432,6 @@ class BM25OkapiIndex:
     def load(cls, file_path: Path | str) -> BM25OkapiIndex:
         """Charge l'index depuis un fichier JSON."""
         path = Path(file_path)
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return cls.from_dict(data)

@@ -1,7 +1,9 @@
 from typing import Any
-from PySide6.QtWidgets import QPushButton, QWidget, QFrame, QVBoxLayout, QLabel, QGraphicsDropShadowEffect
-from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve
+
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal
 from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QFrame, QGraphicsDropShadowEffect, QLabel, QPushButton, QVBoxLayout, QWidget
+
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -9,8 +11,8 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class PrimaryButton(QPushButton):
     """Bouton principal avec glow et affordance tactile. Usage: actions primaires."""
 
-    def __init__(self, text: str, parent: QWidget | None = None) -> None:
-        super().__init__(text, parent)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -25,13 +27,13 @@ class PrimaryButton(QPushButton):
             self.default_blur = 10
             self.hover_blur = 16
 
-    def enterEvent(self, event) -> None:
+    def enterEvent(self, event: Any) -> None:
         if hasattr(self, "anim"):
             self.anim.setEndValue(self.hover_blur)
             self.anim.start()
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:
+    def leaveEvent(self, event: Any) -> None:
         if hasattr(self, "anim"):
             self.anim.setEndValue(self.default_blur)
             self.anim.start()
@@ -44,8 +46,8 @@ class PrimaryButton(QPushButton):
 class SecondaryButton(QPushButton):
     """Bouton secondaire avec relief, contour d'accentuation au survol et affordance tactile."""
 
-    def __init__(self, text: str, parent: QWidget | None = None) -> None:
-        super().__init__(text, parent)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -60,13 +62,13 @@ class SecondaryButton(QPushButton):
             self.default_blur = 2
             self.hover_blur = 10
 
-    def enterEvent(self, event) -> None:
+    def enterEvent(self, event: Any) -> None:
         if hasattr(self, "anim"):
             self.anim.setEndValue(self.hover_blur)
             self.anim.start()
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:
+    def leaveEvent(self, event: Any) -> None:
         if hasattr(self, "anim"):
             self.anim.setEndValue(self.default_blur)
             self.anim.start()
@@ -74,6 +76,35 @@ class SecondaryButton(QPushButton):
 
     def refresh_theme(self, profile: Any = None) -> None:
         pass
+
+
+class ActionButton(SecondaryButton):
+    """Bouton d'action avec icône Phosphor/FA optionnelle et libellé textuel."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        icon_name = ""
+        parent = kwargs.pop("parent", None)
+
+        if len(args) >= 2 and isinstance(args[0], str) and isinstance(args[1], str):
+            icon_name = args[0]
+            text = args[1]
+            if len(args) > 2 and isinstance(args[2], QWidget):
+                parent = args[2]
+            super().__init__(text, parent, **kwargs)
+        elif len(args) == 1 and isinstance(args[0], str):
+            text = args[0]
+            super().__init__(text, parent, **kwargs)
+        else:
+            super().__init__(*args, **kwargs)
+
+        self.icon_name = icon_name
+        if icon_name:
+            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        if hasattr(self, "icon_name") and self.icon_name:
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.setIcon(load_phosphor_icon(self.icon_name, color=color))
 
 
 class DangerButton(QPushButton):

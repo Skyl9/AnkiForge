@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont
@@ -17,8 +17,8 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import (
     AuditRecordModel,
-    LLMConfigModel,
     LinterRuleModel,
+    LLMConfigModel,
     NoteModel,
     NoteVersionModel,
     db,
@@ -46,14 +46,14 @@ logger = logging.getLogger(__name__)
 class AIWozniakLinterTab(QWidget):
     """Onglet d'audit ergonomique Wozniak avec support complet des catégories dynamiques et gestion des règles."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.selected_deck_id: Optional[int] = None
-        self.selected_deck_name: Optional[str] = None
+        self.selected_deck_id: int | None = None
+        self.selected_deck_name: str | None = None
         self.active_category: str = "cat-atomicite"
         self._cached_deck_results: dict[int, list] = {}
         self._cached_categories_data: dict[str, dict] = {}
-        self.kpi_cards: Dict[str, WozniakKpiCard] = {}
+        self.kpi_cards: dict[str, WozniakKpiCard] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -375,7 +375,7 @@ class AIWozniakLinterTab(QWidget):
         if self.selected_deck_id is not None:
             self._cached_deck_results[self.selected_deck_id] = results
 
-        categories_dict: Dict[str, Dict[str, Any]] = {cat_id: {"score": 100, "items": []} for cat_id in self.kpi_cards}
+        categories_dict: dict[str, dict[str, Any]] = {cat_id: {"score": 100, "items": []} for cat_id in self.kpi_cards}
         rules_map = {r.name.lower(): r for r in LinterRuleModel.select()}
 
         for res in results:
@@ -472,7 +472,7 @@ class AIWozniakLinterTab(QWidget):
                 widget.deleteLater()
 
         current_cat_data = self._cached_categories_data.get(self.active_category, {})
-        items = cast(List[Dict[str, Any]], current_cat_data.get("items", []))
+        items = cast(list[dict[str, Any]], current_cat_data.get("items", []))
 
         if not items:
             self.show_empty_state("Aucune anomalie détectée dans cette catégorie ! Toutes les cartes sont conformes.")

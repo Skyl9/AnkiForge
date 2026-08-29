@@ -1,5 +1,6 @@
-import pytest
 import dataclasses
+
+import pytest
 
 from ankiforge.services.ai.utils import AIReponseParser
 

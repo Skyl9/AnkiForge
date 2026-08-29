@@ -3,7 +3,7 @@ import logging
 import re
 from typing import Any
 
-from ankiforge.database.models import DeckModel, NoteModel, CardModel, NoteTypeModel, NoteVersionModel, IgnoredDuplicateModel
+from ankiforge.database.models import CardModel, DeckModel, IgnoredDuplicateModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.utils.c_bridge import get_similarity
 
 logger = logging.getLogger(__name__)

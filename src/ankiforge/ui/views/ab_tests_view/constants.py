@@ -1,4 +1,3 @@
-from typing import List, Tuple
 from PySide6.QtWidgets import QLabel
 
 
@@ -23,7 +22,7 @@ def apply_pill_style(badge: QLabel, color_hex: str) -> None:
     """)
 
 
-PRESET_SAMPLES: List[Tuple[str, str, str]] = [
+PRESET_SAMPLES: list[tuple[str, str, str]] = [
     (
         "Cas Médical",
         (

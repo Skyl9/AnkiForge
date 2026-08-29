@@ -1,4 +1,5 @@
-from typing import Any, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -9,7 +10,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class ThoughtStepWidget(QFrame):
     """Cartouche repliable affichant la pensée / le raisonnement ReAct d'une étape."""
 
-    def __init__(self, step: int, thought_text: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, step: int, thought_text: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""

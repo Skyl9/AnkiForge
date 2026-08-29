@@ -1,8 +1,8 @@
 # src/ankiforge/ui/widgets/donut_chart.py
 from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QPainter, QColor, QFont, QPen
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 

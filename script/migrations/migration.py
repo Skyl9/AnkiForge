@@ -1,5 +1,6 @@
+from peewee import SQL, DateTimeField, SqliteDatabase
 from playhouse.migrate import SqliteMigrator, migrate
-from peewee import SqliteDatabase, DateTimeField, SQL
+
 from ankiforge.utils.paths import get_app_data_dir
 
 db = SqliteDatabase(get_app_data_dir() / "ankiforge.db")

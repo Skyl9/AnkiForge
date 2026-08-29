@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple
+
 from PySide6.QtGui import QColor
 
 COLOR_PATTERN = re.compile(
@@ -9,9 +9,9 @@ COLOR_PATTERN = re.compile(
 )
 
 
-def extract_colors_from_text(line_text: str) -> List[Tuple[str, QColor]]:
+def extract_colors_from_text(line_text: str) -> list[tuple[str, QColor]]:
     """Extrait tous les codes couleurs hexadécimaux, rgb/rgba ou hsl/hsla d'une ligne de code."""
-    colors: List[Tuple[str, QColor]] = []
+    colors: list[tuple[str, QColor]] = []
     for match in COLOR_PATTERN.finditer(line_text):
         col_str = match.group(0)
         c = QColor(col_str)

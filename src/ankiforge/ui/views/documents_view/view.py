@@ -1,7 +1,7 @@
 import logging
 import pathlib
 import shutil
-from typing import Any, Dict, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor
@@ -65,14 +65,14 @@ class DocumentsView(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, ai_manager: Optional[Any] = None, profile_name: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self._current_doc_id: Optional[int] = None
+        self._current_doc_id: int | None = None
         self._dirty = False
-        self.worker: Optional[DocumentWorker] = None
-        self._coverage_worker: Optional[CoverageWorker] = None
+        self.worker: DocumentWorker | None = None
+        self._coverage_worker: CoverageWorker | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -519,7 +519,7 @@ class DocumentsView(QWidget):
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)
 
-    def _on_item_moved(self, source_data: dict, target_data: Optional[dict]) -> None:
+    def _on_item_moved(self, source_data: dict, target_data: dict | None) -> None:
         if not source_data:
             return
 
@@ -530,10 +530,7 @@ class DocumentsView(QWidget):
 
         if target_type == "doc":
             doc = DocumentModel.get_or_none(DocumentModel.id == target_id)
-            if doc and doc.folder:
-                target_id = doc.folder.id
-            else:
-                target_id = None
+            target_id = doc.folder.id if doc and doc.folder else None
 
         if source_type == "doc":
             doc = DocumentModel.get_or_none(DocumentModel.id == source_id)
@@ -582,8 +579,8 @@ class DocumentsView(QWidget):
             self.tree_explorer.blockSignals(True)
             self.tree_explorer.clear()
 
-            folder_items: Dict[int, QTreeWidgetItem] = {}
-            path_items: Dict[str, QTreeWidgetItem] = {}
+            folder_items: dict[int, QTreeWidgetItem] = {}
+            path_items: dict[str, QTreeWidgetItem] = {}
             folders = list(FolderModel.select())
             sorted_folders = sorted(folders, key=lambda f: f.name)
 
@@ -794,7 +791,7 @@ class DocumentsView(QWidget):
         if pdf_path.exists():
             self._start_document_worker(str(pdf_path), doc_id=doc.id)
 
-    def _start_document_worker(self, path_or_url: str, doc_id: Optional[int] = None) -> None:
+    def _start_document_worker(self, path_or_url: str, doc_id: int | None = None) -> None:
         self.btn_import.setEnabled(False)
         self.btn_import_url.setEnabled(False)
         show_toast(self, "Extraction et analyse du document en cours...")

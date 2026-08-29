@@ -1,7 +1,7 @@
 import json
 import logging
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -36,10 +36,10 @@ logger = logging.getLogger(__name__)
 class AIEnginesTab(QWidget):
     """Onglet Configuration des Moteurs IA et Clés API."""
 
-    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
-        self.lbl_provider_labels: List[QLabel] = []
+        self.lbl_provider_labels: list[QLabel] = []
         self._setup_ui()
         self.refresh_data()
 
@@ -58,8 +58,8 @@ class AIEnginesTab(QWidget):
         keys_layout.setContentsMargins(14, 10, 14, 10)
         keys_layout.setSpacing(8)
 
-        self.key_edits: Dict[str, PasswordLineEdit] = {}
-        self.key_status_badges: Dict[str, QLabel] = {}
+        self.key_edits: dict[str, PasswordLineEdit] = {}
+        self.key_status_badges: dict[str, QLabel] = {}
 
         providers_cfg = [
             ("openai", "OpenAI", "sk-proj-...", "ph.brain"),
@@ -194,13 +194,12 @@ class AIEnginesTab(QWidget):
 
         # Validation de format
         valid_format = False
-        if provider_id == "openai" and (key_val.startswith("sk-") or len(key_val) > 20):
-            valid_format = True
-        elif provider_id == "anthropic" and (key_val.startswith("sk-ant-") or len(key_val) > 20):
-            valid_format = True
-        elif provider_id == "gemini" and (key_val.startswith("AIza") or len(key_val) >= 20):
-            valid_format = True
-        elif provider_id == "groq" and (key_val.startswith("gsk_") or len(key_val) > 20):
+        if (
+            (provider_id == "openai" and (key_val.startswith("sk-") or len(key_val) > 20))
+            or (provider_id == "anthropic" and (key_val.startswith("sk-ant-") or len(key_val) > 20))
+            or (provider_id == "gemini" and (key_val.startswith("AIza") or len(key_val) >= 20))
+            or (provider_id == "groq" and (key_val.startswith("gsk_") or len(key_val) > 20))
+        ):
             valid_format = True
         else:
             valid_format = len(key_val) >= 16

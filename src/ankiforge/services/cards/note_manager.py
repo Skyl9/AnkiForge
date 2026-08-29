@@ -2,7 +2,7 @@ import json
 import logging
 import uuid
 
-from ankiforge.database.models import db, NoteModel, NoteTypeModel, DeckModel, CardModel
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 
 logger = logging.getLogger(__name__)

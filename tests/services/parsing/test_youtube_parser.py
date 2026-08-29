@@ -1,4 +1,5 @@
 from unittest.mock import patch
+
 from ankiforge.services.parsing.youtube_parser import YouTubeParser
 
 
@@ -28,6 +29,5 @@ def test_extract_subtitles_failure(mock_api):
 
 def test_parse_with_fallback():
     parser = YouTubeParser()
-    with patch.object(parser, "extract_subtitles", return_value=None):
-        with patch.object(parser, "download_and_transcribe", return_value="fallback audio"):
-            assert parser.parse("https://youtu.be/test", None) == "fallback audio"
+    with patch.object(parser, "extract_subtitles", return_value=None), patch.object(parser, "download_and_transcribe", return_value="fallback audio"):
+        assert parser.parse("https://youtu.be/test", None) == "fallback audio"

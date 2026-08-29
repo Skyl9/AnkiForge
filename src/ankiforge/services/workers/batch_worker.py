@@ -1,15 +1,15 @@
 import json
 import logging
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
 
-from PySide6.QtCore import QThread, Signal
 from jinja2 import Template
+from PySide6.QtCore import QThread, Signal
 
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.utils.chunker import smart_chunk_text
 from ankiforge.utils.paths import get_media_dir
-from ankiforge.utils.vision_utils import strip_image_tags, prepare_multimodal_payload
+from ankiforge.utils.vision_utils import prepare_multimodal_payload, strip_image_tags
 
 logger = logging.getLogger(__name__)
 
@@ -205,10 +205,7 @@ class BatchWorker(QThread):
                                     else:
                                         val = ""
 
-                                    if isinstance(val, list):
-                                        val = "<br>".join([str(item) for item in val])
-                                    else:
-                                        val = str(val) if val is not None else ""
+                                    val = "<br>".join([str(item) for item in val]) if isinstance(val, list) else str(val) if val is not None else ""
 
                                     cleaned_note_fields[field] = val
 
