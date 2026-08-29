@@ -1,29 +1,11 @@
-"""
-Vue Library (Hub Documentaire & RAG Local) — Conforme au Design System & Maquette AnkiForge.
-
-- Explorateur d'arborescence à gauche avec recherche dynamique et gestion de dossiers récursifs.
-- Éditeur & Lecteur central détachable (PDF natif, Markdown KaTeX en direct, Terminal de logs).
-- Barre d'actions responsive compacte et épurée :
-  * ✂️ Délimiter / Chapitres : Dialogue interactif de sélection de plages de pages et filtrage de sections.
-  * 🔮 Marker OCR : Extraction Deep Learning PDF vers Markdown KaTeX.
-  * 📊 Vectoriser (RAG FAISS) : Statut en capsule et indexation vectorielle locale.
-  * 💾 Sauvegarder & Compteur de mots live.
-- Volet Droit à 2 onglets :
-  * 📑 Onglet 1 : Sommaire & Couverture SRS (Jauge de couverture de cours, liste des sections et bouton ⚡ Forger).
-  * 🔍 Onglet 2 : Recherche & Sandbox RAG (Banc de test sémantique vectoriel FAISS en temps réel).
-"""
-
 import logging
 import pathlib
 import shutil
 from typing import Any, Dict, Optional
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QColor, QDropEvent
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QCheckBox,
-    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -36,10 +18,9 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSizePolicy,
-    QSpinBox,
     QSplitter,
     QStackedWidget,
-    QTreeWidget,
+    QTextBrowser,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -64,508 +45,17 @@ from ankiforge.ui.components import (
     SecondaryButton,
 )
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.documents_view.dialogs import (
+    DocumentDelimitationDialog,
+    RAGTestDialog,
+)
+from ankiforge.ui.views.documents_view.utils import apply_pill_style
+from ankiforge.ui.views.documents_view.widgets import DocumentTreeWidget
+from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
-
-
-def apply_pill_style(badge: QLabel, color_hex: str) -> None:
-    """Applique un style de capsule/pill parfaitement arrondie avec fond translucide et bordure assortie."""
-    hex_c = color_hex.lstrip("#")
-    if len(hex_c) == 6:
-        r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-    else:
-        r, g, b = 100, 116, 139
-    badge.setStyleSheet(f"""
-        QLabel {{
-            background-color: rgba({r}, {g}, {b}, 0.15) !important;
-            color: {color_hex};
-            border: 1px solid rgba({r}, {g}, {b}, 0.35);
-            border-radius: 9999px;
-            padding: 3px 10px;
-            font-size: 10px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }}
-    """)
-
-
-# =====================================================================
-# MODALE DE DÉLIMITATION DE DOCUMENT (DOCUMENTDELIMITATIONDIALOG)
-# =====================================================================
-
-
-class DocumentDelimitationDialog(QDialog):
-    """
-    Dialogue interactif de délimitation de documents :
-    Permet de sélectionner des plages de pages utiles, de filtrer les sections
-    et d'exclure les parties non pédagogiques (sommaires, remerciements, bibliographies).
-    """
-
-    def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.doc = doc
-        self.setWindowTitle(f"Délimitation du Document — {doc.title}")
-        self.resize(640, 540)
-        self.setStyleSheet(f"""
-            QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
-        # 1. En-tête descriptif
-        header_card = QFrame()
-        header_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 4px;
-            }}
-        """)
-        h_layout = QVBoxLayout(header_card)
-        h_layout.setContentsMargins(12, 10, 12, 10)
-        h_layout.setSpacing(4)
-
-        header_top = QHBoxLayout()
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        title_lbl = QLabel(f"Délimitation : <b>{doc.title}</b>")
-        title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY};")
-        header_top.addWidget(icon_lbl)
-        header_top.addWidget(title_lbl, 1)
-        h_layout.addLayout(header_top)
-
-        desc_lbl = QLabel("Sélectionnez les chapitres et plages de pages pertinents pour exclure le bruit documentaire avant la forge et le RAG.")
-        desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        desc_lbl.setWordWrap(True)
-        h_layout.addWidget(desc_lbl)
-        layout.addWidget(header_card)
-
-        # 2. Plage de pages
-        pages_card = QFrame()
-        pages_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        pages_card_layout = QVBoxLayout(pages_card)
-        pages_card_layout.setContentsMargins(12, 10, 12, 10)
-        pages_card_layout.setSpacing(8)
-
-        lbl_sec1 = QLabel("1. BORNES DE PAGINATION")
-        lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;")
-        pages_card_layout.addWidget(lbl_sec1)
-
-        pages_inputs = QHBoxLayout()
-        lbl_p_start = QLabel("Page Début :")
-        lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
-        self.spin_p_start = QSpinBox()
-        self.spin_p_start.setRange(1, 9999)
-        self.spin_p_start.setValue(1)
-        self.spin_p_start.setStyleSheet(f"""
-            QSpinBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 4px 8px;
-            }}
-        """)
-
-        lbl_p_end = QLabel("Page Fin :")
-        lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
-        self.spin_p_end = QSpinBox()
-        self.spin_p_end.setRange(1, 9999)
-        self.spin_p_end.setValue(100)
-        self.spin_p_end.setStyleSheet(f"""
-            QSpinBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 4px 8px;
-            }}
-        """)
-
-        pages_inputs.addWidget(lbl_p_start)
-        pages_inputs.addWidget(self.spin_p_start)
-        pages_inputs.addSpacing(16)
-        pages_inputs.addWidget(lbl_p_end)
-        pages_inputs.addWidget(self.spin_p_end)
-        pages_inputs.addStretch()
-        pages_card_layout.addLayout(pages_inputs)
-        layout.addWidget(pages_card)
-
-        # 3. Liste des sections et chapitres cochables
-        sections_card = QFrame()
-        sections_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        sections_layout = QVBoxLayout(sections_card)
-        sections_layout.setContentsMargins(12, 10, 12, 10)
-        sections_layout.setSpacing(8)
-
-        lbl_sec2 = QLabel("2. SÉLECTION DES CHAPITRES & SECTIONS DÉTECTÉS")
-        lbl_sec2.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px;")
-        sections_layout.addWidget(lbl_sec2)
-
-        # Actions rapides
-        quick_btns = QHBoxLayout()
-        btn_check_all = SecondaryButton("Tout sélectionner")
-        btn_check_all.setFixedHeight(28)
-        btn_check_all.setStyleSheet(f"font-size: 11px; padding: 4px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        btn_check_all.clicked.connect(lambda: self._set_all_checked(True))
-
-        btn_uncheck_all = SecondaryButton("Tout désélectionner")
-        btn_uncheck_all.setFixedHeight(28)
-        btn_uncheck_all.setStyleSheet(f"font-size: 11px; padding: 4px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        btn_uncheck_all.clicked.connect(lambda: self._set_all_checked(False))
-
-        btn_smart_filter = SecondaryButton("Filtre Intelligent IA")
-        btn_smart_filter.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
-        btn_smart_filter.setFixedHeight(28)
-        btn_smart_filter.setStyleSheet(f"font-size: 11px; padding: 4px 10px; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW};")
-        btn_smart_filter.clicked.connect(self._apply_smart_filter)
-
-        quick_btns.addWidget(btn_check_all)
-        quick_btns.addWidget(btn_uncheck_all)
-        quick_btns.addStretch()
-        quick_btns.addWidget(btn_smart_filter)
-        sections_layout.addLayout(quick_btns)
-
-        self.sections_list = QListWidget()
-        self.sections_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 4px;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QListWidget::item {{
-                padding: 6px 8px;
-                border-radius: 4px;
-                margin-bottom: 2px;
-            }}
-            QListWidget::item:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-            }}
-        """)
-        sections_layout.addWidget(self.sections_list, 1)
-        layout.addWidget(sections_card, 1)
-
-        self._populate_sections()
-        self._apply_smart_filter(notify=False)
-
-        # 4. Pied de page & validation
-        footer = QHBoxLayout()
-        self.chk_revectorize = QCheckBox("Re-vectoriser automatiquement dans FAISS après délimitation")
-        self.chk_revectorize.setChecked(True)
-        self.chk_revectorize.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
-        footer.addWidget(self.chk_revectorize)
-        footer.addStretch()
-
-        btn_cancel = SecondaryButton("Annuler")
-        btn_cancel.clicked.connect(self.reject)
-        footer.addWidget(btn_cancel)
-
-        btn_apply = PrimaryButton("Appliquer la délimitation")
-        btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
-        btn_apply.clicked.connect(self._on_apply)
-        footer.addWidget(btn_apply)
-
-        layout.addLayout(footer)
-
-    def _populate_sections(self) -> None:
-        """Remplit la liste avec les sections sémantiques déjà indexées ou déduites."""
-        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
-        if chunks:
-            for c in chunks:
-                title_str = c.heading_path or (f"Page {c.page_number}" if c.page_number else f"Section #{c.chunk_index + 1}")
-                item = QListWidgetItem(title_str)
-                item.setIcon(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_SECONDARY))
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Checked)
-                item.setData(Qt.ItemDataRole.UserRole, title_str)
-                self.sections_list.addItem(item)
-        else:
-            raw_content = self.doc.content or ""
-            extracted = ChunkingService.extract_chunks(raw_content, file_type=self.doc.file_type or "md")
-            for c_data in extracted:
-                title_str = c_data.get("heading_path") or (f"Page {c_data.get('page_number')}" if c_data.get("page_number") else f"Section #{c_data.get('index', 0) + 1}")
-                item = QListWidgetItem(title_str)
-                item.setIcon(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_SECONDARY))
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Checked)
-                item.setData(Qt.ItemDataRole.UserRole, title_str)
-                self.sections_list.addItem(item)
-
-    def _set_all_checked(self, checked: bool) -> None:
-        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
-        for i in range(self.sections_list.count()):
-            self.sections_list.item(i).setCheckState(state)
-
-    def _apply_smart_filter(self, notify: bool = True) -> None:
-        """Décoche automatiquement les sections de métadonnées et bruit documentaire."""
-        noise_keywords = ["sommaire", "table des matières", "remerciements", "avant-propos", "préface", "bibliographie", "références", "annexes", "index", "glossaire", "copyright"]
-        for i in range(self.sections_list.count()):
-            item = self.sections_list.item(i)
-            txt = item.text().lower()
-            if any(k in txt for k in noise_keywords):
-                item.setCheckState(Qt.CheckState.Unchecked)
-            else:
-                item.setCheckState(Qt.CheckState.Checked)
-        if notify:
-            show_toast(self, "Filtre intelligent appliqué : bruit documentaire exclu.")
-
-    def _on_apply(self) -> None:
-        """Applique la délimitation et régénère les DocumentChunkModel."""
-        selected_headings = []
-        for i in range(self.sections_list.count()):
-            item = self.sections_list.item(i)
-            if item.checkState() == Qt.CheckState.Checked:
-                selected_headings.append(item.data(Qt.ItemDataRole.UserRole))
-
-        raw_content = self.doc.content or ""
-        all_chunks = ChunkingService.extract_chunks(raw_content, file_type=self.doc.file_type or "md")
-
-        retained_chunks = []
-        for chunk in all_chunks:
-            h_path = chunk.get("heading_path", "")
-            if not selected_headings or any(sh in h_path for sh in selected_headings) or not h_path:
-                retained_chunks.append(chunk)
-
-        if not retained_chunks:
-            retained_chunks = all_chunks
-
-        with DocumentChunkModel._meta.database.atomic():
-            DocumentChunkModel.delete().where(DocumentChunkModel.document == self.doc).execute()
-            for idx, c_data in enumerate(retained_chunks):
-                DocumentChunkModel.create(
-                    document=self.doc,
-                    chunk_index=idx,
-                    content=c_data["content"],
-                    page_number=c_data.get("page_number"),
-                    heading_path=c_data.get("heading_path"),
-                    content_hash=c_data.get("content_hash") or ChunkingService.hash_content(c_data["content"]),
-                )
-
-        if self.chk_revectorize.isChecked():
-            try:
-                rag = RAGService()
-                rag.create_index(self.doc.id)
-            except Exception as e:
-                logger.warning("Erreur re-vectorisation FAISS : %s", e)
-
-        self.accept()
-
-
-# =====================================================================
-# MODALE DE TEST SÉMANTIQUE RAG (RAGTESTDIALOG)
-# =====================================================================
-
-
-class RAGTestDialog(QDialog):
-    """Permet de tester instantanément la recherche RAG Hybride (FAISS + BM25 avec RRF) sur le document."""
-
-    def __init__(self, doc: DocumentModel, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.doc = doc
-        self.setWindowTitle(f"Recherche RAG Hybride — {doc.title}")
-        self.resize(680, 540)
-        self.setStyleSheet(f"""
-            QDialog {{
-                background-color: {DesignTokens.BG_MAIN};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
-        header_top = QHBoxLayout()
-        ico = QLabel()
-        ico.setPixmap(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN).pixmap(20, 20))
-        title_lbl = QLabel(f"Interroger l'index RAG : <b>{doc.title}</b>")
-        title_lbl.setStyleSheet(f"font-size: 13px; color: {DesignTokens.TEXT_PRIMARY};")
-        header_top.addWidget(ico)
-        header_top.addWidget(title_lbl, 1)
-        layout.addLayout(header_top)
-
-        # Ligne de configuration de mode
-        mode_row = QHBoxLayout()
-        lbl_mode = QLabel("Canal de recherche :")
-        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold;")
-        self.mode_cb = QComboBox()
-        self.mode_cb.setFixedHeight(28)
-        self.mode_cb.addItem("🧬 RAG Hybride (FAISS Dense + BM25 Sparse avec RRF)", "hybrid")
-        self.mode_cb.addItem("🌌 Sémantique Dense Pure (FAISS L2)", "dense")
-        self.mode_cb.addItem("🔤 Lexicale Exacte Pure (BM25 Okapi)", "sparse")
-        self.mode_cb.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                font-size: 11px;
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 18px;
-            }}
-        """)
-        mode_row.addWidget(lbl_mode)
-        mode_row.addWidget(self.mode_cb, 1)
-        layout.addLayout(mode_row)
-
-        # Barre de recherche
-        search_row = QHBoxLayout()
-        self.search_input = GlowLineEdit()
-        self.search_input.setPlaceholderText("Posez une question ou entrez des mots-clés techniques...")
-        self.search_input.returnPressed.connect(self._on_search)
-
-        btn_search = PrimaryButton("Rechercher")
-        btn_search.setIcon(load_phosphor_icon("ph.magnifying-glass", color="white"))
-        btn_search.clicked.connect(self._on_search)
-
-        search_row.addWidget(self.search_input, 1)
-        search_row.addWidget(btn_search)
-        layout.addLayout(search_row)
-
-        self.results_list = QListWidget()
-        self.results_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 6px;
-            }}
-            QListWidget::item {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                margin-bottom: 6px;
-                padding: 8px;
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QListWidget::item:hover {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
-        layout.addWidget(self.results_list, 1)
-
-    def _on_search(self) -> None:
-        query = self.search_input.text().strip()
-        if not query:
-            return
-
-        self.results_list.clear()
-        try:
-            mode = self.mode_cb.currentData() or "hybrid"
-            rag = RAGService()
-            results = rag.search(self.doc.id, query, top_k=4, mode=mode)
-            if not results:
-                self.results_list.addItem(QListWidgetItem("Aucun fragment pertinent trouvé pour cette requête."))
-                return
-
-            for r in results:
-                loc = r.get("heading_path") or (f"Page {r.get('page_number')}" if r.get("page_number") else f"Section #{r.get('chunk_index', 0) + 1}")
-                channel = r.get("channel", "hybrid")
-                rel_pct = r.get("relevance_pct", 0)
-
-                if channel == "hybrid":
-                    badge_info = f"🧬 RRF: {r.get('rrf_score', 0.0):.5f} • FAISS: #{r.get('dense_rank', '-')} • BM25: #{r.get('sparse_rank', '-')}"
-                elif channel == "dense_only":
-                    badge_info = f"🌌 FAISS: #{r.get('dense_rank', '-')} (score: {r.get('dense_score', 0.0)})"
-                elif channel == "sparse_only":
-                    badge_info = f"🔤 BM25: #{r.get('sparse_rank', '-')} (score: {r.get('sparse_score', 0.0)})"
-                else:
-                    badge_info = "📄 BDD Directe"
-
-                content_snippet = r.get("content", "")[:180] + "..." if len(r.get("content", "")) > 180 else r.get("content", "")
-                item_txt = f"📍 {loc}  (Pertinence : {rel_pct}%)  [{badge_info}]\n{content_snippet}"
-                item = QListWidgetItem(item_txt)
-                item.setData(Qt.ItemDataRole.UserRole, r)
-                self.results_list.addItem(item)
-
-        except Exception as e:
-            self.results_list.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
-
-
-# =====================================================================
-# WIDGET D'ARBRE DE DOCUMENTS AVEC DRAG & DROP & FILTRAGE DYNAMIQUE
-# =====================================================================
-
-
-class DocumentTreeWidget(QTreeWidget):
-    """QTreeWidget customisé pour supporter le Drag & Drop, l'arborescence et le filtrage rapide."""
-
-    itemMoved = Signal(object, object)
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setDragEnabled(True)
-        self.setAcceptDrops(True)
-        self.setDropIndicatorShown(True)
-        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-
-    def dropEvent(self, event: QDropEvent) -> None:
-        source_item = self.currentItem()
-        if not source_item:
-            event.ignore()
-            return
-
-        source_data = source_item.data(0, Qt.ItemDataRole.UserRole)
-        target_item = self.itemAt(event.position().toPoint())
-        target_data = target_item.data(0, Qt.ItemDataRole.UserRole) if target_item else None
-
-        event.ignore()
-        if source_item == target_item:
-            return
-
-        if source_data:
-            self.itemMoved.emit(source_data, target_data)
-
-    def filter_text(self, query: str) -> None:
-        """Filtre récursivement les documents et dossiers affichés."""
-        query = query.strip().lower()
-
-        def _filter_item(item: QTreeWidgetItem) -> bool:
-            match = query in item.text(0).lower()
-            child_match = False
-            for i in range(item.childCount()):
-                child = item.child(i)
-                if _filter_item(child):
-                    child_match = True
-            is_visible = match or child_match or not query
-            item.setHidden(not is_visible)
-            if child_match and query:
-                item.setExpanded(True)
-            return is_visible
-
-        for i in range(self.topLevelItemCount()):
-            _filter_item(self.topLevelItem(i))
-
-
-# =====================================================================
-# CLASSE PRINCIPALE : DOCUMENTSVIEW (HUB DOCUMENTAIRE & RAG)
-# =====================================================================
 
 
 class DocumentsView(QWidget):
@@ -606,7 +96,7 @@ class DocumentsView(QWidget):
         explorer_layout.setContentsMargins(8, 8, 8, 8)
         explorer_layout.setSpacing(8)
 
-        # Barre d'outils supérieure (Importer, URL, Nouveau dossier, Supprimer)
+        # Barre d'outils supérieure
         explorer_toolbar = QHBoxLayout()
         explorer_toolbar.setSpacing(6)
 
@@ -714,7 +204,7 @@ class DocumentsView(QWidget):
         editor_layout.setContentsMargins(0, 0, 0, 0)
         editor_layout.setSpacing(0)
 
-        # Toolbar du document (2 rangées aérées et responsives)
+        # Toolbar du document
         doc_header_card = QFrame()
         doc_header_card.setStyleSheet(f"""
             QFrame {{
@@ -726,7 +216,6 @@ class DocumentsView(QWidget):
         header_main_layout.setContentsMargins(10, 8, 10, 8)
         header_main_layout.setSpacing(6)
 
-        # Rangée 1 : Titre + Métriques + Sauvegarde
         row1 = QHBoxLayout()
         row1.setContentsMargins(0, 0, 0, 0)
         row1.setSpacing(8)
@@ -752,12 +241,10 @@ class DocumentsView(QWidget):
 
         header_main_layout.addLayout(row1)
 
-        # Rangée 2 : Sélecteur de Mode + Outils IA
         row2 = QHBoxLayout()
         row2.setContentsMargins(0, 0, 0, 0)
         row2.setSpacing(6)
 
-        # Basculeur de mode (PDF / Markdown / Terminal)
         self.view_toggle_frame = QFrame()
         self.view_toggle_frame.setStyleSheet(f"""
             QFrame {{
@@ -807,7 +294,6 @@ class DocumentsView(QWidget):
         row2.addWidget(self.view_toggle_frame)
         row2.addStretch()
 
-        # Outils IA & Actions
         self.btn_delimit = SecondaryButton("Délimiter")
         self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color="#38bdf8"))
         self.btn_delimit.setToolTip("Délimiter les plages de pages et chapitres utiles")
@@ -841,26 +327,24 @@ class DocumentsView(QWidget):
 
         self.inner_editor_stack = QStackedWidget()
 
-        from PySide6.QtPdf import QPdfDocument
-        from PySide6.QtPdfWidgets import QPdfView
+        try:
+            from PySide6.QtPdf import QPdfDocument
+            from PySide6.QtPdfWidgets import QPdfView
 
-        self.pdf_document = QPdfDocument(self)
-        self.pdf_viewer = QPdfView()
-        self.pdf_viewer.setDocument(self.pdf_document)
-        self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
-        self.inner_editor_stack.addWidget(self.pdf_viewer)
-
-        # Éditeur Markdown pleine hauteur
-        from ankiforge.ui.widgets.katex_editor import KaTeXEditor
+            self.pdf_document = QPdfDocument(self)
+            self.pdf_viewer = QPdfView()
+            self.pdf_viewer.setDocument(self.pdf_document)
+            self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
+            self.inner_editor_stack.addWidget(self.pdf_viewer)
+        except ImportError:
+            self.pdf_viewer = QWidget()
+            self.inner_editor_stack.addWidget(self.pdf_viewer)
 
         self.text_editor = KaTeXEditor()
         self.text_editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         if hasattr(self.text_editor, "editor"):
             self.text_editor.editor.setReadOnly(False)
         self.inner_editor_stack.addWidget(self.text_editor)
-
-        # Terminal view
-        from PySide6.QtWidgets import QTextBrowser
 
         self.terminal_view = QTextBrowser()
         self.terminal_view.setStyleSheet(f"""
@@ -891,7 +375,6 @@ class DocumentsView(QWidget):
         cov_layout.setContentsMargins(10, 10, 10, 10)
         cov_layout.setSpacing(10)
 
-        # Carte de synthèse de couverture
         self.coverage_card = QFrame()
         self.coverage_card.setStyleSheet(f"""
             QFrame {{
@@ -932,7 +415,6 @@ class DocumentsView(QWidget):
 
         cov_layout.addWidget(self.coverage_card)
 
-        # Liste des chapitres
         self.chapters_list = QListWidget()
         self.chapters_list.setStyleSheet(f"""
             QListWidget {{
@@ -964,7 +446,7 @@ class DocumentsView(QWidget):
 
         self.coverage_panel.add_tab("Sommaire", coverage_content, "ph.list-checks", closable=False)
 
-        # --- TAB 2: Bac à Sable RAG (RAG Test Sandbox) ---
+        # --- TAB 2: Bac à Sable RAG ---
         rag_sandbox_content = QWidget()
         rag_layout = QVBoxLayout(rag_sandbox_content)
         rag_layout.setContentsMargins(10, 10, 10, 10)
@@ -1035,11 +517,9 @@ class DocumentsView(QWidget):
         self.text_editor.content_changed.connect(self._on_document_text_changed)
 
     def _on_search_filter_changed(self, text: str) -> None:
-        """Filtre instantanément l'explorateur de documents."""
         self.tree_explorer.filter_text(text)
 
     def _on_item_moved(self, source_data: dict, target_data: Optional[dict]) -> None:
-        """Gère le déplacement (drag and drop) d'un document ou d'un dossier."""
         if not source_data:
             return
 
@@ -1098,7 +578,6 @@ class DocumentsView(QWidget):
                 show_toast(self, "Un dossier avec ce nom existe déjà à cet emplacement.", is_error=True)
 
     def refresh_data(self) -> None:
-        """Recharge l'arborescence des dossiers et documents depuis Peewee."""
         try:
             self.tree_explorer.blockSignals(True)
             self.tree_explorer.clear()
@@ -1194,7 +673,6 @@ class DocumentsView(QWidget):
                 self._update_word_count()
                 self._update_rag_status_pill()
 
-                # Show PDF if available
                 if doc.file_type == "pdf" and doc.original_media:
                     from ankiforge.utils.paths import get_app_data_dir
 
@@ -1218,7 +696,6 @@ class DocumentsView(QWidget):
             self._refresh_chapters_list()
 
     def _update_rag_status_pill(self) -> None:
-        """Met à jour le badge pill de vectorisation FAISS."""
         if not self._current_doc_id:
             self.rag_status_pill.setText("Non indexé")
             apply_pill_style(self.rag_status_pill, "#94a3b8")
@@ -1486,7 +963,6 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_open_delimitation_dialog(self) -> None:
-        """Ouvre la boîte de dialogue de délimitation de pages et chapitres utiles."""
         if not self._current_doc_id:
             show_toast(self, "Veuillez sélectionner un document.", is_error=True)
             return
@@ -1500,7 +976,6 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_open_rag_test_dialog(self) -> None:
-        """Ouvre la boîte de dialogue de test de recherche sémantique RAG."""
         if not self._current_doc_id:
             show_toast(self, "Veuillez sélectionner un document.", is_error=True)
             return
@@ -1511,7 +986,6 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_run_marker_analysis(self) -> None:
-        """Lance l'extraction Deep Learning Marker OCR pour les PDF avec vérification du Lazy Loading."""
         if not self._current_doc_id:
             show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
             return
@@ -1562,7 +1036,6 @@ class DocumentsView(QWidget):
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible d'enregistrer le document : {e}")
 
     def _refresh_chapters_list(self) -> None:
-        """Met à jour le sommaire des chapitres et les indicateurs de couverture du document actif."""
         self.chapters_list.clear()
         if not self._current_doc_id:
             self.lbl_coverage_summary.setText("📊 Couverture : 0%")
@@ -1607,7 +1080,6 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_forge_selected_chapter(self) -> None:
-        """Bascule sur l'Usine de Création en préchargeant la section sélectionnée."""
         items = self.chapters_list.selectedItems()
         if not items:
             show_toast(self, "Veuillez sélectionner un chapitre dans le sommaire.", is_error=True)
@@ -1665,7 +1137,6 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_sandbox_search(self) -> None:
-        """Exécute la recherche sémantique dans l'onglet Sandbox RAG."""
         if not self._current_doc_id:
             show_toast(self, "Veuillez d'abord sélectionner un document.", is_error=True)
             return
@@ -1700,7 +1171,6 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_forge_sandbox_result(self) -> None:
-        """Bascule sur la Forge avec le fragment sélectionné dans la Sandbox RAG."""
         items = self.rag_sandbox_results.selectedItems()
         if not items:
             show_toast(self, "Veuillez sélectionner un fragment dans la liste des résultats.", is_error=True)
@@ -1724,7 +1194,6 @@ class DocumentsView(QWidget):
         )
 
     def refresh_theme(self, profile: Any) -> None:
-        """Rafraîchit dynamiquement les styles de la vue lors d'un changement de thème."""
         if hasattr(self, "tree_explorer"):
             self.tree_explorer.setStyleSheet(f"""
                 QTreeWidget {{
