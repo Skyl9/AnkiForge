@@ -98,8 +98,9 @@ jobs:
       - name: Check Ruff Formatting
         run: uv run ruff format --check .
 
-      - name: Run Ruff Linter
-        run: uv run ruff check .
+      - name: Run Ruff Linter with GitHub Annotations
+        run: uv run ruff check --output-format=github .
+
 
   typecheck-mypy:
     name: 🛡️ Mypy Strict (100%)
@@ -262,6 +263,11 @@ jobs:
         run: |
           uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term
 
+      - name: Generate GitHub Step Summary Report
+        if: matrix.os == 'ubuntu-latest' && always()
+        run: |
+          uv run python script/generate_ci_summary.py coverage.xml
+
       - name: Upload Test Coverage Artifact
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
@@ -269,6 +275,7 @@ jobs:
           name: coverage-report
           path: coverage.xml
           if-no-files-found: ignore
+
 
   # ── 5. Packaging & Binary Smoke Test ──
   build-smoke-test:

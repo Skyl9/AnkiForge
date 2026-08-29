@@ -1,0 +1,30 @@
+[
+  {
+    "id": "card_01_violation_atomicity",
+    "recto": "Expliquer le modèle OSI, les 7 couches, TCP/IP vs UDP et les drapeaux SYN/ACK.",
+    "verso": "Le modèle OSI comprend 7 couches (Physique, Liaison, Réseau, Transport, Session, Présentation, Application). TCP est connecté avec SYN/ACK/FIN, UDP est sans connexion.",
+    "expected_violations": ["cat-atomicite"],
+    "should_pass": false
+  },
+  {
+    "id": "card_02_compliant_atomic",
+    "recto": "Quelle couche du modèle OSI gère l'adressage IP logique et le routage des paquets ?",
+    "verso": "La couche 3 (Réseau / Network).",
+    "expected_violations": [],
+    "should_pass": true
+  },
+  {
+    "id": "card_03_violation_katex",
+    "recto": "Quelle est l'équation de la variance d'une variable aléatoire X ?",
+    "verso": "Var(X) = E[(X - E[X])^2] = E[X^2] - (E[X])^2 en texte brut.",
+    "expected_violations": ["cat-katex"],
+    "should_pass": false
+  },
+  {
+    "id": "card_04_compliant_katex",
+    "recto": "Quelle est la définition de la variance $\\operatorname{Var}(X)$ en fonction de l'espérance $\\mathbb{E}$ ?",
+    "verso": "$$\\operatorname{Var}(X) = \\mathbb{E}\\left[(X - \\mathbb{E}[X])^2\\right] = \\mathbb{E}[X^2] - (\\mathbb{E}[X])^2$$",
+    "expected_violations": [],
+    "should_pass": true
+  }
+]
