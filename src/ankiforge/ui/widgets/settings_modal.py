@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -480,6 +480,52 @@ class GeneralTab(QWidget):
         card_exp_layout.addLayout(exp_row)
         layout.addWidget(self.card_exp)
 
+        # ── SECTION 3 : ESPACES DE TRAVAIL & DÉMARRAGE ──────────────────────
+        self.lbl_sec_startup = QLabel("ESPACES DE TRAVAIL & DÉMARRAGE")
+        self.lbl_sec_startup.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        layout.addWidget(self.lbl_sec_startup)
+
+        self.card_startup = SettingsCard()
+        card_startup_layout = QVBoxLayout(self.card_startup)
+        card_startup_layout.setContentsMargins(14, 12, 14, 12)
+        card_startup_layout.setSpacing(12)
+
+        from PySide6.QtCore import QSettings
+        from ankiforge.services.profile_manager import ProfileManager
+
+        q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        auto_open_val = q_settings.value("profiles/auto_open_startup", False, type=bool)
+        default_prof_val = str(q_settings.value("profiles/default_startup_profile", profile_name or "default"))
+
+        # 1. Checkbox ouverture automatique
+        self.chk_auto_startup = QCheckBox("Toujours ouvrir l'espace par défaut sans demander au lancement")
+        self.chk_auto_startup.setChecked(auto_open_val)
+        self.chk_auto_startup.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_auto_startup.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        card_startup_layout.addWidget(self.chk_auto_startup)
+
+        # 2. Sélecteur de profil par défaut
+        self.cb_default_profile = StyledComboBox()
+        self.cb_default_profile.setMinimumWidth(260)
+        self.cb_default_profile.setFixedHeight(30)
+
+        pm = ProfileManager()
+        available_profiles = pm.list_profiles() or ["default"]
+        if default_prof_val and default_prof_val not in available_profiles:
+            available_profiles.append(default_prof_val)
+
+        for p_name in available_profiles:
+            icon = load_phosphor_icon("cards" if p_name == profile_name else "folder", color=DesignTokens.ACCENT_PRIMARY)
+            self.cb_default_profile.addItem(icon, p_name, p_name)
+
+        idx = self.cb_default_profile.findData(default_prof_val)
+        if idx >= 0:
+            self.cb_default_profile.setCurrentIndex(idx)
+
+        self.rows_labels.append(add_setting_row(card_startup_layout, "Espace de travail de démarrage :", self.cb_default_profile))
+
+        layout.addWidget(self.card_startup)
+
         layout.addStretch()
 
     def _get_main_window(self) -> Optional[Any]:
@@ -512,6 +558,7 @@ class GeneralTab(QWidget):
 
     def save_tab(self) -> Tuple[bool, Optional[str], Optional[str]]:
         """Sauvegarde les paramètres de l'onglet et retourne (has_theme_change, selected_layout_id, selected_theme_id)."""
+        from PySide6.QtCore import QSettings
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.style_engine import get_style_engine
 
@@ -526,6 +573,13 @@ class GeneralTab(QWidget):
         SettingsService.set("app/batch_factory_style", self.cb_batch_style.currentText(), category="general")
         SettingsService.set("app/export_path", self.le_export.text().strip(), category="general")
 
+        # Enregistrement des préférences de démarrage profil dans QSettings
+        q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        if hasattr(self, "chk_auto_startup"):
+            q_settings.setValue("profiles/auto_open_startup", self.chk_auto_startup.isChecked())
+        if hasattr(self, "cb_default_profile") and self.cb_default_profile.currentData():
+            q_settings.setValue("profiles/default_startup_profile", self.cb_default_profile.currentData())
+
         LayoutManager.save_layout_id(profile_name, selected_layout_id)
         engine.save_theme_preference(profile_name, selected_theme_id)
 
@@ -535,8 +589,12 @@ class GeneralTab(QWidget):
         """Met à jour les styles dynamiques lors d'un changement de thème."""
         self.lbl_sec_app.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         self.lbl_sec_exp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        if hasattr(self, "lbl_sec_startup"):
+            self.lbl_sec_startup.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         self.card_app.refresh_theme(profile)
         self.card_exp.refresh_theme(profile)
+        if hasattr(self, "card_startup"):
+            self.card_startup.refresh_theme(profile)
         for lbl in self.rows_labels:
             lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_exp_dir"):

@@ -19,6 +19,27 @@ class StyledLineEdit(QLineEdit):
             icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED)
             self.addAction(icon, QLineEdit.ActionPosition.LeadingPosition)
 
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 4px 10px;
+                font-size: 12px;
+                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
+                selection-color: #ffffff;
+            }}
+            QLineEdit:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QLineEdit:focus {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+
 
 class StyledTextEdit(QPlainTextEdit):
     """Textarea avec style design system."""

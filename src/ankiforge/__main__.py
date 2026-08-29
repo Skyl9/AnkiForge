@@ -35,14 +35,23 @@ def main() -> None:
     pm = ProfileManager()
     profiles = pm.list_profiles()
 
+    settings = QSettings("AnkiForgeOrg", "AnkiForge")
+    auto_open = settings.value("profiles/auto_open_startup", False, type=bool)
+    default_profile = str(settings.value("profiles/default_startup_profile", "default"))
+
     selected_profile = "default"
     if not profiles:
         pm.create_profile("default")
         selected_profile = "default"
     elif len(profiles) == 1:
         selected_profile = profiles[0]
+    elif auto_open and default_profile in profiles:
+        selected_profile = default_profile
     else:
-        dialog = ProfileSelectorDialog(profiles)
+        dialog = ProfileSelectorDialog(
+            profiles,
+            current_profile=default_profile if default_profile in profiles else profiles[0],
+        )
         if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
             selected_profile = dialog.get_selected_profile()
         else:
