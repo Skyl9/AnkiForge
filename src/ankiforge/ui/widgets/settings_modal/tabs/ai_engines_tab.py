@@ -1,0 +1,362 @@
+import json
+import logging
+import urllib.request
+from typing import Any, Dict, List, Optional
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ankiforge.database.models import LLMConfigModel
+from ankiforge.services.settings_service import SettingsService
+from ankiforge.ui.components import (
+    DangerButton,
+    SecondaryButton,
+    StyledLineEdit,
+    StyledTableWidget,
+)
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
+from ankiforge.ui.widgets.settings_modal.components.settings_card import (
+    SettingsCard,
+    apply_pill_badge_style,
+)
+from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.icon_loader import load_phosphor_icon
+
+logger = logging.getLogger(__name__)
+
+
+class AIEnginesTab(QWidget):
+    """Onglet Configuration des Moteurs IA et Clés API."""
+
+    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.ai_manager = ai_manager
+        self.lbl_provider_labels: List[QLabel] = []
+        self._setup_ui()
+        self.refresh_data()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # ── SECTION 1 : CLÉS D'AUTHENTIFICATION CLOUD ────────────────────────
+        self.lbl_sec_keys = QLabel("CLÉS D'AUTHENTIFICATION FOURNISSEURS CLOUD")
+        self.lbl_sec_keys.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
+        layout.addWidget(self.lbl_sec_keys)
+
+        self.card_keys = SettingsCard()
+        keys_layout = QVBoxLayout(self.card_keys)
+        keys_layout.setContentsMargins(14, 10, 14, 10)
+        keys_layout.setSpacing(8)
+
+        self.key_edits: Dict[str, PasswordLineEdit] = {}
+        self.key_status_badges: Dict[str, QLabel] = {}
+
+        providers_cfg = [
+            ("openai", "OpenAI", "sk-proj-...", "ph.brain"),
+            ("anthropic", "Anthropic", "sk-ant-...", "ph.sparkle"),
+            ("gemini", "Gemini", "AIzaSy...", "ph.sparkle"),
+            ("groq", "Groq", "gsk_...", "ph.lightning"),
+        ]
+
+        for p_id, p_name, placeholder, p_icon in providers_cfg:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(load_phosphor_icon(p_icon, color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
+            row.addWidget(icon_lbl)
+
+            lbl = QLabel(f"{p_name} :")
+            lbl.setMinimumWidth(85)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+            row.addWidget(lbl)
+            self.lbl_provider_labels.append(lbl)
+
+            initial_key = str(SettingsService.get(f"keys/{p_id}", ""))
+            p_edit = PasswordLineEdit(placeholder=placeholder, initial_text=initial_key)
+            self.key_edits[p_id] = p_edit
+            row.addWidget(p_edit, 1)
+
+            btn_test = SecondaryButton("Tester")
+            btn_test.setFixedHeight(28)
+            btn_test.setIcon(load_phosphor_icon("ph.check-circle", color=DesignTokens.TEXT_MUTED))
+            btn_test.clicked.connect(lambda _, pid=p_id, pname=p_name: self._test_cloud_key(pid, pname))
+            row.addWidget(btn_test)
+
+            badge_st = QLabel("")
+            badge_st.hide()
+            self.key_status_badges[p_id] = badge_st
+            row.addWidget(badge_st)
+
+            keys_layout.addLayout(row)
+
+        layout.addWidget(self.card_keys)
+
+        # ── SECTION 2 : SERVEUR LOCAL OLLAMA ─────────────────────────────────
+        self.lbl_sec_ollama = QLabel("SERVEUR LOCAL OLLAMA (ZÉRO CLOUD)")
+        self.lbl_sec_ollama.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_ollama)
+
+        self.card_ollama = SettingsCard()
+        ollama_layout = QHBoxLayout(self.card_ollama)
+        ollama_layout.setContentsMargins(14, 10, 14, 10)
+        ollama_layout.setSpacing(10)
+
+        lbl_ol_icon = QLabel()
+        lbl_ol_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
+        ollama_layout.addWidget(lbl_ol_icon)
+
+        self.lbl_ol_url = QLabel("URL Serveur :")
+        self.lbl_ol_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        ollama_layout.addWidget(self.lbl_ol_url)
+
+        self.le_ollama_url = StyledLineEdit()
+        self.le_ollama_url.setFixedHeight(28)
+        self.le_ollama_url.setText(str(SettingsService.get("ollama/url", "http://localhost:11434")))
+        ollama_layout.addWidget(self.le_ollama_url, 1)
+
+        self.btn_scan_ollama = SecondaryButton("Scanner les modèles installés")
+        self.btn_scan_ollama.setFixedHeight(28)
+        self.btn_scan_ollama.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.COLOR_GREEN))
+        self.btn_scan_ollama.clicked.connect(self._scan_ollama)
+        ollama_layout.addWidget(self.btn_scan_ollama)
+
+        self.badge_ollama_status = QLabel("")
+        self.badge_ollama_status.hide()
+        ollama_layout.addWidget(self.badge_ollama_status)
+
+        layout.addWidget(self.card_ollama)
+
+        # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
+        self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES IA (Peewee ORM)")
+        self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_cat)
+
+        self.table_engines = StyledTableWidget(["Nom du Moteur", "Fournisseur", "Identifiant Modèle", "Gratuit / Local"])
+        self.table_engines.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table_engines.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.itemChanged.connect(self._on_table_item_changed)
+        layout.addWidget(self.table_engines, 1)
+
+        # Barre d'outils Catalogue
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(8)
+
+        self.btn_add_ollama = SecondaryButton("+ Ollama Local")
+        self.btn_add_ollama.setIcon(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN))
+        self.btn_add_ollama.clicked.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True))
+        toolbar.addWidget(self.btn_add_ollama)
+
+        self.btn_add_openai = SecondaryButton("+ GPT-4o")
+        self.btn_add_openai.setIcon(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_add_openai.clicked.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False))
+        toolbar.addWidget(self.btn_add_openai)
+
+        self.btn_add_gemini = SecondaryButton("+ Gemini Flash")
+        self.btn_add_gemini.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE))
+        self.btn_add_gemini.clicked.connect(lambda: self._quick_add_engine("Google Gemini 2.5 Flash", "gemini", "gemini-2.5-flash", True))
+        toolbar.addWidget(self.btn_add_gemini)
+
+        toolbar.addStretch()
+
+        self.btn_del_engine = DangerButton("Supprimer", ghost=True)
+        self.btn_del_engine.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+        self.btn_del_engine.clicked.connect(self._del_engine)
+        toolbar.addWidget(self.btn_del_engine)
+
+        layout.addLayout(toolbar)
+
+    def _test_cloud_key(self, provider_id: str, provider_name: str) -> None:
+        key_edit = self.key_edits.get(provider_id)
+        badge = self.key_status_badges.get(provider_id)
+        if not key_edit or not badge:
+            return
+
+        key_val = key_edit.text()
+        if not key_val:
+            badge.setText("⚠️ Clé vide")
+            apply_pill_badge_style(badge, DesignTokens.COLOR_YELLOW)
+            badge.show()
+            show_toast(self, f"Veuillez saisir une clé {provider_name}.", is_error=True)
+            return
+
+        # Validation de format
+        valid_format = False
+        if provider_id == "openai" and (key_val.startswith("sk-") or len(key_val) > 20):
+            valid_format = True
+        elif provider_id == "anthropic" and (key_val.startswith("sk-ant-") or len(key_val) > 20):
+            valid_format = True
+        elif provider_id == "gemini" and (key_val.startswith("AIza") or len(key_val) >= 20):
+            valid_format = True
+        elif provider_id == "groq" and (key_val.startswith("gsk_") or len(key_val) > 20):
+            valid_format = True
+        else:
+            valid_format = len(key_val) >= 16
+
+        if valid_format:
+            badge.setText("✅ Format valide")
+            apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
+            badge.show()
+            show_toast(self, f"Clé {provider_name} enregistrée et validée !")
+        else:
+            badge.setText("❌ Format suspect")
+            apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
+            badge.show()
+
+    def _scan_ollama(self) -> None:
+        url = self.le_ollama_url.text().strip().rstrip("/")
+        if not (url.startswith("http://") or url.startswith("https://")):
+            url = f"http://{url}"
+        try:
+            req = urllib.request.Request(f"{url}/api/tags", headers={"User-Agent": "AnkiForge"})
+            with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310
+                data = json.loads(resp.read().decode())
+                models = [m.get("name") for m in data.get("models", [])]
+                if models:
+                    self.badge_ollama_status.setText(f"🟢 {len(models)} modèle(s) détecté(s)")
+                    apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
+                    self.badge_ollama_status.show()
+
+                    # Ajouter automatiquement le premier modèle manquant
+                    added_count = 0
+                    for m_name in models:
+                        if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
+                            LLMConfigModel.create(
+                                display_name=f"Ollama {m_name}",
+                                provider="ollama",
+                                model_id=m_name,
+                                context_limit=8192,
+                                api_key="",
+                                is_free=True,
+                            )
+                            added_count += 1
+                    self.refresh_data()
+                    show_toast(self, f"Ollama en ligne : {len(models)} modèles scannés (+{added_count} importés) !")
+                else:
+                    self.badge_ollama_status.setText("🟡 En ligne (0 modèle)")
+                    apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_YELLOW)
+                    self.badge_ollama_status.show()
+        except Exception:
+            self.badge_ollama_status.setText("🔴 Hors ligne")
+            apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
+            self.badge_ollama_status.show()
+            show_toast(self, "Serveur Ollama inaccessible sur cette adresse.", is_error=True)
+
+    def refresh_data(self) -> None:
+        """Recharge les moteurs IA depuis la base Peewee."""
+        try:
+            self.table_engines.blockSignals(True)
+            engines = list(LLMConfigModel.select())
+            self.table_engines.setRowCount(len(engines))
+
+            for i, eg in enumerate(engines):
+                item_name = QTableWidgetItem(getattr(eg, "display_name", "Inconnu"))
+                item_name.setData(Qt.ItemDataRole.UserRole, eg.id)
+                self.table_engines.setItem(i, 0, item_name)
+
+                # Badge Fournisseur
+                p_text = getattr(eg, "provider", "inconnu").upper()
+                self.table_engines.setItem(i, 1, QTableWidgetItem(p_text))
+
+                item_model = QTableWidgetItem(getattr(eg, "model_id", "default"))
+                self.table_engines.setItem(i, 2, item_model)
+
+                item_free = QTableWidgetItem()
+                item_free.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+                item_free.setCheckState(Qt.CheckState.Checked if getattr(eg, "is_free", False) else Qt.CheckState.Unchecked)
+                self.table_engines.setItem(i, 3, item_free)
+
+            self.table_engines.blockSignals(False)
+        except Exception as e:
+            logger.warning("Erreur refresh_data ai_engines_tab: %s", e)
+
+    def _quick_add_engine(self, name: str, provider: str, model_id: str, is_free: bool) -> None:
+        try:
+            existing = LLMConfigModel.select().where((LLMConfigModel.provider == provider) & (LLMConfigModel.model_id == model_id)).first()
+            if existing:
+                show_toast(self, f"Le modèle '{model_id}' est déjà configuré.", is_error=True)
+                return
+
+            api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
+            LLMConfigModel.create(display_name=name, provider=provider, model_id=model_id, context_limit=128000, api_key=api_key, is_free=is_free)
+            self.refresh_data()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+            show_toast(self, f"Moteur '{name}' ajouté au catalogue !")
+        except Exception as e:
+            show_toast(self, f"Erreur lors de l'ajout : {e}", is_error=True)
+
+    def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
+        first_item = self.table_engines.item(item.row(), 0)
+        if not first_item:
+            return
+        engine_id = first_item.data(Qt.ItemDataRole.UserRole)
+        if not engine_id:
+            return
+        try:
+            config = LLMConfigModel.get_by_id(engine_id)
+            if item.column() == 0:
+                config.display_name = item.text().strip()
+            elif item.column() == 1:
+                config.provider = item.text().strip().lower()
+            elif item.column() == 2:
+                config.model_id = item.text().strip()
+            elif item.column() == 3:
+                config.is_free = item.checkState() == Qt.CheckState.Checked
+            config.save()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+        except Exception as e:
+            logger.error("Erreur modification moteur: %s", e)
+
+    def _del_engine(self) -> None:
+        selected = self.table_engines.selectedItems()
+        if not selected:
+            show_toast(self, "Veuillez sélectionner un moteur IA à supprimer.", is_error=True)
+            return
+        row = selected[0].row()
+        item = self.table_engines.item(row, 0)
+        if not item:
+            return
+        engine_id = item.data(Qt.ItemDataRole.UserRole)
+        try:
+            LLMConfigModel.delete_by_id(engine_id)
+            self.refresh_data()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+            show_toast(self, "Moteur IA supprimé du catalogue.")
+        except Exception as e:
+            show_toast(self, f"Erreur suppression : {e}", is_error=True)
+
+    def save_tab(self) -> None:
+        """Sauvegarde les clés d'API et l'URL Ollama."""
+        for p_id, edit in self.key_edits.items():
+            SettingsService.set(f"keys/{p_id}", edit.text(), category="api_keys")
+        SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
+        self.lbl_sec_ollama.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        self.card_keys.refresh_theme(profile)
+        self.card_ollama.refresh_theme(profile)
+        if hasattr(self, "lbl_ol_url"):
+            self.lbl_ol_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        for lbl in self.lbl_provider_labels:
+            lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        for edit in self.key_edits.values():
+            edit.refresh_theme(profile)
+        if hasattr(self, "table_engines") and hasattr(self.table_engines, "refresh_theme"):
+            self.table_engines.refresh_theme(profile)
