@@ -44,6 +44,10 @@ wheels/
 .coverage
 test.md
 *.json
+!tests/fixtures/golden_data/**
+!package.json
+!tsconfig.json
+
 experiment/
 
 # --- IDE (PyCharm, VSCode, etc.) ---
