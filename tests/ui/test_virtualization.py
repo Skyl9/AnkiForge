@@ -329,3 +329,69 @@ def test_delegates_painting(qtbot):
     prog_del.paint(painter, opt, idx_prog_mock)
 
     painter.end()
+
+
+@pytest.mark.slow
+@pytest.mark.ui
+def test_note_virtual_table_model_stress_10k_rows(mock_db, qtbot) -> None:
+    """Test de charge et de virtualisation : 10 000 notes insérées et manipulées à 60 FPS."""
+    import time
+
+    t0 = time.perf_counter()
+    with db.atomic():
+        deck = DeckModel.create(name="MegaDeck")
+        nt = NoteTypeModel.create(
+            name="MegaType",
+            fields_schema=json.dumps(["Front", "Back"]),
+            templates="[]",
+            css_style="",
+        )
+
+        # Création par lot ultra-rapide de 10 000 notes
+        notes = [NoteModel(deck=deck, note_type=nt, tags="math high_load") for _ in range(10_000)]
+        NoteModel.bulk_create(notes, batch_size=2000)
+
+        created_notes = list(NoteModel.select().order_by(NoteModel.id))
+        versions = [
+            NoteVersionModel(
+                note=n,
+                version_number=1,
+                content=json.dumps({"Front": f"Question {i}", "Back": f"Reponse {i}"}),
+                is_active=True,
+            )
+            for i, n in enumerate(created_notes)
+        ]
+        NoteVersionModel.bulk_create(versions, batch_size=2000)
+
+    insertion_time = time.perf_counter() - t0
+    assert insertion_time < 3.0, f"Insertion de 10k notes trop lente: {insertion_time:.2f}s"
+
+    # Initialisation du modèle virtualisé
+    query = NoteModel.select().order_by(NoteModel.id)
+    model = NoteVirtualTableModel(query=query, chunk_size=200)
+    assert model.total_count == 10_000
+    assert model.loaded_count == 200
+    assert model.canFetchMore(QModelIndex()) is True
+
+    # Test du chargement progressif à la demande (fetchMore)
+    t_fetch = time.perf_counter()
+    for _ in range(5):
+        model.fetchMore(QModelIndex())
+    assert model.loaded_count == 1200
+    fetch_duration = time.perf_counter() - t_fetch
+    assert fetch_duration < 0.2, f"Chargement paginé 1.2k trop lent: {fetch_duration:.4f}s"
+
+    # Test d'accès aux données des lignes chargées
+    idx_front = model.index(0, 1)
+    assert "Question 0" in str(model.data(idx_front, Qt.ItemDataRole.DisplayRole))
+
+    # Test de filtrage / recherche
+    t_filter = time.perf_counter()
+    filtered_query = NoteModel.select().join(NoteVersionModel).where(NoteVersionModel.content.contains("Question 5000"))
+    model.set_filter_query(filtered_query)
+    assert model.total_count == 1
+    assert model.loaded_count == 1
+    idx_filtered = model.index(0, 1)
+    assert "Question 5000" in str(model.data(idx_filtered, Qt.ItemDataRole.DisplayRole))
+    filter_duration = time.perf_counter() - t_filter
+    assert filter_duration < 0.2, f"Filtrage 10k trop lent: {filter_duration:.4f}s"

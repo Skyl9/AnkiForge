@@ -129,12 +129,13 @@ jobs:
           QTWEBENGINE_DISABLE_SANDBOX: "1"
           QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render -noreset" uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render -noreset" uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term --cov-fail-under=70
 
       - name: Run Tests with Coverage (macOS & Windows)
         if: runner.os != 'Linux'
         run: |
           uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term
+
 
 
       - name: Upload Test Coverage Artifact

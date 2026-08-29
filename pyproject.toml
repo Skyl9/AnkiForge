@@ -134,3 +134,21 @@ disable_error_code = [
 # On exclut le dossier des tests pour Bandit, car on y utilise souvent des assertions ou des fausses données
 exclude_dirs = ["tests"]
 skips = ["B104", "B110"] # B104 (bind), B110 (try-except-pass pour UI/fallbacks)
+
+[tool.coverage.run]
+source = ["src/ankiforge"]
+omit = [
+    "src/ankiforge/c_ext/*",
+    "src/ankiforge/database/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+show_missing = true

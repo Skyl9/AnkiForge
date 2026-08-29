@@ -23,7 +23,8 @@ class VectorWorker(QThread):
         try:
             document = DocumentModel.get_by_id(self.document_id)
             logger.info("VectorWorker: Démarrage de la vectorisation du document '%s' (ID: %d)", document.title, document.id)
-            collection_name = self.manager.index_document(document)
+            success = self.manager.index_document(document)
+            collection_name = f"doc_{document.id}" if success else ""
             elapsed = time.perf_counter() - t0
             logger.info(
                 "VectorWorker: Indexation RAG terminée avec succès pour '%s' (collection: %s) en %.2fs",
@@ -32,6 +33,7 @@ class VectorWorker(QThread):
                 elapsed,
             )
             self.finished_indexing.emit(collection_name)
+
         except Exception as e:
             logger.error("Erreur lors de la vectorisation (RAG) du document ID=%d : %s", self.document_id, e, exc_info=True)
             self.error_occurred.emit(str(e))
