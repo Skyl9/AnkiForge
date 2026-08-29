@@ -16,15 +16,52 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   PYTHONUNBUFFERED: "1"
   QT_QPA_PLATFORM: "offscreen"
   QTWEBENGINE_DISABLE_SANDBOX: "1"
   QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
+  ANKIFORGE_MOCK_WEBENGINE: "1"
 
 jobs:
-  quality:
-    name: 🔍 Linters, Types & Security
+  # ── 1. Smart Path Filtering (Économie des runners) ──
+  filter:
+    name: 🔍 Smart Path Filter
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
+      docs: ${{ steps.changes.outputs.docs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect Changed Paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'tests/**'
+              - 'script/**'
+              - 'pyproject.toml'
+              - 'pytest.ini'
+              - 'uv.lock'
+              - '.pre-commit-config.yaml'
+              - '.github/workflows/ci.yml'
+            docs:
+              - '*.md'
+              - 'docs/**'
+              - 'Dossier_architecture/**'
+
+  # ── 2. Parallel Quality & Security Fan-Out ──
+  lint-ruff:
+    name: ⚡ Ruff (Lint & Format)
+    needs: filter
+    if: needs.filter.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -34,29 +71,76 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: "uv.lock"
           version: "latest"
 
       - name: Set up Python 3.12
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --frozen --dev
 
-      - name: Run Ruff Linting
+      - name: Check Ruff Formatting
+        run: uv run ruff format --check .
+
+      - name: Run Ruff Linter
         run: uv run ruff check .
 
-      - name: Run Ruff Formatting Check
-        run: uv run ruff format --check .
+  typecheck-mypy:
+    name: 🛡️ Mypy Strict (100%)
+    needs: filter
+    if: needs.filter.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
 
       - name: Run Mypy Type Checking
         run: uv run mypy src/ankiforge
 
+  security-bandit:
+    name: 🔒 Bandit Security Scan
+    needs: filter
+    if: needs.filter.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
       - name: Run Bandit Security Analysis
         run: uv run bandit -c pyproject.toml -r src/
 
+  # ── 3. Multi-OS Parallel Test Matrix ──
   test:
-    name: 🧪 Tests on ${{ matrix.os }} (Python ${{ matrix.python-version }})
-    needs: quality
+    name: 🧪 Tests on ${{ matrix.os }}
+    needs: [filter, lint-ruff, typecheck-mypy, security-bandit]
+    if: needs.filter.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -103,13 +187,14 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: "uv.lock"
           version: "latest"
 
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --frozen --dev
 
       - name: Compile Native C Levenshtein Extension (Linux / macOS)
         if: runner.os != 'Windows'
@@ -128,6 +213,7 @@ jobs:
           QT_QPA_PLATFORM: "offscreen"
           QTWEBENGINE_DISABLE_SANDBOX: "1"
           QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
+          ANKIFORGE_MOCK_WEBENGINE: "1"
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render -noreset" uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term --cov-fail-under=70
 
@@ -135,8 +221,6 @@ jobs:
         if: runner.os != 'Linux'
         run: |
           uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term
-
-
 
       - name: Upload Test Coverage Artifact
         if: matrix.os == 'ubuntu-latest'
