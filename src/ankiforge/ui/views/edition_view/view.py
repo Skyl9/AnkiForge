@@ -1,17 +1,7 @@
-"""
-Vue Édition & Navigateur de Cartes avec Divulgation Progressive (Progressive Disclosure).
-- Tableau pleine largeur en haut avec filtres (Dossier, Modèle, Tags) et texte épuré sans HTML brut.
-- Mécanisme de repliement en 1-clic : le tableau se réduit en un ruban de navigation compact (30px)
-  avec boutons Précédente / Suivante, offrant 100% de la hauteur à l'éditeur et au Live Preview.
-- Éditeur de champs à gauche (50%) et Live Preview WebEngine à droite (50%) en bas.
-- Machine à Remonter le Temps (Time Machine) et Linter IA intégrés.
-"""
-
 from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QModelIndex, QSettings, Qt, Slot
@@ -50,6 +40,7 @@ from ankiforge.ui.models import (
     TextSnippetDelegate,
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.ui.views.edition_view.utils import strip_html_tags
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
@@ -63,35 +54,6 @@ from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
-
-
-def strip_html_tags(text: str) -> str:
-    """Nettoie les balises HTML et décode les entités basiques pour un aperçu fluide dans le tableau."""
-    if not text:
-        return ""
-    clean = re.sub(r"<[^>]+>", " ", text)
-    clean = clean.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-    return re.sub(r"\s+", " ", clean).strip()
-
-
-def format_tags_display(tags_raw: Any) -> str:
-    """Formate les tags pour éviter l'affichage de chaînes Python brutes comme '[]'."""
-    if not tags_raw:
-        return ""
-    if isinstance(tags_raw, str):
-        try:
-            parsed = json.loads(tags_raw)
-            if isinstance(parsed, list):
-                tags_raw = parsed
-            elif tags_raw.strip() in ("[]", ""):
-                return ""
-        except Exception:
-            if tags_raw.strip() in ("[]", ""):
-                return ""
-    if isinstance(tags_raw, list):
-        clean_list = [str(t).strip() for t in tags_raw if str(t).strip()]
-        return "  ".join(f"#{t}" for t in clean_list)
-    return str(tags_raw).strip()
 
 
 class EditionView(QWidget):
@@ -138,12 +100,15 @@ class EditionView(QWidget):
         self._setup_ui()
         self._setup_shortcuts()
 
+    @property
+    def current_folder_id(self) -> Optional[int]:
+        return self._active_folder_id
+
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(8)
 
-        # Panneau unifié (IdePanel)
         self.main_panel = IdePanel(detachable=True)
 
         panel_content = QWidget()
@@ -151,9 +116,7 @@ class EditionView(QWidget):
         panel_layout.setContentsMargins(0, 0, 0, 0)
         panel_layout.setSpacing(0)
 
-        # =====================================================================
-        # SPLITTER VERTICAL PRINCIPAL (Tableau Haut / Éditeur & Preview Bas)
-        # =====================================================================
+        # Splitter Vertical Principal
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)
         self.main_splitter.setStyleSheet(f"""
             QSplitter::handle {{
@@ -165,21 +128,19 @@ class EditionView(QWidget):
             }}
         """)
 
-        # ---------------------------------------------------------------------
-        # VOLET SUPÉRIEUR : TABLEAU PLEINE LARGEUR & RUBAN PROGRESSIF
-        # ---------------------------------------------------------------------
+        # Volet Supérieur : Tableau et Ruban
         self.table_container = QWidget()
         self.table_container_layout = QVBoxLayout(self.table_container)
         self.table_container_layout.setContentsMargins(0, 0, 0, 0)
         self.table_container_layout.setSpacing(0)
 
-        # A. Boîte complète du Tableau (Déplié)
+        # Tableau Déplié
         self.table_box = QWidget()
         table_box_layout = QVBoxLayout(self.table_box)
         table_box_layout.setContentsMargins(0, 0, 0, 0)
         table_box_layout.setSpacing(0)
 
-        # Barre de filtres
+        # Filtres
         filter_bar = QWidget()
         filter_bar.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN}; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
         filter_layout = QHBoxLayout(filter_bar)
@@ -269,7 +230,6 @@ class EditionView(QWidget):
 
         table_box_layout.addWidget(filter_bar)
 
-        # Tableau des cartes virtualisé (Pleine largeur 60 FPS)
         self.card_table = VirtualTableView()
         self.note_table_model = NoteVirtualTableModel(parent=self)
         self.card_table.setModel(self.note_table_model)
@@ -292,7 +252,7 @@ class EditionView(QWidget):
         table_box_layout.addWidget(self.card_table)
         self.table_container_layout.addWidget(self.table_box)
 
-        # B. Ruban de Navigation Compact (Progressive Disclosure quand replié)
+        # Ruban de Navigation Compact
         self.nav_ribbon = QWidget()
         self.nav_ribbon.setFixedHeight(32)
         self.nav_ribbon.setStyleSheet(f"""
@@ -337,12 +297,9 @@ class EditionView(QWidget):
 
         self.main_splitter.addWidget(self.table_container)
 
-        # ---------------------------------------------------------------------
-        # VOLET INFÉRIEUR : ÉDITEUR DE CHAMPS (GAUCHE) & LIVE PREVIEW (DROITE)
-        # ---------------------------------------------------------------------
+        # Volet Inférieur : Éditeur & Preview
         self.editor_stack = QStackedWidget()
 
-        # Page 0: Placeholder élégant
         self.editor_placeholder = QWidget()
         self.editor_placeholder.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR};")
         placeholder_layout = QVBoxLayout(self.editor_placeholder)
@@ -366,16 +323,14 @@ class EditionView(QWidget):
         placeholder_layout.addWidget(self.placeholder_title)
         placeholder_layout.addWidget(self.placeholder_sub)
 
-        self.editor_stack.addWidget(self.editor_placeholder)  # Index 0
+        self.editor_stack.addWidget(self.editor_placeholder)
 
-        # Page 1: Conteneur d'édition complet
         self.editor_container = QWidget()
         self.editor_container.setStyleSheet(f"background-color: {DesignTokens.BG_SIDEBAR};")
         editor_layout = QVBoxLayout(self.editor_container)
         editor_layout.setContentsMargins(6, 6, 6, 6)
         editor_layout.setSpacing(6)
 
-        # Toolbar compacte au sommet (32px)
         self.editor_toolbar = EditorToolbarWidget(self)
         self.editor_toolbar.action_triggered.connect(self._handle_editor_action)
         self.editor_toolbar.save_requested.connect(self._save_card)
@@ -384,7 +339,6 @@ class EditionView(QWidget):
         self.editor_toolbar.toggle_table_requested.connect(self._toggle_table_collapsed)
         editor_layout.addWidget(self.editor_toolbar)
 
-        # Splitter Horizontal (Champs à gauche 50% / Live Preview à droite 50%)
         self.fields_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.fields_splitter.setStyleSheet(f"""
             QSplitter::handle {{
@@ -396,7 +350,6 @@ class EditionView(QWidget):
             }}
         """)
 
-        # Gauche : ScrollArea pour champs dynamiques
         self.fields_scroll_area = QScrollArea()
         self.fields_scroll_area.setWidgetResizable(True)
         self.fields_scroll_area.setStyleSheet(f"QScrollArea {{ border: none; background-color: {DesignTokens.BG_SIDEBAR}; }}")
@@ -411,7 +364,6 @@ class EditionView(QWidget):
         self.fields_scroll_area.setWidget(self.fields_container)
         self.fields_splitter.addWidget(self.fields_scroll_area)
 
-        # Droite : Live Preview
         self.preview_container = QWidget()
         preview_layout = QVBoxLayout(self.preview_container)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -425,11 +377,10 @@ class EditionView(QWidget):
 
         editor_layout.addWidget(self.fields_splitter, 1)
 
-        self.editor_stack.addWidget(self.editor_container)  # Index 1
+        self.editor_stack.addWidget(self.editor_container)
 
         self.main_splitter.addWidget(self.editor_stack)
 
-        # Répartition initiale du Splitter Vertical : Tableau 280px / Éditeur 450px
         self.main_splitter.setSizes([280, 450])
         self.main_splitter.setCollapsible(0, False)
         self.main_splitter.setCollapsible(1, False)
@@ -442,7 +393,6 @@ class EditionView(QWidget):
         self.editor_stack.setCurrentIndex(0)
 
     def _setup_shortcuts(self) -> None:
-        """Enregistre les raccourcis clavier universels pour la vue."""
         QShortcut(QKeySequence.StandardKey.Save, self, self._save_card)
         QShortcut(QKeySequence("Ctrl+H"), self, self._open_history_modal)
         QShortcut(QKeySequence("Ctrl+P"), self, self._toggle_preview_pane)
@@ -456,11 +406,8 @@ class EditionView(QWidget):
         QShortcut(QKeySequence("Ctrl+M"), self, lambda: self._handle_editor_action("math"))
         QShortcut(QKeySequence("Ctrl+Shift+C"), self, lambda: self._handle_editor_action("cloze"))
 
-    # --- Gestion de la Divulgation Progressive (Tableau / Ruban) ---
-
     @Slot()
     def _toggle_table_collapsed(self) -> None:
-        """Bascule entre le tableau complet et le ruban de navigation compact."""
         self._table_collapsed = not self._table_collapsed
 
         if self._table_collapsed:
@@ -480,7 +427,6 @@ class EditionView(QWidget):
             self.main_splitter.setSizes([self._saved_table_height, max(300, sizes[0] + sizes[1] - self._saved_table_height)])
 
     def _update_nav_ribbon_info(self) -> None:
-        """Met à jour le texte d'information du ruban compact."""
         if not self._current_note:
             self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
             return
@@ -499,7 +445,6 @@ class EditionView(QWidget):
 
     @Slot()
     def _select_previous_card(self) -> None:
-        """Sélectionne la carte précédente dans la liste."""
         selected_rows = self.card_table.get_selected_rows()
         current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
         if current_row > 0:
@@ -509,7 +454,6 @@ class EditionView(QWidget):
 
     @Slot()
     def _select_next_card(self) -> None:
-        """Sélectionne la carte suivante dans la liste."""
         selected_rows = self.card_table.get_selected_rows()
         current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
         if current_row >= 0 and current_row < self.note_table_model.rowCount() - 1:
@@ -517,11 +461,8 @@ class EditionView(QWidget):
             self.card_table.select_row(target_row)
             self._on_card_selected()
 
-    # --- Gestion du Volet de Prévisualisation ---
-
     @Slot()
     def _toggle_preview_pane(self) -> None:
-        """Affiche ou masque le volet d'aperçu latéral."""
         self._preview_visible = not self._preview_visible
         self.preview_container.setVisible(self._preview_visible)
 
@@ -534,7 +475,6 @@ class EditionView(QWidget):
 
     @Slot(str)
     def set_view_mode(self, mode: str) -> None:
-        """Gère les modes de compatibilité ('fields_only', 'split', 'preview_only')."""
         if mode == "fields_only":
             self._preview_visible = False
             self.preview_container.hide()
@@ -545,16 +485,13 @@ class EditionView(QWidget):
             self.preview_container.show()
             self.fields_scroll_area.hide()
             self.fields_splitter.setSizes([0, 1000])
-        else:  # split
+        else:
             self._preview_visible = True
             self.preview_container.show()
             self.fields_scroll_area.show()
             self.fields_splitter.setSizes([500, 500])
 
-    # --- Actions d'Édition & Formatage ---
-
     def _get_target_editor(self) -> Optional[NoteFieldTextEdit]:
-        """Retourne l'éditeur actuellement actif ou le premier champ par défaut."""
         if self._active_editor and not self._active_editor.isHidden():
             return self._active_editor
 
@@ -600,8 +537,6 @@ class EditionView(QWidget):
             editor.insert_at_cursor("<hr>\n")
         elif action_id == "quote":
             editor.wrap_selection("<blockquote>", "</blockquote>")
-
-    # --- Construction Dynamique des Champs ---
 
     def _build_dynamic_editors(self, note: NoteModel, data: Dict[str, str]) -> None:
         while self.fields_layout.count():
@@ -662,13 +597,11 @@ class EditionView(QWidget):
         self._update_nav_ribbon_info()
 
     def _on_table_row_changed(self, current: QModelIndex, previous: QModelIndex) -> None:
-        """Gère le changement de sélection de ligne au clavier ou à la souris."""
         if not current.isValid():
             return
         self._on_card_selected(current)
 
     def _on_card_selected(self, item_or_index: Any = None) -> None:
-        """Charge et affiche la carte sélectionnée dans l'éditeur et l'aperçu."""
         if isinstance(item_or_index, QModelIndex):
             row = item_or_index.row()
         elif hasattr(item_or_index, "row"):
@@ -728,8 +661,6 @@ class EditionView(QWidget):
             override_templates=override_templates,
         )
 
-    # --- Sauvegarde & Time Machine ---
-
     @Slot()
     def _save_card(self) -> None:
         if not self._current_note:
@@ -742,7 +673,6 @@ class EditionView(QWidget):
             self._original_content = new_content.copy()
             self._dirty = False
 
-            # Mise à jour instantanée du modèle virtuel en O(1)
             self.note_table_model.update_note_content(note_id, new_content)
             self._update_nav_ribbon_info()
             show_toast(self, f"Carte #{note_id} sauvegardée avec succès.")
@@ -759,7 +689,6 @@ class EditionView(QWidget):
         dialog.exec()
 
     def _on_version_restored(self, note_id: int, restored_dict: Dict[str, str]) -> None:
-        """Met à jour immédiatement l'éditeur et la table suite à la restauration."""
         for field, widget in self.dynamic_field_widgets.items():
             if field in restored_dict:
                 widget.set_text(restored_dict[field])
@@ -771,8 +700,6 @@ class EditionView(QWidget):
 
         self.refresh_data()
         self.select_note_by_id(note_id)
-
-    # --- Menus & Filtres ---
 
     @Slot()
     def _show_folder_modal(self) -> None:
@@ -975,24 +902,21 @@ class EditionView(QWidget):
             except Exception as e:
                 logger.warning("Erreur lors de la mise à jour des en-têtes du tableau : %s", e)
 
-        # Default (Mixed / All Models) : Tableau Spacieux
         self._current_table_fields = None
         self.note_table_model.set_active_model_fields(None)
         self.card_table.setColumnWidth(0, 36)
         self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.card_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.card_table.setColumnWidth(3, 110)  # Modèle
-        self.card_table.setColumnWidth(4, 140)  # Deck
-        self.card_table.setColumnWidth(5, 140)  # Tags
+        self.card_table.setColumnWidth(3, 110)
+        self.card_table.setColumnWidth(4, 140)
+        self.card_table.setColumnWidth(5, 140)
         self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
         self.card_table.setItemDelegateForColumn(1, self.text_code_delegate)
         self.card_table.setItemDelegateForColumn(2, self.text_regular_delegate)
         self.card_table.setItemDelegateForColumn(3, self.badge_delegate)
         self.card_table.setItemDelegateForColumn(4, self.badge_delegate)
         self.card_table.setItemDelegateForColumn(5, self.tag_delegate)
-
-    # --- Menu Contextuel & Opérations de Masse ---
 
     def _show_card_context_menu(self, pos: Any) -> None:
         index = self.card_table.indexAt(pos)
@@ -1131,8 +1055,6 @@ class EditionView(QWidget):
                 logger.exception("Erreur lors de la suppression des notes")
                 QMessageBox.critical(self, "Erreur", str(e))
 
-    # --- Défilement Virtuel & Chargement des Cartes ---
-
     def _on_card_list_scrolled(self, value: int) -> None:
         scrollbar = self.card_table.verticalScrollBar()
         if scrollbar.maximum() > 0 and value >= int(scrollbar.maximum() * 0.85):
@@ -1154,7 +1076,6 @@ class EditionView(QWidget):
         return data
 
     def _load_next_card_batch(self) -> None:
-        """Alias de compatibilité (la virtualisation Qt gère le défilement et le fetchMore nativement)."""
         if self.note_table_model.canFetchMore():
             self.note_table_model.fetchMore()
 
@@ -1208,7 +1129,6 @@ class EditionView(QWidget):
         return self._dirty
 
     def refresh_theme(self, profile: Any) -> None:
-        """Rafraîchit à chaud les composants d'EditionView."""
         if hasattr(self, "card_preview") and hasattr(self.card_preview, "refresh_theme"):
             self.card_preview.refresh_theme(profile)
 
@@ -1226,7 +1146,6 @@ class EditionView(QWidget):
         if hasattr(self, "fields_container"):
             self.fields_container.setStyleSheet(f"background-color: {profile.bg_sidebar};")
 
-        # Rafraîchir les boutons de filtre dossiers & modèles
         if hasattr(self, "btn_open_folder"):
             is_active = self._active_folder_id is not None
             self.btn_open_folder.setIcon(load_phosphor_icon("folder" if is_active else "folders", color=profile.accent_primary if is_active else profile.text_secondary))
@@ -1296,7 +1215,6 @@ class EditionView(QWidget):
                 panel.refresh_theme(profile)
 
     def _open_import_dialog(self) -> None:
-        """Ouvre le dialogue d'importation depuis la vue Édition."""
         from ankiforge.ui.dialogs.import_dialog import ImportDialog
 
         if hasattr(self, "_import_dialog") and self._import_dialog is not None and self._import_dialog.isVisible():
@@ -1311,7 +1229,6 @@ class EditionView(QWidget):
         self._import_dialog.activateWindow()
 
     def _open_export_dialog(self) -> None:
-        """Ouvre le dialogue d'exportation depuis la vue Édition."""
         from ankiforge.ui.dialogs.export_dialog import ExportDialog
 
         if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
@@ -1325,5 +1242,4 @@ class EditionView(QWidget):
         self._export_dialog.activateWindow()
 
 
-# Alias pour la rétrocompatibilité
 EditionTab = EditionView
