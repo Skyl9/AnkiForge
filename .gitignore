@@ -44,6 +44,9 @@ wheels/
 .coverage
 coverage.xml
 coverage.json
+mutants/
+.mutmut-cache/
+
 
 test.md
 *.json

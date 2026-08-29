@@ -237,16 +237,22 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --dev
 
-      - name: Compile Native C Levenshtein Extension (Linux / macOS)
-        if: runner.os != 'Windows'
+      - name: Compile Native C Levenshtein Extension (Linux)
+        if: runner.os == 'Linux'
         run: |
-          gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+          gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+
+      - name: Compile Native C Levenshtein Extension (macOS Universal 2)
+        if: runner.os == 'macOS'
+        run: |
+          clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o src/ankiforge/c_ext/levenshtein_distance.so src/ankiforge/c_ext/levenshtein_distance.c || true
 
       - name: Compile Native C Levenshtein Extension (Windows)
         if: runner.os == 'Windows'
         run: |
-          gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
+          gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
         shell: bash
+
 
       - name: Run Tests with Coverage (Linux with Xvfb)
         if: runner.os == 'Linux'

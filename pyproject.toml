@@ -152,3 +152,8 @@ exclude_lines = [
     "@overload",
 ]
 show_missing = true
+
+[tool.mutmut]
+paths_to_mutate = ["src/ankiforge/utils/c_bridge.py"]
+runner = "uv run pytest -q tests/test_c_bridge.py"
+tests_dir = ["tests/"]

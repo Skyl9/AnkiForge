@@ -17,6 +17,8 @@ concurrency:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -88,15 +90,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --dev
 
-      - name: Compile Native C Levenshtein Extension (Linux / macOS)
-        if: runner.os != 'Windows'
+      - name: Compile Native C Levenshtein Extension (Linux)
+        if: runner.os == 'Linux'
         run: |
-          gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+          gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+
+      - name: Compile Native C Levenshtein Extension (macOS Universal 2)
+        if: runner.os == 'macOS'
+        run: |
+          clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o src/ankiforge/c_ext/levenshtein_distance.so src/ankiforge/c_ext/levenshtein_distance.c || true
 
       - name: Compile Native C Levenshtein Extension (Windows)
         if: runner.os == 'Windows'
         run: |
-          gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
+          gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
         shell: bash
 
       - name: Build Binary with PyInstaller
@@ -113,6 +120,11 @@ jobs:
             --hidden-import=PySide6.QtGui \
             --hidden-import=PySide6.QtWidgets \
             src/ankiforge/__main__.py
+
+      - name: Ad-Hoc Code Sign macOS Binary Bundle
+        if: runner.os == 'macOS'
+        run: |
+          codesign --force --deep -s - dist/ankiforge
 
       - name: Smoke Test Binary (Linux with Xvfb)
         if: runner.os == 'Linux'
@@ -164,7 +176,7 @@ jobs:
 
   # ── 2. Publication Automatique de la GitHub Release ──
   publish:
-    name: 🚀 Publish GitHub Release
+    name: 🚀 Publish GitHub Release & Cryptographic Attestations
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -185,6 +197,14 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat checksums.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate Cryptographic Build Attestation (SLSA Level 3)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release-assets/ankiforge-linux-x86_64.tar.gz
+            release-assets/ankiforge-macos-arm64.zip
+            release-assets/ankiforge-windows-x64.zip
 
       - name: Determine Release Tag
         id: tag
