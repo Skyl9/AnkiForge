@@ -1,39 +1,54 @@
-from typing import Optional, Any, cast
+"""
+Palette de commandes ⌘K style VS Code / Raycast / JetBrains Search Everywhere.
+Permet la recherche globale et la navigation rapide entre toutes les vues d'AnkiForge.
+"""
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QWidget
-from PySide6.QtCore import Qt, Signal, QEvent, Slot, QObject
+from typing import Any, Dict, List, Optional, cast
+
+from PySide6.QtCore import QEvent, QObject, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent
+from PySide6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ..theme import DesignTokens, apply_shadow
-from ..components.inputs import GlowLineEdit
+from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class CommandPalette(QDialog):
     """Palette de commandes ⌘K style VS Code / Raycast."""
 
     command_selected = Signal(str)  # émet le command_id
+    view_requested = Signal(str)  # émet le view_id pour la navigation
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, view_registry: Optional[Dict[str, Any]] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-        # Dialog frameless, centré, 600px wide
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
+        # Dialog frameless, centré, 620px wide
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(600, 400)
+        self.setFixedSize(620, 420)
 
-        self.commands: list[dict[str, Any]] = []
+        self.commands: List[Dict[str, Any]] = []
+        self.view_registry = view_registry or {}
 
         self._setup_ui()
-        self._setup_shortcuts()
+        self._populate_commands()
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(10, 10, 10, 10)
 
         # Container principal (glassmorphism)
         self.container = QWidget(self)
         self.container.setObjectName("commandPaletteContainer")
-        # Fond: rgba(26, 29, 36, 0.95)
         self.container.setStyleSheet(f"""
             QWidget#commandPaletteContainer {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -41,32 +56,31 @@ class CommandPalette(QDialog):
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
-        # QGraphicsDropShadowEffect(blur=32) via theme
         apply_shadow(self.container, blur=32, offset_y=8, color="rgba(0,0,0,0.5)")
 
         container_layout = QVBoxLayout(self.container)
-        container_layout.setContentsMargins(12, 12, 12, 12)
-        container_layout.setSpacing(8)
+        container_layout.setContentsMargins(14, 14, 14, 14)
+        container_layout.setSpacing(10)
 
-        # Input en haut avec icône search + placeholder
+        # Input en haut avec placeholder
         header_layout = QHBoxLayout()
-        self.search_input = GlowLineEdit(self.container)
-        self.search_input.setPlaceholderText("Rechercher ou lancer une commande...")
-        self.search_input.textChanged.connect(self._filter_commands)
+        header_layout.setSpacing(8)
 
-        # kbd hint "⌘K" affiché
-        shortcut_lbl = QLabel("⌘K")
+        self.search_input = GlowLineEdit(placeholder="Rechercher cartes, paquets, vues ou commandes...", parent=self.container)
+        self.search_input.textChanged.connect(self._filter_commands)
+        header_layout.addWidget(self.search_input, 1)
+
+        # kbd hint "Esc pour fermer"
+        shortcut_lbl = QLabel("Échap")
         shortcut_lbl.setStyleSheet(f"""
             background-color: {DesignTokens.BG_HOVER};
             color: {DesignTokens.TEXT_MUTED};
             border-radius: 4px;
-            padding: 4px 8px;
-            font-family: {DesignTokens.FONT_CODE};
+            padding: 3px 6px;
+            font-family: '{DesignTokens.FONT_CODE}';
             font-size: 11px;
             font-weight: bold;
         """)
-
-        header_layout.addWidget(self.search_input)
         header_layout.addWidget(shortcut_lbl)
 
         # Liste de résultats filtrable
@@ -80,6 +94,7 @@ class CommandPalette(QDialog):
             QListWidget::item {{
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 color: {DesignTokens.TEXT_PRIMARY};
+                padding: 2px;
             }}
             QListWidget::item:selected {{
                 background-color: {DesignTokens.BG_ACTIVE};
@@ -91,21 +106,36 @@ class CommandPalette(QDialog):
         self.result_list.itemClicked.connect(self._on_item_clicked)
 
         container_layout.addLayout(header_layout)
-        container_layout.addWidget(self.result_list)
+        container_layout.addWidget(self.result_list, 1)
 
         main_layout.addWidget(self.container)
 
         # Installation du event filter pour la navigation clavier (↑↓, Enter, Esc)
         self.search_input.installEventFilter(self)
 
-    def _setup_shortcuts(self) -> None:
-        """Commandes par défaut à enregistrer."""
-        self.register_command("nav.dashboard", "Aller au Dashboard", "🏠", "⌘1", "Navigation")
-        self.register_command("nav.studio", "Aller au Studio", "🎨", "⌘2", "Navigation")
-        self.register_command("action.create_card", "Créer une carte", "➕", "⌘N", "Actions")
-        self.register_command("action.import_doc", "Importer un document", "📄", "⌘O", "Actions")
-        self.register_command("system.settings", "Ouvrir les paramètres", "⚙️", "⌘,", "Système")
-        self.register_command("system.theme", "Changer le thème", "🌗", "", "Système")
+    def _populate_commands(self) -> None:
+        """Remplit la liste des commandes à partir du registre de vues et des actions globales."""
+        self.commands.clear()
+
+        # 1. Vues de navigation
+        if self.view_registry:
+            for view_id, info in self.view_registry.items():
+                if isinstance(info, (tuple, list)) and len(info) >= 3:
+                    cat, icon, title = info[0], info[1], info[2]
+                    self.register_command(view_id, f"Aller à {title}", icon, "", cat)
+        else:
+            self.register_command("dashboard", "Aller au Tableau de bord", "house", "Ctrl+1", "Navigation")
+            self.register_command("creation", "Aller au Studio de Création", "magic-wand", "Ctrl+2", "Navigation")
+            self.register_command("edition", "Aller à Édition & Navigateur", "cards", "Ctrl+3", "Navigation")
+            self.register_command("analysis", "Aller à Analyse & Audit IA", "chart-line-up", "Ctrl+4", "Navigation")
+            self.register_command("consultant", "Aller à AI Consultant", "robot", "Ctrl+5", "Navigation")
+
+        # 2. Actions globales
+        self.register_command("action.import", "Importer un paquet Anki (.apkg)", "download-simple", "Ctrl+Shift+I", "Actions")
+        self.register_command("action.export", "Exporter des cartes Anki (.apkg)", "upload-simple", "Ctrl+Shift+E", "Actions")
+        self.register_command("action.settings", "Ouvrir les Paramètres", "gear", "Ctrl+,", "Système")
+
+        self.refresh_data()
 
     def register_command(self, command_id: str, title: str, icon_name: str, shortcut: str = "", category: str = "") -> None:
         """Enregistre une commande disponible."""
@@ -116,7 +146,7 @@ class CommandPalette(QDialog):
         self.search_input.clear()
         self.refresh_data()
 
-        # Position: center de la fenêtre parente
+        # Position: centre de la fenêtre parente
         parent = self.parentWidget()
         if parent:
             parent_rect = parent.geometry()
@@ -135,33 +165,45 @@ class CommandPalette(QDialog):
     def _filter_commands(self, text: str) -> None:
         """Filtrage en temps réel des commandes."""
         self.result_list.clear()
-        query = text.lower()
+        query = text.lower().strip()
 
         for cmd in self.commands:
-            if query in cmd["title"].lower() or query in cmd["category"].lower():
+            if not query or query in cmd["title"].lower() or query in cmd["category"].lower() or query in cmd["id"].lower():
                 item = QListWidgetItem(self.result_list)
 
                 widget = QWidget()
                 layout = QHBoxLayout(widget)
-                layout.setContentsMargins(12, 8, 12, 8)
+                layout.setContentsMargins(10, 6, 10, 6)
+                layout.setSpacing(10)
 
-                icon_lbl = QLabel(cmd["icon"])
+                icon_lbl = QLabel()
+                icon_lbl.setPixmap(load_phosphor_icon(cmd["icon"], color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+                icon_lbl.setStyleSheet("border: none; background: transparent;")
+
                 title_lbl = QLabel(cmd["title"])
-                title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: {DesignTokens.FONT_SIZE_BASE}px;")
+                title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12.5px; font-weight: 500; border: none; background: transparent;")
 
                 layout.addWidget(icon_lbl)
                 layout.addWidget(title_lbl)
 
                 if cmd["category"]:
-                    cat_lbl = QLabel(f"({cmd['category']})")
-                    cat_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: {DesignTokens.FONT_SIZE_SMALL}px;")
+                    cat_lbl = QLabel(f"[{cmd['category']}]")
+                    cat_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
                     layout.addWidget(cat_lbl)
 
                 layout.addStretch()
 
                 if cmd["shortcut"]:
                     shortcut_lbl = QLabel(cmd["shortcut"])
-                    shortcut_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-family: {DesignTokens.FONT_CODE}; font-size: {DesignTokens.FONT_SIZE_SMALL}px;")
+                    shortcut_lbl.setStyleSheet(f"""
+                        color: {DesignTokens.TEXT_SECONDARY};
+                        font-family: '{DesignTokens.FONT_CODE}';
+                        font-size: 11px;
+                        background: {DesignTokens.BG_HOVER};
+                        border-radius: 4px;
+                        padding: 2px 6px;
+                        border: none;
+                    """)
                     layout.addWidget(shortcut_lbl)
 
                 item.setSizeHint(widget.sizeHint())
@@ -170,7 +212,6 @@ class CommandPalette(QDialog):
                 self.result_list.addItem(item)
                 self.result_list.setItemWidget(item, widget)
 
-        # Sélectionner le premier élément par défaut
         if self.result_list.count() > 0:
             self.result_list.setCurrentRow(0)
 
@@ -178,7 +219,13 @@ class CommandPalette(QDialog):
         command_id = item.data(Qt.ItemDataRole.UserRole)
         if command_id:
             self.command_selected.emit(command_id)
-            self.close()
+            if command_id.startswith("action."):
+                action_name = command_id.replace("action.", "")
+                if action_name == "settings":
+                    self.view_requested.emit("settings")
+            else:
+                self.view_requested.emit(command_id)
+            self.accept()
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """Navigation clavier (↑↓ pour sélectionner, Enter pour exécuter, Esc pour fermer)."""
@@ -204,7 +251,11 @@ class CommandPalette(QDialog):
                 return True
 
             elif key_event.key() == Qt.Key.Key_Escape:
-                self.close()
+                self.reject()
                 return True
 
         return super().eventFilter(obj, event)
+
+
+# Alias pour compatibilité rétroactive
+CommandPaletteModal = CommandPalette
