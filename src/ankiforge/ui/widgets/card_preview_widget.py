@@ -144,8 +144,19 @@ class CardPreviewWidget(QWidget):
         frame_layout = QVBoxLayout(self.flashcard_frame)
         frame_layout.setContentsMargins(8, 8, 8, 8)
 
-        # SafeWebEngineView pour le rendu MathJax + HTML/CSS
-        self.web_view = SafeWebEngineView(self.flashcard_frame)
+        import os
+
+        # En environnement de test automatisé headless, QTextBrowser évite le coût CPU d'un Chromium complet
+        if os.environ.get("ANKIFORGE_MOCK_WEBENGINE") == "1":
+            from PySide6.QtWidgets import QTextBrowser
+
+            mock_browser = QTextBrowser(self.flashcard_frame)
+            mock_browser.setHtmlSafe = lambda html, base_url=None: mock_browser.setHtml(html)
+            mock_browser.cleanup = lambda: None
+            self.web_view = mock_browser  # type: ignore[assignment]
+        else:
+            self.web_view = SafeWebEngineView(self.flashcard_frame)
+
         self.web_view.setMinimumHeight(240)
         frame_layout.addWidget(self.web_view)
 

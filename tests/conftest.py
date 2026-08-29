@@ -37,6 +37,7 @@ from ankiforge.database.models import (
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
+os.environ["ANKIFORGE_MOCK_WEBENGINE"] = "1"
 
 
 @pytest.fixture(autouse=True)

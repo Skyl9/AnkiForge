@@ -71,7 +71,8 @@ extend-exclude = ["script/tools", "script/ui_rebuild"]
 [tool.ruff.lint]
 # E/F/B: PEP8 & bugs, I: isort, UP: pyupgrade 3.12, T20: zero print, PT: pytest style, SIM: simplify
 select = ["E", "F", "B", "I", "UP", "T20", "PT", "SIM"]
-ignore = ["SIM105", "UP038"]
+ignore = ["SIM105"]
+
 
 
 

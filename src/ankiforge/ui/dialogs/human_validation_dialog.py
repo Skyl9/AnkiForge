@@ -98,8 +98,9 @@ class HumanValidationDialog(QDialog):
         """)
 
         last_out = self.state.get_variable("last_output", {})
-        if isinstance(last_out, (dict, list)):
+        if isinstance(last_out, dict | list):
             self.editor.setPlainText(json.dumps(last_out, ensure_ascii=False, indent=2))
+
         else:
             self.editor.setPlainText(str(last_out))
 

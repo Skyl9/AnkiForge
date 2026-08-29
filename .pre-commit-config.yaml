@@ -15,3 +15,18 @@ repos:
       - id: ruff
         args: ["--fix"]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy-check
+        name: mypy type checking (pre-push)
+        entry: uv run mypy src/ankiforge
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: fast-unit-tests
+        name: fast unit tests (pre-push)
+        entry: uv run pytest -m "not slow"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

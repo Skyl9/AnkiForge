@@ -487,8 +487,9 @@ class SrsMasteryDelegate(QStyledItemDelegate):
         font_bold = QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold)
         font_normal = QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Normal)
 
-        if isinstance(srs_data, (list, tuple)) and len(srs_data) == 2:
+        if isinstance(srs_data, list | tuple) and len(srs_data) == 2:
             (str_a, col_a), (str_b, col_b) = srs_data
+
         else:
             parts = str(display_str).split(" vs ")
             str_a = parts[0].strip() if len(parts) > 0 else ""

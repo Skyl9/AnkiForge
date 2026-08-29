@@ -303,7 +303,7 @@ class PipelineOrchestrator(QRunnable):
         else:
             user_input = self.state.get_variable("last_output") or self.state.get_variable("text_source") or self.state.initial_prompt or "Analyser et générer les flashcards correspondantes."
 
-        if isinstance(user_input, (dict, list)):
+        if isinstance(user_input, dict | list):
             user_input = json.dumps(user_input, ensure_ascii=False, indent=2)
 
         output_format = str(cfg.get("output_format") or (getattr(step.persona, "output_format", "json") if step.persona else "json"))
@@ -429,7 +429,8 @@ class PipelineOrchestrator(QRunnable):
             if self._is_cancelled:
                 return None
 
-            item_str = json.dumps(item_content, ensure_ascii=False) if isinstance(item_content, (dict, list)) else str(item_content)
+            item_str = json.dumps(item_content, ensure_ascii=False) if isinstance(item_content, dict | list) else str(item_content)
+
             rendered_sys = self._render_prompt_template(raw_system_prompt, extra_context={"item": item_content, "index": index})
 
             response = self.ai_provider.generate(

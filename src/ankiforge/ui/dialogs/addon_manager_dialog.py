@@ -113,8 +113,9 @@ class AddonConfigForm(QWidget):
                 chk.setCursor(Qt.CursorShape.PointingHandCursor)
                 row_layout.addWidget(chk)
                 self._fields[key] = chk
-            elif isinstance(val, (int, float)):
+            elif isinstance(val, int | float):
                 inp = StyledLineEdit()
+
                 inp.setText(str(val))
                 inp.setFixedWidth(140)
                 row_layout.addWidget(inp)

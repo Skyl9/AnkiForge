@@ -1,6 +1,8 @@
 # ruff: noqa: SLF001
 # noinspection PyProtectedMember
 
+import pytest
+
 from ankiforge.utils.anki_renderer import (
     _is_empty,
     _process_conditionals,
@@ -8,6 +10,8 @@ from ankiforge.utils.anki_renderer import (
     _sanitize_fields,
     render_anki_card,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_is_empty():

@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.utils.paths import (
     get_active_profile,
     get_app_data_dir,
@@ -11,6 +13,8 @@ from ankiforge.utils.paths import (
     get_resource_path,
     set_active_profile,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_get_project_root_dev():

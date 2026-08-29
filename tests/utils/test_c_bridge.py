@@ -1,8 +1,11 @@
-# tests/utils/test_c_bridge.py
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # On importe le module complet pour pouvoir patcher ses variables globales
 import ankiforge.utils.c_bridge as c_bridge
+
+pytestmark = pytest.mark.unit
 
 
 def test_get_similarity_python_fallback():

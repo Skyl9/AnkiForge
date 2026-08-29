@@ -63,13 +63,15 @@ class VectorManager:
             except Exception as e:
                 logger.warning("Impossible de contacter l'API d'embeddings (%s). Repli sur hash vectoriel.", e)
 
-        # Fallback local pseudo-embedding (vecteur normalisé basé sur hash de fréquence)
+        # Fallback local pseudo-embedding (vecteur normalisé basé sur hash déterministe)
+        import hashlib
+
         dim = 128
         vectors = []
         for text in texts:
             vec = np.zeros(dim, dtype=np.float32)
             for word in text.lower().split():
-                h = hash(word) % dim
+                h = int(hashlib.md5(word.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % dim
                 vec[h] += 1.0
             norm = float(np.linalg.norm(vec))
             if norm > 0:

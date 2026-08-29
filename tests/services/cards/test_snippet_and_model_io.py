@@ -5,9 +5,13 @@ Tests unitaires pour la bibliothèque de snippets, le résolveur de conflits CSS
 import json
 import uuid
 
+import pytest
+
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetLibrary
+
+pytestmark = pytest.mark.unit
 
 
 def test_snippet_library_catalog():

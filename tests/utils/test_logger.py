@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 from ankiforge.utils.logger import (
     AnkiForgeLogFormatter,
     ContextInjectionFilter,
@@ -20,6 +22,8 @@ from ankiforge.utils.logger import (
     shutdown_logging,
 )
 from ankiforge.utils.paths import set_active_profile
+
+pytestmark = pytest.mark.unit
 
 
 def test_redact_secrets():

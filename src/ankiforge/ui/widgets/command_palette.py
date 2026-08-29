@@ -120,8 +120,9 @@ class CommandPalette(QDialog):
         # 1. Vues de navigation
         if self.view_registry:
             for view_id, info in self.view_registry.items():
-                if isinstance(info, (tuple, list)) and len(info) >= 3:
+                if isinstance(info, tuple | list) and len(info) >= 3:
                     cat, icon, title = info[0], info[1], info[2]
+
                     self.register_command(view_id, f"Aller à {title}", icon, "", cat)
         else:
             self.register_command("dashboard", "Aller au Tableau de bord", "house", "Ctrl+1", "Navigation")
