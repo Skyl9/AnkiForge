@@ -78,6 +78,41 @@ class SidebarItem(QPushButton):
         self.setIcon(load_phosphor_icon(self.icon_name, color=color))
 
 
+class SidebarProfileItem(QPushButton):
+    """Bouton de profil utilisateur dans le footer de la barre latérale."""
+
+    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("SidebarUserBtn")
+        self.profile_name = profile_name
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(36)
+        self._collapsed = False
+
+        self.setIcon(load_phosphor_icon("cards", color=DesignTokens.TEXT_SECONDARY))
+        self.setIconSize(QSize(20, 20))
+        self._update_text()
+
+    def set_profile_name(self, profile_name: str) -> None:
+        self.profile_name = profile_name
+        self._update_text()
+
+    def _update_text(self) -> None:
+        if self._collapsed:
+            self.setText("")
+            self.setToolTip(f"Profil : {self.profile_name} (Changer de profil)")
+        else:
+            self.setText(f"  Profil : {self.profile_name}")
+            self.setToolTip("Changer d'espace de travail / profil")
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        self._collapsed = collapsed
+        self._update_text()
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.setIcon(load_phosphor_icon("cards", color=profile.text_secondary))
+
+
 class Sidebar(QWidget):
     """Sidebar collapsible 260px <-> 68px."""
 
@@ -103,13 +138,16 @@ class Sidebar(QWidget):
         main_layout.setSpacing(0)
 
         # 1. Compatibility attributes (Brand header is in TopBar)
-        self.logo_icon = ClickableLabel()
+        self.logo_icon = ClickableLabel(self)
+        self.logo_icon.hide()
         self.logo_icon.clicked.connect(self.toggle_requested.emit)
         from ankiforge.utils.icon_loader import load_logo_icon
 
         self.logo_icon.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
-        self.logo_text = QLabel("AnkiForge")
-        self.toggle_btn = IconButton("list", tooltip="Toggle Sidebar", size=24)
+        self.logo_text = QLabel("AnkiForge", self)
+        self.logo_text.hide()
+        self.toggle_btn = IconButton("list", tooltip="Toggle Sidebar", size=24, parent=self)
+        self.toggle_btn.hide()
         self.toggle_btn.clicked.connect(self.toggle_requested.emit)
 
         # 2. ScrollArea for sections
@@ -130,54 +168,31 @@ class Sidebar(QWidget):
 
         # 3. Footer
         self.footer = QWidget()
+        self.footer.setObjectName("SidebarFooter")
+        self.footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         footer_layout = QVBoxLayout(self.footer)
         footer_layout.setContentsMargins(12, 12, 12, 12)
         footer_layout.setSpacing(4)
 
         self.settings_btn = SidebarItem("settings", "gear", "Paramètres")
         self.settings_btn.clicked.connect(self.settings_requested.emit)
-        self.separator = QFrame()
-        self.separator.setObjectName("SidebarSeparator")
-        self.separator.setFrameShape(QFrame.Shape.HLine)
-        self.separator.setFixedHeight(1)
-        footer_layout.addWidget(self.separator)
-
         footer_layout.addWidget(self.settings_btn)
 
-        self.user_widget = QWidget()
-        self.user_widget.setObjectName("UserWidget")
-        self.user_widget.setProperty("card-style", "panel")
-        self.user_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.user_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.user_widget.mousePressEvent = lambda event: self.profile_switch_requested.emit()
-        user_layout = QHBoxLayout(self.user_widget)
-        user_layout.setContentsMargins(8, 8, 8, 8)
-
-        self.cards_icon = QLabel()
-        self.cards_icon.setPixmap(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        self.cards_icon.setObjectName("SidebarCardsIcon")
-
-        self.user_name = QLabel()
-        self.user_name.setObjectName("SidebarUserName")
-        self._update_user_label(profile_name)
-
-        user_layout.addWidget(self.cards_icon)
-        user_layout.addWidget(self.user_name)
-        user_layout.addStretch()
-
+        self.user_widget = SidebarProfileItem(profile_name=profile_name)
+        self.user_widget.clicked.connect(self.profile_switch_requested.emit)
         footer_layout.addWidget(self.user_widget)
 
         main_layout.addWidget(self.footer)
 
     def _update_user_label(self, profile_name: str, color_green: str = "") -> None:
         """Met à jour le label utilisateur avec le nom du profil."""
-        self.user_name.setText(f"Profil: {profile_name}")
+        if hasattr(self, "user_widget"):
+            self.user_widget.set_profile_name(profile_name)
 
     def set_profile_name(self, profile_name: str) -> None:
         """Met à jour le nom du profil affiché dans le footer de la barre latérale."""
         self.profile_name = profile_name
-        if hasattr(self, "user_name"):
-            self._update_user_label(profile_name)
+        self._update_user_label(profile_name)
 
     def refresh_theme(self, profile: Any) -> None:
         from ankiforge.utils.icon_loader import load_logo_icon
@@ -186,14 +201,12 @@ class Sidebar(QWidget):
             self.logo_icon.setPixmap(load_logo_icon(profile.accent_primary).pixmap(24, 24))
         if hasattr(self, "toggle_btn") and hasattr(self.toggle_btn, "refresh_theme"):
             self.toggle_btn.refresh_theme(profile)
-        if hasattr(self, "user_name"):
-            self._update_user_label(getattr(self, "profile_name", "default"))
         for item in self._items.values():
             item.refresh_theme(profile)
         if hasattr(self, "settings_btn"):
             self.settings_btn.refresh_theme(profile)
-        if hasattr(self, "cards_icon"):
-            self.cards_icon.setPixmap(load_phosphor_icon("cards", color=profile.accent_primary).pixmap(20, 20))
+        if hasattr(self, "user_widget"):
+            self.user_widget.refresh_theme(profile)
 
     def add_section(self, title: str, items: list[Tuple[str, str, str]]) -> None:
         """Ajoute une section avec un titre, une ligne séparatrice et une liste de (view_id, icon, text)."""
@@ -244,13 +257,6 @@ class Sidebar(QWidget):
         # Direct fixed width update (prevents 16ms layout thrashing reflow loop)
         self.setFixedWidth(width)
 
-        # Toggle visibility
-        if hasattr(self, "logo_text"):
-            self.logo_text.setVisible(not collapsed)
-        if hasattr(self, "toggle_btn"):
-            self.toggle_btn.setVisible(not collapsed)
-        self.user_name.setVisible(not collapsed)
-
         for i in range(self.sections_layout.count() - 1):
             item = self.sections_layout.itemAt(i)
             if item is not None:
@@ -264,6 +270,8 @@ class Sidebar(QWidget):
             btn.set_collapsed(collapsed)
 
         self.settings_btn.set_collapsed(collapsed)
+        if hasattr(self, "user_widget"):
+            self.user_widget.set_collapsed(collapsed)
 
     def set_active_view(self, view_id: str) -> None:
         for vid, btn in self._items.items():

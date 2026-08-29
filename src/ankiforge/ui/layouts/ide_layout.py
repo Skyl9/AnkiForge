@@ -71,6 +71,7 @@ class IdeLayout(BaseLayout):
         # Raccorder les références pour compatibilité rétroactive
         self.sidebar.toggle_btn = self.topbar.toggle_btn
         self.sidebar.logo_icon = self.topbar.logo_icon
+        self.sidebar.logo_text = self.topbar.logo_text
 
         bottom_layout.addWidget(self.sidebar)
 

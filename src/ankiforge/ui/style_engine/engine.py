@@ -474,7 +474,7 @@ class StyleEngine(QObject):
             background-color: {p.bg_sidebar};
             border-right: 1px solid {p.border_color};
         }}
-        SidebarItem {{
+        SidebarItem, SidebarProfileItem, QPushButton#SidebarUserBtn {{
             background-color: transparent;
             color: {p.text_secondary};
             border: none;
@@ -483,14 +483,17 @@ class StyleEngine(QObject):
             padding-left: 12px;
             font-size: {p.font_size_base}px;
         }}
-        SidebarItem:hover {{
+        SidebarItem:hover, SidebarProfileItem:hover, QPushButton#SidebarUserBtn:hover {{
             background-color: {p.bg_hover};
             color: {p.text_primary};
         }}
-        SidebarItem:checked {{
+        SidebarItem:checked, SidebarProfileItem:checked {{
             background-color: {p.bg_active};
             color: {p.accent_primary};
             font-weight: bold;
+        }}
+        SidebarItem:pressed, SidebarProfileItem:pressed, QPushButton#SidebarUserBtn:pressed {{
+            background-color: {p.bg_active};
         }}
 
         /* --- Sidebar sub-elements --- */
@@ -502,6 +505,10 @@ class StyleEngine(QObject):
         }}
         QWidget#SidebarHeader {{
             border-bottom: 1px solid {p.border_color};
+            background-color: transparent;
+        }}
+        QWidget#SidebarFooter {{
+            border-top: 1px solid {p.border_color};
             background-color: transparent;
         }}
         QFrame#SidebarSeparator {{
@@ -523,10 +530,11 @@ class StyleEngine(QObject):
         QLabel#SidebarUserName {{
             color: {p.text_primary};
             border: none;
-            font-weight: bold;
+            font-weight: 500;
             font-size: 12px;
+            background: transparent;
         }}
-        QLabel#SidebarCardsIcon {{
+        QLabel#SidebarCardsIcon, QLabel#SidebarSwitchIcon {{
             border: none;
             background: transparent;
         }}
