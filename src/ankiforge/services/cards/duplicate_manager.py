@@ -89,7 +89,7 @@ class DuplicateManager:
                         note_data_list.append((note, clean_text, content, text_length, word_set))
 
             ignored_records = IgnoredDuplicateModel.select()
-            ignored_pairs = {(record.note_a_id, record.note_b_id) for record in ignored_records}
+            ignored_pairs = {(record.note_a.id, record.note_b.id) for record in ignored_records}
 
             matched_ids = set()
             for i, (note_a, clean_a, content_a, len_a, words_a) in enumerate(note_data_list):

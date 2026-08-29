@@ -58,7 +58,8 @@ class ProfileManager:
             db.close()
 
         # Réinitialise la base de données Peewee avec le nouveau chemin
-        db.init(new_path)
+        db.init(str(new_path))
+
         set_active_profile(profile_name)
 
         try:

@@ -637,8 +637,8 @@ class ImportManager:
 
             # 4. Mises à jour silencieuses (Decks/Tags ou contenu non modifié localement)
             for u_info in analysis.silent_updates:
-                note = NoteModel.get_or_none(NoteModel.id == u_info["note_id"])
-                if not note:
+                u_note = NoteModel.get_or_none(NoteModel.id == u_info["note_id"])
+                if not u_note:
                     continue
 
                 # Mise à jour Deck si changé
@@ -652,26 +652,26 @@ class ImportManager:
                             parent, _ = DeckModel.get_or_create(name=parent_name)
                         d_obj, _ = DeckModel.get_or_create(name=d_name, defaults={"parent_deck": parent})
                         deck_cache[d_name] = d_obj
-                    for card in note.cards:
+                    for card in u_note.cards:
                         if card.deck != d_obj:
                             card.deck = d_obj
                             card.save()
 
                 # Mise à jour version si raison == incoming_newer
                 if u_info.get("reason") == "incoming_newer" and u_info.get("content"):
-                    note.add_version(u_info["content"], source="import")
+                    u_note.add_version(u_info["content"], source="import")
 
                 if u_info.get("tags"):
-                    note.tags = json.dumps(u_info["tags"])
-                    note.save()
+                    u_note.tags = json.dumps(u_info["tags"])
+                    u_note.save()
                 updated_count += 1
 
             # 5. Application des Résolutions de Conflits
             for conflict in analysis.conflicts:
                 guid = conflict.guid
                 res = resolutions.get(guid)
-                note = NoteModel.get_or_none(NoteModel.id == conflict.note_id)
-                if not note:
+                c_note = NoteModel.get_or_none(NoteModel.id == conflict.note_id)
+                if not c_note:
                     continue
 
                 if res:
@@ -690,20 +690,21 @@ class ImportManager:
                         resolved_tags = conflict.local_tags
 
                     # Ajout d'une version avec source='merge'
-                    note.add_version(resolved_content, source="merge")
+                    c_note.add_version(resolved_content, source="merge")
 
                     # Mise à jour deck
                     d_obj = deck_cache.get(resolved_deck_name)
                     if not d_obj:
                         d_obj, _ = DeckModel.get_or_create(name=resolved_deck_name)
                         deck_cache[resolved_deck_name] = d_obj
-                    for card in note.cards:
+                    for card in c_note.cards:
                         card.deck = d_obj
                         card.save()
 
-                    note.tags = json.dumps(resolved_tags)
-                    note.save()
+                    c_note.tags = json.dumps(resolved_tags)
+                    c_note.save()
                     merged_count += 1
+
                 else:
                     # Défaut : Garder localement intact
                     pass

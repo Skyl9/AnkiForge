@@ -507,12 +507,14 @@ class TokenSrsFinancialService:
         colors = ["#4285F4", "#10a37f", "#c084fc", "#f59e0b"]
         models_list = []
         for i, mq in enumerate(models_query):
-            pct = (mq.cost / total_spent * 100) if total_spent > 0 else 0
+            mq_cost = float(getattr(mq, "cost", 0.0) or 0.0)
+            mq_tokens = int(getattr(mq, "tokens", 0) or 0)
+            pct = (mq_cost / total_spent * 100) if total_spent > 0 else 0
             models_list.append(
                 {
-                    "name": mq.model_id,
-                    "cost_usd": mq.cost,
-                    "tokens": mq.tokens,
+                    "name": str(mq.model_id),
+                    "cost_usd": mq_cost,
+                    "tokens": mq_tokens,
                     "pct": pct,
                     "color": colors[i % len(colors)],
                 }
@@ -545,8 +547,9 @@ class TokenSrsFinancialService:
 
         tasks_breakdown = []
         for i, tq in enumerate(task_query):
-            pct = (tq.cost / total_spent * 100) if total_spent > 0 else 0
-            tasks_breakdown.append({"task": tq.task_type, "cost_usd": tq.cost, "pct": pct, "color": colors[i % len(colors)]})
+            tq_cost = float(getattr(tq, "cost", 0.0) or 0.0)
+            pct = (tq_cost / total_spent * 100) if total_spent > 0 else 0
+            tasks_breakdown.append({"task": str(tq.task_type), "cost_usd": tq_cost, "pct": pct, "color": colors[i % len(colors)]})
 
         if not tasks_breakdown:
             tasks_breakdown = [

@@ -302,20 +302,20 @@ class MetricsService:
             if not recent_versions:
                 return []
 
-            note_ids = [v.note_id for v in recent_versions if v.note_id]
+            note_ids = [v.note.id for v in recent_versions if v.note]
             deck_name_by_note: dict[int, str] = {}
             if note_ids:
                 cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
                 for c in cards:
-                    if c.note_id not in deck_name_by_note and c.deck:
-                        deck_name_by_note[c.note_id] = c.deck.name
+                    if c.note and c.note.id not in deck_name_by_note and c.deck:
+                        deck_name_by_note[c.note.id] = c.deck.name
 
             current_group: dict[str, Any] | None = None
 
             for v in recent_versions:
                 v_source = v.source or "manual"
                 v_time = v.created_at
-                deck_name = deck_name_by_note.get(v.note_id, "Par défaut")
+                deck_name = deck_name_by_note.get(v.note.id if v.note else 0, "Par défaut")
 
                 if current_group is None:
                     current_group = {

@@ -24,7 +24,7 @@ db = SqliteDatabase(
         "synchronous": 1,  # Équilibre parfait entre sécurité en cas de crash et vitesse d'écriture
     },
 )
-db.init(DEFAULT_DB_PATH)
+db.init(str(DEFAULT_DB_PATH))
 
 
 class BaseModel(Model):

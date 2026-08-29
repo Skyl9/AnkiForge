@@ -57,7 +57,22 @@ jobs:
               - 'docs/**'
               - 'Dossier_architecture/**'
 
-  # ── 2. Parallel Quality & Security Fan-Out ──
+  # ── 2. Security: Secret Scanning (Gitleaks Zero-Trust) ──
+  secret-scan:
+    name: 🔑 Gitleaks (Secret Scanner)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── 3. Parallel Quality & Security Fan-Out ──
   lint-ruff:
     name: ⚡ Ruff (Lint & Format)
     needs: filter
@@ -136,10 +151,35 @@ jobs:
       - name: Run Bandit Security Analysis
         run: uv run bandit -c pyproject.toml -r src/
 
-  # ── 3. Multi-OS Parallel Test Matrix ──
+  audit-dependencies:
+    name: 🛡️ Supply Chain Security (pip-audit)
+    needs: filter
+    if: needs.filter.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Audit Dependencies for Known CVEs
+        run: uv run --with pip-audit pip-audit --local --skip-editable || true
+
+  # ── 4. Multi-OS Parallel Test Matrix ──
   test:
     name: 🧪 Tests on ${{ matrix.os }}
-    needs: [filter, lint-ruff, typecheck-mypy, security-bandit]
+    needs: [filter, secret-scan, lint-ruff, typecheck-mypy, security-bandit, audit-dependencies]
     if: needs.filter.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:

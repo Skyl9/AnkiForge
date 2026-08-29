@@ -88,7 +88,8 @@ class NoteModel(BaseModel):
 
         with db.atomic():
             for note in cls.select():
-                versions = list(note.versions.order_by(NoteVersionModel.version_number.desc()))
+                versions = list(NoteVersionModel.select().where(NoteVersionModel.note == note).order_by(NoteVersionModel.version_number.desc()))
+
                 if len(versions) > keep_last:
                     versions_to_delete = versions[keep_last:]
                     ids_to_delete = [v.id for v in versions_to_delete]
