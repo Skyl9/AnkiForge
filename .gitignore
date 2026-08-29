@@ -42,6 +42,9 @@ wheels/
 .installed.cfg
 *.egg
 .coverage
+coverage.xml
+coverage.json
+
 test.md
 *.json
 !tests/fixtures/golden_data/**

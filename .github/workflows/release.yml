@@ -1,62 +1,92 @@
-name: Release - Multi-Platform Binaries (Nuitka)
+name: Release - Automated Multi-OS Build & Publish
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Nom du Tag de Release (ex: v0.2.0)'
+        required: true
+        default: 'v0.2.0'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
+env:
+  PYTHONUNBUFFERED: "1"
+  QT_QPA_PLATFORM: "offscreen"
+  QTWEBENGINE_DISABLE_SANDBOX: "1"
+  ANKIFORGE_MOCK_WEBENGINE: "1"
+
 jobs:
-  build-binaries:
-    name: 📦 Build Nuitka Binary on ${{ matrix.os }}
+  # ── 1. Construction des Binaires Multi-OS ──
+  build:
+    name: 📦 Build on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            artifact_name: AnkiForge-macOS
-            asset_name: AnkiForge-macOS.zip
           - os: ubuntu-latest
-            artifact_name: AnkiForge-Linux
-            asset_name: AnkiForge-Linux.tar.gz
+            artifact_name: ankiforge-linux-x86_64.tar.gz
+            arch: x86_64
+            os_name: linux
+          - os: macos-latest
+            artifact_name: ankiforge-macos-arm64.zip
+            arch: arm64
+            os_name: macos
           - os: windows-latest
-            artifact_name: AnkiForge-Windows
-            asset_name: AnkiForge-Windows.zip
+            artifact_name: ankiforge-windows-x64.zip
+            arch: x64
+            os_name: windows
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Linux Build Dependencies & Compiler
+      - name: Install Linux GUI Dependencies & Build Tools
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            xvfb \
             libgl1 \
             libegl1 \
             libxkbcommon-x11-0 \
             libdbus-1-3 \
             libxcb1 \
-            gcc \
-            g++ \
-            ccache \
-            patchelf
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-shm0 \
+            libxcb-sync1 \
+            libxcb-xfixes0 \
+            libxcb-xinerama0 \
+            libxcb-xkb1 \
+            gcc || true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: "uv.lock"
           version: "latest"
 
       - name: Set up Python 3.12
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --frozen --dev
 
       - name: Compile Native C Levenshtein Extension (Linux / macOS)
         if: runner.os != 'Windows'
@@ -69,108 +99,73 @@ jobs:
           gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
         shell: bash
 
-      - name: Set up MSVC x64 Developer Command Prompt (Windows)
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      # ── BUILD MACOS AVEC NUITKA ─────────────────────────────────
-      - name: Build Standalone macOS Bundle (Nuitka)
-        if: runner.os == 'macOS'
+      - name: Build Binary with PyInstaller
         run: |
-          export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
-          export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
-          uv run python -m nuitka \
-            --standalone \
-            --macos-create-app-bundle \
-            --macos-app-name="AnkiForge" \
-            --macos-app-version="0.2.0" \
-            --enable-plugin=pyside6 \
-            --include-package-data=qtawesome \
-            --include-data-dir=src/ressources=src/ressources \
-            --include-data-dir=src/ressources=ressources \
-            --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
-            --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
-            --low-memory \
-            --lto=no \
-            --output-dir=dist \
-            --assume-yes-for-downloads \
+          uv run pyinstaller \
+            --name=ankiforge \
+            --onedir \
+            --noconfirm \
+            --clean \
+            --paths=src \
+            --hidden-import=ankiforge \
+            --hidden-import=peewee \
+            --hidden-import=PySide6.QtCore \
+            --hidden-import=PySide6.QtGui \
+            --hidden-import=PySide6.QtWidgets \
             src/ankiforge/__main__.py
-          cd dist
-          if [ -d "__main__.app" ]; then
-            rm -rf AnkiForge.app
-            mv __main__.app AnkiForge.app
-          fi
-          zip -r ../${{ matrix.asset_name }} AnkiForge.app
 
-      # ── BUILD LINUX AVEC NUITKA ─────────────────────────────────
-      - name: Build Standalone Linux App (Nuitka)
+      - name: Smoke Test Binary (Linux with Xvfb)
         if: runner.os == 'Linux'
         run: |
-          export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
-          export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
-          uv run python -m nuitka \
-            --standalone \
-            --enable-plugin=pyside6 \
-            --include-package-data=qtawesome \
-            --include-data-dir=src/ressources=src/ressources \
-            --include-data-dir=src/ressources=ressources \
-            --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
-            --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
-            --low-memory \
-            --lto=no \
-            --output-dir=dist \
-            --output-filename=AnkiForge \
-            --assume-yes-for-downloads \
-            src/ankiforge/__main__.py
-          cd dist
-          if [ -d "AnkiForge.dist" ]; then
-            mv AnkiForge.dist AnkiForge
-          elif [ -d "__main__.dist" ]; then
-            mv __main__.dist AnkiForge
-          fi
-          tar -czf ../${{ matrix.asset_name }} AnkiForge
+          xvfb-run --auto-servernum ./dist/ankiforge/ankiforge --smoke-test
 
-      # ── BUILD WINDOWS AVEC NUITKA ───────────────────────────────
-      - name: Build Standalone Windows App (Nuitka)
+      - name: Smoke Test Binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./dist/ankiforge/ankiforge --smoke-test
+
+      - name: Smoke Test Binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          $env:_CL_ = "/bigobj /Zm200"
-          uv run python -m nuitka `
-            --standalone `
-            --windows-console-mode=disable `
-            --enable-plugin=pyside6 `
-            --include-package-data=qtawesome `
-            --include-data-dir=src/ressources=src/ressources `
-            --include-data-dir=src/ressources=ressources `
-            --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
-            --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext `
-            --low-memory `
-            --lto=no `
-            --output-dir=dist `
-            --output-filename=AnkiForge.exe `
-            --assume-yes-for-downloads `
-            src/ankiforge/__main__.py
-          cd dist
-          if (Test-Path "AnkiForge.dist") {
-            Rename-Item -Path "AnkiForge.dist" -NewName "AnkiForge"
-          } elseif (Test-Path "__main__.dist") {
-            Rename-Item -Path "__main__.dist" -NewName "AnkiForge"
-          }
-          Compress-Archive -Path AnkiForge -DestinationPath ../${{ matrix.asset_name }}
-        shell: pwsh
+          .\dist\ankiforge\ankiforge.exe --smoke-test
+        shell: powershell
 
-      - name: Upload Artifact
+      - name: Package Linux Archive (.tar.gz)
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          tar -czf ../${{ matrix.artifact_name }} ankiforge/
+          cd ..
+          sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
+
+      - name: Package macOS Archive (.zip)
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          zip -r ../${{ matrix.artifact_name }} ankiforge/
+          cd ..
+          shasum -a 256 ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
+
+      - name: Package Windows Archive (.zip)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path dist\ankiforge -DestinationPath ${{ matrix.artifact_name }}
+          $hash = (Get-FileHash ${{ matrix.artifact_name }} -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.artifact_name }}" | Out-File -Encoding ascii ${{ matrix.artifact_name }}.sha256
+        shell: powershell
+
+      - name: Upload Release Asset
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.asset_name }}
+          name: release-${{ matrix.os_name }}
+          path: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
 
-  publish-release:
+  # ── 2. Publication Automatique de la GitHub Release ──
+  publish:
     name: 🚀 Publish GitHub Release
-    needs: build-binaries
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -179,13 +174,39 @@ jobs:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release_assets
+          path: release-assets
           merge-multiple: true
 
-      - name: Create or Update GitHub Release
+      - name: Consolidate SHA-256 Checksums
+        run: |
+          cd release-assets
+          cat *.sha256 > checksums.txt
+          echo "### 🔒 Empreintes Cryptographiques SHA-256 :" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat checksums.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Determine Release Tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release_assets/*
+          tag_name: ${{ steps.tag.outputs.version }}
+          name: "AnkiForge ${{ steps.tag.outputs.version }}"
           generate_release_notes: true
           draft: false
           prerelease: false
+          files: |
+            release-assets/ankiforge-linux-x86_64.tar.gz
+            release-assets/ankiforge-macos-arm64.zip
+            release-assets/ankiforge-windows-x64.zip
+            release-assets/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
