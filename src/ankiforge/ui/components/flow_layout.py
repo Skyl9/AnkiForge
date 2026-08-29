@@ -5,7 +5,6 @@ Permet d'aligner des widgets horizontalement avec retour à la ligne automatique
 
 from __future__ import annotations
 
-from typing import List, Optional
 from PySide6.QtCore import QPoint, QRect, QSize, Qt
 from PySide6.QtWidgets import QLayout, QLayoutItem, QSizePolicy, QWidget
 
@@ -19,7 +18,7 @@ class FlowLayout(QLayout):
 
     def __init__(
         self,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
         margin: int = 0,
         h_spacing: int = 6,
         v_spacing: int = 6,
@@ -28,7 +27,7 @@ class FlowLayout(QLayout):
         self.setContentsMargins(margin, margin, margin, margin)
         self._h_spacing = h_spacing
         self._v_spacing = v_spacing
-        self._item_list: List[QLayoutItem] = []
+        self._item_list: list[QLayoutItem] = []
 
     def __del__(self) -> None:
         item = self.takeAt(0)
@@ -47,12 +46,12 @@ class FlowLayout(QLayout):
     def count(self) -> int:
         return len(self._item_list)
 
-    def itemAt(self, index: int) -> Optional[QLayoutItem]:
+    def itemAt(self, index: int) -> QLayoutItem | None:
         if 0 <= index < len(self._item_list):
             return self._item_list[index]
         return None
 
-    def takeAt(self, index: int) -> Optional[QLayoutItem]:
+    def takeAt(self, index: int) -> QLayoutItem | None:
         if 0 <= index < len(self._item_list):
             return self._item_list.pop(index)
         return None
@@ -123,7 +122,7 @@ class FlowWidget(QWidget):
         margin: int = 0,
         h_spacing: int = 6,
         v_spacing: int = 6,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)

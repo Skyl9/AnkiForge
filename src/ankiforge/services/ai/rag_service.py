@@ -6,7 +6,7 @@ Délègue l'indexation matricielle et la recherche hybride à VectorManager (FAI
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ankiforge.database.models import DocumentModel, LLMConfigModel
 from ankiforge.services.rag.hybrid_retriever import (
@@ -24,10 +24,10 @@ class RAGService:
     Façade de Service RAG Hybride pour l'ensemble d'AnkiForge.
     """
 
-    def __init__(self, llm_config: Optional[LLMConfigModel] = None) -> None:
+    def __init__(self, llm_config: LLMConfigModel | None = None) -> None:
         self.vector_manager = VectorManager(llm_config=llm_config)
 
-    def create_index(self, doc_id: int | str, text: Optional[str] = None) -> bool:
+    def create_index(self, doc_id: int | str, text: str | None = None) -> bool:
         """Crée ou met à jour l'index hybride (FAISS Dense + BM25 Sparse) pour un document."""
         try:
             doc_id_int = int(doc_id)
@@ -49,7 +49,7 @@ class RAGService:
         w_dense: float = DEFAULT_WEIGHT_DENSE,
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
         rrf_k: int = DEFAULT_RRF_K,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Recherche sémantique, lexicale ou hybride (RRF) dans un document.
         - mode="hybrid" : FAISS + BM25 combinés par Reciprocal Rank Fusion
@@ -83,7 +83,7 @@ class RAGService:
         except Exception:
             return False
 
-    def get_index_stats(self, doc_id: int | str) -> Dict[str, Any]:
+    def get_index_stats(self, doc_id: int | str) -> dict[str, Any]:
         """Retourne les métriques d'indexation du document."""
         try:
             return self.vector_manager.get_index_stats(int(doc_id))

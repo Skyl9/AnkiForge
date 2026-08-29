@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
+
+from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.views.batch_view import BatchView
 from ankiforge.ui.views.edition_view import EditionView
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 
 
 @pytest.mark.slow

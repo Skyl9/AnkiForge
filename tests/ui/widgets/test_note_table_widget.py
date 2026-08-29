@@ -1,7 +1,9 @@
-import pytest
 import json
+
+import pytest
+
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.ui.widgets.note_table_widget import NoteTableWidget
-from ankiforge.database.models import DeckModel, NoteModel, CardModel, NoteTypeModel, NoteVersionModel, db
 
 
 @pytest.fixture

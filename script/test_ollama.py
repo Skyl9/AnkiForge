@@ -1,8 +1,10 @@
+import sys
+
+from PySide6.QtWidgets import QApplication
+
 from ankiforge.database.models import db
 from ankiforge.services.ai.flexible_service import OllamaProvider
-from ankiforge.services.workers.creation_worker import CreationWorker, CreationTaskPayload
-from PySide6.QtWidgets import QApplication
-import sys
+from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
 
 app = QApplication(sys.argv)
 db.connect(reuse_if_open=True)

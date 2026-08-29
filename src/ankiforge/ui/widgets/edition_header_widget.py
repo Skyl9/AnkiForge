@@ -1,8 +1,8 @@
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QWidget, QHBoxLayout
 import qtawesome
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QHBoxLayout, QWidget
 
-from ankiforge.ui.components.components import ActionButton, PrimaryButton, HeaderLabel
+from ankiforge.ui.components.components import ActionButton, HeaderLabel, PrimaryButton
 
 
 class EditionHeaderWidget(QWidget):

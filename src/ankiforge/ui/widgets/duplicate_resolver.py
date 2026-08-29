@@ -2,10 +2,10 @@ import difflib
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QProgressBar, QMessageBox
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar, QTextEdit, QVBoxLayout
 
-from ankiforge.database.models import db, NoteModel, IgnoredDuplicateModel
-from ankiforge.ui.components.components import PrimaryButton, ActionButton, RoundedPanel
+from ankiforge.database.models import IgnoredDuplicateModel, NoteModel, db
+from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
 
 
@@ -153,7 +153,7 @@ class DuplicateResolverDialog(QDialog):
         header_color_b = "#81C784" if dark else "#388E3C"
         text_color = "#E0E0E0" if dark else "#333333"
 
-        for field_name in content_a.keys():
+        for field_name in content_a:
             text_a = str(content_a.get(field_name, ""))
             text_b = str(content_b.get(field_name, ""))
 

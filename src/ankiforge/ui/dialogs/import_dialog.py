@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QFont
@@ -43,7 +42,7 @@ class ImportDropZone(QFrame):
 
     file_dropped = Signal(str)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setStyleSheet(f"""
@@ -107,12 +106,12 @@ class ImportDialog(QDialog):
 
     import_finished = Signal(dict)
 
-    def __init__(self, initial_path: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, initial_path: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.import_manager = ImportManager()
-        self.worker: Optional[ImportCardsWorker] = None
-        self.analysis_result: Optional[ImportAnalysisResult] = None
-        self._deck_modal: Optional[DeckSelectWindow] = None
+        self.worker: ImportCardsWorker | None = None
+        self.analysis_result: ImportAnalysisResult | None = None
+        self._deck_modal: DeckSelectWindow | None = None
 
         self.setWindowTitle("Importer un Paquet ou une Collection Anki")
         self.resize(640, 520)
@@ -199,7 +198,7 @@ class ImportDialog(QDialog):
         self.radio_merge_deck.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         merge_row.addWidget(self.radio_merge_deck)
 
-        self.target_deck_id: Optional[int] = None
+        self.target_deck_id: int | None = None
         self.btn_select_target_deck = SecondaryButton("📁 Choisir un paquet cible ▾")
         self.btn_select_target_deck.clicked.connect(self._open_target_deck_select_modal)
         merge_row.addWidget(self.btn_select_target_deck, 1)

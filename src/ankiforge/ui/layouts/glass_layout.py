@@ -3,7 +3,6 @@ Layout Glassmorphism (Moderne / Semi-Translucide) pour AnkiForge.
 Design contemporain avec panneaux semi-transparents, bordures lumineuses et esthétique futuriste.
 """
 
-from typing import Dict, Optional, Tuple, Type
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -18,7 +17,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.components.misc import DaemonStatusWidget
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
@@ -27,7 +25,7 @@ from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
 class GlassTabButton(QPushButton):
     """Bouton style Glassmorphism avec reflets et bordure douce."""
 
-    def __init__(self, view_id: str, icon_name: str, title: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, view_id: str, icon_name: str, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.view_id = view_id
         self.icon_name = icon_name
@@ -90,9 +88,9 @@ class GlassmorphismLayout(BaseLayout):
     - Conteneur de travail avec bordure néon douce
     """
 
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(profile_name, parent)
-        self._nav_buttons: Dict[str, GlassTabButton] = {}
+        self._nav_buttons: dict[str, GlassTabButton] = {}
         self._button_group = QButtonGroup(self)
         self._button_group.setExclusive(True)
         self._setup_ui()
@@ -172,10 +170,6 @@ class GlassmorphismLayout(BaseLayout):
         """)
         header_layout.addWidget(self.token_lbl)
 
-        self.daemon_status = DaemonStatusWidget()
-        self.daemon_status.set_status("idle", "Prêt")
-        header_layout.addWidget(self.daemon_status)
-
         self.search_btn = IconButton("magnifying-glass", tooltip="Rechercher (Ctrl+K)", size=22)
         self.search_btn.clicked.connect(self.search_clicked.emit)
         header_layout.addWidget(self.search_btn)
@@ -221,7 +215,7 @@ class GlassmorphismLayout(BaseLayout):
         if btn:
             btn.setChecked(True)
 
-    def populate_navigation(self, view_registry: Dict[str, Tuple[str, str, str, Type[QWidget]]]) -> None:
+    def populate_navigation(self, view_registry: dict[str, tuple[str, str, str, type[QWidget]]]) -> None:
         for btn in self._nav_buttons.values():
             self._button_group.removeButton(btn)
             btn.deleteLater()
@@ -233,9 +227,6 @@ class GlassmorphismLayout(BaseLayout):
             self._nav_buttons[view_id] = btn
             self._button_group.addButton(btn)
             self.nav_layout.addWidget(btn)
-
-    def update_daemon_status(self, status: str, text: str) -> None:
-        self.daemon_status.set_status(status, text)
 
     def update_token_tracker(self, cost: str, tokens: str) -> None:
         clean_cost = str(cost).replace("$", "").strip()

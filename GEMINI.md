@@ -42,7 +42,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 12. **Extension C Native & Fallback Python :** Extension C compilée pour le calcul de distance Levenshtein (`c_ext/levenshtein_distance.c` / `.so`) avec fallback transparent en pur Python (`utils/c_bridge.py`).
 13. **Interface & Éditeur de Notes (Forge Editor) :** Multi-fenêtrage détachable JetBrains-style (`IdePanel`). L'éditeur de notes est **100% natif Qt** avec saisie LaTeX KaTeX live (`katex_editor.py`), autocomplétion, gestionnaire d'occlusions (`cloze_manager.py`) et visualiseur d'historique Time Machine (`time_machine_dialog.py`, `NoteVersionModel`).
 14. **Parité Web <-> Qt (`RULE_QT_WEB_PARITY`) :** Tout composant HTML créé dans la maquette doit comporter un commentaire d'en-tête indiquant la classe Qt PySide6 équivalente. La translatabilité est validée via `validate_qt_translatability`.
-15. **Qualité, Tests & CI/CD :** Suite complète de tests unitaires et UI (`pytest`, `pytest-qt` headless, 146 tests verts), typage strict (`mypy`), linting (`ruff`), sécurité (`bandit`), et compilation binaire Nuitka multi-plateformes.
+15. **Qualité, Tests & CI/CD :** Suite complète de tests unitaires et UI (`pytest`, `pytest-qt` headless, > 300 tests verts), typage strict 100% (`mypy`), linting (`ruff`), sécurité (`bandit`), et compilation binaire Nuitka multi-plateformes. (Voir règle 20 pour le détail opérationnel).
 16. **Documentation de Référence :** Tout ajout de fonctionnalité ou refactoring doit s'appuyer sur la lecture préalable des documents situés dans `Dossier_architecture/` (notamment `07_inventaire_composants_ui.md` avant de concevoir une nouvelle UI).
 17. **Organisation des Scripts :** Tous les scripts utilitaires doivent résider dans le répertoire `script/` à la racine du projet.
 18. **Référentiel Design System & Nouveaux Composants (`DESIGN.md`) :** `DESIGN.md` est la source unique de vérité pour le design system, la matrice de correspondance des tokens sémantiques (`DesignTokens` / `ThemeProfile`) et l'inventaire des 12 thèmes et 4 layouts. Tout nouveau type de composant ou widget créé DOIT impérativement être consigné dans `DESIGN.md` avec ses correspondances de tokens et déclaré dans `StyleEngine.generate_stylesheet()`. Zéro couleur ou style codé en dur dans le code source.
@@ -52,3 +52,22 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
     - *Sanitisation & Sécurité Absolue :* Le filtre `SecretRedactionFilter` et le formatteur `AnkiForgeLogFormatter` masquent automatiquement toutes les clés d'API (`sk-*`, `AIza*`, `sk-ant-*`), en-têtes `Bearer`, mots de passe et tokens d'authentification avant toute persistance sur disque. Zéro secret ou PII en clair dans les logs.
     - *Contextualisation & Traçabilité :* Chaque ligne de log injecte automatiquement le profil utilisateur actif (`profile_name`), le nom court du thread (`Main`, `QTP`, etc.), le module, le numéro de ligne et l'horodatage milliseconde.
     - *Rétention, Quotas & Crash Dumps :* Les logs sont stockés dans `~/.ankiforge/logs/ankiforge.log` avec une politique de rotation stricte plafonnée à 50 Mo (5 fichiers rotatifs de 10 Mo). Les exceptions non rattrapées sont interceptées par `install_crash_handlers()` (`sys.excepthook` & `threading.excepthook`) et génèrent un rapport d'erreur anonymisé dans `~/.ankiforge/logs/crash.log`.
+20. **Standards de Tests, Typage Mypy Strict, Linting & CI/CD :**
+    - *Pyramide & Isolation des Tests :*
+        - **Tests Unitaires Purs (< 10ms par test) :** Parsers (PDF, YouTube, Docx), algorithmes (Levenshtein, FSRS-4.5), formats, Jinja2, tokenizers. Zéro BDD requise, zéro widget Qt instancié, zéro appel réseau.
+        - **Tests d'Intégration BDD & Services :** BDD SQLite en mémoire partagée (`mode=memory&cache=shared`).
+        - **Tests UI Qt (`pytest-qt` headless) :** Tests de logique pure (signaux, slots, validation de formulaires, cycle de vie des widgets, `qtbot`). Zéro test de snapshot visuel (jugés trop instables).
+        - **Tests IA & RAG 100% Mockés :** Aucun appel API externe payant ni dépendance Ollama active durant les tests. Tous les fournisseurs LLM (OpenAI, Gemini, Anthropic, Ollama), retriéveurs et embeddings sont mockés de manière déterministe.
+    - *Typage Statique Strict 100% (`mypy`) :*
+        - Tout le code du projet (`ankiforge.*`) doit respecter le typage strict (`disallow_untyped_defs = true`).
+        - Interdiction d'ajouter des règles globales `disable_error_code` qui masquent les erreurs de typage.
+        - Utilisation systématique des types stubs (`types-peewee`, `types-requests`, `types-markdown`) et de la syntaxe moderne Python 3.12+ (unions `X | Y`, generics PEP 695).
+    - *Linting & Qualité du Code (`ruff`) :*
+        - Jeu de règles activé : `E`, `F`, `B` (Bugbear), `I` (isort), `UP` (pyupgrade Python 3.12), `T20` (interdiction stricte de `print()`), `PT` (bonnes pratiques pytest), `SIM` (simplification du code).
+    - *Pre-commit & Workflow Local Ultra-Rapide (< 5-10s) :*
+        - Les hooks pre-commit doivent s'exécuter en moins de 5-10 secondes. Ils exécutent `ruff check --fix`, `ruff format`, les vérificateurs de fichiers (`trailing-whitespace`, `check-yaml`, `check-added-large-files`).
+        - *Règle obligatoire pour les développeurs et agents :* Toujours exécuter la suite de tests locale (`uv run pytest`) et valider le typage (`uv run mypy src/ankiforge`) avant tout `git push` ou fusion de branche majeure.
+    - *CI/CD GitHub Actions & Parallélisation :*
+        - Pipeline complet multi-OS (`ubuntu-latest`, `macos-latest`, `windows-latest`) avec compilation automatique de l'extension C native Levenshtein (`.so` / `.dll`).
+        - Parallélisation via `pytest-xdist` (`-n auto`) pour accélérer l'exécution.
+        - Jobs bloquants : Linters (`ruff`), Typage strict (`mypy`), Sécurité (`bandit`), et tests unitaires / UI avec rapport de couverture Codecov/XML.

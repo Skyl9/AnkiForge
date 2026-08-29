@@ -1,8 +1,10 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 from ankiforge.ui.main_window import MainWindow
+from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
 
 @pytest.fixture

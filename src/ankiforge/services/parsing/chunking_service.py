@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class ChunkingService:
         return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     @classmethod
-    def extract_chunks(cls, content: str, file_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    def extract_chunks(cls, content: str, file_type: str | None = None) -> list[dict[str, Any]]:
         """Découpe un document en chunks cohérents et exploitables pour la Forge et le RAG.
 
         Si le document est paginé (PDF, PPTX, ou marqueurs de page présents),
@@ -59,19 +59,16 @@ class ChunkingService:
             is_paginated,
         )
 
-        if is_paginated and markers:
-            result = cls._extract_by_page(content, markers)
-        else:
-            result = cls._extract_by_section(content)
+        result = cls._extract_by_page(content, markers) if is_paginated and markers else cls._extract_by_section(content)
 
         logger.info("Extraction de chunks achevée : %d fragments créés", len(result))
         return result
 
     @classmethod
-    def _extract_by_page(cls, content: str, markers: List[re.Match]) -> List[Dict[str, Any]]:
+    def _extract_by_page(cls, content: str, markers: list[re.Match]) -> list[dict[str, Any]]:
         """Découpe un document page par page à partir des marqueurs détectés."""
-        chunks: List[Dict[str, Any]] = []
-        pages: List[tuple[int, str]] = []
+        chunks: list[dict[str, Any]] = []
+        pages: list[tuple[int, str]] = []
 
         # Si du texte précède le premier marqueur
         if markers[0].start() > 0:
@@ -86,7 +83,7 @@ class ChunkingService:
             page_num = int(m.group(1) or m.group(2)) if (m.group(1) or m.group(2)) else (i + 1)
             pages.append((page_num, page_text))
 
-        current_heading_stack: List[str] = []
+        current_heading_stack: list[str] = []
         chunk_idx = 0
 
         for p_num, p_text in pages:
@@ -123,14 +120,14 @@ class ChunkingService:
         return chunks
 
     @classmethod
-    def _extract_by_section(cls, content: str) -> List[Dict[str, Any]]:
+    def _extract_by_section(cls, content: str) -> list[dict[str, Any]]:
         """Découpe un document Markdown par section hiérarchique (Titre + Corps)."""
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
         lines = content.split("\n")
 
-        current_heading_stack: List[str] = []
-        current_section_lines: List[str] = []
-        current_heading_path: Optional[str] = None
+        current_heading_stack: list[str] = []
+        current_section_lines: list[str] = []
+        current_heading_path: str | None = None
         chunk_idx = 0
 
         def flush_section() -> None:
@@ -176,7 +173,7 @@ class ChunkingService:
         # Si le document n'avait pas de titres structurés (texte au kilomètre)
         if not chunks:
             raw_blocks = content.split("\n\n")
-            accumulated: List[str] = []
+            accumulated: list[str] = []
             for block in raw_blocks:
                 b_clean = block.strip()
                 if not b_clean:

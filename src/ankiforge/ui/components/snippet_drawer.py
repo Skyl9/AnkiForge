@@ -6,7 +6,8 @@ sans modale (navigation Master-Detail & In-Place Form intégrée avec relief tac
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
@@ -37,7 +38,7 @@ class SnippetCardWidget(QFrame):
     insert_requested = Signal(SnippetItem)
     edit_requested = Signal(SnippetItem)
 
-    def __init__(self, snippet: SnippetItem, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, snippet: SnippetItem, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.snippet = snippet
         self.setObjectName("snippetCard")
@@ -108,11 +109,11 @@ class SnippetLibraryDrawer(QWidget):
 
     snippet_selected = Signal(SnippetItem)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._current_category = "Tous"
         self._all_snippets = SnippetLibrary.get_all_snippets()
-        self._selected_snippet_for_detail: Optional[SnippetItem] = None
+        self._selected_snippet_for_detail: SnippetItem | None = None
 
         self._setup_ui()
 
@@ -196,7 +197,7 @@ class SnippetLibraryDrawer(QWidget):
         self.category_container.clear()
 
         categories = ["Tous"] + SnippetLibrary.get_categories()
-        self.category_buttons: List[SecondaryButton] = []
+        self.category_buttons: list[SecondaryButton] = []
 
         for cat in categories:
             btn = SecondaryButton(cat)
@@ -294,7 +295,7 @@ class SnippetLibraryDrawer(QWidget):
             filtered.append(s)
         self._populate_cards(filtered)
 
-    def _populate_cards(self, snippets: List[SnippetItem]) -> None:
+    def _populate_cards(self, snippets: list[SnippetItem]) -> None:
         while self.cards_layout.count():
             child = self.cards_layout.takeAt(0)
             if child:

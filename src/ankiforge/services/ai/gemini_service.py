@@ -1,12 +1,12 @@
 import base64
 import logging
+from typing import Any
 
 from google import genai
 from google.genai import types
-from typing import Any
 
 from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.utils import log_token_usage, get_human_readable_api_error
+from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
 
 logger = logging.getLogger(__name__)
 

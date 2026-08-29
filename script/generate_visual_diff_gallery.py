@@ -6,7 +6,8 @@ Script de génération des galeries de comparaison visuelle :
 
 import shutil
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont, ImageChops
+
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 
 def make_composite(left_path: Path, right_path: Path, out_path: Path, left_title: str, right_title: str) -> float:

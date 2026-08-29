@@ -1,9 +1,9 @@
 import re
 
-with open("concept_macos/index.html", "r") as f:
+with open("concept_macos/index.html") as f:
     macos_html = f.read()
 
-with open("concept_ide/index.html", "r") as f:
+with open("concept_ide/index.html") as f:
     ide_html = f.read()
 
 # Extract sidebar
@@ -40,6 +40,5 @@ if mac_content_start != -1 and mac_content_end != -1:
 
     with open("concept_macos/index.html", "w") as f:
         f.write(new_html)
-    print("Done")
 else:
-    print("Could not find mac-content boundaries")
+    pass

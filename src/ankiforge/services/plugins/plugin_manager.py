@@ -18,7 +18,7 @@ import tempfile
 import traceback
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ankiforge.services.plugins.api import AnkiForgeAPI
 from ankiforge.services.plugins.manifest_schema import AddonInfo, AddonManifest, AddonStatus
@@ -31,9 +31,9 @@ class PluginManager:
     Gestionnaire centralisé pour la découverte, le chargement et la gestion des addons AnkiForge.
     """
 
-    _instance: Optional[PluginManager] = None
+    _instance: PluginManager | None = None
 
-    def __init__(self, addons_dir: Optional[Path] = None) -> None:
+    def __init__(self, addons_dir: Path | None = None) -> None:
         if addons_dir is None:
             self.addons_dir = Path.home() / ".ankiforge" / "addons"
         else:
@@ -42,16 +42,16 @@ class PluginManager:
         self.addons_dir.mkdir(parents=True, exist_ok=True)
         self.meta_file = self.addons_dir.parent / "addons_meta.json"
 
-        self._addons: Dict[str, AddonInfo] = {}
-        self._apis: Dict[str, AnkiForgeAPI] = {}
-        self._modules: Dict[str, Any] = {}
+        self._addons: dict[str, AddonInfo] = {}
+        self._apis: dict[str, AnkiForgeAPI] = {}
+        self._modules: dict[str, Any] = {}
         self._disabled_addon_ids: set[str] = set()
         self._safe_mode: bool = False
 
         self._load_meta()
 
     @classmethod
-    def get_instance(cls, addons_dir: Optional[Path] = None) -> PluginManager:
+    def get_instance(cls, addons_dir: Path | None = None) -> PluginManager:
         """Singleton getter."""
         if cls._instance is None:
             cls._instance = PluginManager(addons_dir)
@@ -70,7 +70,7 @@ class PluginManager:
         """Charge l'état d'activation des addons depuis addons_meta.json."""
         if self.meta_file.exists():
             try:
-                with open(self.meta_file, "r", encoding="utf-8") as f:
+                with open(self.meta_file, encoding="utf-8") as f:
                     data = json.load(f)
                     self._disabled_addon_ids = set(data.get("disabled", []))
             except Exception as e:
@@ -87,7 +87,7 @@ class PluginManager:
         except Exception as e:
             logger.error("Erreur d'enregistrement de %s : %s", self.meta_file, e)
 
-    def discover_addons(self) -> List[AddonInfo]:
+    def discover_addons(self) -> list[AddonInfo]:
         """
         Scanne le dossier ~/.ankiforge/addons/ pour découvrir tous les addons valides.
         """
@@ -105,7 +105,7 @@ class PluginManager:
                 continue
 
             try:
-                with open(manifest_file, "r", encoding="utf-8") as f:
+                with open(manifest_file, encoding="utf-8") as f:
                     manifest_data = json.load(f)
                 manifest = AddonManifest(**manifest_data)
             except Exception as e:
@@ -130,7 +130,7 @@ class PluginManager:
             config_file = entry / "config.json"
             if config_file.exists():
                 try:
-                    with open(config_file, "r", encoding="utf-8") as f:
+                    with open(config_file, encoding="utf-8") as f:
                         config_data = json.load(f)
                 except Exception:
                     config_data = {}
@@ -163,8 +163,8 @@ class PluginManager:
             from PySide6.QtGui import QGuiApplication
 
             app = QGuiApplication.instance()
-            if app:
-                modifiers = app.queryKeyboardModifiers()
+            if app and isinstance(app, QGuiApplication):
+                modifiers = QGuiApplication.queryKeyboardModifiers()
                 if bool(modifiers & Qt.KeyboardModifier.ShiftModifier):
                     logger.warning("🛡️ Touche Shift détectée au boot : Activation du Safe Mode (Addons désactivés) !")
                     return True
@@ -173,7 +173,7 @@ class PluginManager:
 
         return False
 
-    def load_all_addons(self, safe_mode: Optional[bool] = None) -> Dict[str, bool]:
+    def load_all_addons(self, safe_mode: bool | None = None) -> dict[str, bool]:
         """
         Découvre et initialise tous les addons activés.
         """
@@ -184,7 +184,7 @@ class PluginManager:
 
         self.discover_addons()
 
-        results: Dict[str, bool] = {}
+        results: dict[str, bool] = {}
         if self._safe_mode:
             logger.info("🛡️ Mode Sans Échec actif : aucun addon ne sera chargé au démarrage.")
             for addon_id, info in self._addons.items():
@@ -300,7 +300,7 @@ class PluginManager:
             return True
         return False
 
-    def install_addon_from_zip(self, zip_path: str | Path) -> Tuple[bool, str]:
+    def install_addon_from_zip(self, zip_path: str | Path) -> tuple[bool, str]:
         """
         Installe un addon depuis une archive .zip.
         L'archive doit contenir manifest.json soit à la racine, soit dans un unique dossier racine.
@@ -328,7 +328,7 @@ class PluginManager:
                 if not manifest_location:
                     return False, "Archive invalide : aucun 'manifest.json' trouvé à la racine ou dans un sous-dossier."
 
-                with open(manifest_location / "manifest.json", "r", encoding="utf-8") as f:
+                with open(manifest_location / "manifest.json", encoding="utf-8") as f:
                     manifest_data = json.load(f)
                 manifest = AddonManifest(**manifest_data)
 
@@ -367,15 +367,15 @@ class PluginManager:
                 return False
         return False
 
-    def get_addon(self, addon_id: str) -> Optional[AddonInfo]:
+    def get_addon(self, addon_id: str) -> AddonInfo | None:
         """Retourne les informations d'un addon."""
         return self._addons.get(addon_id)
 
-    def get_all_addons(self) -> List[AddonInfo]:
+    def get_all_addons(self) -> list[AddonInfo]:
         """Retourne la liste de tous les addons découverts."""
         return list(self._addons.values())
 
-    def get_addon_api(self, addon_id: str) -> Optional[AnkiForgeAPI]:
+    def get_addon_api(self, addon_id: str) -> AnkiForgeAPI | None:
         """Retourne l'instance API injectée dans l'addon."""
         return self._apis.get(addon_id)
 
@@ -404,6 +404,6 @@ class PluginManager:
             logger.error("Impossible d'ouvrir le dossier %s : %s", folder_path, e)
 
 
-def get_plugin_manager(addons_dir: Optional[Path] = None) -> PluginManager:
+def get_plugin_manager(addons_dir: Path | None = None) -> PluginManager:
     """Accès singleton au gestionnaire de plugins."""
     return PluginManager.get_instance(addons_dir)

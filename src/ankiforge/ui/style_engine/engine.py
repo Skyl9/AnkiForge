@@ -3,7 +3,9 @@ Moteur de Style Centralisé (StyleEngine) pour AnkiForge.
 Génère et applique dynamiquement les règles QSS sémantiques basées sur les sélecteurs de propriétés Qt.
 """
 
-from typing import Dict, List, Optional, Union
+import contextlib
+from typing import Optional
+
 from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
@@ -33,7 +35,7 @@ class StyleEngine(QObject):
     def __init__(self) -> None:
         super().__init__()
         self._current_theme: ThemeProfile = JETBRAINS_DARK
-        self._custom_themes: Dict[str, ThemeProfile] = {}
+        self._custom_themes: dict[str, ThemeProfile] = {}
 
     @classmethod
     def instance(cls) -> "StyleEngine":
@@ -55,7 +57,7 @@ class StyleEngine(QObject):
             return self._custom_themes[theme_id]
         return BUILTIN_THEMES.get(theme_id, JETBRAINS_DARK)
 
-    def get_available_themes(self, mode: Optional[str] = None) -> List[ThemeProfile]:
+    def get_available_themes(self, mode: str | None = None) -> list[ThemeProfile]:
         """Renvoie la liste de tous les thèmes disponibles, optionnellement filtrée par 'dark' ou 'light'."""
         all_themes = get_unique_builtin_themes()
         all_themes.extend(self._custom_themes.values())
@@ -65,7 +67,7 @@ class StyleEngine(QObject):
             return [t for t in all_themes if not t.is_dark]
         return all_themes
 
-    def generate_stylesheet(self, theme: Optional[ThemeProfile] = None) -> str:
+    def generate_stylesheet(self, theme: ThemeProfile | None = None) -> str:
         """
         Compile la feuille de style globale complète à partir d'un ThemeProfile.
         Définit tous les sélecteurs sémantiques pour éliminer le CSS codé en dur dans les composants.
@@ -474,7 +476,7 @@ class StyleEngine(QObject):
             background-color: {p.bg_sidebar};
             border-right: 1px solid {p.border_color};
         }}
-        SidebarItem {{
+        SidebarItem, SidebarProfileItem, QPushButton#SidebarUserBtn {{
             background-color: transparent;
             color: {p.text_secondary};
             border: none;
@@ -483,21 +485,119 @@ class StyleEngine(QObject):
             padding-left: 12px;
             font-size: {p.font_size_base}px;
         }}
-        SidebarItem:hover {{
+        SidebarItem:hover, SidebarProfileItem:hover, QPushButton#SidebarUserBtn:hover {{
             background-color: {p.bg_hover};
             color: {p.text_primary};
         }}
-        SidebarItem:checked {{
+        SidebarItem:checked, SidebarProfileItem:checked {{
             background-color: {p.bg_active};
             color: {p.accent_primary};
             font-weight: bold;
         }}
+        SidebarItem:pressed, SidebarProfileItem:pressed, QPushButton#SidebarUserBtn:pressed {{
+            background-color: {p.bg_active};
+        }}
+
+        /* --- Sidebar sub-elements --- */
+        QLabel#SidebarLogoText {{
+            color: {p.text_primary};
+            font-weight: bold;
+            font-size: 16px;
+            border: none;
+        }}
+        QWidget#SidebarHeader {{
+            border-bottom: 1px solid {p.border_color};
+            background-color: transparent;
+        }}
+        QWidget#SidebarFooter {{
+            border-top: 1px solid {p.border_color};
+            background-color: transparent;
+        }}
+        QFrame#SidebarSeparator {{
+            background-color: {p.border_color};
+            border: none;
+            margin: 4px 0px;
+        }}
+        QLabel#SidebarSectionTitle {{
+            color: {p.text_muted};
+            font-size: 11px;
+            font-weight: bold;
+            border: none;
+        }}
+        QFrame#SidebarSectionSep {{
+            background-color: {p.border_color};
+            border: none;
+            margin: 11px 4px;
+        }}
+        QLabel#SidebarUserName {{
+            color: {p.text_primary};
+            border: none;
+            font-weight: 500;
+            font-size: 12px;
+            background: transparent;
+        }}
+        QLabel#SidebarCardsIcon, QLabel#SidebarSwitchIcon {{
+            border: none;
+            background: transparent;
+        }}
+
+        /* --- TopBar & sub-elements --- */
         TopBar, QWidget#TopBar {{
             background-color: {p.bg_sidebar};
             border-bottom: 1px solid {p.border_color};
         }}
-        GlobalTitleBar {{
+        QWidget#TopBarBrand {{
+            background-color: transparent;
+            border-right: 1px solid {p.border_color};
+        }}
+        QWidget#TopBarContent {{
+            background-color: transparent;
+        }}
+        QLabel#TopBarBreadcrumbLabel {{
+            color: {p.text_primary};
+            font-weight: 600;
+            font-size: 13px;
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarBreadcrumbIcon {{
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarTokenLabel {{
+            color: {p.text_secondary};
+            font-family: '{p.font_code}';
+            font-size: 11px;
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarDollarIcon {{
+            border: none;
+            background: transparent;
+        }}
+        QLabel#TopBarNotifBadge {{
+            background-color: {p.color_red};
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: bold;
+            border-radius: 9px;
+            border: none;
+        }}
+
+        /* --- NotificationMenuPopup --- */
+        NotificationMenuPopup, QFrame#NotificationMenuPopup {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
+        }}
+
+        /* --- GlobalTitleBar --- */
+        GlobalTitleBar, QFrame#GlobalTitleBar {{
             background-color: {p.bg_main};
+        }}
+        QLabel#GlobalTitleBarLabel {{
+            color: {p.text_muted};
+            font-size: 11px;
         }}
 
         /* Zone de défilement générique */
@@ -756,14 +856,11 @@ class StyleEngine(QObject):
         }}
         """
 
-    def apply_theme(self, theme_or_id: Union[str, ThemeProfile], app: Optional[QApplication] = None) -> None:
+    def apply_theme(self, theme_or_id: str | ThemeProfile, app: QApplication | None = None) -> None:
         """
         Applique un thème à l'ensemble de l'application en mettant à jour DesignTokens, QPalette et QSS.
         """
-        if isinstance(theme_or_id, str):
-            profile = self.get_theme(theme_or_id)
-        else:
-            profile = theme_or_id
+        profile = self.get_theme(theme_or_id) if isinstance(theme_or_id, str) else theme_or_id
 
         self._current_theme = profile
 
@@ -797,50 +894,54 @@ class StyleEngine(QObject):
 
         self.theme_changed.emit(profile)
 
-    def force_global_repolish(self, app: Optional[QApplication] = None) -> None:
+    def force_global_repolish(self, app: QApplication | None = None) -> None:
         """
         Force le dé-polissage et re-polissage de tous les widgets actifs pour
         appliquer immédiatement la nouvelle feuille de style QSS sans redémarrage.
+        Invoque également refresh_theme(profile) sur tous les widgets le supportant.
         """
         application = app or QApplication.instance()
         if isinstance(application, QApplication):
             style = application.style()
+            profile = self._current_theme
             for widget in application.allWidgets():
                 try:
+                    if hasattr(widget, "refresh_theme") and callable(widget.refresh_theme):
+                        try:
+                            widget.refresh_theme(profile)
+                        except TypeError:
+                            with contextlib.suppress(Exception):
+                                widget.refresh_theme()
+                        except Exception:
+                            pass
                     style.unpolish(widget)
                     style.polish(widget)
                     widget.update()
                 except Exception:
                     pass  # nosec B110
 
-    def get_theme_families(self) -> List[ThemeFamily]:
+    def get_theme_families(self) -> list[ThemeFamily]:
         """Retourne la liste des 12 familles de thèmes bivalentes."""
         return get_theme_families()
 
-    def get_family_for_theme(self, theme_id: str) -> Optional[ThemeFamily]:
+    def get_family_for_theme(self, theme_id: str) -> ThemeFamily | None:
         """Retrouve la famille d'un thème."""
         return get_family_for_theme(theme_id)
 
-    def set_color_mode(self, mode: str, app: Optional[QApplication] = None) -> ThemeProfile:
+    def set_color_mode(self, mode: str, app: QApplication | None = None) -> ThemeProfile:
         """Définit le mode 'dark' ou 'light' pour la famille de thème active."""
         current = self._current_theme
         family = get_family_for_theme(current.id)
-        if mode == "light":
-            target = family.light_theme if family else self.get_theme("jetbrains_light")
-        else:
-            target = family.dark_theme if family else self.get_theme("ide")
+        target = (family.light_theme if family else self.get_theme("jetbrains_light")) if mode == "light" else family.dark_theme if family else self.get_theme("ide")
 
         self.apply_theme(target, app=app)
         return target
 
-    def toggle_color_mode(self, app: Optional[QApplication] = None) -> ThemeProfile:
+    def toggle_color_mode(self, app: QApplication | None = None) -> ThemeProfile:
         """Bascule intelligemment entre le mode Sombre et le mode Clair pour la famille active."""
         current = self._current_theme
         family = get_family_for_theme(current.id)
-        if current.is_dark:
-            target = family.light_theme if family else self.get_theme("jetbrains_light")
-        else:
-            target = family.dark_theme if family else self.get_theme("ide")
+        target = (family.light_theme if family else self.get_theme("jetbrains_light")) if current.is_dark else family.dark_theme if family else self.get_theme("ide")
 
         self.apply_theme(target, app=app)
         return target

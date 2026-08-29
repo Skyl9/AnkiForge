@@ -3,450 +3,26 @@ Main Window & Navigation for AnkiForge.
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple, Type, cast
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QScrollArea, QPushButton, QFrame, QMessageBox, QButtonGroup
-from PySide6.QtCore import Qt, Signal, QSize, QObject, QEvent
-from PySide6.QtGui import QMouseEvent, QKeySequence, QShortcut
+from typing import Any, cast
 
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.ui.components.inputs import GlowLineEdit
-from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.components.misc import DaemonStatusWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
+from ankiforge.ui.components.sidebar import ClickableLabel, Sidebar, SidebarItem  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.agents_view import AgentsView
 
 logger = logging.getLogger(__name__)
-
-
-class ClickableLabel(QLabel):
-    """QLabel cliquable pour déclencher des signaux."""
-
-    clicked = Signal()
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
-
-
-class SidebarItem(QPushButton):
-    """Bouton de navigation dans la sidebar."""
-
-    def __init__(self, view_id: str, icon_name: str, title: str, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.view_id = view_id
-        self.icon_name = icon_name
-        self.title = title
-
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(36)
-
-        self._collapsed = False
-
-        # Set icon
-        self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
-        self.setIconSize(QSize(20, 20))
-        self.setText(f"  {self.title.replace('&', '&&')}")
-        self.toggled.connect(self._on_toggled)
-
-    def set_collapsed(self, collapsed: bool) -> None:
-        self._collapsed = collapsed
-        if collapsed:
-            self.setText("")
-            self.setToolTip(self.title)
-        else:
-            self.setText(f"  {self.title.replace('&', '&&')}")
-            self.setToolTip("")
-
-    def _on_toggled(self, checked: bool) -> None:
-        if checked:
-            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.ACCENT_PRIMARY))
-        else:
-            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
-
-    def refresh_theme(self, profile: Any) -> None:
-        color = profile.accent_primary if self.isChecked() else profile.text_secondary
-        self.setIcon(load_phosphor_icon(self.icon_name, color=color))
-
-
-class Sidebar(QWidget):
-    """Sidebar collapsible 260px <-> 68px."""
-
-    view_selected = Signal(str)
-    settings_requested = Signal()
-    toggle_requested = Signal()
-    profile_switch_requested = Signal()
-
-    def __init__(self, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("Sidebar")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setFixedWidth(DesignTokens.SIDEBAR_WIDTH_EXPANDED)
-
-        self.profile_name = profile_name
-        self.is_collapsed = False
-        self._items: Dict[str, SidebarItem] = {}
-        self._button_group = QButtonGroup(self)
-        self._button_group.setExclusive(True)
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        # 1. Logo Header
-        self.header = QWidget()
-        self.header.setFixedHeight(60)
-        self.header_layout = QHBoxLayout(self.header)
-        self.header_layout.setContentsMargins(16, 0, 16, 0)
-
-        self.logo_icon = ClickableLabel()
-        self.logo_icon.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.logo_icon.clicked.connect(self.toggle_requested.emit)
-        from ankiforge.utils.icon_loader import load_logo_icon
-
-        self.logo_icon.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
-
-        self.logo_text = QLabel("AnkiForge")
-        self.logo_text.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 16px; border: none;")
-
-        self.header.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; background-color: transparent;")
-
-        self.toggle_btn = IconButton("list", tooltip="Toggle Sidebar", size=24)
-        self.toggle_btn.clicked.connect(self.toggle_requested.emit)
-
-        self.header_layout.addWidget(self.logo_icon)
-        self.header_layout.addWidget(self.logo_text)
-        self.header_layout.addStretch()
-        self.header_layout.addWidget(self.toggle_btn)
-
-        main_layout.addWidget(self.header)
-
-        # 2. ScrollArea for sections
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; } QScrollBar { width: 0px; height: 0px; }")
-
-        self.scroll_content = QWidget()
-        self.scroll_content.setStyleSheet("background-color: transparent;")
-        self.sections_layout = QVBoxLayout(self.scroll_content)
-        self.sections_layout.setContentsMargins(12, 12, 12, 12)
-        self.sections_layout.setSpacing(24)
-        self.sections_layout.addStretch()
-
-        self.scroll.setWidget(self.scroll_content)
-        main_layout.addWidget(self.scroll)
-
-        # 3. Footer
-        self.footer = QWidget()
-        footer_layout = QVBoxLayout(self.footer)
-        footer_layout.setContentsMargins(12, 12, 12, 12)
-        footer_layout.setSpacing(4)
-
-        self.settings_btn = SidebarItem("settings", "gear", "Paramètres")
-        self.settings_btn.clicked.connect(self.settings_requested.emit)
-        self.separator = QFrame()
-        self.separator.setFrameShape(QFrame.Shape.HLine)
-        self.separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none; margin: 4px 0px;")
-        self.separator.setFixedHeight(1)
-        footer_layout.addWidget(self.separator)
-
-        footer_layout.addWidget(self.settings_btn)
-
-        self.user_widget = QWidget()
-        self.user_widget.setObjectName("UserWidget")
-        self.user_widget.setProperty("card-style", "panel")
-        self.user_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.user_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.user_widget.mousePressEvent = lambda event: self.profile_switch_requested.emit()
-        user_layout = QHBoxLayout(self.user_widget)
-        user_layout.setContentsMargins(8, 8, 8, 8)
-
-        self.cards_icon = QLabel()
-        self.cards_icon.setPixmap(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        self.cards_icon.setStyleSheet("border: none; background: transparent;")
-
-        self.user_name = QLabel(f"Profil: {profile_name}<br><span style='color: {DesignTokens.COLOR_GREEN}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
-        self.user_name.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-weight: bold; font-size: 12px;")
-        user_layout.addWidget(self.cards_icon)
-        user_layout.addWidget(self.user_name)
-        user_layout.addStretch()
-
-        footer_layout.addWidget(self.user_widget)
-
-        main_layout.addWidget(self.footer)
-
-    def set_profile_name(self, profile_name: str) -> None:
-        """Met à jour le nom du profil affiché dans le footer de la barre latérale."""
-        self.profile_name = profile_name
-        if hasattr(self, "user_name"):
-            self.user_name.setText(f"Profil: {profile_name}<br><span style='color: {DesignTokens.COLOR_GREEN}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
-
-    def refresh_theme(self, profile: Any) -> None:
-        from ankiforge.utils.icon_loader import load_logo_icon
-
-        if hasattr(self, "logo_icon"):
-            self.logo_icon.setPixmap(load_logo_icon(profile.accent_primary).pixmap(24, 24))
-        if hasattr(self, "logo_text"):
-            self.logo_text.setStyleSheet(f"color: {profile.text_primary}; font-weight: bold; font-size: 16px; border: none;")
-        if hasattr(self, "header"):
-            self.header.setStyleSheet(f"border-bottom: 1px solid {profile.border_color}; background-color: transparent;")
-        if hasattr(self, "separator"):
-            self.separator.setStyleSheet(f"background-color: {profile.border_color}; border: none; margin: 4px 0px;")
-        if hasattr(self, "user_name"):
-            self.user_name.setText(f"Profil: {getattr(self, 'profile_name', 'default')}<br><span style='color: {profile.color_green}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
-            self.user_name.setStyleSheet(f"color: {profile.text_primary}; border: none; font-weight: bold; font-size: 12px;")
-        if hasattr(self, "toggle_btn"):
-            self.toggle_btn.refresh_theme(profile)
-        for item in self._items.values():
-            item.refresh_theme(profile)
-        if hasattr(self, "settings_btn"):
-            self.settings_btn.refresh_theme(profile)
-        if hasattr(self, "cards_icon"):
-            self.cards_icon.setPixmap(load_phosphor_icon("cards", color=profile.accent_primary).pixmap(20, 20))
-
-    def add_section(self, title: str, items: list[Tuple[str, str, str]]) -> None:
-        """Ajoute une section avec un titre, une ligne séparatrice et une liste de (view_id, icon, text)."""
-        section_widget = QWidget()
-        layout = QVBoxLayout(section_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-
-        header_container = QWidget()
-        header_container.setFixedHeight(24)
-        header_layout = QHBoxLayout(header_container)
-        header_layout.setContentsMargins(12, 0, 0, 0)
-        header_layout.setSpacing(0)
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-
-        title_lbl = QLabel(title.upper())
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none;")
-        title_lbl.setFixedHeight(20)
-        title_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-
-        sep_line = QFrame()
-        sep_line.setFrameShape(QFrame.Shape.HLine)
-        sep_line.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none; margin: 11px 4px;")
-        sep_line.setFixedHeight(1)
-        sep_line.setVisible(False)
-
-        header_layout.addWidget(title_lbl)
-        header_layout.addWidget(sep_line)
-
-        layout.addWidget(header_container)
-
-        for view_id, icon, text in items:
-            btn = SidebarItem(view_id, icon, text)
-            btn.clicked.connect(lambda checked=False, vid=view_id: self.view_selected.emit(vid))
-            self._items[view_id] = btn
-            self._button_group.addButton(btn)
-            layout.addWidget(btn)
-
-        # Insert before the stretch
-        self.sections_layout.insertWidget(self.sections_layout.count() - 1, section_widget)
-        section_widget.title_lbl = title_lbl
-        section_widget.sep_line = sep_line
-
-    def set_collapsed(self, collapsed: bool) -> None:
-        self.is_collapsed = collapsed
-        width = DesignTokens.SIDEBAR_WIDTH_COLLAPSED if collapsed else DesignTokens.SIDEBAR_WIDTH_EXPANDED
-
-        # Direct fixed width update (prevents 16ms layout thrashing reflow loop)
-        self.setFixedWidth(width)
-
-        # Toggle visibility
-        self.logo_text.setVisible(not collapsed)
-        self.toggle_btn.setVisible(not collapsed)
-        self.user_name.setVisible(not collapsed)
-
-        if collapsed:
-            self.header_layout.setContentsMargins(22, 0, 0, 0)
-        else:
-            self.header_layout.setContentsMargins(16, 0, 16, 0)
-
-        for i in range(self.sections_layout.count() - 1):
-            item = self.sections_layout.itemAt(i)
-            if item is not None:
-                widget = item.widget()
-                if widget and hasattr(widget, "title_lbl") and hasattr(widget, "sep_line"):
-                    w = cast(Any, widget)
-                    w.title_lbl.setVisible(not collapsed)
-                    w.sep_line.setVisible(collapsed)
-
-        for btn in self._items.values():
-            btn.set_collapsed(collapsed)
-
-        self.settings_btn.set_collapsed(collapsed)
-
-    def set_active_view(self, view_id: str) -> None:
-        for vid, btn in self._items.items():
-            is_active = vid == view_id
-            btn.setChecked(is_active)
-            btn._on_toggled(is_active)
-
-
-class TopBar(QWidget):
-    """Barre supérieure 60px : omnibox + actions daemon/tokens/notifications."""
-
-    search_clicked = Signal()
-    import_clicked = Signal()
-    export_clicked = Signal()
-    notif_clicked = Signal()
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("TopBar")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setFixedHeight(DesignTokens.TOPBAR_HEIGHT)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(24, 0, 24, 0)
-        layout.setSpacing(16)
-
-        # Fil d'Ariane (Breadcrumb)
-        self.breadcrumb_container = QWidget()
-        breadcrumb_layout = QHBoxLayout(self.breadcrumb_container)
-        breadcrumb_layout.setContentsMargins(0, 0, 0, 0)
-        breadcrumb_layout.setSpacing(8)
-        breadcrumb_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-        self._current_breadcrumb_icon = "ph.house"
-        self.breadcrumb_icon = QLabel()
-        self.breadcrumb_icon.setPixmap(load_phosphor_icon(self._current_breadcrumb_icon, color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
-        self.breadcrumb_icon.setStyleSheet("border: none; background: transparent;")
-
-        self.breadcrumb_lbl = QLabel("Tableau de bord")
-        self.breadcrumb_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 13px; border: none; background: transparent;")
-
-        breadcrumb_layout.addWidget(self.breadcrumb_icon)
-        breadcrumb_layout.addWidget(self.breadcrumb_lbl)
-        layout.addWidget(self.breadcrumb_container, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        # Omnibox
-        self.omnibox = GlowLineEdit()
-        self.omnibox.setPlaceholderText("Rechercher cartes, paquets ou commandes... (Ctrl+K)")
-        self.omnibox.setMaximumWidth(420)
-        self.omnibox.installEventFilter(self)
-        layout.addWidget(self.omnibox)
-
-        layout.addStretch()
-
-        # Token cost tracker pill (28px compact height, vertically centered)
-        self.token_container = QWidget()
-        self.token_container.setFixedHeight(28)
-        self.token_container.setProperty("card-style", "panel")
-        self.token_container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        token_layout = QHBoxLayout(self.token_container)
-        token_layout.setContentsMargins(8, 0, 10, 0)
-        token_layout.setSpacing(6)
-        token_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-        self.dollar_icon = QLabel()
-        self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=DesignTokens.COLOR_GREEN).pixmap(14, 14))
-        self.dollar_icon.setStyleSheet("border: none; background: transparent;")
-
-        self.token_lbl = QLabel("Dépenses : 0.00 $ (0 tk)")
-        self.token_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; border: none; background: transparent;")
-
-        token_layout.addWidget(self.dollar_icon)
-        token_layout.addWidget(self.token_lbl)
-
-        layout.addWidget(self.token_container, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        # Daemon Status
-        self.daemon_status = DaemonStatusWidget()
-        self.daemon_status.set_status("idle", "Daemon en attente")
-        layout.addWidget(self.daemon_status, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        # Import & Export Actions
-        self.import_btn = IconButton("download-simple", tooltip="Importer un paquet Anki (Ctrl+Shift+I)", size=24)
-        self.import_btn.clicked.connect(self.import_clicked.emit)
-        layout.addWidget(self.import_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        self.export_btn = IconButton("upload-simple", tooltip="Exporter des cartes Anki (Ctrl+Shift+E)", size=24)
-        self.export_btn.clicked.connect(self.export_clicked.emit)
-        layout.addWidget(self.export_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        # Notifications
-        self.notif_btn = IconButton("bell", tooltip="Notifications", size=24)
-        self.notif_btn.clicked.connect(self.notif_clicked.emit)
-        layout.addWidget(self.notif_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-    def update_notif_badge(self, count: int) -> None:
-        if count > 0:
-            self.notif_btn.setToolTip(f"Notifications & Diagnostics ({count} alerte{'s' if count > 1 else ''})")
-        else:
-            self.notif_btn.setToolTip("Notifications (Aucune alerte)")
-
-    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        if obj == self.omnibox and event.type() == QEvent.Type.MouseButtonPress:
-            self.search_clicked.emit()
-            return True
-        return super().eventFilter(obj, event)
-
-    def _on_omnibox_click(self, event: QMouseEvent) -> None:
-        self.search_clicked.emit()
-
-    def update_breadcrumb(self, text: str, icon_name: str = "ph.folder") -> None:
-        self._current_breadcrumb_icon = icon_name
-        if hasattr(self, "breadcrumb_lbl"):
-            self.breadcrumb_lbl.setText(text)
-        if hasattr(self, "breadcrumb_icon"):
-            self.breadcrumb_icon.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
-
-    def update_daemon_status(self, status: str, text: str) -> None:
-        self.daemon_status.set_status(status, text)
-
-    def update_token_tracker(self, cost: str, tokens: str) -> None:
-        clean_cost = str(cost).replace("$", "").strip()
-        self.token_lbl.setText(f"Dépenses : {clean_cost} $ ({tokens} tk)")
-
-    def refresh_theme(self, profile: Any) -> None:
-        if hasattr(self, "breadcrumb_lbl"):
-            self.breadcrumb_lbl.setStyleSheet(f"color: {profile.text_primary}; font-weight: 600; font-size: 13px; border: none; background: transparent;")
-        if hasattr(self, "breadcrumb_icon"):
-            icon_name = getattr(self, "_current_breadcrumb_icon", "ph.folder")
-            self.breadcrumb_icon.setPixmap(load_phosphor_icon(icon_name, color=profile.accent_primary).pixmap(16, 16))
-        if hasattr(self, "dollar_icon"):
-            self.dollar_icon.setPixmap(load_phosphor_icon("currency-dollar", color=profile.color_green).pixmap(14, 14))
-        if hasattr(self, "token_lbl"):
-            self.token_lbl.setStyleSheet(f"color: {profile.text_secondary}; font-family: '{profile.font_code}'; font-size: 11px; border: none; background: transparent;")
-        if hasattr(self, "notif_btn") and hasattr(self.notif_btn, "refresh_theme"):
-            self.notif_btn.refresh_theme(profile)
-        if hasattr(self, "daemon_status") and hasattr(self.daemon_status, "refresh_theme"):
-            self.daemon_status.refresh_theme(profile)
-
-
-class GlobalTitleBar(QFrame):
-    """Barre de titre globale 28px pour macOS drag."""
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setFixedHeight(DesignTokens.GLOBAL_TOPBAR_HEIGHT)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self.title_lbl = QLabel("AnkiForge")
-        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
-        self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.title_lbl)
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.window().windowHandle().startSystemMove()
-        super().mousePressEvent(event)
 
 
 class DummyView(QWidget):
     """Vue temporaire pour le QStackedWidget."""
 
-    def __init__(self, title: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         lbl = QLabel(f"[{title}] View Content Placeholder")
@@ -464,18 +40,18 @@ class DummyView(QWidget):
 class MainWindow(QMainWindow):
     """Fenêtre principale ankiforge_obsidian."""
 
-    from ankiforge.ui.views.dashboard_view import DashboardView
-    from ankiforge.ui.views.creation_view import CreationView
-    from ankiforge.ui.views.edition_view import EditionView
-    from ankiforge.ui.views.analysis_view import AnalysisView
-    from ankiforge.ui.views.consultant_view import ConsultantView
-    from ankiforge.ui.views.batch_view import BatchView
-    from ankiforge.ui.views.documents_view import DocumentsView
-    from ankiforge.ui.views.card_models_view import CardModelsView
-    from ankiforge.ui.views.pipelines_view import PipelinesView
     from ankiforge.ui.views.ab_tests_view import ABTestsView
+    from ankiforge.ui.views.analysis_view import AnalysisView
+    from ankiforge.ui.views.batch_view import BatchView
+    from ankiforge.ui.views.card_models_view import CardModelsView
+    from ankiforge.ui.views.consultant_view import ConsultantView
+    from ankiforge.ui.views.creation_view import CreationView
+    from ankiforge.ui.views.dashboard_view import DashboardView
+    from ankiforge.ui.views.documents_view import DocumentsView
+    from ankiforge.ui.views.edition_view import EditionView
+    from ankiforge.ui.views.pipelines_view import PipelinesView
 
-    VIEW_REGISTRY: Dict[str, Tuple[str, str, str, Type[QWidget]]] = {
+    VIEW_REGISTRY: dict[str, tuple[str, str, str, type[QWidget]]] = {
         # view_id -> (category, icon, title, WidgetClass)
         "dashboard": ("Général", "squares-four", "Tableau de bord", DashboardView),
         "creation": ("Forge & Outils", "magic-wand", "Studio de Création", CreationView),
@@ -490,7 +66,7 @@ class MainWindow(QMainWindow):
         "ab-tests": ("Laboratoire IA", "scales", "Tests A/B", ABTestsView),
     }
 
-    def __init__(self, ai_manager: Optional[AIManager], profile_name: str = "default") -> None:
+    def __init__(self, ai_manager: AIManager | None, profile_name: str = "default") -> None:
         super().__init__()
         self.ai_manager = ai_manager
         self.profile_name = profile_name
@@ -510,13 +86,13 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.layouts.base_layout import BaseLayout
         from ankiforge.ui.layouts.layout_manager import LayoutManager
 
-        self._view_widgets: Dict[str, QWidget] = {}
-        self._current_view_id: Optional[str] = None
-        self._settings_window: Optional[QWidget] = None
-        self._import_dialog: Optional[QWidget] = None
-        self._export_dialog: Optional[QWidget] = None
-        self._notif_popup: Optional[QWidget] = None
-        self.current_layout: Optional[BaseLayout] = None
+        self._view_widgets: dict[str, QWidget] = {}
+        self._current_view_id: str | None = None
+        self._settings_window: QWidget | None = None
+        self._import_dialog: QWidget | None = None
+        self._export_dialog: QWidget | None = None
+        self._notif_popup: QWidget | None = None
+        self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
         # Enregistrement initial des placeholders légers (Lazy Loading)
@@ -540,14 +116,14 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
 
     @property
-    def sidebar(self) -> Optional[Any]:
+    def sidebar(self) -> Any | None:
         """Propriété de compatibilité pour accéder à la sidebar si présente."""
         if self.current_layout is not None and hasattr(self.current_layout, "sidebar"):
             return self.current_layout.sidebar
         return None
 
     @property
-    def topbar(self) -> Optional[Any]:
+    def topbar(self) -> Any | None:
         """Propriété de compatibilité pour accéder à la topbar si présente."""
         if self.current_layout is not None and hasattr(self.current_layout, "topbar"):
             return self.current_layout.topbar
@@ -681,9 +257,10 @@ class MainWindow(QMainWindow):
 
     def _show_notif_popup(self) -> None:
         """Affiche le menu déroulant des notifications rattaché à la cloche TopBar."""
-        from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
-        from ankiforge.services.audit.metrics_service import MetricsService
         from PySide6.QtCore import QPoint
+
+        from ankiforge.services.audit.metrics_service import MetricsService
+        from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
 
         if not self._notif_popup:
             self._notif_popup = NotificationMenuPopup(self)
@@ -712,17 +289,16 @@ class MainWindow(QMainWindow):
             tokens_val = telemetry.get("total_tokens", 0)
             self.topbar.update_token_tracker(f"{cost_val:.2f}", f"{tokens_val:,}")
 
-    def _on_view_selected(self, view_id: str, data: Optional[dict] = None) -> None:
+    def _on_view_selected(self, view_id: str, data: dict | None = None) -> None:
         """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
         if self._current_view_id == view_id and not data:
             return
 
-        if self._current_view_id != view_id:
-            if not self._can_switch_view():
-                # Reset sidebar selection visually if rejected
-                if self._current_view_id and self.sidebar:
-                    self.sidebar.set_active_view(self._current_view_id)
-                return
+        if self._current_view_id != view_id and not self._can_switch_view():
+            # Reset sidebar selection visually if rejected
+            if self._current_view_id and self.sidebar:
+                self.sidebar.set_active_view(self._current_view_id)
+            return
 
         # Lazy Instantiation de la vue réelle si c'est encore un DummyView
         if view_id in self.VIEW_REGISTRY:
@@ -765,17 +341,14 @@ class MainWindow(QMainWindow):
             if hasattr(widget, "refresh_data"):
                 cast(Any, widget).refresh_data()
 
-            if view_id == "edition" and isinstance(data, dict) and "note_id" in data:
-                if hasattr(widget, "select_note_by_id"):
-                    cast(Any, widget).select_note_by_id(data["note_id"])
+            if view_id == "edition" and isinstance(data, dict) and "note_id" in data and hasattr(widget, "select_note_by_id"):
+                cast(Any, widget).select_note_by_id(data["note_id"])
 
-            if view_id == "creation" and isinstance(data, dict) and "prompt" in data:
-                if hasattr(widget, "_open_document_tab"):
-                    cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+            if view_id == "creation" and isinstance(data, dict) and "prompt" in data and hasattr(widget, "_open_document_tab"):
+                cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
 
-            if view_id == "analysis" and isinstance(data, dict) and "tab" in data:
-                if hasattr(widget, "set_active_tab_by_name"):
-                    cast(Any, widget).set_active_tab_by_name(data["tab"])
+            if view_id == "analysis" and isinstance(data, dict) and "tab" in data and hasattr(widget, "set_active_tab_by_name"):
+                cast(Any, widget).set_active_tab_by_name(data["tab"])
 
     def _can_switch_view(self) -> bool:
         """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""
@@ -783,16 +356,15 @@ class MainWindow(QMainWindow):
             return True
 
         current_widget = self._view_widgets.get(self._current_view_id)
-        if current_widget and hasattr(current_widget, "is_dirty"):
-            if cast(Any, current_widget).is_dirty():
-                reply = QMessageBox.question(
-                    self,
-                    "Modifications non sauvegardées",
-                    "Vous avez des modifications en cours. Voulez-vous vraiment quitter ?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                return reply == QMessageBox.StandardButton.Yes
+        if current_widget and hasattr(current_widget, "is_dirty") and cast(Any, current_widget).is_dirty():
+            reply = QMessageBox.question(
+                self,
+                "Modifications non sauvegardées",
+                "Vous avez des modifications en cours. Voulez-vous vraiment quitter ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            return reply == QMessageBox.StandardButton.Yes
         return True
 
     def _toggle_sidebar(self) -> None:
@@ -813,7 +385,13 @@ class MainWindow(QMainWindow):
         self._settings_window = SettingsModal(ai_manager=self.ai_manager, profile_name=self.profile_name, parent=self)
         self._settings_window.theme_applied.connect(lambda theme_id: self.engine.apply_theme(theme_id))
         self._settings_window.layout_applied.connect(self.apply_layout)
+        self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
+        self._settings_window.finished.connect(lambda _: self._on_settings_focus_changed(False))
+        if self.sidebar and hasattr(self.sidebar, "settings_btn"):
+            self.sidebar.settings_btn.setChecked(True)
         self._settings_window.show()
+        self._settings_window.raise_()
+        self._settings_window.activateWindow()
 
     def _on_settings_focus_changed(self, focused: bool) -> None:
         if self.sidebar and hasattr(self.sidebar, "settings_btn"):
@@ -853,6 +431,7 @@ class MainWindow(QMainWindow):
     def _on_switch_profile_requested(self) -> None:
         """Ouvre la boîte de dialogue de sélection/création de profil et bascule à chaud."""
         from PySide6.QtWidgets import QDialog
+
         from ankiforge.services.profile_manager import ProfileManager
         from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
@@ -916,9 +495,9 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(placeholder)
             self._view_widgets[view_id] = placeholder
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: Any) -> None:
         # Close all floating windows
-        from ankiforge.ui.components.tabs import _floating_windows
+        from ankiforge.ui.components.tabs.floating_dock import _floating_windows
 
         for fw in list(_floating_windows):
             fw.close()

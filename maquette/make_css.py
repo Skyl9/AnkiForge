@@ -1,9 +1,9 @@
 import re
 
-with open("concept_macos/styles.css", "r") as f:
+with open("concept_macos/styles.css") as f:
     macos_css = f.read()
 
-with open("concept_ide/styles.css", "r") as f:
+with open("concept_ide/styles.css") as f:
     ide_css = f.read()
 
 # Replace variables in ide_css to match macOS look

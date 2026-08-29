@@ -9,7 +9,8 @@ import datetime
 import json
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from ankiforge.database.models import PythonToolModel, db
 from ankiforge.services.ai.state import PipelineRunState
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 # =====================================================================
 
 
-def tool_clean_html_latex(state: PipelineRunState, args: Optional[Dict[str, Any]] = None) -> Any:
+def tool_clean_html_latex(state: PipelineRunState, args: dict[str, Any] | None = None) -> Any:
     """Nettoie le HTML et harmonise les délimiteurs mathématiques LaTeX sur les cartes ou le texte généré."""
     cards = state.get_variable("generated_cards")
     cleaned_count = 0
@@ -62,7 +63,7 @@ def tool_clean_html_latex(state: PipelineRunState, args: Optional[Dict[str, Any]
     return {"status": "skipped", "reason": "No cards or text to clean"}
 
 
-def tool_deduplicate_levenshtein(state: PipelineRunState, args: Optional[Dict[str, Any]] = None) -> Any:
+def tool_deduplicate_levenshtein(state: PipelineRunState, args: dict[str, Any] | None = None) -> Any:
     """Élimine les doublons ou quasi-doublons parmi les cartes générées via calcul de similarité."""
     cards = state.get_variable("generated_cards")
     if not isinstance(cards, list) or len(cards) <= 1:
@@ -80,7 +81,7 @@ def tool_deduplicate_levenshtein(state: PipelineRunState, args: Optional[Dict[st
         union = len(w1.union(w2))
         return intersection / float(union) if union > 0 else 0.0
 
-    unique_cards: List[dict] = []
+    unique_cards: list[dict] = []
     removed_count = 0
 
     for card in cards:
@@ -103,10 +104,10 @@ def tool_deduplicate_levenshtein(state: PipelineRunState, args: Optional[Dict[st
     return {"status": "success", "removed_duplicates": removed_count, "remaining_cards": len(unique_cards)}
 
 
-def tool_validate_json_schema(state: PipelineRunState, args: Optional[Dict[str, Any]] = None) -> Any:
+def tool_validate_json_schema(state: PipelineRunState, args: dict[str, Any] | None = None) -> Any:
     """Valide et extrait strictement une liste de dictionnaires depuis les sorties brutes de l'IA."""
     raw_output = state.get_variable("last_output")
-    extracted_cards: List[dict] = []
+    extracted_cards: list[dict] = []
 
     if isinstance(raw_output, dict) and "cards" in raw_output and isinstance(raw_output["cards"], list):
         extracted_cards = [c for c in raw_output["cards"] if isinstance(c, dict)]
@@ -132,7 +133,7 @@ def tool_validate_json_schema(state: PipelineRunState, args: Optional[Dict[str, 
     return {"status": "error", "message": "Impossible de valider un schéma de cartes JSON valide."}
 
 
-def tool_compute_metrics(state: PipelineRunState, args: Optional[Dict[str, Any]] = None) -> Any:
+def tool_compute_metrics(state: PipelineRunState, args: dict[str, Any] | None = None) -> Any:
     """Calcule des métriques statistiques sur les cartes et le contenu traité."""
     cards = state.get_variable("generated_cards", [])
     total_words = 0
@@ -156,14 +157,14 @@ def tool_compute_metrics(state: PipelineRunState, args: Optional[Dict[str, Any]]
 
 
 # Dictionnaire des outils natifs enregistrés
-BUILTIN_TOOL_CALLABLES: Dict[str, Callable[[PipelineRunState, Optional[Dict[str, Any]]], Any]] = {
+BUILTIN_TOOL_CALLABLES: dict[str, Callable[[PipelineRunState, dict[str, Any] | None], Any]] = {
     "clean_html_latex": tool_clean_html_latex,
     "deduplicate_cards_levenshtein": tool_deduplicate_levenshtein,
     "validate_json_schema": tool_validate_json_schema,
     "compute_stats_and_metrics": tool_compute_metrics,
 }
 
-BUILTIN_TOOL_DEFINITIONS: List[Dict[str, Any]] = [
+BUILTIN_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "clean_html_latex",
         "display_name": "🧹 Nettoyeur HTML & Formules LaTeX",
@@ -223,7 +224,7 @@ class ToolService:
             logger.warning("Erreur seed_builtin_tools: %s", e)
 
     @classmethod
-    def list_tools(cls) -> List[PythonToolModel]:
+    def list_tools(cls) -> list[PythonToolModel]:
         """Retourne la liste de tous les outils disponibles (natifs et personnalisés)."""
         cls.seed_builtin_tools()
         try:
@@ -233,7 +234,7 @@ class ToolService:
             return []
 
     @classmethod
-    def get_tool(cls, name: str) -> Optional[PythonToolModel]:
+    def get_tool(cls, name: str) -> PythonToolModel | None:
         """Récupère un outil par son nom identifiant."""
         return PythonToolModel.get_or_none(PythonToolModel.name == name)
 
@@ -279,7 +280,7 @@ class ToolService:
         return False
 
     @classmethod
-    def execute_tool(cls, tool_name: str, state: PipelineRunState, args: Optional[Dict[str, Any]] = None) -> Any:
+    def execute_tool(cls, tool_name: str, state: PipelineRunState, args: dict[str, Any] | None = None) -> Any:
         """
         Exécute un outil par son nom sur l'état du pipeline.
         Cherche d'abord dans les fonctions natives, puis dans les scripts personnalisés de la base SQLite.
@@ -296,8 +297,8 @@ class ToolService:
             return {"status": "error", "error": msg}
 
         # 3. Exécution dynamique sécurisée du script Python
-        local_scope: Dict[str, Any] = {}
-        global_scope: Dict[str, Any] = {
+        local_scope: dict[str, Any] = {}
+        global_scope: dict[str, Any] = {
             "state": state,
             "args": args or {},
             "json": json,
@@ -308,8 +309,9 @@ class ToolService:
         }
 
         try:
-            exec(tool.code, global_scope, local_scope)  # nosec B102
+            exec(str(tool.code), global_scope, local_scope)  # nosec B102
             run_fn = local_scope.get("run") or global_scope.get("run")
+
             if callable(run_fn):
                 result = run_fn(state)
                 return result

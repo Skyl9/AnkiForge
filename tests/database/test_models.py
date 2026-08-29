@@ -1,21 +1,22 @@
 # tests/test_models.py
 import json
-import pytest
 from typing import Any, cast
+
+import pytest
 from peewee import IntegrityError
 
 from ankiforge.database.models import (
+    AICacheModel,
+    DocumentModel,
+    FolderModel,
+    MediaModel,
     NoteModel,
     NoteTypeModel,
+    NoteVersionMediaModel,
     NoteVersionModel,
-    FolderModel,
-    DocumentModel,
     PersonaModel,
     PipelineModel,
     PipelineStepModel,
-    MediaModel,
-    NoteVersionMediaModel,
-    AICacheModel,
     SettingModel,
 )
 
@@ -33,7 +34,7 @@ def test_note_version_default_source():
 
 def test_deck_hierarchy_and_card_cascade():
     """Vérifie la hiérarchie des paquets et la suppression en cascade des cartes."""
-    from ankiforge.database.models import DeckModel, CardModel
+    from ankiforge.database.models import CardModel, DeckModel
 
     parent_deck = DeckModel.create(name="Parent")
     child_deck = DeckModel.create(name="Parent::Child", parent_deck=parent_deck)
@@ -51,7 +52,7 @@ def test_deck_hierarchy_and_card_cascade():
 
 def test_deck_cascade_deletion():
     """Vérifie que la suppression d'un deck supprime les cartes associées."""
-    from ankiforge.database.models import DeckModel, CardModel
+    from ankiforge.database.models import CardModel, DeckModel
 
     deck = DeckModel.create(name="DeckToKill")
     note_type = NoteTypeModel.create(name="Basic Deck Cascade", fields_schema="[]", templates="[]", css_style="")
@@ -66,7 +67,7 @@ def test_deck_cascade_deletion():
 
 def test_seed_initial_data_is_idempotent():
     """Vérifie que l'appel multiple à seed_initial_data ne duplique pas les données."""
-    from ankiforge.database.models import seed_initial_data, LLMConfigModel
+    from ankiforge.database.models import LLMConfigModel, seed_initial_data
 
     # Vidons les tables pour le test
     PersonaModel.delete().execute()

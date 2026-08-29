@@ -1,6 +1,7 @@
 from pathlib import Path
+
 import ankiforge.database.models
-from ankiforge.database.models import db, NoteModel, CardModel, NoteVersionModel
+from ankiforge.database.models import CardModel, NoteModel, NoteVersionModel, db
 
 ankiforge.database.models.DEFAULT_DB_PATH = Path("/Users/tristanrigaud-humbert/.ankiforge/profiles/default/ankiforge.db")
 

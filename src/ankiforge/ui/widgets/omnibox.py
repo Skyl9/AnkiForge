@@ -2,9 +2,9 @@ import json
 import re
 
 import qtawesome as qta
-from PySide6.QtCore import Qt, Signal, Slot, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut, QColor
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QGraphicsDropShadowEffect
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QColor, QKeySequence, QShortcut
+from PySide6.QtWidgets import QDialog, QGraphicsDropShadowEffect, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import DocumentModel, NoteModel, NoteVersionModel
 

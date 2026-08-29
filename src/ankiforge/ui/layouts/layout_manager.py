@@ -3,7 +3,6 @@ Layout Manager pour l'Architecture UI Enfichable d'AnkiForge.
 Permet d'instancier, enregistrer et basculer à chaud entre les différents layouts et leurs thèmes visuels.
 """
 
-from typing import Dict, List, Type
 from PySide6.QtCore import QSettings
 
 from ankiforge.ui.layouts.base_layout import BaseLayout
@@ -19,7 +18,7 @@ class LayoutManager:
     Gestionnaire central des layouts et des thèmes visuels associés de l'application.
     """
 
-    LAYOUTS: Dict[str, Type[BaseLayout]] = {
+    LAYOUTS: dict[str, type[BaseLayout]] = {
         "ide": IdeLayout,
         "macos": MacosLayout,
         "dashboard": DashboardLayout,
@@ -29,7 +28,7 @@ class LayoutManager:
     DEFAULT_LAYOUT_ID = "ide"
 
     @classmethod
-    def get_available_layouts(cls) -> List[Dict[str, str]]:
+    def get_available_layouts(cls) -> list[dict[str, str]]:
         """Renvoie la liste des métadonnées de tous les layouts disponibles pour les paramètres."""
         results = []
         for layout_id, layout_class in cls.LAYOUTS.items():

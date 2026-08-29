@@ -4,9 +4,9 @@ from typing import Any
 
 import qtawesome as qta
 from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QTextEdit, QProgressBar, QStackedWidget, QWidget, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
+from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QHeaderView, QLabel, QProgressBar, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 
-from ankiforge.database.models import NoteModel, LLMConfigModel, NoteVersionModel, db
+from ankiforge.database.models import LLMConfigModel, NoteModel, NoteVersionModel, db
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import AIReponseParser

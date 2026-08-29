@@ -4,18 +4,17 @@ Dialogue d'Arbitrage des Conflits de Styles CSS pour l'Atelier de Modèles.
 
 from __future__ import annotations
 
-from typing import List, Optional
 from PySide6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
-    QFrame,
+    QVBoxLayout,
     QWidget,
 )
 
-from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -24,9 +23,9 @@ class CSSConflictDialog(QDialog):
 
     def __init__(
         self,
-        conflicting_classes: List[str],
+        conflicting_classes: list[str],
         snippet_name: str,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.conflicting_classes = conflicting_classes

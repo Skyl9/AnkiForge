@@ -3,7 +3,7 @@ import dataclasses
 import json
 import logging
 import re
-from typing import Any, Type, TypeVar, cast, get_args, get_origin
+from typing import Any, TypeVar, cast, get_args, get_origin
 
 from jinja2 import Template
 from PySide6.QtCore import QCoreApplication, QTimer
@@ -20,10 +20,7 @@ def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, comple
     # On cherche la config du modèle pour obtenir les tarifs dynamiques
     config = LLMConfigModel.get_or_none(LLMConfigModel.model_id == model_id)
     if config:
-        if getattr(config, "is_free", False):
-            cost = 0.0
-        else:
-            cost = (prompt_tokens / 1_000_000 * config.prompt_pricing) + (completion_tokens / 1_000_000 * config.completion_pricing)
+        cost = 0.0 if getattr(config, "is_free", False) else prompt_tokens / 1000000 * config.prompt_pricing + completion_tokens / 1000000 * config.completion_pricing
 
     TokenUsageModel.create(
         provider=provider,
@@ -93,10 +90,7 @@ class AIReponseParser:
         else:
             # 2. FALLBACK ULTIME : L'IA a oublié les backticks
             fallback_match = re.search(r"(\{.*\}|\[.*\])", response_text, re.DOTALL)
-            if fallback_match:
-                cleaned_text = fallback_match.group(1).strip()
-            else:
-                cleaned_text = response_text.strip()
+            cleaned_text = fallback_match.group(1).strip() if fallback_match else response_text.strip()
 
         # 3. Normalisation des attributs HTML avec guillemets doubles non échappés
         def fix_html_attrs(m: re.Match) -> str:
@@ -125,7 +119,7 @@ class AIReponseParser:
         return cleaned_text
 
     @classmethod
-    def parse(cls, response_text: str, target_model: Type[T] | None = None) -> T | Any:
+    def parse(cls, response_text: str, target_model: type[T] | None = None) -> T | Any:
         """
         Nettoie et convertit la réponse de l'IA en objet Python avec résilience / self-healing.
         Si une dataclass (target_model) est fournie, le JSON sera validé et instancié.
@@ -170,7 +164,7 @@ class AIReponseParser:
         return data
 
     @classmethod
-    def _validate(cls, data: Any, target_model: Type[T]) -> T:
+    def _validate(cls, data: Any, target_model: type[T]) -> T:
         origin = get_origin(target_model)
         if origin is list:
             args = get_args(target_model)
@@ -189,7 +183,7 @@ class AIReponseParser:
         return data
 
     @classmethod
-    def _instantiate_dataclass(cls, data: dict, target_model: Type[T]) -> T:
+    def _instantiate_dataclass(cls, data: dict, target_model: type[T]) -> T:
         if not isinstance(data, dict):
             raise ValueError(f"Données invalides pour instancier {target_model.__name__}. Un dictionnaire était attendu.")
 
@@ -203,9 +197,9 @@ class AIReponseParser:
                 if field_origin is list and field_args and dataclasses.is_dataclass(field_args[0]):
                     if not isinstance(val, list):
                         raise ValueError(f"Le champ '{field.name}' doit être une liste.")
-                    init_kwargs[field.name] = [cls._instantiate_dataclass(item, cast(Type[T], field_args[0])) for item in val]
+                    init_kwargs[field.name] = [cls._instantiate_dataclass(item, cast(type[T], field_args[0])) for item in val]
                 elif dataclasses.is_dataclass(field.type):
-                    init_kwargs[field.name] = cls._instantiate_dataclass(val, cast(Type[T], field.type))  # type: ignore
+                    init_kwargs[field.name] = cls._instantiate_dataclass(val, cast(type[T], field.type))  # type: ignore
                 else:
                     init_kwargs[field.name] = val
             elif field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING:
@@ -346,7 +340,7 @@ def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
         for key in ("notes", "cards", "flashcards", "data", "result", "items", "output"):
             if key in data and isinstance(data[key], list):
                 return [_normalize_card_item(c) for c in data[key] if isinstance(c, dict)]
-        if any(k.lower() in ("front", "recto", "question") for k in data.keys()):
+        if any(k.lower() in ("front", "recto", "question") for k in data):
             return [_normalize_card_item(data)]
         return []
 

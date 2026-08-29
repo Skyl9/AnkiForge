@@ -13,7 +13,7 @@ Usage:
 
 import json
 import sys
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, QThreadPool, Slot
 from PySide6.QtWidgets import (
@@ -94,7 +94,7 @@ class MockGuiProvider(LLMProvider):
 class HumanValidationDialog(QDialog):
     """Modale interactive s'affichant lors de l'étape HUMAN_VALIDATION."""
 
-    def __init__(self, state: PipelineRunState, parent: Optional[QWidget] = None):
+    def __init__(self, state: PipelineRunState, parent: QWidget | None = None):
         super().__init__(parent)
         self.setWindowTitle("🤝 Copilote Intentionnel — Validation Humaine")
         self.resize(600, 480)
@@ -131,8 +131,9 @@ class HumanValidationDialog(QDialog):
         """)
 
         last_out = state.get_variable("last_output", {})
-        if isinstance(last_out, (dict, list)):
+        if isinstance(last_out, dict | list):
             self.editor.setPlainText(json.dumps(last_out, ensure_ascii=False, indent=2))
+
         else:
             self.editor.setPlainText(str(last_out))
 
@@ -173,7 +174,7 @@ class DagVisualTesterWindow(QMainWindow):
         self.setStyleSheet(f"background-color: {DesignTokens.BG_DARK}; color: {DesignTokens.TEXT_PRIMARY};")
 
         self.thread_pool = QThreadPool.globalInstance()
-        self.orchestrator: Optional[PipelineOrchestrator] = None
+        self.orchestrator: PipelineOrchestrator | None = None
 
         self._init_db()
         self._build_ui()

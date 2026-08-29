@@ -2,7 +2,7 @@ import json
 
 log_file = "/Users/tristanrigaud-humbert/.gemini/antigravity-cli/brain/26bb7940-e793-4c2f-9ebf-05881a29b2e6/.system_generated/logs/transcript.jsonl"
 old_js = ""
-with open(log_file, "r") as f:
+with open(log_file) as f:
     for line in f:
         try:
             data = json.loads(line)
@@ -14,8 +14,8 @@ with open(log_file, "r") as f:
                             old_js = old_content
         except Exception:
             pass
-
-current_js = open("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/maquette/concept_ide/app.js").read()
+with open("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/maquette/concept_ide/app.js", encoding="utf-8") as f:
+    current_js = f.read()
 
 print("OLD JS (what was replaced when I added slim bar):")
 print(old_js[:300] + "...")

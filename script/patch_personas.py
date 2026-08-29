@@ -1,6 +1,7 @@
 from pathlib import Path
+
 import ankiforge.database.models
-from ankiforge.database.models import db, PersonaModel
+from ankiforge.database.models import PersonaModel, db
 
 ankiforge.database.models.DEFAULT_DB_PATH = Path("/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/.ankiforge/ankiforge.db")
 

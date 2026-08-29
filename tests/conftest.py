@@ -1,8 +1,10 @@
 # tests/conftest.py
+import contextlib
 import os
 
 import pytest
 from peewee import SqliteDatabase
+
 from ankiforge.database.models import (
     AICacheModel,
     AuditRecordModel,
@@ -35,14 +37,17 @@ from ankiforge.database.models import (
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
+os.environ["ANKIFORGE_MOCK_WEBENGINE"] = "1"
 
 
 @pytest.fixture(autouse=True)
 def mock_db():
     """Cette base fantôme en RAM sera automatiquement utilisée pour TOUS les tests."""
-    # On crée une base en mémoire partagée entre threads pour supporter QThreadPool
-    test_db = SqliteDatabase("file:memdb_test?mode=memory&cache=shared", uri=True)
-    db.init("file:memdb_test?mode=memory&cache=shared", uri=True)
+    # On crée une base en mémoire partagée entre threads pour supporter QThreadPool (isolée par worker xdist)
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
+    db_uri = f"file:memdb_test_{worker_id}?mode=memory&cache=shared"
+    test_db = SqliteDatabase(db_uri, uri=True)
+    db.init(db_uri, uri=True)
 
     # On liste TOUTES les tables de l'application
     models = [
@@ -82,10 +87,8 @@ def mock_db():
 
     yield test_db  # Le test s'exécute ici
 
-    try:
+    with contextlib.suppress(Exception):
         test_db.execute_sql("DROP TABLE IF EXISTS migratehistory;")
-    except Exception:
-        pass
     test_db.drop_tables(models)
     test_db.close()
 
@@ -98,10 +101,8 @@ def cleanup_qt_widgets():
     from PySide6.QtWidgets import QApplication
 
     # 1. Attendre que les tâches en cours du QThreadPool terminent
-    try:
+    with contextlib.suppress(Exception):
         QThreadPool.globalInstance().waitForDone(3000)
-    except Exception:
-        pass
 
     app = QApplication.instance()
     if app:
@@ -115,15 +116,20 @@ def cleanup_qt_widgets():
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         app.processEvents()
 
-    try:
+    with contextlib.suppress(Exception):
         QThreadPool.globalInstance().waitForDone(1000)
-    except Exception:
-        pass
 
 
 def pytest_unconfigure(config):
     """S'assure d'une sortie propre sans crash C++ Chromium WebEngine en fin de tests."""
     import os
+    import sys
 
+    # Ne jamais appeler os._exit dans les workers xdist, sinon xdist considère le worker comme crashé
+    if "PYTEST_XDIST_WORKER" in os.environ or "PYTEST_XDIST_TESTRUNUID" in os.environ or hasattr(config, "workerinput"):
+        return
+
+    sys.stdout.flush()
+    sys.stderr.flush()
     exit_code = getattr(config, "exitstatus", 0)
     os._exit(exit_code)

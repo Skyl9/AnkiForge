@@ -1,8 +1,12 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from ankiforge.services.ai.base import MockProvider
-from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider, OllamaProvider
+from ankiforge.services.ai.flexible_service import OllamaProvider, OpenAICompatibleProvider
 from ankiforge.services.ai.gemini_service import GeminiService
+
+pytestmark = pytest.mark.unit
 
 
 def test_mock_provider():

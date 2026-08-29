@@ -1,7 +1,6 @@
 import csv
 import json
 
-
 from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,

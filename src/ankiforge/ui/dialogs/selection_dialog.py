@@ -2,22 +2,23 @@
 Dialogue générique de sélection d'éléments (Paquets, Modèles, etc.).
 """
 
-from typing import Any, Callable, Optional, Sequence
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QLabel,
+    QVBoxLayout,
     QWidget,
 )
 
-from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -26,7 +27,7 @@ class SelectionDialog(QDialog):
     Fenêtre modale générique permettant de filtrer et sélectionner un élément dans une liste.
     """
 
-    def __init__(self, title: str, items: Sequence[Any], display_func: Callable[[Any], str], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str, items: Sequence[Any], display_func: Callable[[Any], str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(400, 500)
@@ -34,7 +35,7 @@ class SelectionDialog(QDialog):
 
         self.items = items
         self.display_func = display_func
-        self.selected_item: Optional[Any] = None
+        self.selected_item: Any | None = None
 
         self._setup_ui()
         self._populate_list(self.items)
@@ -129,7 +130,7 @@ class SelectionDialog(QDialog):
         self.selected_item = item.data(Qt.ItemDataRole.UserRole)
         self.accept()
 
-    def get_selected_item(self) -> Optional[Any]:
+    def get_selected_item(self) -> Any | None:
         return self.selected_item
 
 
@@ -143,8 +144,8 @@ class MultiSelectionDialog(QDialog):
         title: str,
         items: Sequence[Any],
         display_func: Callable[[Any], str],
-        initial_selected: Optional[Sequence[Any]] = None,
-        parent: Optional[QWidget] = None,
+        initial_selected: Sequence[Any] | None = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)

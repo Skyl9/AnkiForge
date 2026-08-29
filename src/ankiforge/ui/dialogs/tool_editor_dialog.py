@@ -1,7 +1,7 @@
 """Dialogue d'édition et de test de scripts Python personnalisés pour les étapes DAG."""
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import PythonToolModel
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
-from ankiforge.ui.components import SecondaryButton, PrimaryButton
+from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 
 
@@ -47,7 +47,7 @@ class ToolEditorDialog(QDialog):
     return {"status": "success", "processed_cards": len(cards) if isinstance(cards, list) else 0}
 '''
 
-    def __init__(self, tool: Optional[PythonToolModel] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, tool: PythonToolModel | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.tool = tool
         self.setWindowTitle("Éditeur d'Outil Python" if not tool else f"Éditer : {tool.display_name}")

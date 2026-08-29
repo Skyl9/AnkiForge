@@ -96,10 +96,10 @@ class MockInteractiveProvider(LLMProvider):
 def setup_in_memory_db():
     """Initialise une base de données temporaire pour le test."""
     from ankiforge.database.models import (
-        DeckModel,
-        NoteTypeModel,
-        NoteModel,
         CardModel,
+        DeckModel,
+        NoteModel,
+        NoteTypeModel,
         PersonaModel,
         PipelineModel,
         PipelineStepModel,
@@ -251,12 +251,11 @@ def run_scenario_creation(ai_provider: LLMProvider):
 
         if choice == "2":
             new_concept = input(f"{C_CYAN}Entrez un concept additionnel : {C_RESET}").strip()
-            if new_concept:
-                if isinstance(last_out, dict) and "concepts_cles" in last_out:
-                    last_out["concepts_cles"].append(new_concept)
-                    state.set_variable("last_output", last_out)
-                    state.set_variable("map_items", last_out["concepts_cles"])
-                    print(f"{C_GREEN}Concept ajouté avec succès !{C_RESET}")
+            if new_concept and isinstance(last_out, dict) and "concepts_cles" in last_out:
+                last_out["concepts_cles"].append(new_concept)
+                state.set_variable("last_output", last_out)
+                state.set_variable("map_items", last_out["concepts_cles"])
+                print(f"{C_GREEN}Concept ajouté avec succès !{C_RESET}")
         else:
             if isinstance(last_out, dict) and "concepts_cles" in last_out:
                 state.set_variable("map_items", last_out["concepts_cles"])

@@ -1,17 +1,10 @@
-from .buttons import PrimaryButton, SecondaryButton, DangerButton, IconButton, PremiumActionCard
-from .panels import IdePanel, GlassPanel, MetricCard, StatCard
-from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
-from .inputs import StyledLineEdit, StyledTextEdit, GlowLineEdit, ToggleSwitch, OptionToggleRow, StyledComboBox
-from .lists import StyledListItem, ActivityItem, DocTreeItem, ContextItem, VirtualListView
-from .badges import Badge, TagButton, StatusBadge
-from .tables import StyledTableWidget, CicdTable, VirtualTableView
-from .misc import UserAvatar, StyledToolbar, DaemonStatusWidget
-from .flow_layout import FlowLayout, FlowWidget
+from .badges import Badge, StatusBadge, TagButton
+from .buttons import DangerButton, IconButton, PremiumActionCard, PrimaryButton, SecondaryButton
 from .code_editor import (
+    CodeEditorWithGutter,
     CSSFormatter,
     CSSLinter,
     CSSSyntaxHighlighter,
-    CodeEditorWithGutter,
     HTMLFormatter,
     HTMLLinter,
     HTMLSyntaxHighlighter,
@@ -19,8 +12,17 @@ from .code_editor import (
     NativeCodeEditor,
     extract_colors_from_text,
 )
-
-from .components import ActionButton, RoundedPanel, HeaderLabel, EmptyStateWidget
+from .components import ActionButton, EmptyStateWidget, HeaderLabel, RoundedPanel
+from .flow_layout import FlowLayout, FlowWidget
+from .inputs import GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
+from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
+from .misc import StyledToolbar, UserAvatar
+from .panels import GlassPanel, IdePanel, MetricCard, StatCard
+from .sidebar import ClickableLabel, Sidebar, SidebarItem
+from .tables import CicdTable, StyledTableWidget, VirtualTableView
+from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
+from .title_bar import GlobalTitleBar
+from .topbar import TopBar
 
 __all__ = [
     "PrimaryButton",
@@ -58,7 +60,11 @@ __all__ = [
     "VirtualTableView",
     "UserAvatar",
     "StyledToolbar",
-    "DaemonStatusWidget",
+    "Sidebar",
+    "SidebarItem",
+    "ClickableLabel",
+    "TopBar",
+    "GlobalTitleBar",
     "FlowLayout",
     "FlowWidget",
     "CodeEditorWithGutter",

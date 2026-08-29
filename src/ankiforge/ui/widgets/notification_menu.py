@@ -3,20 +3,21 @@ Menu / Fenêtre popup des notifications et diagnostics proactifs d'AnkiForge.
 Accessible depuis la cloche de notification de la barre supérieure (TopBar).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
-    QFrame,
     QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.components.buttons import SecondaryButton
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -25,9 +26,11 @@ class NotificationItemWidget(QFrame):
 
     action_clicked = Signal(str, object)
 
-    def __init__(self, notif_data: Dict[str, Any], parent: Optional[QWidget] = None):
+    def __init__(self, notif_data: dict[str, Any], parent: QWidget | None = None):
         super().__init__(parent)
         self.notif_data = notif_data
+        self.setObjectName("NotificationItemWidget")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._apply_style()
 
         layout = QVBoxLayout(self)
@@ -92,15 +95,33 @@ class NotificationItemWidget(QFrame):
         data = {"tab": tab_id} if tab_id else None
         self.action_clicked.emit(view_id, data)
 
+    def refresh_theme(self, profile: Any) -> None:
+        self.setStyleSheet(f"""
+            NotificationItemWidget {{
+                background-color: {profile.bg_input};
+                border: 1px solid {profile.border_color};
+                border-radius: {profile.radius_sm}px;
+            }}
+            NotificationItemWidget:hover {{
+                border-color: {profile.accent_primary};
+            }}
+        """)
+        self.title_lbl.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
+        self.msg_lbl.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
+        if hasattr(self, "btn_action") and hasattr(self.btn_action, "refresh_theme"):
+            self.btn_action.refresh_theme(profile)
+
 
 class NotificationMenuPopup(QFrame):
     """Fenêtre popup affichant la liste des alertes proactives au clic sur la cloche TopBar."""
 
     action_triggered = Signal(str, object)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        self.setObjectName("NotificationMenuPopup")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedWidth(360)
         self.setMaximumHeight(420)
         self._apply_style()
@@ -165,16 +186,31 @@ class NotificationMenuPopup(QFrame):
 
         apply_shadow(self, blur=24, offset_y=6, color="rgba(0, 0, 0, 0.4)")
 
+    def paintEvent(self, event: Any) -> None:
+        """Dessine un fond opaque avec coins arrondis et bordure thématique."""
+        from ankiforge.ui.style_engine import get_style_engine
+
+        engine = get_style_engine()
+        profile = getattr(engine, "current_profile", None)
+        bg_color = QColor(profile.bg_panel if profile else DesignTokens.BG_PANEL)
+        border_color = QColor(profile.border_color if profile else DesignTokens.BORDER_COLOR)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(bg_color)
+        painter.setPen(border_color)
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), DesignTokens.RADIUS_MD, DesignTokens.RADIUS_MD)
+
     def _apply_style(self) -> None:
         self.setStyleSheet(f"""
-            NotificationMenuPopup {{
+            QFrame#NotificationMenuPopup {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
 
-    def set_notifications(self, alerts: List[Dict[str, Any]]) -> None:
+    def set_notifications(self, alerts: list[dict[str, Any]]) -> None:
         """Remplit la popup avec les alertes proactives."""
         # Nettoyer les anciens items (sauf le stretch et empty label)
         while self.items_layout.count() > 1:
@@ -205,3 +241,16 @@ class NotificationMenuPopup(QFrame):
         self.header_title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.header_icon.setPixmap(load_phosphor_icon("ph.bell", color=profile.accent_primary).pixmap(18, 18))
         self.empty_label.setStyleSheet(f"color: {profile.text_muted}; padding: 24px 0; border: none; background: transparent;")
+        self.count_badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {profile.bg_active};
+                color: {profile.accent_primary};
+                border: 1px solid {profile.accent_primary};
+                border-radius: 9px;
+                padding: 1px 7px;
+            }}
+        """)
+        for i in range(self.items_layout.count()):
+            item = self.items_layout.itemAt(i)
+            if item and item.widget() and hasattr(item.widget(), "refresh_theme"):
+                item.widget().refresh_theme(profile)

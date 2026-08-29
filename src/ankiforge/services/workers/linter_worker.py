@@ -5,7 +5,7 @@ Orchestre l'analyse par lots des cartes en arrière-plan et gère la persistance
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -34,10 +34,10 @@ class LinterWorker(QThread):
 
     def __init__(
         self,
-        note_ids: List[int],
-        llm_config_id: Optional[int] = None,
+        note_ids: list[int],
+        llm_config_id: int | None = None,
         force_recheck: bool = False,
-        parent: Optional[QObject] = None,
+        parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self.note_ids = note_ids
@@ -111,8 +111,8 @@ Retourne UNIQUEMENT le tableau JSON valide, sans texte d'introduction ni de conc
                 self.ai_manager = AIManager()
                 llm_provider = self.ai_manager.provider
 
-            notes_to_analyze: List[Dict[str, Any]] = []
-            cached_results: List[Dict[str, Any]] = []
+            notes_to_analyze: list[dict[str, Any]] = []
+            cached_results: list[dict[str, Any]] = []
 
             self.progress_update.emit("Vérification du cache d'audit...")
             for nid in self.note_ids:

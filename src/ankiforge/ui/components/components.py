@@ -2,15 +2,15 @@
 Compatibilité composant pour widgets réintégrés.
 """
 
-from PySide6.QtWidgets import QLabel, QWidget
-from .buttons import PrimaryButton, SecondaryButton, DangerButton, IconButton
-from .panels import IdePanel, GlassPanel
-from .inputs import StyledComboBox, DBComboBox
+from PySide6.QtWidgets import QLabel
 
-ActionButton = SecondaryButton
+from .buttons import ActionButton, DangerButton, IconButton, PrimaryButton, SecondaryButton
+from .inputs import DBComboBox, StyledComboBox
+from .panels import EmptyStateWidget, GlassPanel, IdePanel
+
 RoundedPanel = GlassPanel
 HeaderLabel = QLabel
-EmptyStateWidget = QWidget
+
 
 __all__ = [
     "PrimaryButton",

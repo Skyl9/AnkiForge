@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import time
-from typing import Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -22,7 +21,7 @@ class CoverageWorker(QThread):
     finished_processing = Signal()
     error_occurred = Signal(str)
 
-    def __init__(self, document_id: int, llm_config_id: Optional[int] = None, parent: Optional[QObject] = None):
+    def __init__(self, document_id: int, llm_config_id: int | None = None, parent: QObject | None = None):
         super().__init__(parent)
         self.document_id = document_id
         self.llm_config_id = llm_config_id

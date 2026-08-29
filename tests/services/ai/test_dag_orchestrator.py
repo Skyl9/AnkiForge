@@ -340,6 +340,7 @@ def test_orchestrator_multi_model_jinja_and_parsing():
 def test_orchestrator_rag_retrieval_hybrid_step(tmp_path, monkeypatch):
     """Vérifie l'exécution de l'étape RAG_RETRIEVAL avec le moteur hybride FAISS/BM25."""
     import json
+
     from ankiforge.database.models import DocumentChunkModel, DocumentModel
     from ankiforge.services.rag.vector_manager import VectorManager
 

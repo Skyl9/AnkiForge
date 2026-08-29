@@ -9,10 +9,11 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
-from ankiforge.services.plugins.api import PipelineHooksAPI, MCPHooksAPI
+from ankiforge.services.plugins.api import MCPHooksAPI, PipelineHooksAPI
 from ankiforge.services.plugins.event_bus import EventBus
 from ankiforge.services.plugins.manifest_schema import AddonManifest, AddonStatus
 from ankiforge.services.plugins.plugin_manager import PluginManager

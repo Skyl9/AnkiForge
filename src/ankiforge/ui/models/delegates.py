@@ -7,7 +7,7 @@ garantissant un taux de rafraîchissement constant à 60 FPS et une consommation
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from PySide6.QtCore import QEvent, QModelIndex, QPersistentModelIndex, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
@@ -47,7 +47,7 @@ class CheckboxItemDelegate(QStyledItemDelegate):
 
     check_toggled = Signal(int, bool)  # (row, is_checked)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
@@ -119,6 +119,36 @@ class CheckboxItemDelegate(QStyledItemDelegate):
             painter.fillRect(option.rect, QColor(DesignTokens.BG_HOVER))
 
 
+def parse_qcolor(color_val: Any, fallback: str = "#6366f1") -> QColor:
+    """Parse une chaîne hexadécimale, rgb(), rgba() ou QColor de manière sûre avec gestion alpha."""
+    if isinstance(color_val, QColor):
+        return color_val
+    if not color_val or not isinstance(color_val, str):
+        return QColor(fallback)
+    val = color_val.strip()
+    if val.startswith("rgba(") and val.endswith(")"):
+        try:
+            parts = [p.strip() for p in val[5:-1].split(",")]
+            if len(parts) == 4:
+                r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
+                a = int(float(parts[3]) * 255)
+                return QColor(r, g, b, a)
+        except Exception:
+            pass
+    elif val.startswith("rgb(") and val.endswith(")"):
+        try:
+            parts = [p.strip() for p in val[4:-1].split(",")]
+            if len(parts) == 3:
+                r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
+                return QColor(r, g, b)
+        except Exception:
+            pass
+    col = QColor(val)
+    if col.isValid():
+        return col
+    return QColor(fallback)
+
+
 class BadgeItemDelegate(QStyledItemDelegate):
     """
     Délégué dessinant une pilule/badge textuel avec coins ultra-arrondis
@@ -129,7 +159,7 @@ class BadgeItemDelegate(QStyledItemDelegate):
         self,
         default_bg: str = "rgba(99, 102, 241, 0.15)",
         default_text_color: str = DesignTokens.ACCENT_PRIMARY,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._default_bg = default_bg
@@ -161,15 +191,16 @@ class BadgeItemDelegate(QStyledItemDelegate):
         y = option.rect.y() + (option.rect.height() - badge_h) // 2
         badge_rect = QRectF(x, y, badge_w, badge_h)
 
-        # Fond pill
-        bg_col = QColor(bg_color_val)
+        # Fond pill avec parsing rgba robuste
+        bg_col = parse_qcolor(bg_color_val, fallback="rgba(99, 102, 241, 0.15)")
         painter.setBrush(bg_col)
         border_pen = QPen(bg_col.lighter(130) if bg_col.alpha() < 200 else bg_col, 1)
         painter.setPen(border_pen)
         painter.drawRoundedRect(badge_rect, 11, 11)
 
         # Texte pill
-        painter.setPen(QColor(text_color_val))
+        text_col = parse_qcolor(text_color_val, fallback=DesignTokens.ACCENT_PRIMARY)
+        painter.setPen(text_col)
         elided = fm.elidedText(str(text), Qt.TextElideMode.ElideRight, int(badge_w - padding_h * 2))
         painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, elided)
 
@@ -264,7 +295,7 @@ class TextSnippetDelegate(QStyledItemDelegate):
     Délégué de texte avec police monospace et détection d'anomalies (cartes vides/invalides).
     """
 
-    def __init__(self, is_code_font: bool = True, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, is_code_font: bool = True, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._is_code_font = is_code_font
 
@@ -281,10 +312,7 @@ class TextSnippetDelegate(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        if self._is_code_font:
-            font = QFont(DesignTokens.FONT_CODE, 10)
-        else:
-            font = QFont(DesignTokens.FONT_MAIN, 10)
+        font = QFont(DesignTokens.FONT_CODE, 10) if self._is_code_font else QFont(DesignTokens.FONT_MAIN, 10)
         painter.setFont(font)
         fm = painter.fontMetrics()
 
@@ -459,8 +487,9 @@ class SrsMasteryDelegate(QStyledItemDelegate):
         font_bold = QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold)
         font_normal = QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Normal)
 
-        if isinstance(srs_data, (list, tuple)) and len(srs_data) == 2:
+        if isinstance(srs_data, list | tuple) and len(srs_data) == 2:
             (str_a, col_a), (str_b, col_b) = srs_data
+
         else:
             parts = str(display_str).split(" vs ")
             str_a = parts[0].strip() if len(parts) > 0 else ""

@@ -1,8 +1,8 @@
 import ast
 import json
 import xml.etree.ElementTree as ET  # nosec B405
-from xml.dom import minidom  # nosec B408
 from pathlib import Path
+from xml.dom import minidom  # nosec B408
 
 
 def extract_translations():
@@ -14,14 +14,14 @@ def extract_translations():
     # Charger le dictionnaire français généré précédemment
     fr_dict = {}
     if json_path.exists():
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             fr_dict = json.load(f)
 
     ts = ET.Element("TS", version="2.1", language="fr_FR")
 
     # Parcourir tous les fichiers Python du projet
     for py_file in src_dir.rglob("*.py"):
-        with open(py_file, "r", encoding="utf-8") as f:
+        with open(py_file, encoding="utf-8") as f:
             try:
                 tree = ast.parse(f.read(), filename=str(py_file))
             except SyntaxError:
@@ -34,11 +34,8 @@ def extract_translations():
                 strings_found = set()
 
                 for child in ast.walk(node):
-                    if isinstance(child, ast.Call):
-                        # Chercher la fonction 'tr'
-                        if isinstance(child.func, ast.Attribute) and child.func.attr == "tr":
-                            if child.args and isinstance(child.args[0], ast.Constant):
-                                strings_found.add(child.args[0].value)
+                    if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute) and child.func.attr == "tr" and child.args and isinstance(child.args[0], ast.Constant):
+                        strings_found.add(child.args[0].value)
 
                 # Si on a trouvé des textes, on crée le contexte Qt
                 if strings_found:

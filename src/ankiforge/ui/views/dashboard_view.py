@@ -1,24 +1,25 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QFrame,
-    QSplitter,
-    QScrollArea,
-    QGridLayout,
-    QSizePolicy,
-    QFileDialog,
-)
+from typing import Any
+
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.components import IdePanel, SecondaryButton, PrimaryButton
 from ankiforge.services.audit.metrics_service import MetricsService
+from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ class DashboardHeroBanner(QFrame):
         layout.addWidget(self.icon_wrapper, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Titre centré agrandi
-        self.title = QLabel('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % DesignTokens.ACCENT_PRIMARY)
+        self.title = QLabel(f'Bienvenue dans <span style="color: {DesignTokens.ACCENT_PRIMARY};">AnkiForge</span>')
         self.title.setFont(QFont(DesignTokens.FONT_MAIN, 20, QFont.Weight.Bold))
         self.title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -100,8 +101,15 @@ class DashboardHeroBanner(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_style()
+        self.icon_wrapper.setStyleSheet(f"""
+            QFrame {{
+                background-color: {profile.bg_active};
+                border-radius: {profile.radius_md}px;
+                border: 1px solid {profile.border_color};
+            }}
+        """)
         self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(24, 24))
-        self.title.setText('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % profile.accent_primary)
+        self.title.setText(f'Bienvenue dans <span style="color: {profile.accent_primary};">AnkiForge</span>')
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
@@ -185,8 +193,16 @@ class DashboardActionButton(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_style()
+        self.icon_wrapper.setStyleSheet(f"""
+            QFrame {{
+                background-color: {profile.bg_active};
+                border-radius: {profile.radius_sm}px;
+                border: none;
+            }}
+        """)
+        self.icon_label.setPixmap(load_phosphor_icon(self.icon_name, color=self.color).pixmap(22, 22))
         self.title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
-        self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; font-size: 11px; border: none; background: transparent;")
+        self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; border: none; background: transparent;")
 
 
 class DiagnosticCardWidget(QFrame):
@@ -194,7 +210,7 @@ class DiagnosticCardWidget(QFrame):
 
     action_clicked = Signal(str, object)
 
-    def __init__(self, data: Dict[str, Any], parent=None):
+    def __init__(self, data: dict[str, Any], parent=None):
         super().__init__(parent)
         self.data = data
         self.severity = data.get("severity", "info")
@@ -218,6 +234,9 @@ class DiagnosticCardWidget(QFrame):
         self.icon_label.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.icon_label)
 
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setMinimumWidth(0)
+
         # Textes (Titre + Message)
         text_layout = QVBoxLayout()
         text_layout.setSpacing(2)
@@ -226,11 +245,17 @@ class DiagnosticCardWidget(QFrame):
         self.title_lbl = QLabel(data.get("title", "Alerte"))
         self.title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        self.title_lbl.setWordWrap(True)
+        self.title_lbl.setMinimumWidth(0)
+        self.title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.title_lbl)
 
         self.msg_lbl = QLabel(data.get("message", ""))
         self.msg_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 11))
         self.msg_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.msg_lbl.setWordWrap(True)
+        self.msg_lbl.setMinimumWidth(0)
+        self.msg_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.msg_lbl)
 
         layout.addLayout(text_layout, 1)
@@ -339,7 +364,7 @@ class ProactiveDiagnosticsWidget(QFrame):
 
         self.cards_layout.addWidget(self.empty_card)
 
-    def set_diagnostics(self, diagnostics: List[Dict[str, Any]]) -> None:
+    def set_diagnostics(self, diagnostics: list[dict[str, Any]]) -> None:
         """Met à jour les cartes de diagnostics affichées."""
         while self.cards_layout.count() > 0:
             item = self.cards_layout.takeAt(0)
@@ -365,10 +390,12 @@ class ActivityItem(QFrame):
 
     clicked = Signal(int)
 
-    def __init__(self, note_id: Optional[int], title: str, subtitle: str, icon_name: str, bg_color: str, parent=None):
+    def __init__(self, note_id: int | None, title: str, subtitle: str, icon_name: str, bg_color: str, parent=None):
         super().__init__(parent)
         self.note_id = note_id or 0
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setMinimumWidth(0)
         self._apply_style()
 
         layout = QHBoxLayout(self)
@@ -398,6 +425,7 @@ class ActivityItem(QFrame):
         layout.addWidget(icon_wrapper)
 
         text_layout = QVBoxLayout()
+        text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
         text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
@@ -405,11 +433,16 @@ class ActivityItem(QFrame):
         self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title_label.setWordWrap(True)
+        self.title_label.setMinimumWidth(0)
+        self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(subtitle)
         self.subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.subtitle_label.setWordWrap(True)
+        self.subtitle_label.setMinimumWidth(0)
+        self.subtitle_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.subtitle_label)
 
         layout.addLayout(text_layout, 1)
@@ -498,6 +531,8 @@ class DashboardDropZone(QFrame):
         self.icon_label.setPixmap(load_phosphor_icon("ph.upload-simple", color=profile.accent_primary).pixmap(36, 36))
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
+        if hasattr(self, "btn") and hasattr(self.btn, "refresh_theme"):
+            self.btn.refresh_theme(profile)
 
     def _browse_files(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -557,7 +592,7 @@ class StatItem(QFrame):
             }}
         """)
 
-    def set_value(self, value: Any, value_color: Optional[str] = None):
+    def set_value(self, value: Any, value_color: str | None = None):
         self.val_label.setText(str(value))
         if value_color:
             self.value_color = value_color
@@ -578,12 +613,12 @@ class DashboardView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self._import_dialog: Optional[QWidget] = None
-        self._export_dialog: Optional[QWidget] = None
-        self.worker: Optional[DashboardWorker] = None
+        self._import_dialog: QWidget | None = None
+        self._export_dialog: QWidget | None = None
+        self.worker: DashboardWorker | None = None
         self.setup_ui()
 
-    def _navigate(self, view_id: str, data: Optional[dict] = None) -> None:
+    def _navigate(self, view_id: str, data: dict | None = None) -> None:
         self.request_navigation.emit(view_id, data)
 
     def setup_ui(self):
@@ -698,17 +733,20 @@ class DashboardView(QWidget):
         # Panneau 2 : Activité Récente (Grandes actions / Macro-Activités)
         activity_panel = IdePanel(detachable=True)
         activity_widget = QWidget()
+        activity_widget.setMinimumWidth(0)
         activity_layout = QVBoxLayout(activity_widget)
         activity_layout.setContentsMargins(10, 10, 10, 10)
         activity_layout.setSpacing(6)
 
         activity_scroll = QScrollArea()
+        activity_scroll.setMinimumWidth(0)
         activity_scroll.setWidgetResizable(True)
         activity_scroll.setFrameShape(QFrame.Shape.NoFrame)
         activity_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         activity_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         activity_inner = QWidget()
+        activity_inner.setMinimumWidth(0)
         activity_inner.setStyleSheet("background: transparent;")
         self.activity_list_layout = QVBoxLayout(activity_inner)
         self.activity_list_layout.setContentsMargins(0, 0, 0, 0)
@@ -820,7 +858,7 @@ class DashboardView(QWidget):
         else:
             self._navigate("creation", {"prompt": f"Source chargée: {file_path}", "title": p.stem})
 
-    def _open_import_dialog(self, initial_path: Optional[str] = None) -> None:
+    def _open_import_dialog(self, initial_path: str | None = None) -> None:
         from ankiforge.ui.dialogs.import_dialog import ImportDialog
 
         if not self._import_dialog:
@@ -847,14 +885,34 @@ class DashboardView(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les composants de la vue lors du switch de thème."""
-        self.hero_banner.refresh_theme(profile)
-        self.btn_forge.refresh_theme(profile)
-        self.btn_import.refresh_theme(profile)
-        self.btn_export.refresh_theme(profile)
-        self.btn_library.refresh_theme(profile)
-        self.drop_zone.refresh_theme(profile)
-        self.diagnostics_widget.refresh_theme(profile)
-        self.stat_wozniak.refresh_theme(profile)
-        self.stat_coverage.refresh_theme(profile)
-        self.stat_cost.refresh_theme(profile)
-        self.stat_duplicates.refresh_theme(profile)
+        if hasattr(self, "actions_icon"):
+            self.actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=profile.text_primary).pixmap(14, 14))
+        if hasattr(self, "actions_title"):
+            self.actions_title.setStyleSheet(f"color: {profile.text_primary};")
+        if hasattr(self, "hero_banner"):
+            self.hero_banner.refresh_theme(profile)
+        if hasattr(self, "btn_forge"):
+            self.btn_forge.refresh_theme(profile)
+        if hasattr(self, "btn_import"):
+            self.btn_import.refresh_theme(profile)
+        if hasattr(self, "btn_export"):
+            self.btn_export.refresh_theme(profile)
+        if hasattr(self, "btn_library"):
+            self.btn_library.refresh_theme(profile)
+        if hasattr(self, "drop_zone"):
+            self.drop_zone.refresh_theme(profile)
+        if hasattr(self, "diagnostics_widget"):
+            self.diagnostics_widget.refresh_theme(profile)
+        if hasattr(self, "stat_wozniak"):
+            self.stat_wozniak.refresh_theme(profile)
+        if hasattr(self, "stat_coverage"):
+            self.stat_coverage.refresh_theme(profile)
+        if hasattr(self, "stat_cost"):
+            self.stat_cost.refresh_theme(profile)
+        if hasattr(self, "stat_duplicates"):
+            self.stat_duplicates.refresh_theme(profile)
+        if hasattr(self, "activity_list_layout"):
+            for i in range(self.activity_list_layout.count()):
+                item = self.activity_list_layout.itemAt(i)
+                if item and item.widget() and hasattr(item.widget(), "refresh_theme"):
+                    item.widget().refresh_theme(profile)

@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, TypeVar
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
@@ -19,9 +20,9 @@ T = TypeVar("T", bound=BaseModel)
 class GeneratedCardSchema(BaseModel):
     """Schéma d'une flashcard générée par l'IA."""
 
-    model: Optional[str] = Field(default=None, description="Nom du modèle de carte Anki cible")
-    fields: Dict[str, str] = Field(default_factory=dict, description="Dictionnaire des champs {nom_champ: valeur}")
-    tags: List[str] = Field(default_factory=list, description="Liste des étiquettes / tags associés")
+    model: str | None = Field(default=None, description="Nom du modèle de carte Anki cible")
+    fields: dict[str, str] = Field(default_factory=dict, description="Dictionnaire des champs {nom_champ: valeur}")
+    tags: list[str] = Field(default_factory=list, description="Liste des étiquettes / tags associés")
 
     @model_validator(mode="before")
     @classmethod
@@ -37,7 +38,7 @@ class GeneratedCardSchema(BaseModel):
 
             # Si les champs sont directement au premier niveau (ex: {"Front": "...", "Back": "..."})
             if "fields" not in res or not isinstance(res["fields"], dict):
-                fields: Dict[str, str] = {}
+                fields: dict[str, str] = {}
                 model = res.get("model") or res.get("note_type")
                 for k, v in res.items():
                     if k in ("model", "note_type", "tags", "fields"):
@@ -51,7 +52,7 @@ class GeneratedCardSchema(BaseModel):
 
     @field_validator("fields")
     @classmethod
-    def _validate_fields(cls, v: Dict[str, str]) -> Dict[str, str]:
+    def _validate_fields(cls, v: dict[str, str]) -> dict[str, str]:
         if not v:
             raise ValueError("Une carte doit contenir au moins un champ non vide.")
         return {str(k): str(val) for k, val in v.items()}
@@ -60,7 +61,7 @@ class GeneratedCardSchema(BaseModel):
 class GeneratedCardsContainerSchema(BaseModel):
     """Conteneur racine pour la liste des flashcards extraites."""
 
-    notes: List[GeneratedCardSchema] = Field(default_factory=list, description="Liste des flashcards générées")
+    notes: list[GeneratedCardSchema] = Field(default_factory=list, description="Liste des flashcards générées")
 
     @model_validator(mode="before")
     @classmethod
@@ -72,7 +73,7 @@ class GeneratedCardsContainerSchema(BaseModel):
                 if key in data and isinstance(data[key], list):
                     return {"notes": data[key]}
             # Cas d'un objet unique
-            if any(k.lower() in ("front", "recto", "question", "fields") for k in data.keys()):
+            if any(k.lower() in ("front", "recto", "question", "fields") for k in data):
                 return {"notes": [data]}
         return data
 
@@ -82,15 +83,15 @@ class WozniakAuditViolationSchema(BaseModel):
 
     rule_name: str = Field(description="Nom ou identifiant de la règle violée")
     reason: str = Field(description="Explication pédagogique de la violation")
-    suggestion: Optional[Dict[str, str]] = Field(default=None, description="Proposition de carte corrigée")
+    suggestion: dict[str, str] | None = Field(default=None, description="Proposition de carte corrigée")
 
 
 class WozniakAuditResultSchema(BaseModel):
     """Résultat de l'audit de conformité d'une flashcard."""
 
     is_compliant: bool = Field(default=True, description="Vrai si la carte respecte tous les principes")
-    violations: List[WozniakAuditViolationSchema] = Field(default_factory=list, description="Liste des anomalies")
-    global_score: Optional[int] = Field(default=None, description="Score global sur 100")
+    violations: list[WozniakAuditViolationSchema] = Field(default_factory=list, description="Liste des anomalies")
+    global_score: int | None = Field(default=None, description="Score global sur 100")
 
 
 class ExtractedConceptSchema(BaseModel):
@@ -98,7 +99,7 @@ class ExtractedConceptSchema(BaseModel):
 
     concept_name: str = Field(description="Titre de la notion ou concept extrait")
     summary: str = Field(description="Synthèse atomique du concept")
-    recommended_model: Optional[str] = Field(default=None, description="Modèle de carte préconisé")
+    recommended_model: str | None = Field(default=None, description="Modèle de carte préconisé")
 
 
 class SelfHealingValidator:
@@ -138,7 +139,7 @@ class SelfHealingValidator:
     def parse_and_validate(
         cls,
         raw_output: Any,
-        schema_cls: Type[T],
+        schema_cls: type[T],
     ) -> T:
         """
         Valide une sortie brute contre un schéma Pydantic avec nettoyage automatique.

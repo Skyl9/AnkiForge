@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import qtawesome
 from PySide6.QtCore import QRect, QRegularExpression, QSize, QStringListModel, Qt, QTimer, Signal, Slot
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # 1. CATALOGUES D'AUTOCOMPLÉTION INTELLISENSE
 # =============================================================================
 
-LATEX_MACROS: List[Tuple[str, str]] = [
+LATEX_MACROS: list[tuple[str, str]] = [
     (r"\frac{}{}", "Fraction : \\frac{num}{den}"),
     (r"\sqrt{}", "Racine carrée : \\sqrt{x}"),
     (r"\sum_{}^{}", "Somme : \\sum_{i=0}^{n}"),
@@ -90,7 +90,7 @@ LATEX_MACROS: List[Tuple[str, str]] = [
     (r"\begin{pmatrix}\end{pmatrix}", "Matrice parenthèses"),
 ]
 
-HTML_TAGS: List[Tuple[str, str]] = [
+HTML_TAGS: list[tuple[str, str]] = [
     ("<b></b>", "Gras : <b>texte</b>"),
     ("<i></i>", "Italique : <i>texte</i>"),
     ("<u></u>", "Souligné : <u>texte</u>"),
@@ -111,7 +111,7 @@ HTML_TAGS: List[Tuple[str, str]] = [
     ("<table>\n  <tr><th></th></tr>\n  <tr><td></td></tr>\n</table>", "Tableau HTML"),
 ]
 
-STANDARD_JINJA: List[Tuple[str, str]] = [
+STANDARD_JINJA: list[tuple[str, str]] = [
     ("{{c1::}}", "Trou Cloze n°1 : {{c1::mot}}"),
     ("{{c2::}}", "Trou Cloze n°2 : {{c2::mot}}"),
     ("{{FrontSide}}", "Contenu du recto (au verso)"),
@@ -136,7 +136,7 @@ class NoteKaTeXHighlighter(QSyntaxHighlighter):
 
     def __init__(self, parent: Any = None) -> None:
         super().__init__(parent)
-        self.rules: List[Tuple[QRegularExpression, QTextCharFormat]] = []
+        self.rules: list[tuple[QRegularExpression, QTextCharFormat]] = []
         self._setup_rules()
 
     def _setup_rules(self) -> None:
@@ -191,20 +191,20 @@ class NoteKaTeXCompleter(QCompleter):
     IntelliSense flottant contextuel pour macros LaTeX, balises HTML et champs du modèle.
     """
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self.list_model = QStringListModel(self)
         self.setModel(self.list_model)
-        self._current_items: List[Tuple[str, str]] = []
-        self._known_fields: List[str] = []
+        self._current_items: list[tuple[str, str]] = []
+        self._known_fields: list[str] = []
 
-    def set_known_fields(self, fields: List[str]) -> None:
+    def set_known_fields(self, fields: list[str]) -> None:
         self._known_fields = list(fields)
 
     def update_model_for_prefix(self, prefix: str) -> None:
-        items: List[Tuple[str, str]] = []
+        items: list[tuple[str, str]] = []
 
         if prefix.startswith("\\"):
             items = list(LATEX_MACROS)
@@ -268,7 +268,7 @@ class NoteFieldTextEdit(QPlainTextEdit):
     history_requested = Signal()
     shortcut_action_triggered = Signal(str)  # bold, italic, underline, cloze, math, link, etc.
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         # Typographie & Rendu
@@ -315,7 +315,7 @@ class NoteFieldTextEdit(QPlainTextEdit):
             }}
         """)
 
-    def set_known_fields(self, fields: List[str]) -> None:
+    def set_known_fields(self, fields: list[str]) -> None:
         self.completer.set_known_fields(fields)
 
     # --- Gestion de la Gouttière ---
@@ -448,10 +448,9 @@ class NoteFieldTextEdit(QPlainTextEdit):
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         popup = self.completer.popup()
-        if popup is not None and popup.isVisible():
-            if e.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Escape, Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
-                e.ignore()
-                return
+        if popup is not None and popup.isVisible() and e.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Escape, Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
+            e.ignore()
+            return
 
         modifiers = e.modifiers()
         is_ctrl_or_cmd = bool(modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier))
@@ -530,7 +529,7 @@ class NoteFieldTextEdit(QPlainTextEdit):
             if match:
                 tag_name = match.group(1).lower()
                 self_closing = {"br", "hr", "img", "input", "meta", "link", "source", "col", "base"}
-                if tag_name not in self_closing and not block_text[block_pos - 1] == "/":
+                if tag_name not in self_closing and block_text[block_pos - 1] != "/":
                     closing_tag = f"</{tag_name}>"
                     insert_cursor = self.textCursor()
                     cur_pos = insert_cursor.position()
@@ -583,7 +582,7 @@ class NoteFieldEditorWidget(QWidget):
         field_name: str,
         initial_value: str = "",
         is_first: bool = False,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.field_name = field_name
@@ -696,7 +695,7 @@ class NoteFieldEditorWidget(QWidget):
     def set_text(self, text: str) -> None:
         self.editor.setPlainText(text)
 
-    def set_known_fields(self, fields: List[str]) -> None:
+    def set_known_fields(self, fields: list[str]) -> None:
         self.editor.set_known_fields(fields)
 
 
@@ -715,13 +714,13 @@ class NoteEditorWidget(QWidget):
     history_requested = Signal(int)
     creation_mode_exited = Signal(bool, object)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.current_note: Optional[NoteModel] = None
-        self.current_deck_id: Optional[int] = None
-        self.field_editors: Dict[str, QTextEdit] = {}
+        self.current_note: NoteModel | None = None
+        self.current_deck_id: int | None = None
+        self.field_editors: dict[str, QTextEdit] = {}
         self.is_creating = False
-        self.creation_model_cb: Optional[QComboBox] = None
+        self.creation_model_cb: QComboBox | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -820,7 +819,7 @@ class NoteEditorWidget(QWidget):
             self.btn_toggle_mobile.setText(" Mobile")
             self.btn_toggle_mobile.setIcon(qtawesome.icon("fa5s.mobile-alt", color="white"))
 
-    def set_current_deck(self, deck_id: Optional[int]) -> None:
+    def set_current_deck(self, deck_id: int | None) -> None:
         self.current_deck_id = deck_id
 
     def load_note(self, note_id: int) -> None:
@@ -1006,7 +1005,7 @@ class NoteEditorWidget(QWidget):
             logger.exception("Erreur lors de la création :")
             QMessageBox.critical(self, "Erreur", f"Impossible de créer la note : {e}")
 
-    def _exit_creation_mode(self, refresh: bool = False, select_note_id: Optional[int] = None) -> None:
+    def _exit_creation_mode(self, refresh: bool = False, select_note_id: int | None = None) -> None:
         self.is_creating = False
         self.btn_save_edits.setText(" Sauvegarder les modifications")
         self.btn_history.setVisible(True)

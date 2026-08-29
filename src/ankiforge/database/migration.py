@@ -1,6 +1,6 @@
 import logging
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 import peewee
 from peewee_migrate import Router
@@ -36,30 +36,26 @@ def run_migrations() -> None:
             logger.info("Base legacy détectée : enregistrement rétroactif de la migration 001_initial.")
 
         # Si la colonne prompt_pricing existe, l'utilisateur a déjà la structure de la v2
-        if "002_llm_pricing" not in done_migrations:
-            if db.table_exists("llm_configs"):
-                columns = [col.name for col in db.get_columns("llm_configs")]
-                if "prompt_pricing" in columns:
-                    router.model.create(name="002_llm_pricing")
-                    logger.info("Base legacy détectée : enregistrement rétroactif de la migration 002_llm_pricing.")
+        if "002_llm_pricing" not in done_migrations and db.table_exists("llm_configs"):
+            columns = [col.name for col in db.get_columns("llm_configs")]
+            if "prompt_pricing" in columns:
+                router.model.create(name="002_llm_pricing")
+                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 002_llm_pricing.")
 
         # Si notemodel n'existe pas ou si la colonne last_synced_at existe déjà
-        if "003_orientation_features" not in done_migrations:
-            if not db.table_exists("notemodel") or "last_synced_at" in [col.name for col in db.get_columns("notemodel")]:
-                router.model.create(name="003_orientation_features")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 003_orientation_features.")
+        if "003_orientation_features" not in done_migrations and (not db.table_exists("notemodel") or "last_synced_at" in [col.name for col in db.get_columns("notemodel")]):
+            router.model.create(name="003_orientation_features")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 003_orientation_features.")
 
         # Si la table ai_cache existe déjà, l'utilisateur a déjà la structure de la v4
-        if "004_ai_cache" not in done_migrations:
-            if db.table_exists("ai_cache"):
-                router.model.create(name="004_ai_cache")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 004_ai_cache.")
+        if "004_ai_cache" not in done_migrations and db.table_exists("ai_cache"):
+            router.model.create(name="004_ai_cache")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 004_ai_cache.")
 
         # Si la table personas existe, l'utilisateur a déjà la structure de la v5
-        if "005_persona_engine" not in done_migrations:
-            if db.table_exists("personas"):
-                router.model.create(name="005_persona_engine")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 005_persona_engine.")
+        if "005_persona_engine" not in done_migrations and db.table_exists("personas"):
+            router.model.create(name="005_persona_engine")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 005_persona_engine.")
 
         # Vérification et ajout dynamique de la colonne llm_config_id sur personas si absente
         if db.table_exists("personas"):
@@ -72,28 +68,24 @@ def run_migrations() -> None:
                     logger.debug("Remarque sur l'ajout de llm_config_id sur personas : %s", e)
 
         # Si documentmodel n'existe pas ou si la colonne chroma_collection_name existe
-        if "006_chroma_db" not in done_migrations:
-            if not db.table_exists("documentmodel") or "chroma_collection_name" in [col.name for col in db.get_columns("documentmodel")]:
-                router.model.create(name="006_chroma_db")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 006_chroma_db.")
+        if "006_chroma_db" not in done_migrations and (not db.table_exists("documentmodel") or "chroma_collection_name" in [col.name for col in db.get_columns("documentmodel")]):
+            router.model.create(name="006_chroma_db")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 006_chroma_db.")
 
         # Si la table linter_rules existe déjà ou n'est pas gérée par cette base
-        if "007_card_linter" not in done_migrations:
-            if db.table_exists("linter_rules") or not db.table_exists("notemodel"):
-                router.model.create(name="007_card_linter")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 007_card_linter.")
+        if "007_card_linter" not in done_migrations and (db.table_exists("linter_rules") or not db.table_exists("notemodel")):
+            router.model.create(name="007_card_linter")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 007_card_linter.")
 
         # Si la table document_chunks ou cognitive_facets existe, ou si documentmodel n'existe pas
-        if "008_document_coverage" not in done_migrations:
-            if db.table_exists("document_chunks") or db.table_exists("cognitive_facets") or not db.table_exists("documentmodel"):
-                router.model.create(name="008_document_coverage")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 008_document_coverage.")
+        if "008_document_coverage" not in done_migrations and (db.table_exists("document_chunks") or db.table_exists("cognitive_facets") or not db.table_exists("documentmodel")):
+            router.model.create(name="008_document_coverage")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 008_document_coverage.")
 
         # Si cardmodel n'existe pas ou si la colonne stability existe
-        if "009_srs_and_task_metrics" not in done_migrations:
-            if not db.table_exists("cardmodel") or "stability" in [col.name for col in db.get_columns("cardmodel")]:
-                router.model.create(name="009_srs_and_task_metrics")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 009_srs_and_task_metrics.")
+        if "009_srs_and_task_metrics" not in done_migrations and (not db.table_exists("cardmodel") or "stability" in [col.name for col in db.get_columns("cardmodel")]):
+            router.model.create(name="009_srs_and_task_metrics")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 009_srs_and_task_metrics.")
 
         # Si documentmodel n'existe pas ou si original_media existe
         if "010_document_original_media" not in done_migrations:
@@ -103,10 +95,9 @@ def run_migrations() -> None:
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 010_document_original_media.")
 
         # Si la table facet_profiles existe, l'utilisateur a la v11
-        if "011_add_facet_profile" not in done_migrations:
-            if db.table_exists("facet_profiles"):
-                router.model.create(name="011_add_facet_profile")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 011_add_facet_profile.")
+        if "011_add_facet_profile" not in done_migrations and db.table_exists("facet_profiles"):
+            router.model.create(name="011_add_facet_profile")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 011_add_facet_profile.")
 
         # Si la colonne config_data existe dans pipeline_steps, v12 est là
         if "012_pipeline_step_config" not in done_migrations:
@@ -116,10 +107,9 @@ def run_migrations() -> None:
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 012_pipeline_step_config.")
 
         # Si la table python_tools existe, v13 est présente
-        if "013_python_tools" not in done_migrations:
-            if db.table_exists("python_tools") or db.table_exists("pythontoolmodel"):
-                router.model.create(name="013_python_tools")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 013_python_tools.")
+        if "013_python_tools" not in done_migrations and (db.table_exists("python_tools") or db.table_exists("pythontoolmodel")):
+            router.model.create(name="013_python_tools")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 013_python_tools.")
 
         # Si la colonne persona_type existe dans personas, v14 est là
         if "014_persona_type" not in done_migrations:
@@ -129,17 +119,14 @@ def run_migrations() -> None:
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 014_persona_type.")
 
         # Si la table persona_folders existe, v15 est là
-        if "015_persona_folders" not in done_migrations:
-            if db.table_exists("persona_folders"):
-                router.model.create(name="015_persona_folders")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 015_persona_folders.")
+        if "015_persona_folders" not in done_migrations and db.table_exists("persona_folders"):
+            router.model.create(name="015_persona_folders")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 015_persona_folders.")
 
         # Si la colonne parent_id existe dans persona_folders, v16 est là
-        if "016_persona_subfolders" not in done_migrations:
-            if db.table_exists("persona_folders"):
-                if "parent_id" in [col.name for col in db.get_columns("persona_folders")]:
-                    router.model.create(name="016_persona_subfolders")
-                    logger.info("Base legacy détectée : enregistrement rétroactif de la migration 016_persona_subfolders.")
+        if "016_persona_subfolders" not in done_migrations and db.table_exists("persona_folders") and "parent_id" in [col.name for col in db.get_columns("persona_folders")]:
+            router.model.create(name="016_persona_subfolders")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 016_persona_subfolders.")
 
         # Si la colonne category existe dans linter_rules, v17 est là
         if "017_linter_rule_categories" not in done_migrations:
@@ -149,16 +136,14 @@ def run_migrations() -> None:
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 017_linter_rule_categories.")
 
         # Si la table settings ou app_settings existe, v18 est là
-        if "018_app_settings" not in done_migrations:
-            if db.table_exists("settings") or db.table_exists("app_settings") or db.table_exists("settingmodel"):
-                router.model.create(name="018_app_settings")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 018_app_settings.")
+        if "018_app_settings" not in done_migrations and (db.table_exists("settings") or db.table_exists("app_settings") or db.table_exists("settingmodel")):
+            router.model.create(name="018_app_settings")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 018_app_settings.")
 
         # Si la table persona_versions existe, l'utilisateur a la v19
-        if "019_persona_versions" not in done_migrations:
-            if db.table_exists("persona_versions") or db.table_exists("personaversionmodel"):
-                router.model.create(name="019_persona_versions")
-                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 019_persona_versions.")
+        if "019_persona_versions" not in done_migrations and (db.table_exists("persona_versions") or db.table_exists("personaversionmodel")):
+            router.model.create(name="019_persona_versions")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 019_persona_versions.")
 
         # Si notetypemodel a déjà la colonne description, l'utilisateur a la v20
         if "020_notetype_description" not in done_migrations:

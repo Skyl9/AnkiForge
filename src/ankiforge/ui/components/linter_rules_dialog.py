@@ -4,7 +4,6 @@ Permet à l'utilisateur de créer, modifier, activer/désactiver et catégoriser
 """
 
 import logging
-from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -42,7 +41,7 @@ class LinterRulesManagerDialog(QDialog):
 
     rules_updated = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("⚙️ Atelier des Règles d'Audit & Catégories Personnalisées")
         self.resize(920, 620)
@@ -83,7 +82,7 @@ class LinterRulesManagerDialog(QDialog):
             }}
         """)
 
-        self._current_rule_id: Optional[int] = None
+        self._current_rule_id: int | None = None
         self._setup_ui()
         self._load_rules()
 

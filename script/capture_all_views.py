@@ -2,19 +2,20 @@
 Script automatisé pour capturer les 11 vues de l'application AnkiForge avec un thème forcé.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from PySide6.QtWidgets import QApplication
 from unittest.mock import patch
 
-from ankiforge.utils.paths import get_project_root
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.database.models import init_db
+from PySide6.QtWidgets import QApplication
+
 from ankiforge.database.migration import run_migrations
+from ankiforge.database.models import init_db
+from ankiforge.ui.style_engine import get_style_engine
+from ankiforge.utils.paths import get_project_root
 
 
 def capture_views(output_dir: Path, theme_id: str = "ide") -> None:

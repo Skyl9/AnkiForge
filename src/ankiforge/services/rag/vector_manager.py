@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import faiss
 import numpy as np
@@ -35,7 +35,7 @@ class VectorManager:
     S'appuie sur Peewee DocumentChunkModel pour le stockage des métadonnées.
     """
 
-    def __init__(self, llm_config: Optional[LLMConfigModel] = None) -> None:
+    def __init__(self, llm_config: LLMConfigModel | None = None) -> None:
         self.llm_config = llm_config
         self.faiss_dir: Path = get_app_data_dir() / "faiss_indexes"
         self.faiss_dir.mkdir(parents=True, exist_ok=True)
@@ -44,13 +44,13 @@ class VectorManager:
             p_name = str(llm_config.provider).lower()
             base_url = "https://api.openai.com/v1" if p_name == "openai" else "http://localhost:11434/v1"
             api_key_str = str(llm_config.api_key) if llm_config.api_key else "dummy_key"
-            self.client: Optional[OpenAI] = OpenAI(base_url=base_url, api_key=api_key_str)
+            self.client: OpenAI | None = OpenAI(base_url=base_url, api_key=api_key_str)
             self.embedding_model = "mxbai-embed-large" if p_name == "ollama" else "text-embedding-3-small"
         else:
             self.client = None
             self.embedding_model = "mxbai-embed-large"
 
-    def _get_embeddings(self, texts: List[str]) -> np.ndarray:
+    def _get_embeddings(self, texts: list[str]) -> np.ndarray:
         """
         Récupère les embeddings pour une liste de textes.
         Si aucun client API n'est configuré (ex: hors ligne ou tests), utilise un fallback déterministe.
@@ -63,13 +63,15 @@ class VectorManager:
             except Exception as e:
                 logger.warning("Impossible de contacter l'API d'embeddings (%s). Repli sur hash vectoriel.", e)
 
-        # Fallback local pseudo-embedding (vecteur normalisé basé sur hash de fréquence)
+        # Fallback local pseudo-embedding (vecteur normalisé basé sur hash déterministe)
+        import hashlib
+
         dim = 128
         vectors = []
         for text in texts:
             vec = np.zeros(dim, dtype=np.float32)
             for word in text.lower().split():
-                h = hash(word) % dim
+                h = int(hashlib.md5(word.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % dim
                 vec[h] += 1.0
             norm = float(np.linalg.norm(vec))
             if norm > 0:
@@ -84,10 +86,10 @@ class VectorManager:
         bm25_ready = (doc_dir / "bm25_index.json").exists()
         return faiss_ready or bm25_ready
 
-    def get_index_stats(self, document_id: int) -> Dict[str, Any]:
+    def get_index_stats(self, document_id: int) -> dict[str, Any]:
         """Retourne les métriques détaillées de l'indexation pour un document."""
         doc_dir = self.faiss_dir / f"doc_{document_id}"
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "document_id": document_id,
             "has_faiss": (doc_dir / "index.faiss").exists(),
             "has_bm25": (doc_dir / "bm25_index.json").exists(),
@@ -125,8 +127,10 @@ class VectorManager:
 
             # Si aucun chunk n'existe en base, on utilise ChunkingService
             if not chunks:
-                extracted = ChunkingService.extract_chunks(document.content, file_type=document.file_type)
-                with DocumentChunkModel._meta.database.atomic():
+                extracted = ChunkingService.extract_chunks(str(document.content or ""), file_type=str(document.file_type or ""))
+                from ankiforge.database.base import db
+
+                with db.atomic():
                     for item in extracted:
                         c = DocumentChunkModel.create(
                             document=document,
@@ -161,7 +165,7 @@ class VectorManager:
                 json.dump(chunk_ids, f)
 
             # ── 2. Indexation Lexicale BM25 ──
-            corpus_dict: Dict[int, str] = {c.id: c.content for c in chunks}
+            corpus_dict: dict[int, str] = {c.id: c.content for c in chunks}
             bm25 = BM25OkapiIndex()
             bm25.fit(corpus_dict)
             bm25.save(doc_dir / "bm25_index.json")
@@ -186,7 +190,7 @@ class VectorManager:
         w_dense: float = DEFAULT_WEIGHT_DENSE,
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
         rrf_k: int = DEFAULT_RRF_K,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Recherche RAG multimodale dans un document :
         - mode="hybrid" (défaut) : Fusion Dense (FAISS) + Sparse (BM25) par RRF
@@ -207,13 +211,13 @@ class VectorManager:
             return self._db_fallback_search(document_id, query, top_k)
 
         # ── 1. Récupération des candidats Denses (FAISS) ──
-        dense_results: List[Tuple[int, float]] = []
+        dense_results: list[tuple[int, float]] = []
         candidate_count = max(top_k * 3, 20)
 
         if mode in ("hybrid", "dense") and index_path.exists() and map_path.exists():
             try:
                 faiss_index = faiss.read_index(str(index_path))
-                with open(map_path, "r", encoding="utf-8") as f:
+                with open(map_path, encoding="utf-8") as f:
                     chunk_ids = json.load(f)
 
                 query_emb = self._get_embeddings([query])
@@ -231,7 +235,7 @@ class VectorManager:
                 logger.warning("Erreur recherche Dense FAISS pour doc %d: %s", document_id, e)
 
         # ── 2. Récupération des candidats Sparses (BM25) ──
-        sparse_results: List[Tuple[int, float]] = []
+        sparse_results: list[tuple[int, float]] = []
         if mode in ("hybrid", "sparse"):
             if bm25_path.exists():
                 try:
@@ -242,7 +246,7 @@ class VectorManager:
             else:
                 # Si BM25 n'a pas encore été sérialisé, on le construit à la volée depuis la BDD
                 try:
-                    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == document_id))
+                    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == document_id))
                     if chunks:
                         corpus_dict = {c.id: c.content for c in chunks}
                         bm25 = BM25OkapiIndex()
@@ -278,7 +282,7 @@ class VectorManager:
             top_k=top_k,
         )
 
-    def _format_dense_only_results(self, dense_results: List[Tuple[int, float]]) -> List[Dict[str, Any]]:
+    def _format_dense_only_results(self, dense_results: list[tuple[int, float]]) -> list[dict[str, Any]]:
         """Formate les résultats du canal Dense seul."""
         candidate_ids = [cid for cid, _ in dense_results]
         chunks_by_id = {c.id: c for c in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(candidate_ids))}
@@ -307,7 +311,7 @@ class VectorManager:
                 )
         return results
 
-    def _format_sparse_only_results(self, sparse_results: List[Tuple[int, float]]) -> List[Dict[str, Any]]:
+    def _format_sparse_only_results(self, sparse_results: list[tuple[int, float]]) -> list[dict[str, Any]]:
         """Formate les résultats du canal Sparse seul."""
         candidate_ids = [cid for cid, _ in sparse_results]
         chunks_by_id = {c.id: c for c in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(candidate_ids))}
@@ -337,7 +341,7 @@ class VectorManager:
                 )
         return results
 
-    def _db_fallback_search(self, document_id: int, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _db_fallback_search(self, document_id: int, query: str, top_k: int) -> list[dict[str, Any]]:
         """Recherche par mots-clés de secours directement sur Peewee DocumentChunkModel."""
         terms = [t.lower() for t in query.split() if len(t) > 2]
         query_filter = None
@@ -345,7 +349,8 @@ class VectorManager:
             cond = DocumentChunkModel.content.contains(t)
             query_filter = cond if query_filter is None else (query_filter | cond)
 
-        q = DocumentChunkModel.select().where(DocumentChunkModel.document_id == document_id)
+        q = DocumentChunkModel.select().where(DocumentChunkModel.document == document_id)
+
         if query_filter is not None:
             q = q.where(query_filter)
         chunks = list(q.limit(top_k))

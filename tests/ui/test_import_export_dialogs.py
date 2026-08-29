@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-
 from ankiforge.database.models import DeckModel
 from ankiforge.ui.dialogs.export_dialog import ExportDialog
 from ankiforge.ui.dialogs.import_dialog import ImportDialog

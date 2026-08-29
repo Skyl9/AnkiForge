@@ -1,10 +1,14 @@
+import pytest
+
 from ankiforge.services.ai.schemas import (
     GeneratedCardSchema,
     GeneratedCardsContainerSchema,
-    WozniakAuditResultSchema,
     SelfHealingValidator,
+    WozniakAuditResultSchema,
 )
 from ankiforge.services.ai.utils import extract_cards_from_data
+
+pytestmark = pytest.mark.unit
 
 
 def test_generated_card_schema_normalization():

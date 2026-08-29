@@ -5,20 +5,20 @@ Seule la largeur du conteneur varie selon le mode sélectionné.
 """
 
 import json
-from typing import Any, Optional
+from typing import Any
 
-from PySide6.QtCore import QUrl, Slot, Qt, QCoreApplication
+from PySide6.QtCore import QCoreApplication, Qt, QUrl, Slot
 from PySide6.QtGui import QResizeEvent
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea, QSizePolicy
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from ankiforge.database.models import NoteTypeModel
-from ankiforge.ui.theme import DesignTokens, is_dark_mode
-from ankiforge.ui.components.inputs import StyledComboBox
 from ankiforge.ui.components.buttons import IconButton, SecondaryButton
-from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.ui.widgets.cloze_manager import sync_preview_card_selector, get_preview_template
+from ankiforge.ui.components.inputs import StyledComboBox
+from ankiforge.ui.theme import DesignTokens, is_dark_mode
+from ankiforge.ui.widgets.cloze_manager import get_preview_template, sync_preview_card_selector
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
-from ankiforge.utils.anki_renderer import render_anki_card, AnkiFields
+from ankiforge.utils.anki_renderer import AnkiFields, render_anki_card
+from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.paths import get_media_dir
 
 
@@ -29,7 +29,7 @@ class CardPreviewWidget(QWidget):
     La seule différence entre les modes est la largeur du navigateur.
     """
 
-    def __init__(self, parent: Optional[QWidget] = None, show_header: bool = True) -> None:
+    def __init__(self, parent: QWidget | None = None, show_header: bool = True) -> None:
         super().__init__(parent)
         self.current_fields: dict[str, str] = {}
         self.current_templates: list[dict[str, Any]] = []
@@ -144,8 +144,19 @@ class CardPreviewWidget(QWidget):
         frame_layout = QVBoxLayout(self.flashcard_frame)
         frame_layout.setContentsMargins(8, 8, 8, 8)
 
-        # SafeWebEngineView pour le rendu MathJax + HTML/CSS
-        self.web_view = SafeWebEngineView(self.flashcard_frame)
+        import os
+
+        # En environnement de test automatisé headless, QTextBrowser évite le coût CPU d'un Chromium complet
+        if os.environ.get("ANKIFORGE_MOCK_WEBENGINE") == "1":
+            from PySide6.QtWidgets import QTextBrowser
+
+            mock_browser = QTextBrowser(self.flashcard_frame)
+            mock_browser.setHtmlSafe = lambda html, base_url=None: mock_browser.setHtml(html)
+            mock_browser.cleanup = lambda: None
+            self.web_view = mock_browser  # type: ignore[assignment]
+        else:
+            self.web_view = SafeWebEngineView(self.flashcard_frame)
+
         self.web_view.setMinimumHeight(240)
         frame_layout.addWidget(self.web_view)
 

@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional
 
 from ankiforge.database.models import (
     NoteModel,
@@ -29,7 +29,7 @@ class StoreManager:
     def store_collection(
         self,
         collection_path: str | Path,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> None:
         """Délègue l'ingestion de paquets ou fichiers texte vers ImportManager."""
         analysis = self.import_manager.analyze_archive(collection_path, progress_callback=progress_callback)
@@ -39,7 +39,7 @@ class StoreManager:
     def import_apkg(
         cls,
         collection_path: str | Path,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> None:
         """Alias de classe pour importer une collection ou paquet (.apkg, .colpkg, .txt)."""
         instance = cls()
@@ -48,7 +48,7 @@ class StoreManager:
     def handle_apkg(
         self,
         apkg_path: Path,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> None:
         """Méthode de compatibilité appelant ImportManager."""
         self.store_collection(apkg_path, progress_callback=progress_callback)
@@ -56,18 +56,18 @@ class StoreManager:
     def handle_txt(
         self,
         txt_path: Path,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> None:
         """Méthode de compatibilité appelant ImportManager."""
         self.store_collection(txt_path, progress_callback=progress_callback)
 
-    def approve_notes(self, note_ids: List[int]) -> None:
+    def approve_notes(self, note_ids: list[int]) -> None:
         """Approuve une liste de notes en mettant leur statut à 'new'."""
         with db.atomic():
             NoteModel.update(status="new").where(NoteModel.id.in_(note_ids)).execute()
         logger.info("Approbation de %d notes (statut basculé à 'new').", len(note_ids))
 
-    def delete_notes(self, note_ids: List[int]) -> None:
+    def delete_notes(self, note_ids: list[int]) -> None:
         """Supprime une liste de notes de la base de données."""
         with db.atomic():
             NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()

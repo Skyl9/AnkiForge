@@ -11,7 +11,6 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from ankiforge.utils.paths import get_app_data_dir
 
@@ -30,7 +29,7 @@ class SnippetItem:
     html_template: str
     css_style: str
     preview_html: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     is_custom: bool = False
 
 
@@ -38,7 +37,7 @@ class SnippetLibrary:
     """Catalogue des snippets HTML/CSS préconfigurés et personnalisés pour les modèles de cartes AnkiForge."""
 
     @classmethod
-    def get_builtin_snippets(cls) -> List[SnippetItem]:
+    def get_builtin_snippets(cls) -> list[SnippetItem]:
         return [
             # --- 1. CALLOUTS & REMARQUES ---
             SnippetItem(
@@ -342,17 +341,17 @@ class SnippetLibrary:
         return app_dir / "custom_snippets.json"
 
     @classmethod
-    def get_custom_snippets(cls) -> List[SnippetItem]:
+    def get_custom_snippets(cls) -> list[SnippetItem]:
         """Charge la liste des snippets personnalisés depuis le stockage JSON."""
         file_path = cls._get_storage_file()
         if not file_path.exists():
             return []
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
             if not isinstance(data, list):
                 return []
-            result: List[SnippetItem] = []
+            result: list[SnippetItem] = []
             for item in data:
                 result.append(
                     SnippetItem(
@@ -374,14 +373,14 @@ class SnippetLibrary:
             return []
 
     @classmethod
-    def get_all_snippets(cls) -> List[SnippetItem]:
+    def get_all_snippets(cls) -> list[SnippetItem]:
         """Retourne l'ensemble des snippets (intégrés + personnalisés)."""
         builtins = cls.get_builtin_snippets()
         customs = cls.get_custom_snippets()
 
         # Remplacement des built-ins modifiés par l'utilisateur
         custom_dict = {c.id: c for c in customs}
-        result: List[SnippetItem] = []
+        result: list[SnippetItem] = []
         for b in builtins:
             if b.id in custom_dict:
                 result.append(custom_dict.pop(b.id))
@@ -446,7 +445,7 @@ class SnippetLibrary:
         icon_name: str,
         html_template: str,
         css_style: str,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
     ) -> SnippetItem:
         """Crée et enregistre un nouveau snippet personnalisé."""
         snippet_id = f"custom_{uuid.uuid4().hex[:8]}"
@@ -465,20 +464,20 @@ class SnippetLibrary:
         return snippet
 
     @classmethod
-    def get_categories(cls) -> List[str]:
+    def get_categories(cls) -> list[str]:
         snippets = cls.get_all_snippets()
-        categories: List[str] = []
+        categories: list[str] = []
         for s in snippets:
             if s.category not in categories:
                 categories.append(s.category)
         return categories
 
     @classmethod
-    def get_by_category(cls, category: str) -> List[SnippetItem]:
+    def get_by_category(cls, category: str) -> list[SnippetItem]:
         return [s for s in cls.get_all_snippets() if s.category == category]
 
     @classmethod
-    def get_by_id(cls, snippet_id: str) -> Optional[SnippetItem]:
+    def get_by_id(cls, snippet_id: str) -> SnippetItem | None:
         for s in cls.get_all_snippets():
             if s.id == snippet_id:
                 return s
@@ -501,7 +500,7 @@ class CSSConflictResolver:
         return {m for m in matches if m not in ignored}
 
     @classmethod
-    def find_conflicts(cls, existing_css: str, new_css: str) -> List[str]:
+    def find_conflicts(cls, existing_css: str, new_css: str) -> list[str]:
         """Retourne la liste des classes CSS en collision entre l'existant et le nouveau CSS."""
         existing_classes = cls.extract_classes(existing_css)
         new_classes = cls.extract_classes(new_css)
@@ -510,7 +509,7 @@ class CSSConflictResolver:
         return conflicts
 
     @classmethod
-    def rename_classes(cls, html: str, css: str, class_mapping: Dict[str, str]) -> Tuple[str, str]:
+    def rename_classes(cls, html: str, css: str, class_mapping: dict[str, str]) -> tuple[str, str]:
         """Renomme les classes CSS en collision dans le HTML et le CSS fourni."""
         renamed_html = html
         renamed_css = css
@@ -531,7 +530,7 @@ class CSSConflictResolver:
         return renamed_html, renamed_css
 
     @classmethod
-    def merge_css(cls, existing_css: str, new_css: str, strategy: str = "append", replace_classes: Optional[List[str]] = None) -> str:
+    def merge_css(cls, existing_css: str, new_css: str, strategy: str = "append", replace_classes: list[str] | None = None) -> str:
         """Fusionne le nouveau CSS avec l'existant selon la stratégie demandée."""
         if not new_css.strip():
             return existing_css

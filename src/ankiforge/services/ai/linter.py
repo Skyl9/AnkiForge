@@ -5,7 +5,7 @@ Raccordement dynamique à la base de données Peewee ORM (NoteModel, DeckModel, 
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ankiforge.database.models import NoteModel, NoteVersionModel
 
@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 
 def normalize_linter_suggestion(
     raw_sug: Any,
-    original_content: Optional[Dict[str, Any]] = None,
+    original_content: dict[str, Any] | None = None,
     rule_name: str = "",
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Normalise universellement toute suggestion de correction émise par l'IA ou le cache.
     Garantit la présence systématique des 5 champs clés : NoteType, Recto, Verso, Champ Annexe Extra, Tags.
@@ -24,10 +24,7 @@ def normalize_linter_suggestion(
     if isinstance(raw_sug, str):
         try:
             parsed = json.loads(raw_sug)
-            if isinstance(parsed, dict):
-                raw_sug = parsed
-            else:
-                raw_sug = {"Recto": str(raw_sug), "Verso": ""}
+            raw_sug = parsed if isinstance(parsed, dict) else {"Recto": str(raw_sug), "Verso": ""}
         except Exception:
             raw_sug = {"Recto": str(raw_sug), "Verso": ""}
 
@@ -88,7 +85,7 @@ class WozniakLinterEngine:
     """Moteur d'évaluation ergonomique Wozniak à 20 règles raccordé dynamiquement aux notes Peewee."""
 
     @staticmethod
-    def audit_deck(deck_id: Optional[int] = None, enable_cloze_audit: bool = True) -> Dict[str, Any]:
+    def audit_deck(deck_id: int | None = None, enable_cloze_audit: bool = True) -> dict[str, Any]:
         """
         Analyse dynamiquement les notes du paquet sélectionné (ou toutes les notes)
         et retourne un rapport d'audit structuré par catégorie.
@@ -185,7 +182,7 @@ class WozniakLinterEngine:
         }
 
     @staticmethod
-    def _detect_atomicite_issues(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _detect_atomicite_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         items = []
         # Si la BDD est vide, nous générons les 4 éléments d'analyse types
         if not notes:
@@ -304,8 +301,8 @@ class WozniakLinterEngine:
         return items
 
     @staticmethod
-    def _detect_katex_issues(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        items: List[Dict[str, Any]] = []
+    def _detect_katex_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         if not notes:
             return [
                 {
@@ -354,8 +351,8 @@ class WozniakLinterEngine:
         return items
 
     @staticmethod
-    def _detect_cloze_issues(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        items: List[Dict[str, Any]] = []
+    def _detect_cloze_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         if not notes:
             return [
                 {
@@ -402,8 +399,8 @@ class WozniakLinterEngine:
         return items
 
     @staticmethod
-    def _detect_interference_issues(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        items: List[Dict[str, Any]] = []
+    def _detect_interference_issues(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         if not notes:
             return [
                 {
@@ -435,7 +432,7 @@ class SourcesDiagnosticService:
     """Service de diagnostic et traçabilité des sources de documents (.md, .pdf, .png, YT, Web)."""
 
     @staticmethod
-    def get_sources_report(deck_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_sources_report(deck_id: int | None = None) -> list[dict[str, Any]]:
         """Retourne la liste des sources indexées et leurs scores de précision (en bdd)."""
         from ankiforge.database.models import DocumentModel, NoteModel
 
@@ -478,10 +475,11 @@ class TokenSrsFinancialService:
     """Service d'analyse financière des jetons consommés et de suivi d'apprentissage FSRS-4.5."""
 
     @staticmethod
-    def get_financial_summary(deck_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_financial_summary(deck_id: int | None = None) -> dict[str, Any]:
         """Retourne le bilan financier et les métriques de rétention FSRS-4.5 basé sur la BDD."""
-        from ankiforge.database.models import CardModel, TokenUsageModel
         from peewee import fn
+
+        from ankiforge.database.models import CardModel, TokenUsageModel
 
         query = CardModel.select()
         if deck_id is not None:

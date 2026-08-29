@@ -3,7 +3,8 @@ import json
 import logging
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from jinja2 import Template
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
@@ -45,11 +46,11 @@ class PipelineOrchestrator(QRunnable):
 
     def __init__(
         self,
-        pipeline_id: Optional[int] = None,
-        initial_state: Optional[PipelineRunState] = None,
-        steps: Optional[List[PipelineStepModel]] = None,
-        ai_provider: Optional[LLMProvider] = None,
-        tool_registry: Optional[Dict[str, Callable[[PipelineRunState], Any]]] = None,
+        pipeline_id: int | None = None,
+        initial_state: PipelineRunState | None = None,
+        steps: list[PipelineStepModel] | None = None,
+        ai_provider: LLMProvider | None = None,
+        tool_registry: dict[str, Callable[[PipelineRunState], Any]] | None = None,
         max_steps: int = 50,
         max_map_workers: int = 4,
     ) -> None:
@@ -58,7 +59,7 @@ class PipelineOrchestrator(QRunnable):
         self.state: PipelineRunState = initial_state if initial_state is not None else PipelineRunState()
         self._steps_override = steps
         self._ai_provider = ai_provider
-        self.tool_registry: Dict[str, Callable[[PipelineRunState], Any]] = tool_registry or {}
+        self.tool_registry: dict[str, Callable[[PipelineRunState], Any]] = tool_registry or {}
         self.max_steps = max_steps
         self.max_map_workers = max_map_workers
 
@@ -82,7 +83,7 @@ class PipelineOrchestrator(QRunnable):
                 self._ai_provider = MockProvider()
         return self._ai_provider
 
-    def _load_steps(self) -> List[PipelineStepModel]:
+    def _load_steps(self) -> list[PipelineStepModel]:
         """Charge la liste ordonnée des étapes du pipeline."""
         if self._steps_override is not None:
             return list(self._steps_override)
@@ -93,7 +94,7 @@ class PipelineOrchestrator(QRunnable):
         steps = list(PipelineStepModel.select().where(PipelineStepModel.pipeline == self.pipeline_id).order_by(PipelineStepModel.step_order.asc()))
         return steps
 
-    def _render_prompt_template(self, template_str: str, extra_context: Optional[Dict[str, Any]] = None) -> str:
+    def _render_prompt_template(self, template_str: str, extra_context: dict[str, Any] | None = None) -> str:
         """Rend une chaîne de template Jinja2 avec le contexte partagé de l'état."""
         if not template_str:
             return ""
@@ -114,7 +115,7 @@ class PipelineOrchestrator(QRunnable):
         selected_models = self.state.get_variable("selected_models", None)
         models_catalog_str = format_available_card_models_prompt(selected_models)
 
-        context: Dict[str, Any] = {
+        context: dict[str, Any] = {
             "state": self.state,
             "variables": self.state.variables,
             "retrieved_chunks": self.state.retrieved_chunks,
@@ -156,12 +157,12 @@ class PipelineOrchestrator(QRunnable):
             return
 
         # Indexer les étapes par id et par ordre pour transitions rapides
-        steps_by_order: Dict[int, PipelineStepModel] = {s.step_order: s for s in steps}
-        steps_by_id: Dict[int, PipelineStepModel] = {s.id: s for s in steps if s.id is not None}
+        steps_by_order: dict[int, PipelineStepModel] = {int(getattr(s, "step_order", 0)): s for s in steps}
+        steps_by_id: dict[int, PipelineStepModel] = {int(getattr(s, "id", 0)): s for s in steps if getattr(s, "id", None) is not None}
 
         # Déterminer la première étape (step_order le plus bas)
-        first_step = min(steps, key=lambda s: s.step_order)
-        current_step: Optional[PipelineStepModel] = first_step
+        first_step = min(steps, key=lambda s: int(getattr(s, "step_order", 0)))
+        current_step: PipelineStepModel | None = first_step
 
         executed_count = 0
         event_bus.emit("pipeline_started", self.pipeline_id, self.state)
@@ -172,8 +173,8 @@ class PipelineOrchestrator(QRunnable):
                     raise RuntimeError(f"Limite de sécurité atteinte ({self.max_steps} étapes exécutées). Boucle infinie détectée dans le DAG.")
 
                 executed_count += 1
-                step_order = current_step.step_order
-                step_type = (current_step.step_type or "LLM_PROMPT").upper()
+                step_order = int(getattr(current_step, "step_order", 0))
+                step_type = str(current_step.step_type or "LLM_PROMPT").upper()
                 persona_name = current_step.persona.name if current_step.persona else "Action Système"
                 desc = f"Étape {step_order} [{step_type}] : {persona_name}"
 
@@ -182,6 +183,7 @@ class PipelineOrchestrator(QRunnable):
 
                 self.state.current_step_id = current_step.id
                 self.state.current_step_order = step_order
+
                 t_start = time.perf_counter()
 
                 step_succeeded = True
@@ -247,23 +249,22 @@ class PipelineOrchestrator(QRunnable):
                     if current_step.on_success_step:
                         # Si l'objet est déjà chargé ou présent dans notre index
                         target_id = getattr(current_step.on_success_step, "id", current_step.on_success_step)
-                        current_step = steps_by_id.get(target_id, current_step.on_success_step)
+                        current_step = steps_by_id.get(int(target_id)) if target_id is not None else None
                     else:
                         # Avancement séquentiel vers la prochaine étape par step_order croissant
-                        next_orders = [o for o in steps_by_order.keys() if o > step_order]
-                        if next_orders:
-                            current_step = steps_by_order[min(next_orders)]
-                        else:
-                            current_step = None  # Fin normale du DAG
+                        next_orders = [o for o in steps_by_order if o > step_order]
+                        current_step = steps_by_order[min(next_orders)] if next_orders else None  # Fin normale du DAG
+
                 else:
                     # Gestion des échecs selon failure_behavior
-                    behavior = (current_step.failure_behavior or "stop").lower()
+                    behavior = str(current_step.failure_behavior or "stop").lower()
                     if behavior == "goto_failure_step" and current_step.on_failure_step:
                         target_id = getattr(current_step.on_failure_step, "id", current_step.on_failure_step)
-                        current_step = steps_by_id.get(target_id, current_step.on_failure_step)
+                        current_step = steps_by_id.get(int(target_id)) if target_id is not None else None
                     elif behavior == "continue":
-                        next_orders = [o for o in steps_by_order.keys() if o > step_order]
+                        next_orders = [o for o in steps_by_order if o > step_order]
                         current_step = steps_by_order[min(next_orders)] if next_orders else None
+
                     else:
                         # "stop" par défaut
                         self.signals.error_occurred.emit(step_error_msg)
@@ -285,10 +286,10 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_llm_prompt(self, step: PipelineStepModel) -> None:
         """Exécute un prompt LLM standard en interpolant les templates Jinja2."""
-        cfg: Dict[str, Any] = {}
+        cfg: dict[str, Any] = {}
         if step.config_data:
             try:
-                cfg = json.loads(step.config_data)
+                cfg = json.loads(str(step.config_data))
             except Exception:
                 cfg = {}
 
@@ -302,7 +303,7 @@ class PipelineOrchestrator(QRunnable):
         else:
             user_input = self.state.get_variable("last_output") or self.state.get_variable("text_source") or self.state.initial_prompt or "Analyser et générer les flashcards correspondantes."
 
-        if isinstance(user_input, (dict, list)):
+        if isinstance(user_input, dict | list):
             user_input = json.dumps(user_input, ensure_ascii=False, indent=2)
 
         output_format = str(cfg.get("output_format") or (getattr(step.persona, "output_format", "json") if step.persona else "json"))
@@ -345,10 +346,10 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_rag_retrieval(self, step: PipelineStepModel) -> None:
         """Interroge l'index vectoriel ou effectue une recherche sémantique locale."""
-        cfg: Dict[str, Any] = {}
+        cfg: dict[str, Any] = {}
         if step.config_data:
             try:
-                cfg = json.loads(step.config_data)
+                cfg = json.loads(str(step.config_data))
             except Exception:
                 cfg = {}
 
@@ -368,8 +369,8 @@ class PipelineOrchestrator(QRunnable):
         rendered_query = self._render_prompt_template(query)
 
         doc_id = str(self.state.document_id) if self.state.document_id else "default_doc"
-        retrieved: List[str] = []
-        rag_results: List[Dict[str, Any]] = []
+        retrieved: list[str] = []
+        rag_results: list[dict[str, Any]] = []
 
         try:
             llm_config = LLMConfigModel.select().first()
@@ -420,7 +421,7 @@ class PipelineOrchestrator(QRunnable):
         raw_system_prompt = step.persona.system_prompt if step.persona else "Analyser et traiter le contenu."
         output_format = getattr(step.persona, "output_format", "json") if step.persona else "json"
 
-        results: List[Any] = []
+        results: list[Any] = []
         completed_count = 0
 
         def _process_item(index: int, item_content: Any) -> Any:
@@ -428,7 +429,8 @@ class PipelineOrchestrator(QRunnable):
             if self._is_cancelled:
                 return None
 
-            item_str = json.dumps(item_content, ensure_ascii=False) if isinstance(item_content, (dict, list)) else str(item_content)
+            item_str = json.dumps(item_content, ensure_ascii=False) if isinstance(item_content, dict | list) else str(item_content)
+
             rendered_sys = self._render_prompt_template(raw_system_prompt, extra_context={"item": item_content, "index": index})
 
             response = self.ai_provider.generate(
@@ -456,7 +458,7 @@ class PipelineOrchestrator(QRunnable):
         workers = min(self.max_map_workers, max(1, total_items))
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             future_to_index = {executor.submit(_process_item, i, item): i for i, item in enumerate(items)}
-            ordered_results: Dict[int, Any] = {}
+            ordered_results: dict[int, Any] = {}
             for future in concurrent.futures.as_completed(future_to_index):
                 if self._is_cancelled:
                     break
@@ -474,7 +476,7 @@ class PipelineOrchestrator(QRunnable):
                 results.append(ordered_results[i])
 
         # Phase de Réduction : fusionner les listes ou dictionnaires
-        aggregated_cards: List[dict] = []
+        aggregated_cards: list[dict] = []
         for r in results:
             if isinstance(r, dict) and "cards" in r and isinstance(r["cards"], list):
                 aggregated_cards.extend(r["cards"])
@@ -493,10 +495,10 @@ class PipelineOrchestrator(QRunnable):
     def _execute_human_validation(self, step: PipelineStepModel) -> None:
         """Met le DAG en pause et attend l'interaction de l'utilisateur sur l'UI."""
         logger.info("[Orchestrateur DAG] Pause pour validation humaine (étape %d)", step.step_order)
-        cfg: Dict[str, Any] = {}
+        cfg: dict[str, Any] = {}
         if step.config_data:
             try:
-                cfg = json.loads(step.config_data)
+                cfg = json.loads(str(step.config_data))
             except Exception:
                 cfg = {}
         self.state.set_variable("human_validation_config", cfg)
@@ -512,10 +514,10 @@ class PipelineOrchestrator(QRunnable):
 
     def _execute_python_tool(self, step: PipelineStepModel) -> None:
         """Exécute un outil Python (natif ou script personnalisé BDD) sur l'état partagé."""
-        cfg: Dict[str, Any] = {}
+        cfg: dict[str, Any] = {}
         if step.config_data:
             try:
-                cfg = json.loads(step.config_data)
+                cfg = json.loads(str(step.config_data))
             except Exception:
                 cfg = {}
 
@@ -538,7 +540,7 @@ class PipelineOrchestrator(QRunnable):
     # CONTRÔLES EXTERNES (THREAD-SAFE / APPELÉS PAR L'UI)
     # ==========================================
 
-    def resume(self, modified_state: Optional[PipelineRunState] = None) -> None:
+    def resume(self, modified_state: PipelineRunState | None = None) -> None:
         """Reprend l'exécution du DAG après validation humaine."""
         if modified_state is not None:
             self.state = modified_state

@@ -3,15 +3,14 @@ Composant de sélection de dossier / deck.
 Reproduit la maquette `folder_select_modal.html`.
 """
 
-from typing import Optional, Dict
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView
-from PySide6.QtGui import QColor, QPalette
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
-from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.database.models import DeckModel
+from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class DeckSelectWindow(QWidget):
@@ -21,7 +20,7 @@ class DeckSelectWindow(QWidget):
 
     deck_selected = Signal(int, str)  # (deck_id, deck_name)
 
-    def __init__(self, title: str = "Sélectionner un Dossier / Deck (Collection)", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str = "Sélectionner un Dossier / Deck (Collection)", parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self.setWindowTitle(title)
@@ -144,7 +143,7 @@ class DeckSelectWindow(QWidget):
         decks = list(DeckModel.select())
 
         # Dictionnaire pour retrouver les items par ID
-        self._items_by_id: Dict[int, QTreeWidgetItem] = {}
+        self._items_by_id: dict[int, QTreeWidgetItem] = {}
 
         # 1. Créer tous les items
         for deck in decks:

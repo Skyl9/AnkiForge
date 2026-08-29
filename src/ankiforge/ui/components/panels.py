@@ -1,12 +1,14 @@
-from PySide6.QtWidgets import QFrame, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QSplitter, QPushButton
-from PySide6.QtCore import Signal, Qt, QRect
-from PySide6.QtGui import QIcon, QPainter, QColor, QAction, QPen
-from typing import Any, Tuple
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from typing import Any
+
+from PySide6.QtCore import QRect, Qt, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSplitter, QStackedWidget, QVBoxLayout, QWidget
+
+import ankiforge.ui.components.tabs as tabs_mod
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.tabs import ScrollableTabBarWidget
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_phosphor_icon
-import ankiforge.ui.components.tabs as tabs_mod
 
 
 def find_tab_owner(title: str):
@@ -495,8 +497,9 @@ class IdePanel(QFrame):
         self._show_tabs_menu_at_button(self.menu_btn)
 
     def _show_tabs_menu_at_button(self, button: QPushButton) -> None:
-        from ankiforge.ui.theme import StyledMenu
         from PySide6.QtCore import QPoint
+
+        from ankiforge.ui.theme import StyledMenu
 
         menu = StyledMenu(self)
 
@@ -563,8 +566,9 @@ class IdePanel(QFrame):
         if not active_tabs:
             return
 
-        from ankiforge.ui.components.tabs import FloatingDockWindow
         from PySide6.QtGui import QCursor
+
+        from ankiforge.ui.components.tabs import FloatingDockWindow
 
         fw = FloatingDockWindow()
         # Remove backwards to avoid index shifting issues
@@ -583,7 +587,7 @@ class IdePanel(QFrame):
         self.register_tab(title, widget, icon_name, closable, active_by_default=True, icon_color=icon_color)
         return len(self.tabs_bar.tabs) - 1
 
-    def remove_tab_widget(self, index: int) -> Tuple[QWidget, str, bool]:
+    def remove_tab_widget(self, index: int) -> tuple[QWidget, str, bool]:
         """Supprime un onglet et retourne son widget, titre et closable."""
         title = self.tabs_bar.tabs[index].text().strip()
         info = self._registered_tabs.get(title, {})
@@ -880,3 +884,41 @@ class StatCard(QFrame):
 
         layout.addWidget(self.lbl)
         layout.addWidget(self.val)
+
+
+class EmptyStateWidget(QFrame):
+    """Widget d'état vide avec icône, titre et description."""
+
+    def __init__(
+        self,
+        icon_name: str = "ph.ghost",
+        title: str = "Aucun élément",
+        description: str = "",
+        action_button: QWidget | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(12)
+
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED).pixmap(48, 48))
+        self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(self.icon_lbl)
+
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_lbl.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        layout.addWidget(self.title_lbl)
+
+        if description:
+            self.desc_lbl = QLabel(description)
+            self.desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.desc_lbl.setWordWrap(True)
+            self.desc_lbl.setStyleSheet(f"font-size: 12px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent; max-width: 400px;")
+            layout.addWidget(self.desc_lbl)
+
+        if action_button:
+            layout.addWidget(action_button, alignment=Qt.AlignmentFlag.AlignCenter)

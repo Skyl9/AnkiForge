@@ -1,9 +1,9 @@
 import qtawesome as qta
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect, QApplication
+from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from ankiforge.ui.components.components import PrimaryButton, ActionButton
+from ankiforge.ui.components.components import ActionButton, PrimaryButton
 
 
 class TourBubble(QWidget):

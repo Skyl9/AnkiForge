@@ -5,7 +5,6 @@ Tests unitaires pour le service d'import/export de modèles de cartes (CardModel
 import json
 from pathlib import Path
 
-
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.card_model_io import BUNDLE_EXTENSION, CardModelIO
 

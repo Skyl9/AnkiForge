@@ -4,15 +4,15 @@ Basée sur DeckSelectWindow pour maintenir une cohérence d'UX.
 """
 
 import json
-from typing import Optional, Dict
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView
-from PySide6.QtGui import QColor, QPalette
-from PySide6.QtCore import Qt, Signal
 
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLineEdit, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+
 from ankiforge.database.models import NoteModel
+from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class TagSelectWindow(QWidget):
@@ -22,7 +22,7 @@ class TagSelectWindow(QWidget):
 
     tag_selected = Signal(str)  # (tag_name)
 
-    def __init__(self, title: str = "Sélectionner ou Ajouter un Tag", allowed_tags: Optional[set[str]] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, title: str = "Sélectionner ou Ajouter un Tag", allowed_tags: set[str] | None = None, parent: QWidget | None = None) -> None:
         self.allowed_tags = allowed_tags
         super().__init__(parent)
 
@@ -128,7 +128,7 @@ class TagSelectWindow(QWidget):
         self.tree.itemSelectionChanged.connect(self._on_selection_changed)
         self.tree.itemDoubleClicked.connect(self._on_confirm)
 
-        self._items_by_path: Dict[str, QTreeWidgetItem] = {}
+        self._items_by_path: dict[str, QTreeWidgetItem] = {}
         self._load_tags()
 
     def _load_tags(self) -> None:
@@ -166,20 +166,14 @@ class TagSelectWindow(QWidget):
                     parent_item = self._items_by_path[parent_path]
                 else:
                     # Créer le noeud parent intermédiaire s'il n'existe pas
-                    if parent_item:
-                        new_item = QTreeWidgetItem(parent_item, [parts[i - 1]])
-                    else:
-                        new_item = QTreeWidgetItem(self.tree, [parts[i - 1]])
+                    new_item = QTreeWidgetItem(parent_item, [parts[i - 1]]) if parent_item else QTreeWidgetItem(self.tree, [parts[i - 1]])
                     new_item.setData(0, Qt.ItemDataRole.UserRole, parent_path)
                     new_item.setIcon(0, load_phosphor_icon("tag", color=DesignTokens.ACCENT_PRIMARY))
                     self._items_by_path[parent_path] = new_item
                     parent_item = new_item
 
             node_name = parts[-1]
-            if parent_item:
-                item = QTreeWidgetItem(parent_item, [node_name])
-            else:
-                item = QTreeWidgetItem(self.tree, [node_name])
+            item = QTreeWidgetItem(parent_item, [node_name]) if parent_item else QTreeWidgetItem(self.tree, [node_name])
 
             item.setData(0, Qt.ItemDataRole.UserRole, tag)
             item.setIcon(0, load_phosphor_icon("tag", color=DesignTokens.ACCENT_PRIMARY))

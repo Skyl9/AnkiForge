@@ -1,5 +1,5 @@
 path = "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/ui/widgets/settings_modal.py"
-with open(path, "r", encoding="utf-8") as f:
+with open(path, encoding="utf-8") as f:
     content = f.read()
 
 # 1. Update the table headers

@@ -2,23 +2,24 @@
 Widgets UI PySide6 sur mesure pour le Linter Wozniak, Diagnostic des Sources et FSRS-4.5.
 """
 
-from typing import Optional, Dict, Any
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QFrame,
-    QLineEdit,
-    QCheckBox,
-)
+from typing import Any
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
-from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.ui.components.badges import Badge
+from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class WozniakHubWidget(QWidget):
@@ -26,7 +27,7 @@ class WozniakHubWidget(QWidget):
 
     select_deck_requested = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
@@ -149,7 +150,7 @@ class WozniakKpiCard(QFrame):
         color: str = DesignTokens.COLOR_RED,
         icon_name: str = "ph.squares-four",
         is_pending: bool = True,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.cat_id = cat_id
@@ -289,7 +290,7 @@ class WozniakKpiCard(QFrame):
 class FieldInspectorWidget(QFrame):
     """Inspecteur déroulant 5 champs (NoteType, Recto, Verso, Extra, Tags)."""
 
-    def __init__(self, original_data: Dict[str, str], proposal_data: Dict[str, str], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, original_data: dict[str, str], proposal_data: dict[str, str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
@@ -377,7 +378,7 @@ class WozniakCardItemWidget(QFrame):
     ignored = Signal()
     applied = Signal(int, dict)
 
-    def __init__(self, item_data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, item_data: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.item_data = item_data
         self.inspector_visible = False
@@ -540,7 +541,7 @@ class WozniakCardItemWidget(QFrame):
 class KatexLivePreviewWidget(QFrame):
     """Panneau interactif Live Preview KaTeX pour tester dynamiquement les formules."""
 
-    def __init__(self, initial_formula: str = r"\int_{-\infty}^{\infty} |f(t)|^2 dt", parent: Optional[QWidget] = None) -> None:
+    def __init__(self, initial_formula: str = r"\int_{-\infty}^{\infty} |f(t)|^2 dt", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(f"""
@@ -600,7 +601,7 @@ class KatexLivePreviewWidget(QFrame):
 class RetentionCurveCanvas(QWidget):
     """Visualiseur graphique QPainter pour la courbe de l'oubli FSRS-4.5."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(110)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -709,7 +710,7 @@ class SourceDiagnosticCardWidget(QFrame):
 
     inspect_requested = Signal(int)
 
-    def __init__(self, data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, data: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.data = data
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -809,8 +810,8 @@ class SourceDiagnosticCardWidget(QFrame):
         faiss_status = "Prêt (FAISS)" if is_indexed else "Non indexé"
 
         stats = [
-            ("Sections couvertes :", f"{covered_chunks} / {total_chunks}" if total_chunks > 0 else "0", True if covered_chunks > 0 else False),
-            ("Trous (orphelines) :", f"{orphan_chunks} section(s)" if orphan_chunks > 0 else "Couverture totale", True if orphan_chunks > 0 else False),
+            ("Sections couvertes :", f"{covered_chunks} / {total_chunks}" if total_chunks > 0 else "0", covered_chunks > 0),
+            ("Trous (orphelines) :", f"{orphan_chunks} section(s)" if orphan_chunks > 0 else "Couverture totale", orphan_chunks > 0),
             ("Cartes Anki liées :", f"{total_cards} cartes", True),
             ("Densité :", f"{density:.1f} cartes / sec", False),
             ("Index Vectoriel :", faiss_status, False),

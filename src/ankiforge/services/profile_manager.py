@@ -1,6 +1,6 @@
 import logging
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from ankiforge.database.models import db
 from ankiforge.utils.paths import get_app_data_dir, set_active_profile

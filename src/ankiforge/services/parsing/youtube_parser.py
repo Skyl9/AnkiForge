@@ -24,9 +24,7 @@ class YouTubeParser:
             if parsed.path == "/watch":
                 qs = parse_qs(parsed.query)
                 video_id = qs.get("v", [None])[0]
-            elif parsed.path.startswith("/embed/"):
-                video_id = parsed.path.split("/")[2]
-            elif parsed.path.startswith("/v/"):
+            elif parsed.path.startswith("/embed/") or parsed.path.startswith("/v/"):
                 video_id = parsed.path.split("/")[2]
 
         logger.debug("Extraction ID YouTube depuis '%s' -> %s", url, video_id)
@@ -45,8 +43,9 @@ class YouTubeParser:
             language,
         )
         try:
-            data = YouTubeTranscriptApi.get_transcript(video_id, languages=[language, "en"])
+            data = YouTubeTranscriptApi.get_transcript(video_id, languages=[language, "en"])  # type: ignore[attr-defined]
             text = " ".join([item["text"] if isinstance(item, dict) else getattr(item, "text", str(item)) for item in data])
+
             logger.info("Sous-titres YouTube extraits avec succès (%d mots) pour %s", len(text.split()), video_id)
             return text
         except (NoTranscriptFound, TranscriptsDisabled) as e:

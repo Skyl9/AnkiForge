@@ -11,8 +11,8 @@ import json
 import logging
 import re
 import warnings
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional, Set
 
 import genanki
 
@@ -49,12 +49,12 @@ class ExportManager:
     def export_package(
         self,
         output_path: str | Path,
-        deck_id: Optional[int] = None,
-        tags: Optional[List[str]] = None,
+        deck_id: int | None = None,
+        tags: list[str] | None = None,
         status_filter: str = "all",  # 'all', 'new', 'modified'
         format_type: str = "apkg",
         include_media: bool = True,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> int:
         """
         Exporte une sélection de cartes vers un fichier .apkg ou .colpkg.
@@ -89,10 +89,7 @@ class ExportManager:
         matching_decks = None
         if deck_id is not None:
             root_deck = DeckModel.get_or_none(DeckModel.id == deck_id)
-            if root_deck:
-                matching_decks = list(DeckModel.select().where((DeckModel.id == root_deck.id) | (DeckModel.name.startswith(f"{root_deck.name}::"))))
-            else:
-                matching_decks = []
+            matching_decks = list(DeckModel.select().where((DeckModel.id == root_deck.id) | DeckModel.name.startswith(f"{root_deck.name}::"))) if root_deck else []
         else:
             matching_decks = list(DeckModel.select())
 
@@ -114,9 +111,9 @@ class ExportManager:
             genanki_decks[d.id] = genanki.Deck(deck_id=did, name=d.name)
 
         genanki_models = {}
-        processed_notes: Set[int] = set()
-        media_files_to_export: Set[str] = set()
-        exported_note_ids: List[int] = []
+        processed_notes: set[int] = set()
+        media_files_to_export: set[str] = set()
+        exported_note_ids: list[int] = []
 
         cards = list(query)
         total_cards = len(cards)

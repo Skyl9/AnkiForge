@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -13,24 +13,24 @@ class PipelineRunState:
     """
 
     # Identifiants de contexte et données sources
-    document_id: Optional[int] = None
+    document_id: int | None = None
     initial_prompt: str = ""
 
     # Contexte RAG (Retrieval-Augmented Generation)
-    retrieved_chunks: List[str] = field(default_factory=list)
+    retrieved_chunks: list[str] = field(default_factory=list)
 
     # Variables dynamiques stockées par les étapes (ex: plan_du_cours, generated_cards, map_reduce_results)
-    variables: Dict[str, Any] = field(default_factory=dict)
+    variables: dict[str, Any] = field(default_factory=dict)
 
     # Historique de conversation / messages pour les agents (ReAct / Chat)
-    messages: List[Dict[str, str]] = field(default_factory=list)
+    messages: list[dict[str, str]] = field(default_factory=list)
 
     # Suivi d'exécution
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     is_paused_for_human: bool = False
-    current_step_id: Optional[int] = None
-    current_step_order: Optional[int] = None
-    execution_history: List[Dict[str, Any]] = field(default_factory=list)
+    current_step_id: int | None = None
+    current_step_order: int | None = None
+    execution_history: list[dict[str, Any]] = field(default_factory=list)
 
     def add_error(self, error_message: str) -> None:
         """Enregistre une erreur dans l'état."""
@@ -45,7 +45,7 @@ class PipelineRunState:
         """Récupère une variable du contexte partagé."""
         return self.variables.get(key, default)
 
-    def add_retrieved_chunks(self, chunks: List[str]) -> None:
+    def add_retrieved_chunks(self, chunks: list[str]) -> None:
         """Ajoute des morceaux de texte récupérés par le RAG."""
         self.retrieved_chunks.extend(chunks)
         self.variables["retrieved_chunks"] = self.retrieved_chunks
@@ -56,7 +56,7 @@ class PipelineRunState:
         step_type: str,
         status: str,
         duration_sec: float = 0.0,
-        details: Optional[str] = None,
+        details: str | None = None,
     ) -> None:
         """Enregistre l'exécution d'une étape dans l'historique."""
         self.execution_history.append(
@@ -69,7 +69,7 @@ class PipelineRunState:
             }
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Sérialise l'état pour la persistance ou l'envoi vers l'UI."""
         return {
             "document_id": self.document_id,
@@ -85,7 +85,7 @@ class PipelineRunState:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PipelineRunState":
+    def from_dict(cls, data: dict[str, Any]) -> "PipelineRunState":
         """Reconstruit un PipelineRunState depuis un dictionnaire sérialisé."""
         return cls(
             document_id=data.get("document_id"),

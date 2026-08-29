@@ -1,7 +1,8 @@
-from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import QByteArray
-from ankiforge.utils.paths import get_resource_path
+from PySide6.QtGui import QIcon, QPixmap
+
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.paths import get_resource_path
 
 
 def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weight: str = "regular") -> QIcon:
@@ -21,17 +22,14 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
         return QIcon()
 
     try:
-        with open(svg_path, "r", encoding="utf-8") as f:
+        with open(svg_path, encoding="utf-8") as f:
             svg_content = f.read()
 
         # Replace currentColor with our target color
-        if "currentColor" in svg_content:
-            svg_content = svg_content.replace("currentColor", color)
-        else:
-            svg_content = svg_content.replace("<svg ", f'<svg fill="{color}" ')
+        svg_content = svg_content.replace("currentColor", color) if "currentColor" in svg_content else svg_content.replace("<svg ", f'<svg fill="{color}" ')
 
         pixmap = QPixmap()
-        pixmap.loadFromData(QByteArray(svg_content.encode("utf-8")), "SVG")
+        pixmap.loadFromData(QByteArray(svg_content.encode("utf-8")), b"SVG")
         return QIcon(pixmap)
     except Exception:
         return QIcon()
@@ -47,13 +45,14 @@ def load_logo_icon(color: str = DesignTokens.ACCENT_PRIMARY) -> QIcon:
         return QIcon()
 
     try:
-        with open(logo_path, "r", encoding="utf-8") as f:
+        with open(logo_path, encoding="utf-8") as f:
             svg_content = f.read()
 
         svg_content = svg_content.replace("currentColor", color)
 
         pixmap = QPixmap()
-        pixmap.loadFromData(QByteArray(svg_content.encode("utf-8")), "SVG")
+        pixmap.loadFromData(QByteArray(svg_content.encode("utf-8")), b"SVG")
         return QIcon(pixmap)
+
     except Exception:
         return QIcon()

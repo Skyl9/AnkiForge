@@ -1,7 +1,11 @@
-import pytest
 import dataclasses
 
+import pytest
+
 from ankiforge.services.ai.utils import AIReponseParser
+
+pytestmark = pytest.mark.unit
+
 
 # On génère le fameux symbole Markdown dynamiquement via son code ASCII (96)
 # Cela permet d'écrire les tests sans jamais casser l'affichage de l'éditeur !

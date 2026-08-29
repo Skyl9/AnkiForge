@@ -5,9 +5,9 @@ avec fusion par rang réciproque (Reciprocal Rank Fusion - RRF).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 from ankiforge.database.models import DocumentChunkModel
 
@@ -26,16 +26,16 @@ class RRFScoreBreakdown:
     chunk_index: int
     content: str
     heading_path: str
-    page_number: Optional[int]
+    page_number: int | None
     dense_score: float = 0.0
-    dense_rank: Optional[int] = None
+    dense_rank: int | None = None
     sparse_score: float = 0.0
-    sparse_rank: Optional[int] = None
+    sparse_rank: int | None = None
     rrf_score: float = 0.0
     relevance_pct: int = 0
     retrieval_channel: str = "hybrid"  # "hybrid", "dense_only", "sparse_only"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convertit l'objet en dictionnaire enrichi compatible avec l'API existante."""
         return {
             "chunk_id": self.chunk_id,
@@ -61,7 +61,7 @@ class HybridRAGRetriever:
 
     @staticmethod
     def compute_rrf_score(
-        rank: Optional[int],
+        rank: int | None,
         weight: float = 1.0,
         k: int = DEFAULT_RRF_K,
     ) -> float:
@@ -76,13 +76,13 @@ class HybridRAGRetriever:
     @classmethod
     def fuse_rankings(
         cls,
-        dense_results: List[Tuple[int, float]],  # [(chunk_id, dense_score), ...]
-        sparse_results: List[Tuple[int, float]],  # [(chunk_id, bm25_score), ...]
+        dense_results: list[tuple[int, float]],  # [(chunk_id, dense_score), ...]
+        sparse_results: list[tuple[int, float]],  # [(chunk_id, bm25_score), ...]
         k: int = DEFAULT_RRF_K,
         w_dense: float = DEFAULT_WEIGHT_DENSE,
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
         top_k: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Fusionne les listes de résultats Dense (FAISS) et Sparse (BM25) par Reciprocal Rank Fusion.
 
@@ -94,12 +94,12 @@ class HybridRAGRetriever:
         norm_w_sparse = (w_sparse / total_w) if total_w > 0 else 0.5
 
         # 1. Cartographie des rangs et scores denses
-        dense_map: Dict[int, Tuple[int, float]] = {}  # chunk_id -> (rank_1_indexed, score)
+        dense_map: dict[int, tuple[int, float]] = {}  # chunk_id -> (rank_1_indexed, score)
         for idx, (cid, score) in enumerate(dense_results):
             dense_map[cid] = (idx + 1, float(score))
 
         # 2. Cartographie des rangs et scores sparses
-        sparse_map: Dict[int, Tuple[int, float]] = {}  # chunk_id -> (rank_1_indexed, score)
+        sparse_map: dict[int, tuple[int, float]] = {}  # chunk_id -> (rank_1_indexed, score)
         for idx, (cid, score) in enumerate(sparse_results):
             sparse_map[cid] = (idx + 1, float(score))
 
@@ -109,7 +109,7 @@ class HybridRAGRetriever:
             return []
 
         # 4. Calcul du score RRF combiné
-        combined_scores: List[Dict[str, Any]] = []
+        combined_scores: list[dict[str, Any]] = []
         max_possible_rrf = (norm_w_dense / (k + 1)) + (norm_w_sparse / (k + 1))
 
         for cid in all_chunk_ids:
@@ -158,7 +158,7 @@ class HybridRAGRetriever:
         candidate_ids = [c["chunk_id"] for c in top_candidates]
         chunks_by_id = {chunk.id: chunk for chunk in DocumentChunkModel.select().where(DocumentChunkModel.id.in_(candidate_ids))}
 
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         for cand in top_candidates:
             cid = cand["chunk_id"]
             chunk = chunks_by_id.get(cid)

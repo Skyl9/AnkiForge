@@ -3,10 +3,11 @@ Widget de mini-graphique d'activité sur 7 jours (cartes créées vs modifiées)
 Rendu 100% natif Qt / PySide6 via QPainter, avec infobulle interactive et réactivité aux thèmes.
 """
 
-from typing import Any, Dict, List, Optional
-from PySide6.QtCore import Qt, QRectF
-from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPainterPath
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QToolTip
+from typing import Any
+
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolTip, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -15,13 +16,13 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class ActivityChartWidget(QWidget):
     """Mini-graphique à barres 7 jours affichant le volume de cartes créées et éditées."""
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setMinimumHeight(135)
         self.setMaximumHeight(155)
         self.setMouseTracking(True)
 
-        self._data: List[Dict[str, Any]] = []
+        self._data: list[dict[str, Any]] = []
         self._hovered_index: int = -1
 
         # Configuration UI
@@ -71,7 +72,7 @@ class ActivityChartWidget(QWidget):
         layout.addLayout(header_layout)
         layout.addStretch()
 
-    def set_data(self, data: List[Dict[str, Any]]) -> None:
+    def set_data(self, data: list[dict[str, Any]]) -> None:
         """Met à jour les données du graphique."""
         self._data = data or []
         self.update()

@@ -1,7 +1,9 @@
 from typing import Any
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame
+
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter, QColor, QLinearGradient, QFont, QPaintEvent
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPaintEvent
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QWidget
+
 from ankiforge.ui.theme import DesignTokens
 
 

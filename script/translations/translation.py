@@ -8,7 +8,7 @@ json_path = root / "src/ankiforge/ressources/translations/fr_backup.json"
 ts_path = root / "src/ankiforge/ressources/translations/fr_FR.ts"
 
 # Charger le dico français
-with open(json_path, "r", encoding="utf-8") as f:
+with open(json_path, encoding="utf-8") as f:
     fr_dict = json.load(f)
 
 # Parser le fichier XML de Qt

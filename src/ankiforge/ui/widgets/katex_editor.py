@@ -1,11 +1,10 @@
-import re
-import io
 import base64
-from typing import Optional
+import io
+import re
 
-from PySide6.QtWidgets import QWidget, QPlainTextEdit, QTextBrowser, QSplitter, QVBoxLayout, QCompleter, QFrame, QPushButton, QHBoxLayout
-from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QKeyEvent, QTextCursor
-from PySide6.QtCore import Qt, QRegularExpression, Signal, QStringListModel, QTimer
+from PySide6.QtCore import QRegularExpression, QStringListModel, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QKeyEvent, QSyntaxHighlighter, QTextCharFormat, QTextCursor
+from PySide6.QtWidgets import QCompleter, QFrame, QHBoxLayout, QPlainTextEdit, QPushButton, QSplitter, QTextBrowser, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens, is_dark_mode
 
@@ -172,10 +171,9 @@ class KaTeXTextEdit(QPlainTextEdit):
 
     def keyPressEvent(self, e: QKeyEvent):
         popup = self.completer.popup()
-        if popup is not None and popup.isVisible():
-            if e.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Escape, Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
-                e.ignore()
-                return
+        if popup is not None and popup.isVisible() and e.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Escape, Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
+            e.ignore()
+            return
 
         # Let the editor handle the key first, except if it's the trigger character
         super().keyPressEvent(e)
@@ -206,7 +204,7 @@ class KaTeXEditor(QWidget):
 
     content_changed = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
         self._setup_connections()

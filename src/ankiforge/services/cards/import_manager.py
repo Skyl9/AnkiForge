@@ -18,9 +18,10 @@ import sqlite3
 import tempfile
 import uuid
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import zstandard as zstd
 
@@ -46,14 +47,14 @@ class ConflictItem:
     note_id: int
     guid: str
     note_type_name: str
-    local_content: Dict[str, str]
-    incoming_content: Dict[str, str]
+    local_content: dict[str, str]
+    incoming_content: dict[str, str]
     local_deck: str
     incoming_deck: str
-    local_tags: List[str]
-    incoming_tags: List[str]
+    local_tags: list[str]
+    incoming_tags: list[str]
     similarity_score: float
-    field_diffs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    field_diffs: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -62,15 +63,15 @@ class ImportAnalysisResult:
 
     temp_dir: str
     source_type: str  # 'apkg', 'colpkg', 'txt'
-    sqlite_path: Optional[str]
-    txt_path: Optional[str]
-    new_notes: List[Dict[str, Any]]
-    silent_updates: List[Dict[str, Any]]
+    sqlite_path: str | None
+    txt_path: str | None
+    new_notes: list[dict[str, Any]]
+    silent_updates: list[dict[str, Any]]
     identical_count: int
-    conflicts: List[ConflictItem]
-    media_map: Dict[str, str]  # id (numéro de fichier dans le zip) -> filename
-    raw_models: Dict[int, Dict[str, Any]] = field(default_factory=dict)
-    raw_decks: List[Dict[str, Any]] = field(default_factory=list)
+    conflicts: list[ConflictItem]
+    media_map: dict[str, str]  # id (numéro de fichier dans le zip) -> filename
+    raw_models: dict[int, dict[str, Any]] = field(default_factory=dict)
+    raw_decks: list[dict[str, Any]] = field(default_factory=list)
 
 
 class ImportManager:
@@ -128,7 +129,7 @@ class ImportManager:
         return ""
 
     @staticmethod
-    def compute_field_diffs(local_content: Dict[str, str], incoming_content: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+    def compute_field_diffs(local_content: dict[str, str], incoming_content: dict[str, str]) -> dict[str, dict[str, Any]]:
         """Calcule les différences textuelles champ par champ avec opcodes."""
         all_keys = set(local_content.keys()) | set(incoming_content.keys())
         diffs = {}
@@ -145,7 +146,7 @@ class ImportManager:
             }
         return diffs
 
-    def analyze_archive(self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None) -> ImportAnalysisResult:
+    def analyze_archive(self, file_path: str | Path, progress_callback: Callable[[str], None] | None = None) -> ImportAnalysisResult:
         """
         Analyse une archive (.apkg, .colpkg ou .txt) sans modifier la base de données.
         Identifie les nouvelles notes, les mises à jour silencieuses et les conflits stricts.
@@ -161,9 +162,9 @@ class ImportManager:
             return self._analyze_txt(path, progress_callback)
         return self._analyze_apkg(path, progress_callback)
 
-    def _analyze_txt(self, txt_path: Path, progress_callback: Optional[Callable[[str], None]] = None) -> ImportAnalysisResult:
-        cards: List[List[str]] = []
-        header_dict: Dict[str, int] = {}
+    def _analyze_txt(self, txt_path: Path, progress_callback: Callable[[str], None] | None = None) -> ImportAnalysisResult:
+        cards: list[list[str]] = []
+        header_dict: dict[str, int] = {}
 
         mapping = {
             "#notetype column": "notetype",
@@ -172,7 +173,7 @@ class ImportManager:
             "#deck column": "deck",
         }
 
-        with open(txt_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(txt_path, encoding="utf-8", errors="ignore") as f:
             reader = csv.reader(f, delimiter="\t")
             for row in reader:
                 if not row:
@@ -185,9 +186,9 @@ class ImportManager:
                 else:
                     cards.append(row)
 
-        new_notes: List[Dict[str, Any]] = []
-        silent_updates: List[Dict[str, Any]] = []
-        conflicts: List[ConflictItem] = []
+        new_notes: list[dict[str, Any]] = []
+        silent_updates: list[dict[str, Any]] = []
+        conflicts: list[ConflictItem] = []
         identical_count = 0
 
         for row in cards:
@@ -228,7 +229,7 @@ class ImportManager:
             media_map={},
         )
 
-    def _analyze_apkg(self, apkg_path: Path, progress_callback: Optional[Callable[[str], None]] = None) -> ImportAnalysisResult:
+    def _analyze_apkg(self, apkg_path: Path, progress_callback: Callable[[str], None] | None = None) -> ImportAnalysisResult:
         temp_dir = tempfile.mkdtemp(prefix="ankiforge_import_")
         temp_path = Path(temp_dir)
 
@@ -240,11 +241,11 @@ class ImportManager:
             raise ValueError(f"Le fichier {apkg_path.name} n'est pas une archive ZIP/APKG valide.") from e
 
         # Lecture de media map
-        media_map: Dict[str, str] = {}
+        media_map: dict[str, str] = {}
         media_json_path = temp_path / "media"
         if media_json_path.exists():
             try:
-                with open(media_json_path, "r", encoding="utf-8") as f:
+                with open(media_json_path, encoding="utf-8") as f:
                     media_map = json.load(f)
             except Exception as e:
                 logger.warning("Impossible de lire le fichier media du package: %s", e)
@@ -271,7 +272,7 @@ class ImportManager:
         cursor = conn.cursor()
 
         # 1. Decks
-        raw_decks: List[Dict[str, Any]] = []
+        raw_decks: list[dict[str, Any]] = []
         try:
             cursor.execute("SELECT decks FROM col")
             decks_raw = cursor.fetchone()[0]
@@ -285,10 +286,10 @@ class ImportManager:
         except Exception as e:
             logger.warning("Erreur extraction decks: %s", e)
 
-        deck_id_to_name: Dict[int, str] = {int(d.get("id", 0)): d.get("name", "Par défaut") for d in raw_decks}
+        deck_id_to_name: dict[int, str] = {int(d.get("id", 0)): d.get("name", "Par défaut") for d in raw_decks}
 
         # 2. Modèles (NoteTypes)
-        raw_models: Dict[int, Dict[str, Any]] = {}
+        raw_models: dict[int, dict[str, Any]] = {}
         try:
             cursor.execute("SELECT models FROM col")
             models_raw = cursor.fetchone()[0]
@@ -327,7 +328,7 @@ class ImportManager:
             logger.warning("Erreur extraction models: %s", e)
 
         # 3. Cards table pour le mapping note_id -> deck_id
-        note_to_deck: Dict[int, int] = {}
+        note_to_deck: dict[int, int] = {}
         try:
             cursor.execute("SELECT nid, did FROM cards")
             for nid, did in cursor.fetchall():
@@ -336,9 +337,9 @@ class ImportManager:
             logger.warning("Erreur mapping cards/decks: %s", e)
 
         # 4. Extraction & Classification des notes
-        new_notes: List[Dict[str, Any]] = []
-        silent_updates: List[Dict[str, Any]] = []
-        conflicts: List[ConflictItem] = []
+        new_notes: list[dict[str, Any]] = []
+        silent_updates: list[dict[str, Any]] = []
+        conflicts: list[ConflictItem] = []
         identical_count = 0
 
         try:
@@ -474,12 +475,12 @@ class ImportManager:
     def _evaluate_existing_note(
         self,
         existing_note: NoteModel,
-        incoming_content: Dict[str, str],
+        incoming_content: dict[str, str],
         deck_name: str,
-        incoming_tags: List[str],
+        incoming_tags: list[str],
         notetype_name: str,
-        silent_updates: List[Dict[str, Any]],
-        conflicts: List[ConflictItem],
+        silent_updates: list[dict[str, Any]],
+        conflicts: list[ConflictItem],
         identical_count: int,
     ) -> None:
         local_version = NoteVersionModel.get_or_none(note=existing_note, is_active=True)
@@ -511,7 +512,7 @@ class ImportManager:
             local_tags = []
             if existing_note.tags:
                 try:
-                    parsed = json.loads(existing_note.tags)
+                    parsed = json.loads(str(existing_note.tags))
                     if isinstance(parsed, list):
                         local_tags = parsed
                 except Exception:
@@ -520,7 +521,7 @@ class ImportManager:
             conflicts.append(
                 ConflictItem(
                     note_id=existing_note.id,
-                    guid=existing_note.guid,
+                    guid=str(existing_note.guid),
                     note_type_name=notetype_name,
                     local_content=local_content,
                     incoming_content=incoming_content,
@@ -547,10 +548,10 @@ class ImportManager:
     def commit_import(
         self,
         analysis: ImportAnalysisResult,
-        conflict_resolutions: Optional[Dict[str, Dict[str, Any]]] = None,
-        target_deck_id: Optional[int] = None,
-        progress_callback: Optional[Callable[[str], None]] = None,
-    ) -> Dict[str, int]:
+        conflict_resolutions: dict[str, dict[str, Any]] | None = None,
+        target_deck_id: int | None = None,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> dict[str, int]:
         """
         Effectue l'écriture finale en base de données de manière atomique.
         Applique les créations, mises à jour silencieuses et résolutions de conflits arbitrées.
@@ -565,7 +566,7 @@ class ImportManager:
 
         with db.atomic():
             # 1. Enregistrement des Decks & Sous-Decks
-            deck_cache: Dict[str, DeckModel] = {}
+            deck_cache: dict[str, DeckModel] = {}
             for d in analysis.raw_decks:
                 name = d.get("name", "Par défaut")
                 parent = None
@@ -576,7 +577,7 @@ class ImportManager:
                 deck_cache[name] = deck_obj
 
             # 2. Enregistrement des NoteTypes
-            model_cache: Dict[str, NoteTypeModel] = {}
+            model_cache: dict[str, NoteTypeModel] = {}
             for _mid, m_info in analysis.raw_models.items():
                 m_name = m_info.get("name", "Basic")
                 fields_schema = json.dumps(m_info.get("fields", ["Front", "Back"]))

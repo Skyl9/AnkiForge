@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -66,11 +66,11 @@ class AddonConfigForm(QWidget):
 
     config_saved = Signal(dict)
 
-    def __init__(self, addon_info: AddonInfo, plugin_manager: PluginManager, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, addon_info: AddonInfo, plugin_manager: PluginManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.addon_info = addon_info
         self.plugin_manager = plugin_manager
-        self._fields: Dict[str, QWidget] = {}
+        self._fields: dict[str, QWidget] = {}
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -113,8 +113,9 @@ class AddonConfigForm(QWidget):
                 chk.setCursor(Qt.CursorShape.PointingHandCursor)
                 row_layout.addWidget(chk)
                 self._fields[key] = chk
-            elif isinstance(val, (int, float)):
+            elif isinstance(val, int | float):
                 inp = StyledLineEdit()
+
                 inp.setText(str(val))
                 inp.setFixedWidth(140)
                 row_layout.addWidget(inp)
@@ -145,7 +146,7 @@ class AddonConfigForm(QWidget):
         layout.addWidget(btn_save, alignment=Qt.AlignmentFlag.AlignRight)
 
     def _on_save(self) -> None:
-        new_config: Dict[str, Any] = {}
+        new_config: dict[str, Any] = {}
         for key, widget in self._fields.items():
             orig_val = self.addon_info.config_schema.get(key)
             if isinstance(widget, QCheckBox):
@@ -187,10 +188,10 @@ class AddonDetailWidget(QWidget):
 
     addon_updated = Signal()
 
-    def __init__(self, plugin_manager: PluginManager, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, plugin_manager: PluginManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.plugin_manager = plugin_manager
-        self.current_addon: Optional[AddonInfo] = None
+        self.current_addon: AddonInfo | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -321,7 +322,7 @@ class AddonDetailWidget(QWidget):
         content_layout.addLayout(bottom_row)
         self.layout.addWidget(self.content_box, 1)
 
-    def set_addon(self, addon_info: Optional[AddonInfo]) -> None:
+    def set_addon(self, addon_info: AddonInfo | None) -> None:
         self.current_addon = addon_info
         if not addon_info:
             self.placeholder_widget.setVisible(True)
@@ -433,7 +434,7 @@ class AddonManagerWidget(QWidget):
     Vue principale du gestionnaire d'addons pour intégration dans la modale Paramètres.
     """
 
-    def __init__(self, plugin_manager: Optional[PluginManager] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, plugin_manager: PluginManager | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.plugin_manager = plugin_manager or get_plugin_manager()
         self._setup_ui()
@@ -569,7 +570,7 @@ class AddonManagerWidget(QWidget):
 class AddonManagerDialog(QDialog):
     """Boîte de dialogue autonome pour le gestionnaire d'addons."""
 
-    def __init__(self, plugin_manager: Optional[PluginManager] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, plugin_manager: PluginManager | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Gestionnaire d'Extensions AnkiForge")
         self.setMinimumSize(820, 520)
