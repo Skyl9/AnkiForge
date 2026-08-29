@@ -100,6 +100,13 @@ class DashboardHeroBanner(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_style()
+        self.icon_wrapper.setStyleSheet(f"""
+            QFrame {{
+                background-color: {profile.bg_active};
+                border-radius: {profile.radius_md}px;
+                border: 1px solid {profile.border_color};
+            }}
+        """)
         self.icon_label.setPixmap(load_phosphor_icon("ph.stack", color=profile.accent_primary).pixmap(24, 24))
         self.title.setText('Bienvenue dans <span style="color: %s;">AnkiForge</span>' % profile.accent_primary)
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
@@ -185,8 +192,16 @@ class DashboardActionButton(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_style()
+        self.icon_wrapper.setStyleSheet(f"""
+            QFrame {{
+                background-color: {profile.bg_active};
+                border-radius: {profile.radius_sm}px;
+                border: none;
+            }}
+        """)
+        self.icon_label.setPixmap(load_phosphor_icon(self.icon_name, color=self.color).pixmap(22, 22))
         self.title_label.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
-        self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; font-size: 11px; border: none; background: transparent;")
+        self.subtitle_label.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; border: none; background: transparent;")
 
 
 class DiagnosticCardWidget(QFrame):
@@ -515,6 +530,8 @@ class DashboardDropZone(QFrame):
         self.icon_label.setPixmap(load_phosphor_icon("ph.upload-simple", color=profile.accent_primary).pixmap(36, 36))
         self.title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.subtitle.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
+        if hasattr(self, "btn") and hasattr(self.btn, "refresh_theme"):
+            self.btn.refresh_theme(profile)
 
     def _browse_files(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -867,14 +884,34 @@ class DashboardView(QWidget):
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les composants de la vue lors du switch de thème."""
-        self.hero_banner.refresh_theme(profile)
-        self.btn_forge.refresh_theme(profile)
-        self.btn_import.refresh_theme(profile)
-        self.btn_export.refresh_theme(profile)
-        self.btn_library.refresh_theme(profile)
-        self.drop_zone.refresh_theme(profile)
-        self.diagnostics_widget.refresh_theme(profile)
-        self.stat_wozniak.refresh_theme(profile)
-        self.stat_coverage.refresh_theme(profile)
-        self.stat_cost.refresh_theme(profile)
-        self.stat_duplicates.refresh_theme(profile)
+        if hasattr(self, "actions_icon"):
+            self.actions_icon.setPixmap(load_phosphor_icon("ph.lightning", color=profile.text_primary).pixmap(14, 14))
+        if hasattr(self, "actions_title"):
+            self.actions_title.setStyleSheet(f"color: {profile.text_primary};")
+        if hasattr(self, "hero_banner"):
+            self.hero_banner.refresh_theme(profile)
+        if hasattr(self, "btn_forge"):
+            self.btn_forge.refresh_theme(profile)
+        if hasattr(self, "btn_import"):
+            self.btn_import.refresh_theme(profile)
+        if hasattr(self, "btn_export"):
+            self.btn_export.refresh_theme(profile)
+        if hasattr(self, "btn_library"):
+            self.btn_library.refresh_theme(profile)
+        if hasattr(self, "drop_zone"):
+            self.drop_zone.refresh_theme(profile)
+        if hasattr(self, "diagnostics_widget"):
+            self.diagnostics_widget.refresh_theme(profile)
+        if hasattr(self, "stat_wozniak"):
+            self.stat_wozniak.refresh_theme(profile)
+        if hasattr(self, "stat_coverage"):
+            self.stat_coverage.refresh_theme(profile)
+        if hasattr(self, "stat_cost"):
+            self.stat_cost.refresh_theme(profile)
+        if hasattr(self, "stat_duplicates"):
+            self.stat_duplicates.refresh_theme(profile)
+        if hasattr(self, "activity_list_layout"):
+            for i in range(self.activity_list_layout.count()):
+                item = self.activity_list_layout.itemAt(i)
+                if item and item.widget() and hasattr(item.widget(), "refresh_theme"):
+                    item.widget().refresh_theme(profile)

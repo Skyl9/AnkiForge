@@ -1,3 +1,4 @@
+from typing import Any
 import typing
 from PySide6.QtWidgets import QLineEdit, QPlainTextEdit, QWidget, QComboBox
 from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve, Property
@@ -13,32 +14,20 @@ class StyledLineEdit(QLineEdit):
         self.setFixedHeight(34)
         if placeholder:
             self.setPlaceholderText(placeholder)
+        self.icon_name = icon_name
+        self._action = None
         if icon_name:
             from ankiforge.utils.icon_loader import load_phosphor_icon
 
             icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED)
-            self.addAction(icon, QLineEdit.ActionPosition.LeadingPosition)
+            self._action = self.addAction(icon, QLineEdit.ActionPosition.LeadingPosition)
 
-        self.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
-                padding: 4px 10px;
-                font-size: 12px;
-                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
-                selection-color: #ffffff;
-            }}
-            QLineEdit:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-            QLineEdit:focus {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
+    def refresh_theme(self, profile: Any = None) -> None:
+        if self.icon_name and hasattr(self, "_action") and self._action:
+            from ankiforge.utils.icon_loader import load_phosphor_icon
+
+            color = profile.text_muted if profile else DesignTokens.TEXT_MUTED
+            self._action.setIcon(load_phosphor_icon(self.icon_name, color=color))
 
 
 class StyledTextEdit(QPlainTextEdit):
@@ -84,30 +73,42 @@ class GlowLineEdit(QLineEdit):
             self.hover_blur = 12
             self.focus_blur = 18
 
-    def _apply_base_style(self) -> None:
+    def _apply_base_style(self, profile: Any = None) -> None:
+        bg_input = profile.bg_input if profile else DesignTokens.BG_INPUT
+        border_color = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        border_light = profile.border_light if profile else DesignTokens.BORDER_LIGHT
+        radius_sm = profile.radius_sm if profile else DesignTokens.RADIUS_SM
+        text_primary = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+        accent_primary = profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY
+        bg_hover = profile.bg_hover if profile else DesignTokens.BG_HOVER
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+
         self.setStyleSheet(f"""
             QLineEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {bg_input};
+                border: 1px solid {border_color};
+                border-top: 1px solid {border_light};
+                border-radius: {radius_sm}px;
+                color: {text_primary};
                 padding: 4px 10px;
                 font-size: 12px;
-                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
+                selection-background-color: {accent_primary};
                 selection-color: #ffffff;
             }}
             QLineEdit:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {bg_hover};
+                border: 1.5px solid {accent_primary};
+                color: {text_primary};
             }}
             QLineEdit:focus {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
+                background-color: {bg_panel};
+                border: 2px solid {accent_primary};
+                color: {text_primary};
             }}
         """)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        self._apply_base_style(profile)
 
     def enterEvent(self, event) -> None:
         if hasattr(self, "anim") and not (self.hasFocus() or self._is_focused):

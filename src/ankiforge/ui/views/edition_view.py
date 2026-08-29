@@ -1226,6 +1226,71 @@ class EditionView(QWidget):
         if hasattr(self, "fields_container"):
             self.fields_container.setStyleSheet(f"background-color: {profile.bg_sidebar};")
 
+        # Rafraîchir les boutons de filtre dossiers & modèles
+        if hasattr(self, "btn_open_folder"):
+            is_active = self._active_folder_id is not None
+            self.btn_open_folder.setIcon(load_phosphor_icon("folder" if is_active else "folders", color=profile.accent_primary if is_active else profile.text_secondary))
+            if not is_active:
+                self.btn_open_folder.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {profile.bg_panel};
+                        border: 1px solid {profile.border_color};
+                        border-radius: {profile.radius_sm}px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: {profile.text_secondary};
+                    }}
+                    QPushButton:hover {{
+                        background-color: {profile.bg_hover};
+                    }}
+                """)
+            else:
+                self.btn_open_folder.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {profile.bg_active};
+                        border: 1px solid {profile.accent_primary};
+                        border-radius: {profile.radius_sm}px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: {profile.accent_primary};
+                    }}
+                """)
+
+        if hasattr(self, "btn_open_model"):
+            is_active = self._active_model_id is not None
+            if not is_active:
+                self.btn_open_model.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {profile.bg_panel};
+                        border: 1px solid {profile.border_color};
+                        border-radius: {profile.radius_sm}px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: {profile.text_secondary};
+                    }}
+                    QPushButton:hover {{
+                        background-color: {profile.bg_hover};
+                    }}
+                """)
+            else:
+                self.btn_open_model.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {profile.bg_active};
+                        border: 1px solid {profile.accent_primary};
+                        border-radius: {profile.radius_sm}px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: {profile.accent_primary};
+                    }}
+                """)
+
+        if hasattr(self, "_rebuild_tag_chips"):
+            self._rebuild_tag_chips()
+
         for panel in self.findChildren(IdePanel):
             if hasattr(panel, "refresh_theme"):
                 panel.refresh_theme(profile)

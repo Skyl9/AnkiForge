@@ -193,7 +193,8 @@ class ThoughtStepWidget(QFrame):
         header_row.addWidget(self.btn_toggle)
         layout.addLayout(header_row)
 
-        # Contenu de la pensée
+        self.icon_lbl = icon_lbl
+        self.lbl_title = lbl_title
         self.lbl_content = QLabel(thought_text)
         self.lbl_content.setWordWrap(True)
         self.lbl_content.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; line-height: 1.4;")
@@ -208,6 +209,21 @@ class ThoughtStepWidget(QFrame):
             self.lbl_content.hide()
             self.btn_toggle.setText("Détails ▾")
 
+    def refresh_theme(self, profile: Any) -> None:
+        self.setStyleSheet(f"""
+            ThoughtStepWidget {{
+                background-color: {profile.bg_active};
+                border: 1px solid {profile.border_color};
+                border-radius: 8px;
+            }}
+            ThoughtStepWidget QLabel {{
+                background: transparent;
+            }}
+        """)
+        self.icon_lbl.setPixmap(load_phosphor_icon("ph.brain", color=profile.accent_primary).pixmap(14, 14))
+        self.lbl_title.setStyleSheet(f"color: {profile.accent_primary}; font-weight: bold; font-size: 11px;")
+        self.lbl_content.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; line-height: 1.4;")
+
 
 # =====================================================================
 # COMPOSANT : APPEL D'OUTIL INTERACTIF (TOOLCALLWIDGET)
@@ -219,6 +235,8 @@ class ToolCallWidget(QFrame):
 
     def __init__(self, tool_name: str, args_json: str, result_str: str, is_error: bool = False, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.tool_name = tool_name
+        self.is_error = is_error
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         border_color = "rgba(239, 68, 68, 0.4)" if is_error else "rgba(16, 185, 129, 0.35)"
@@ -243,15 +261,15 @@ class ToolCallWidget(QFrame):
         header = QHBoxLayout()
         header.setSpacing(8)
 
-        icon_lbl = QLabel()
+        self.icon_lbl = QLabel()
         icon_name = "ph.database" if "peewee" in tool_name or "sql" in tool_name else ("ph.palette" if "css" in tool_name else "ph.wrench")
         icon_color = "#f87171" if is_error else "#34d399"
-        icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(14, 14))
-        header.addWidget(icon_lbl)
+        self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(14, 14))
+        header.addWidget(self.icon_lbl)
 
-        lbl_tool = QLabel(f"Outil invoqué : <b>{tool_name}</b>")
-        lbl_tool.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
-        header.addWidget(lbl_tool, 1)
+        self.lbl_tool = QLabel(f"Outil invoqué : <b>{tool_name}</b>")
+        self.lbl_tool.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        header.addWidget(self.lbl_tool, 1)
 
         badge_status = Badge("Échec" if is_error else "Succès", variant="status")
         apply_pill_style(badge_status, "#ef4444" if is_error else "#10b981")
@@ -303,6 +321,21 @@ class ToolCallWidget(QFrame):
         else:
             self.details_box.hide()
             self.btn_toggle.setText("Voir données ▾")
+
+    def refresh_theme(self, profile: Any) -> None:
+        border_color = "rgba(239, 68, 68, 0.4)" if self.is_error else "rgba(16, 185, 129, 0.35)"
+        bg_color = "rgba(239, 68, 68, 0.08)" if self.is_error else "rgba(16, 185, 129, 0.08)"
+        self.setStyleSheet(f"""
+            ToolCallWidget {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-radius: 8px;
+            }}
+            ToolCallWidget QLabel {{
+                background: transparent;
+            }}
+        """)
+        self.lbl_tool.setStyleSheet(f"color: {profile.text_primary}; font-size: 11px;")
 
 
 # =====================================================================
@@ -366,9 +399,9 @@ class ChatMessageWidget(QWidget):
         now_str = datetime.datetime.now().strftime("%H:%M")
         sender_html = f"<span style='font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;'>{sender}</span>"
         time_html = f"<span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-left: 6px;'>{now_str}</span>"
-        header_lbl = QLabel(f"{sender_html} {time_html}")
-        header_lbl.setStyleSheet("border: none; background: transparent;")
-        content_layout.addWidget(header_lbl)
+        self.header_lbl = QLabel(f"{sender_html} {time_html}")
+        self.header_lbl.setStyleSheet("border: none; background: transparent;")
+        content_layout.addWidget(self.header_lbl)
 
         # 1. Éléments ReAct (Pensées et Outils)
         if thoughts:
@@ -382,45 +415,45 @@ class ChatMessageWidget(QWidget):
                 content_layout.addWidget(tc_widget)
 
         # 2. Corps du message
-        body_card = QFrame()
-        body_layout = QVBoxLayout(body_card)
+        self.body_card = QFrame()
+        body_layout = QVBoxLayout(self.body_card)
         body_layout.setContentsMargins(14, 12, 14, 12)
 
-        msg_body = QLabel()
-        msg_body.setWordWrap(True)
-        msg_body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.msg_body = QLabel()
+        self.msg_body.setWordWrap(True)
+        self.msg_body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         # Rendu HTML/Markdown propre
         if is_user:
-            msg_body.setText(text)
-            msg_body.setTextFormat(Qt.TextFormat.PlainText)
+            self.msg_body.setText(text)
+            self.msg_body.setTextFormat(Qt.TextFormat.PlainText)
         else:
             html = render_markdown_message(text)
-            msg_body.setText(html)
-            msg_body.setTextFormat(Qt.TextFormat.RichText)
+            self.msg_body.setText(html)
+            self.msg_body.setTextFormat(Qt.TextFormat.RichText)
 
         if is_user:
-            body_card.setStyleSheet(f"""
+            self.body_card.setStyleSheet(f"""
                 QFrame {{
                     background-color: {DesignTokens.BG_ACTIVE};
                     border: 1px solid {DesignTokens.ACCENT_PRIMARY};
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
-            msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-size: 13px; line-height: 1.5;")
+            self.msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-size: 13px; line-height: 1.5;")
         else:
-            body_card.setStyleSheet(f"""
+            self.body_card.setStyleSheet(f"""
                 QFrame {{
                     background-color: {DesignTokens.BG_PANEL};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
                     border-radius: {DesignTokens.RADIUS_MD}px;
                 }}
             """)
-            msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-size: 13px; line-height: 1.5;")
-            apply_shadow(body_card, blur=10, offset_y=2)
+            self.msg_body.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; font-size: 13px; line-height: 1.5;")
+            apply_shadow(self.body_card, blur=10, offset_y=2)
 
-        body_layout.addWidget(msg_body)
-        content_layout.addWidget(body_card)
+        body_layout.addWidget(self.msg_body)
+        content_layout.addWidget(self.body_card)
 
         # 3. Actions contextuelles sous la réponse IA
         if not is_user:
@@ -494,6 +527,52 @@ class ChatMessageWidget(QWidget):
         except Exception as e:
             show_toast(self, f"Erreur lors de l'import : {e}", is_error=True)
 
+    def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "avatar_lbl"):
+            if self.is_user:
+                self.avatar_lbl.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: {profile.accent_primary};
+                        color: white;
+                        font-weight: 700;
+                        font-size: 11px;
+                        border-radius: 17px;
+                    }}
+                """)
+            else:
+                self.avatar_lbl.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: {profile.accent_primary};
+                        border-radius: 17px;
+                    }}
+                """)
+        if hasattr(self, "header_lbl"):
+            sender_name = "Vous" if self.is_user else "AnkiForge AI"
+            now_str = datetime.datetime.now().strftime("%H:%M")
+            sender_html = f"<span style='font-weight: bold; color: {profile.text_primary}; font-size: 12px;'>{sender_name}</span>"
+            time_html = f"<span style='color: {profile.text_muted}; font-size: 11px; margin-left: 6px;'>{now_str}</span>"
+            self.header_lbl.setText(f"{sender_html} {time_html}")
+
+        if hasattr(self, "body_card") and hasattr(self, "msg_body"):
+            if self.is_user:
+                self.body_card.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {profile.bg_active};
+                        border: 1px solid {profile.accent_primary};
+                        border-radius: {profile.radius_md}px;
+                    }}
+                """)
+                self.msg_body.setStyleSheet(f"color: {profile.text_primary}; border: none; font-size: 13px; line-height: 1.5;")
+            else:
+                self.body_card.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {profile.bg_panel};
+                        border: 1px solid {profile.border_color};
+                        border-radius: {profile.radius_md}px;
+                    }}
+                """)
+                self.msg_body.setStyleSheet(f"color: {profile.text_primary}; border: none; font-size: 13px; line-height: 1.5;")
+
 
 # =====================================================================
 # VUE PRINCIPALE : CONSULTANTVIEW (AI CONSULTANT STUDIO)
@@ -505,9 +584,10 @@ class ConsultantView(QWidget):
     AI Consultant Studio — Moteur ReAct, Intégration Outils Peewee/MCP et Visualisation Riche.
     """
 
-    def __init__(self, ai_manager: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Optional[Any] = None, profile_name: str = "default", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.profile_name = profile_name
         self.worker: Optional[ConsultantWorker] = None
         self.used_tokens_count = 0
         self.modified_cards_count = 0
@@ -521,6 +601,22 @@ class ConsultantView(QWidget):
         self._connect_signals()
         self.refresh_data()
         self._insert_welcome_message()
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Adapte le studio Consultant IA lors d'un switch de thème."""
+        if hasattr(self, "chat_panel") and hasattr(self.chat_panel, "refresh_theme"):
+            self.chat_panel.refresh_theme(profile)
+        if hasattr(self, "side_panel") and hasattr(self.side_panel, "refresh_theme"):
+            self.side_panel.refresh_theme(profile)
+        if hasattr(self, "lbl_chat_status"):
+            self.lbl_chat_status.setStyleSheet(f"color: {profile.color_purple}; font-size: 11px; padding: 4px 16px; font-weight: bold;")
+        if hasattr(self, "chat_messages_layout"):
+            for i in range(self.chat_messages_layout.count()):
+                item = self.chat_messages_layout.itemAt(i)
+                if item and item.widget() and hasattr(item.widget(), "refresh_theme"):
+                    item.widget().refresh_theme(profile)
+        if hasattr(self, "btn_send") and hasattr(self.btn_send, "refresh_theme"):
+            self.btn_send.refresh_theme(profile)
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)

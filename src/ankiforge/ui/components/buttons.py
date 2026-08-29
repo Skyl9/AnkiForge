@@ -16,8 +16,6 @@ class PrimaryButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "primary")
 
-        self._apply_base_style()
-
         apply_shadow(self, blur=10, offset_y=0, color="rgba(99,102,241,0.4)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
@@ -26,38 +24,6 @@ class PrimaryButton(QPushButton):
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 10
             self.hover_blur = 16
-
-    def _apply_base_style(self) -> None:
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
-                color: #ffffff;
-                font-weight: 600;
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                border-top: 1px solid rgba(255, 255, 255, 0.35);
-                border-bottom: 2px solid rgba(0, 0, 0, 0.35);
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 6px 14px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.ACCENT_HOVER};
-                border: 1.5px solid #ffffff;
-            }}
-            QPushButton:focus {{
-                border: 2px solid #ffffff;
-                background-color: {DesignTokens.ACCENT_HOVER};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignTokens.ACCENT_HOVER};
-                border: 2px solid #ffffff;
-                padding-top: 8px;
-            }}
-            QPushButton:disabled {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.TEXT_MUTED};
-                border-color: transparent;
-            }}
-        """)
 
     def enterEvent(self, event) -> None:
         if hasattr(self, "anim"):
@@ -72,7 +38,7 @@ class PrimaryButton(QPushButton):
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
-        self._apply_base_style()
+        pass
 
 
 class SecondaryButton(QPushButton):
@@ -85,8 +51,6 @@ class SecondaryButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "secondary")
 
-        self._apply_base_style()
-
         apply_shadow(self, blur=2, offset_y=1, color="rgba(0,0,0,0.18)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
@@ -95,39 +59,6 @@ class SecondaryButton(QPushButton):
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
             self.hover_blur = 10
-
-    def _apply_base_style(self) -> None:
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 6px 14px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QPushButton:focus {{
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignTokens.BG_ACTIVE};
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                padding-top: 8px;
-            }}
-            QPushButton:disabled {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_MUTED};
-                border-color: {DesignTokens.BORDER_LIGHT};
-            }}
-        """)
 
     def enterEvent(self, event) -> None:
         if hasattr(self, "anim"):
@@ -142,7 +73,7 @@ class SecondaryButton(QPushButton):
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
-        self._apply_base_style()
+        pass
 
 
 class DangerButton(QPushButton):
@@ -155,8 +86,6 @@ class DangerButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "danger")
 
-        self._apply_base_style()
-
         apply_shadow(self, blur=2, offset_y=1, color="rgba(239,68,68,0.25)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
@@ -165,32 +94,6 @@ class DangerButton(QPushButton):
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
             self.hover_blur = 12
-
-    def _apply_base_style(self) -> None:
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: rgba(239, 68, 68, 0.14);
-                color: {DesignTokens.COLOR_RED};
-                border: 1px solid rgba(239, 68, 68, 0.3);
-                border-top: 1px solid rgba(239, 68, 68, 0.5);
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 6px 14px;
-                font-weight: 600;
-            }}
-            QPushButton:hover {{
-                background-color: rgba(239, 68, 68, 0.28);
-                border: 1.5px solid {DesignTokens.COLOR_RED};
-            }}
-            QPushButton:focus {{
-                border: 2px solid {DesignTokens.COLOR_RED};
-                background-color: rgba(239, 68, 68, 0.22);
-            }}
-            QPushButton:pressed {{
-                background-color: rgba(239, 68, 68, 0.40);
-                border: 2px solid {DesignTokens.COLOR_RED};
-                padding-top: 8px;
-            }}
-        """)
 
     def enterEvent(self, event) -> None:
         if hasattr(self, "anim"):
@@ -205,7 +108,7 @@ class DangerButton(QPushButton):
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
-        self._apply_base_style()
+        pass
 
 
 class IconButton(QPushButton):
@@ -224,8 +127,6 @@ class IconButton(QPushButton):
             self.setIconSize(self.size() * 0.6)
             self.setText("")
 
-        self._apply_base_style()
-
         apply_shadow(self, blur=2, offset_y=1, color="rgba(0,0,0,0.15)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
@@ -234,32 +135,6 @@ class IconButton(QPushButton):
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
             self.hover_blur = 8
-
-    def _apply_base_style(self) -> None:
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top: 1px solid {DesignTokens.BORDER_LIGHT};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 0px;
-                color: {DesignTokens.TEXT_SECONDARY};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QPushButton:focus {{
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                background-color: {DesignTokens.BG_PANEL};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignTokens.BG_ACTIVE};
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                padding-top: 1px;
-            }}
-        """)
 
     def enterEvent(self, event) -> None:
         if hasattr(self, "anim"):
@@ -277,7 +152,6 @@ class IconButton(QPushButton):
         if self.icon_name:
             color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
             self.setIcon(load_phosphor_icon(self.icon_name, color=color))
-        self._apply_base_style()
 
 
 class PremiumActionCard(QFrame):
@@ -316,6 +190,10 @@ class PremiumActionCard(QFrame):
         if hasattr(self, "icon_name") and self.icon_name:
             pixmap = load_phosphor_icon(self.icon_name, color=profile.accent_primary).pixmap(24, 24)
             self.icon_label.setPixmap(pixmap)
+        if hasattr(self, "title_label"):
+            self.title_label.setStyleSheet(f"font-weight: bold; color: {profile.text_primary};")
+        if hasattr(self, "desc_label"):
+            self.desc_label.setStyleSheet(f"color: {profile.text_secondary};")
 
     def mouseReleaseEvent(self, event) -> None:
         from PySide6.QtGui import QMouseEvent

@@ -899,12 +899,24 @@ class StyleEngine(QObject):
         """
         Force le dé-polissage et re-polissage de tous les widgets actifs pour
         appliquer immédiatement la nouvelle feuille de style QSS sans redémarrage.
+        Invoque également refresh_theme(profile) sur tous les widgets le supportant.
         """
         application = app or QApplication.instance()
         if isinstance(application, QApplication):
             style = application.style()
+            profile = self._current_theme
             for widget in application.allWidgets():
                 try:
+                    if hasattr(widget, "refresh_theme") and callable(widget.refresh_theme):
+                        try:
+                            widget.refresh_theme(profile)
+                        except TypeError:
+                            try:
+                                widget.refresh_theme()
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
                     style.unpolish(widget)
                     style.polish(widget)
                     widget.update()

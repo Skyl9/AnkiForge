@@ -94,6 +94,22 @@ class NotificationItemWidget(QFrame):
         data = {"tab": tab_id} if tab_id else None
         self.action_clicked.emit(view_id, data)
 
+    def refresh_theme(self, profile: Any) -> None:
+        self.setStyleSheet(f"""
+            NotificationItemWidget {{
+                background-color: {profile.bg_input};
+                border: 1px solid {profile.border_color};
+                border-radius: {profile.radius_sm}px;
+            }}
+            NotificationItemWidget:hover {{
+                border-color: {profile.accent_primary};
+            }}
+        """)
+        self.title_lbl.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
+        self.msg_lbl.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
+        if hasattr(self, "btn_action") and hasattr(self.btn_action, "refresh_theme"):
+            self.btn_action.refresh_theme(profile)
+
 
 class NotificationMenuPopup(QFrame):
     """Fenêtre popup affichant la liste des alertes proactives au clic sur la cloche TopBar."""
@@ -224,3 +240,16 @@ class NotificationMenuPopup(QFrame):
         self.header_title.setStyleSheet(f"color: {profile.text_primary}; border: none; background: transparent;")
         self.header_icon.setPixmap(load_phosphor_icon("ph.bell", color=profile.accent_primary).pixmap(18, 18))
         self.empty_label.setStyleSheet(f"color: {profile.text_muted}; padding: 24px 0; border: none; background: transparent;")
+        self.count_badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {profile.bg_active};
+                color: {profile.accent_primary};
+                border: 1px solid {profile.accent_primary};
+                border-radius: 9px;
+                padding: 1px 7px;
+            }}
+        """)
+        for i in range(self.items_layout.count()):
+            item = self.items_layout.itemAt(i)
+            if item and item.widget() and hasattr(item.widget(), "refresh_theme"):
+                item.widget().refresh_theme(profile)

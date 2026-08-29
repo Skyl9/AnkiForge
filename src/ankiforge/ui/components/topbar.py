@@ -229,3 +229,5 @@ class TopBar(QWidget):
             self.import_btn.refresh_theme(profile)
         if hasattr(self, "export_btn") and hasattr(self.export_btn, "refresh_theme"):
             self.export_btn.refresh_theme(profile)
+        if hasattr(self, "omnibox") and hasattr(self.omnibox, "refresh_theme"):
+            self.omnibox.refresh_theme(profile)
