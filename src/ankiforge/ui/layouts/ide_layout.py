@@ -42,43 +42,51 @@ class IdeLayout(BaseLayout):
 
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
-        main_layout = QHBoxLayout(self)
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 1. Sidebar
-        self.sidebar = Sidebar(profile_name=self.profile_name)
-        self.sidebar.toggle_requested.connect(self._toggle_sidebar)
-        self.sidebar.view_selected.connect(lambda vid: self.view_selected.emit(vid, None))
-        self.sidebar.settings_requested.connect(self.settings_requested.emit)
-        self.sidebar.profile_switch_requested.connect(self.profile_switch_requested.emit)
-        main_layout.addWidget(self.sidebar)
-
-        # 2. Zone de contenu
-        self.content_widget = QWidget()
-        self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(0)
-
-        # TopBar
+        # 1. TopBar (Pleine largeur avec section marque/logo synchronisée avec la Sidebar)
         self.topbar = TopBar()
         self.topbar.search_clicked.connect(self.search_clicked.emit)
         self.topbar.import_clicked.connect(self.import_requested.emit)
         self.topbar.export_clicked.connect(self.export_requested.emit)
         self.topbar.notif_clicked.connect(self.notif_requested.emit)
-        self.content_layout.addWidget(self.topbar)
+        self.topbar.toggle_requested.connect(self._toggle_sidebar)
+        main_layout.addWidget(self.topbar)
+
+        # 2. Zone inférieure : Sidebar à gauche + Content/StackedWidget à droite
+        self.bottom_widget = QWidget()
+        bottom_layout = QHBoxLayout(self.bottom_widget)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(0)
+
+        # Sidebar
+        self.sidebar = Sidebar(profile_name=self.profile_name)
+        self.sidebar.toggle_requested.connect(self._toggle_sidebar)
+        self.sidebar.view_selected.connect(lambda vid: self.view_selected.emit(vid, None))
+        self.sidebar.settings_requested.connect(self.settings_requested.emit)
+        self.sidebar.profile_switch_requested.connect(self.profile_switch_requested.emit)
+
+        # Raccorder les références pour compatibilité rétroactive
+        self.sidebar.toggle_btn = self.topbar.toggle_btn
+        self.sidebar.logo_icon = self.topbar.logo_icon
+
+        bottom_layout.addWidget(self.sidebar)
 
         # Conteneur pour le stacked widget
         self.stack_container = QWidget()
         self.stack_layout = QVBoxLayout(self.stack_container)
         self.stack_layout.setContentsMargins(0, 0, 0, 0)
         self.stack_layout.setSpacing(0)
-        self.content_layout.addWidget(self.stack_container, 1)
+        bottom_layout.addWidget(self.stack_container, 1)
 
-        main_layout.addWidget(self.content_widget, 1)
+        main_layout.addWidget(self.bottom_widget, 1)
 
     def _toggle_sidebar(self) -> None:
-        self.sidebar.set_collapsed(not self.sidebar.is_collapsed)
+        collapsed = not self.sidebar.is_collapsed
+        self.sidebar.set_collapsed(collapsed)
+        self.topbar.set_collapsed(collapsed)
         self.toggle_sidebar_requested.emit()
 
     def set_stacked_widget(self, stacked_widget: QStackedWidget) -> None:

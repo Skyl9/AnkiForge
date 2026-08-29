@@ -975,7 +975,10 @@ class AnkiSyncTab(QWidget):
         self.cb_default_deck = StyledComboBox()
         self.cb_default_deck.setMinimumWidth(260)
         self.cb_default_deck.setFixedHeight(28)
-        decks = list(DeckModel.select())
+        try:
+            decks = list(DeckModel.select())
+        except Exception:
+            decks = []
         if not decks:
             self.cb_default_deck.addItem("Défaut")
         else:
@@ -1352,10 +1355,13 @@ class SettingsModal(QDialog):
     """
 
     focus_changed = Signal(bool)
+    theme_applied = Signal(str)
+    layout_applied = Signal(str)
 
-    def __init__(self, ai_manager: Any = None, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, ai_manager: Any = None, profile_name: Optional[str] = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
+        self.profile_name = profile_name or get_active_profile()
         self.stacked_widget = QStackedWidget()
 
         self.setWindowTitle("Paramètres AnkiForge")

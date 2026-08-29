@@ -389,7 +389,13 @@ class MainWindow(QMainWindow):
         self._settings_window = SettingsModal(ai_manager=self.ai_manager, profile_name=self.profile_name, parent=self)
         self._settings_window.theme_applied.connect(lambda theme_id: self.engine.apply_theme(theme_id))
         self._settings_window.layout_applied.connect(self.apply_layout)
+        self._settings_window.focus_changed.connect(self._on_settings_focus_changed)
+        self._settings_window.finished.connect(lambda _: self._on_settings_focus_changed(False))
+        if self.sidebar and hasattr(self.sidebar, "settings_btn"):
+            self.sidebar.settings_btn.setChecked(True)
         self._settings_window.show()
+        self._settings_window.raise_()
+        self._settings_window.activateWindow()
 
     def _on_settings_focus_changed(self, focused: bool) -> None:
         if self.sidebar and hasattr(self.sidebar, "settings_btn"):

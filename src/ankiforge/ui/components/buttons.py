@@ -242,7 +242,7 @@ class IconButton(QPushButton):
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-top: 1px solid {DesignTokens.BORDER_LIGHT};
                 border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px;
+                padding: 0px;
                 color: {DesignTokens.TEXT_SECONDARY};
             }}
             QPushButton:hover {{
@@ -257,7 +257,7 @@ class IconButton(QPushButton):
             QPushButton:pressed {{
                 background-color: {DesignTokens.BG_ACTIVE};
                 border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                padding-top: 3px;
+                padding-top: 1px;
             }}
         """)
 

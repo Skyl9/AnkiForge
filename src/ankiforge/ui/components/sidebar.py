@@ -102,32 +102,15 @@ class Sidebar(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 1. Logo Header
-        self.header = QWidget()
-        self.header.setObjectName("SidebarHeader")
-        self.header.setFixedHeight(60)
-        self.header_layout = QHBoxLayout(self.header)
-        self.header_layout.setContentsMargins(16, 0, 16, 0)
-
+        # 1. Compatibility attributes (Brand header is in TopBar)
         self.logo_icon = ClickableLabel()
-        self.logo_icon.setCursor(Qt.CursorShape.PointingHandCursor)
         self.logo_icon.clicked.connect(self.toggle_requested.emit)
         from ankiforge.utils.icon_loader import load_logo_icon
 
         self.logo_icon.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(24, 24))
-
         self.logo_text = QLabel("AnkiForge")
-        self.logo_text.setObjectName("SidebarLogoText")
-
         self.toggle_btn = IconButton("list", tooltip="Toggle Sidebar", size=24)
         self.toggle_btn.clicked.connect(self.toggle_requested.emit)
-
-        self.header_layout.addWidget(self.logo_icon)
-        self.header_layout.addWidget(self.logo_text)
-        self.header_layout.addStretch()
-        self.header_layout.addWidget(self.toggle_btn)
-
-        main_layout.addWidget(self.header)
 
         # 2. ScrollArea for sections
         self.scroll = QScrollArea()
@@ -187,9 +170,8 @@ class Sidebar(QWidget):
         main_layout.addWidget(self.footer)
 
     def _update_user_label(self, profile_name: str, color_green: str = "") -> None:
-        """Met à jour le label utilisateur avec le nom du profil et le statut."""
-        green = color_green or DesignTokens.COLOR_GREEN
-        self.user_name.setText(f"Profil: {profile_name}<br><span style='color: {green}; font-weight: normal; font-size: 11px;'>Forge Local Prête</span>")
+        """Met à jour le label utilisateur avec le nom du profil."""
+        self.user_name.setText(f"Profil: {profile_name}")
 
     def set_profile_name(self, profile_name: str) -> None:
         """Met à jour le nom du profil affiché dans le footer de la barre latérale."""
@@ -200,12 +182,12 @@ class Sidebar(QWidget):
     def refresh_theme(self, profile: Any) -> None:
         from ankiforge.utils.icon_loader import load_logo_icon
 
-        if hasattr(self, "logo_icon"):
+        if hasattr(self, "logo_icon") and hasattr(self.logo_icon, "setPixmap"):
             self.logo_icon.setPixmap(load_logo_icon(profile.accent_primary).pixmap(24, 24))
-        if hasattr(self, "toggle_btn"):
+        if hasattr(self, "toggle_btn") and hasattr(self.toggle_btn, "refresh_theme"):
             self.toggle_btn.refresh_theme(profile)
         if hasattr(self, "user_name"):
-            self._update_user_label(getattr(self, "profile_name", "default"), color_green=profile.color_green)
+            self._update_user_label(getattr(self, "profile_name", "default"))
         for item in self._items.values():
             item.refresh_theme(profile)
         if hasattr(self, "settings_btn"):
@@ -263,14 +245,11 @@ class Sidebar(QWidget):
         self.setFixedWidth(width)
 
         # Toggle visibility
-        self.logo_text.setVisible(not collapsed)
-        self.toggle_btn.setVisible(not collapsed)
+        if hasattr(self, "logo_text"):
+            self.logo_text.setVisible(not collapsed)
+        if hasattr(self, "toggle_btn"):
+            self.toggle_btn.setVisible(not collapsed)
         self.user_name.setVisible(not collapsed)
-
-        if collapsed:
-            self.header_layout.setContentsMargins(22, 0, 0, 0)
-        else:
-            self.header_layout.setContentsMargins(16, 0, 16, 0)
 
         for i in range(self.sections_layout.count() - 1):
             item = self.sections_layout.itemAt(i)

@@ -536,6 +536,13 @@ class StyleEngine(QObject):
             background-color: {p.bg_sidebar};
             border-bottom: 1px solid {p.border_color};
         }}
+        QWidget#TopBarBrand {{
+            background-color: transparent;
+            border-right: 1px solid {p.border_color};
+        }}
+        QWidget#TopBarContent {{
+            background-color: transparent;
+        }}
         QLabel#TopBarBreadcrumbLabel {{
             color: {p.text_primary};
             font-weight: 600;
@@ -565,6 +572,13 @@ class StyleEngine(QObject):
             font-weight: bold;
             border-radius: 9px;
             border: none;
+        }}
+
+        /* --- NotificationMenuPopup --- */
+        NotificationMenuPopup, QFrame#NotificationMenuPopup {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
         }}
 
         /* --- GlobalTitleBar --- */
