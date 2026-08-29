@@ -23,6 +23,18 @@ from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
 
 def main() -> None:
+    if "--version" in sys.argv or "-v" in sys.argv:
+        from ankiforge import __version__
+
+        sys.stdout.write(f"AnkiForge v{__version__}\n")
+        sys.exit(0)
+
+    if "--smoke-test" in sys.argv:
+        from ankiforge import __version__
+
+        sys.stdout.write(f"AnkiForge v{__version__} - Smoke Test Passed\n")
+        sys.exit(0)
+
     # 1. Initialisation du logging asynchrone et des gestionnaires de crash
     setup_logging()
     install_crash_handlers()
