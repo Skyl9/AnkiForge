@@ -1,19 +1,9 @@
-"""
-Studio de Création AnkiForge — 100% Conforme aux Exigences & Raccordement Métier (master).
-- Sélection des paquets raccordée à DeckModel.select() + sélecteur et création dynamique (+ Nouveau).
-- Détection et auto-seeding automatique des Moteurs IA (LLMConfigModel) avec affichage display_name.
-- Détection et auto-seeding automatique des Pipelines Agentiques (PipelineModel).
-- Carte visuelle interactive cliquable pour l'Activation de la Vision (PDF / Schémas / Figures) avec retours visuels dorés.
-- Sélection de documents (DocumentModel) avec gestion du cas vide -> bouton "Mes Documents" + bouton "Coller le presse-papiers".
-- Intégration complète CreationWorker, NoteManager.create_note et CardPreviewWidget.
-"""
-
 import json
 import logging
-import markdown
 from typing import Any, Optional, cast
 
-from PySide6.QtCore import Qt, Signal, Slot, QThreadPool, QEvent
+from peewee import fn
+from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -31,14 +21,13 @@ from PySide6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
-    QStackedWidget,
     QTableWidgetItem,
-    QTextBrowser,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from peewee import fn
 from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
@@ -53,680 +42,34 @@ from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.services.cards.note_manager import NoteManager
-from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.components import (
     Badge,
-    StatusBadge,
     DangerButton,
     IconButton,
     IdePanel,
     PrimaryButton,
     SecondaryButton,
+    StatusBadge,
     StyledComboBox,
     StyledLineEdit,
     StyledTableWidget,
-    StyledTextEdit,
 )
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
+from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
+from ankiforge.ui.views.creation_view.utils import parse_page_ranges
+from ankiforge.ui.views.creation_view.widgets import (
+    CreationHubWidget,
+    DocumentEditorWidget,
+    FlashcardPreview,
+    VisionCard,
+)
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
 logger = logging.getLogger(__name__)
-
-
-def parse_page_ranges(scope_str: str, max_pages: int = 9999) -> list[int]:
-    """Parse une chaîne de portée de pages (ex: '1-5, 8, 12-15') en liste d'entiers triés."""
-    if not scope_str or not scope_str.strip():
-        return []
-
-    clean_str = scope_str.strip().lower()
-    if clean_str in ("all", "tout", "*"):
-        return list(range(1, max_pages + 1))
-
-    pages: set[int] = set()
-    parts = clean_str.replace(";", ",").split(",")
-    for part in parts:
-        part = part.strip()
-        if not part:
-            continue
-        if "-" in part or "à" in part or ".." in part:
-            separator = "-" if "-" in part else ("à" if "à" in part else "..")
-            sub_parts = part.split(separator)
-            if len(sub_parts) == 2:
-                try:
-                    p_start = int(sub_parts[0].strip())
-                    p_end = int(sub_parts[1].strip())
-                    if p_start <= p_end:
-                        for p in range(p_start, min(p_end, max_pages) + 1):
-                            if p >= 1:
-                                pages.add(p)
-                    else:
-                        for p in range(p_end, min(p_start, max_pages) + 1):
-                            if p >= 1:
-                                pages.add(p)
-                except ValueError:
-                    continue
-        else:
-            try:
-                p = int(part)
-                if 1 <= p <= max_pages:
-                    pages.add(p)
-            except ValueError:
-                continue
-
-    return sorted(list(pages))
-
-
-class VisionCard(QFrame):
-    """Carte interactive cliquable pour l'activation du mode Vision."""
-
-    clicked = Signal()
-
-    def mousePressEvent(self, event: Any) -> None:
-        super().mousePressEvent(event)
-        self.clicked.emit()
-
-
-class CreationHubWidget(QWidget):
-    """
-    Vue d'accueil et d'aiguillage du Studio de Création (Progressive Disclosure).
-    Propose à l'utilisateur de choisir entre :
-    1. Explorer les documents de sa bibliothèque
-    2. Démarrer une saisie libre ou coller un extrait
-    """
-
-    open_free_text_requested = Signal()
-    open_documents_requested = Signal()
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(16)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Header Title
-        title_container = QVBoxLayout()
-        title_container.setSpacing(4)
-        title_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(32, 32))
-        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_container.addWidget(icon_lbl)
-
-        title_lbl = QLabel("Studio de Création AnkiForge")
-        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 18px; font-weight: 700; border: none; background: transparent;")
-        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_container.addWidget(title_lbl)
-
-        subtitle_lbl = QLabel("Choisissez un point de départ pour extraire et forger vos prochaines cartes mémoires :")
-        subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px; border: none; background: transparent;")
-        subtitle_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_container.addWidget(subtitle_lbl)
-
-        layout.addLayout(title_container)
-
-        # Action Cards container
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(16)
-        cards_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Card 1: Explorer les Documents
-        card_doc = QFrame()
-        card_doc.setObjectName("cardDoc")
-        card_doc.setFixedSize(300, 180)
-        card_doc.setStyleSheet(f"""
-            QFrame#cardDoc {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            QFrame#cardDoc:hover {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
-        doc_l = QVBoxLayout(card_doc)
-        doc_l.setContentsMargins(14, 14, 14, 14)
-        doc_l.setSpacing(6)
-
-        doc_icon = QLabel()
-        doc_icon.setPixmap(load_phosphor_icon("ph.files", color=DesignTokens.COLOR_BLUE).pixmap(24, 24))
-        doc_icon.setStyleSheet("background: transparent; border: none;")
-        doc_l.addWidget(doc_icon)
-
-        doc_title = QLabel("Explorer mes Documents")
-        doc_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
-        doc_l.addWidget(doc_title)
-
-        doc_desc = QLabel("Sélectionnez un cours (PDF, Markdown) ou importez de nouvelles sources pour forger des cartes.")
-        doc_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        doc_desc.setWordWrap(True)
-        doc_l.addWidget(doc_desc)
-
-        doc_l.addStretch()
-
-        btn_doc = PrimaryButton("Parcourir les Documents")
-        btn_doc.setIcon(load_phosphor_icon("ph.folder-open", color="white"))
-        btn_doc.clicked.connect(self.open_documents_requested.emit)
-        doc_l.addWidget(btn_doc)
-
-        cards_layout.addWidget(card_doc)
-
-        # Card 2: Saisie Libre
-        card_text = QFrame()
-        card_text.setObjectName("cardText")
-        card_text.setFixedSize(300, 180)
-        card_text.setStyleSheet(f"""
-            QFrame#cardText {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-            QFrame#cardText:hover {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
-        text_l = QVBoxLayout(card_text)
-        text_l.setContentsMargins(14, 14, 14, 14)
-        text_l.setSpacing(6)
-
-        text_icon = QLabel()
-        text_icon.setPixmap(load_phosphor_icon("ph.note-pencil", color=DesignTokens.COLOR_GREEN).pixmap(24, 24))
-        text_icon.setStyleSheet("background: transparent; border: none;")
-        text_l.addWidget(text_icon)
-
-        text_title = QLabel("Saisie Libre / Presse-Papiers")
-        text_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
-        text_l.addWidget(text_title)
-
-        text_desc = QLabel("Collez ou écrivez directement vos notes, théorèmes ou résumés pour une extraction instantanée.")
-        text_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        text_desc.setWordWrap(True)
-        text_l.addWidget(text_desc)
-
-        text_l.addStretch()
-
-        btn_text = SecondaryButton("Ouvrir l'Éditeur Libre")
-        btn_text.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
-        btn_text.clicked.connect(self.open_free_text_requested.emit)
-        text_l.addWidget(btn_text)
-
-        cards_layout.addWidget(card_text)
-        layout.addLayout(cards_layout)
-
-
-class CardEditDialog(QDialog):
-    """Dialogue d'édition rapide d'une carte générée."""
-
-    def __init__(self, front: str, back: str, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Éditer la carte")
-        self.setMinimumWidth(500)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
-        lbl_front = QLabel("Recto :")
-        lbl_front.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold;")
-        self.edit_front = StyledTextEdit()
-        self.edit_front.setPlainText(front)
-        self.edit_front.setFixedHeight(100)
-
-        lbl_back = QLabel("Verso :")
-        lbl_back.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold;")
-        self.edit_back = StyledTextEdit()
-        self.edit_back.setPlainText(back)
-        self.edit_back.setFixedHeight(120)
-
-        layout.addWidget(lbl_front)
-        layout.addWidget(self.edit_front)
-        layout.addWidget(lbl_back)
-        layout.addWidget(self.edit_back)
-
-        btn_box = QHBoxLayout()
-        btn_box.addStretch()
-
-        btn_cancel = SecondaryButton("Annuler")
-        btn_cancel.clicked.connect(self.reject)
-
-        btn_save = PrimaryButton("Enregistrer")
-        btn_save.clicked.connect(self.accept)
-
-        btn_box.addWidget(btn_cancel)
-        btn_box.addWidget(btn_save)
-
-        layout.addLayout(btn_box)
-
-    def get_data(self) -> tuple[str, str]:
-        return self.edit_front.toPlainText().strip(), self.edit_back.toPlainText().strip()
-
-
-class FlashcardPreview(QWidget):
-    """Composant d'inspection et de validation des cartes générées."""
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"background-color: {DesignTokens.BG_PANEL};")
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
-
-        # Barre supérieure de navigation dans les résultats
-        top_toolbar = QHBoxLayout()
-        self.btn_prev = IconButton("ph.caret-left", "Carte précédente", 24)
-        self.btn_next = IconButton("ph.caret-right", "Carte suivante", 24)
-        self.lbl_counter = QLabel("0 / 0")
-        self.lbl_counter.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: {DesignTokens.FONT_CODE}; font-weight: bold;")
-
-        top_toolbar.addWidget(self.btn_prev)
-        top_toolbar.addWidget(self.lbl_counter)
-        top_toolbar.addWidget(self.btn_next)
-        top_toolbar.addStretch()
-
-        layout.addLayout(top_toolbar)
-
-        # Intégration de CardPreviewWidget (Moteur WebEngine + MathJax + multi-appareils)
-        self.card_preview_widget = CardPreviewWidget(show_header=False)
-        layout.addWidget(self.card_preview_widget, 1)
-
-
-class DocumentEditorWidget(QWidget):
-    """Conteneur pour l'éditeur de texte source et la barre d'outils de génération associée."""
-
-    generate_requested = Signal(str, str)  # text_source, source_title
-    cancel_requested = Signal()
-
-    def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Optional[Any] = None, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.source_title = source_title
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
-
-        self.doc_model = doc_model
-        self.pdf_document = None
-
-        # --- Segmented Control pour vue PDF / Markdown ---
-        self.view_toggle_frame = QFrame()
-        self.view_toggle_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-                padding: 2px;
-            }}
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 4px 12px;
-                color: {DesignTokens.TEXT_MUTED};
-                font-weight: 500;
-            }}
-            QPushButton:checked {{
-                background: {DesignTokens.ACCENT_PRIMARY};
-                color: white;
-            }}
-        """)
-        toggle_layout = QHBoxLayout(self.view_toggle_frame)
-        toggle_layout.setContentsMargins(2, 2, 2, 2)
-        toggle_layout.setSpacing(0)
-
-        self.btn_view_pdf = QPushButton("PDF")
-        self.btn_view_pdf.setCheckable(True)
-        self.btn_view_pdf.setChecked(True)
-
-        self.btn_view_md = QPushButton("Markdown Stylisé")
-        self.btn_view_md.setCheckable(True)
-
-        toggle_layout.addWidget(self.btn_view_pdf)
-        toggle_layout.addWidget(self.btn_view_md)
-
-        self.btn_view_pdf.clicked.connect(lambda: self._on_view_toggled("pdf"))
-        self.btn_view_md.clicked.connect(lambda: self._on_view_toggled("md"))
-
-        # Center the toggle horizontally
-        toggle_container = QHBoxLayout()
-        toggle_container.addStretch()
-        toggle_container.addWidget(self.view_toggle_frame)
-        toggle_container.addStretch()
-        layout.addLayout(toggle_container)
-
-        # Hide by default, show only if it's a PDF
-        self.view_toggle_frame.hide()
-
-        self.editor_stack = QStackedWidget()
-
-        # PDF Viewer Container avec bandeau de portée asservi (Approche 2)
-        self.pdf_container = QWidget()
-        pdf_layout = QVBoxLayout(self.pdf_container)
-        pdf_layout.setContentsMargins(0, 0, 0, 0)
-        pdf_layout.setSpacing(6)
-
-        self._pdf_selected_pages: list[int] = []
-
-        # 1. Bandeau de Portée PDF
-        self.pdf_scope_banner = QFrame()
-        self.pdf_scope_banner.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 2px 6px;
-            }}
-        """)
-        scope_banner_layout = QHBoxLayout(self.pdf_scope_banner)
-        scope_banner_layout.setContentsMargins(6, 4, 6, 4)
-        scope_banner_layout.setSpacing(8)
-
-        ico_pdf_scope = QLabel()
-        ico_pdf_scope.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
-        ico_pdf_scope.setStyleSheet("border: none; background: transparent;")
-
-        self.lbl_pdf_scope_status = QLabel("Portée : Pages 1 à 10")
-        self.lbl_pdf_scope_status.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 600; font-size: 11px; border: none; background: transparent;")
-
-        self.badge_pdf_scope = Badge("Dans la portée", variant="success")
-
-        scope_banner_layout.addWidget(ico_pdf_scope)
-        scope_banner_layout.addWidget(self.lbl_pdf_scope_status)
-        scope_banner_layout.addWidget(self.badge_pdf_scope)
-        scope_banner_layout.addStretch()
-
-        self.btn_pdf_scope_prev = IconButton("ph.caret-left", "Page précédente de la sélection", 16)
-        self.btn_pdf_scope_prev.clicked.connect(self._on_pdf_scope_prev)
-
-        self.lbl_pdf_scope_cur = QLabel("Page 1 / 10")
-        self.lbl_pdf_scope_cur.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600; border: none; background: transparent;")
-
-        self.btn_pdf_scope_next = IconButton("ph.caret-right", "Page suivante de la sélection", 16)
-        self.btn_pdf_scope_next.clicked.connect(self._on_pdf_scope_next)
-
-        scope_banner_layout.addWidget(self.btn_pdf_scope_prev)
-        scope_banner_layout.addWidget(self.lbl_pdf_scope_cur)
-        scope_banner_layout.addWidget(self.btn_pdf_scope_next)
-
-        # Séparateur vertical discret
-        sep = QLabel("|")
-        sep.setStyleSheet(f"color: {DesignTokens.BORDER_COLOR}; font-size: 11px; margin: 0 4px; background: transparent; border: none;")
-        scope_banner_layout.addWidget(sep)
-
-        # Contrôles de Grossissement / Rétrécissement (Zoom)
-        self.btn_pdf_zoom_out = IconButton("ph.magnifying-glass-minus", "Dézoomer (Ctrl -)", 16)
-        self.btn_pdf_zoom_out.clicked.connect(self._on_pdf_zoom_out)
-
-        self.lbl_pdf_zoom = QLabel("100%")
-        self.lbl_pdf_zoom.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; min-width: 32px; background: transparent; border: none;")
-        self.lbl_pdf_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.btn_pdf_zoom_in = IconButton("ph.magnifying-glass-plus", "Zoomer (Ctrl +)", 16)
-        self.btn_pdf_zoom_in.clicked.connect(self._on_pdf_zoom_in)
-
-        self.btn_pdf_fit_width = IconButton("ph.arrows-out-line-horizontal", "Ajuster à la largeur", 16)
-        self.btn_pdf_fit_width.clicked.connect(self._on_pdf_fit_width)
-
-        scope_banner_layout.addWidget(self.btn_pdf_zoom_out)
-        scope_banner_layout.addWidget(self.lbl_pdf_zoom)
-        scope_banner_layout.addWidget(self.btn_pdf_zoom_in)
-        scope_banner_layout.addWidget(self.btn_pdf_fit_width)
-
-        pdf_layout.addWidget(self.pdf_scope_banner)
-
-        # 2. Composant PDF natif
-        try:
-            from PySide6.QtPdf import QPdfDocument
-            from PySide6.QtPdfWidgets import QPdfView
-
-            self.pdf_document = QPdfDocument(self)
-            self.pdf_view = QPdfView()
-            self.pdf_view.setDocument(self.pdf_document)
-            self.pdf_view.setPageMode(QPdfView.PageMode.MultiPage)
-            if hasattr(self.pdf_view, "pageNavigator"):
-                self.pdf_view.pageNavigator().currentPageChanged.connect(self._on_pdf_page_changed)
-            if hasattr(self.pdf_view, "viewport"):
-                self.pdf_view.viewport().installEventFilter(self)
-            self.pdf_view.installEventFilter(self)
-            pdf_layout.addWidget(self.pdf_view, 1)
-        except ImportError:
-            self.pdf_view = QWidget()  # Fallback
-            pdf_layout.addWidget(self.pdf_view, 1)
-
-        self.editor_stack.addWidget(self.pdf_container)
-
-        self.raw_editor = StyledTextEdit()
-        self.raw_editor.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}';")
-        self.raw_editor.setPlaceholderText("Saisissez ou collez directement votre extrait de cours ici (ex: notes de cours, résumés, chapitres PDF)...")
-        self.raw_editor.textChanged.connect(self._on_text_changed)
-
-        self.markdown_viewer = QTextBrowser()
-        self.markdown_viewer.setOpenExternalLinks(True)
-        self.markdown_viewer.setStyleSheet(
-            f"background-color: {DesignTokens.BG_INPUT}; "
-            f"color: {DesignTokens.TEXT_PRIMARY}; "
-            f"border: 1px solid {DesignTokens.BORDER_COLOR}; "
-            f"border-radius: {DesignTokens.RADIUS_SM}px; "
-            f"padding: 12px; "
-            f"font-family: '{DesignTokens.FONT_MAIN}';"
-        )
-
-        self.editor_stack.addWidget(self.raw_editor)
-        self.editor_stack.addWidget(self.markdown_viewer)
-
-        # Load PDF if applicable
-        if self.doc_model and getattr(self.doc_model, "file_type", "") == "pdf" and getattr(self.doc_model, "original_media", None):
-            from ankiforge.utils.paths import get_app_data_dir
-
-            pdf_path = get_app_data_dir() / "media" / self.doc_model.original_media.filename
-            if pdf_path.exists() and self.pdf_document is not None:
-                self.pdf_document.load(str(pdf_path))
-                self.view_toggle_frame.show()
-                self._on_view_toggled("pdf")  # Vue PDF active par défaut pour les documents PDF
-        layout.addWidget(self.editor_stack, 1)
-
-        bot_widget = QWidget()
-        bot_widget.setStyleSheet("background: transparent;")
-        bot_layout = QHBoxLayout(bot_widget)
-        bot_layout.setContentsMargins(0, 8, 0, 0)
-
-        self.tokens_lbl = QLabel("Aa 0 chars  |  ~0 Tokens")
-        self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
-        bot_layout.addWidget(self.tokens_lbl)
-        bot_layout.addStretch()
-
-        self.btn_paste = SecondaryButton("Coller")
-        self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_paste.clicked.connect(self.raw_editor.paste)
-
-        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)")
-        self.btn_generate.setIcon(load_phosphor_icon("ph.play", color="white"))
-        self.btn_generate.clicked.connect(self._on_generate_clicked)
-
-        self.btn_cancel = DangerButton("Arrêter", ghost=True)
-        self.btn_cancel.setIcon(load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED))
-        self.btn_cancel.hide()
-        self.btn_cancel.clicked.connect(self.cancel_requested.emit)
-
-        bot_layout.addWidget(self.btn_paste)
-        bot_layout.addWidget(self.btn_generate)
-        bot_layout.addWidget(self.btn_cancel)
-        layout.addWidget(bot_widget)
-
-        self.set_content(content)
-
-    @Slot(str)
-    def _on_view_toggled(self, mode: str) -> None:
-        self.btn_view_pdf.setChecked(mode == "pdf")
-        self.btn_view_md.setChecked(mode == "md")
-
-        if mode == "pdf":
-            self.editor_stack.setCurrentWidget(self.pdf_container)
-        else:
-            self.editor_stack.setCurrentWidget(self.markdown_viewer)
-
-    def set_pdf_scope(self, pages: list[int]) -> None:
-        """Met à jour la portée active du PDF et asservit le bandeau de navigation."""
-        self._pdf_selected_pages = sorted(pages)
-        if not self._pdf_selected_pages:
-            self.lbl_pdf_scope_status.setText("Aucune page sélectionnée")
-            self.badge_pdf_scope.setText("0 page")
-            self.badge_pdf_scope.set_variant("danger")
-            return
-
-        count = len(self._pdf_selected_pages)
-        first_p = self._pdf_selected_pages[0]
-        last_p = self._pdf_selected_pages[-1]
-
-        if count == 1:
-            self.lbl_pdf_scope_status.setText(f"Portée : Page {first_p}")
-        else:
-            self.lbl_pdf_scope_status.setText(f"Portée : Pages {first_p} à {last_p} ({count} pages)")
-
-        self.jump_pdf_to_page(first_p - 1)
-        self._update_scope_indicator(first_p - 1)
-
-    @Slot(int)
-    def _on_pdf_page_changed(self, current_page_idx: int) -> None:
-        self._update_scope_indicator(current_page_idx)
-
-    def _update_scope_indicator(self, current_page_idx: int) -> None:
-        if not self._pdf_selected_pages:
-            return
-
-        current_1_based = current_page_idx + 1
-        if current_1_based in self._pdf_selected_pages:
-            idx_in_scope = self._pdf_selected_pages.index(current_1_based) + 1
-            self.badge_pdf_scope.setText("Dans la portée")
-            self.badge_pdf_scope.set_variant("success")
-            self.lbl_pdf_scope_cur.setText(f"Sélection {idx_in_scope} / {len(self._pdf_selected_pages)} (p. {current_1_based})")
-        else:
-            self.badge_pdf_scope.setText(f"Hors-portée (p. {current_1_based})")
-            self.badge_pdf_scope.set_variant("warning")
-            self.lbl_pdf_scope_cur.setText(f"Page {current_1_based}")
-
-    @Slot()
-    def _on_pdf_scope_prev(self) -> None:
-        if not self._pdf_selected_pages or not hasattr(self, "pdf_view") or not hasattr(self.pdf_view, "pageNavigator"):
-            return
-        cur_p = self.pdf_view.pageNavigator().currentPage() + 1
-        prev_candidates = [p for p in self._pdf_selected_pages if p < cur_p]
-        if prev_candidates:
-            self.jump_pdf_to_page(prev_candidates[-1] - 1)
-        else:
-            self.jump_pdf_to_page(self._pdf_selected_pages[0] - 1)
-
-    @Slot()
-    def _on_pdf_scope_next(self) -> None:
-        if not self._pdf_selected_pages or not hasattr(self, "pdf_view") or not hasattr(self.pdf_view, "pageNavigator"):
-            return
-        cur_p = self.pdf_view.pageNavigator().currentPage() + 1
-        next_candidates = [p for p in self._pdf_selected_pages if p > cur_p]
-        if next_candidates:
-            self.jump_pdf_to_page(next_candidates[0] - 1)
-        else:
-            self.jump_pdf_to_page(self._pdf_selected_pages[-1] - 1)
-
-    @Slot()
-    def _on_pdf_zoom_in(self) -> None:
-        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "setZoomFactor"):
-            from PySide6.QtPdfWidgets import QPdfView
-
-            self.pdf_view.setZoomMode(QPdfView.ZoomMode.Custom)
-            new_factor = min(3.0, self.pdf_view.zoomFactor() * 1.2)
-            self.pdf_view.setZoomFactor(new_factor)
-            self.lbl_pdf_zoom.setText(f"{int(new_factor * 100)}%")
-
-    @Slot()
-    def _on_pdf_zoom_out(self) -> None:
-        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "setZoomFactor"):
-            from PySide6.QtPdfWidgets import QPdfView
-
-            self.pdf_view.setZoomMode(QPdfView.ZoomMode.Custom)
-            new_factor = max(0.4, self.pdf_view.zoomFactor() / 1.2)
-            self.pdf_view.setZoomFactor(new_factor)
-            self.lbl_pdf_zoom.setText(f"{int(new_factor * 100)}%")
-
-    @Slot()
-    def _on_pdf_fit_width(self) -> None:
-        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "setZoomMode"):
-            from PySide6.QtPdfWidgets import QPdfView
-
-            self.pdf_view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
-            self.lbl_pdf_zoom.setText("Auto")
-
-    def eventFilter(self, obj: Any, event: Any) -> bool:
-        if hasattr(self, "pdf_view") and (obj == self.pdf_view or (hasattr(self.pdf_view, "viewport") and obj == self.pdf_view.viewport())):
-            if event.type() == QEvent.Type.Wheel:
-                modifiers = event.modifiers()
-                if modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
-                    delta = event.angleDelta().y()
-                    if delta > 0:
-                        self._on_pdf_zoom_in()
-                    elif delta < 0:
-                        self._on_pdf_zoom_out()
-                    return True
-        return super().eventFilter(obj, event)
-
-    def jump_pdf_to_page(self, page_index: int) -> None:
-        if hasattr(self, "pdf_view") and hasattr(self.pdf_view, "pageNavigator"):
-            from PySide6.QtCore import QPointF
-
-            self.pdf_view.pageNavigator().jump(page_index, QPointF(0, 0), self.pdf_view.zoomFactor())
-
-    def set_content(self, content: str) -> None:
-        if self.source_title == "Saisie Libre":
-            self.editor_stack.setCurrentWidget(self.raw_editor)
-            self.raw_editor.setPlainText(content)
-        else:
-            html = markdown.markdown(content, extensions=["fenced_code", "tables"])
-            self.markdown_viewer.setHtml(html)
-            # Conserver la vue active (PDF si l'utilisateur est sur PDF, sinon Markdown)
-            if hasattr(self, "btn_view_pdf") and self.btn_view_pdf.isChecked():
-                self.editor_stack.setCurrentWidget(self.pdf_container)
-            else:
-                if hasattr(self, "btn_view_md"):
-                    self.btn_view_md.setChecked(True)
-                self.editor_stack.setCurrentWidget(self.markdown_viewer)
-        self._on_text_changed()
-
-    @Slot()
-    def _on_text_changed(self) -> None:
-        text = self.get_text()
-        chars = len(text)
-        words = len(text.split())
-        estimated_tokens = int(words * 1.3)
-        self.tokens_lbl.setText(f"Aa {chars} chars  |  ~{estimated_tokens} Tokens")
-
-    @Slot()
-    def _on_generate_clicked(self) -> None:
-        self.generate_requested.emit(self.get_text(), getattr(self, "source_title", "Saisie Libre"))
-
-    def get_text(self) -> str:
-        if self.source_title == "Saisie Libre":
-            return self.raw_editor.toPlainText().strip()
-        else:
-            return self.markdown_viewer.toPlainText().strip()
-
-    def set_generation_state(self, is_generating: bool) -> None:
-        self.btn_generate.setEnabled(not is_generating)
-        if is_generating:
-            self.btn_generate.hide()
-            self.btn_cancel.show()
-        else:
-            self.btn_generate.show()
-            self.btn_cancel.hide()
 
 
 class CreationView(QWidget):
@@ -850,7 +193,6 @@ class CreationView(QWidget):
         target_top.addStretch()
         target_layout.addLayout(target_top)
 
-        # 1. Paquet Cible (Bouton Sélecteur)
         self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
         self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
         self.btn_select_deck.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -859,7 +201,6 @@ class CreationView(QWidget):
         )
         target_layout.addWidget(self.btn_select_deck)
 
-        # 2. Modèle de Carte (Bouton Sélecteur)
         self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
         self.btn_select_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -895,7 +236,6 @@ class CreationView(QWidget):
         ai_top.addStretch()
         ai_layout.addLayout(ai_top)
 
-        # 3. Moteur IA + Bouton d'aide si vide
         self.engine_combo = StyledComboBox()
         self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setMinimumContentsLength(8)
@@ -908,7 +248,6 @@ class CreationView(QWidget):
         self.btn_no_engine_help.hide()
         ai_layout.addWidget(self.btn_no_engine_help)
 
-        # 4. Pipeline Agentique + Bouton d'aide si vide
         self.pipeline_combo = StyledComboBox()
         self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.pipeline_combo.setMinimumContentsLength(8)
@@ -921,7 +260,6 @@ class CreationView(QWidget):
         self.btn_no_pipeline_help.hide()
         ai_layout.addWidget(self.btn_no_pipeline_help)
 
-        # 5. Carte Visuelle Interactive : Activation de la Vision
         self.vision_card = VisionCard()
         self.vision_card.setObjectName("visionCard")
         self.vision_card.setStyleSheet(f"""
@@ -962,11 +300,11 @@ class CreationView(QWidget):
         self.vision_cb.hide()
         vision_layout.addWidget(self.vision_cb)
 
-        self.vision_card.hide()  # Divulgation progressive : masqué par défaut en saisie libre
+        self.vision_card.hide()
         ai_layout.addWidget(self.vision_card)
         config_layout.addWidget(ai_card)
 
-        # --- Section 3: Portée du Document (Hybride Presets + Syntaxe Naturelle) ---
+        # --- Section 3: Portée du Document ---
         self.scope_card = QFrame()
         self.scope_card.setStyleSheet(f"""
             QFrame {{
@@ -996,7 +334,6 @@ class CreationView(QWidget):
         scope_top.addWidget(self.scope_badge)
         scope_layout.addLayout(scope_top)
 
-        # Ligne de Presets Rapides (Pill Chips)
         preset_row = QHBoxLayout()
         preset_row.setSpacing(4)
 
@@ -1034,7 +371,6 @@ class CreationView(QWidget):
         preset_row.addWidget(self.btn_preset_range, 1)
         scope_layout.addLayout(preset_row)
 
-        # Champ de Saisie à Syntaxe Naturelle & Steppers
         input_container = QFrame()
         input_container.setStyleSheet(f"""
             QFrame {{
@@ -1077,12 +413,10 @@ class CreationView(QWidget):
         input_layout.addWidget(self.btn_scope_plus)
         scope_layout.addWidget(input_container)
 
-        # Indicateur de volume estimé
         self.lbl_scope_stats = QLabel("~1 200 mots • ~6 cartes estimées")
         self.lbl_scope_stats.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         scope_layout.addWidget(self.lbl_scope_stats)
 
-        # Rétro-compatibilité pour composants internes
         self.spin_page_start = QSpinBox(self)
         self.spin_page_start.hide()
         self.spin_page_end = QSpinBox(self)
@@ -1090,7 +424,7 @@ class CreationView(QWidget):
         self.spin_page_start.setValue(1)
         self.spin_page_end.setValue(10)
 
-        self.scope_card.hide()  # Divulgation progressive : masqué tant qu'aucun document n'est ouvert
+        self.scope_card.hide()
         config_layout.addWidget(self.scope_card)
 
         # Paramètres Avancés
@@ -1153,7 +487,6 @@ class CreationView(QWidget):
             }}
         """
 
-        # Température
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
         temp_lbl = QLabel("Température")
@@ -1175,7 +508,6 @@ class CreationView(QWidget):
         temp_layout.addWidget(self.slider_temp)
         advanced_layout.addLayout(temp_layout)
 
-        # Max Tokens
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
         tokens_lbl = QLabel("Max Tokens")
@@ -1200,7 +532,6 @@ class CreationView(QWidget):
         config_layout.addWidget(self.advanced_container)
         config_layout.addStretch()
 
-        # Compatibilité interne
         self.btn_generate_cards = QPushButton(self)
         self.btn_generate_cards.hide()
 
@@ -1215,7 +546,6 @@ class CreationView(QWidget):
         self.center_splitter = QSplitter(Qt.Orientation.Vertical)
         self.main_splitter.addWidget(self.center_splitter)
 
-        # Panel Document Source
         source_container = QWidget()
         source_layout = QVBoxLayout(source_container)
         source_layout.setContentsMargins(0, 0, 0, 0)
@@ -1225,7 +555,6 @@ class CreationView(QWidget):
 
         self.center_splitter.addWidget(source_container)
 
-        # Panel Cartes Générées
         self.results_panel = IdePanel(detachable=True)
 
         cartes_content = QWidget()
@@ -1234,7 +563,6 @@ class CreationView(QWidget):
 
         self.results_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Gauche : Table des résultats
         table_container = QWidget()
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(12, 12, 12, 12)
@@ -1243,7 +571,6 @@ class CreationView(QWidget):
 
         self.results_table = StyledTableWidget(["Recto", "Verso", "Statut"])
         self.results_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
-        # Redimensionnement responsive des colonnes et garantie anti-écrasement
         self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -1255,13 +582,11 @@ class CreationView(QWidget):
 
         self.results_splitter.addWidget(table_container)
 
-        # Droite : Aperçu interactif WebEngine
         self.preview_widget = FlashcardPreview()
         self.results_splitter.addWidget(self.preview_widget)
 
         cartes_layout.addWidget(self.results_splitter, 1)
 
-        # Barre d'actions globale (Footer du panneau Cartes Générées)
         main_bot_toolbar = QHBoxLayout()
         main_bot_toolbar.setContentsMargins(12, 0, 12, 12)
 
@@ -1304,10 +629,9 @@ class CreationView(QWidget):
         self.results_panel.set_active_tab(0)
 
         self.center_splitter.addWidget(self.results_panel)
-        self.results_panel.hide()  # Masqué par défaut (Progressive Disclosure)
+        self.results_panel.hide()
         self.main_splitter.setSizes([360, 920])
 
-        # Hub d'accueil au démarrage (Progressive Disclosure)
         self.hub_widget = CreationHubWidget(parent=self)
         self.hub_widget.open_free_text_requested.connect(lambda: self._open_document_tab("Saisie Libre"))
         self.hub_widget.open_documents_requested.connect(self._on_hub_open_documents)
@@ -1345,7 +669,7 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_hub_open_documents(self) -> None:
-        self.config_panel.set_active_tab(0)  # Onglet Explorateur
+        self.config_panel.set_active_tab(0)
         show_toast(self, "Sélectionnez ou double-cliquez sur un document à gauche.")
 
     def _toggle_vision_card(self) -> None:
@@ -1388,7 +712,6 @@ class CreationView(QWidget):
     def refresh_data(self) -> None:
         """Recharge les données dynamiques depuis Peewee DB (Decks, NoteTypes, Engines, Pipelines, Docs)."""
         try:
-            # 1. Decks (Paquets existants + sélecteur)
             decks = list(DeckModel.select())
             if not decks:
                 DeckModel.get_or_create(name="Général")
@@ -1397,7 +720,6 @@ class CreationView(QWidget):
             if self.current_deck is None and self.decks_cache:
                 self._set_current_deck(self.decks_cache[0])
 
-            # 2. Note Types
             note_types = list(NoteTypeModel.select())
             if not note_types:
                 note_types = [
@@ -1412,7 +734,6 @@ class CreationView(QWidget):
             else:
                 self._update_selected_models_display()
 
-            # 3. Engines LLM
             self.engine_combo.blockSignals(True)
             self.engine_combo.clear()
             engines = list(LLMConfigModel.select())
@@ -1437,7 +758,6 @@ class CreationView(QWidget):
             self.btn_no_engine_help.hide()
             self.engine_combo.blockSignals(False)
 
-            # 4. Pipelines
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
             pipelines = list(PipelineModel.select())
@@ -1453,7 +773,6 @@ class CreationView(QWidget):
             self.btn_no_pipeline_help.hide()
             self.pipeline_combo.blockSignals(False)
 
-            # 5. Documents in Explorer Tree
             self.file_tree.clear()
 
             folders = list(FolderModel.select())
@@ -1505,7 +824,6 @@ class CreationView(QWidget):
         except Exception as e:
             logger.warning("Erreur lors de la mise à jour des combos creation_view: %s", e, exc_info=True)
 
-    # Statuts considérés comme "décision prise" (aucune action utilisateur requise)
     _FINAL_STATUSES = frozenset({"Enregistrée", "Refusée"})
 
     @Slot()
@@ -1529,7 +847,6 @@ class CreationView(QWidget):
         modal.exec()
 
     def _open_document_tab(self, title: str, content: str = "", doc_model: Optional[Any] = None) -> None:
-        # Create a unique title if multiple Saisie Libres are opened
         base_title = title
         counter = 1
         while title in self.open_editors:
@@ -1558,13 +875,11 @@ class CreationView(QWidget):
 
         self.source_panel.register_tab(title, editor_widget, icon, closable=True, icon_color=icon_color)
 
-        # Divulgation Progressive : adapter le panneau latéral selon le document actif
         if doc_model is not None:
             self.scope_card.show()
             is_pdf = getattr(doc_model, "file_type", "") == "pdf"
             self.vision_card.setVisible(is_pdf)
 
-            # Calcul du nombre total de pages du document
             max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
             total_pages = int(max_page_chunk) if max_page_chunk else 10
             self._current_doc_total_pages = total_pages
@@ -1578,7 +893,6 @@ class CreationView(QWidget):
             self.scope_card.hide()
             self.vision_card.hide()
 
-        # Bascule automatique du panneau latéral vers l'onglet de paramètres (Config IA)
         self.config_panel.set_active_tab(1)
 
     @Slot(QTreeWidgetItem, int)
@@ -1593,14 +907,12 @@ class CreationView(QWidget):
                 show_toast(self, "Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte.", is_error=True)
                 return
 
-            # Prevent opening the same document twice, but recreate if the tab was closed
             if title in self.open_editors:
                 try:
                     _ = self.open_editors[title].parent()
                     self.source_panel.open_tab(title)
                     self.config_panel.set_active_tab(1)
                 except RuntimeError:
-                    # Widget was deleted (tab closed). Remove it and recreate.
                     self.open_editors.pop(title, None)
                     self._open_document_tab(title, doc.content, doc)
             else:
@@ -1654,7 +966,6 @@ class CreationView(QWidget):
             self.scope_badge.setText(f"{count} pages")
             self.scope_badge.set_variant("success")
 
-        # Estimation dynamique
         approx_words = count * 280
         approx_cards = max(1, count * 2)
         self.lbl_scope_stats.setText(f"~{approx_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
@@ -1662,7 +973,6 @@ class CreationView(QWidget):
         start = pages[0]
         end = pages[-1]
 
-        # Synchroniser spin_page_start et spin_page_end pour rétro-compatibilité
         self.spin_page_start.blockSignals(True)
         self.spin_page_end.blockSignals(True)
         self.spin_page_start.setValue(start)
@@ -1835,7 +1145,6 @@ class CreationView(QWidget):
             except Exception as e:
                 logger.warning("Impossible de créer le provider depuis la config: %s", e)
 
-        # 1. Initialiser le Contexte d'Exécution DAG (PipelineRunState)
         initial_state = PipelineRunState(initial_prompt=text_source[:120])
         initial_state.set_variable("text_source", text_source)
         initial_state.set_variable("fields", fields)
@@ -1849,7 +1158,6 @@ class CreationView(QWidget):
         initial_state.set_variable("note_type_fields_schema", nt_schema)
         initial_state.set_variable("selected_models", self.selected_models or ([selected_nt] if selected_nt else []))
 
-        # 2. Configurer et démarrer le PipelineOrchestrator dans QThreadPool
         self._set_all_generation_states(True)
         self.results_panel.show()
         self.center_splitter.setSizes([450, 350])
@@ -1906,7 +1214,6 @@ class CreationView(QWidget):
     def _on_orchestrator_finished(self, state: PipelineRunState) -> None:
         self._set_all_generation_states(False)
 
-        # Récupération des cartes produites par les étapes DAG
         cards_raw = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
         cards = extract_cards_from_data(cards_raw)
 
@@ -1958,7 +1265,6 @@ class CreationView(QWidget):
                             val = str(val) if val is not None else ""
                         note_dict[field_name] = val
 
-                    # Conserver aussi les clés génériques utiles
                     for k, v in item.items():
                         if k not in note_dict and str(k).lower() not in ("status",):
                             note_dict[k] = v
@@ -2019,7 +1325,6 @@ class CreationView(QWidget):
             show_toast(self, "Pipeline annulé.", is_error=False)
 
     def _populate_results_table(self) -> None:
-        """Remplit le tableau des cartes générées avec sélecteur de modèle par ligne."""
         saved_index = self.current_preview_index
 
         if len(self.generated_cards) > 0:
@@ -2052,7 +1357,6 @@ class CreationView(QWidget):
             back_text = card.get("Back") or card.get("Verso") or card.get("Remarques extra") or card.get("Démonstration") or ""
             status_text = card["status"]
 
-            # --- Colonne 0 : Modèle (StyledComboBox) ---
             model_combo = StyledComboBox()
             model_combo.setFixedHeight(26)
             for m in self.models_cache:
@@ -2074,17 +1378,14 @@ class CreationView(QWidget):
             model_combo.currentIndexChanged.connect(make_combo_handler(row, model_combo))
             self.results_table.setCellWidget(row, 0, model_combo)
 
-            # --- Colonne 1 : Recto / Texte Principal ---
             front_item = QTableWidgetItem(str(front_text))
             front_item.setToolTip(str(front_text))
             self.results_table.setItem(row, 1, front_item)
 
-            # --- Colonne 2 : Verso / Détails ---
             back_item = QTableWidgetItem(str(back_text))
             back_item.setToolTip(str(back_text))
             self.results_table.setItem(row, 2, back_item)
 
-            # --- Colonne 3 : Statut (Badge) ---
             label, icon_name, variant = _STATUS_META.get(status_text, (status_text, "ph.hourglass-simple", "warning"))
 
             badge_container = QWidget()
@@ -2096,17 +1397,14 @@ class CreationView(QWidget):
 
             self.results_table.setItem(row, 3, QTableWidgetItem())
             self.results_table.setCellWidget(row, 3, badge_container)
-
             self.results_table.setRowHeight(row, 38)
 
         self.results_table.blockSignals(False)
 
-        # Restaurer la sélection sur la ligne courante
         if self.generated_cards:
             target = max(0, min(saved_index, len(self.generated_cards) - 1))
             self.results_table.selectRow(target)
 
-        # Mettre à jour le bouton de sauvegarde
         self._refresh_save_button()
 
     def _update_card_preview(self) -> None:
@@ -2181,19 +1479,14 @@ class CreationView(QWidget):
             self._update_card_preview()
 
     def _all_cards_processed(self) -> bool:
-        """Retourne True si TOUTES les cartes ont un statut final (Enregistrée ou Refusée).
-        Aucune carte ne reste en 'À valider' ou 'Validée'.
-        """
         if not self.generated_cards:
             return False
         return all(card.get("status") in self._FINAL_STATUSES for card in self.generated_cards)
 
     def _count_validated(self) -> int:
-        """Retourne le nombre de cartes prêtes à être enregistrées (statut == Validée)."""
         return sum(1 for card in self.generated_cards if card.get("status") == "Validée")
 
     def _count_by_status(self) -> dict[str, int]:
-        """Retourne un résumé des effectifs par statut."""
         counts: dict[str, int] = {}
         for card in self.generated_cards:
             s = card.get("status", "À valider")
@@ -2201,11 +1494,9 @@ class CreationView(QWidget):
         return counts
 
     def is_dirty(self) -> bool:
-        """Indique si la vue contient des cartes générées non encore enregistrées."""
         return any(card.get("status") in ("Validée", "À valider", "En attente") for card in self.generated_cards)
 
     def _refresh_save_button(self) -> None:
-        """Met à jour le label et l'état du bouton Enregistrer selon les cartes."""
         validated_count = self._count_validated()
         total_count = len(self.generated_cards)
         if total_count > 0:
@@ -2217,7 +1508,6 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_validate_card(self) -> None:
-        """Marque la carte comme Acceptée (statut → Validée) puis passe automatiquement à la suivante."""
         if not self.generated_cards or not (0 <= self.current_preview_index < len(self.generated_cards)):
             return
         next_index = self.current_preview_index + 1
@@ -2225,7 +1515,6 @@ class CreationView(QWidget):
         self._populate_results_table()
         show_toast(self, "✅ Carte acceptée !")
 
-        # Navigation automatique fluide vers la carte suivante
         if next_index < len(self.generated_cards):
             self.current_preview_index = next_index
             self.results_table.selectRow(self.current_preview_index)
@@ -2237,8 +1526,6 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_edit_card(self) -> None:
-        """Ouvre le dialogue d'édition. Le statut de la carte est préservé (non réinitialisé).
-        L'édition ne sauvegarde PAS dans la Forge — elle met à jour uniquement l'état mémoire."""
         if not self.generated_cards or not (0 <= self.current_preview_index < len(self.generated_cards)):
             return
 
@@ -2261,7 +1548,6 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_reject_card(self) -> None:
-        """Marque la carte comme Refusée (sans la supprimer) et passe à la suivante."""
         if self.generated_cards and 0 <= self.current_preview_index < len(self.generated_cards):
             next_index = self.current_preview_index + 1
             card = self.generated_cards[self.current_preview_index]
@@ -2269,7 +1555,6 @@ class CreationView(QWidget):
             self._populate_results_table()
             show_toast(self, f"❌ Carte '{card.get('Front', '')[:20]}...' marquée Refusée.")
 
-            # Navigation automatique vers la carte suivante
             if next_index < len(self.generated_cards):
                 self.current_preview_index = next_index
                 self.results_table.selectRow(self.current_preview_index)
@@ -2281,7 +1566,6 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_save_anki(self) -> None:
-        """Enregistre dans la Forge les cartes avec arbitrage si des cartes restent en attente."""
         if not self.generated_cards:
             show_toast(self, "Aucune carte générée à enregistrer.", is_error=True)
             return
@@ -2319,7 +1603,7 @@ class CreationView(QWidget):
                     show_toast(self, "Aucune carte n'a encore été marquée 'Validée'. Utilisez 'Garder' ou validez tout.", is_error=True)
                     return
             else:
-                return  # Continuer la revue
+                return
 
         if not validated_cards:
             show_toast(self, "Aucune carte 'Validée' à enregistrer. Utilisez 'Garder' pour valider des cartes.", is_error=True)
@@ -2403,9 +1687,6 @@ class CreationView(QWidget):
             QMessageBox.critical(self, "Erreur de Sauvegarde", f"Échec de l'enregistrement dans Anki : {str(e)}")
 
     def _check_completion(self) -> None:
-        """Vérifie si toutes les cartes ont reçu un statut final.
-        Si oui : toast de félicitation et réinitialisation de l'état de travail.
-        """
         if not self._all_cards_processed():
             counts = self._count_by_status()
             pending = counts.get("À valider", 0) + counts.get("En attente", 0)
@@ -2427,10 +1708,8 @@ class CreationView(QWidget):
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Affiche un modal d'avertissement si des cartes générées n'ont pas encore été enregistrées."""
         import os
 
-        # Ne pas bloquer si la vue n'est pas visible ou en environnement de test headless
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen" or not self.isVisible() or getattr(self, "_skip_close_dialog", False):
             event.accept()
             return
@@ -2450,7 +1729,6 @@ class CreationView(QWidget):
         event.accept()
 
     def refresh_theme(self, profile: Any) -> None:
-        """Rafraîchit à chaud tous les composants du studio de création."""
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "card_preview_widget"):
             self.preview_widget.card_preview_widget.refresh_theme(profile)
 
