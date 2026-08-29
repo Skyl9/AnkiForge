@@ -218,6 +218,9 @@ class DiagnosticCardWidget(QFrame):
         self.icon_label.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.icon_label)
 
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setMinimumWidth(0)
+
         # Textes (Titre + Message)
         text_layout = QVBoxLayout()
         text_layout.setSpacing(2)
@@ -226,11 +229,17 @@ class DiagnosticCardWidget(QFrame):
         self.title_lbl = QLabel(data.get("title", "Alerte"))
         self.title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 12, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        self.title_lbl.setWordWrap(True)
+        self.title_lbl.setMinimumWidth(0)
+        self.title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.title_lbl)
 
         self.msg_lbl = QLabel(data.get("message", ""))
         self.msg_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 11))
         self.msg_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.msg_lbl.setWordWrap(True)
+        self.msg_lbl.setMinimumWidth(0)
+        self.msg_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.msg_lbl)
 
         layout.addLayout(text_layout, 1)
@@ -369,6 +378,8 @@ class ActivityItem(QFrame):
         super().__init__(parent)
         self.note_id = note_id or 0
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.setMinimumWidth(0)
         self._apply_style()
 
         layout = QHBoxLayout(self)
@@ -398,6 +409,7 @@ class ActivityItem(QFrame):
         layout.addWidget(icon_wrapper)
 
         text_layout = QVBoxLayout()
+        text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
         text_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
@@ -405,11 +417,16 @@ class ActivityItem(QFrame):
         self.title_label.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.title_label.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
         self.title_label.setWordWrap(True)
+        self.title_label.setMinimumWidth(0)
+        self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(subtitle)
         self.subtitle_label.setFont(QFont(DesignTokens.FONT_MAIN, 10))
         self.subtitle_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.subtitle_label.setWordWrap(True)
+        self.subtitle_label.setMinimumWidth(0)
+        self.subtitle_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         text_layout.addWidget(self.subtitle_label)
 
         layout.addLayout(text_layout, 1)
@@ -698,17 +715,20 @@ class DashboardView(QWidget):
         # Panneau 2 : Activité Récente (Grandes actions / Macro-Activités)
         activity_panel = IdePanel(detachable=True)
         activity_widget = QWidget()
+        activity_widget.setMinimumWidth(0)
         activity_layout = QVBoxLayout(activity_widget)
         activity_layout.setContentsMargins(10, 10, 10, 10)
         activity_layout.setSpacing(6)
 
         activity_scroll = QScrollArea()
+        activity_scroll.setMinimumWidth(0)
         activity_scroll.setWidgetResizable(True)
         activity_scroll.setFrameShape(QFrame.Shape.NoFrame)
         activity_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         activity_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         activity_inner = QWidget()
+        activity_inner.setMinimumWidth(0)
         activity_inner.setStyleSheet("background: transparent;")
         self.activity_list_layout = QVBoxLayout(activity_inner)
         self.activity_list_layout.setContentsMargins(0, 0, 0, 0)
