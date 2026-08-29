@@ -1,11 +1,4 @@
-"""
-Vue Batch Factory (CI/CD Power User) — 100% Conforme à la Maquette concept_ide/index.html (L1883-L2062).
-- TOP ROW (Metrics) : Statut Global, Temps Restant, Cartes Générées, Coût Estimé.
-- MIDDLE ROW (Config & Queue) :
-  - Gauche (350px) : 'Paramètres du Build' (Source combo, Paquet Cible, Modèle, Moteur IA, Pipeline, Vision, Validation auto, Bouton 'Ajouter à la Queue').
-  - Droite (flex-1) : 'File d'attente détaillée' (Case à cocher, Statut, Fichier/Source, Barre de progrès %, Tokens Est., Actions, Boutons 'Vider' et 'Démarrer Pipeline' vert émeraude #10b981).
-- BOTTOM ROW (250px) : Terminal CI/CD 'root@ankiforge:~/pipeline_logs' (#0c0c0c, logs colorés INFO/WARN/SUCCESS, monospace).
-"""
+from __future__ import annotations
 
 import datetime
 import json
@@ -23,7 +16,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QMessageBox,
-    QProgressBar,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -57,155 +49,19 @@ from ankiforge.ui.components import (
     StyledTableWidget,
     StyledTextEdit,
 )
+from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.views.batch_view.constants import apply_pill_style
+from ankiforge.ui.views.batch_view.widgets import (
+    CicdMetricCard,
+    ProgressTableCellWidget,
+)
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 
 logger = logging.getLogger(__name__)
-
-
-def apply_pill_style(badge: QLabel, color_hex: str) -> None:
-    """Applique un style de capsule/pill parfaitement arrondie avec fond translucide et bordure assortie."""
-    hex_c = color_hex.lstrip("#")
-    r, g, b = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-    badge.setStyleSheet(f"""
-        QLabel {{
-            background-color: rgba({r}, {g}, {b}, 0.15) !important;
-            color: {color_hex};
-            border: 1px solid rgba({r}, {g}, {b}, 0.35);
-            border-radius: 9999px;
-            padding: 2px 10px;
-            font-size: 10px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }}
-    """)
-
-
-class CicdMetricCard(QFrame):
-    """Stat Card épurée et compacte conforme à la maquette concept_ide (L1888-L1916)."""
-
-    def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.title_text = title
-        self.icon_name = icon_name
-        self.color = color
-        self.setFixedHeight(58)
-        self._apply_style()
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 8, 14, 8)
-        layout.setSpacing(10)
-
-        text_layout = QVBoxLayout()
-        text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(2)
-
-        self.title_lbl = QLabel(title)
-        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
-
-        self.val_lbl = QLabel(value)
-        self.val_lbl.setStyleSheet(f"color: {color}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
-
-        text_layout.addWidget(self.title_lbl)
-        text_layout.addWidget(self.val_lbl)
-        layout.addLayout(text_layout, 1)
-
-        self.icon_lbl = QLabel()
-        self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(24, 24))
-        self.icon_lbl.setStyleSheet("border: none; background: transparent; opacity: 0.85;")
-        layout.addWidget(self.icon_lbl)
-        apply_shadow(self, blur=8, offset_y=2)
-
-    def _apply_style(self, profile: Any = None) -> None:
-        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
-        border_col = profile.border_color if profile else DesignTokens.BORDER_COLOR
-        radius_md = profile.radius_md if profile else DesignTokens.RADIUS_MD
-        self.setStyleSheet(f"""
-            CicdMetricCard {{
-                background-color: {bg_panel};
-                border: 1px solid {border_col};
-                border-radius: {radius_md}px;
-                padding: 0px;
-            }}
-        """)
-
-    def refresh_theme(self, profile: Any) -> None:
-        self._apply_style(profile)
-        if hasattr(self, "title_lbl"):
-            self.title_lbl.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-weight: bold; border: none; text-transform: uppercase; letter-spacing: 0.5px;")
-        if hasattr(self, "val_lbl"):
-            self.val_lbl.setStyleSheet(f"color: {self.color}; font-size: 15px; font-weight: bold; border: none; font-family: '{profile.font_code}';")
-        if hasattr(self, "icon_lbl"):
-            self.icon_lbl.setPixmap(load_phosphor_icon(self.icon_name, color=self.color).pixmap(24, 24))
-
-
-class ProgressTableCellWidget(QWidget):
-    """Widget de cellule affichant la barre de progression et l'état textuel (%) sous la barre."""
-
-    def __init__(self, progress_pct: int = 0, status_text: str = "En attente...", color: str = "#6366f1", parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(3)
-
-        self.progress_pct = progress_pct
-        self.status_text = status_text
-        self.color = color
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(5)
-        self.progress_bar.setValue(progress_pct)
-        self.progress_bar.setTextVisible(False)
-        self._apply_style()
-        layout.addWidget(self.progress_bar)
-
-        sub_row = QHBoxLayout()
-        sub_row.setContentsMargins(0, 0, 0, 0)
-        sub_row.setSpacing(4)
-
-        self.lbl_status = QLabel(status_text)
-        self.lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}';")
-
-        self.lbl_pct = QLabel(f"{progress_pct}%")
-        self.lbl_pct.setStyleSheet(f"color: {self.color}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; font-weight: bold;")
-
-        sub_row.addWidget(self.lbl_status, 1)
-        sub_row.addWidget(self.lbl_pct, 0, Qt.AlignmentFlag.AlignRight)
-
-        layout.addLayout(sub_row)
-
-    def _apply_style(self, profile: Any = None) -> None:
-        bg_input = profile.bg_input if profile else DesignTokens.BG_INPUT
-        self.progress_bar.setStyleSheet(f"""
-            QProgressBar {{
-                background-color: {bg_input};
-                border: none;
-                border-radius: 3px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {self.color};
-                border-radius: 3px;
-            }}
-        """)
-
-    def refresh_theme(self, profile: Any) -> None:
-        self._apply_style(profile)
-        if hasattr(self, "lbl_status"):
-            self.lbl_status.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-family: '{profile.font_code}';")
-        if hasattr(self, "lbl_pct"):
-            self.lbl_pct.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-family: '{profile.font_code}'; font-weight: bold;")
-
-    def update_progress(self, progress_pct: int, status_text: str, color: str = "#10b981") -> None:
-        self.progress_pct = progress_pct
-        self.status_text = status_text
-        self.color = color
-        self.progress_bar.setValue(progress_pct)
-        self._apply_style()
-        self.lbl_status.setText(status_text)
-        self.lbl_pct.setText(f"{progress_pct}%")
 
 
 class BatchView(QWidget):
@@ -220,7 +76,6 @@ class BatchView(QWidget):
         self.queue_tasks_data: list[dict[str, Any]] = []
         self.cell_widgets_map: dict[int, ProgressTableCellWidget] = {}
         self.start_timestamp = 0.0
-        # Sélections courantes (alignées sur creation_view)
         self.current_deck: Optional[DeckModel] = None
         self.current_model: Optional[NoteTypeModel] = None
         self.decks_cache: list[DeckModel] = []
@@ -236,9 +91,7 @@ class BatchView(QWidget):
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
 
-        # =========================================================================
-        # TOP ROW: Metrics Cards (L1885-L1916)
-        # =========================================================================
+        # TOP ROW: Metrics Cards
         metrics_row = QHBoxLayout()
         metrics_row.setContentsMargins(0, 0, 0, 0)
         metrics_row.setSpacing(12)
@@ -255,16 +108,14 @@ class BatchView(QWidget):
 
         main_layout.addLayout(metrics_row)
 
-        # =========================================================================
-        # MAIN SPLITTER: Middle Row (Config & Queue) + Bottom Row (Terminal)
-        # =========================================================================
+        # MAIN SPLITTER
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)
         main_layout.addWidget(self.main_splitter, 1)
 
-        # --- MIDDLE ROW: Config & Queue (L1918-L2036) ---
+        # MIDDLE ROW
         self.middle_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # LEFT PANEL: Paramètres du Build (width: 350px)
+        # LEFT PANEL
         self.build_panel = IdePanel(detachable=True)
         self.build_panel.setMinimumWidth(320)
         self.build_panel.setMaximumWidth(380)
@@ -289,7 +140,7 @@ class BatchView(QWidget):
         scroll_area.setWidget(scroll_content)
         build_main_layout.addWidget(scroll_area)
 
-        # --- Section 1: Source (Fichiers/Dossiers) ---
+        # Section 1: Source
         src_card = QFrame()
         src_card.setStyleSheet(f"""
             QFrame {{
@@ -322,7 +173,7 @@ class BatchView(QWidget):
         src_layout.addWidget(self.doc_combo)
         build_layout.addWidget(src_card)
 
-        # --- Section 2: Cibles Anki ---
+        # Section 2: Cibles Anki
         target_card = QFrame()
         target_card.setStyleSheet(f"""
             QFrame {{
@@ -348,7 +199,6 @@ class BatchView(QWidget):
         target_top.addStretch()
         target_layout.addLayout(target_top)
 
-        # Paquet Cible (Bouton Sélecteur)
         self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
         self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
         self.btn_select_deck.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -357,7 +207,6 @@ class BatchView(QWidget):
         )
         target_layout.addWidget(self.btn_select_deck)
 
-        # Modèle de Carte (Bouton Sélecteur)
         self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
         self.btn_select_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -367,7 +216,7 @@ class BatchView(QWidget):
         target_layout.addWidget(self.btn_select_model)
         build_layout.addWidget(target_card)
 
-        # --- Section 3: Orchestration IA ---
+        # Section 3: Orchestration IA
         ai_card = QFrame()
         ai_card.setStyleSheet(f"""
             QFrame {{
@@ -393,7 +242,6 @@ class BatchView(QWidget):
         ai_top.addStretch()
         ai_layout.addLayout(ai_top)
 
-        # Moteur IA + bouton d'aide si vide
         self.engine_combo = StyledComboBox()
         self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setMinimumContentsLength(8)
@@ -406,7 +254,6 @@ class BatchView(QWidget):
         self.btn_no_engine_help.hide()
         ai_layout.addWidget(self.btn_no_engine_help)
 
-        # Pipeline Agentique + bouton d'aide si vide
         self.pipeline_combo = StyledComboBox()
         self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.pipeline_combo.setMinimumContentsLength(8)
@@ -419,7 +266,6 @@ class BatchView(QWidget):
         self.btn_no_pipeline_help.hide()
         ai_layout.addWidget(self.btn_no_pipeline_help)
 
-        # Options (Toggles modernes côte à côte)
         opt_layout = QHBoxLayout()
         opt_layout.setContentsMargins(0, 4, 0, 0)
         opt_layout.setSpacing(6)
@@ -433,7 +279,7 @@ class BatchView(QWidget):
 
         build_layout.addWidget(ai_card)
 
-        # --- Section 4: Paramètres Avancés pliables ---
+        # Section 4: Paramètres Avancés
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -492,7 +338,6 @@ class BatchView(QWidget):
             }}
         """
 
-        # Température
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
         self.temp_lbl = QLabel("Température")
@@ -514,7 +359,6 @@ class BatchView(QWidget):
         temp_layout.addWidget(self.slider_temp)
         advanced_layout.addLayout(temp_layout)
 
-        # Max Tokens
         tokens_layout = QVBoxLayout()
         tokens_header = QHBoxLayout()
         self.tokens_lbl = QLabel("Max Tokens")
@@ -539,7 +383,6 @@ class BatchView(QWidget):
         build_layout.addWidget(self.advanced_container)
         build_layout.addStretch()
 
-        # 5. Bouton 'Ajouter à la Queue'
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue")
         self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
         apply_shadow(self.btn_add_to_queue, blur=20, offset_y=0, color="rgba(99, 102, 241, 0.75)")
@@ -554,10 +397,9 @@ class BatchView(QWidget):
         self.build_panel.add_tab("Paramètres du Build", build_content, "ph.sliders-horizontal", closable=False)
         self.middle_splitter.addWidget(self.build_panel)
 
-        # RIGHT PANEL: File d'attente détaillée (flex-1)
+        # RIGHT PANEL
         self.queue_panel = IdePanel(detachable=True)
 
-        # Header action buttons (Vider + Démarrer Pipeline)
         self.btn_clear_table = IconButton("ph.trash", tooltip="Vider la file d'attente", size=22)
         self.btn_clear_table.clicked.connect(self._on_clear_queue)
         self.queue_panel.add_header_widget(self.btn_clear_table)
@@ -588,7 +430,6 @@ class BatchView(QWidget):
         queue_layout.setContentsMargins(0, 0, 0, 0)
         queue_layout.setSpacing(0)
 
-        # Table (L1980-L2032)
         self.queue_table = StyledTableWidget(["", "STATUT", "FICHIER / SOURCE", "PROGRÈS", "TOKENS EST.", "ACTIONS"])
         self.queue_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
         self.queue_table.verticalHeader().setDefaultSectionSize(46)
@@ -628,14 +469,11 @@ class BatchView(QWidget):
         self.middle_splitter.setSizes([350, 750])
         self.main_splitter.addWidget(self.middle_splitter)
 
-        # =========================================================================
-        # BOTTOM ROW: Terminal Log Console (Drawer Style: Collapsible)
-        # =========================================================================
+        # BOTTOM ROW
         self.terminal_panel = IdePanel(detachable=True)
         self._terminal_expanded = True
         self._terminal_last_height = 240
 
-        # Header Actions pour le Terminal (Toggle, Vider console & Scroll Lock)
         self.btn_toggle_terminal = IconButton("ph.caret-down", tooltip="Réduire / Déplier le terminal", size=20)
         self.btn_toggle_terminal.clicked.connect(self._toggle_terminal)
         self.terminal_panel.add_header_widget(self.btn_toggle_terminal)
@@ -653,7 +491,6 @@ class BatchView(QWidget):
         terminal_layout.setContentsMargins(0, 0, 0, 0)
         terminal_layout.setSpacing(0)
 
-        # Console Text Edit
         self.console_output = StyledTextEdit()
         self.console_output.setReadOnly(True)
         self.console_output.setStyleSheet(f"""
@@ -709,9 +546,7 @@ class BatchView(QWidget):
         self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, "Créez un pipeline dans l'onglet Pipelines."))
 
     def refresh_data(self) -> None:
-        """Recharge les données dynamiques depuis Peewee DB (aligné sur creation_view)."""
         try:
-            # 1. Documents combo
             self.doc_combo.blockSignals(True)
             self.doc_combo.clear()
             docs = list(DocumentModel.select())
@@ -722,7 +557,6 @@ class BatchView(QWidget):
                 self.doc_combo.addItem("Aucun document disponible")
             self.doc_combo.blockSignals(False)
 
-            # 2. Paquets (cache + sélection par défaut)
             decks = list(DeckModel.select())
             if not decks:
                 DeckModel.get_or_create(name="Général")
@@ -731,13 +565,11 @@ class BatchView(QWidget):
             if self.current_deck is None and self.decks_cache:
                 self._set_current_deck(self.decks_cache[0])
 
-            # 3. Modèles de cartes (cache + sélection par défaut)
             note_types = list(NoteTypeModel.select())
             self.models_cache = note_types
             if self.current_model is None and self.models_cache:
                 self._set_current_model(self.models_cache[0])
 
-            # 4. Moteurs IA
             self.engine_combo.blockSignals(True)
             self.engine_combo.clear()
             engines = list(LLMConfigModel.select())
@@ -754,7 +586,6 @@ class BatchView(QWidget):
                 self.btn_no_engine_help.show()
             self.engine_combo.blockSignals(False)
 
-            # 5. Pipelines
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
             pipelines = list(PipelineModel.select())
@@ -774,10 +605,6 @@ class BatchView(QWidget):
 
     def is_dirty(self) -> bool:
         return len(self.queue_tasks_data) > 0
-
-    # ------------------------------------------------------------------
-    # Slots de sélection Paquet / Modèle (alignés sur creation_view)
-    # ------------------------------------------------------------------
 
     @Slot()
     def _on_click_select_deck(self) -> None:
@@ -838,19 +665,17 @@ class BatchView(QWidget):
         modal.exec()
 
     def _log_formatted_line(self, level: str, msg: str) -> None:
-        """Génère une ligne de log formatée avec horodatage et niveau coloré conforme au terminal (L2052-L2059)."""
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        level_color = "#3b82f6"  # INFO = Blue
+        level_color = "#3b82f6"
         if level == "WARN":
-            level_color = "#eab308"  # WARN = Yellow
+            level_color = "#eab308"
         elif level == "SUCCESS":
-            level_color = "#10b981"  # SUCCESS = Green
+            level_color = "#10b981"
         elif level == "ERROR":
-            level_color = "#ef4444"  # ERROR = Red
+            level_color = "#ef4444"
 
         formatted_html = f"<span style='color: {DesignTokens.TEXT_MUTED}'>[{now_str}]</span> <span style='color: {level_color}; font-weight: bold;'>{level}</span> {msg}"
-
         self.console_output.appendHtml(formatted_html)
 
     @Slot()
@@ -883,7 +708,6 @@ class BatchView(QWidget):
         selected_engine = self.engine_combo.currentData()
         selected_pipeline = self.pipeline_combo.currentData()
 
-        # Estimation des tokens
         doc_content = getattr(doc, "content", "") or ""
         words_count = len(doc_content.split())
         tokens_est = int(words_count * 1.3) if words_count > 0 else 25000
@@ -931,12 +755,10 @@ class BatchView(QWidget):
             tokens_est: int = task.get("tokens_est", 25000)
             progress_pct: int = task.get("progress_pct", 0)
 
-            # Col 0: Checkbox
             cb_item = QTableWidgetItem()
             cb_item.setCheckState(Qt.CheckState.Checked)
             self.queue_table.setItem(i, 0, cb_item)
 
-            # Col 1: Statut Badge
             if status == "Succès":
                 badge_color = DesignTokens.COLOR_GREEN
             elif status == "En cours":
@@ -950,11 +772,9 @@ class BatchView(QWidget):
             apply_pill_style(status_badge, badge_color)
             self.queue_table.setCellWidget(i, 1, status_badge)
 
-            # Col 2: Fichier / Source (icône PDF/Doc)
             doc_item = QTableWidgetItem(f"📄 {doc.title}")
             self.queue_table.setItem(i, 2, doc_item)
 
-            # Col 3: Progrès (Progress Bar + text sub)
             if status == "Succès":
                 p_color = DesignTokens.COLOR_GREEN
                 p_text = "Terminé"
@@ -972,12 +792,10 @@ class BatchView(QWidget):
             self.cell_widgets_map[i] = prog_widget
             self.queue_table.setCellWidget(i, 3, prog_widget)
 
-            # Col 4: Tokens Est.
             tokens_item = QTableWidgetItem(f"~ {tokens_est:,}")
             tokens_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self.queue_table.setItem(i, 4, tokens_item)
 
-            # Col 5: Actions (Bouton Suppression X)
             btn_del = IconButton("ph.x", tooltip="Retirer de la queue", size=18)
             btn_del.clicked.connect(lambda _, row_idx=i: self._remove_from_queue(row_idx))
 
@@ -1112,7 +930,6 @@ class BatchView(QWidget):
 
     @Slot(list, int, int)
     def _save_extracted_notes_to_db(self, notes_data: list[dict[str, Any]], deck_id: int, model_id: int) -> None:
-        """Sauvegarde atomique des cartes générées."""
         try:
             deck = DeckModel.get_by_id(deck_id)
             note_type = NoteTypeModel.get_by_id(model_id)
@@ -1174,7 +991,6 @@ class BatchView(QWidget):
         QMessageBox.critical(self, "Erreur Pipeline", f"Erreur lors de l'exécution du pipeline :\n{error_msg}")
 
     def refresh_theme(self, profile: Any) -> None:
-        """Rafraîchit à chaud l'intégralité des composants de la Batch Factory."""
         if hasattr(self, "card_status"):
             self.card_status.refresh_theme(profile)
         if hasattr(self, "card_time"):
@@ -1225,9 +1041,6 @@ class BatchView(QWidget):
                     border-color: {profile.accent_primary};
                 }}
             """)
-
-        if hasattr(self, "sep"):
-            self.sep.setStyleSheet(f"border: 1px dashed {profile.border_color}; margin: 6px 0;")
 
         if hasattr(self, "adv_lbl"):
             self.adv_lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; background: transparent;")
