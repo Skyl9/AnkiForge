@@ -1,25 +1,10 @@
-"""
-Vue Card Models (Atelier de Modèles de Cartes & Design System) — Pilier 3 d'AnkiForge.
-- Panneau Gauche (300px) :
-  - Onglet 1 « Modèles » : Liste des modèles Peewee avec recherche, ajout, duplication, import JSON, suppression.
-  - Onglet 2 « Snippets » : Bibliothèque de composants modulaires réutilisables (Callouts, Badges, QCM, KaTeX, Code).
-- Panneau Central :
-  - Barre d'action supérieure TOUJOURS FIXE au sommet de l'onglet avec relief et ombres subtiles.
-  - Splitter vertical permettant un redimensionnement libre en hauteur entre la zone supérieure (champs + aides repliables) et la zone inférieure (éditeurs de code).
-  - Volet d'aides repliable (Collider / Accordéon) avec filtres de catégories, compteur compact et FlowLayout fluide dans QScrollArea.
-  - Gestion multi-templates (Carte 1, Carte 2, +, Renommer, Dupliquer, Supprimer).
-  - Sous-onglets de code style IDE avec affordance tactile et micro-retour au clic (Style CSS, HTML Recto, HTML Verso).
-- Panneau Droit : Live Preview WebEngine Triple-Mode (Recto/Verso, Clair/Sombre, Données Live / Carte Témoin SQLite).
-"""
-
 from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -59,208 +44,18 @@ from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.card_models_view.utils import extract_css_classes
+from ankiforge.ui.views.card_models_view.widgets import (
+    ResponsiveTopActionBar,
+    SubTabButton,
+    TagPillButton,
+)
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
-
-
-def extract_css_classes(css_text: str) -> list[str]:
-    """Extrait la liste unique des classes CSS définies dans la feuille de style."""
-    if not css_text:
-        return []
-    matches = re.findall(r"\.([a-zA-Z_-][a-zA-Z0-9_\-]*)", css_text)
-    excluded = {
-        "hover",
-        "active",
-        "focus",
-        "visited",
-        "disabled",
-        "first-child",
-        "last-child",
-        "nth-child",
-        "before",
-        "after",
-    }
-    classes: list[str] = []
-    for cls in matches:
-        if cls not in classes and cls not in excluded and not cls.isdigit():
-            classes.append(cls)
-    return classes
-
-
-class TagPillButton(QPushButton):
-    """Bouton style pilule avec relief, halo subtil et affordance tactile."""
-
-    def __init__(
-        self,
-        text: str,
-        variant: str = "field",  # "field" | "cloze" | "css" | "structure" | "condition"
-        parent: Optional[QWidget] = None,
-    ) -> None:
-        super().__init__(text, parent)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(24)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-        if variant == "cloze":
-            bg_tint = "rgba(168, 85, 247, 0.12)"
-            border_color = "rgba(168, 85, 247, 0.45)"
-            text_color = "#c084fc"
-        elif variant == "css":
-            bg_tint = "rgba(6, 182, 212, 0.12)"
-            border_color = "rgba(6, 182, 212, 0.45)"
-            text_color = "#67e8f9"
-        elif variant == "structure":
-            bg_tint = "rgba(245, 158, 11, 0.12)"
-            border_color = "rgba(245, 158, 11, 0.45)"
-            text_color = "#fcd34d"
-        elif variant == "condition":
-            bg_tint = "rgba(16, 185, 129, 0.12)"
-            border_color = "rgba(16, 185, 129, 0.45)"
-            text_color = "#6ee7b7"
-        else:  # field
-            bg_tint = "rgba(99, 102, 241, 0.10)"
-            border_color = "rgba(99, 102, 241, 0.40)"
-            text_color = "#a5b4fc"
-
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {bg_tint};
-                border: 1px solid {border_color};
-                border-radius: 12px;
-                color: {text_color};
-                font-family: '{DesignTokens.FONT_CODE}';
-                font-size: 11px;
-                font-weight: 600;
-                padding: 1px 9px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-                color: {DesignTokens.TEXT_PRIMARY};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignTokens.BG_ACTIVE};
-                padding-top: 2px;
-            }}
-        """)
-
-
-class SubTabButton(QPushButton):
-    """Bouton d'onglet style IDE avec relief et affordance tactile."""
-
-    def __init__(self, text: str, icon_name: str, parent: Optional[QWidget] = None) -> None:
-        super().__init__(text, parent)
-        self.icon_name = icon_name
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(30)
-        self.set_active(False)
-
-    def set_active(self, active: bool) -> None:
-        if active:
-            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.ACCENT_PRIMARY))
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.BG_PANEL};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 4px 14px;
-                    font-size: 11px;
-                    font-weight: bold;
-                }}
-            """)
-        else:
-            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED))
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    color: {DesignTokens.TEXT_SECONDARY};
-                    border: 1px solid transparent;
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 4px 14px;
-                    font-size: 11px;
-                    font-weight: 500;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignTokens.BG_HOVER};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    border: 1px solid {DesignTokens.ACCENT_PRIMARY};
-                }}
-                QPushButton:pressed {{
-                    background-color: {DesignTokens.BG_ACTIVE};
-                    padding-top: 5px;
-                }}
-            """)
-
-
-class ResponsiveTopActionBar(QFrame):
-    """Barre d'action supérieure adaptative pour l'éditeur de modèles de cartes."""
-
-    preview_toggle_requested = Signal()
-
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self.setObjectName("topActionBar")
-        self.setFixedHeight(40)
-        self.setStyleSheet(f"""
-            QFrame#topActionBar {{
-                background-color: {DesignTokens.BG_PANEL};
-                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-        """)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 4, 10, 4)
-        layout.setSpacing(8)
-
-        # Badge Icône
-        self.lbl_editor_icon = QLabel()
-        self.lbl_editor_icon.setPixmap(load_phosphor_icon("ph.swatches", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
-        self.lbl_editor_icon.setStyleSheet("border: none; background: transparent;")
-        layout.addWidget(self.lbl_editor_icon)
-
-        # Titre du Modèle
-        self.lbl_editor_title = QLabel("Modèle sélectionné")
-        self.lbl_editor_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px; font-weight: bold; border: none; background: transparent;")
-        self.lbl_editor_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        layout.addWidget(self.lbl_editor_title)
-
-        self.model_type_badge = Badge("Standard", variant="neutral")
-        self.model_type_badge.setFixedHeight(20)
-        layout.addWidget(self.model_type_badge)
-
-        self.template_count_badge = Badge("1 gabarit", variant="neutral")
-        self.template_count_badge.setFixedHeight(20)
-        layout.addWidget(self.template_count_badge)
-
-        layout.addStretch(1)
-
-        # Boutons d'action
-        self.btn_export_json = IconButton("ph.export", tooltip="Exporter le modèle au format JSON standardisé AnkiForge", size=24)
-
-        self.btn_toggle_preview = SecondaryButton("Aperçu en direct")
-        self.btn_toggle_preview.setIcon(load_phosphor_icon("ph.columns", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_toggle_preview.setFixedHeight(28)
-        self.btn_toggle_preview.setToolTip("Afficher / Masquer l'aperçu en direct à côté du code")
-        self.btn_toggle_preview.clicked.connect(self.preview_toggle_requested.emit)
-
-        self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip="Actualiser la prévisualisation temps réel", size=24)
-
-        self.btn_save = PrimaryButton("Sauvegarder")
-        self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
-        self.btn_save.setFixedHeight(28)
-        self.btn_save.setMinimumWidth(110)
-        self.btn_save.setToolTip("Sauvegarder les modifications du modèle")
-
-        layout.addWidget(self.btn_export_json)
-        layout.addWidget(self.btn_toggle_preview)
-        layout.addWidget(self.btn_refresh)
-        layout.addWidget(self.btn_save)
 
 
 class CardModelsView(QWidget):
@@ -305,7 +100,6 @@ class CardModelsView(QWidget):
         list_layout.setContentsMargins(8, 8, 8, 8)
         list_layout.setSpacing(8)
 
-        # En-tête de recherche et création rapide
         search_row = QHBoxLayout()
         search_row.setSpacing(6)
 
@@ -353,7 +147,6 @@ class CardModelsView(QWidget):
         """)
         list_layout.addWidget(self.list_widget, 1)
 
-        # Toolbar inférieure sur 1 seule ligne compacte
         list_toolbar = QHBoxLayout()
         list_toolbar.setSpacing(6)
 
@@ -392,7 +185,6 @@ class CardModelsView(QWidget):
         editor_layout.setContentsMargins(8, 8, 8, 8)
         editor_layout.setSpacing(8)
 
-        # 1. TOP ACTION BAR : RESPONSIVE (40px)
         self.top_action_bar = ResponsiveTopActionBar()
         self.lbl_editor_icon = self.top_action_bar.lbl_editor_icon
         self.lbl_editor_title = self.top_action_bar.lbl_editor_title
@@ -404,7 +196,6 @@ class CardModelsView(QWidget):
 
         editor_layout.addWidget(self.top_action_bar)
 
-        # 2. SPLITTER VERTICAL PERMETTANT UN REDIMENSIONNEMENT LIBRE EN HAUTEUR
         self.editor_vertical_splitter = QSplitter(Qt.Orientation.Vertical)
         self.editor_vertical_splitter.setStyleSheet(f"""
             QSplitter::handle:vertical {{
@@ -418,13 +209,12 @@ class CardModelsView(QWidget):
             }}
         """)
 
-        # --- ZONE SUPÉRIEURE : Champs de données + Volet d'Aides Repliable (Collider) ---
+        # --- ZONE SUPÉRIEURE : Champs de données + Volet d'Aides Repliable ---
         top_resizable_container = QWidget()
         top_res_layout = QVBoxLayout(top_resizable_container)
         top_res_layout.setContentsMargins(0, 0, 0, 4)
         top_res_layout.setSpacing(6)
 
-        # Ligne 1 : Champs de données
         fields_row = QHBoxLayout()
         fields_row.setSpacing(6)
 
@@ -441,7 +231,6 @@ class CardModelsView(QWidget):
 
         top_res_layout.addLayout(fields_row)
 
-        # Ligne 2 : Directives IA / Description
         desc_row = QHBoxLayout()
         desc_row.setSpacing(6)
 
@@ -457,7 +246,6 @@ class CardModelsView(QWidget):
 
         top_res_layout.addLayout(desc_row)
 
-        # Volet d'Aides d'Insertion Repliable (Collider)
         self.helpers_frame = QFrame()
         self.helpers_frame.setObjectName("helpersFrame")
         self.helpers_frame.setStyleSheet(f"""
@@ -471,7 +259,6 @@ class CardModelsView(QWidget):
         helpers_layout.setContentsMargins(8, 6, 8, 6)
         helpers_layout.setSpacing(4)
 
-        # En-tête Collider
         helpers_header = QHBoxLayout()
         helpers_header.setContentsMargins(0, 0, 0, 0)
         helpers_header.setSpacing(6)
@@ -525,7 +312,6 @@ class CardModelsView(QWidget):
         bottom_res_layout.setContentsMargins(0, 4, 0, 0)
         bottom_res_layout.setSpacing(6)
 
-        # 1. Barre de gestion des gabarits
         card_sel_widget = QWidget()
         card_sel_widget.setObjectName("cardSelWidget")
         card_sel_widget.setStyleSheet("QWidget#cardSelWidget { background: transparent; border: none; }")
@@ -556,7 +342,6 @@ class CardModelsView(QWidget):
 
         bottom_res_layout.addWidget(card_sel_widget)
 
-        # 2. Sous-onglets de code (CSS, Front HTML, Back HTML)
         subtabs_container = QFrame()
         subtabs_container.setObjectName("subtabsContainer")
         subtabs_container.setStyleSheet(f"""
@@ -581,7 +366,6 @@ class CardModelsView(QWidget):
 
         bottom_res_layout.addWidget(subtabs_container)
 
-        # Stacked Editors (CSS, Front HTML, Back HTML)
         self.editor_stack = QStackedWidget()
 
         self.css_editor_wrapper = CodeEditorWithGutter(
@@ -603,19 +387,15 @@ class CardModelsView(QWidget):
         self.editor_stack.addWidget(self.back_html_wrapper)
 
         bottom_res_layout.addWidget(self.editor_stack, 1)
-
         self.editor_vertical_splitter.addWidget(bottom_resizable_container)
 
-        # Répartition initiale : 90px haut (champs + aides), 480px bas (éditeurs)
         self.editor_vertical_splitter.setSizes([90, 480])
         self.editor_vertical_splitter.setStretchFactor(0, 0)
         self.editor_vertical_splitter.setStretchFactor(1, 1)
 
-        # Splitter Horizontal pour afficher le Code (Gauche) et le Live Preview (Droite) côte à côte
         self.editor_horizontal_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.editor_horizontal_splitter.setChildrenCollapsible(False)
 
-        # 1. Conteneur Code (Splitter vertical avec formulaires + éditeur)
         code_container = QWidget()
         code_layout = QVBoxLayout(code_container)
         code_layout.setContentsMargins(0, 0, 0, 0)
@@ -624,7 +404,6 @@ class CardModelsView(QWidget):
 
         self.editor_horizontal_splitter.addWidget(code_container)
 
-        # 2. Conteneur Live Preview (Repliable à la demande via bouton ou croix)
         self.preview_container = QFrame()
         self.preview_container.setObjectName("previewContainer")
         self.preview_container.setStyleSheet(f"""
@@ -638,7 +417,6 @@ class CardModelsView(QWidget):
         preview_layout.setContentsMargins(8, 6, 8, 8)
         preview_layout.setSpacing(6)
 
-        # Barre supérieure du Live Preview (Témoin + Raccourcis + Bouton Fermer)
         preview_header = QHBoxLayout()
         preview_header.setContentsMargins(0, 0, 0, 0)
         preview_header.setSpacing(6)
@@ -662,20 +440,16 @@ class CardModelsView(QWidget):
 
         preview_layout.addLayout(preview_header)
 
-        # Composant WebEngine Anki Preview
         self.card_preview_widget = CardPreviewWidget()
         preview_layout.addWidget(self.card_preview_widget, 1)
 
         self.editor_horizontal_splitter.addWidget(self.preview_container)
-
-        # Répartition initiale quand le preview est ouvert
         self.editor_horizontal_splitter.setSizes([500, 420])
         self.editor_horizontal_splitter.setStretchFactor(0, 1)
         self.editor_horizontal_splitter.setStretchFactor(1, 1)
 
         editor_layout.addWidget(self.editor_horizontal_splitter, 1)
 
-        # Panneau principal IDE
         self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
@@ -737,7 +511,6 @@ class CardModelsView(QWidget):
 
     @Slot()
     def _toggle_preview_panel(self) -> None:
-        """Bascule l'affichage côte à côte de la prévisualisation en direct."""
         is_visible = not self.preview_container.isVisible()
         self.preview_container.setVisible(is_visible)
         if is_visible:
@@ -758,7 +531,6 @@ class CardModelsView(QWidget):
 
     @Slot()
     def _hide_preview_panel(self) -> None:
-        """Masque le panneau de prévisualisation en direct."""
         self.preview_container.setVisible(False)
         self.top_action_bar.btn_toggle_preview.setStyleSheet("")
 
@@ -788,7 +560,6 @@ class CardModelsView(QWidget):
                 item.setHidden(True)
 
     def refresh_data(self) -> None:
-        """Recharge la liste des modèles depuis la base Peewee."""
         try:
             self.list_widget.blockSignals(True)
             self.list_widget.clear()
@@ -829,7 +600,6 @@ class CardModelsView(QWidget):
         return False
 
     def _is_cloze_active(self) -> bool:
-        """Détermine si le modèle sélectionné utilise des occlusions de type Cloze."""
         if is_template_cloze(self._templates_list):
             return True
         if self._current_model and any(w in self._current_model.name.lower() for w in ("cloze", "trou", "texte à trou")):
@@ -839,7 +609,6 @@ class CardModelsView(QWidget):
 
     @Slot()
     def _toggle_helpers_collapsed(self) -> None:
-        """Replie ou déplie le volet d'aides (Collider)."""
         is_hidden = self.tags_scroll_area.isHidden()
         if is_hidden:
             self.tags_scroll_area.show()
@@ -872,7 +641,6 @@ class CardModelsView(QWidget):
         self.lbl_editor_title.setText(model.name)
         self.description_input.setText(getattr(model, "description", "") or "")
 
-        # Décompilation des champs schema JSON
         if model.fields_schema:
             try:
                 parsed_fields = json.loads(model.fields_schema)
@@ -890,7 +658,6 @@ class CardModelsView(QWidget):
         )
         self.css_editor_wrapper.setPlainText(model.css_style or default_css)
 
-        # Décompilation des templates JSON
         self._templates_list = []
         if model.templates:
             try:
@@ -1050,7 +817,6 @@ class CardModelsView(QWidget):
 
     @Slot(SnippetItem)
     def _on_insert_snippet(self, snippet: SnippetItem, target: Optional[str] = None) -> None:
-        """Insère un snippet modulaire à la position actuelle du curseur avec fusion CSS intelligente."""
         existing_css = self.css_editor_wrapper.toPlainText()
         conflicts = CSSConflictResolver.find_conflicts(existing_css, snippet.css_style)
 
@@ -1062,7 +828,6 @@ class CardModelsView(QWidget):
             if dialog.exec() == CSSConflictDialog.DialogCode.Accepted:
                 action = dialog.selected_action
                 if action == "rename":
-                    # Créer un mapping de renommage unique
                     mapping = {cls_name: f"{cls_name}-v2" for cls_name in conflicts}
                     html_to_insert, css_to_insert = CSSConflictResolver.rename_classes(
                         html=snippet.html_template,
@@ -1075,15 +840,14 @@ class CardModelsView(QWidget):
                     merged_css = CSSConflictResolver.merge_css(existing_css, css_to_insert, strategy="replace", replace_classes=conflicts)
                     self.css_editor_wrapper.setPlainText(merged_css)
                 elif action == "html_only":
-                    pass  # N'ajoute pas de CSS
+                    pass
             else:
-                return  # Annulé par l'utilisateur
+                return
         else:
             if snippet.css_style and snippet.css_style.strip() not in existing_css:
                 merged_css = CSSConflictResolver.merge_css(existing_css, css_to_insert, strategy="append")
                 self.css_editor_wrapper.setPlainText(merged_css)
 
-        # Déterminer la cible d'insertion HTML basée sur la position / sélection active
         if target == "back" or (target is None and (self._last_active_editor == "back" or self.editor_stack.currentIndex() == 2)):
             target_wrapper = self.back_html_wrapper
             target_idx = 2
@@ -1091,7 +855,6 @@ class CardModelsView(QWidget):
             target_wrapper = self.front_html_wrapper
             target_idx = 1
 
-        # Insérer exactement à la position du curseur
         cursor = target_wrapper.editor.textCursor()
         cursor.insertText(html_to_insert)
         target_wrapper.editor.setTextCursor(cursor)
@@ -1120,17 +883,13 @@ class CardModelsView(QWidget):
         self._update_tags_toolbar()
 
     def _update_tags_toolbar(self) -> None:
-        """Met à jour dynamiquement les balises et classes CSS détectées avec FlowLayout."""
         is_cloze = self._is_cloze_active()
-
-        # 1. Nettoyage complet du FlowWidget
         self.tags_container.clear()
 
         raw_fields = [f.strip() for f in self.fields_input.text().split(",") if f.strip()]
         if not raw_fields:
             raw_fields = ["Front", "Back"]
 
-        # Synchronisation des champs et classes avec les éditeurs et linters
         self.front_html_wrapper.set_known_fields(raw_fields)
         self.back_html_wrapper.set_known_fields(raw_fields)
         css_text = self.css_editor_wrapper.toPlainText()
@@ -1141,8 +900,6 @@ class CardModelsView(QWidget):
 
         active_cat = self._current_helper_cat
 
-        # 3. Génération des balises selon la catégorie active
-        # Catégorie 1 : Champs standards
         if active_cat in ("Tous", "Champs"):
             for f in raw_fields:
                 tag_str = f"{{{{{f}}}}}"
@@ -1151,7 +908,6 @@ class CardModelsView(QWidget):
                 btn.clicked.connect(lambda _, t=tag_str: self._insert_tag_to_active_editor(t))
                 self.tags_flow_layout.addWidget(btn)
 
-        # Catégorie 2 : Occlusions Cloze (affichées uniquement si modèle Cloze)
         if is_cloze and active_cat in ("Tous", "Cloze"):
             for f in raw_fields:
                 cloze_str = f"{{{{cloze:{f}}}}}"
@@ -1160,7 +916,6 @@ class CardModelsView(QWidget):
                 btn_c.clicked.connect(lambda _, t=cloze_str: self._insert_tag_to_active_editor(t))
                 self.tags_flow_layout.addWidget(btn_c)
 
-        # Catégorie 3 : Classes CSS Détectées
         if active_cat in ("Tous", "Classes CSS"):
             css_text = self.css_editor_wrapper.toPlainText()
             detected_classes = extract_css_classes(css_text)
@@ -1170,7 +925,6 @@ class CardModelsView(QWidget):
                 btn_cls.clicked.connect(lambda _, c=cls_name: self._insert_css_class_to_active_editor(c))
                 self.tags_flow_layout.addWidget(btn_cls)
 
-        # Catégorie 4 : Structure & Conditions
         if active_cat in ("Tous", "Structure"):
             btn_fs = TagPillButton("{{FrontSide}}", variant="structure")
             btn_fs.setToolTip("Insérer le rappel du recto au verso")
@@ -1182,7 +936,6 @@ class CardModelsView(QWidget):
             btn_hr.clicked.connect(lambda: self._insert_tag_to_active_editor('<hr id="answer">'))
             self.tags_flow_layout.addWidget(btn_hr)
 
-            # Conditions d'affichage Anki pour chaque champ
             for f in raw_fields:
                 cond_tag = f"{{{{#{f}}}}}"
                 btn_cond = TagPillButton(cond_tag, variant="condition")
@@ -1191,7 +944,6 @@ class CardModelsView(QWidget):
                 btn_cond.clicked.connect(lambda _, s=cond_snippet: self._insert_tag_to_active_editor(s))
                 self.tags_flow_layout.addWidget(btn_cond)
 
-        # Mettre à jour le compteur d'éléments dans le badge d'en-tête
         total_pills = self.tags_flow_layout.count()
         self.lbl_helpers_count.setText(f"{total_pills}")
         self.tags_container.updateGeometry()
@@ -1206,26 +958,23 @@ class CardModelsView(QWidget):
             self.css_editor_wrapper.insertPlainText(tag_str)
 
     def _insert_css_class_to_active_editor(self, class_name: str) -> None:
-        """Insère une classe CSS selon l'éditeur actuellement actif."""
         active_idx = self.editor_stack.currentIndex()
-        if active_idx in (1, 2):  # HTML Front ou Back
+        if active_idx in (1, 2):
             tag = f'<div class="{class_name}">\n  \n</div>'
             if active_idx == 1:
                 self.front_html_wrapper.insertPlainText(tag)
             else:
                 self.back_html_wrapper.insertPlainText(tag)
-        elif active_idx == 0:  # CSS
+        elif active_idx == 0:
             rule = f"\n.{class_name} {{\n  \n}}\n"
             self.css_editor_wrapper.insertPlainText(rule)
 
     @Slot()
     def _update_preview(self) -> None:
-        """Met à jour l'aperçu WebEngine temps réel (CardPreviewWidget)."""
         raw_fields = [f.strip() for f in self.fields_input.text().split(",") if f.strip()]
         if not raw_fields:
             raw_fields = ["Front", "Back"]
 
-        # 1. Vérifier si une note témoin réelle SQLite est sélectionnée
         selected_note_id = self.note_witness_combo.currentData()
         mock_fields: Dict[str, str] = {}
 
@@ -1277,7 +1026,6 @@ class CardModelsView(QWidget):
                 )
                 logger.info("Nouveau modèle de carte créé : '%s' (ID: %s)", new_model.name, new_model.id)
                 self.refresh_data()
-                # Sélectionner le nouveau modèle
                 for i in range(self.list_widget.count()):
                     item = self.list_widget.item(i)
                     if item.data(Qt.ItemDataRole.UserRole).id == new_model.id:
@@ -1421,7 +1169,6 @@ class CardModelsView(QWidget):
             QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible de sauvegarder le modèle : {str(e)}")
 
     def refresh_theme(self, profile: Any) -> None:
-        """Rafraîchit les styles à chaud pour garantir une affordance et un relief parfaits dans tous les thèmes."""
         if hasattr(self, "card_preview_widget") and hasattr(self.card_preview_widget, "refresh_theme"):
             self.card_preview_widget.refresh_theme(profile)
         if hasattr(self, "snippet_drawer") and hasattr(self.snippet_drawer, "refresh_theme"):
