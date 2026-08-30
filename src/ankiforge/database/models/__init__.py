@@ -43,6 +43,7 @@ from ankiforge.database.models.pipelines import (
 from ankiforge.database.models.rag import (
     DocumentChunkModel,
     DocumentModel,
+    EmbeddingCacheModel,
     FolderModel,
     NoteChunkLinkModel,
 )
@@ -77,6 +78,7 @@ ALL_MODELS = [
     DocumentModel,
     DocumentChunkModel,
     NoteChunkLinkModel,
+    EmbeddingCacheModel,
     JobModel,
     LinterRuleModel,
     AuditRecordModel,
@@ -118,6 +120,7 @@ __all__ = [
     "DocumentModel",
     "DocumentChunkModel",
     "NoteChunkLinkModel",
+    "EmbeddingCacheModel",
     # Système, Cache & Audit
     "JobModel",
     "LinterRuleModel",

@@ -54,6 +54,7 @@ from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -1033,8 +1034,7 @@ class CardModelsView(QWidget):
                         break
                 show_toast(self, f"Modèle '{name.strip()}' créé avec succès.")
             except Exception as e:
-                logger.error("Impossible de créer le modèle : %s", e)
-                QMessageBox.critical(self, "Erreur", f"Impossible de créer le modèle : {str(e)}")
+                log_and_notify_error(e, context="Création du modèle", parent=self, title="Erreur")
 
     @Slot()
     def _on_duplicate_model(self) -> None:
@@ -1063,8 +1063,7 @@ class CardModelsView(QWidget):
                     break
                 show_toast(self, f"Modèle dupliqué sous '{dup_name}'.")
         except Exception as e:
-            logger.error("Impossible de dupliquer le modèle : %s", e)
-            QMessageBox.critical(self, "Erreur", f"Impossible de dupliquer le modèle : {str(e)}")
+            log_and_notify_error(e, context="Duplication du modèle", parent=self, title="Erreur")
 
     @Slot()
     def _on_export_json(self) -> None:
@@ -1088,7 +1087,7 @@ class CardModelsView(QWidget):
             try:
                 is_valid, parsed_data, err_msg = CardModelIO.read_model_file(file_path)
                 if not is_valid or not parsed_data:
-                    QMessageBox.critical(self, "Fichier Invalide", f"Le fichier de modèle est invalide :\n{err_msg}")
+                    log_and_notify_error(err_msg, context="Fichier de modèle invalide", parent=self, title="Fichier Invalide")
                     return
 
                 dialog = ModelImportDialog(model_data=parsed_data, parent=self)
@@ -1101,8 +1100,7 @@ class CardModelsView(QWidget):
                             break
                     show_toast(self, f"Modèle '{dialog.imported_model.name}' importé avec succès.")
             except Exception as e:
-                logger.error("Échec de l'import de modèle : %s", e)
-                QMessageBox.critical(self, "Erreur d'importation", f"Échec de l'import : {str(e)}")
+                log_and_notify_error(e, context="Import de modèle", parent=self, title="Erreur d'importation")
 
     @Slot()
     def _on_open_starter_pack(self) -> None:
@@ -1138,8 +1136,7 @@ class CardModelsView(QWidget):
                 self.refresh_data()
                 show_toast(self, "Modèle supprimé.")
             except Exception as e:
-                logger.error("Impossible de supprimer le modèle : %s", e)
-                QMessageBox.critical(self, "Erreur", f"Impossible de supprimer le modèle : {str(e)}")
+                log_and_notify_error(e, context="Suppression du modèle", parent=self, title="Erreur")
 
     @Slot()
     def _on_save_model(self) -> None:
@@ -1165,8 +1162,7 @@ class CardModelsView(QWidget):
             show_toast(self, f"Modèle '{self._current_model.name}' sauvegardé avec succès.")
             self._update_preview()
         except Exception as e:
-            logger.error("Impossible de sauvegarder le modèle : %s", e)
-            QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible de sauvegarder le modèle : {str(e)}")
+            log_and_notify_error(e, context="Sauvegarde du modèle", parent=self, title="Erreur de sauvegarde")
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "card_preview_widget") and hasattr(self.card_preview_widget, "refresh_theme"):

@@ -347,3 +347,37 @@ def install_crash_handlers(log_dir: Path | None = None) -> None:
 
     sys.excepthook = handle_exception
     threading.excepthook = handle_thread_exception
+
+
+def log_and_notify_error(
+    error: Exception | str,
+    context: str = "",
+    parent: Any | None = None,
+    title: str = "Erreur",
+    duration_ms: int = 5000,
+) -> None:
+    """
+    Gestionnaire d'erreurs unifié : enregistre l'exception dans les logs avec traçabilité et
+    affiche un toast d'alerte non-bloquant à l'utilisateur au lieu d'une boîte modale intrusive.
+    """
+    import traceback
+
+    msg = str(error)
+    if isinstance(error, Exception):
+        tb_lines = traceback.format_exception(type(error), error, error.__traceback__)
+        sanitized_tb = redact_secrets("".join(tb_lines))
+        prefix = f"[{context}] " if context else ""
+        logging.error("%sErreur interceptée : %s\n%s", prefix, msg, sanitized_tb)
+    else:
+        prefix = f"[{context}] " if context else ""
+        logging.error("%s%s", prefix, msg)
+
+    # Affichage du toast non-bloquant si contexte GUI disponible
+    with contextlib.suppress(Exception):
+        from PySide6.QtWidgets import QApplication
+
+        if QApplication.instance() is not None:
+            from ankiforge.ui.widgets.toast import ToastLevel, show_toast
+
+            display_msg = f"{context}: {msg}" if context else msg
+            show_toast(parent=parent, message=display_msg, level=ToastLevel.ERROR, title=title, duration_ms=duration_ms)

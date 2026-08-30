@@ -54,6 +54,7 @@ from ankiforge.ui.views.pipelines_view.widgets import (
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +463,7 @@ class PipelinesView(QWidget):
                         self.pipeline_combo.setCurrentIndex(i)
                         break
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Impossible de créer le pipeline : {e}")
+                log_and_notify_error(e, context="Création du pipeline", parent=self, title="Erreur")
 
     def _on_clone_pipeline(self) -> None:
         if not self._current_pipeline:
@@ -478,7 +479,7 @@ class PipelinesView(QWidget):
                         self.pipeline_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Échec du clonage : {e}")
+            log_and_notify_error(e, context="Clonage du pipeline", parent=self, title="Erreur")
 
     def _on_delete_pipeline(self) -> None:
         if not self._current_pipeline:
@@ -495,7 +496,7 @@ class PipelinesView(QWidget):
                 show_toast(self, "Pipeline supprimé", is_error=False)
                 self.refresh_data()
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Échec de suppression : {e}")
+                log_and_notify_error(e, context="Suppression du pipeline", parent=self, title="Erreur")
 
     def _on_save_pipeline(self) -> None:
         if not self._current_pipeline:
@@ -534,7 +535,7 @@ class PipelinesView(QWidget):
 
             show_toast(self, f"Pipeline '{self._current_pipeline.name}' sauvegardé avec succès !", is_error=False)
         except Exception as e:
-            QMessageBox.critical(self, "Erreur de sauvegarde", f"Échec : {e}")
+            log_and_notify_error(e, context="Sauvegarde du pipeline", parent=self, title="Erreur de sauvegarde")
 
     def _on_test_single_step(self, step_data: dict) -> None:
         dlg = StepTestDialog(step_data, parent=self)
@@ -630,7 +631,7 @@ class PipelinesView(QWidget):
                     self.pipeline_combo.setCurrentIndex(i)
                     break
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible d'instancier le modèle : {e}")
+            log_and_notify_error(e, context="Instanciation de modèle", parent=self, title="Erreur")
 
     def _on_export_json(self) -> None:
         if not self._current_pipeline:
@@ -658,7 +659,7 @@ class PipelinesView(QWidget):
                     json.dump(data, f, indent=2, ensure_ascii=False)
                 show_toast(self, "Pipeline exporté en JSON avec succès !", is_error=False)
             except Exception as e:
-                QMessageBox.critical(self, "Erreur d'exportation", str(e))
+                log_and_notify_error(e, context="Export JSON", parent=self, title="Erreur d'exportation")
 
     def _on_import_json(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(self, "Importer un Pipeline JSON", "", "Fichiers JSON (*.json)")
@@ -698,4 +699,4 @@ class PipelinesView(QWidget):
                     self.pipeline_combo.setCurrentIndex(i)
                     break
         except Exception as e:
-            QMessageBox.critical(self, "Erreur d'importation", f"Fichier JSON invalide : {e}")
+            log_and_notify_error(e, context="Import JSON", parent=self, title="Erreur d'importation")

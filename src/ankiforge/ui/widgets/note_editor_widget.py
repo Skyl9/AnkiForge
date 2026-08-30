@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QCompleter,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
@@ -46,6 +45,7 @@ from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -983,8 +983,7 @@ class NoteEditorWidget(QWidget):
             self.note_updated.emit(self.current_note.id, content_dict, new_version.version_number)
             show_toast(self, "Note mise à jour !")
         except Exception as e:
-            logger.exception("Erreur lors de la sauvegarde :")
-            QMessageBox.critical(self, "Erreur", f"Impossible de sauvegarder : {e}")
+            log_and_notify_error(e, context="Mise à jour de la note", parent=self, title="Erreur")
 
     def _create_new_note(self) -> None:
         try:
@@ -1002,8 +1001,7 @@ class NoteEditorWidget(QWidget):
             self._exit_creation_mode(refresh=True, select_note_id=new_note.id)
             self.note_created.emit(new_note.id)
         except Exception as e:
-            logger.exception("Erreur lors de la création :")
-            QMessageBox.critical(self, "Erreur", f"Impossible de créer la note : {e}")
+            log_and_notify_error(e, context="Création de note", parent=self, title="Erreur")
 
     def _exit_creation_mode(self, refresh: bool = False, select_note_id: int | None = None) -> None:
         self.is_creating = False

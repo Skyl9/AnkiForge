@@ -55,6 +55,7 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.event_bus import event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -686,7 +687,7 @@ class EditionView(QWidget):
             self._update_nav_ribbon_info()
             show_toast(self, f"Carte #{note_id} sauvegardée avec succès.")
         except Exception as e:
-            QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible de sauvegarder la carte : {str(e)}")
+            log_and_notify_error(e, context="Sauvegarde de la carte", parent=self, title="Erreur de sauvegarde")
 
     @Slot()
     def _open_history_modal(self) -> None:
@@ -1021,7 +1022,7 @@ class EditionView(QWidget):
     def _on_batch_edit_error(self, msg: str) -> None:
         if self.progress_dialog:
             self.progress_dialog.close()
-        QMessageBox.critical(self, "Erreur IA", msg)
+        log_and_notify_error(msg, context="Édition groupée IA", parent=self, title="Erreur IA")
 
     @Slot()
     def scan_for_duplicates(self) -> None:
@@ -1034,8 +1035,7 @@ class EditionView(QWidget):
                 DuplicateResolverDialog(conflicts, self).exec()
                 self.refresh_data()
         except Exception as e:
-            logger.exception("Erreur lors du scan des doublons")
-            QMessageBox.critical(self, "Erreur", str(e))
+            log_and_notify_error(e, context="Scan des doublons", parent=self, title="Erreur")
 
     @Slot(list)
     def approve_selected_notes(self, note_ids: list[int]) -> None:
@@ -1044,8 +1044,7 @@ class EditionView(QWidget):
             show_toast(self, f"{len(note_ids)} note(s) approuvée(s) !")
             self.refresh_data()
         except Exception as e:
-            logger.exception("Erreur lors de l'approbation des notes")
-            QMessageBox.critical(self, "Erreur", str(e))
+            log_and_notify_error(e, context="Approbation des notes", parent=self, title="Erreur")
 
     @Slot(list)
     def reject_selected_notes(self, note_ids: list[int]) -> None:
@@ -1061,8 +1060,7 @@ class EditionView(QWidget):
                 show_toast(self, "Notes supprimées.")
                 self.refresh_data()
             except Exception as e:
-                logger.exception("Erreur lors de la suppression des notes")
-                QMessageBox.critical(self, "Erreur", str(e))
+                log_and_notify_error(e, context="Suppression des notes", parent=self, title="Erreur")
 
     def _on_card_list_scrolled(self, value: int) -> None:
         scrollbar = self.card_table.verticalScrollBar()

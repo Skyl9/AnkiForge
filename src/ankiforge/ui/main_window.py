@@ -2,6 +2,7 @@
 Main Window & Navigation for AnkiForge.
 """
 
+import contextlib
 import logging
 from typing import Any, cast
 
@@ -135,14 +136,18 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.layouts.layout_manager import LayoutManager
 
         if self.current_layout is not None:
-            try:
-                self.current_layout.view_selected.disconnect()
-                self.current_layout.settings_requested.disconnect()
-                self.current_layout.search_clicked.disconnect()
-                self.current_layout.toggle_sidebar_requested.disconnect()
-                self.current_layout.profile_switch_requested.disconnect()
-            except Exception:
-                pass  # nosec B110
+            for sig, slot in [
+                (getattr(self.current_layout, "view_selected", None), self._on_view_selected),
+                (getattr(self.current_layout, "settings_requested", None), self._open_settings_modal),
+                (getattr(self.current_layout, "search_clicked", None), self._open_command_palette),
+                (getattr(self.current_layout, "import_requested", None), self._open_import_dialog),
+                (getattr(self.current_layout, "export_requested", None), self._open_export_dialog),
+                (getattr(self.current_layout, "notif_requested", None), self._show_notif_popup),
+                (getattr(self.current_layout, "profile_switch_requested", None), self._on_switch_profile_requested),
+            ]:
+                if sig is not None:
+                    with contextlib.suppress(Exception):
+                        sig.disconnect(slot)
 
         new_layout = LayoutManager.create_layout(layout_id, profile_name=self.profile_name)
         self.current_layout = new_layout

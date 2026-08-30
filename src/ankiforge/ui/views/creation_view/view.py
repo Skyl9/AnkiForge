@@ -77,6 +77,7 @@ from ankiforge.utils.event_bus import (
     event_bus,
 )
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -859,7 +860,7 @@ class CreationView(QWidget):
                 self._set_current_deck(new_deck)
                 show_toast(self, f"Paquet '{dk_name}' créé avec succès !")
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Impossible de créer le paquet : {str(e)}")
+                log_and_notify_error(e, context="Création de paquet", parent=self, title="Erreur")
 
     @Slot()
     def _open_settings_modal(self) -> None:
@@ -1706,8 +1707,7 @@ class CreationView(QWidget):
             self._check_completion()
 
         except Exception as e:
-            logger.exception("Erreur lors de la sauvegarde dans Anki: %s", e)
-            QMessageBox.critical(self, "Erreur de Sauvegarde", f"Échec de l'enregistrement dans Anki : {str(e)}")
+            log_and_notify_error(e, context="Enregistrement dans Anki", parent=self, title="Erreur de Sauvegarde")
 
     def _check_completion(self) -> None:
         if not self._all_cards_processed():

@@ -68,3 +68,21 @@ class NoteChunkLinkModel(BaseModel):
     class Meta:
         table_name = "note_chunk_links"
         indexes = ((("note", "chunk"), True),)
+
+
+class EmbeddingCacheModel(BaseModel):
+    """
+    Cache persistant d'embeddings vectoriels (dense vectors).
+    Associe le hash SHA256 du texte et le model_id au vecteur sérialisé (JSON list de floats).
+    Permet une ré-indexation RAG instantanée à coût 0 et calcul 0.
+    """
+
+    text_hash = CharField(max_length=64, index=True)
+    model_id = CharField(max_length=128, default="text-embedding-3-small", index=True)
+    dimensions = IntegerField(default=1536)
+    embedding_json = TextField(default="[]")
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "embedding_cache"
+        indexes = ((("text_hash", "model_id"), True),)

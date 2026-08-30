@@ -230,3 +230,12 @@ def test_install_crash_handlers(tmp_path: Path):
     assert "Erreur critique simulée" in content
     assert "abcdef12345" not in content
     assert "[REDACTED_TOKEN]" in content
+
+
+def test_log_and_notify_error():
+    """Vérifie le fonctionnement du gestionnaire unifié log_and_notify_error."""
+    from ankiforge.utils.logger import log_and_notify_error
+
+    err = RuntimeError("Échec de connexion LLM avec clé sk-123456789012345678901234567890")
+    # Ne doit pas planter même sans interface graphique
+    log_and_notify_error(err, context="Pipeline Execution")

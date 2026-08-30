@@ -6,6 +6,7 @@ et compatible avec les contraintes d'exécutable autonome Nuitka.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -15,7 +16,13 @@ import faiss
 import numpy as np
 from openai import OpenAI
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, LLMConfigModel
+from ankiforge.database.base import db
+from ankiforge.database.models import (
+    DocumentChunkModel,
+    DocumentModel,
+    EmbeddingCacheModel,
+    LLMConfigModel,
+)
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.rag.bm25_index import BM25OkapiIndex
 from ankiforge.services.rag.hybrid_retriever import (
@@ -32,7 +39,7 @@ logger = logging.getLogger(__name__)
 class VectorManager:
     """
     Gestionnaire d'Indexation et de Recherche RAG Hybride avec FAISS et BM25 100% local.
-    S'appuie sur Peewee DocumentChunkModel pour le stockage des métadonnées.
+    S'appuie sur Peewee DocumentChunkModel pour le stockage des métadonnées et EmbeddingCacheModel pour le cache.
     """
 
     def __init__(self, llm_config: LLMConfigModel | None = None) -> None:
@@ -50,34 +57,89 @@ class VectorManager:
             self.client = None
             self.embedding_model = "mxbai-embed-large"
 
+    def _hash_text(self, text: str) -> str:
+        """Calcule l'empreinte SHA256 normalisée d'un texte."""
+        return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
+
     def _get_embeddings(self, texts: list[str]) -> np.ndarray:
         """
-        Récupère les embeddings pour une liste de textes.
-        Si aucun client API n'est configuré (ex: hors ligne ou tests), utilise un fallback déterministe.
+        Récupère les embeddings pour une liste de textes avec vérification de cache persistant.
+        Pour tout texte déjà en base (EmbeddingCacheModel), le vecteur est immédiatement rechargé.
+        Les nouveaux textes sont calculés puis enregistrés dans le cache.
         """
-        if self.client:
+        if not texts:
+            return np.empty((0, 0), dtype=np.float32)
+
+        results: list[list[float] | None] = [None] * len(texts)
+        hashes = [self._hash_text(t) for t in texts]
+        miss_indices: list[int] = []
+        miss_texts: list[str] = []
+
+        # 1. Vérification dans le cache Peewee
+        try:
+            cached_records = list(EmbeddingCacheModel.select().where((EmbeddingCacheModel.text_hash.in_(hashes)) & (EmbeddingCacheModel.model_id == self.embedding_model)))
+            cache_map = {r.text_hash: json.loads(r.embedding_json) for r in cached_records}
+            for i, h in enumerate(hashes):
+                if h in cache_map:
+                    results[i] = cache_map[h]
+                else:
+                    miss_indices.append(i)
+                    miss_texts.append(texts[i])
+        except Exception as e:
+            logger.debug("Vérification du cache d'embeddings échouée: %s", e)
+            miss_indices = list(range(len(texts)))
+            miss_texts = list(texts)
+
+        # 2. Calcul pour les textes manquants
+        if miss_texts:
+            new_embeddings: list[list[float]] = []
+            if self.client:
+                try:
+                    response = self.client.embeddings.create(model=self.embedding_model, input=miss_texts)
+                    new_embeddings = [data.embedding for data in response.data]
+                except Exception as e:
+                    logger.warning("Impossible de contacter l'API d'embeddings (%s). Repli sur hash vectoriel.", e)
+
+            if not new_embeddings:
+                # Fallback local pseudo-embedding (vecteur normalisé basé sur hash déterministe)
+                dim = 128
+                for text in miss_texts:
+                    vec = np.zeros(dim, dtype=np.float32)
+                    for word in text.lower().split():
+                        word_idx = int(hashlib.md5(word.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % dim
+                        vec[word_idx] += 1.0
+                    norm = float(np.linalg.norm(vec))
+                    if norm > 0:
+                        vec = vec / norm
+                    new_embeddings.append(vec.tolist())
+
+            # 3. Stockage des nouveaux embeddings dans le cache Peewee
             try:
-                response = self.client.embeddings.create(model=self.embedding_model, input=texts)
-                embeddings = [data.embedding for data in response.data]
-                return np.array(embeddings, dtype=np.float32)
+                with db.atomic():
+                    for idx_in_miss, orig_idx in enumerate(miss_indices):
+                        emb = new_embeddings[idx_in_miss]
+                        results[orig_idx] = emb
+                        EmbeddingCacheModel.get_or_create(
+                            text_hash=hashes[orig_idx],
+                            model_id=self.embedding_model,
+                            defaults={
+                                "dimensions": len(emb),
+                                "embedding_json": json.dumps(emb),
+                            },
+                        )
             except Exception as e:
-                logger.warning("Impossible de contacter l'API d'embeddings (%s). Repli sur hash vectoriel.", e)
+                logger.debug("Enregistrement dans le cache d'embeddings échoué: %s", e)
+                for idx_in_miss, orig_idx in enumerate(miss_indices):
+                    results[orig_idx] = new_embeddings[idx_in_miss]
 
-        # Fallback local pseudo-embedding (vecteur normalisé basé sur hash déterministe)
-        import hashlib
+        return np.array(results, dtype=np.float32)
 
-        dim = 128
-        vectors = []
-        for text in texts:
-            vec = np.zeros(dim, dtype=np.float32)
-            for word in text.lower().split():
-                h = int(hashlib.md5(word.encode("utf-8"), usedforsecurity=False).hexdigest(), 16) % dim
-                vec[h] += 1.0
-            norm = float(np.linalg.norm(vec))
-            if norm > 0:
-                vec = vec / norm
-            vectors.append(vec)
-        return np.array(vectors, dtype=np.float32)
+    def clear_embedding_cache(self) -> int:
+        """Vide le cache des embeddings pour le modèle actif ou globalement."""
+        try:
+            return int(EmbeddingCacheModel.delete().where(EmbeddingCacheModel.model_id == self.embedding_model).execute())
+        except Exception:
+            return 0
 
     def is_indexed(self, document_id: int) -> bool:
         """Indique si les index (FAISS ou BM25) sont disponibles sur le disque pour ce document."""

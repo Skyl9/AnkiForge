@@ -61,6 +61,7 @@ from ankiforge.ui.views.agents_view.widgets import (
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -626,7 +627,7 @@ class AgentsView(QWidget):
                     self.refresh_data()
                     show_toast(self, f"Dossier '{name.strip()}' créé !")
                 except Exception as e:
-                    QMessageBox.critical(self, "Erreur", f"Impossible de créer le dossier : {e}")
+                    log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur de dossier")
                     self.folder_combo.setCurrentIndex(0)
             else:
                 self.folder_combo.setCurrentIndex(0)
@@ -936,7 +937,7 @@ class AgentsView(QWidget):
                 self.refresh_data()
                 show_toast(self, f"Dossier '{name.strip()}' créé !")
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Impossible de créer le dossier : {e}")
+                log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur")
 
     @Slot()
     def _on_new_agent(self) -> None:
@@ -944,7 +945,7 @@ class AgentsView(QWidget):
         if ok and name.strip():
             try:
                 ag_name = name.strip()
-                default_prompt = "Tu es un agent IA expert en création et optimisation de flashcards Anki selon la règle de formulation minimale."
+                default_prompt = "Tu es un assistant expert pour Anki."
                 folder_id = self._current_folder.id if self._current_folder else None
 
                 new_p = PersonaModel.create(
@@ -961,16 +962,16 @@ class AgentsView(QWidget):
                 self._load_persona_into_editor(new_p)
                 show_toast(self, f"Agent '{ag_name}' créé avec succès !")
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Impossible de créer l'agent : {str(e)}")
+                log_and_notify_error(e, context="Création d'agent", parent=self, title="Erreur")
 
     @Slot()
     def _on_clone_agent(self) -> None:
         if not self._current_agent:
-            show_toast(self, "Aucun agent sélectionné à dupliquer.", is_error=True)
+            show_toast(self, "Aucun agent sélectionné à cloner.", is_error=True)
             return
 
-        clone_name = f"{self._current_agent.name} (Copie)"
         try:
+            clone_name = f"{self._current_agent.name} (Copie)"
             cloned = PersonaModel.create(
                 name=clone_name,
                 description=self._current_agent.description,
@@ -986,7 +987,7 @@ class AgentsView(QWidget):
             self._load_persona_into_editor(cloned)
             show_toast(self, f"Agent dupliqué sous le nom '{clone_name}' !")
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible de dupliquer l'agent : {str(e)}")
+            log_and_notify_error(e, context="Duplication d'agent", parent=self, title="Erreur")
 
     @Slot()
     def _on_delete_selected(self) -> None:
@@ -1008,12 +1009,15 @@ class AgentsView(QWidget):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if confirm == QMessageBox.StandardButton.Yes:
-                self._delete_folder_recursive(obj)
-                self._current_folder = None
-                self.refresh_data()
-                show_toast(self, "Dossier supprimé.")
+                try:
+                    self._delete_folder_recursive(obj)
+                    self._current_folder = None
+                    self.refresh_data()
+                    show_toast(self, f"Dossier '{obj.name}' supprimé.")
+                except Exception as e:
+                    log_and_notify_error(e, context="Suppression de dossier", parent=self, title="Erreur")
 
-        elif item_type == "persona" and isinstance(obj, PersonaModel):
+        elif item_type == "persona" and obj is not None:
             confirm = QMessageBox.question(
                 self,
                 "Supprimer l'agent",
@@ -1027,7 +1031,7 @@ class AgentsView(QWidget):
                     self.refresh_data()
                     show_toast(self, "Agent supprimé de la base de données.")
                 except Exception as e:
-                    QMessageBox.critical(self, "Erreur", f"Impossible de supprimer l'agent : {str(e)}")
+                    log_and_notify_error(e, context="Suppression d'agent", parent=self, title="Erreur")
 
     @Slot()
     def _on_save_agent(self) -> None:
@@ -1067,7 +1071,7 @@ class AgentsView(QWidget):
             show_toast(self, f"Agent '{name}' enregistré avec succès !")
             self.refresh_data()
         except Exception as e:
-            QMessageBox.critical(self, "Erreur de sauvegarde", f"Échec de l'enregistrement de l'agent : {str(e)}")
+            log_and_notify_error(e, context="Sauvegarde d'agent", parent=self, title="Erreur de sauvegarde")
 
     @Slot()
     def _on_open_history(self) -> None:

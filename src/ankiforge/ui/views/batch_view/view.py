@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -60,6 +59,7 @@ from ankiforge.ui.views.batch_view.widgets import (
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -988,7 +988,7 @@ class BatchView(QWidget):
         self.card_status.val_lbl.setText("Erreur")
         self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 16px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         self._log_formatted_line("ERROR", error_msg)
-        QMessageBox.critical(self, "Erreur Pipeline", f"Erreur lors de l'exécution du pipeline :\n{error_msg}")
+        log_and_notify_error(error_msg, context="Exécution du pipeline", parent=self, title="Erreur Pipeline")
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "card_status"):

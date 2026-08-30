@@ -54,6 +54,7 @@ from ankiforge.ui.views.documents_view.widgets import DocumentTreeWidget
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
 
@@ -879,14 +880,13 @@ class DocumentsView(QWidget):
 
             show_toast(self, f"Document '{title_to_display}' importé avec succès !")
         except Exception as e:
-            logger.exception("Erreur enregistrement document : %s", e)
-            QMessageBox.critical(self, "Erreur", f"Échec de l'enregistrement du document : {e}")
+            log_and_notify_error(e, context="Enregistrement du document", parent=self, title="Erreur")
 
     @Slot(str)
     def _on_worker_error(self, error: str) -> None:
         self.btn_import.setEnabled(True)
         self.btn_import_url.setEnabled(True)
-        QMessageBox.critical(self, "Erreur d'importation", f"Impossible d'extraire le document :\n{error}")
+        log_and_notify_error(error, context="Extraction du document", parent=self, title="Erreur d'importation")
 
     @Slot()
     def _on_new_folder(self) -> None:
@@ -910,7 +910,7 @@ class DocumentsView(QWidget):
                 self.refresh_data()
                 show_toast(self, f"Dossier '{target_name}' créé.")
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Impossible de créer le dossier : {e}")
+                log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur")
 
     @Slot()
     def _on_delete_item(self) -> None:
@@ -1030,7 +1030,7 @@ class DocumentsView(QWidget):
                 self.btn_save.setStyleSheet("")
                 show_toast(self, f"Document '{doc.title}' enregistré avec succès !")
         except Exception as e:
-            QMessageBox.critical(self, "Erreur de sauvegarde", f"Impossible d'enregistrer le document : {e}")
+            log_and_notify_error(e, context="Sauvegarde du document", parent=self, title="Erreur de sauvegarde")
 
     def _refresh_chapters_list(self) -> None:
         self.chapters_list.clear()

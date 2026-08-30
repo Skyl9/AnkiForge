@@ -59,6 +59,8 @@ def test_agents_view_save_modifications(qtbot):
 
     view = AgentsView()
     qtbot.addWidget(view)
+    view._load_persona_into_editor(p)
+    view._current_agent = p
 
     # Modifier le prompt via insertion de snippet
     view.prompt_edit.setPlainText("Prompt avec ")
