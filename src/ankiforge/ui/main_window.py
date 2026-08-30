@@ -15,6 +15,7 @@ from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — r
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
+from ankiforge.utils.event_bus import ProfileSwitchedEvent, ThemeChangedEvent, event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +255,8 @@ class MainWindow(QMainWindow):
                 self._settings_window.refresh_theme(profile)
             except Exception:
                 pass  # nosec B110
+        theme_id = getattr(profile, "theme_id", "") if profile else ""
+        event_bus.publish(ThemeChangedEvent(theme_name=str(theme_id)))
 
     def _show_notif_popup(self) -> None:
         """Affiche le menu déroulant des notifications rattaché à la cloche TopBar."""
@@ -480,6 +483,7 @@ class MainWindow(QMainWindow):
         self._current_view_id = None
         self._on_view_selected(target_view)
 
+        event_bus.publish(ProfileSwitchedEvent(profile_name=new_profile))
         show_toast(self, f"Espace de travail actif : « {new_profile} »")
 
     def _reset_view_widgets(self) -> None:

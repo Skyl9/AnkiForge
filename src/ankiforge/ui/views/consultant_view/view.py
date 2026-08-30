@@ -29,6 +29,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     PersonaModel,
 )
+from ankiforge.repositories import PersonaRepository, SettingRepository
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.components import (
     Badge,
@@ -40,11 +41,13 @@ from ankiforge.ui.components import (
     StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
+from ankiforge.ui.viewmodels import ConsultantViewModel
 from ankiforge.ui.views.consultant_view.constants import apply_pill_style
 from ankiforge.ui.views.consultant_view.widgets import (
     ChatMessageWidget,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -59,6 +62,14 @@ class ConsultantView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self.persona_repo = PersonaRepository()
+        self.setting_repo = SettingRepository()
+        self.view_model = ConsultantViewModel(
+            persona_repo=self.persona_repo,
+            setting_repo=self.setting_repo,
+            bus=event_bus,
+            parent=self,
+        )
         self.worker: ConsultantWorker | None = None
         self.used_tokens_count = 0
         self.modified_cards_count = 0

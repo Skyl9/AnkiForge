@@ -25,8 +25,8 @@ from ankiforge.database.models import (
     PersonaModel,
     PipelineModel,
     PipelineStepModel,
-    db,
 )
+from ankiforge.repositories import PersonaRepository, PipelineRepository
 from ankiforge.ui.components import (
     Badge,
     IconButton,
@@ -36,6 +36,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
+from ankiforge.ui.viewmodels import PipelineViewModel
 from ankiforge.ui.views.pipelines_view.constants import (
     PRESET_TEMPLATES,
     STEP_TYPES_META,
@@ -51,6 +52,7 @@ from ankiforge.ui.views.pipelines_view.widgets import (
     StepTestDialog,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,14 @@ class PipelinesView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self.pipeline_repo = PipelineRepository()
+        self.persona_repo = PersonaRepository()
+        self.view_model = PipelineViewModel(
+            pipeline_repo=self.pipeline_repo,
+            persona_repo=self.persona_repo,
+            bus=event_bus,
+            parent=self,
+        )
         self._current_pipeline: PipelineModel | None = None
         self.current_steps: list[dict[str, Any]] = []
         self._step_widgets: list[StepItemWidget] = []
@@ -239,8 +249,8 @@ class PipelinesView(QWidget):
     def refresh_data(self) -> None:
         """Recharge les Personas, les modèles LLM et les pipelines depuis SQLite."""
         try:
-            self._cached_personas = list(PersonaModel.select().order_by(PersonaModel.name.asc()))
-            self._cached_llms = list(LLMConfigModel.select().order_by(LLMConfigModel.display_name.asc()))
+            self._cached_personas = self.persona_repo.get_all_personas()
+            self._cached_llms = self.persona_repo.get_all_llm_configs()
         except Exception as e:
             logger.warning("Erreur refresh_data personas/llms : %s", e)
             self._cached_personas = []
@@ -250,7 +260,7 @@ class PipelinesView(QWidget):
         self.pipeline_combo.clear()
 
         try:
-            pipelines = list(PipelineModel.select().order_by(PipelineModel.name.asc()))
+            pipelines = self.pipeline_repo.get_all_pipelines()
             for p in pipelines:
                 self.pipeline_combo.addItem(p.name, userData=p)
         except Exception as e:
@@ -279,7 +289,7 @@ class PipelinesView(QWidget):
         self.current_steps.clear()
 
         try:
-            steps_models = list(PipelineStepModel.select().where(PipelineStepModel.pipeline == selected_pipe).order_by(PipelineStepModel.step_order.asc()))
+            steps_models = self.pipeline_repo.get_steps_for_pipeline(selected_pipe.id)
         except Exception as e:
             logger.warning("Erreur chargement étapes : %s", e)
             steps_models = []
@@ -444,7 +454,7 @@ class PipelinesView(QWidget):
         name, ok = QInputDialog.getText(self, "Nouveau Pipeline", "Nom du pipeline :")
         if ok and name.strip():
             try:
-                p = PipelineModel.create(name=name.strip(), description="Pipeline personnalisé")
+                p = self.pipeline_repo.create_pipeline(name=name.strip(), description="Pipeline personnalisé")
                 show_toast(self, f"Pipeline '{p.name}' créé !", is_error=False)
                 self.refresh_data()
                 for i in range(self.pipeline_combo.count()):
@@ -459,39 +469,14 @@ class PipelinesView(QWidget):
             return
         clone_name = f"{self._current_pipeline.name} (Copie)"
         try:
-            new_pipe = PipelineModel.create(name=clone_name, description=self._current_pipeline.description)
-            created_steps: dict[int, PipelineStepModel] = {}
-            for idx, s in enumerate(self.current_steps, start=1):
-                ps = PipelineStepModel.create(
-                    pipeline=new_pipe,
-                    persona=s.get("persona"),
-                    step_type=s.get("type", "LLM_PROMPT"),
-                    step_order=idx,
-                    failure_behavior=s.get("failure_behavior", "stop"),
-                    config_data=json.dumps(s.get("config", {})),
-                )
-                created_steps[idx] = ps
-
-            for idx, s in enumerate(self.current_steps, start=1):
-                succ_idx = s.get("on_success_order")
-                fail_idx = s.get("on_failure_order")
-                need_update = False
-                ps = created_steps[idx]
-                if succ_idx and succ_idx in created_steps:
-                    ps.on_success_step = created_steps[succ_idx]
-                    need_update = True
-                if fail_idx and fail_idx in created_steps:
-                    ps.on_failure_step = created_steps[fail_idx]
-                    need_update = True
-                if need_update:
-                    ps.save()
-
-            show_toast(self, f"Pipeline dupliqué sous le nom '{clone_name}' !", is_error=False)
-            self.refresh_data()
-            for i in range(self.pipeline_combo.count()):
-                if self.pipeline_combo.itemText(i) == clone_name:
-                    self.pipeline_combo.setCurrentIndex(i)
-                    break
+            new_pipe = self.pipeline_repo.duplicate_pipeline(self._current_pipeline.id, clone_name)
+            if new_pipe:
+                show_toast(self, f"Pipeline dupliqué sous le nom '{clone_name}' !", is_error=False)
+                self.refresh_data()
+                for i in range(self.pipeline_combo.count()):
+                    if self.pipeline_combo.itemText(i) == clone_name:
+                        self.pipeline_combo.setCurrentIndex(i)
+                        break
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Échec du clonage : {e}")
 
@@ -506,7 +491,7 @@ class PipelinesView(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self._current_pipeline.delete_instance(recursive=True)
+                self.pipeline_repo.delete_pipeline(self._current_pipeline.id)
                 show_toast(self, "Pipeline supprimé", is_error=False)
                 self.refresh_data()
             except Exception as e:
@@ -517,7 +502,7 @@ class PipelinesView(QWidget):
             return
 
         try:
-            with db.atomic():
+            with self.pipeline_repo.atomic():
                 PipelineStepModel.delete().where(PipelineStepModel.pipeline == self._current_pipeline).execute()
 
                 created_steps: dict[int, PipelineStepModel] = {}

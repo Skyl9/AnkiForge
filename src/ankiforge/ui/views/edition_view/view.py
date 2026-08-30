@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.repositories import DeckRepository, NoteRepository
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
 from ankiforge.services.cards.store_manager import StoreManager
@@ -40,6 +41,7 @@ from ankiforge.ui.models import (
     TextSnippetDelegate,
 )
 from ankiforge.ui.theme import DesignTokens, StyledMenu
+from ankiforge.ui.viewmodels import EditionViewModel
 from ankiforge.ui.views.edition_view.utils import strip_html_tags
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
 from ankiforge.ui.widgets.batch_edit_dialog import BatchEditDialog
@@ -51,6 +53,7 @@ from ankiforge.ui.widgets.note_editor_widget import NoteFieldEditorWidget, NoteF
 from ankiforge.ui.widgets.time_machine_dialog import TimeMachineDialog
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.event_bus import event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -67,6 +70,14 @@ class EditionView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.store = StoreManager()
+        self.note_repo = NoteRepository()
+        self.deck_repo = DeckRepository()
+        self.view_model = EditionViewModel(
+            note_repo=self.note_repo,
+            deck_repo=self.deck_repo,
+            bus=event_bus,
+            parent=self,
+        )
         self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
 
         self.batch_thread: BatchEditWorker | None = None

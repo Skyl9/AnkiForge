@@ -31,12 +31,15 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
-    DocumentModel,
-    FolderModel,
-    LLMConfigModel,
     NoteChunkLinkModel,
     NoteTypeModel,
-    PipelineModel,
+)
+from ankiforge.repositories import (
+    DeckRepository,
+    DocumentRepository,
+    NoteRepository,
+    PersonaRepository,
+    PipelineRepository,
 )
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
@@ -58,6 +61,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.viewmodels import CreationViewModel
 from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
 from ankiforge.ui.views.creation_view.utils import parse_page_ranges
 from ankiforge.ui.views.creation_view.widgets import (
@@ -67,6 +71,11 @@ from ankiforge.ui.views.creation_view.widgets import (
     VisionCard,
 )
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import (
+    CardCreatedEvent,
+    NoteCreatedEvent,
+    event_bus,
+)
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -84,6 +93,19 @@ class CreationView(QWidget):
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self.note_repo = NoteRepository()
+        self.deck_repo = DeckRepository()
+        self.pipeline_repo = PipelineRepository()
+        self.doc_repo = DocumentRepository()
+        self.persona_repo = PersonaRepository()
+        self.view_model = CreationViewModel(
+            note_repo=self.note_repo,
+            deck_repo=self.deck_repo,
+            pipeline_repo=self.pipeline_repo,
+            doc_repo=self.doc_repo,
+            bus=event_bus,
+            parent=self,
+        )
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
         self.orchestrator: PipelineOrchestrator | None = None
@@ -712,15 +734,15 @@ class CreationView(QWidget):
     def refresh_data(self) -> None:
         """Recharge les données dynamiques depuis Peewee DB (Decks, NoteTypes, Engines, Pipelines, Docs)."""
         try:
-            decks = list(DeckModel.select())
+            decks = self.deck_repo.get_all_decks()
             if not decks:
-                DeckModel.get_or_create(name="Général")
-                decks = list(DeckModel.select())
+                self.deck_repo.create_deck(name="Général")
+                decks = self.deck_repo.get_all_decks()
             self.decks_cache = decks
             if self.current_deck is None and self.decks_cache:
                 self._set_current_deck(self.decks_cache[0])
 
-            note_types = list(NoteTypeModel.select())
+            note_types = self.note_repo.get_all_note_types()
             if not note_types:
                 note_types = [
                     NoteTypeModel(name="Basique (Recto/Verso)", fields_schema="[]"),
@@ -736,21 +758,21 @@ class CreationView(QWidget):
 
             self.engine_combo.blockSignals(True)
             self.engine_combo.clear()
-            engines = list(LLMConfigModel.select())
+            engines = self.persona_repo.get_all_llm_configs()
             if not engines:
-                LLMConfigModel.create(
+                self.persona_repo.create_llm_config(
                     display_name="GPT-4o (OpenAI)",
                     provider="openai",
                     model_id="gpt-4o",
                     context_limit=128000,
                 )
-                LLMConfigModel.create(
+                self.persona_repo.create_llm_config(
                     display_name="Claude 3.5 Sonnet (Anthropic)",
                     provider="anthropic",
                     model_id="claude-3-5-sonnet-20240620",
                     context_limit=200000,
                 )
-                engines = list(LLMConfigModel.select())
+                engines = self.persona_repo.get_all_llm_configs()
 
             for eg in engines:
                 display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
@@ -760,9 +782,9 @@ class CreationView(QWidget):
 
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
-            pipelines = list(PipelineModel.select())
+            pipelines = self.pipeline_repo.get_all_pipelines()
             if not pipelines:
-                p1 = PipelineModel.create(
+                p1 = self.pipeline_repo.create_pipeline(
                     name="Excellence Math/Info (Archiviste + Linter)",
                     description="Pipeline haute-fidélité pour les cours scientifiques.",
                 )
@@ -775,8 +797,8 @@ class CreationView(QWidget):
 
             self.file_tree.clear()
 
-            folders = list(FolderModel.select())
-            docs = list(DocumentModel.select())
+            folders = self.doc_repo.get_all_folders()
+            docs = self.doc_repo.get_all_documents()
 
             folder_items: dict[int, QTreeWidgetItem] = {}
             for folder in folders:
@@ -1655,7 +1677,7 @@ class CreationView(QWidget):
                         clean_title = clean_title.rsplit(".", 1)[0]
                     tags.append(f"source:{clean_title}")
 
-                deck_obj, _ = DeckModel.get_or_create(name=deck_name)
+                deck_obj = self.deck_repo.get_or_create_deck(name=deck_name)
                 note = NoteManager.create_note(
                     note_type=target_nt,
                     deck=deck_obj,
@@ -1665,6 +1687,10 @@ class CreationView(QWidget):
                 )
 
                 if note:
+                    event_bus.publish(NoteCreatedEvent(note_id=note.id, deck_name=deck_name, tags=tags))
+                    for c in self.note_repo.get_cards_by_note(note.id):
+                        event_bus.publish(CardCreatedEvent(card_id=c.id, note_id=note.id, deck_name=deck_name))
+
                     target_chunk_id = card.get("chunk_id") or getattr(self, "current_source_chunk_id", None)
                     if target_chunk_id:
                         try:

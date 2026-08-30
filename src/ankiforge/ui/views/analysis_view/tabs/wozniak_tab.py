@@ -24,6 +24,7 @@ from ankiforge.database.models import (
     db,
     seed_default_linter_rules,
 )
+from ankiforge.repositories import AuditRepository, NoteRepository, PersonaRepository
 from ankiforge.services.ai.linter import normalize_linter_suggestion
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
@@ -44,16 +45,23 @@ logger = logging.getLogger(__name__)
 
 
 class AIWozniakLinterTab(QWidget):
-    """Onglet d'audit ergonomique Wozniak avec support complet des catégories dynamiques et gestion des règles."""
+    """
+    Onglet Wozniak Linter & Anti-Hallucination avec Cockpit Analytique et Hub Comparatif.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.audit_repo = AuditRepository()
+        self.persona_repo = PersonaRepository()
+        self.note_repo = NoteRepository()
         self.selected_deck_id: int | None = None
+        self.kpi_cards: dict[str, WozniakKpiCard] = {}
+        self.current_rule_filter: str | None = None
+        self.worker: LinterWorker | None = None
         self.selected_deck_name: str | None = None
         self.active_category: str = "cat-atomicite"
         self._cached_deck_results: dict[int, list] = {}
         self._cached_categories_data: dict[str, dict] = {}
-        self.kpi_cards: dict[str, WozniakKpiCard] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
