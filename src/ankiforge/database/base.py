@@ -31,6 +31,7 @@ class BaseModel(Model):
     """Classe de base pour tous les modèles Peewee d'AnkiForge."""
 
     id: Any
+    delete: Any
 
     class Meta:
         database = db
