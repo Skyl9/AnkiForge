@@ -18,8 +18,8 @@ uv run python -m nuitka \
     --macos-create-app-bundle \
     --macos-app-name="AnkiForge" \
     --macos-app-version="0.2.0" \
+    --macos-app-icon=none \
     --enable-plugin=pyside6 \
-    --enable-plugin=anti-bloat \
     --noinclude-default-mode=nofollow \
     --noinclude-pytest-mode=nofollow \
     --noinclude-unittest-mode=nofollow \
@@ -27,8 +27,9 @@ uv run python -m nuitka \
     --noinclude-setuptools-mode=nofollow \
     --noinclude-dask-mode=nofollow \
     --noinclude-numba-mode=nofollow \
-    --noinclude-custom-mode=tkinter:nofollow \
-    --noinclude-custom-mode=matplotlib:nofollow \
+    --nofollow-import-to=tkinter \
+    --nofollow-import-to=matplotlib \
+    --nofollow-import-to=docutils \
     --include-package-data=qtawesome \
     --include-data-dir=src/ressources=src/ressources \
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
