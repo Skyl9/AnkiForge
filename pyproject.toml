@@ -30,7 +30,6 @@ dependencies = [
     "faiss-cpu>=1.14.3",
     "numpy>=2.4.4",
     "chromadb>=1.5.9",
-    "zensical>=0.0.52",
 ]
 
 [project.gui-scripts]
@@ -41,16 +40,22 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
+build = [
+    "nuitka>=4.0.7",
+]
+docs = [
+    "mkdocs-material>=9.7.6",
+    "mkdocstrings[python]>=1.0.3",
     "zensical>=0.0.52",
+]
+dev = [
+    { include-group = "build" },
+    { include-group = "docs" },
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
     "pytest-qt>=4.5.0",
     "bandit>=1.9.4",
-    "mkdocs-material>=9.7.6",
-    "mkdocstrings[python]>=1.0.3",
     "mypy>=1.20.0",
-    "nuitka>=4.0.7",
     "pre-commit>=4.5.1",
     "pyinstaller>=6.19.0",
     "ruff>=0.15.10",

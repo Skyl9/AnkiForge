@@ -21,11 +21,21 @@ uv run python -m nuitka `
     --standalone `
     --windows-console-mode=disable `
     --enable-plugin=pyside6 `
+    --enable-plugin=anti-bloat `
+    --noinclude-default-mode=nofollow `
+    --noinclude-pytest-mode=nofollow `
+    --noinclude-unittest-mode=nofollow `
+    --noinclude-IPython-mode=nofollow `
+    --noinclude-setuptools-mode=nofollow `
+    --noinclude-dask-mode=nofollow `
+    --noinclude-numba-mode=nofollow `
+    --noinclude-custom-mode=tkinter:nofollow `
+    --noinclude-custom-mode=matplotlib:nofollow `
     --include-package-data=qtawesome `
     --include-data-dir=src/ressources=src/ressources `
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
     --low-memory `
-    --jobs=1 `
+    --jobs=2 `
     --msvc=latest `
     --lto=no `
     --output-dir=dist_prod `

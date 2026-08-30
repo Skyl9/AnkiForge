@@ -75,7 +75,26 @@ jobs:
             libxcb-xfixes0 \
             libxcb-xinerama0 \
             libxcb-xkb1 \
+            ccache \
             gcc || true
+
+      - name: Install macOS Build Tools (ccache)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ccache || true
+
+      - name: Cache Nuitka & C Compiler Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/Nuitka
+            ~/Library/Caches/Nuitka
+            ~/.cache/ccache
+            ~/Library/Caches/ccache
+            ${{ env.LOCALAPPDATA }}\Nuitka\Nuitka\Cache
+          key: nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            nuitka-${{ matrix.os }}-
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -87,8 +106,8 @@ jobs:
       - name: Set up Python 3.12
         run: uv python install 3.12
 
-      - name: Install dependencies
-        run: uv sync --frozen --dev
+      - name: Install dependencies (Production runtime + Nuitka only)
+        run: uv sync --frozen --no-dev --group build
 
       - name: Build Binary with Nuitka (Linux)
         if: runner.os == 'Linux'
