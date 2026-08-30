@@ -9,7 +9,11 @@ if (Test-Path "dist_prod") {
 }
 
 Write-Host "Compilation de l'extension C native Levenshtein..."
-gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c
+try {
+    gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c
+} catch {
+    Write-Host "Extension C Levenshtein non compilée sous Windows (repli automatique sur le module difflib Python)."
+}
 
 Write-Host "Démarrage de la compilation avec Nuitka..."
 $env:_CL_ = "/bigobj /Zm200"

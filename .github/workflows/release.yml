@@ -90,81 +90,68 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --dev
 
-      - name: Compile Native C Levenshtein Extension (Linux)
+      - name: Build Binary with Nuitka (Linux)
         if: runner.os == 'Linux'
         run: |
-          gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+          chmod +x build_script/build_prod_linux.sh
+          ./build_script/build_prod_linux.sh
 
-      - name: Compile Native C Levenshtein Extension (macOS Universal 2)
+      - name: Build Binary with Nuitka (macOS)
         if: runner.os == 'macOS'
         run: |
-          clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o src/ankiforge/c_ext/levenshtein_distance.so src/ankiforge/c_ext/levenshtein_distance.c || true
+          chmod +x build_script/build_prod_mac.sh
+          ./build_script/build_prod_mac.sh
 
-      - name: Compile Native C Levenshtein Extension (Windows)
+      - name: Build Binary with Nuitka (Windows)
         if: runner.os == 'Windows'
         run: |
-          gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c || true
-        shell: bash
-
-      - name: Build Binary with PyInstaller
-        run: |
-          uv run pyinstaller \
-            --name=ankiforge \
-            --onedir \
-            --noconfirm \
-            --clean \
-            --paths=src \
-            --hidden-import=ankiforge \
-            --hidden-import=peewee \
-            --hidden-import=PySide6.QtCore \
-            --hidden-import=PySide6.QtGui \
-            --hidden-import=PySide6.QtWidgets \
-            src/ankiforge/__main__.py
+          powershell -ExecutionPolicy Bypass -File build_script/build_prod_windows.ps1
+        shell: pwsh
 
       - name: Ad-Hoc Code Sign macOS Binary Bundle
         if: runner.os == 'macOS'
         run: |
-          codesign --force --deep -s - dist/ankiforge
+          codesign --force --deep -s - dist_prod/AnkiForge.app
 
       - name: Smoke Test Binary (Linux with Xvfb)
         if: runner.os == 'Linux'
         run: |
-          xvfb-run --auto-servernum ./dist/ankiforge/ankiforge --smoke-test
+          xvfb-run --auto-servernum ./dist_prod/AnkiForge.dist/AnkiForge --smoke-test
 
       - name: Smoke Test Binary (macOS)
         if: runner.os == 'macOS'
         run: |
-          ./dist/ankiforge/ankiforge --smoke-test
+          ./dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge --smoke-test
 
       - name: Smoke Test Binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          .\dist\ankiforge\ankiforge.exe --smoke-test
-        shell: powershell
+          .\dist_prod\AnkiForge.dist\AnkiForge.exe --smoke-test
+        shell: pwsh
 
       - name: Package Linux Archive (.tar.gz)
         if: runner.os == 'Linux'
         run: |
-          cd dist
-          tar -czf ../${{ matrix.artifact_name }} ankiforge/
+          cd dist_prod
+          tar -czf ../${{ matrix.artifact_name }} AnkiForge.dist/
           cd ..
           sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
 
       - name: Package macOS Archive (.zip)
         if: runner.os == 'macOS'
         run: |
-          cd dist
-          zip -r ../${{ matrix.artifact_name }} ankiforge/
+          cd dist_prod
+          zip -r ../${{ matrix.artifact_name }} AnkiForge.app/
           cd ..
           shasum -a 256 ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
 
       - name: Package Windows Archive (.zip)
         if: runner.os == 'Windows'
         run: |
-          Compress-Archive -Path dist\ankiforge -DestinationPath ${{ matrix.artifact_name }}
+          Compress-Archive -Path dist_prod\AnkiForge.dist -DestinationPath ${{ matrix.artifact_name }}
           $hash = (Get-FileHash ${{ matrix.artifact_name }} -Algorithm SHA256).Hash.ToLower()
           "$hash  ${{ matrix.artifact_name }}" | Out-File -Encoding ascii ${{ matrix.artifact_name }}.sha256
-        shell: powershell
+        shell: pwsh
 
       - name: Upload Release Asset
         uses: actions/upload-artifact@v4
