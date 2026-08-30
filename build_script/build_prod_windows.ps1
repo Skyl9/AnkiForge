@@ -23,12 +23,11 @@ uv run python -m nuitka `
     --enable-plugin=pyside6 `
     --include-package-data=qtawesome `
     --include-data-dir=src/ressources=src/ressources `
-    --include-data-dir=src/ressources=ressources `
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
-    --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext `
     --low-memory `
     --lto=no `
     --output-dir=dist_prod `
+    --output-folder-name=AnkiForge `
     --output-filename=AnkiForge.exe `
     --assume-yes-for-downloads `
     src/ankiforge/__main__.py
@@ -36,6 +35,11 @@ uv run python -m nuitka `
 if (Test-Path "dist_prod/__main__.dist") {
     if (Test-Path "dist_prod/AnkiForge.dist") { Remove-Item -Recurse -Force "dist_prod/AnkiForge.dist" }
     Rename-Item -Path "dist_prod/__main__.dist" -NewName "AnkiForge.dist"
+}
+
+if (Test-Path "dist_prod/AnkiForge.dist/__main__.exe") {
+    if (Test-Path "dist_prod/AnkiForge.dist/AnkiForge.exe") { Remove-Item -Force "dist_prod/AnkiForge.dist/AnkiForge.exe" }
+    Rename-Item -Path "dist_prod/AnkiForge.dist/__main__.exe" -NewName "AnkiForge.exe"
 }
 
 Write-Host "Compilation Nuitka terminée avec succès !"

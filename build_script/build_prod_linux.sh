@@ -19,12 +19,11 @@ uv run python -m nuitka \
     --enable-plugin=pyside6 \
     --include-package-data=qtawesome \
     --include-data-dir=src/ressources=src/ressources \
-    --include-data-dir=src/ressources=ressources \
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
-    --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
     --low-memory \
     --lto=no \
     --output-dir=dist_prod \
+    --output-folder-name=AnkiForge \
     --output-filename=AnkiForge \
     --assume-yes-for-downloads \
     src/ankiforge/__main__.py
@@ -33,6 +32,16 @@ if [ -d "dist_prod/__main__.dist" ]; then
     rm -rf dist_prod/AnkiForge.dist
     mv dist_prod/__main__.dist dist_prod/AnkiForge.dist
 fi
+
+if [ -f "dist_prod/AnkiForge.dist/__main__.bin" ]; then
+    mv dist_prod/AnkiForge.dist/__main__.bin dist_prod/AnkiForge.dist/AnkiForge
+elif [ -f "dist_prod/AnkiForge.dist/__main__" ]; then
+    mv dist_prod/AnkiForge.dist/__main__ dist_prod/AnkiForge.dist/AnkiForge
+elif [ -f "dist_prod/AnkiForge.dist/AnkiForge.bin" ]; then
+    mv dist_prod/AnkiForge.dist/AnkiForge.bin dist_prod/AnkiForge.dist/AnkiForge
+fi
+
+chmod +x dist_prod/AnkiForge.dist/AnkiForge || true
 
 echo "Compilation Nuitka terminée avec succès !"
 echo "L'application de production se trouve dans le dossier dist_prod/AnkiForge.dist"

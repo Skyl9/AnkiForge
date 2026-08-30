@@ -21,12 +21,12 @@ uv run python -m nuitka \
     --enable-plugin=pyside6 \
     --include-package-data=qtawesome \
     --include-data-dir=src/ressources=src/ressources \
-    --include-data-dir=src/ressources=ressources \
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
-    --include-data-dir=src/ankiforge/c_ext=ankiforge/c_ext \
     --low-memory \
     --lto=no \
     --output-dir=dist_prod \
+    --output-folder-name=AnkiForge \
+    --output-filename=AnkiForge \
     --assume-yes-for-downloads \
     src/ankiforge/__main__.py
 
@@ -34,6 +34,16 @@ if [ -d "dist_prod/__main__.app" ]; then
     rm -rf dist_prod/AnkiForge.app
     mv dist_prod/__main__.app dist_prod/AnkiForge.app
 fi
+
+if [ -f "dist_prod/AnkiForge.app/Contents/MacOS/__main__" ]; then
+    mv dist_prod/AnkiForge.app/Contents/MacOS/__main__ dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
+elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/__main__.bin" ]; then
+    mv dist_prod/AnkiForge.app/Contents/MacOS/__main__.bin dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
+elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge.bin" ]; then
+    mv dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge.bin dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
+fi
+
+chmod +x dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge || true
 
 echo "Compilation Nuitka terminée avec succès !"
 echo "L'application de production se trouve dans le dossier dist_prod/AnkiForge.app"
