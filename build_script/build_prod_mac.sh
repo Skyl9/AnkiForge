@@ -6,12 +6,12 @@ echo "Nettoyage du dossier de production..."
 rm -rf dist_prod/
 
 echo "Compilation de l'extension C native Levenshtein..."
-gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
+clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o src/ankiforge/c_ext/levenshtein_distance.so src/ankiforge/c_ext/levenshtein_distance.c || true
 
 echo "Démarrage de la compilation avec Nuitka..."
 
-export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
-export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
+export CFLAGS="-O2"
+export CXXFLAGS="-O2"
 
 uv run python -m nuitka \
     --standalone \

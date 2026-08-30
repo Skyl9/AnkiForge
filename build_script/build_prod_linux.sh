@@ -11,8 +11,8 @@ gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c
 
 echo "Démarrage de la compilation avec Nuitka..."
 
-export CFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
-export CXXFLAGS="-O2 -fno-slp-vectorize -fno-vectorize"
+export CFLAGS="-O2"
+export CXXFLAGS="-O2"
 
 uv run python -m nuitka \
     --standalone \

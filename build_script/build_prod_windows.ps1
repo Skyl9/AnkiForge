@@ -16,7 +16,7 @@ try {
 }
 
 Write-Host "Démarrage de la compilation avec Nuitka..."
-$env:_CL_ = "/bigobj /Zm200"
+$env:_CL_ = "/bigobj"
 uv run python -m nuitka `
     --standalone `
     --windows-console-mode=disable `
@@ -25,6 +25,8 @@ uv run python -m nuitka `
     --include-data-dir=src/ressources=src/ressources `
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
     --low-memory `
+    --jobs=1 `
+    --msvc=latest `
     --lto=no `
     --output-dir=dist_prod `
     --output-folder-name=AnkiForge `
