@@ -27,6 +27,12 @@ uv run --no-sync python -m nuitka \
     --include-package=unittest \
     --include-package=zoneinfo \
     --include-package-data=zoneinfo \
+    --include-package=websockets \
+    --include-package=mcp \
+    --include-package=starlette \
+    --include-package=uvicorn \
+    --include-package=anyio \
+    --include-package=sniffio \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \
