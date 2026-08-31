@@ -55,14 +55,21 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
     print(f"[INFO] Copie des dépendances runtime depuis {site_packages} vers {target_dist}...")
     copied_count = 0
 
+    # Détermination du dossier de destination des métadonnées .dist-info
+    # Sur macOS, les dossiers à extension dans Contents/MacOS invalident codesign. On les place dans Contents/Resources.
+    dist_info_target_dir = target_dist.parent / "Resources" if target_dist.name == "MacOS" and target_dist.parent.name == "Contents" else target_dist
+    dist_info_target_dir.mkdir(parents=True, exist_ok=True)
+
     for item in site_packages.iterdir():
         if item.name.startswith(".") or item.name in skip_names or item.suffix in (".egg-info", ".pth"):
             continue
         # Exclure uniquement les .dist-info des outils de dev/tests
-        if item.suffix == ".dist-info" and any(item.name.lower().startswith(p) for p in ("pytest", "mypy", "ruff", "coverage", "pip", "setuptools", "wheel")):
-            continue
-
-        dest = target_dist / item.name
+        if item.suffix == ".dist-info":
+            if any(item.name.lower().startswith(p) for p in ("pytest", "mypy", "ruff", "coverage", "pip", "setuptools", "wheel")):
+                continue
+            dest = dist_info_target_dir / item.name
+        else:
+            dest = target_dist / item.name
         try:
             if item.is_dir():
                 shutil.copytree(item, dest, dirs_exist_ok=True)

@@ -37,6 +37,7 @@ uv run --no-sync python -m nuitka \
     --include-package=uvicorn \
     --include-package=anyio \
     --include-package=sniffio \
+    --include-package=urllib \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \
@@ -100,8 +101,15 @@ import shutil
 import subprocess
 
 macos_dir = pathlib.Path("dist_prod/AnkiForge.app/Contents/MacOS")
+resources_dir = pathlib.Path("dist_prod/AnkiForge.app/Contents/Resources")
+resources_dir.mkdir(parents=True, exist_ok=True)
+
 if macos_dir.exists():
-    # 1. Renommer .dylibs -> dylibs
+    # 1. Déplacer tout dossier .dist-info de Contents/MacOS vers Contents/Resources
+    for dist_info in list(macos_dir.glob("*.dist-info")):
+        shutil.move(str(dist_info), str(resources_dir / dist_info.name))
+
+    # 2. Renommer .dylibs -> dylibs
     for dot_dir in list(macos_dir.rglob(".dylibs")):
         target_dir = dot_dir.parent / "dylibs"
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +118,7 @@ if macos_dir.exists():
             shutil.copy2(f, dot_dir.parent / f.name)
         shutil.rmtree(dot_dir)
 
-    # 2. Patcher les chemins Mach-O dans tous les .so et .dylib
+    # 3. Patcher les chemins Mach-O dans tous les .so et .dylib
     for bin_file in macos_dir.rglob("*"):
         if bin_file.is_file() and bin_file.suffix in (".so", ".dylib"):
             res = subprocess.run(["otool", "-L", str(bin_file)], capture_output=True, text=True)
