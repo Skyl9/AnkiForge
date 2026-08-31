@@ -28,6 +28,8 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
         "playhouse",
         "peewee_migrate",
         "unittest",
+        "zoneinfo",
+        "_zoneinfo",
         "__pycache__",
         "pip",
         "setuptools",

@@ -33,6 +33,8 @@ uv run --no-sync python -m nuitka `
     --include-package=playhouse `
     --include-package=peewee_migrate `
     --include-package=unittest `
+    --include-package=zoneinfo `
+    --include-package-data=zoneinfo `
     --no-deployment-flag=excluded-module-usage `
     --nofollow-import-to=google `
     --nofollow-import-to=faiss `
@@ -69,21 +71,19 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# Harmonisation des noms de dossiers et fichiers
-if (Test-Path "dist_prod/ankiforge.dist") {
-    if (Test-Path "dist_prod/AnkiForge.dist") { Remove-Item -Recurse -Force "dist_prod/AnkiForge.dist" }
-    Rename-Item -Path "dist_prod/ankiforge.dist" -NewName "AnkiForge.dist"
-} elseif (Test-Path "dist_prod/__main__.dist") {
-    if (Test-Path "dist_prod/AnkiForge.dist") { Remove-Item -Recurse -Force "dist_prod/AnkiForge.dist" }
-    Rename-Item -Path "dist_prod/__main__.dist" -NewName "AnkiForge.dist"
+# Harmonisation des noms de dossiers et fichiers (Renommage securise pour NTFS)
+if (Test-Path "dist_prod\ankiforge.dist") {
+    Rename-Item -Path "dist_prod\ankiforge.dist" -NewName "ankiforge_temp.dist" -Force
+    Rename-Item -Path "dist_prod\ankiforge_temp.dist" -NewName "AnkiForge.dist" -Force
+} elseif (Test-Path "dist_prod\__main__.dist") {
+    Rename-Item -Path "dist_prod\__main__.dist" -NewName "ankiforge_temp.dist" -Force
+    Rename-Item -Path "dist_prod\ankiforge_temp.dist" -NewName "AnkiForge.dist" -Force
 }
 
-if (Test-Path "dist_prod/AnkiForge.dist/ankiforge.exe") {
-    if (Test-Path "dist_prod/AnkiForge.dist/AnkiForge.exe") { Remove-Item -Force "dist_prod/AnkiForge.dist/AnkiForge.exe" }
-    Rename-Item -Path "dist_prod/AnkiForge.dist/ankiforge.exe" -NewName "AnkiForge.exe"
-} elseif (Test-Path "dist_prod/AnkiForge.dist/__main__.exe") {
-    if (Test-Path "dist_prod/AnkiForge.dist/AnkiForge.exe") { Remove-Item -Force "dist_prod/AnkiForge.dist/AnkiForge.exe" }
-    Rename-Item -Path "dist_prod/AnkiForge.dist/__main__.exe" -NewName "AnkiForge.exe"
+if (Test-Path "dist_prod\AnkiForge.dist\ankiforge.exe") {
+    Rename-Item -Path "dist_prod\AnkiForge.dist\ankiforge.exe" -NewName "AnkiForge.exe" -Force
+} elseif (Test-Path "dist_prod\AnkiForge.dist\__main__.exe") {
+    Rename-Item -Path "dist_prod\AnkiForge.dist\__main__.exe" -NewName "AnkiForge.exe" -Force
 }
 
 Write-Host "[INFO] Copie des dépendances runtime, ressources et extensions C..."

@@ -29,6 +29,8 @@ uv run --no-sync python -m nuitka \
     --include-package=playhouse \
     --include-package=peewee_migrate \
     --include-package=unittest \
+    --include-package=zoneinfo \
+    --include-package-data=zoneinfo \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \
