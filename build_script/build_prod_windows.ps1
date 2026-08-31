@@ -30,6 +30,8 @@ uv run --no-sync python -m nuitka `
     --windows-console-mode=disable `
     --enable-plugin=pyside6 `
     --include-package=ankiforge `
+    --include-package=playhouse `
+    --include-package=peewee_migrate `
     --include-package=unittest `
     --no-deployment-flag=excluded-module-usage `
     --nofollow-import-to=google `
@@ -49,7 +51,6 @@ uv run --no-sync python -m nuitka `
     --nofollow-import-to=httpcore `
     --nofollow-import-to=jsonschema `
     --nofollow-import-to=cryptography `
-    --nofollow-import-to=peewee_migrate `
     --nofollow-import-to=tkinter `
     --nofollow-import-to=matplotlib `
     --nofollow-import-to=docutils `
@@ -61,7 +62,7 @@ uv run --no-sync python -m nuitka `
     --output-dir=dist_prod `
     --output-filename=AnkiForge.exe `
     --assume-yes-for-downloads `
-    src/ankiforge/__main__.py
+    src/ankiforge
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "[ERROR] Echec critique de la compilation Nuitka (Code de sortie: $LASTEXITCODE)"
@@ -69,12 +70,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Harmonisation des noms de dossiers et fichiers
-if (Test-Path "dist_prod/__main__.dist") {
+if (Test-Path "dist_prod/ankiforge.dist") {
+    if (Test-Path "dist_prod/AnkiForge.dist") { Remove-Item -Recurse -Force "dist_prod/AnkiForge.dist" }
+    Rename-Item -Path "dist_prod/ankiforge.dist" -NewName "AnkiForge.dist"
+} elseif (Test-Path "dist_prod/__main__.dist") {
     if (Test-Path "dist_prod/AnkiForge.dist") { Remove-Item -Recurse -Force "dist_prod/AnkiForge.dist" }
     Rename-Item -Path "dist_prod/__main__.dist" -NewName "AnkiForge.dist"
 }
 
-if (Test-Path "dist_prod/AnkiForge.dist/__main__.exe") {
+if (Test-Path "dist_prod/AnkiForge.dist/ankiforge.exe") {
+    if (Test-Path "dist_prod/AnkiForge.dist/AnkiForge.exe") { Remove-Item -Force "dist_prod/AnkiForge.dist/AnkiForge.exe" }
+    Rename-Item -Path "dist_prod/AnkiForge.dist/ankiforge.exe" -NewName "AnkiForge.exe"
+} elseif (Test-Path "dist_prod/AnkiForge.dist/__main__.exe") {
     if (Test-Path "dist_prod/AnkiForge.dist/AnkiForge.exe") { Remove-Item -Force "dist_prod/AnkiForge.dist/AnkiForge.exe" }
     Rename-Item -Path "dist_prod/AnkiForge.dist/__main__.exe" -NewName "AnkiForge.exe"
 }

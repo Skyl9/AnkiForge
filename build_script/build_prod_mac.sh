@@ -26,6 +26,8 @@ uv run --no-sync python -m nuitka \
     --macos-app-icon=none \
     --enable-plugin=pyside6 \
     --include-package=ankiforge \
+    --include-package=playhouse \
+    --include-package=peewee_migrate \
     --include-package=unittest \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
@@ -45,7 +47,6 @@ uv run --no-sync python -m nuitka \
     --nofollow-import-to=httpcore \
     --nofollow-import-to=jsonschema \
     --nofollow-import-to=cryptography \
-    --nofollow-import-to=peewee_migrate \
     --nofollow-import-to=tkinter \
     --nofollow-import-to=matplotlib \
     --nofollow-import-to=docutils \
@@ -56,18 +57,23 @@ uv run --no-sync python -m nuitka \
     --output-dir=dist_prod \
     --output-filename=AnkiForge \
     --assume-yes-for-downloads \
-    src/ankiforge/__main__.py
+    src/ankiforge
 
 # Harmonisation du bundle .app
-if [ -d "dist_prod/__main__.app" ]; then
-    rm -rf dist_prod/AnkiForge.app
+if [ -d "dist_prod/ankiforge.app" ] && [ ! -d "dist_prod/AnkiForge.app" ]; then
+    mv dist_prod/ankiforge.app dist_prod/AnkiForge.app
+elif [ -d "dist_prod/__main__.app" ] && [ ! -d "dist_prod/AnkiForge.app" ]; then
     mv dist_prod/__main__.app dist_prod/AnkiForge.app
 fi
 
-if [ -f "dist_prod/AnkiForge.app/Contents/MacOS/__main__" ]; then
-    mv dist_prod/AnkiForge.app/Contents/MacOS/__main__ dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
+if [ -f "dist_prod/AnkiForge.app/Contents/MacOS/ankiforge.bin" ]; then
+    mv dist_prod/AnkiForge.app/Contents/MacOS/ankiforge.bin dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
+elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/ankiforge" ]; then
+    mv dist_prod/AnkiForge.app/Contents/MacOS/ankiforge dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
 elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/__main__.bin" ]; then
     mv dist_prod/AnkiForge.app/Contents/MacOS/__main__.bin dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
+elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/__main__" ]; then
+    mv dist_prod/AnkiForge.app/Contents/MacOS/__main__ dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
 elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge.bin" ]; then
     mv dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge.bin dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge
 fi
@@ -78,13 +84,14 @@ echo "[INFO] Copie des dépendances runtime, ressources et extensions C..."
 # Copie de l'intégralité des modules et packages tiers runtime
 uv run --no-sync python script/copy_runtime_dependencies.py dist_prod/AnkiForge.app/Contents/MacOS
 
-# Harmonisation des bibliothèques dynamiques pour codesign (suppression des dossiers à point comme PIL/.dylibs)
-if [ -d "dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs" ]; then
+# Harmonisation universelle des bibliothèques dynamiques pour Apple codesign (résolution de tous les .dylibs)
+find dist_prod/AnkiForge.app/Contents/MacOS -type d -name ".dylibs" 2>/dev/null | while read -r dylib_dir; do
+    echo "[INFO] Extraction du dossier dynamique cache : $dylib_dir"
     mkdir -p dist_prod/AnkiForge.app/Contents/Frameworks
-    cp -r dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs/* dist_prod/AnkiForge.app/Contents/Frameworks/ || true
-    cp -r dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs/* dist_prod/AnkiForge.app/Contents/MacOS/ || true
-    rm -rf dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs
-fi
+    cp -r "$dylib_dir"/* dist_prod/AnkiForge.app/Contents/Frameworks/ || true
+    cp -r "$dylib_dir"/* "$(dirname "$dylib_dir")"/ || true
+    rm -rf "$dylib_dir"
+done
 
 # Copie des ressources
 mkdir -p dist_prod/AnkiForge.app/Contents/Resources/src/ressources

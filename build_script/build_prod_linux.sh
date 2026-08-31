@@ -22,6 +22,8 @@ uv run --no-sync python -m nuitka \
     --standalone \
     --enable-plugin=pyside6 \
     --include-package=ankiforge \
+    --include-package=playhouse \
+    --include-package=peewee_migrate \
     --include-package=unittest \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
@@ -41,7 +43,6 @@ uv run --no-sync python -m nuitka \
     --nofollow-import-to=httpcore \
     --nofollow-import-to=jsonschema \
     --nofollow-import-to=cryptography \
-    --nofollow-import-to=peewee_migrate \
     --nofollow-import-to=tkinter \
     --nofollow-import-to=matplotlib \
     --nofollow-import-to=docutils \
@@ -52,15 +53,20 @@ uv run --no-sync python -m nuitka \
     --output-dir=dist_prod \
     --output-filename=AnkiForge \
     --assume-yes-for-downloads \
-    src/ankiforge/__main__.py
+    src/ankiforge
 
 # Harmonisation du nom de dossier genere
-if [ -d "dist_prod/__main__.dist" ]; then
-    rm -rf dist_prod/AnkiForge.dist
+if [ -d "dist_prod/ankiforge.dist" ] && [ ! -d "dist_prod/AnkiForge.dist" ]; then
+    mv dist_prod/ankiforge.dist dist_prod/AnkiForge.dist
+elif [ -d "dist_prod/__main__.dist" ] && [ ! -d "dist_prod/AnkiForge.dist" ]; then
     mv dist_prod/__main__.dist dist_prod/AnkiForge.dist
 fi
 
-if [ -f "dist_prod/AnkiForge.dist/__main__.bin" ]; then
+if [ -f "dist_prod/AnkiForge.dist/ankiforge.bin" ]; then
+    mv dist_prod/AnkiForge.dist/ankiforge.bin dist_prod/AnkiForge.dist/AnkiForge
+elif [ -f "dist_prod/AnkiForge.dist/ankiforge" ]; then
+    mv dist_prod/AnkiForge.dist/ankiforge dist_prod/AnkiForge.dist/AnkiForge
+elif [ -f "dist_prod/AnkiForge.dist/__main__.bin" ]; then
     mv dist_prod/AnkiForge.dist/__main__.bin dist_prod/AnkiForge.dist/AnkiForge
 elif [ -f "dist_prod/AnkiForge.dist/__main__" ]; then
     mv dist_prod/AnkiForge.dist/__main__ dist_prod/AnkiForge.dist/AnkiForge
