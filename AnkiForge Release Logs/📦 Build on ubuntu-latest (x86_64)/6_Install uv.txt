@@ -1,0 +1,35 @@
+﻿2026-08-31T08:57:52.2473579Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T08:57:52.2475597Z ##[group]Run astral-sh/setup-uv@v5
+2026-08-31T08:57:52.2475902Z with:
+2026-08-31T08:57:52.2476094Z   enable-cache: true
+2026-08-31T08:57:52.2476318Z   cache-dependency-glob: uv.lock
+2026-08-31T08:57:52.2476554Z   version: latest
+2026-08-31T08:57:52.2480013Z   github-token: ***
+2026-08-31T08:57:52.2480390Z   prune-cache: true
+2026-08-31T08:57:52.2480767Z   ignore-nothing-to-cache: false
+2026-08-31T08:57:52.2481216Z   ignore-empty-workdir: false
+2026-08-31T08:57:52.2481609Z env:
+2026-08-31T08:57:52.2481920Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:52.2482302Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:52.2482713Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:52.2483174Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:52.2483567Z ##[endgroup]
+2026-08-31T08:57:52.4304162Z (node:2884) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-31T08:57:52.4305153Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-31T08:57:52.7563194Z Downloading uv from "https://github.com/astral-sh/uv/releases/download/0.12.7/uv-x86_64-unknown-linux-gnu.tar.gz" ...
+2026-08-31T08:57:53.0682701Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/5d05b68b-9ae3-47b2-8efc-b74ff0d13f30 -f /home/runner/work/_temp/5560c9c2-478e-4ca2-9fcb-62c8f4eff388
+2026-08-31T08:57:53.4488992Z Added /home/runner/.local/bin to the path
+2026-08-31T08:57:53.4492473Z Added /opt/hostedtoolcache/uv/0.12.7/x86_64 to the path
+2026-08-31T08:57:53.4515894Z Set UV_CACHE_DIR to /home/runner/work/_temp/setup-uv-cache
+2026-08-31T08:57:53.4516298Z Successfully installed uv version 0.12.7
+2026-08-31T08:57:53.4516658Z Searching files using cache dependency glob: uv.lock
+2026-08-31T08:57:53.4541550Z /home/runner/work/AnkiForge/AnkiForge/uv.lock
+2026-08-31T08:57:53.4580103Z Found 1 files to hash.
+2026-08-31T08:57:53.5254594Z Trying to restore uv cache from GitHub Actions cache with key: setup-uv-1-x86_64-unknown-linux-gnu-3.12.3-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca
+2026-08-31T08:57:53.7589041Z Cache hit for: setup-uv-1-x86_64-unknown-linux-gnu-3.12.3-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca
+2026-08-31T08:57:53.7693505Z (node:2884) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-08-31T08:57:54.8939121Z Received 3945018 of 3945018 (100.0%), 4.3 MBs/sec
+2026-08-31T08:57:54.8939814Z Cache Size: ~4 MB (3945018 B)
+2026-08-31T08:57:54.8970790Z [command]/usr/bin/tar -xf /home/runner/work/_temp/eab7b641-a7ed-43a2-8877-238604bf4b50/cache.tzst -P -C /home/runner/work/AnkiForge/AnkiForge --use-compress-program unzstd
+2026-08-31T08:57:54.9118197Z Cache restored successfully
+2026-08-31T08:57:54.9125544Z uv cache restored from GitHub Actions cache with key: setup-uv-1-x86_64-unknown-linux-gnu-3.12.3-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca

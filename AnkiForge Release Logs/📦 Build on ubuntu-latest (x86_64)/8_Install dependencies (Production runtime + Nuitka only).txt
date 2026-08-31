@@ -1,0 +1,299 @@
+﻿2026-08-31T08:57:55.9157898Z ##[group]Run uv sync --frozen --no-dev --group build
+2026-08-31T08:57:55.9158398Z [36;1muv sync --frozen --no-dev --group build[0m
+2026-08-31T08:57:55.9195983Z shell: /usr/bin/bash -e {0}
+2026-08-31T08:57:55.9196249Z env:
+2026-08-31T08:57:55.9196449Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:55.9196690Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:55.9196955Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:55.9197224Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:55.9197516Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+2026-08-31T08:57:55.9197829Z ##[endgroup]
+2026-08-31T08:57:56.0648577Z Using CPython 3.12.14
+2026-08-31T08:57:56.0649304Z Creating virtual environment at: .venv
+2026-08-31T08:57:56.0879126Z    Building ankiforge @ file:///home/runner/work/AnkiForge/AnkiForge
+2026-08-31T08:57:56.1477088Z Downloading nvidia-cufft (204.2MiB)
+2026-08-31T08:57:56.1482558Z Downloading nvidia-nccl-cu13 (196.4MiB)
+2026-08-31T08:57:56.1484222Z Downloading nvidia-cusolver (191.6MiB)
+2026-08-31T08:57:56.1485972Z Downloading nvidia-cusparselt-cu13 (162.3MiB)
+2026-08-31T08:57:56.1486753Z Downloading nvidia-cusparse (139.2MiB)
+2026-08-31T08:57:56.1487664Z Downloading nvidia-cuda-nvrtc (86.0MiB)
+2026-08-31T08:57:56.1488592Z Downloading nvidia-nvshmem-cu13 (57.6MiB)
+2026-08-31T08:57:56.1490265Z Downloading nvidia-nvjitlink (38.9MiB)
+2026-08-31T08:57:56.1491122Z Downloading scipy (33.7MiB)
+2026-08-31T08:57:56.1492365Z Downloading numpy (15.9MiB)
+2026-08-31T08:57:56.1493503Z Downloading transformers (11.5MiB)
+2026-08-31T08:57:56.1498384Z Downloading nvidia-cuda-cupti (10.2MiB)
+2026-08-31T08:57:56.1499414Z Downloading babel (9.7MiB)
+2026-08-31T08:57:56.1502093Z Downloading cuda-bindings (6.3MiB)
+2026-08-31T08:57:56.1503586Z Downloading sympy (6.0MiB)
+2026-08-31T08:57:56.1504700Z Downloading zstandard (5.3MiB)
+2026-08-31T08:57:56.1506662Z Downloading lxml (5.0MiB)
+2026-08-31T08:57:56.1507555Z Downloading cryptography (4.5MiB)
+2026-08-31T08:57:56.1508780Z Downloading hf-xet (4.3MiB)
+2026-08-31T08:57:56.1509933Z Downloading uvloop (4.2MiB)
+2026-08-31T08:57:56.1511097Z Downloading pypdfium2 (3.6MiB)
+2026-08-31T08:57:56.1512797Z Downloading tokenizers (3.2MiB)
+2026-08-31T08:57:56.1514437Z Downloading rapidfuzz (3.0MiB)
+2026-08-31T08:57:56.1516311Z Downloading qtawesome (2.5MiB)
+2026-08-31T08:57:56.1517332Z Downloading nvidia-cuda-runtime (2.1MiB)
+2026-08-31T08:57:56.1518636Z Downloading pydantic-core (2.0MiB)
+2026-08-31T08:57:56.1519877Z Downloading aiohttp (1.7MiB)
+2026-08-31T08:57:56.1521092Z Downloading openai (1.6MiB)
+2026-08-31T08:57:56.1522388Z Downloading pygments (1.2MiB)
+2026-08-31T08:57:56.1523850Z Downloading nvidia-cufile (1.2MiB)
+2026-08-31T08:57:56.1525335Z Downloading google-genai (1.0MiB)
+2026-08-31T08:57:56.1595680Z Downloading nvidia-cublas (403.5MiB)
+2026-08-31T08:57:56.1597008Z Downloading scikit-learn (8.7MiB)
+2026-08-31T08:57:56.1598628Z Downloading grpcio (6.7MiB)
+2026-08-31T08:57:56.1599895Z Downloading pyside6-addons (167.0MiB)
+2026-08-31T08:57:56.1601247Z Downloading pyside6-essentials (76.4MiB)
+2026-08-31T08:57:56.1602600Z Downloading pillow (4.3MiB)
+2026-08-31T08:57:56.1604100Z Downloading kubernetes (4.4MiB)
+2026-08-31T08:57:56.1606044Z Downloading nvidia-curand (56.8MiB)
+2026-08-31T08:57:56.1607225Z Downloading torchvision (7.3MiB)
+2026-08-31T08:57:56.1608868Z Downloading torch (502.2MiB)
+2026-08-31T08:57:56.1610433Z Downloading opencv-python-headless (47.7MiB)
+2026-08-31T08:57:56.1612466Z Downloading faiss-cpu (17.9MiB)
+2026-08-31T08:57:56.1613985Z Downloading triton (188.6MiB)
+2026-08-31T08:57:56.1615711Z Downloading networkx (2.0MiB)
+2026-08-31T08:57:56.1617234Z Downloading anthropic (1.1MiB)
+2026-08-31T08:57:56.1619303Z Downloading onnxruntime (22.1MiB)
+2026-08-31T08:57:56.1620949Z Downloading chromadb (22.2MiB)
+2026-08-31T08:57:56.1623147Z Downloading nvidia-cudnn-cu13 (349.2MiB)
+2026-08-31T08:57:56.8586312Z  Downloaded google-genai
+2026-08-31T08:57:56.9418619Z  Downloaded nvidia-cufile
+2026-08-31T08:57:56.9480980Z  Downloaded pygments
+2026-08-31T08:57:57.2167710Z  Downloaded aiohttp
+2026-08-31T08:57:57.2387790Z  Downloaded anthropic
+2026-08-31T08:57:57.3679361Z  Downloaded networkx
+2026-08-31T08:57:57.4019357Z  Downloaded pydantic-core
+2026-08-31T08:57:57.4832781Z  Downloaded openai
+2026-08-31T08:57:57.5462709Z  Downloaded nvidia-cuda-runtime
+2026-08-31T08:57:57.6517517Z  Downloaded qtawesome
+2026-08-31T08:57:57.9325274Z  Downloaded rapidfuzz
+2026-08-31T08:57:58.1598955Z  Downloaded tokenizers
+2026-08-31T08:57:58.3427979Z  Downloaded pypdfium2
+2026-08-31T08:57:58.7499482Z  Downloaded hf-xet
+2026-08-31T08:57:58.8939466Z  Downloaded uvloop
+2026-08-31T08:57:58.9468070Z  Downloaded pillow
+2026-08-31T08:57:59.1138863Z  Downloaded kubernetes
+2026-08-31T08:57:59.1323712Z  Downloaded zstandard
+2026-08-31T08:57:59.1424588Z  Downloaded cryptography
+2026-08-31T08:57:59.2300799Z  Downloaded lxml
+2026-08-31T08:57:59.4758746Z  Downloaded cuda-bindings
+2026-08-31T08:57:59.5787504Z  Downloaded grpcio
+2026-08-31T08:57:59.5975959Z  Downloaded sympy
+2026-08-31T08:57:59.6316497Z  Downloaded torchvision
+2026-08-31T08:57:59.8497303Z       Built ankiforge @ file:///home/runner/work/AnkiForge/AnkiForge
+2026-08-31T08:58:00.1544368Z  Downloaded scikit-learn
+2026-08-31T08:58:00.1786859Z  Downloaded babel
+2026-08-31T08:58:00.1922964Z  Downloaded nvidia-cuda-cupti
+2026-08-31T08:58:01.5121708Z  Downloaded numpy
+2026-08-31T08:58:01.6076458Z  Downloaded faiss-cpu
+2026-08-31T08:58:02.1223203Z  Downloaded chromadb
+2026-08-31T08:58:02.7795894Z  Downloaded onnxruntime
+2026-08-31T08:58:03.6422717Z  Downloaded transformers
+2026-08-31T08:58:03.7490972Z  Downloaded nvidia-nvjitlink
+2026-08-31T08:58:03.7906397Z  Downloaded scipy
+2026-08-31T08:58:04.6954210Z  Downloaded opencv-python-headless
+2026-08-31T08:58:05.1270998Z  Downloaded nvidia-curand
+2026-08-31T08:58:05.2082948Z  Downloaded nvidia-nvshmem-cu13
+2026-08-31T08:58:06.8595861Z  Downloaded nvidia-cuda-nvrtc
+2026-08-31T08:58:09.4747323Z  Downloaded nvidia-cusparse
+2026-08-31T08:58:10.2766257Z  Downloaded nvidia-cusparselt-cu13
+2026-08-31T08:58:10.6311842Z  Downloaded pyside6-essentials
+2026-08-31T08:58:10.7689951Z  Downloaded pyside6-addons
+2026-08-31T08:58:11.2470437Z  Downloaded nvidia-cusolver
+2026-08-31T08:58:11.4010149Z  Downloaded nvidia-nccl-cu13
+2026-08-31T08:58:11.5109243Z  Downloaded nvidia-cufft
+2026-08-31T08:58:11.7894675Z  Downloaded triton
+2026-08-31T08:58:12.6487514Z  Downloaded nvidia-cudnn-cu13
+2026-08-31T08:58:12.7991682Z  Downloaded nvidia-cublas
+2026-08-31T08:58:15.8602282Z  Downloaded torch
+2026-08-31T08:58:15.8605952Z Prepared 185 packages in 19.78s
+2026-08-31T08:58:16.5618391Z Installed 185 packages in 701ms
+2026-08-31T08:58:16.5620074Z  + aiohappyeyeballs==2.7.1
+2026-08-31T08:58:16.5620504Z  + aiohttp==3.14.3
+2026-08-31T08:58:16.5620850Z  + aiosignal==1.4.0
+2026-08-31T08:58:16.5621787Z  + ankiforge==0.2.0 (from file:///home/runner/work/AnkiForge/AnkiForge)
+2026-08-31T08:58:16.5622395Z  + annotated-doc==0.0.5
+2026-08-31T08:58:16.5622836Z  + annotated-types==0.8.0
+2026-08-31T08:58:16.5623258Z  + anthropic==0.125.0
+2026-08-31T08:58:16.5623608Z  + anyio==4.14.2
+2026-08-31T08:58:16.5624144Z  + attrs==26.1.0
+2026-08-31T08:58:16.5624764Z  + babel==2.18.0
+2026-08-31T08:58:16.5625529Z  + bcrypt==5.0.0
+2026-08-31T08:58:16.5626037Z  + beautifulsoup4==4.15.0
+2026-08-31T08:58:16.5626697Z  + build==1.6.0
+2026-08-31T08:58:16.5627310Z  + cached-property==2.0.1
+2026-08-31T08:58:16.5627888Z  + certifi==2026.7.22
+2026-08-31T08:58:16.5628461Z  + cffi==2.1.1
+2026-08-31T08:58:16.5629107Z  + charset-normalizer==3.5.1
+2026-08-31T08:58:16.5629788Z  + chevron==0.14.0
+2026-08-31T08:58:16.5630376Z  + chromadb==1.5.9
+2026-08-31T08:58:16.5630960Z  + click==8.5.0
+2026-08-31T08:58:16.5631567Z  + courlan==1.4.0
+2026-08-31T08:58:16.5632269Z  + cryptography==50.0.1
+2026-08-31T08:58:16.5632854Z  + cuda-bindings==13.3.1
+2026-08-31T08:58:16.5633449Z  + cuda-pathfinder==1.8.0
+2026-08-31T08:58:16.5634171Z  + cuda-toolkit==13.0.3.0
+2026-08-31T08:58:16.5635122Z  + dateparser==1.4.2
+2026-08-31T08:58:16.5635509Z  + defusedxml==0.7.1
+2026-08-31T08:58:16.5636197Z  + distro==1.9.0
+2026-08-31T08:58:16.5636776Z  + docstring-parser==0.18.0
+2026-08-31T08:58:16.5637458Z  + durationpy==0.11
+2026-08-31T08:58:16.5637801Z  + faiss-cpu==1.15.0
+2026-08-31T08:58:16.5638428Z  + filelock==3.32.4
+2026-08-31T08:58:16.5638924Z  + filetype==1.2.0
+2026-08-31T08:58:16.5639532Z  + flatbuffers==25.12.19
+2026-08-31T08:58:16.5640109Z  + frozendict==2.4.7
+2026-08-31T08:58:16.5640785Z  + frozenlist==1.8.0
+2026-08-31T08:58:16.5641369Z  + fsspec==2026.7.0
+2026-08-31T08:58:16.5641966Z  + ftfy==6.3.1
+2026-08-31T08:58:16.5642366Z  + genanki==0.13.1
+2026-08-31T08:58:16.5642727Z  + google-auth==2.57.0
+2026-08-31T08:58:16.5643174Z  + google-genai==2.20.0
+2026-08-31T08:58:16.5643637Z  + googleapis-common-protos==1.75.2
+2026-08-31T08:58:16.5644078Z  + grpcio==1.83.1
+2026-08-31T08:58:16.5644474Z  + h11==0.16.0
+2026-08-31T08:58:16.5645174Z  + hf-xet==1.6.0
+2026-08-31T08:58:16.5645511Z  + htmldate==1.10.0
+2026-08-31T08:58:16.5645844Z  + httpcore==1.0.9
+2026-08-31T08:58:16.5646183Z  + httpcore2==2.12.0
+2026-08-31T08:58:16.5646539Z  + httptools==0.8.0
+2026-08-31T08:58:16.5646990Z  + httpx==0.28.1
+2026-08-31T08:58:16.5647355Z  + httpx2==2.12.0
+2026-08-31T08:58:16.5647761Z  + huggingface-hub==1.29.0
+2026-08-31T08:58:16.5648432Z  + idna==3.19
+2026-08-31T08:58:16.5648781Z  + importlib-resources==7.1.0
+2026-08-31T08:58:16.5649181Z  + jinja2==3.1.6
+2026-08-31T08:58:16.5649511Z  + jiter==0.16.0
+2026-08-31T08:58:16.5649836Z  + joblib==1.5.3
+2026-08-31T08:58:16.5650165Z  + jsonschema==4.26.0
+2026-08-31T08:58:16.5650832Z  + jsonschema-specifications==2025.9.1
+2026-08-31T08:58:16.5651285Z  + justext==3.0.2
+2026-08-31T08:58:16.5651640Z  + kubernetes==36.0.3
+2026-08-31T08:58:16.5651986Z  + lxml==6.1.2
+2026-08-31T08:58:16.5652326Z  + lxml-html-clean==0.4.5
+2026-08-31T08:58:16.5652704Z  + markdown==3.10.3
+2026-08-31T08:58:16.5653102Z  + markdown-it-py==4.2.0
+2026-08-31T08:58:16.5653548Z  + markdown2==2.5.5
+2026-08-31T08:58:16.5653892Z  + markdownify==1.2.3
+2026-08-31T08:58:16.5654264Z  + marker-pdf==2.0.0
+2026-08-31T08:58:16.5654620Z  + markupsafe==3.0.3
+2026-08-31T08:58:16.5655170Z  + mcp==2.1.1
+2026-08-31T08:58:16.5655510Z  + mcp-types==2.1.1
+2026-08-31T08:58:16.5655840Z  + mdurl==0.1.2
+2026-08-31T08:58:16.5656326Z  + mmh3==5.3.0
+2026-08-31T08:58:16.5656704Z  + mpmath==1.3.0
+2026-08-31T08:58:16.5657090Z  + multidict==6.7.1
+2026-08-31T08:58:16.5657469Z  + narwhals==2.25.0
+2026-08-31T08:58:16.5657832Z  + networkx==3.6.1
+2026-08-31T08:58:16.5658169Z  + nuitka==4.2
+2026-08-31T08:58:16.5658495Z  + numpy==2.5.2
+2026-08-31T08:58:16.5659017Z  + nvidia-cublas==13.1.1.3
+2026-08-31T08:58:16.5659471Z  + nvidia-cuda-cupti==13.0.85
+2026-08-31T08:58:16.5659954Z  + nvidia-cuda-nvrtc==13.0.88
+2026-08-31T08:58:16.5660562Z  + nvidia-cuda-runtime==13.0.96
+2026-08-31T08:58:16.5661040Z  + nvidia-cudnn-cu13==9.20.0.48
+2026-08-31T08:58:16.5661491Z  + nvidia-cufft==12.0.0.61
+2026-08-31T08:58:16.5661936Z  + nvidia-cufile==1.15.1.6
+2026-08-31T08:58:16.5662368Z  + nvidia-curand==10.4.0.35
+2026-08-31T08:58:16.5662803Z  + nvidia-cusolver==12.0.4.66
+2026-08-31T08:58:16.5663258Z  + nvidia-cusparse==12.6.3.3
+2026-08-31T08:58:16.5663751Z  + nvidia-cusparselt-cu13==0.8.1
+2026-08-31T08:58:16.5664222Z  + nvidia-nccl-cu13==2.29.7
+2026-08-31T08:58:16.5664669Z  + nvidia-nvjitlink==13.3.33
+2026-08-31T08:58:16.5665317Z  + nvidia-nvshmem-cu13==3.4.5
+2026-08-31T08:58:16.5665773Z  + nvidia-nvtx==13.0.85
+2026-08-31T08:58:16.5666160Z  + oauthlib==3.3.1
+2026-08-31T08:58:16.5666538Z  + onnxruntime==1.29.0
+2026-08-31T08:58:16.5666939Z  + openai==2.54.0
+2026-08-31T08:58:16.5667336Z  + opencv-python-headless==4.11.0.86
+2026-08-31T08:58:16.5667852Z  + opentelemetry-api==1.44.0
+2026-08-31T08:58:16.5668418Z  + opentelemetry-exporter-otlp-proto-common==1.44.0
+2026-08-31T08:58:16.5669115Z  + opentelemetry-exporter-otlp-proto-grpc==1.44.0
+2026-08-31T08:58:16.5669721Z  + opentelemetry-proto==1.44.0
+2026-08-31T08:58:16.5670194Z  + opentelemetry-sdk==1.44.0
+2026-08-31T08:58:16.5670706Z  + opentelemetry-semantic-conventions==0.65b0
+2026-08-31T08:58:16.5671256Z  + orjson==3.12.0
+2026-08-31T08:58:16.5671620Z  + overrides==7.7.0
+2026-08-31T08:58:16.5672258Z  + packaging==26.3
+2026-08-31T08:58:16.5672637Z  + pdftext==0.7.1
+2026-08-31T08:58:16.5672997Z  + peewee==4.4.0
+2026-08-31T08:58:16.5673401Z  + peewee-migrate==2.3.0
+2026-08-31T08:58:16.5673831Z  + pillow==10.4.0
+2026-08-31T08:58:16.5674203Z  + platformdirs==4.11.5
+2026-08-31T08:58:16.5674601Z  + propcache==0.5.2
+2026-08-31T08:58:16.5675171Z  + protobuf==7.36.0
+2026-08-31T08:58:16.5675545Z  + psutil==7.2.2
+2026-08-31T08:58:16.5675887Z  + pyasn1==0.6.4
+2026-08-31T08:58:16.5676261Z  + pyasn1-modules==0.4.2
+2026-08-31T08:58:16.5676655Z  + pybase64==1.5.0
+2026-08-31T08:58:16.5677011Z  + pycparser==3.0
+2026-08-31T08:58:16.5677388Z  + pydantic==2.13.5
+2026-08-31T08:58:16.5677785Z  + pydantic-core==2.46.5
+2026-08-31T08:58:16.5678224Z  + pydantic-settings==2.15.0
+2026-08-31T08:58:16.5678656Z  + pygments==2.21.0
+2026-08-31T08:58:16.5679037Z  + pyjwt==2.13.0
+2026-08-31T08:58:16.5679407Z  + pypdfium2==5.10.1
+2026-08-31T08:58:16.5679781Z  + pypika==0.51.1
+2026-08-31T08:58:16.5680158Z  + pyproject-hooks==1.2.0
+2026-08-31T08:58:16.5680592Z  + pyside6==6.11.2
+2026-08-31T08:58:16.5680971Z  + pyside6-addons==6.11.2
+2026-08-31T08:58:16.5681660Z  + pyside6-essentials==6.11.2
+2026-08-31T08:58:16.5682128Z  + python-dateutil==2.9.0.post0
+2026-08-31T08:58:16.5682579Z  + python-docx==1.2.0
+2026-08-31T08:58:16.5683021Z  + python-dotenv==1.2.3
+2026-08-31T08:58:16.5683453Z  + python-multipart==0.0.32
+2026-08-31T08:58:16.5683890Z  + python-pptx==1.0.2
+2026-08-31T08:58:16.5684298Z  + pytz==2026.3.post1
+2026-08-31T08:58:16.5684681Z  + pyyaml==6.0.3
+2026-08-31T08:58:16.5685195Z  + qtawesome==1.4.2
+2026-08-31T08:58:16.5685553Z  + qtpy==2.4.3
+2026-08-31T08:58:16.5685920Z  + rapidfuzz==3.14.5
+2026-08-31T08:58:16.5686313Z  + referencing==0.37.0
+2026-08-31T08:58:16.5686702Z  + regex==2026.7.19
+2026-08-31T08:58:16.5687066Z  + requests==2.34.2
+2026-08-31T08:58:16.5687456Z  + requests-oauthlib==2.0.0
+2026-08-31T08:58:16.5687872Z  + rich==15.0.0
+2026-08-31T08:58:16.5688229Z  + rpds-py==2026.6.3
+2026-08-31T08:58:16.5688617Z  + safetensors==0.8.0
+2026-08-31T08:58:16.5689040Z  + scikit-learn==1.9.0
+2026-08-31T08:58:16.5689426Z  + scipy==1.18.1
+2026-08-31T08:58:16.5689792Z  + setuptools==84.0.0
+2026-08-31T08:58:16.5690172Z  + shellingham==1.5.4
+2026-08-31T08:58:16.5690543Z  + shiboken6==6.11.2
+2026-08-31T08:58:16.5690912Z  + six==1.17.0
+2026-08-31T08:58:16.5691269Z  + sniffio==1.3.1
+2026-08-31T08:58:16.5691625Z  + soupsieve==2.9.2
+2026-08-31T08:58:16.5692008Z  + sse-starlette==3.4.8
+2026-08-31T08:58:16.5692399Z  + starlette==1.6.0
+2026-08-31T08:58:16.5692770Z  + surya-ocr==0.22.1
+2026-08-31T08:58:16.5693126Z  + sympy==1.14.0
+2026-08-31T08:58:16.5693489Z  + tenacity==9.1.4
+2026-08-31T08:58:16.5693868Z  + threadpoolctl==3.6.0
+2026-08-31T08:58:16.5694275Z  + tld==0.13.2
+2026-08-31T08:58:16.5694633Z  + tokenizers==0.23.1
+2026-08-31T08:58:16.5695162Z  + torch==2.13.0
+2026-08-31T08:58:16.5695543Z  + torchvision==0.28.0
+2026-08-31T08:58:16.5695930Z  + tqdm==4.70.0
+2026-08-31T08:58:16.5696137Z  + trafilatura==2.2.0
+2026-08-31T08:58:16.5696342Z  + transformers==5.16.1
+2026-08-31T08:58:16.5696555Z  + triton==3.7.1
+2026-08-31T08:58:16.5696746Z  + truststore==0.10.4
+2026-08-31T08:58:16.5696951Z  + typer==0.27.2
+2026-08-31T08:58:16.5697153Z  + typing-extensions==4.16.0
+2026-08-31T08:58:16.5697399Z  + typing-inspection==0.4.4
+2026-08-31T08:58:16.5697625Z  + tzlocal==5.4.4
+2026-08-31T08:58:16.5697830Z  + urllib3==2.7.0
+2026-08-31T08:58:16.5698024Z  + uvicorn==0.52.4
+2026-08-31T08:58:16.5698220Z  + uvloop==0.22.1
+2026-08-31T08:58:16.5698416Z  + watchfiles==1.2.0
+2026-08-31T08:58:16.5698614Z  + wcwidth==0.8.3
+2026-08-31T08:58:16.5698828Z  + websocket-client==1.9.1
+2026-08-31T08:58:16.5699056Z  + websockets==16.1.1
+2026-08-31T08:58:16.5699259Z  + xlsxwriter==3.2.9
+2026-08-31T08:58:16.5699458Z  + yarl==1.24.5
+2026-08-31T08:58:16.5699674Z  + youtube-transcript-api==1.2.4
+2026-08-31T08:58:16.5699926Z  + zstandard==0.25.0

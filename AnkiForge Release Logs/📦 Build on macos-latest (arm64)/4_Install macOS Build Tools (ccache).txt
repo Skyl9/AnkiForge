@@ -1,0 +1,86 @@
+﻿2026-08-31T08:57:43.9336850Z ##[group]Run brew install ccache || true
+2026-08-31T08:57:43.9337370Z [36;1mbrew install ccache || true[0m
+2026-08-31T08:57:43.9444220Z shell: /bin/bash -e {0}
+2026-08-31T08:57:43.9444440Z env:
+2026-08-31T08:57:43.9444600Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:43.9444800Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:43.9444980Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:43.9445180Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:43.9445340Z ##[endgroup]
+2026-08-31T08:57:46.7401670Z ##[warning]The following taps are not trusted:
+  aws/tap
+
+Homebrew is currently ignoring formulae, casks and commands from these taps because tap trust is required.
+
+Untap them with:
+  brew untap aws/tap
+Trust specific formulae, casks and commands with:
+  brew trust --formula <user>/<tap>/<formula>
+  brew trust --cask <user>/<tap>/<cask>
+  brew trust --command <user>/<tap>/<command>
+Whole-tap trust is broader and includes all current and future formulae,
+casks and commands from the listed taps. Trust whole taps with:
+  brew trust aws/tap
+To disable trust checks:
+  export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+This is not recommended and will be removed in a later release.
+For more information, see:
+  https://docs.brew.sh/Tap-Trust
+2026-08-31T08:57:47.5318940Z [34m==>[0m [1mWould install 1 formula:[0m
+2026-08-31T08:57:47.5353560Z ccache
+2026-08-31T08:57:47.5528310Z [34m==>[0m [1mDownloading https://ghcr.io/v2/homebrew/core/ccache/manifests/4.13.6_1[0m
+2026-08-31T08:57:47.9586710Z [34m==>[0m [1mWould install 4 dependencies for ccache:[0m
+2026-08-31T08:57:47.9587450Z blake3
+2026-08-31T08:57:47.9588560Z fmt
+2026-08-31T08:57:47.9588970Z hiredis
+2026-08-31T08:57:47.9589320Z xxhash
+2026-08-31T08:57:47.9589770Z [32m==>[0m [1mFetching downloads for: [32mccache[39m[0m
+2026-08-31T08:57:48.3261140Z ✔︎ Bottle Manifest blake3 (1.8.5)
+2026-08-31T08:57:48.3303370Z ✔︎ Bottle Manifest fmt (12.2.0)
+2026-08-31T08:57:48.3668210Z ✔︎ Bottle Manifest hiredis (1.4.0)
+2026-08-31T08:57:48.4370210Z ✔︎ Bottle ccache (4.13.6_1)
+2026-08-31T08:57:48.4472360Z ✔︎ Bottle blake3 (1.8.5)
+2026-08-31T08:57:48.4547030Z ✔︎ Bottle fmt (12.2.0)
+2026-08-31T08:57:48.5783110Z ✔︎ Bottle Manifest xxhash (0.8.3)
+2026-08-31T08:57:48.6608460Z ✔︎ Bottle xxhash (0.8.3)
+2026-08-31T08:57:48.6616740Z ✔︎ Bottle hiredis (1.4.0)
+2026-08-31T08:57:48.7037150Z [32m==>[0m [1mInstalling dependencies for ccache:[0m [32mblake3[39m, [32mfmt[39m, [32mhiredis[39m and [32mxxhash[39m[0m
+2026-08-31T08:57:48.7050660Z [32m==>[0m [1mInstalling ccache dependency: [32mblake3[39m[0m
+2026-08-31T08:57:48.7390440Z [34m==>[0m [1mPouring blake3--1.8.5.arm64_tahoe.bottle.tar.gz[0m
+2026-08-31T08:57:49.0312900Z 🍺  /opt/homebrew/Cellar/blake3/1.8.5: 13 files, 77.7KB
+2026-08-31T08:57:49.0323120Z [32m==>[0m [1mInstalling ccache dependency: [32mfmt[39m[0m
+2026-08-31T08:57:49.0467450Z [34m==>[0m [1mPouring fmt--12.2.0.arm64_tahoe.bottle.tar.gz[0m
+2026-08-31T08:57:49.1337050Z 🍺  /opt/homebrew/Cellar/fmt/12.2.0: 31 files, 1MB
+2026-08-31T08:57:49.1338770Z [32m==>[0m [1mInstalling ccache dependency: [32mhiredis[39m[0m
+2026-08-31T08:57:49.1677890Z [34m==>[0m [1mPouring hiredis--1.4.0.arm64_tahoe.bottle.tar.gz[0m
+2026-08-31T08:57:49.5045230Z 🍺  /opt/homebrew/Cellar/hiredis/1.4.0: 53 files, 545.3KB
+2026-08-31T08:57:49.5174570Z [32m==>[0m [1mInstalling ccache dependency: [32mxxhash[39m[0m
+2026-08-31T08:57:49.5187310Z [34m==>[0m [1mPouring xxhash--0.8.3.arm64_tahoe.bottle.tar.gz[0m
+2026-08-31T08:57:49.6940400Z 🍺  /opt/homebrew/Cellar/xxhash/0.8.3: 28 files, 556.5KB
+2026-08-31T08:57:49.7041830Z [32m==>[0m [1mInstalling [32mccache[39m[0m
+2026-08-31T08:57:49.7147560Z [34m==>[0m [1mPouring ccache--4.13.6_1.arm64_tahoe.bottle.tar.gz[0m
+2026-08-31T08:57:49.8642220Z [34m==>[0m [1mCaveats[0m
+2026-08-31T08:57:49.8744370Z To install symlinks for compilers that will automatically use
+2026-08-31T08:57:49.8814860Z ccache, prepend this directory to your PATH:
+2026-08-31T08:57:49.8817340Z   /opt/homebrew/opt/ccache/libexec
+2026-08-31T08:57:49.8818000Z 
+2026-08-31T08:57:49.8979820Z If this is an upgrade and you have previously added the symlinks to
+2026-08-31T08:57:49.8981340Z your PATH, you may need to modify it to the path specified above so
+2026-08-31T08:57:49.8982400Z it points to the current version.
+2026-08-31T08:57:49.8982920Z 
+2026-08-31T08:57:49.8983370Z NOTE: ccache can prevent some software from compiling.
+2026-08-31T08:57:49.8984360Z ALSO NOTE: The brew command, by design, will never use ccache.
+2026-08-31T08:57:49.8985990Z [34m==>[0m [1mSummary[0m
+2026-08-31T08:57:49.8986830Z 🍺  /opt/homebrew/Cellar/ccache/4.13.6_1: 89 files, 2.1MB
+2026-08-31T08:57:49.8987800Z [32m==>[0m [1mCaveats[0m
+2026-08-31T08:57:49.8988660Z [34m==>[0m [1mccache[0m
+2026-08-31T08:57:49.8989690Z To install symlinks for compilers that will automatically use
+2026-08-31T08:57:49.8990970Z ccache, prepend this directory to your PATH:
+2026-08-31T08:57:49.8991960Z   /opt/homebrew/opt/ccache/libexec
+2026-08-31T08:57:49.8992710Z 
+2026-08-31T08:57:49.8993250Z If this is an upgrade and you have previously added the symlinks to
+2026-08-31T08:57:49.8994430Z your PATH, you may need to modify it to the path specified above so
+2026-08-31T08:57:49.8995490Z it points to the current version.
+2026-08-31T08:57:49.8995930Z 
+2026-08-31T08:57:49.8996230Z NOTE: ccache can prevent some software from compiling.
+2026-08-31T08:57:49.8997220Z ALSO NOTE: The brew command, by design, will never use ccache.

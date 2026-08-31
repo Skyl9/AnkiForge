@@ -1,0 +1,8 @@
+2026-08-31T08:57:31.9340000Z Evaluating build.if
+2026-08-31T08:57:31.9340000Z Evaluating: success()
+2026-08-31T08:57:31.9340000Z Result: true
+2026-08-31T08:57:31.9350000Z Requested labels: macos-latest
+2026-08-31T08:57:31.9350000Z Job defined at: Skyl9/AnkiForge/.github/workflows/release.yml@refs/heads/master
+2026-08-31T08:57:31.9350000Z Waiting for a runner to pick up this job...
+2026-08-31T08:57:32.2090000Z Job is about to start running on the hosted runner: GitHub Actions 1000000488
+2026-08-31T08:57:32.2090000Z Job is waiting for a hosted runner to come online.

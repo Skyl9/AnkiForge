@@ -1,0 +1,25 @@
+﻿2026-08-31T08:57:51.8691954Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T08:57:51.8693952Z ##[group]Run actions/cache@v4
+2026-08-31T08:57:51.8694195Z with:
+2026-08-31T08:57:51.8694607Z   path: ~/.cache/Nuitka
+~/Library/Caches/Nuitka
+~/.cache/ccache
+~/Library/Caches/ccache
+\Nuitka\Nuitka\Cache
+
+2026-08-31T08:57:51.8695903Z   key: nuitka-ubuntu-latest-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca
+2026-08-31T08:57:51.8696424Z   restore-keys: nuitka-ubuntu-latest-
+
+2026-08-31T08:57:51.8696705Z   enableCrossOsArchive: false
+2026-08-31T08:57:51.8696951Z   fail-on-cache-miss: false
+2026-08-31T08:57:51.8697186Z   lookup-only: false
+2026-08-31T08:57:51.8697401Z   save-always: false
+2026-08-31T08:57:51.8697592Z env:
+2026-08-31T08:57:51.8697774Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:51.8698061Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:51.8698305Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:51.8698567Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:51.8698786Z ##[endgroup]
+2026-08-31T08:57:51.9763948Z (node:2871) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-31T08:57:51.9765170Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-31T08:57:52.2308449Z Cache not found for input keys: nuitka-ubuntu-latest-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca, nuitka-ubuntu-latest-

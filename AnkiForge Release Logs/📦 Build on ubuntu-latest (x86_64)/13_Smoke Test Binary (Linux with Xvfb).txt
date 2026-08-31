@@ -1,0 +1,13 @@
+﻿2026-08-31T11:00:13.6752420Z ##[group]Run xvfb-run --auto-servernum ./dist_prod/AnkiForge.dist/AnkiForge --smoke-test
+2026-08-31T11:00:13.6753884Z [36;1mxvfb-run --auto-servernum ./dist_prod/AnkiForge.dist/AnkiForge --smoke-test[0m
+2026-08-31T11:00:13.6861671Z shell: /usr/bin/bash -e {0}
+2026-08-31T11:00:13.6862138Z env:
+2026-08-31T11:00:13.6862473Z   PYTHONUNBUFFERED: 1
+2026-08-31T11:00:13.6862898Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T11:00:13.6863349Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T11:00:13.6863831Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T11:00:13.6864437Z   UV_CACHE_DIR: /home/runner/work/_temp/setup-uv-cache
+2026-08-31T11:00:13.6865242Z ##[endgroup]
+2026-08-31T11:00:17.0230479Z IMPORT_HARD_UNITTEST__MOCK : "Unexpected failure of hard import of 'unittest.mock'"
+2026-08-31T11:00:17.2228428Z Aborted (core dumped)
+2026-08-31T11:00:17.2280654Z ##[error]Process completed with exit code 134.

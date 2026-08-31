@@ -1,0 +1,202 @@
+﻿2026-08-31T08:57:40.8152957Z ##[group]Run sudo apt-get update
+2026-08-31T08:57:40.8153489Z [36;1msudo apt-get update[0m
+2026-08-31T08:57:40.8153905Z [36;1msudo apt-get install -y --no-install-recommends \[0m
+2026-08-31T08:57:40.8154301Z [36;1m  xvfb \[0m
+2026-08-31T08:57:40.8154549Z [36;1m  libgl1 \[0m
+2026-08-31T08:57:40.8155054Z [36;1m  libegl1 \[0m
+2026-08-31T08:57:40.8155378Z [36;1m  libxkbcommon-x11-0 \[0m
+2026-08-31T08:57:40.8155694Z [36;1m  libdbus-1-3 \[0m
+2026-08-31T08:57:40.8155969Z [36;1m  libxcb1 \[0m
+2026-08-31T08:57:40.8156239Z [36;1m  libxcb-cursor0 \[0m
+2026-08-31T08:57:40.8156556Z [36;1m  libxcb-icccm4 \[0m
+2026-08-31T08:57:40.8156841Z [36;1m  libxcb-image0 \[0m
+2026-08-31T08:57:40.8157128Z [36;1m  libxcb-keysyms1 \[0m
+2026-08-31T08:57:40.8157419Z [36;1m  libxcb-randr0 \[0m
+2026-08-31T08:57:40.8157713Z [36;1m  libxcb-render-util0 \[0m
+2026-08-31T08:57:40.8158037Z [36;1m  libxcb-shape0 \[0m
+2026-08-31T08:57:40.8158343Z [36;1m  libxcb-shm0 \[0m
+2026-08-31T08:57:40.8158625Z [36;1m  libxcb-sync1 \[0m
+2026-08-31T08:57:40.8158943Z [36;1m  libxcb-xfixes0 \[0m
+2026-08-31T08:57:40.8159234Z [36;1m  libxcb-xinerama0 \[0m
+2026-08-31T08:57:40.8159521Z [36;1m  libxcb-xkb1 \[0m
+2026-08-31T08:57:40.8159786Z [36;1m  ccache \[0m
+2026-08-31T08:57:40.8160043Z [36;1m  gcc || true[0m
+2026-08-31T08:57:40.8200975Z shell: /usr/bin/bash -e {0}
+2026-08-31T08:57:40.8201335Z env:
+2026-08-31T08:57:40.8201591Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:40.8201890Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:40.8202189Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:40.8202492Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:40.8202791Z ##[endgroup]
+2026-08-31T08:57:40.9216767Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-08-31T08:57:40.9385118Z Get:6 https://packages.microsoft.com/repos/azure-cli noble InRelease [3564 B]
+2026-08-31T08:57:40.9501684Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+2026-08-31T08:57:40.9505989Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-08-31T08:57:40.9520508Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-08-31T08:57:40.9557995Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-08-31T08:57:40.9588549Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-08-31T08:57:41.0136582Z Get:8 https://dl.google.com/linux/chrome-stable/deb stable InRelease [2548 B]
+2026-08-31T08:57:41.1198074Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [427 kB]
+2026-08-31T08:57:41.1317186Z Get:10 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [12.5 kB]
+2026-08-31T08:57:41.1366161Z Get:11 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [381 kB]
+2026-08-31T08:57:41.1715433Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1230 kB]
+2026-08-31T08:57:41.1792466Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [287 kB]
+2026-08-31T08:57:41.1826323Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [180 kB]
+2026-08-31T08:57:41.1836054Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1689 kB]
+2026-08-31T08:57:41.1931190Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [338 kB]
+2026-08-31T08:57:41.1976313Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+2026-08-31T08:57:41.1995295Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1486 kB]
+2026-08-31T08:57:41.2076423Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [339 kB]
+2026-08-31T08:57:41.2099901Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+2026-08-31T08:57:41.2240676Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5760 B]
+2026-08-31T08:57:41.2681169Z Get:22 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.7 kB]
+2026-08-31T08:57:41.2956970Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [973 kB]
+2026-08-31T08:57:41.3146061Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [207 kB]
+2026-08-31T08:57:41.3147743Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [46.3 kB]
+2026-08-31T08:57:41.3176158Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1203 kB]
+2026-08-31T08:57:41.3225920Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [241 kB]
+2026-08-31T08:57:41.3235828Z Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.3 kB]
+2026-08-31T08:57:41.3246038Z Get:29 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1392 kB]
+2026-08-31T08:57:41.3381461Z Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [321 kB]
+2026-08-31T08:57:41.3411774Z Get:31 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse Translation-en [11.1 kB]
+2026-08-31T08:57:41.3836208Z Get:32 https://dl.google.com/linux/chrome-stable/deb stable/main amd64 Packages [1402 B]
+2026-08-31T08:57:46.1435432Z Fetched 11.6 MB in 1s (8661 kB/s)
+2026-08-31T08:57:46.8827667Z Reading package lists...
+2026-08-31T08:57:46.9131295Z Reading package lists...
+2026-08-31T08:57:47.0841423Z Building dependency tree...
+2026-08-31T08:57:47.0850118Z Reading state information...
+2026-08-31T08:57:47.2222943Z xvfb is already the newest version (2:21.1.12-1ubuntu1.6).
+2026-08-31T08:57:47.2223687Z libgl1 is already the newest version (1.7.0-1build1).
+2026-08-31T08:57:47.2224237Z libgl1 set to manually installed.
+2026-08-31T08:57:47.2224782Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+2026-08-31T08:57:47.2225692Z libdbus-1-3 set to manually installed.
+2026-08-31T08:57:47.2226193Z libxcb1 is already the newest version (1.15-1ubuntu2).
+2026-08-31T08:57:47.2226618Z libxcb1 set to manually installed.
+2026-08-31T08:57:47.2227057Z libxcb-randr0 is already the newest version (1.15-1ubuntu2).
+2026-08-31T08:57:47.2227739Z libxcb-randr0 set to manually installed.
+2026-08-31T08:57:47.2228211Z libxcb-shm0 is already the newest version (1.15-1ubuntu2).
+2026-08-31T08:57:47.2228648Z libxcb-shm0 set to manually installed.
+2026-08-31T08:57:47.2229071Z libxcb-sync1 is already the newest version (1.15-1ubuntu2).
+2026-08-31T08:57:47.2229517Z libxcb-sync1 set to manually installed.
+2026-08-31T08:57:47.2229991Z libxcb-xfixes0 is already the newest version (1.15-1ubuntu2).
+2026-08-31T08:57:47.2230495Z libxcb-xfixes0 set to manually installed.
+2026-08-31T08:57:47.2230962Z gcc is already the newest version (4:13.2.0-7ubuntu1).
+2026-08-31T08:57:47.2231431Z The following additional packages will be installed:
+2026-08-31T08:57:47.2232285Z   libegl-mesa0 libhiredis1.1.0 libxcb-util1
+2026-08-31T08:57:47.2233897Z Suggested packages:
+2026-08-31T08:57:47.2234278Z   distcc | icecc
+2026-08-31T08:57:47.2455284Z The following NEW packages will be installed:
+2026-08-31T08:57:47.2459750Z   ccache libegl-mesa0 libegl1 libhiredis1.1.0 libxcb-cursor0 libxcb-icccm4
+2026-08-31T08:57:47.2460749Z   libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1
+2026-08-31T08:57:47.2461555Z   libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0
+2026-08-31T08:57:47.2653273Z 0 upgraded, 14 newly installed, 0 to remove and 40 not upgraded.
+2026-08-31T08:57:47.2654018Z Need to get 898 kB of archives.
+2026-08-31T08:57:47.2655464Z After this operation, 2811 kB of additional disk space will be used.
+2026-08-31T08:57:47.2656180Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-08-31T08:57:47.3416304Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libhiredis1.1.0 amd64 1.2.0-6ubuntu3 [41.4 kB]
+2026-08-31T08:57:47.4020518Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 ccache amd64 4.9.1-1 [592 kB]
+2026-08-31T08:57:47.4684523Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libegl-mesa0 amd64 25.2.8-0ubuntu0.24.04.2 [117 kB]
+2026-08-31T08:57:47.5363066Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-shape0 amd64 1.15-1ubuntu2 [6100 B]
+2026-08-31T08:57:47.5964111Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-xinerama0 amd64 1.15-1ubuntu2 [5410 B]
+2026-08-31T08:57:47.6563129Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-xkb1 amd64 1.15-1ubuntu2 [32.3 kB]
+2026-08-31T08:57:47.7163823Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxkbcommon-x11-0 amd64 1.6.0-1build1 [14.5 kB]
+2026-08-31T08:57:47.7761127Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libegl1 amd64 1.7.0-1build1 [28.7 kB]
+2026-08-31T08:57:47.8358585Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-util1 amd64 0.4.0-1build3 [10.7 kB]
+2026-08-31T08:57:47.8955319Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-image0 amd64 0.4.0-2build1 [10.8 kB]
+2026-08-31T08:57:47.9552685Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-render-util0 amd64 0.3.9-1build4 [9608 B]
+2026-08-31T08:57:48.0150059Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 libxcb-cursor0 amd64 0.1.4-1build1 [10.7 kB]
+2026-08-31T08:57:48.0769617Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-icccm4 amd64 0.4.1-1.1build3 [10.8 kB]
+2026-08-31T08:57:48.1380753Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libxcb-keysyms1 amd64 0.4.0-1build4 [7956 B]
+2026-08-31T08:57:48.3788360Z Fetched 898 kB in 1s (1016 kB/s)
+2026-08-31T08:57:48.4025912Z Selecting previously unselected package libhiredis1.1.0:amd64.
+2026-08-31T08:57:48.4322253Z (Reading database ... 
+2026-08-31T08:57:48.4322553Z (Reading database ... 5%
+2026-08-31T08:57:48.4322819Z (Reading database ... 10%
+2026-08-31T08:57:48.4323066Z (Reading database ... 15%
+2026-08-31T08:57:48.4323331Z (Reading database ... 20%
+2026-08-31T08:57:48.4323562Z (Reading database ... 25%
+2026-08-31T08:57:48.4323863Z (Reading database ... 30%
+2026-08-31T08:57:48.4326108Z (Reading database ... 35%
+2026-08-31T08:57:48.4326840Z (Reading database ... 40%
+2026-08-31T08:57:48.4327423Z (Reading database ... 45%
+2026-08-31T08:57:48.4327930Z (Reading database ... 50%
+2026-08-31T08:57:48.4373020Z (Reading database ... 55%
+2026-08-31T08:57:48.4742761Z (Reading database ... 60%
+2026-08-31T08:57:48.6632680Z (Reading database ... 65%
+2026-08-31T08:57:48.8666101Z (Reading database ... 70%
+2026-08-31T08:57:49.0740128Z (Reading database ... 75%
+2026-08-31T08:57:49.2335041Z (Reading database ... 80%
+2026-08-31T08:57:49.4231339Z (Reading database ... 85%
+2026-08-31T08:57:49.6250970Z (Reading database ... 90%
+2026-08-31T08:57:49.7798327Z (Reading database ... 95%
+2026-08-31T08:57:49.7798865Z (Reading database ... 100%
+2026-08-31T08:57:49.7799748Z (Reading database ... 203385 files and directories currently installed.)
+2026-08-31T08:57:49.7838202Z Preparing to unpack .../00-libhiredis1.1.0_1.2.0-6ubuntu3_amd64.deb ...
+2026-08-31T08:57:49.7883249Z Unpacking libhiredis1.1.0:amd64 (1.2.0-6ubuntu3) ...
+2026-08-31T08:57:49.8137877Z Selecting previously unselected package ccache.
+2026-08-31T08:57:49.8258556Z Preparing to unpack .../01-ccache_4.9.1-1_amd64.deb ...
+2026-08-31T08:57:49.8270707Z Unpacking ccache (4.9.1-1) ...
+2026-08-31T08:57:49.8602492Z Selecting previously unselected package libegl-mesa0:amd64.
+2026-08-31T08:57:49.8726475Z Preparing to unpack .../02-libegl-mesa0_25.2.8-0ubuntu0.24.04.2_amd64.deb ...
+2026-08-31T08:57:49.8736768Z Unpacking libegl-mesa0:amd64 (25.2.8-0ubuntu0.24.04.2) ...
+2026-08-31T08:57:49.8982877Z Selecting previously unselected package libxcb-shape0:amd64.
+2026-08-31T08:57:49.9108416Z Preparing to unpack .../03-libxcb-shape0_1.15-1ubuntu2_amd64.deb ...
+2026-08-31T08:57:49.9118836Z Unpacking libxcb-shape0:amd64 (1.15-1ubuntu2) ...
+2026-08-31T08:57:49.9333484Z Selecting previously unselected package libxcb-xinerama0:amd64.
+2026-08-31T08:57:49.9457414Z Preparing to unpack .../04-libxcb-xinerama0_1.15-1ubuntu2_amd64.deb ...
+2026-08-31T08:57:49.9468203Z Unpacking libxcb-xinerama0:amd64 (1.15-1ubuntu2) ...
+2026-08-31T08:57:49.9677638Z Selecting previously unselected package libxcb-xkb1:amd64.
+2026-08-31T08:57:49.9800478Z Preparing to unpack .../05-libxcb-xkb1_1.15-1ubuntu2_amd64.deb ...
+2026-08-31T08:57:49.9810747Z Unpacking libxcb-xkb1:amd64 (1.15-1ubuntu2) ...
+2026-08-31T08:57:50.0029398Z Selecting previously unselected package libxkbcommon-x11-0:amd64.
+2026-08-31T08:57:50.0153884Z Preparing to unpack .../06-libxkbcommon-x11-0_1.6.0-1build1_amd64.deb ...
+2026-08-31T08:57:50.0167232Z Unpacking libxkbcommon-x11-0:amd64 (1.6.0-1build1) ...
+2026-08-31T08:57:50.0376949Z Selecting previously unselected package libegl1:amd64.
+2026-08-31T08:57:50.0498416Z Preparing to unpack .../07-libegl1_1.7.0-1build1_amd64.deb ...
+2026-08-31T08:57:50.0508688Z Unpacking libegl1:amd64 (1.7.0-1build1) ...
+2026-08-31T08:57:50.0724721Z Selecting previously unselected package libxcb-util1:amd64.
+2026-08-31T08:57:50.0848246Z Preparing to unpack .../08-libxcb-util1_0.4.0-1build3_amd64.deb ...
+2026-08-31T08:57:50.0859816Z Unpacking libxcb-util1:amd64 (0.4.0-1build3) ...
+2026-08-31T08:57:50.1106048Z Selecting previously unselected package libxcb-image0:amd64.
+2026-08-31T08:57:50.1203708Z Preparing to unpack .../09-libxcb-image0_0.4.0-2build1_amd64.deb ...
+2026-08-31T08:57:50.1215673Z Unpacking libxcb-image0:amd64 (0.4.0-2build1) ...
+2026-08-31T08:57:50.1442731Z Selecting previously unselected package libxcb-render-util0:amd64.
+2026-08-31T08:57:50.1563501Z Preparing to unpack .../10-libxcb-render-util0_0.3.9-1build4_amd64.deb ...
+2026-08-31T08:57:50.1578043Z Unpacking libxcb-render-util0:amd64 (0.3.9-1build4) ...
+2026-08-31T08:57:50.1793281Z Selecting previously unselected package libxcb-cursor0:amd64.
+2026-08-31T08:57:50.1917067Z Preparing to unpack .../11-libxcb-cursor0_0.1.4-1build1_amd64.deb ...
+2026-08-31T08:57:50.1929266Z Unpacking libxcb-cursor0:amd64 (0.1.4-1build1) ...
+2026-08-31T08:57:50.2137331Z Selecting previously unselected package libxcb-icccm4:amd64.
+2026-08-31T08:57:50.2257881Z Preparing to unpack .../12-libxcb-icccm4_0.4.1-1.1build3_amd64.deb ...
+2026-08-31T08:57:50.2267254Z Unpacking libxcb-icccm4:amd64 (0.4.1-1.1build3) ...
+2026-08-31T08:57:50.2477638Z Selecting previously unselected package libxcb-keysyms1:amd64.
+2026-08-31T08:57:50.2596942Z Preparing to unpack .../13-libxcb-keysyms1_0.4.0-1build4_amd64.deb ...
+2026-08-31T08:57:50.2607215Z Unpacking libxcb-keysyms1:amd64 (0.4.0-1build4) ...
+2026-08-31T08:57:50.2987934Z Setting up libxcb-keysyms1:amd64 (0.4.0-1build4) ...
+2026-08-31T08:57:50.3024553Z Setting up libxcb-shape0:amd64 (1.15-1ubuntu2) ...
+2026-08-31T08:57:50.3052219Z Setting up libxcb-render-util0:amd64 (0.3.9-1build4) ...
+2026-08-31T08:57:50.3081630Z Setting up libxcb-icccm4:amd64 (0.4.1-1.1build3) ...
+2026-08-31T08:57:50.3110015Z Setting up libxcb-util1:amd64 (0.4.0-1build3) ...
+2026-08-31T08:57:50.3142543Z Setting up libxcb-xkb1:amd64 (1.15-1ubuntu2) ...
+2026-08-31T08:57:50.3217253Z Setting up libxcb-image0:amd64 (0.4.0-2build1) ...
+2026-08-31T08:57:50.3247357Z Setting up libegl-mesa0:amd64 (25.2.8-0ubuntu0.24.04.2) ...
+2026-08-31T08:57:50.3276270Z Setting up libxcb-xinerama0:amd64 (1.15-1ubuntu2) ...
+2026-08-31T08:57:50.3306503Z Setting up libxcb-cursor0:amd64 (0.1.4-1build1) ...
+2026-08-31T08:57:50.3336776Z Setting up libxkbcommon-x11-0:amd64 (1.6.0-1build1) ...
+2026-08-31T08:57:50.3366893Z Setting up libegl1:amd64 (1.7.0-1build1) ...
+2026-08-31T08:57:50.3392432Z Setting up libhiredis1.1.0:amd64 (1.2.0-6ubuntu3) ...
+2026-08-31T08:57:50.3415628Z Setting up ccache (4.9.1-1) ...
+2026-08-31T08:57:50.3437221Z Updating symlinks in /usr/lib/ccache ...
+2026-08-31T08:57:50.3547621Z Processing triggers for libc-bin (2.39-0ubuntu8.8) ...
+2026-08-31T08:57:50.3873481Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-08-31T08:57:50.3895435Z Not building database; man-db/auto-update is not 'true'.
+2026-08-31T08:57:51.0093015Z 
+2026-08-31T08:57:51.0093599Z Running kernel seems to be up-to-date.
+2026-08-31T08:57:51.0094088Z 
+2026-08-31T08:57:51.0094328Z No services need to be restarted.
+2026-08-31T08:57:51.0094637Z 
+2026-08-31T08:57:51.0094779Z No containers need to be restarted.
+2026-08-31T08:57:51.0095340Z 
+2026-08-31T08:57:51.0095518Z No user sessions are running outdated binaries.
+2026-08-31T08:57:51.0095821Z 
+2026-08-31T08:57:51.0096099Z No VM guests are running outdated hypervisor (qemu) binaries on this host.

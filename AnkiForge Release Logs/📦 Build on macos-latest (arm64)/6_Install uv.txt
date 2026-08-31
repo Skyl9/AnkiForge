@@ -1,0 +1,36 @@
+﻿2026-08-31T08:57:52.1019220Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T08:57:52.1020300Z ##[group]Run astral-sh/setup-uv@v5
+2026-08-31T08:57:52.1020510Z with:
+2026-08-31T08:57:52.1020660Z   enable-cache: true
+2026-08-31T08:57:52.1020850Z   cache-dependency-glob: uv.lock
+2026-08-31T08:57:52.1021030Z   version: latest
+2026-08-31T08:57:52.1022940Z   github-token: ***
+2026-08-31T08:57:52.1023150Z   prune-cache: true
+2026-08-31T08:57:52.1023350Z   ignore-nothing-to-cache: false
+2026-08-31T08:57:52.1023600Z   ignore-empty-workdir: false
+2026-08-31T08:57:52.1023840Z env:
+2026-08-31T08:57:52.1024080Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:52.1024300Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:52.1024570Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:52.1024900Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:52.1025130Z ##[endgroup]
+2026-08-31T08:57:52.3242850Z (node:1642) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-31T08:57:52.3244210Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-31T08:57:52.6785200Z Downloading uv from "https://github.com/astral-sh/uv/releases/download/0.12.7/uv-aarch64-apple-darwin.tar.gz" ...
+2026-08-31T08:57:53.1278690Z [command]/usr/bin/tar xz -C /Users/runner/work/_temp/5e310c66-5f60-492d-b349-03016d68e57b -f /Users/runner/work/_temp/8cc82f36-bef3-4756-ba9a-0edf13d91fd4
+2026-08-31T08:57:53.3726880Z Added /Users/runner/.local/bin to the path
+2026-08-31T08:57:53.3834100Z Added /Users/runner/hostedtoolcache/uv/0.12.7/aarch64 to the path
+2026-08-31T08:57:53.4046400Z Set UV_CACHE_DIR to /Users/runner/work/_temp/setup-uv-cache
+2026-08-31T08:57:53.4109740Z Successfully installed uv version 0.12.7
+2026-08-31T08:57:53.4110410Z Searching files using cache dependency glob: uv.lock
+2026-08-31T08:57:53.4112590Z /Users/runner/work/AnkiForge/AnkiForge/uv.lock
+2026-08-31T08:57:53.4112930Z Found 1 files to hash.
+2026-08-31T08:57:53.8425380Z Trying to restore uv cache from GitHub Actions cache with key: setup-uv-1-aarch64-apple-darwin-3.14.6-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca
+2026-08-31T08:57:54.0842210Z Cache hit for: setup-uv-1-aarch64-apple-darwin-3.14.6-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca
+2026-08-31T08:57:54.1076020Z (node:1642) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-08-31T08:57:55.4049740Z Received 0 of 3948044 (0.0%), 0.0 MBs/sec
+2026-08-31T08:57:55.6132620Z Received 3948044 of 3948044 (100.0%), 3.1 MBs/sec
+2026-08-31T08:57:55.6196660Z Cache Size: ~4 MB (3948044 B)
+2026-08-31T08:57:55.6206750Z [command]/opt/homebrew/bin/gtar -xf /Users/runner/work/_temp/40d33e72-ce8c-4e92-9939-fcd763781c6b/cache.tzst -P -C /Users/runner/work/AnkiForge/AnkiForge --delay-directory-restore --use-compress-program unzstd
+2026-08-31T08:57:55.6689910Z Cache restored successfully
+2026-08-31T08:57:55.6730160Z uv cache restored from GitHub Actions cache with key: setup-uv-1-aarch64-apple-darwin-3.14.6-8d0dd2c7990a90d478f71358b840df577cc447966f2dabf2af5d3c7cdde666ca

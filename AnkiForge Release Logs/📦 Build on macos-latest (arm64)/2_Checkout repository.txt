@@ -1,0 +1,153 @@
+﻿2026-08-31T08:57:37.0223360Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T08:57:37.0231110Z ##[group]Run actions/checkout@v4
+2026-08-31T08:57:37.0232230Z with:
+2026-08-31T08:57:37.0232730Z   repository: Skyl9/AnkiForge
+2026-08-31T08:57:37.0236130Z   token: ***
+2026-08-31T08:57:37.0236530Z   ssh-strict: true
+2026-08-31T08:57:37.0236920Z   ssh-user: git
+2026-08-31T08:57:37.0237250Z   persist-credentials: true
+2026-08-31T08:57:37.0237600Z   clean: true
+2026-08-31T08:57:37.0237920Z   sparse-checkout-cone-mode: true
+2026-08-31T08:57:37.0238340Z   fetch-depth: 1
+2026-08-31T08:57:37.0238650Z   fetch-tags: false
+2026-08-31T08:57:37.0238970Z   show-progress: true
+2026-08-31T08:57:37.0239290Z   lfs: false
+2026-08-31T08:57:37.0239630Z   submodules: false
+2026-08-31T08:57:37.0240040Z   set-safe-directory: true
+2026-08-31T08:57:37.0240410Z   allow-unsafe-pr-checkout: false
+2026-08-31T08:57:37.0241160Z env:
+2026-08-31T08:57:37.0241510Z   PYTHONUNBUFFERED: 1
+2026-08-31T08:57:37.0241920Z   QT_QPA_PLATFORM: offscreen
+2026-08-31T08:57:37.0242350Z   QTWEBENGINE_DISABLE_SANDBOX: 1
+2026-08-31T08:57:37.0242780Z   ANKIFORGE_MOCK_WEBENGINE: 1
+2026-08-31T08:57:37.0243140Z ##[endgroup]
+2026-08-31T08:57:37.5951730Z Syncing repository: Skyl9/AnkiForge
+2026-08-31T08:57:37.5955790Z ##[group]Getting Git version info
+2026-08-31T08:57:37.5956500Z Working directory is '/Users/runner/work/AnkiForge/AnkiForge'
+2026-08-31T08:57:37.5959900Z [command]/opt/homebrew/bin/git version
+2026-08-31T08:57:37.6345940Z git version 2.55.0
+2026-08-31T08:57:37.6386340Z ##[endgroup]
+2026-08-31T08:57:37.6394020Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/bad6674f-9359-4b45-a1a0-21c065607d02/.gitconfig'
+2026-08-31T08:57:37.6403440Z Temporarily overriding HOME='/Users/runner/work/_temp/bad6674f-9359-4b45-a1a0-21c065607d02' before making global git config changes
+2026-08-31T08:57:37.6406310Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-31T08:57:37.6408950Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/AnkiForge/AnkiForge
+2026-08-31T08:57:37.6692080Z Deleting the contents of '/Users/runner/work/AnkiForge/AnkiForge'
+2026-08-31T08:57:37.6693600Z ##[group]Initializing the repository
+2026-08-31T08:57:37.6695460Z [command]/opt/homebrew/bin/git init /Users/runner/work/AnkiForge/AnkiForge
+2026-08-31T08:57:37.6988290Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-08-31T08:57:37.6990850Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-08-31T08:57:37.6993200Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-08-31T08:57:37.6994750Z hint: call:
+2026-08-31T08:57:37.6995880Z hint:
+2026-08-31T08:57:37.6997080Z hint: 	git config --global init.defaultBranch <name>
+2026-08-31T08:57:37.6998430Z hint:
+2026-08-31T08:57:37.6999820Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-08-31T08:57:37.7001690Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-08-31T08:57:37.7003450Z hint:
+2026-08-31T08:57:37.7003940Z hint: 	git branch -m <name>
+2026-08-31T08:57:37.7004410Z hint:
+2026-08-31T08:57:37.7004950Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-08-31T08:57:37.7013010Z Initialized empty Git repository in /Users/runner/work/AnkiForge/AnkiForge/.git/
+2026-08-31T08:57:37.7018340Z [command]/opt/homebrew/bin/git remote add origin https://github.com/Skyl9/AnkiForge
+2026-08-31T08:57:37.7360790Z ##[endgroup]
+2026-08-31T08:57:37.7460440Z ##[group]Disabling automatic garbage collection
+2026-08-31T08:57:37.7579060Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-08-31T08:57:37.7712310Z ##[endgroup]
+2026-08-31T08:57:37.7715530Z ##[group]Setting up auth
+2026-08-31T08:57:37.7725980Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-31T08:57:37.7740270Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-31T08:57:37.9339280Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-31T08:57:37.9452360Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-31T08:57:38.0464570Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-31T08:57:38.0745270Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-31T08:57:38.2160940Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-31T08:57:38.2247280Z ##[endgroup]
+2026-08-31T08:57:38.2249230Z ##[group]Fetching the repository
+2026-08-31T08:57:38.2259280Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +8066f6d265ad255dcb99165b4cdb4892717e4765:refs/remotes/origin/master
+2026-08-31T08:57:40.3249910Z From https://github.com/Skyl9/AnkiForge
+2026-08-31T08:57:40.3255370Z  * [new ref]           8066f6d265ad255dcb99165b4cdb4892717e4765 -> origin/master
+2026-08-31T08:57:40.3306100Z ##[endgroup]
+2026-08-31T08:57:40.3308150Z ##[group]Determining the checkout info
+2026-08-31T08:57:40.3313460Z ##[endgroup]
+2026-08-31T08:57:40.3314320Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-08-31T08:57:40.3435700Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-31T08:57:40.3550940Z ##[group]Checking out the ref
+2026-08-31T08:57:40.3552440Z [command]/opt/homebrew/bin/git checkout --progress --force -B master refs/remotes/origin/master
+2026-08-31T08:57:41.4753830Z Updating files:  31% (5813/18716)
+2026-08-31T08:57:41.5306340Z Updating files:  32% (5990/18716)
+2026-08-31T08:57:41.5725570Z Updating files:  33% (6177/18716)
+2026-08-31T08:57:41.6073050Z Updating files:  34% (6364/18716)
+2026-08-31T08:57:41.6481710Z Updating files:  35% (6551/18716)
+2026-08-31T08:57:41.6871160Z Updating files:  36% (6738/18716)
+2026-08-31T08:57:41.7143300Z Updating files:  37% (6925/18716)
+2026-08-31T08:57:41.7498600Z Updating files:  38% (7113/18716)
+2026-08-31T08:57:41.7817280Z Updating files:  39% (7300/18716)
+2026-08-31T08:57:41.8117340Z Updating files:  40% (7487/18716)
+2026-08-31T08:57:41.9208580Z Updating files:  41% (7674/18716)
+2026-08-31T08:57:42.0820340Z Updating files:  42% (7861/18716)
+2026-08-31T08:57:42.1116470Z Updating files:  43% (8048/18716)
+2026-08-31T08:57:42.1394430Z Updating files:  44% (8236/18716)
+2026-08-31T08:57:42.1642500Z Updating files:  45% (8423/18716)
+2026-08-31T08:57:42.1925300Z Updating files:  46% (8610/18716)
+2026-08-31T08:57:42.2582450Z Updating files:  47% (8797/18716)
+2026-08-31T08:57:42.2800000Z Updating files:  48% (8984/18716)
+2026-08-31T08:57:42.3076350Z Updating files:  49% (9171/18716)
+2026-08-31T08:57:42.3430440Z Updating files:  50% (9358/18716)
+2026-08-31T08:57:42.3686560Z Updating files:  51% (9546/18716)
+2026-08-31T08:57:42.3808980Z Updating files:  52% (9733/18716)
+2026-08-31T08:57:42.3988010Z Updating files:  52% (9827/18716)
+2026-08-31T08:57:42.4327750Z Updating files:  53% (9920/18716)
+2026-08-31T08:57:42.4642310Z Updating files:  54% (10107/18716)
+2026-08-31T08:57:42.4879380Z Updating files:  55% (10294/18716)
+2026-08-31T08:57:42.5081950Z Updating files:  56% (10481/18716)
+2026-08-31T08:57:42.5624450Z Updating files:  57% (10669/18716)
+2026-08-31T08:57:42.5922960Z Updating files:  58% (10856/18716)
+2026-08-31T08:57:42.6228600Z Updating files:  59% (11043/18716)
+2026-08-31T08:57:42.6511990Z Updating files:  60% (11230/18716)
+2026-08-31T08:57:42.6761210Z Updating files:  61% (11417/18716)
+2026-08-31T08:57:42.7267880Z Updating files:  62% (11604/18716)
+2026-08-31T08:57:42.7491400Z Updating files:  63% (11792/18716)
+2026-08-31T08:57:42.7721050Z Updating files:  64% (11979/18716)
+2026-08-31T08:57:42.7992850Z Updating files:  65% (12166/18716)
+2026-08-31T08:57:42.8196490Z Updating files:  66% (12353/18716)
+2026-08-31T08:57:42.8432620Z Updating files:  67% (12540/18716)
+2026-08-31T08:57:42.8743420Z Updating files:  68% (12727/18716)
+2026-08-31T08:57:42.9006390Z Updating files:  69% (12915/18716)
+2026-08-31T08:57:42.9250050Z Updating files:  70% (13102/18716)
+2026-08-31T08:57:42.9519230Z Updating files:  71% (13289/18716)
+2026-08-31T08:57:42.9767780Z Updating files:  72% (13476/18716)
+2026-08-31T08:57:42.9980450Z Updating files:  73% (13663/18716)
+2026-08-31T08:57:43.0198700Z Updating files:  74% (13850/18716)
+2026-08-31T08:57:43.0872390Z Updating files:  75% (14037/18716)
+2026-08-31T08:57:43.1132550Z Updating files:  76% (14225/18716)
+2026-08-31T08:57:43.1379030Z Updating files:  77% (14412/18716)
+2026-08-31T08:57:43.1619140Z Updating files:  78% (14599/18716)
+2026-08-31T08:57:43.1856490Z Updating files:  79% (14786/18716)
+2026-08-31T08:57:43.2103080Z Updating files:  80% (14973/18716)
+2026-08-31T08:57:43.2483160Z Updating files:  81% (15160/18716)
+2026-08-31T08:57:43.2849060Z Updating files:  82% (15348/18716)
+2026-08-31T08:57:43.3173920Z Updating files:  83% (15535/18716)
+2026-08-31T08:57:43.3393430Z Updating files:  84% (15722/18716)
+2026-08-31T08:57:43.3624280Z Updating files:  85% (15909/18716)
+2026-08-31T08:57:43.3810470Z Updating files:  86% (16096/18716)
+2026-08-31T08:57:43.3845700Z Updating files:  86% (16248/18716)
+2026-08-31T08:57:43.4068980Z Updating files:  87% (16283/18716)
+2026-08-31T08:57:43.4265380Z Updating files:  88% (16471/18716)
+2026-08-31T08:57:43.4548290Z Updating files:  89% (16658/18716)
+2026-08-31T08:57:43.4948950Z Updating files:  90% (16845/18716)
+2026-08-31T08:57:43.5544530Z Updating files:  91% (17032/18716)
+2026-08-31T08:57:43.5893950Z Updating files:  92% (17219/18716)
+2026-08-31T08:57:43.6241320Z Updating files:  93% (17406/18716)
+2026-08-31T08:57:43.6560870Z Updating files:  94% (17594/18716)
+2026-08-31T08:57:43.6847540Z Updating files:  95% (17781/18716)
+2026-08-31T08:57:43.7158290Z Updating files:  96% (17968/18716)
+2026-08-31T08:57:43.7494710Z Updating files:  97% (18155/18716)
+2026-08-31T08:57:43.7674690Z Updating files:  98% (18342/18716)
+2026-08-31T08:57:43.8084420Z Updating files:  99% (18529/18716)
+2026-08-31T08:57:43.8086160Z Updating files: 100% (18716/18716)
+2026-08-31T08:57:43.8086910Z Updating files: 100% (18716/18716), done.
+2026-08-31T08:57:43.8346920Z Reset branch 'master'
+2026-08-31T08:57:43.8374880Z branch 'master' set up to track 'origin/master'.
+2026-08-31T08:57:43.8400890Z ##[endgroup]
+2026-08-31T08:57:43.8588270Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-08-31T08:57:43.8690500Z 8066f6d265ad255dcb99165b4cdb4892717e4765
