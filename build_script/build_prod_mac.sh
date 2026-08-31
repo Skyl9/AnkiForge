@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script de compilation Nuitka optimise pour macOS
+# Script de compilation Nuitka optimise pour macOS (Mode Fast Standalone)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -9,10 +9,10 @@ rm -rf dist_prod/
 mkdir -p dist_prod
 
 echo "[INFO] Compilation de l'extension C native Levenshtein (Universal 2)..."
-mkdir -p src/ankiforge/c_ext
-clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o src/ankiforge/c_ext/levenshtein_distance.so src/ankiforge/c_ext/levenshtein_distance.c || true
+mkdir -p c_ext
+clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o c_ext/levenshtein_distance.so c_ext/levenshtein_distance.c || true
 
-echo "[INFO] Demarrage de la compilation avec Nuitka..."
+echo "[INFO] Demarrage de la compilation avec Nuitka (Noyau AnkiForge)..."
 
 export CFLAGS="-O2"
 export CXXFLAGS="-O2"
@@ -26,8 +26,25 @@ uv run --no-sync python -m nuitka \
     --macos-app-icon=none \
     --enable-plugin=pyside6 \
     --include-package=ankiforge \
+    --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \
+    --nofollow-import-to=openai \
+    --nofollow-import-to=pydantic \
+    --nofollow-import-to=babel \
+    --nofollow-import-to=dateparser \
+    --nofollow-import-to=trafilatura \
+    --nofollow-import-to=docx \
+    --nofollow-import-to=pptx \
+    --nofollow-import-to=pypdf \
+    --nofollow-import-to=jinja2 \
+    --nofollow-import-to=bs4 \
+    --nofollow-import-to=urllib3 \
+    --nofollow-import-to=httpx \
+    --nofollow-import-to=httpcore \
+    --nofollow-import-to=jsonschema \
+    --nofollow-import-to=cryptography \
+    --nofollow-import-to=peewee_migrate \
     --nofollow-import-to=tkinter \
     --nofollow-import-to=matplotlib \
     --nofollow-import-to=docutils \
@@ -56,7 +73,10 @@ fi
 
 chmod +x dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge || true
 
-echo "[INFO] Copie des dependances, ressources et extensions C..."
+echo "[INFO] Copie des dépendances runtime, ressources et extensions C..."
+# Copie de l'intégralité des modules et packages tiers runtime
+uv run --no-sync python script/copy_runtime_dependencies.py dist_prod/AnkiForge.app/Contents/MacOS
+
 # Copie des ressources
 mkdir -p dist_prod/AnkiForge.app/Contents/Resources/src/ressources
 mkdir -p dist_prod/AnkiForge.app/Contents/MacOS/src/ressources
@@ -64,14 +84,11 @@ cp -r src/ressources/* dist_prod/AnkiForge.app/Contents/Resources/src/ressources
 cp -r src/ressources/* dist_prod/AnkiForge.app/Contents/MacOS/src/ressources/
 
 # Copie de l'extension C
-mkdir -p dist_prod/AnkiForge.app/Contents/Resources/src/ankiforge/c_ext
-mkdir -p dist_prod/AnkiForge.app/Contents/MacOS/src/ankiforge/c_ext
-cp -r src/ankiforge/c_ext/* dist_prod/AnkiForge.app/Contents/Resources/src/ankiforge/c_ext/
-cp -r src/ankiforge/c_ext/* dist_prod/AnkiForge.app/Contents/MacOS/src/ankiforge/c_ext/
-
-# Copie des packages purs / dynamiques
-uv run --no-sync python -c "import google, shutil, pathlib; shutil.copytree(pathlib.Path(google.__file__).parent, 'dist_prod/AnkiForge.app/Contents/MacOS/google', dirs_exist_ok=True)" 2>/dev/null || true
-uv run --no-sync python -c "import faiss, shutil, pathlib; shutil.copytree(pathlib.Path(faiss.__file__).parent, 'dist_prod/AnkiForge.app/Contents/MacOS/faiss', dirs_exist_ok=True)" 2>/dev/null || true
+mkdir -p dist_prod/AnkiForge.app/Contents/Resources/c_ext
+mkdir -p dist_prod/AnkiForge.app/Contents/MacOS/c_ext
+cp -r c_ext/* dist_prod/AnkiForge.app/Contents/Resources/c_ext/ || true
+cp -r c_ext/* dist_prod/AnkiForge.app/Contents/MacOS/c_ext/ || true
+cp -f c_ext/levenshtein_distance.so dist_prod/AnkiForge.app/Contents/MacOS/ || true
 
 echo "[INFO] Signature de code Ad-Hoc du bundle macOS..."
 codesign --force --deep -s - dist_prod/AnkiForge.app

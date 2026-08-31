@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "📦 Préparation du dossier AppDir..."
+echo "[INFO] Preparation du dossier AppDir..."
 rm -rf dist_prod/AppDir
 mkdir -p dist_prod/AppDir/usr/bin
 mkdir -p dist_prod/AppDir/usr/share/icons/hicolor/scalable/apps
@@ -23,7 +23,7 @@ Type=Application
 Name=AnkiForge
 Exec=AnkiForge %F
 Icon=ankiforge
-Comment=Générateur de cartes Anki assisté par IA
+Comment=Generateur de cartes Anki assiste par IA
 Categories=Education;Utility;Qt;
 Terminal=false
 StartupWMClass=AnkiForge
@@ -41,13 +41,13 @@ APPRUN_EOF
 chmod +x dist_prod/AppDir/AppRun
 chmod +x dist_prod/AppDir/usr/bin/AnkiForge
 
-echo "🛠️ Téléchargement d'appimagetool..."
+echo "[INFO] Telechargement d'appimagetool..."
 if [ ! -f "dist_prod/appimagetool" ]; then
     curl -fsSL -o dist_prod/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
     chmod +x dist_prod/appimagetool
 fi
 
-echo "🚀 Génération de l'AppImage..."
+echo "[INFO] Generation de l'AppImage..."
 ARCH=x86_64 ./dist_prod/appimagetool --appimage-extract-and-run dist_prod/AppDir AnkiForge-x86_64.AppImage
 
-echo "✅ AppImage générée avec succès : AnkiForge-x86_64.AppImage"
+echo "[SUCCESS] AppImage generee avec succes : AnkiForge-x86_64.AppImage"

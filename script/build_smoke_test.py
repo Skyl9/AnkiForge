@@ -31,8 +31,8 @@ def main() -> None:
     print("=" * 60)
 
     # 1. Compilation de l'extension C si manquante
-    c_source = root_dir / "src" / "ankiforge" / "c_ext" / "levenshtein_distance.c"
-    c_so = root_dir / "src" / "ankiforge" / "c_ext" / "levenshtein_distance.so"
+    c_source = root_dir / "c_ext" / "levenshtein_distance.c"
+    c_so = root_dir / "c_ext" / "levenshtein_distance.so"
     if c_source.exists() and not c_so.exists() and sys.platform != "win32":
         print("⚙️ Compilation de l'extension C Levenshtein...")
         subprocess.run(["gcc", "-shared", "-o", str(c_so), "-fPIC", str(c_source)], check=False)

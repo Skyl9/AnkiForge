@@ -8,9 +8,14 @@ from ankiforge.utils.paths import get_resource_path
 logger = logging.getLogger(__name__)
 
 ext = "dll" if platform.system() == "Windows" else "so"
-lib_path: Path = get_resource_path("src", "ankiforge", "c_ext", f"levenshtein_distance.{ext}")
-if not lib_path.exists():
-    lib_path = get_resource_path("ankiforge", "c_ext", f"levenshtein_distance.{ext}")
+_candidates = [
+    get_resource_path("c_ext", f"levenshtein_distance.{ext}"),
+    get_resource_path("src", "c_ext", f"levenshtein_distance.{ext}"),
+    get_resource_path(f"levenshtein_distance.{ext}"),
+    get_resource_path("src", "ankiforge", "c_ext", f"levenshtein_distance.{ext}"),
+    get_resource_path("ankiforge", "c_ext", f"levenshtein_distance.{ext}"),
+]
+lib_path: Path = next((p for p in _candidates if p.exists()), _candidates[0])
 
 _matcher_lib: ctypes.CDLL | None = None
 C_MATCHER_LOADED = False
