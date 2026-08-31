@@ -41,7 +41,6 @@ uv run --no-sync python -m nuitka `
     --include-package=uvicorn `
     --include-package=anyio `
     --include-package=sniffio `
-    --include-distribution-metadata=trafilatura `
     --no-deployment-flag=excluded-module-usage `
     --nofollow-import-to=google `
     --nofollow-import-to=faiss `
