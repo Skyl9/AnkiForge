@@ -124,7 +124,7 @@ jobs:
       - name: Build Binary with Nuitka (Windows)
         if: runner.os == 'Windows'
         run: |
-          powershell -ExecutionPolicy Bypass -File build_script/build_prod_windows.ps1
+          .\build_script\build_prod_windows.ps1
         shell: pwsh
 
       # ── Tests de validation (Smoke Tests) ──

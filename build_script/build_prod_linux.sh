@@ -1,20 +1,22 @@
 #!/bin/bash
-# Script de compilation Nuitka optimisé pour Linux
+# Script de compilation Nuitka optimise pour Linux
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "🧹 Nettoyage du dossier de production..."
+echo "[INFO] Nettoyage du dossier de production..."
 rm -rf dist_prod/
 mkdir -p dist_prod
 
-echo "⚙️ Compilation de l'extension C native Levenshtein..."
+echo "[INFO] Compilation de l'extension C native Levenshtein..."
+mkdir -p src/ankiforge/c_ext
 gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c || true
 
-echo "🚀 Démarrage de la compilation avec Nuitka..."
+echo "[INFO] Demarrage de la compilation avec Nuitka..."
 
 export CFLAGS="-O2"
 export CXXFLAGS="-O2"
+NCPUS=$(nproc || echo 4)
 
 uv run --no-sync python -m nuitka \
     --standalone \
@@ -26,15 +28,15 @@ uv run --no-sync python -m nuitka \
     --nofollow-import-to=matplotlib \
     --nofollow-import-to=docutils \
     --include-package-data=qtawesome \
-    --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
     --low-memory \
+    --jobs="${NCPUS}" \
     --lto=no \
     --output-dir=dist_prod \
     --output-filename=AnkiForge \
     --assume-yes-for-downloads \
     src/ankiforge/__main__.py
 
-# Harmonisation du nom de dossier généré
+# Harmonisation du nom de dossier genere
 if [ -d "dist_prod/__main__.dist" ]; then
     rm -rf dist_prod/AnkiForge.dist
     mv dist_prod/__main__.dist dist_prod/AnkiForge.dist
@@ -50,14 +52,18 @@ fi
 
 chmod +x dist_prod/AnkiForge.dist/AnkiForge || true
 
-echo "📦 Copie des dépendances non compilées en C et des ressources..."
+echo "[INFO] Copie des dependances, ressources et extensions C..."
 # Copie des ressources
-mkdir -p dist_prod/AnkiForge.dist/src
-cp -r src/ressources dist_prod/AnkiForge.dist/src/
+mkdir -p dist_prod/AnkiForge.dist/src/ressources
+cp -r src/ressources/* dist_prod/AnkiForge.dist/src/ressources/
+
+# Copie de l'extension C
+mkdir -p dist_prod/AnkiForge.dist/src/ankiforge/c_ext
+cp -r src/ankiforge/c_ext/* dist_prod/AnkiForge.dist/src/ankiforge/c_ext/
 
 # Copie des packages purs / dynamiques
 uv run --no-sync python -c "import google, shutil, pathlib; shutil.copytree(pathlib.Path(google.__file__).parent, 'dist_prod/AnkiForge.dist/google', dirs_exist_ok=True)" 2>/dev/null || true
 uv run --no-sync python -c "import faiss, shutil, pathlib; shutil.copytree(pathlib.Path(faiss.__file__).parent, 'dist_prod/AnkiForge.dist/faiss', dirs_exist_ok=True)" 2>/dev/null || true
 
-echo "✅ Compilation Linux terminée avec succès !"
-echo "📁 Dossier de distribution : dist_prod/AnkiForge.dist"
+echo "[SUCCESS] Compilation Linux terminee avec succes !"
+echo "[INFO] Dossier de distribution : dist_prod/AnkiForge.dist"

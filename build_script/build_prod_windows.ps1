@@ -1,22 +1,23 @@
 # Script PowerShell de compilation Nuitka pour Windows
-# À lancer depuis la racine du projet
+# A lancer depuis la racine du projet
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🧹 Nettoyage du dossier de production..."
+Write-Host "[INFO] Nettoyage du dossier de production..."
 if (Test-Path "dist_prod") {
     Remove-Item -Recurse -Force "dist_prod"
 }
 New-Item -ItemType Directory -Force -Path "dist_prod" | Out-Null
 
-Write-Host "⚙️ Compilation de l'extension C native Levenshtein..."
+Write-Host "[INFO] Compilation de l'extension C native Levenshtein..."
+New-Item -ItemType Directory -Force -Path "src\ankiforge\c_ext" | Out-Null
 try {
     gcc -O3 -flto -shared -o src/ankiforge/c_ext/levenshtein_distance.dll src/ankiforge/c_ext/levenshtein_distance.c
 } catch {
-    Write-Host "ℹ️ Extension C Levenshtein non compilée sous Windows (repli automatique sur difflib Python)."
+    Write-Host "[WARNING] Extension C Levenshtein non compilee sous Windows (repli automatique sur difflib Python)."
 }
 
-Write-Host "🚀 Démarrage de la compilation avec Nuitka..."
+Write-Host "[INFO] Demarrage de la compilation avec Nuitka..."
 $env:_CL_ = "/bigobj"
 
 uv run --no-sync python -m nuitka `
@@ -30,9 +31,8 @@ uv run --no-sync python -m nuitka `
     --nofollow-import-to=matplotlib `
     --nofollow-import-to=docutils `
     --include-package-data=qtawesome `
-    --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext `
     --low-memory `
-    --jobs=2 `
+    --jobs=4 `
     --msvc=latest `
     --lto=no `
     --output-dir=dist_prod `
@@ -41,7 +41,7 @@ uv run --no-sync python -m nuitka `
     src/ankiforge/__main__.py
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "❌ Échec critique de la compilation Nuitka (Code de sortie: $LASTEXITCODE)"
+    Write-Error "[ERROR] Echec critique de la compilation Nuitka (Code de sortie: $LASTEXITCODE)"
     exit $LASTEXITCODE
 }
 
@@ -56,23 +56,27 @@ if (Test-Path "dist_prod/AnkiForge.dist/__main__.exe") {
     Rename-Item -Path "dist_prod/AnkiForge.dist/__main__.exe" -NewName "AnkiForge.exe"
 }
 
-Write-Host "📦 Copie des dépendances non compilées en C et des ressources..."
+Write-Host "[INFO] Copie des dependances, ressources et extensions C..."
 # Copie des ressources
-New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src" | Out-Null
-Copy-Item -Path "src\ressources" -Destination "dist_prod\AnkiForge.dist\src\ressources" -Recurse -Force
+New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src\ressources" | Out-Null
+Copy-Item -Path "src\ressources\*" -Destination "dist_prod\AnkiForge.dist\src\ressources" -Recurse -Force
+
+# Copie de l'extension C
+New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src\ankiforge\c_ext" | Out-Null
+Copy-Item -Path "src\ankiforge\c_ext\*" -Destination "dist_prod\AnkiForge.dist\src\ankiforge\c_ext" -Recurse -Force
 
 # Copie des packages purs / dynamiques
 try {
     uv run --no-sync python -c "import google, shutil, pathlib; shutil.copytree(pathlib.Path(google.__file__).parent, 'dist_prod/AnkiForge.dist/google', dirs_exist_ok=True)"
 } catch {
-    Write-Host "Avertissement : google non copié dans AnkiForge.dist."
+    Write-Host "[WARNING] google non copie dans AnkiForge.dist."
 }
 
 try {
     uv run --no-sync python -c "import faiss, shutil, pathlib; shutil.copytree(pathlib.Path(faiss.__file__).parent, 'dist_prod/AnkiForge.dist/faiss', dirs_exist_ok=True)"
 } catch {
-    Write-Host "Avertissement : faiss non copié dans AnkiForge.dist."
+    Write-Host "[WARNING] faiss non copie dans AnkiForge.dist."
 }
 
-Write-Host "✅ Compilation Windows terminée avec succès !"
-Write-Host "📁 Dossier de distribution : dist_prod/AnkiForge.dist"
+Write-Host "[SUCCESS] Compilation Windows terminee avec succes !"
+Write-Host "[INFO] Dossier de distribution : dist_prod/AnkiForge.dist"
