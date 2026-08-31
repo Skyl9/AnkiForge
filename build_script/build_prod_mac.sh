@@ -13,7 +13,7 @@ echo "Démarrage de la compilation avec Nuitka..."
 export CFLAGS="-O2"
 export CXXFLAGS="-O2"
 
-uv run python -m nuitka \
+uv run --no-sync python -m nuitka \
     --standalone \
     --macos-create-app-bundle \
     --macos-app-name="AnkiForge" \
@@ -22,7 +22,6 @@ uv run python -m nuitka \
     --enable-plugin=pyside6 \
     --noinclude-default-mode=nofollow \
     --noinclude-pytest-mode=nofollow \
-    --noinclude-unittest-mode=nofollow \
     --noinclude-IPython-mode=nofollow \
     --noinclude-setuptools-mode=nofollow \
     --noinclude-dask-mode=nofollow \
@@ -30,6 +29,7 @@ uv run python -m nuitka \
     --nofollow-import-to=tkinter \
     --nofollow-import-to=matplotlib \
     --nofollow-import-to=docutils \
+    --nofollow-import-to=faiss \
     --include-package-data=qtawesome \
     --include-data-dir=src/ressources=src/ressources \
     --include-data-dir=src/ankiforge/c_ext=src/ankiforge/c_ext \
@@ -55,6 +55,9 @@ elif [ -f "dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge.bin" ]; then
 fi
 
 chmod +x dist_prod/AnkiForge.app/Contents/MacOS/AnkiForge || true
+
+# Copie du package faiss autonome (non compilé en C)
+uv run --no-sync python -c "import faiss, shutil, pathlib; shutil.copytree(pathlib.Path(faiss.__file__).parent, 'dist_prod/AnkiForge.app/Contents/MacOS/faiss', dirs_exist_ok=True)" 2>/dev/null || true
 
 echo "Compilation Nuitka terminée avec succès !"
 echo "L'application de production se trouve dans le dossier dist_prod/AnkiForge.app"
