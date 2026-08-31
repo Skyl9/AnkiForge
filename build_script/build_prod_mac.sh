@@ -37,6 +37,7 @@ uv run --no-sync python -m nuitka \
     --include-package=uvicorn \
     --include-package=anyio \
     --include-package=sniffio \
+    --include-distribution-metadata=trafilatura \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \
@@ -92,14 +93,36 @@ echo "[INFO] Copie des dépendances runtime, ressources et extensions C..."
 # Copie de l'intégralité des modules et packages tiers runtime
 uv run --no-sync python script/copy_runtime_dependencies.py dist_prod/AnkiForge.app/Contents/MacOS
 
-# Harmonisation universelle des bibliothèques dynamiques pour Apple codesign (résolution de tous les .dylibs)
-find dist_prod/AnkiForge.app/Contents/MacOS -type d -name ".dylibs" 2>/dev/null | while read -r dylib_dir; do
-    echo "[INFO] Extraction du dossier dynamique cache : $dylib_dir"
-    mkdir -p dist_prod/AnkiForge.app/Contents/Frameworks
-    cp -r "$dylib_dir"/* dist_prod/AnkiForge.app/Contents/Frameworks/ || true
-    cp -r "$dylib_dir"/* "$(dirname "$dylib_dir")"/ || true
-    rm -rf "$dylib_dir"
-done
+# Harmonisation Mach-O des dylibs pour Apple codesign (faiss, PIL, etc.)
+echo "[INFO] Harmonisation Mach-O des dylibs pour Apple codesign..."
+python3 - <<'EOF'
+import pathlib
+import shutil
+import subprocess
+
+macos_dir = pathlib.Path("dist_prod/AnkiForge.app/Contents/MacOS")
+if macos_dir.exists():
+    # 1. Renommer .dylibs -> dylibs
+    for dot_dir in list(macos_dir.rglob(".dylibs")):
+        target_dir = dot_dir.parent / "dylibs"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for f in dot_dir.iterdir():
+            shutil.copy2(f, target_dir / f.name)
+            shutil.copy2(f, dot_dir.parent / f.name)
+        shutil.rmtree(dot_dir)
+
+    # 2. Patcher les chemins Mach-O dans tous les .so et .dylib
+    for bin_file in macos_dir.rglob("*"):
+        if bin_file.is_file() and bin_file.suffix in (".so", ".dylib"):
+            res = subprocess.run(["otool", "-L", str(bin_file)], capture_output=True, text=True)
+            for line in res.stdout.splitlines():
+                line = line.strip()
+                if "@loader_path/.dylibs/" in line:
+                    old_path = line.split()[0]
+                    new_path = old_path.replace("@loader_path/.dylibs/", "@loader_path/dylibs/")
+                    subprocess.run(["install_name_tool", "-change", old_path, new_path, str(bin_file)], check=False)
+            subprocess.run(["codesign", "--force", "-s", "-", str(bin_file)], check=False)
+EOF
 
 # Copie des ressources
 mkdir -p dist_prod/AnkiForge.app/Contents/Resources/src/ressources

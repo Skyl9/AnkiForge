@@ -56,7 +56,10 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
     copied_count = 0
 
     for item in site_packages.iterdir():
-        if item.name.startswith(".") or item.name in skip_names or item.suffix in (".dist-info", ".egg-info", ".pth"):
+        if item.name.startswith(".") or item.name in skip_names or item.suffix in (".egg-info", ".pth"):
+            continue
+        # Exclure uniquement les .dist-info des outils de dev/tests
+        if item.suffix == ".dist-info" and any(item.name.lower().startswith(p) for p in ("pytest", "mypy", "ruff", "coverage", "pip", "setuptools", "wheel")):
             continue
 
         dest = target_dist / item.name
