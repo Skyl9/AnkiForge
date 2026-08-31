@@ -137,6 +137,12 @@ mkdir -p dist_prod/AnkiForge.app/Contents/MacOS/src/ressources
 cp -r src/ressources/* dist_prod/AnkiForge.app/Contents/Resources/src/ressources/
 cp -r src/ressources/* dist_prod/AnkiForge.app/Contents/MacOS/src/ressources/
 
+# Copie des scripts de migration SQL
+mkdir -p dist_prod/AnkiForge.app/Contents/Resources/migrations
+mkdir -p dist_prod/AnkiForge.app/Contents/Resources/src/ankiforge/database/migrations
+cp -r src/ankiforge/database/migrations/* dist_prod/AnkiForge.app/Contents/Resources/migrations/
+cp -r src/ankiforge/database/migrations/* dist_prod/AnkiForge.app/Contents/Resources/src/ankiforge/database/migrations/
+
 # Copie de l'extension C
 mkdir -p dist_prod/AnkiForge.app/Contents/Resources/c_ext
 mkdir -p dist_prod/AnkiForge.app/Contents/MacOS/c_ext

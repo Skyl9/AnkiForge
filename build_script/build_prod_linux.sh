@@ -93,6 +93,12 @@ uv run --no-sync python script/copy_runtime_dependencies.py dist_prod/AnkiForge.
 mkdir -p dist_prod/AnkiForge.dist/src/ressources
 cp -r src/ressources/* dist_prod/AnkiForge.dist/src/ressources/
 
+# Copie des scripts de migration SQL
+mkdir -p dist_prod/AnkiForge.dist/migrations
+mkdir -p dist_prod/AnkiForge.dist/src/ankiforge/database/migrations
+cp -r src/ankiforge/database/migrations/* dist_prod/AnkiForge.dist/migrations/
+cp -r src/ankiforge/database/migrations/* dist_prod/AnkiForge.dist/src/ankiforge/database/migrations/
+
 # Copie de l'extension C
 mkdir -p dist_prod/AnkiForge.dist/c_ext
 cp -r c_ext/* dist_prod/AnkiForge.dist/c_ext/ || true

@@ -6,23 +6,44 @@ import peewee
 from peewee_migrate import Router
 
 from ankiforge.database.models import db
+from ankiforge.utils.paths import get_app_data_dir, get_resource_path
 
 logger = logging.getLogger(__name__)
 
-# On définit le dossier des migrations relativement à ce fichier
-MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+
+def get_migrations_dir() -> Path:
+    """Localise de manière robuste le répertoire contenant les fichiers de migration (.py).
+
+    Compatible Mode Dev, Standalone Nuitka, PyInstaller et Bundle macOS (.app).
+    """
+    candidates = [
+        get_resource_path("src", "ankiforge", "database", "migrations"),
+        get_resource_path("migrations"),
+        Path(__file__).resolve().parent / "migrations",
+    ]
+    for c in candidates:
+        if c.exists() and any(c.glob("*.py")):
+            return c
+    for c in candidates:
+        if c.exists():
+            return c
+
+    # Fallback dans le dossier de données persistant utilisateur (~/.ankiforge/migrations)
+    user_mig = get_app_data_dir() / "migrations"
+    user_mig.mkdir(parents=True, exist_ok=True)
+    return user_mig
 
 
 def run_migrations() -> None:
-    """
-    Évalue la version de la base de données et exécute les migrations nécessaires
+    """Évalue la version de la base de données et exécute les migrations nécessaires
+
     en utilisant peewee-migrate.
     """
-    # 1. Assurer la présence du répertoire de migration (sécurité)
-    if not MIGRATIONS_DIR.exists():
-        MIGRATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    # 1. Localisation sécurisée du répertoire de migrations
+    migrations_dir = get_migrations_dir()
+    logger.info("Utilisation du répertoire de migrations : %s", migrations_dir)
 
-    router = Router(db, migrate_dir=str(MIGRATIONS_DIR))
+    router = Router(db, migrate_dir=str(migrations_dir))
 
     # 2. Gestion de la transition depuis l'ancien système manuel
     # Si la table 'agents' ou 'personas' existe, c'est que l'utilisateur a au moins la v1

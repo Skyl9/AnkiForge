@@ -101,6 +101,12 @@ uv run --no-sync python script\copy_runtime_dependencies.py dist_prod\AnkiForge.
 New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src\ressources" | Out-Null
 Copy-Item -Path "src\ressources\*" -Destination "dist_prod\AnkiForge.dist\src\ressources" -Recurse -Force
 
+# Copie des scripts de migration SQL
+New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\migrations" | Out-Null
+New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src\ankiforge\database\migrations" | Out-Null
+Copy-Item -Path "src\ankiforge\database\migrations\*" -Destination "dist_prod\AnkiForge.dist\migrations" -Recurse -Force
+Copy-Item -Path "src\ankiforge\database\migrations\*" -Destination "dist_prod\AnkiForge.dist\src\ankiforge\database\migrations" -Recurse -Force
+
 # Copie de l'extension C
 New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\c_ext" | Out-Null
 Copy-Item -Path "c_ext\*" -Destination "dist_prod\AnkiForge.dist\c_ext" -Recurse -Force
