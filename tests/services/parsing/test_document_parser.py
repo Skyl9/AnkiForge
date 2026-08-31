@@ -118,8 +118,9 @@ def test_parse_docx_missing_lib(tmp_path):
 
 
 @patch("ankiforge.services.parsing.document_parser.MediaManager")
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
-def test_parse_pdf_with_marker_success(mock_popen, MockMediaManager, tmp_path):
+def test_parse_pdf_with_marker_success(mock_popen, mock_get_marker, MockMediaManager, tmp_path):
     """Test 7: Simule l'extraction d'un PDF avec Marker."""
     fake_pdf = tmp_path / "physique.pdf"
     fake_pdf.write_bytes(b"%PDF-1.4 mock pdf content")
@@ -151,8 +152,9 @@ def test_parse_pdf_with_marker_success(mock_popen, MockMediaManager, tmp_path):
     mock_callback.assert_any_call("Loading AI...")
 
 
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
-def test_parse_pdf_marker_crash(mock_popen, tmp_path):
+def test_parse_pdf_marker_crash(mock_popen, mock_get_marker, tmp_path):
     """Test 8: Vérifie ce qui se passe si l'IA plante."""
     fake_pdf = tmp_path / "crash.pdf"
     fake_pdf.write_bytes(b"%PDF")
@@ -173,8 +175,9 @@ def test_parse_pdf_marker_crash(mock_popen, tmp_path):
     assert "Marker a échoué avec le code erreur 1" in str(exc_info.value)
 
 
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
-def test_parse_pdf_no_md_generated(mock_popen, tmp_path):
+def test_parse_pdf_no_md_generated(mock_popen, mock_get_marker, tmp_path):
     """Test 9: L'IA dit qu'elle a fini, mais le .md n'est pas là !"""
     fake_pdf = tmp_path / "vide.pdf"
     fake_pdf.write_bytes(b"%PDF")
@@ -195,16 +198,28 @@ def test_parse_pdf_no_md_generated(mock_popen, tmp_path):
     assert "Marker n'a pas généré de fichier .md" in str(exc_info.value)
 
 
-@patch("subprocess.Popen")
-def test_parse_pdf_marker_not_installed(mock_popen, tmp_path):
-    """Test 10: Si Marker n'est pas sur le PC."""
-    fake_pdf = tmp_path / "no_marker.pdf"
-    fake_pdf.write_bytes(b"%PDF")
+@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value=None)
+@patch("pypdf.PdfReader")
+def test_parse_pdf_pypdf_fallback_success(mock_reader_cls, mock_get_marker, tmp_path):
+    """Test 10: Vérifie le fallback pypdf si Marker n'est pas installé."""
+    fake_pdf = tmp_path / "simple.pdf"
+    fake_pdf.write_bytes(b"%PDF-1.4 simple")
 
-    mock_popen.side_effect = FileNotFoundError("No such file or directory: 'marker_single'")
+    mock_page1 = MagicMock()
+    mock_page1.extract_text.return_value = "Première page de cours"
+    mock_page2 = MagicMock()
+    mock_page2.extract_text.return_value = "Deuxième page de cours"
+
+    mock_reader = MagicMock()
+    mock_reader.pages = [mock_page1, mock_page2]
+    mock_reader_cls.return_value = mock_reader
 
     parser = DocumentParser()
-    with pytest.raises(RuntimeError) as exc_info:
-        parser.parse_document(str(fake_pdf))
+    mock_callback = MagicMock()
+    result = parser.parse_document(str(fake_pdf), progress_callback=mock_callback)
 
-    assert "Marker n'est pas installé ou introuvable" in str(exc_info.value)
+    assert "## Page 1" in result
+    assert "Première page de cours" in result
+    assert "## Page 2" in result
+    assert "Deuxième page de cours" in result
+    mock_callback.assert_any_call("Extraction PDF native en cours (pypdf)...")

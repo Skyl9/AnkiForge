@@ -74,7 +74,7 @@ class DocumentParser:
         ext = file_path.suffix.lower()
 
         if ext == ".pdf":
-            res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel)
+            res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel) if self.is_marker_available() else self._parse_pdf_with_pypdf(file_path, progress_callback, check_cancel)
         elif ext in [".txt", ".md"]:
             if progress_callback:
                 progress_callback("Lecture du fichier texte immédiate...")
@@ -203,13 +203,64 @@ class DocumentParser:
             logger.exception("Erreur lors du traitement Wikipédia :")
             raise RuntimeError(f"Erreur lors du traitement Wikipédia : {str(e)}") from e
 
+    @staticmethod
+    def get_marker_executable() -> str | None:
+        """Localise l'exécutable marker_single sur le système ou dans ~/.ankiforge/tools/."""
+        # 1. Recherche dans le PATH système
+        exe = shutil.which("marker_single")
+        if exe:
+            return exe
+        # 2. Recherche dans le dossier persistant d'outils AnkiForge (~/.ankiforge/tools/)
+        app_tools = Path.home() / ".ankiforge" / "tools"
+        candidates = [
+            app_tools / "bin" / "marker_single",
+            app_tools / "Scripts" / "marker_single.exe",
+            app_tools / "marker_single",
+            app_tools / "marker_single.exe",
+        ]
+        for c in candidates:
+            if c.exists() and os.access(c, os.X_OK):
+                return str(c)
+        return None
+
+    @classmethod
+    def is_marker_available(cls) -> bool:
+        """Indique si le moteur OCR Deep Learning Marker est disponible sur la machine."""
+        return cls.get_marker_executable() is not None
+
+    def _parse_pdf_with_pypdf(self, file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+        """Extraction rapide native via pypdf (sans dépendances GPU/Torch lourdes)."""
+        from pypdf import PdfReader
+
+        if progress_callback:
+            progress_callback("Extraction PDF native en cours (pypdf)...")
+
+        reader = PdfReader(str(file_path))
+        num_pages = len(reader.pages)
+        pages_text: list[str] = []
+
+        for i, page in enumerate(reader.pages):
+            if check_cancel and check_cancel():
+                raise InterruptedError("Extraction annulée par l'utilisateur.")
+
+            text = (page.extract_text() or "").strip()
+            if text:
+                pages_text.append(f"## Page {i + 1}\n\n{text}")
+
+            if progress_callback:
+                progress_callback(f"Lecture de la page {i + 1} / {num_pages}...")
+
+        if not pages_text:
+            raise ValueError("Aucun texte extractible trouvé dans ce fichier PDF (il s'agit peut-être d'un document scanné/image nécessitant Marker OCR).")
+
+        return "\n\n[SPLIT]\n\n".join(pages_text)
+
     def _parse_pdf_with_marker(self, file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
         """Extraction Deep Learning via Marker pour un LaTeX le plus proche de la réalité."""
-        # On a retiré le grand "try:" global
         with tempfile.TemporaryDirectory() as temp_dir_str:
             temp_dir = Path(temp_dir_str)
 
-            executable = shutil.which("marker_single")
+            executable = self.get_marker_executable()
             if not executable:
                 raise FileNotFoundError("L'outil Marker n'est pas installé ou introuvable dans le PATH.")
 

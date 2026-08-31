@@ -27,7 +27,7 @@ env:
   ANKIFORGE_MOCK_WEBENGINE: "1"
 
 jobs:
-  # ── 1. Construction des Binaires Multi-OS ──
+  # ── 1. Construction des Binaires & Installeurs Multi-OS ──
   build:
     name: 📦 Build on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
@@ -36,17 +36,14 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: ankiforge-linux-x86_64.tar.gz
-            arch: x86_64
             os_name: linux
+            arch: x86_64
           - os: macos-latest
-            artifact_name: ankiforge-macos-arm64.zip
-            arch: arm64
             os_name: macos
+            arch: arm64
           - os: windows-latest
-            artifact_name: ankiforge-windows-x64.zip
-            arch: x64
             os_name: windows
+            arch: x64
 
     steps:
       - name: Checkout repository
@@ -75,6 +72,7 @@ jobs:
             libxcb-xfixes0 \
             libxcb-xinerama0 \
             libxcb-xkb1 \
+            libfuse2 \
             ccache \
             gcc || true
 
@@ -89,9 +87,10 @@ jobs:
           path: |
             ~/.cache/Nuitka
             ~/Library/Caches/Nuitka
+            ~\AppData\Local\Nuitka\Nuitka\Cache
             ~/.cache/ccache
             ~/Library/Caches/ccache
-            ${{ env.LOCALAPPDATA }}\Nuitka\Nuitka\Cache
+            ~\AppData\Local\ccache
           key: nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             nuitka-${{ matrix.os }}-
@@ -109,6 +108,7 @@ jobs:
       - name: Install dependencies (Production runtime + Nuitka only)
         run: uv sync --frozen --no-dev --group build
 
+      # ── Compilation Nuitka ──
       - name: Build Binary with Nuitka (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -127,11 +127,7 @@ jobs:
           powershell -ExecutionPolicy Bypass -File build_script/build_prod_windows.ps1
         shell: pwsh
 
-      - name: Ad-Hoc Code Sign macOS Binary Bundle
-        if: runner.os == 'macOS'
-        run: |
-          codesign --force --deep -s - dist_prod/AnkiForge.app
-
+      # ── Tests de validation (Smoke Tests) ──
       - name: Smoke Test Binary (Linux with Xvfb)
         if: runner.os == 'Linux'
         run: |
@@ -148,37 +144,61 @@ jobs:
           .\dist_prod\AnkiForge.dist\AnkiForge.exe --smoke-test
         shell: pwsh
 
-      - name: Package Linux Archive (.tar.gz)
+      # ── Empaquetage Linux (.AppImage + .tar.gz) ──
+      - name: Package Linux AppImage & Tarball
         if: runner.os == 'Linux'
         run: |
-          cd dist_prod
-          tar -czf ../${{ matrix.artifact_name }} AnkiForge.dist/
-          cd ..
-          sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
+          chmod +x build_script/package_appimage.sh
+          ./build_script/package_appimage.sh
 
-      - name: Package macOS Archive (.zip)
+          tar -czf ankiforge-linux-x86_64.tar.gz -C dist_prod AnkiForge.dist/
+          sha256sum AnkiForge-x86_64.AppImage ankiforge-linux-x86_64.tar.gz > linux_checksums.sha256
+
+      # ── Empaquetage macOS (.dmg + .zip) ──
+      - name: Package macOS DMG & Zip
         if: runner.os == 'macOS'
         run: |
-          cd dist_prod
-          zip -r ../${{ matrix.artifact_name }} AnkiForge.app/
-          cd ..
-          shasum -a 256 ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
+          chmod +x build_script/package_dmg.sh
+          ./build_script/package_dmg.sh
 
-      - name: Package Windows Archive (.zip)
+          cd dist_prod
+          zip -r ../ankiforge-macos-arm64.zip AnkiForge.app/
+          cd ..
+          shasum -a 256 AnkiForge-macos-arm64.dmg ankiforge-macos-arm64.zip > macos_checksums.sha256
+
+      # ── Empaquetage Windows (Inno Setup .exe + .zip) ──
+      - name: Package Windows Installer & Zip
         if: runner.os == 'Windows'
         run: |
-          Compress-Archive -Path dist_prod\AnkiForge.dist -DestinationPath ${{ matrix.artifact_name }}
-          $hash = (Get-FileHash ${{ matrix.artifact_name }} -Algorithm SHA256).Hash.ToLower()
-          "$hash  ${{ matrix.artifact_name }}" | Out-File -Encoding ascii ${{ matrix.artifact_name }}.sha256
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+              & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build_script\windows_installer.iss
+          } else {
+              iscc build_script\windows_installer.iss
+          }
+
+          Compress-Archive -Path dist_prod\AnkiForge.dist -DestinationPath ankiforge-windows-x64.zip
+
+          $files = @("AnkiForge-Setup-x64.exe", "ankiforge-windows-x64.zip")
+          foreach ($f in $files) {
+              if (Test-Path $f) {
+                  $hash = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+                  "$hash  $f" | Out-File -Append -Encoding ascii windows_checksums.sha256
+              }
+          }
         shell: pwsh
 
-      - name: Upload Release Asset
+      - name: Upload Release Assets
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.os_name }}
           path: |
-            ${{ matrix.artifact_name }}
-            ${{ matrix.artifact_name }}.sha256
+            *.AppImage
+            *.tar.gz
+            *.dmg
+            *.exe
+            *.zip
+            *.sha256
+          if-no-files-found: warn
 
   # ── 2. Publication Automatique de la GitHub Release ──
   publish:
@@ -199,6 +219,7 @@ jobs:
         run: |
           cd release-assets
           cat *.sha256 > checksums.txt
+          rm -f *.sha256
           echo "### 🔒 Empreintes Cryptographiques SHA-256 :" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat checksums.txt >> $GITHUB_STEP_SUMMARY
@@ -208,8 +229,11 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
+            release-assets/AnkiForge-x86_64.AppImage
             release-assets/ankiforge-linux-x86_64.tar.gz
+            release-assets/AnkiForge-macos-arm64.dmg
             release-assets/ankiforge-macos-arm64.zip
+            release-assets/AnkiForge-Setup-x64.exe
             release-assets/ankiforge-windows-x64.zip
 
       - name: Determine Release Tag
@@ -230,8 +254,11 @@ jobs:
           draft: false
           prerelease: false
           files: |
+            release-assets/AnkiForge-x86_64.AppImage
             release-assets/ankiforge-linux-x86_64.tar.gz
+            release-assets/AnkiForge-macos-arm64.dmg
             release-assets/ankiforge-macos-arm64.zip
+            release-assets/AnkiForge-Setup-x64.exe
             release-assets/ankiforge-windows-x64.zip
             release-assets/checksums.txt
         env:

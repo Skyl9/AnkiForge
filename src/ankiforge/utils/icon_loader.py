@@ -71,13 +71,9 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
     candidates = [
         get_resource_path("src", "ressources", "phosphor-icons", "SVGs", weight, filename),
         get_resource_path("ressources", "phosphor-icons", "SVGs", weight, filename),
-        get_resource_path("src", "ressources", "phosphor-icons", "SVGs Flat", weight, filename),
-        get_resource_path("ressources", "phosphor-icons", "SVGs Flat", weight, filename),
         # Repli sur le mode regular si le poids spécifique n'existe pas
         get_resource_path("src", "ressources", "phosphor-icons", "SVGs", "regular", f"{clean_name}.svg"),
         get_resource_path("ressources", "phosphor-icons", "SVGs", "regular", f"{clean_name}.svg"),
-        get_resource_path("src", "ressources", "phosphor-icons", "SVGs Flat", "regular", f"{clean_name}.svg"),
-        get_resource_path("ressources", "phosphor-icons", "SVGs Flat", "regular", f"{clean_name}.svg"),
     ]
 
     svg_path = next((p for p in candidates if p.exists()), None)
