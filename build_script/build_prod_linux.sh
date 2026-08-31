@@ -22,6 +22,7 @@ uv run --no-sync python -m nuitka \
     --standalone \
     --enable-plugin=pyside6 \
     --include-package=ankiforge \
+    --include-package=unittest \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \

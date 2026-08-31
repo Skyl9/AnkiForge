@@ -9,6 +9,11 @@ if (Test-Path "dist_prod") {
 }
 New-Item -ItemType Directory -Force -Path "dist_prod" | Out-Null
 
+# Desactivation du scan temps reel Windows Defender sur le dossier de build
+try {
+    Add-MpPreference -ExclusionPath (Get-Location).Path, $env:TEMP, $env:LOCALAPPDATA -ErrorAction SilentlyContinue
+} catch {}
+
 Write-Host "[INFO] Compilation de l'extension C native Levenshtein..."
 New-Item -ItemType Directory -Force -Path "c_ext" | Out-Null
 try {
@@ -25,6 +30,7 @@ uv run --no-sync python -m nuitka `
     --windows-console-mode=disable `
     --enable-plugin=pyside6 `
     --include-package=ankiforge `
+    --include-package=unittest `
     --no-deployment-flag=excluded-module-usage `
     --nofollow-import-to=google `
     --nofollow-import-to=faiss `

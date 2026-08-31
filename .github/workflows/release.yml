@@ -121,6 +121,13 @@ jobs:
           chmod +x build_script/build_prod_mac.sh
           ./build_script/build_prod_mac.sh
 
+      - name: Disable Windows Defender for Build Performance (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath (Get-Location).Path, $env:TEMP, $env:LOCALAPPDATA -ErrorAction SilentlyContinue
+        shell: pwsh
+
       - name: Build Binary with Nuitka (Windows)
         if: runner.os == 'Windows'
         run: |

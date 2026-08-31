@@ -26,6 +26,7 @@ uv run --no-sync python -m nuitka \
     --macos-app-icon=none \
     --enable-plugin=pyside6 \
     --include-package=ankiforge \
+    --include-package=unittest \
     --no-deployment-flag=excluded-module-usage \
     --nofollow-import-to=google \
     --nofollow-import-to=faiss \
@@ -77,6 +78,14 @@ echo "[INFO] Copie des dépendances runtime, ressources et extensions C..."
 # Copie de l'intégralité des modules et packages tiers runtime
 uv run --no-sync python script/copy_runtime_dependencies.py dist_prod/AnkiForge.app/Contents/MacOS
 
+# Harmonisation des bibliothèques dynamiques pour codesign (suppression des dossiers à point comme PIL/.dylibs)
+if [ -d "dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs" ]; then
+    mkdir -p dist_prod/AnkiForge.app/Contents/Frameworks
+    cp -r dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs/* dist_prod/AnkiForge.app/Contents/Frameworks/ || true
+    cp -r dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs/* dist_prod/AnkiForge.app/Contents/MacOS/ || true
+    rm -rf dist_prod/AnkiForge.app/Contents/MacOS/PIL/.dylibs
+fi
+
 # Copie des ressources
 mkdir -p dist_prod/AnkiForge.app/Contents/Resources/src/ressources
 mkdir -p dist_prod/AnkiForge.app/Contents/MacOS/src/ressources
@@ -91,6 +100,7 @@ cp -r c_ext/* dist_prod/AnkiForge.app/Contents/MacOS/c_ext/ || true
 cp -f c_ext/levenshtein_distance.so dist_prod/AnkiForge.app/Contents/MacOS/ || true
 
 echo "[INFO] Signature de code Ad-Hoc du bundle macOS..."
+find dist_prod/AnkiForge.app -type f \( -name "*.dylib" -o -name "*.so" \) -exec codesign --force -s - {} + 2>/dev/null || true
 codesign --force --deep -s - dist_prod/AnkiForge.app
 
 echo "[SUCCESS] Compilation macOS terminee avec succes !"
