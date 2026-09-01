@@ -1,15 +1,19 @@
-"""Tests unitaires pour le service d'auto-mise à jour (AutoUpdater)."""
+"""Tests unitaires pour le service d'auto-mise à jour durci et sécurisé."""
 
 import hashlib
+import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from ankiforge.services.auto_updater import (
     UpdateDownloaderWorker,
     apply_update_and_restart,
     find_asset_for_current_platform,
     is_standalone_app,
+    validate_update_file_confinement,
 )
 
 
@@ -30,6 +34,48 @@ def test_find_asset_for_current_platform() -> None:
     asset = find_asset_for_current_platform(fake_assets)
     assert asset is not None
     assert "name" in asset
+
+
+def test_validate_update_file_confinement_success(tmp_path: Path) -> None:
+    """Vérifie qu'un fichier légitime situé dans le dossier de mises à jour est accepté."""
+    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
+        valid_file = tmp_path / "AnkiForge-Update.dmg"
+        valid_file.write_bytes(b"test binary content")
+
+        result = validate_update_file_confinement(valid_file)
+        assert result == valid_file.resolve()
+
+
+def test_validate_update_file_confinement_rejects_path_traversal(tmp_path: Path) -> None:
+    """Vérifie qu'un fichier en dehors du dossier de mises à jour est rejeté."""
+    trusted_dir = tmp_path / "trusted_updates"
+    trusted_dir.mkdir()
+    outside_dir = tmp_path / "outside_directory"
+    outside_dir.mkdir()
+
+    outside_file = outside_dir / "malicious.bin"
+    outside_file.write_bytes(b"malicious")
+
+    with (
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=trusted_dir),
+        pytest.raises(ValueError, match="Alerte de sécurité : Le fichier .* est situé hors du répertoire sécurisé"),
+    ):
+        validate_update_file_confinement(outside_file)
+
+
+def test_validate_update_file_confinement_rejects_symlink(tmp_path: Path) -> None:
+    """Vérifie que les liens symboliques sont catégoriquement rejetés."""
+    target_file = tmp_path / "real_file.bin"
+    target_file.write_bytes(b"target")
+
+    symlink_file = tmp_path / "symlink_file.bin"
+    try:
+        os.symlink(target_file, symlink_file)
+    except OSError:
+        pytest.skip("Les liens symboliques ne sont pas supportés sur ce système.")
+
+    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path), pytest.raises(ValueError, match="est un lien symbolique non autorisé"):
+        validate_update_file_confinement(symlink_file)
 
 
 def test_downloader_worker_streams_and_computes_sha256(tmp_path: Path) -> None:
@@ -68,10 +114,11 @@ def test_downloader_worker_streams_and_computes_sha256(tmp_path: Path) -> None:
 
 def test_apply_update_and_restart_dev_mode_safety(tmp_path: Path) -> None:
     """Vérifie que le mode développement est strictement préservé sans altération système."""
-    dummy_file = tmp_path / "dummy_update.bin"
-    dummy_file.write_bytes(b"content")
+    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
+        dummy_file = tmp_path / "dummy_update.bin"
+        dummy_file.write_bytes(b"content")
 
-    # En mode dev (non standalone), apply_update_and_restart doit retourner True avec un message explicite
-    success, msg = apply_update_and_restart(dummy_file)
-    assert success is True
-    assert "Mode Développement" in msg
+        # En mode dev (non standalone), apply_update_and_restart doit retourner True avec un message explicite
+        success, msg = apply_update_and_restart(dummy_file)
+        assert success is True
+        assert "Mode Développement" in msg
