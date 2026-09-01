@@ -1,0 +1,204 @@
+name: Nightly - Continuous Multi-OS Build & Edge Distribution
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+  QT_QPA_PLATFORM: "offscreen"
+  QTWEBENGINE_DISABLE_SANDBOX: "1"
+  ANKIFORGE_MOCK_WEBENGINE: "1"
+  ACTIONS_RUNNER_FORCE_NODE24: "true"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_ENV_HINTS: "1"
+
+jobs:
+  # ── 1. Construction des Binaires & Installeurs Multi-OS ──
+  build:
+    name: 📦 Nightly Build on ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_name: linux
+            arch: x86_64
+          - os: macos-latest
+            os_name: macos
+            arch: arm64
+          - os: windows-latest
+            os_name: windows
+            arch: x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux GUI Dependencies & Build Tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb \
+            libgl1 \
+            libegl1 \
+            libxkbcommon-x11-0 \
+            libdbus-1-3 \
+            libxcb1 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-shm0 \
+            libxcb-sync1 \
+            libxcb-xfixes0 \
+            libxcb-xinerama0 \
+            libxcb-xkb1 \
+            libfuse2 \
+            ccache \
+            gcc || true
+
+      - name: Install macOS Build Tools (ccache)
+        if: runner.os == 'macOS'
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          brew install ccache || true
+
+      - name: Cache Nuitka & C Compiler Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/Nuitka
+            ~/Library/Caches/Nuitka
+            ~\AppData\Local\Nuitka\Nuitka\Cache
+            ~/.cache/ccache
+            ~/Library/Caches/ccache
+            ~\AppData\Local\ccache
+          key: nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}-${{ hashFiles('src/ankiforge/**') }}
+          restore-keys: |
+            nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}-
+            nuitka-${{ matrix.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Project Dependencies
+        run: uv sync --frozen --dev
+
+      # ── Compilation Linux ──
+      - name: Build Standalone Binary on Linux
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x build_script/*.sh
+          ./build_script/build_prod_linux.sh
+          ./build_script/package_appimage.sh
+
+      # ── Compilation macOS ──
+      - name: Build App Bundle on macOS
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x build_script/*.sh
+          ./build_script/build_prod_mac.sh
+          ./build_script/package_dmg.sh
+
+      # ── Compilation Windows ──
+      - name: Build EXE on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./build_script/build_prod_windows.ps1
+
+      # ── Archivage des artefacts de distribution ──
+      - name: Prepare Artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p release-assets
+          cp dist_prod/AnkiForge-x86_64.AppImage release-assets/ || true
+          tar -czf release-assets/ankiforge-linux-x86_64.tar.gz -C dist_prod AnkiForge.dist
+
+      - name: Prepare Artifacts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p release-assets
+          cp dist_prod/AnkiForge-macos-arm64.dmg release-assets/ || true
+          ditto -c -k --keepParent dist_prod/AnkiForge.app release-assets/ankiforge-macos-arm64.zip
+
+      - name: Prepare Artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          if (Test-Path "build_script/AnkiForge-Setup-x64.exe") {
+            Copy-Item "build_script/AnkiForge-Setup-x64.exe" "release-assets/"
+          }
+          Compress-Archive -Path "dist_prod/AnkiForge.dist/*" -DestinationPath "release-assets/ankiforge-windows-x64.zip" -Force
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: assets-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: release-assets/*
+          retention-days: 7
+
+  # ── 2. Publication Automatique Nightly sur GitHub Releases ──
+  publish-nightly:
+    name: 🚀 Publish Nightly Pre-Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-artifacts
+
+      - name: Organize Release Assets & Compute Checksums
+        run: |
+          mkdir -p release-assets
+          find downloaded-artifacts -type f -exec mv {} release-assets/ \;
+          cd release-assets
+          sha256sum * > checksums.txt 2>/dev/null || true
+          cat checksums.txt
+
+      - name: Create or Update Nightly GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "nightly"
+          name: "AnkiForge Nightly (Edge Build)"
+          body: |
+            ## 🌙 AnkiForge Nightly Build
+            Cette version est compilée automatiquement chaque nuit à partir de la branche principale (`main`).
+            Elle intègre les fonctionnalités et optimisations les plus récentes.
+
+            ### 📦 Sommes de contrôle SHA-256
+            Consultez `checksums.txt` pour vérifier l'intégrité de vos téléchargements.
+          draft: false
+          prerelease: true
+          files: |
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

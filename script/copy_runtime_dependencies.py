@@ -122,6 +122,23 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
                     except Exception:
                         pass
 
+    # Élagage des traductions Qt non supportées (*.qm) pour alléger le bundle (-25 à -30 Mo)
+    # On conserve uniquement le français et l'anglais
+    translations_dir_candidates = [
+        target_dist / "PySide6" / "Qt" / "translations",
+        target_dist / "translations",
+        target_dist.parent / "Resources" / "PySide6" / "Qt" / "translations",
+    ]
+    for tdir in translations_dir_candidates:
+        if tdir.exists() and tdir.is_dir():
+            for qm_file in tdir.glob("*.qm"):
+                name_lower = qm_file.name.lower()
+                if not any(lang in name_lower for lang in ("_fr", "_en", "fr_", "en_", "_us", "qt_fr", "qt_en")):
+                    try:
+                        qm_file.unlink()
+                    except Exception:
+                        pass
+
     print(f"[SUCCESS] {copied_count} packages/modules tiers copiés et élagués avec succès dans {target_dist}.")
 
 

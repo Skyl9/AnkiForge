@@ -10,6 +10,14 @@ on:
         description: 'Nom du Tag de Release (ex: v0.2.0)'
         required: true
         default: 'v0.2.0'
+      is_prerelease:
+        description: 'Marquer comme Pre-Release'
+        type: boolean
+        default: false
+      draft_release:
+        description: 'Créer comme Brouillon (Draft)'
+        type: boolean
+        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -263,15 +271,9 @@ jobs:
           tag_name: ${{ steps.tag.outputs.version }}
           name: "AnkiForge ${{ steps.tag.outputs.version }}"
           generate_release_notes: true
-          draft: false
-          prerelease: false
+          draft: ${{ github.event.inputs.draft_release == 'true' }}
+          prerelease: ${{ github.event.inputs.is_prerelease == 'true' }}
           files: |
-            release-assets/AnkiForge-x86_64.AppImage
-            release-assets/ankiforge-linux-x86_64.tar.gz
-            release-assets/AnkiForge-macos-arm64.dmg
-            release-assets/ankiforge-macos-arm64.zip
-            release-assets/AnkiForge-Setup-x64.exe
-            release-assets/ankiforge-windows-x64.zip
-            release-assets/checksums.txt
+            release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

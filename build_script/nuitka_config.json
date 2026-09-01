@@ -1,0 +1,82 @@
+{
+  "common": {
+    "include_packages": [
+      "ankiforge",
+      "playhouse",
+      "peewee_migrate",
+      "unittest",
+      "zoneinfo",
+      "websockets",
+      "mcp",
+      "starlette",
+      "uvicorn",
+      "anyio",
+      "sniffio",
+      "urllib"
+    ],
+    "include_package_data": [
+      "zoneinfo"
+    ],
+    "nofollow_imports": [
+      "google",
+      "faiss",
+      "openai",
+      "pydantic",
+      "babel",
+      "dateparser",
+      "trafilatura",
+      "docx",
+      "pptx",
+      "pypdf",
+      "jinja2",
+      "bs4",
+      "urllib3",
+      "httpx",
+      "httpcore",
+      "jsonschema",
+      "cryptography",
+      "tkinter",
+      "matplotlib",
+      "docutils"
+    ],
+    "plugins": [
+      "pyside6"
+    ],
+    "no_deployment_flags": [
+      "excluded-module-usage"
+    ],
+    "standard_flags": [
+      "--standalone",
+      "--low-memory",
+      "--lto=no",
+      "--assume-yes-for-downloads"
+    ]
+  },
+  "platforms": {
+    "darwin": {
+      "app_name": "AnkiForge",
+      "output_dir": "dist_prod",
+      "output_filename": "AnkiForge",
+      "icon": "src/ressources/icons/ankiforge.icns",
+      "extra_flags": [
+        "--macos-create-app-bundle",
+        "--macos-sign-mode=adhoc"
+      ]
+    },
+    "linux": {
+      "output_dir": "dist_prod",
+      "output_filename": "AnkiForge",
+      "icon": "src/ressources/icons/ankiforge.png",
+      "extra_flags": []
+    },
+    "windows": {
+      "output_dir": "dist_prod",
+      "output_filename": "AnkiForge.exe",
+      "icon": "src\\ressources\\icons\\ankiforge.ico",
+      "extra_flags": [
+        "--windows-console-mode=disable",
+        "--msvc=latest"
+      ]
+    }
+  }
+}

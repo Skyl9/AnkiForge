@@ -1,4 +1,4 @@
-# Script PowerShell de compilation Nuitka pour Windows (Mode Fast Standalone)
+# Script PowerShell de compilation Nuitka pour Windows (Pilote Universel)
 # A lancer depuis la racine du projet
 
 $ErrorActionPreference = "Stop"
@@ -22,94 +22,14 @@ try {
     Write-Host "[WARNING] Extension C Levenshtein non compilee sous Windows (repli automatique sur difflib Python)."
 }
 
-Write-Host "[INFO] Demarrage de la compilation avec Nuitka (Noyau AnkiForge)..."
+Write-Host "[INFO] Execution du pilote de compilation universel..."
 $env:_CL_ = "/bigobj"
+uv run python script/build_standalone.py --target-os=windows
 
-uv run --no-sync python -m nuitka `
-    --standalone `
-    --windows-console-mode=disable `
-    --enable-plugin=pyside6 `
-    --include-package=ankiforge `
-    --include-package=playhouse `
-    --include-package=peewee_migrate `
-    --include-package=unittest `
-    --include-package=zoneinfo `
-    --include-package-data=zoneinfo `
-    --include-package=websockets `
-    --include-package=mcp `
-    --include-package=starlette `
-    --include-package=uvicorn `
-    --include-package=anyio `
-    --include-package=sniffio `
-    --include-package=urllib `
-    --no-deployment-flag=excluded-module-usage `
-    --nofollow-import-to=google `
-    --nofollow-import-to=faiss `
-    --nofollow-import-to=openai `
-    --nofollow-import-to=pydantic `
-    --nofollow-import-to=babel `
-    --nofollow-import-to=dateparser `
-    --nofollow-import-to=trafilatura `
-    --nofollow-import-to=docx `
-    --nofollow-import-to=pptx `
-    --nofollow-import-to=pypdf `
-    --nofollow-import-to=jinja2 `
-    --nofollow-import-to=bs4 `
-    --nofollow-import-to=urllib3 `
-    --nofollow-import-to=httpx `
-    --nofollow-import-to=httpcore `
-    --nofollow-import-to=jsonschema `
-    --nofollow-import-to=cryptography `
-    --nofollow-import-to=tkinter `
-    --windows-icon-from-ico=src\ressources\icons\ankiforge.ico `
-    --low-memory `
-    --jobs=4 `
-    --msvc=latest `
-    --lto=no `
-    --output-dir=dist_prod `
-    --output-filename=AnkiForge.exe `
-    --assume-yes-for-downloads `
-    src/ankiforge
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "[ERROR] Echec critique de la compilation Nuitka (Code de sortie: $LASTEXITCODE)"
-    exit $LASTEXITCODE
-}
-
-# Harmonisation des noms de dossiers et fichiers (Renommage securise pour NTFS)
-if (Test-Path "dist_prod\ankiforge.dist") {
-    Rename-Item -Path "dist_prod\ankiforge.dist" -NewName "ankiforge_temp.dist" -Force
-    Rename-Item -Path "dist_prod\ankiforge_temp.dist" -NewName "AnkiForge.dist" -Force
-} elseif (Test-Path "dist_prod\__main__.dist") {
-    Rename-Item -Path "dist_prod\__main__.dist" -NewName "ankiforge_temp.dist" -Force
-    Rename-Item -Path "dist_prod\ankiforge_temp.dist" -NewName "AnkiForge.dist" -Force
-}
-
-if (Test-Path "dist_prod\AnkiForge.dist\ankiforge.exe") {
-    Rename-Item -Path "dist_prod\AnkiForge.dist\ankiforge.exe" -NewName "AnkiForge.exe" -Force
-} elseif (Test-Path "dist_prod\AnkiForge.dist\__main__.exe") {
-    Rename-Item -Path "dist_prod\AnkiForge.dist\__main__.exe" -NewName "AnkiForge.exe" -Force
-}
-
-Write-Host "[INFO] Copie des dépendances runtime, ressources et extensions C..."
-# Copie de l'intégralité des modules et packages tiers runtime
-uv run --no-sync python script\copy_runtime_dependencies.py dist_prod\AnkiForge.dist
-
-# Copie des ressources
-New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src\ressources" | Out-Null
-Copy-Item -Path "src\ressources\*" -Destination "dist_prod\AnkiForge.dist\src\ressources" -Recurse -Force
-
-# Copie des scripts de migration SQL
-New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\migrations" | Out-Null
-New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\src\ankiforge\database\migrations" | Out-Null
-Copy-Item -Path "src\ankiforge\database\migrations\*" -Destination "dist_prod\AnkiForge.dist\migrations" -Recurse -Force
-Copy-Item -Path "src\ankiforge\database\migrations\*" -Destination "dist_prod\AnkiForge.dist\src\ankiforge\database\migrations" -Recurse -Force
-
-# Copie de l'extension C
-New-Item -ItemType Directory -Force -Path "dist_prod\AnkiForge.dist\c_ext" | Out-Null
-Copy-Item -Path "c_ext\*" -Destination "dist_prod\AnkiForge.dist\c_ext" -Recurse -Force
-if (Test-Path "c_ext\levenshtein_distance.dll") {
-    Copy-Item -Path "c_ext\levenshtein_distance.dll" -Destination "dist_prod\AnkiForge.dist\levenshtein_distance.dll" -Force
+# Creation de l'installeur Windows si Inno Setup est installe
+if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+    Write-Host "[INFO] Creation de l'installeur Inno Setup..."
+    & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build_script/windows_installer.iss
 }
 
 Write-Host "[SUCCESS] Compilation Windows terminee avec succes !"
