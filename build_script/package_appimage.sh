@@ -8,13 +8,18 @@ echo "[INFO] Preparation du dossier AppDir..."
 rm -rf dist_prod/AppDir
 mkdir -p dist_prod/AppDir/usr/bin
 mkdir -p dist_prod/AppDir/usr/share/icons/hicolor/scalable/apps
+mkdir -p dist_prod/AppDir/usr/share/icons/hicolor/512x512/apps
+mkdir -p dist_prod/AppDir/usr/share/metainfo
 
 # Copie des fichiers de distribution Nuitka
 cp -r dist_prod/AnkiForge.dist/* dist_prod/AppDir/usr/bin/
 
 # Copie de l'icône de l'application
-cp src/ressources/icons/logo.svg dist_prod/AppDir/ankiforge.svg
-cp src/ressources/icons/logo.svg dist_prod/AppDir/usr/share/icons/hicolor/scalable/apps/ankiforge.svg
+cp src/ressources/icons/ankiforge.svg dist_prod/AppDir/ankiforge.svg
+cp src/ressources/icons/ankiforge.svg dist_prod/AppDir/usr/share/icons/hicolor/scalable/apps/ankiforge.svg
+cp src/ressources/icons/ankiforge.png dist_prod/AppDir/ankiforge.png
+cp src/ressources/icons/ankiforge.png dist_prod/AppDir/usr/share/icons/hicolor/512x512/apps/ankiforge.png
+cp src/ressources/org.ankiforge.AnkiForge.metainfo.xml dist_prod/AppDir/usr/share/metainfo/org.ankiforge.AnkiForge.metainfo.xml
 
 # Création du fichier .desktop
 cat << 'DESKTOP_EOF' > dist_prod/AppDir/ankiforge.desktop

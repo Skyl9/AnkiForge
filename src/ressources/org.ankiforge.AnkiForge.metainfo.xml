@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.ankiforge.AnkiForge</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>AnkiForge</name>
+  <summary>Générateur et atelier avancé de création de cartes Anki assisté par IA</summary>
+  <description>
+    <p>
+      AnkiForge est un studio autonome et puissant permettant d'orchestrer la génération, l'audit qualité (Linter Wozniak),
+      la déduplication vectorielle et la création de cartes mémoire pour Anki.
+    </p>
+  </description>
+  <launchable type="desktop-id">ankiforge.desktop</launchable>
+  <provides>
+    <binary>AnkiForge</binary>
+  </provides>
+  <categories>
+    <category>Education</category>
+    <category>Utility</category>
+    <category>Qt</category>
+  </categories>
+</component>

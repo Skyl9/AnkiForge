@@ -23,7 +23,7 @@ uv run --no-sync python -m nuitka \
     --macos-create-app-bundle \
     --macos-app-name="AnkiForge" \
     --macos-app-version="0.2.0" \
-    --macos-app-icon=none \
+    --macos-app-icon=src/ressources/icons/ankiforge.icns \
     --enable-plugin=pyside6 \
     --include-package=ankiforge \
     --include-package=playhouse \
@@ -59,7 +59,6 @@ uv run --no-sync python -m nuitka \
     --nofollow-import-to=tkinter \
     --nofollow-import-to=matplotlib \
     --nofollow-import-to=docutils \
-    --include-package-data=qtawesome \
     --low-memory \
     --jobs="${NCPUS}" \
     --lto=no \

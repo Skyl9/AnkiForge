@@ -47,7 +47,15 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
         "pytest_cov",
         "coverage",
         "mypy",
+        "mypyc",
         "ruff",
+        "mkdocs",
+        "material",
+        "zensical",
+        "virtualenv",
+        "pygments",
+        "distutils",
+        "pkg_resources",
     }
 
     target_dist.mkdir(parents=True, exist_ok=True)

@@ -61,9 +61,7 @@ uv run --no-sync python -m nuitka `
     --nofollow-import-to=jsonschema `
     --nofollow-import-to=cryptography `
     --nofollow-import-to=tkinter `
-    --nofollow-import-to=matplotlib `
-    --nofollow-import-to=docutils `
-    --include-package-data=qtawesome `
+    --windows-icon-from-ico=src\ressources\icons\ankiforge.ico `
     --low-memory `
     --jobs=4 `
     --msvc=latest `

@@ -7,7 +7,7 @@ import logging
 from typing import Any, cast
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
 from ankiforge.services.ai.flexible_service import AIManager
@@ -17,6 +17,7 @@ from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export r�
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
 from ankiforge.utils.event_bus import ProfileSwitchedEvent, ThemeChangedEvent, event_bus
+from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,13 @@ class MainWindow(QMainWindow):
         self.profile_name = profile_name
         self.setWindowTitle("AnkiForge")
         self.setMinimumSize(1200, 720)
+
+        # Application & Window Icon
+        icon_path = get_resource_path("src", "ressources", "icons", "ankiforge.png")
+        if not icon_path.exists():
+            icon_path = get_resource_path("src", "ressources", "icons", "logo.svg")
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         # Dimensionner intelligemment pour occuper l'espace nécessaire sans tronquer l'affichage
         screen = QApplication.primaryScreen()

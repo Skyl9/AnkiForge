@@ -54,8 +54,7 @@ uv run --no-sync python -m nuitka \
     --nofollow-import-to=cryptography \
     --nofollow-import-to=tkinter \
     --nofollow-import-to=matplotlib \
-    --nofollow-import-to=docutils \
-    --include-package-data=qtawesome \
+    --linux-icon=src/ressources/icons/ankiforge.png \
     --low-memory \
     --jobs="${NCPUS}" \
     --lto=no \

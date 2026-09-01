@@ -29,6 +29,7 @@ from ankiforge.utils.paths import get_resource_path
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from ankiforge.services.profile_manager import ProfileManager
@@ -57,6 +58,13 @@ def main() -> None:
 
     app = QApplication(sys.argv)
     app.aboutToQuit.connect(shutdown_logging)
+
+    # Application Window & Dock Icon
+    icon_path = get_resource_path("src", "ressources", "icons", "ankiforge.png")
+    if not icon_path.exists():
+        icon_path = get_resource_path("src", "ressources", "icons", "logo.svg")
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     pm = ProfileManager()
     profiles = pm.list_profiles()
