@@ -25,6 +25,9 @@ env:
   QT_QPA_PLATFORM: "offscreen"
   QTWEBENGINE_DISABLE_SANDBOX: "1"
   ANKIFORGE_MOCK_WEBENGINE: "1"
+  ACTIONS_RUNNER_FORCE_NODE24: "true"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_ENV_HINTS: "1"
 
 jobs:
   # ── 1. Construction des Binaires & Installeurs Multi-OS ──
@@ -79,6 +82,7 @@ jobs:
       - name: Install macOS Build Tools (ccache)
         if: runner.os == 'macOS'
         run: |
+          brew untap aws/tap 2>/dev/null || true
           brew install ccache || true
 
       - name: Cache Nuitka & C Compiler Cache
@@ -91,8 +95,9 @@ jobs:
             ~/.cache/ccache
             ~/Library/Caches/ccache
             ~\AppData\Local\ccache
-          key: nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}
+          key: nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}-${{ hashFiles('src/ankiforge/**') }}
           restore-keys: |
+            nuitka-${{ matrix.os }}-${{ hashFiles('uv.lock') }}-
             nuitka-${{ matrix.os }}-
 
       - name: Install uv

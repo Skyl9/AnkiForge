@@ -87,7 +87,42 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
         except Exception as err:
             print(f"[WARNING] Erreur lors de la copie de {item.name}: {err}")
 
-    print(f"[SUCCESS] {copied_count} packages/modules tiers copiés avec succès dans {target_dist}.")
+    # Élagage des plugins Qt inutilisés par AnkiForge pour alléger le bundle (-50 à -80 Mo)
+    unused_qt_plugins = {
+        "canbus",
+        "designer",
+        "geometryloaders",
+        "geoservices",
+        "multimedia",
+        "position",
+        "qmllint",
+        "qmltooling",
+        "renderers",
+        "renderplugins",
+        "sceneparsers",
+        "scxmldatamodel",
+        "sensors",
+        "texttospeech",
+        "webview",
+        "assetimporters",
+    }
+    plugins_dir_candidates = [
+        target_dist / "PySide6" / "Qt" / "plugins",
+        target_dist / "qt-plugins",
+        target_dist / "plugins",
+        target_dist.parent / "Resources" / "PySide6" / "Qt" / "plugins",
+    ]
+    for pdir in plugins_dir_candidates:
+        if pdir.exists():
+            for plugin_name in unused_qt_plugins:
+                target_plugin = pdir / plugin_name
+                if target_plugin.exists():
+                    try:
+                        shutil.rmtree(target_plugin)
+                    except Exception:
+                        pass
+
+    print(f"[SUCCESS] {copied_count} packages/modules tiers copiés et élagués avec succès dans {target_dist}.")
 
 
 if __name__ == "__main__":

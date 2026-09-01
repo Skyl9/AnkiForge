@@ -12,11 +12,14 @@ from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QWidget,
 )
 
+from ankiforge.services.update_checker import UpdateInfo
 from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.dialogs.update_dialog import UpdateDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
 
@@ -149,6 +152,18 @@ class TopBar(QWidget):
 
         content_layout.addWidget(self.token_container, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        # Badge de mise à jour (masqué par défaut)
+        self._update_info: UpdateInfo | None = None
+        self.update_btn = QPushButton("✨ Mise à jour")
+        self.update_btn.setObjectName("TopBarUpdateBtn")
+        self.update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_btn.setStyleSheet(
+            f"background-color: {DesignTokens.ACCENT_PRIMARY};color: #ffffff;font-weight: 600;font-size: 12px;border-radius: {DesignTokens.RADIUS_SM};padding: 0 10px;border: none;"
+        )
+        self.update_btn.setVisible(False)
+        self.update_btn.clicked.connect(self._on_update_clicked)
+        content_layout.addWidget(self.update_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         # Import & Export Actions (28px)
         self.import_btn = IconButton("download-simple", tooltip="Importer un paquet Anki (Ctrl+Shift+I)", size=28)
         self.import_btn.clicked.connect(self.import_clicked.emit)
@@ -173,6 +188,19 @@ class TopBar(QWidget):
         self.notif_badge.move(14, -3)
 
         root_layout.addWidget(self.content_container, 1)
+
+    def set_update_available(self, info: UpdateInfo) -> None:
+        """Affiche le badge de mise à jour avec le numéro de la nouvelle version."""
+        self._update_info = info
+        self.update_btn.setText(f"✨ v{info.version}")
+        self.update_btn.setToolTip(f"Nouvelle version disponible : v{info.version}\nCliquer pour voir les détails")
+        self.update_btn.setVisible(True)
+
+    def _on_update_clicked(self) -> None:
+        """Ouvre la boîte de dialogue de mise à jour."""
+        if self._update_info:
+            dialog = UpdateDialog(self._update_info, parent=self.window())
+            dialog.exec()
 
     def set_collapsed(self, collapsed: bool) -> None:
         """Ajuste la largeur de la section marque pour correspondre à la sidebar repliée/dépliée."""

@@ -103,5 +103,9 @@ mkdir -p dist_prod/AnkiForge.dist/c_ext
 cp -r c_ext/* dist_prod/AnkiForge.dist/c_ext/ || true
 cp -f c_ext/levenshtein_distance.so dist_prod/AnkiForge.dist/ || true
 
+# Allègement des symboles de débogage C
+echo "[INFO] Allègement des symboles binaires C (strip)..."
+strip --strip-unneeded dist_prod/AnkiForge.dist/*.so dist_prod/AnkiForge.dist/AnkiForge 2>/dev/null || true
+
 echo "[SUCCESS] Compilation Linux terminee avec succes !"
 echo "[INFO] Dossier de distribution : dist_prod/AnkiForge.dist"

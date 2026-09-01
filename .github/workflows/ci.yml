@@ -25,6 +25,9 @@ env:
   QTWEBENGINE_DISABLE_SANDBOX: "1"
   QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
   ANKIFORGE_MOCK_WEBENGINE: "1"
+  ACTIONS_RUNNER_FORCE_NODE24: "true"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_ENV_HINTS: "1"
 
 jobs:
   # ── 1. Smart Path Filtering (Économie des runners) ──

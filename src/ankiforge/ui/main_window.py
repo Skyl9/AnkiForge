@@ -6,7 +6,7 @@ import contextlib
 import logging
 from typing import Any, cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
@@ -124,6 +124,24 @@ class MainWindow(QMainWindow):
 
         self._setup_debug_shortcuts()
         self._setup_global_shortcuts()
+
+        # 4. Vérification asynchrone des mises à jour en arrière-plan (non-bloquante)
+        QTimer.singleShot(2000, self._check_for_updates)
+
+    def _check_for_updates(self) -> None:
+        """Lance la vérification asynchrone des mises à jour dans QThreadPool."""
+        from PySide6.QtCore import QThreadPool
+
+        from ankiforge.services.update_checker import UpdateCheckerWorker
+
+        worker = UpdateCheckerWorker()
+        worker.signals.update_available.connect(self._on_update_available)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_update_available(self, info: Any) -> None:
+        """Transmet l'information de mise à jour à la TopBar si présente."""
+        if self.topbar and hasattr(self.topbar, "set_update_available"):
+            self.topbar.set_update_available(info)
 
     @property
     def sidebar(self) -> Any | None:

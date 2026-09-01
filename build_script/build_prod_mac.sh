@@ -149,6 +149,10 @@ cp -r c_ext/* dist_prod/AnkiForge.app/Contents/Resources/c_ext/ || true
 cp -r c_ext/* dist_prod/AnkiForge.app/Contents/MacOS/c_ext/ || true
 cp -f c_ext/levenshtein_distance.so dist_prod/AnkiForge.app/Contents/MacOS/ || true
 
+# Allègement des symboles de débogage Mach-O
+echo "[INFO] Allègement des symboles binaires Mach-O (strip)..."
+find dist_prod/AnkiForge.app/Contents/MacOS -type f \( -name "*.dylib" -o -name "*.so" -o -name "AnkiForge" \) -exec strip -x {} + 2>/dev/null || true
+
 echo "[INFO] Signature de code Ad-Hoc du bundle macOS..."
 find dist_prod/AnkiForge.app -type f \( -name "*.dylib" -o -name "*.so" \) -exec codesign --force -s - {} + 2>/dev/null || true
 codesign --force --deep -s - dist_prod/AnkiForge.app
