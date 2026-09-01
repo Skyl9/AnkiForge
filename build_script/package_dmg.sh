@@ -10,6 +10,7 @@ mkdir -p dist_prod/dmg_temp
 
 cp -R dist_prod/AnkiForge.app dist_prod/dmg_temp/
 ln -s /Applications dist_prod/dmg_temp/Applications
+xattr -cr dist_prod/dmg_temp
 
 echo "[INFO] Creation de l'image disque .dmg avec hdiutil..."
 hdiutil create -volname "AnkiForge" -srcfolder dist_prod/dmg_temp -ov -format UDZO AnkiForge-macos-arm64.dmg

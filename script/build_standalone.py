@@ -144,6 +144,42 @@ def strip_binary_symbols(dist_dir: Path, target_os: str) -> None:
             logger.warning("Échec partiel du stripping macOS : %s", err)
 
 
+def sign_macos_bundle(dist_dir: Path) -> None:
+    """Signe le bundle macOS selon les règles strictes Apple Leaf-to-Root (de l'intérieur vers l'extérieur)."""
+    logger.info("Nettoyage des attributs étendus (quarantine, provenance)...")
+    subprocess.run(["xattr", "-cr", str(dist_dir)], check=False)
+
+    logger.info("Signature Ad-Hoc de chaque binaire individuel (.dylib, .so)...")
+    binaries: list[str] = []
+    for ext in ("*.dylib", "*.so"):
+        binaries.extend([str(p) for p in dist_dir.rglob(ext) if p.is_file()])
+
+    for binary_path in binaries:
+        subprocess.run(["codesign", "--force", "-s", "-", binary_path], check=False)
+
+    # Signature des Frameworks PySide6/Qt
+    frameworks_dir = dist_dir / "Contents" / "Frameworks"
+    if frameworks_dir.exists():
+        for fw in frameworks_dir.rglob("*.framework"):
+            if fw.is_dir():
+                subprocess.run(["codesign", "--force", "-s", "-", str(fw)], check=False)
+
+    # Signature de l'exécutable principal
+    main_bin = dist_dir / "Contents" / "MacOS" / "AnkiForge"
+    if main_bin.exists():
+        subprocess.run(["codesign", "--force", "-s", "-", str(main_bin)], check=False)
+
+    # Signature du bundle racine .app (SANS --deep pour ne pas corrompre le scellage)
+    subprocess.run(["codesign", "--force", "-s", "-", str(dist_dir)], check=False)
+
+    # Validation
+    verify = subprocess.run(["codesign", "-vvv", str(dist_dir)], capture_output=True, text=True, check=False)
+    if verify.returncode == 0:
+        logger.info("✅ Signature Ad-Hoc du bundle macOS validée avec succès !")
+    else:
+        logger.warning("Avertissement de signature macOS : %s", verify.stderr)
+
+
 def main() -> None:
     """Point d'entrée principal du pilote de compilation."""
     parser = argparse.ArgumentParser(description="Pilote de compilation Nuitka multi-plateformes AnkiForge.")
@@ -209,8 +245,7 @@ def main() -> None:
 
     # 5. Signature Ad-Hoc macOS si applicable
     if target_os == "darwin":
-        logger.info("Signature de code Ad-Hoc du bundle macOS...")
-        subprocess.run(["codesign", "--force", "--deep", "-s", "-", str(dist_dir)], check=False)
+        sign_macos_bundle(dist_dir)
 
     logger.info("✨ Compilation et empaquetage achevés avec succès pour %s dans %s !", target_os, dist_dir)
 
