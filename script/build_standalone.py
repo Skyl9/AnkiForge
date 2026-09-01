@@ -121,6 +121,27 @@ def copy_migrations_to_bundle(dist_dir: Path, target_os: str) -> None:
         shutil.copytree(migrations_src, target_migrations_py, dirs_exist_ok=True)
 
 
+def copy_app_resources_to_bundle(dist_dir: Path, target_os: str) -> None:
+    """Copie l'intégralité des ressources graphiques, icônes Phosphor, traductions et templates (src/ressources)."""
+    ressources_src = PROJECT_ROOT / "src" / "ressources"
+    if not ressources_src.exists():
+        logger.warning("Dossier de ressources source introuvable : %s", ressources_src)
+        return
+
+    logger.info("Copie des ressources applicatives (icônes Phosphor, logo, templates, traductions)...")
+    if target_os == "darwin":
+        res_dir = dist_dir / "Contents" / "Resources"
+        target_res = res_dir / "ressources"
+        target_src_res = res_dir / "src" / "ressources"
+        shutil.copytree(ressources_src, target_res, dirs_exist_ok=True)
+        shutil.copytree(ressources_src, target_src_res, dirs_exist_ok=True)
+    else:
+        target_res = dist_dir / "ressources"
+        target_src_res = dist_dir / "src" / "ressources"
+        shutil.copytree(ressources_src, target_res, dirs_exist_ok=True)
+        shutil.copytree(ressources_src, target_src_res, dirs_exist_ok=True)
+
+
 def strip_binary_symbols(dist_dir: Path, target_os: str) -> None:
     """Allège les binaires en supprimant les symboles de débogage inutiles (strip)."""
     logger.info("Allègement des symboles binaires C (strip)...")
@@ -290,8 +311,9 @@ def main() -> None:
     logger.info("Copie et élagage des dépendances tierces dans %s...", target_site_packages)
     copy_runtime_deps(target_site_packages)
 
-    # 3. Copie des scripts de migration SQL
+    # 3. Copie des scripts de migration SQL et des ressources applicatives
     copy_migrations_to_bundle(dist_dir, target_os)
+    copy_app_resources_to_bundle(dist_dir, target_os)
 
     # 4. Stripping des symboles
     strip_binary_symbols(dist_dir, target_os)
