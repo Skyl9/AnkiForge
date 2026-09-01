@@ -19,7 +19,6 @@ AllowNoIcons=yes
 OutputDir=.
 OutputBaseFilename=AnkiForge-Setup-x64
 SetupIconFile=..\src\ressources\icons\ankiforge.ico
-UninstallIconFile=..\src\ressources\icons\ankiforge.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern

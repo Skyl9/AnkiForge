@@ -187,7 +187,14 @@ def main() -> None:
         dist_dir = PROJECT_ROOT / "dist_prod" / "AnkiForge.app"
         target_site_packages = dist_dir / "Contents" / "MacOS"
     else:
-        dist_dir = PROJECT_ROOT / "dist_prod" / "AnkiForge.dist"
+        # Nuitka nomme par défaut le dossier de distribution 'ankiforge.dist' (minuscules).
+        # On le normalise vers 'AnkiForge.dist' pour compatibilité avec tous les scripts et la CI.
+        lower_dist = PROJECT_ROOT / "dist_prod" / "ankiforge.dist"
+        upper_dist = PROJECT_ROOT / "dist_prod" / "AnkiForge.dist"
+        if lower_dist.exists() and not upper_dist.exists():
+            logger.info("Normalisation du dossier : %s -> %s", lower_dist.name, upper_dist.name)
+            lower_dist.rename(upper_dist)
+        dist_dir = upper_dist if upper_dist.exists() else lower_dist
         target_site_packages = dist_dir
 
     # 2. Copie et élagage des dépendances runtime

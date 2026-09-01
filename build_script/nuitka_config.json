@@ -59,8 +59,7 @@
       "output_filename": "AnkiForge",
       "icon": "src/ressources/icons/ankiforge.icns",
       "extra_flags": [
-        "--macos-create-app-bundle",
-        "--macos-sign-mode=adhoc"
+        "--macos-create-app-bundle"
       ]
     },
     "linux": {
