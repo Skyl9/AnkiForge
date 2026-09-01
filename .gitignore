@@ -80,3 +80,7 @@ site/
 .impeccable/
 temp/
 test_marker_out/
+*.dmg
+*.exe
+*.zip
+AnkiForge Release Logs/

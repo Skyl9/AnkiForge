@@ -144,8 +144,53 @@ def strip_binary_symbols(dist_dir: Path, target_os: str) -> None:
             logger.warning("Échec partiel du stripping macOS : %s", err)
 
 
+def isolate_macos_binaries_and_resources(dist_dir: Path) -> None:
+    """Sépare strictement les exécutables Mach-O (Contents/MacOS) des ressources de données (Contents/Resources).
+
+    Indispensable pour respecter les spécifications Apple App Bundle et passer la validation codesign sans erreur.
+    """
+    macos_dir = dist_dir / "Contents" / "MacOS"
+    res_dir = dist_dir / "Contents" / "Resources"
+    res_dir.mkdir(parents=True, exist_ok=True)
+
+    if not macos_dir.exists():
+        return
+
+    # 1. Déplacer les dossiers de données (non-binaires) vers Resources
+    for item in list(macos_dir.iterdir()):
+        if item.is_dir() and item.name not in ("PySide6", "shiboken6", "websockets"):
+            target = res_dir / item.name
+            if target.exists():
+                shutil.rmtree(target, ignore_errors=True)
+            shutil.move(str(item), str(target))
+
+    # 2. Déplacer les fichiers de données non Mach-O vers Resources
+    for ext in ("*.dat", "*.pak", "*.bin", "*.conf", "*.xcprivacy", "*.plist", "*.json", "*.txt", "*.qm"):
+        for file_path in macos_dir.glob(ext):
+            target = res_dir / file_path.name
+            if target.exists():
+                target.unlink()
+            shutil.move(str(file_path), str(target))
+
+
 def sign_macos_bundle(dist_dir: Path) -> None:
     """Signe le bundle macOS selon les règles strictes Apple Leaf-to-Root (de l'intérieur vers l'extérieur)."""
+    isolate_macos_binaries_and_resources(dist_dir)
+
+    logger.info("Nettoyage des fichiers temporaires, bytecode et anciens scellages...")
+    for pycache in dist_dir.rglob("__pycache__"):
+        if pycache.is_dir():
+            shutil.rmtree(pycache, ignore_errors=True)
+    for pyc in dist_dir.rglob("*.pyc"):
+        try:
+            pyc.unlink()
+        except Exception:
+            pass
+
+    code_sig = dist_dir / "Contents" / "_CodeSignature"
+    if code_sig.exists():
+        shutil.rmtree(code_sig, ignore_errors=True)
+
     logger.info("Nettoyage des attributs étendus (quarantine, provenance)...")
     subprocess.run(["xattr", "-cr", str(dist_dir)], check=False)
 
@@ -164,10 +209,12 @@ def sign_macos_bundle(dist_dir: Path) -> None:
             if fw.is_dir():
                 subprocess.run(["codesign", "--force", "-s", "-", str(fw)], check=False)
 
-    # Signature de l'exécutable principal
-    main_bin = dist_dir / "Contents" / "MacOS" / "AnkiForge"
-    if main_bin.exists():
-        subprocess.run(["codesign", "--force", "-s", "-", str(main_bin)], check=False)
+    # Signature de chaque exécutable Mach-O dans Contents/MacOS
+    macos_dir = dist_dir / "Contents" / "MacOS"
+    if macos_dir.exists():
+        for exe in macos_dir.iterdir():
+            if exe.is_file() and not exe.name.startswith("."):
+                subprocess.run(["codesign", "--force", "-s", "-", str(exe)], check=False)
 
     # Signature du bundle racine .app (SANS --deep pour ne pas corrompre le scellage)
     subprocess.run(["codesign", "--force", "-s", "-", str(dist_dir)], check=False)
@@ -220,8 +267,14 @@ def main() -> None:
 
     # Détermination du dossier produit
     if target_os == "darwin":
-        dist_dir = PROJECT_ROOT / "dist_prod" / "AnkiForge.app"
-        target_site_packages = dist_dir / "Contents" / "MacOS"
+        lower_app = PROJECT_ROOT / "dist_prod" / "ankiforge.app"
+        upper_app = PROJECT_ROOT / "dist_prod" / "AnkiForge.app"
+        if lower_app.exists() and not upper_app.exists():
+            temp_app = PROJECT_ROOT / "dist_prod" / "temp_ankiforge.app"
+            lower_app.rename(temp_app)
+            temp_app.rename(upper_app)
+        dist_dir = upper_app if upper_app.exists() else lower_app
+        target_site_packages = dist_dir / "Contents" / "Resources"
     else:
         # Nuitka nomme par défaut le dossier de distribution 'ankiforge.dist' (minuscules).
         # On le normalise vers 'AnkiForge.dist' pour compatibilité avec tous les scripts et la CI.

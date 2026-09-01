@@ -2,11 +2,18 @@ import os
 import sys
 from pathlib import Path
 
-# Support pour les bundles macOS .app (Contents/Resources sur sys.path pour les métadonnées dist-info)
+# Empêcher l'écriture de fichiers .pyc à l'exécution pour ne pas invalider la signature de code Apple
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+sys.dont_write_bytecode = True
+
+# Support pour les bundles macOS .app (Contents/Resources sur sys.path pour les dépendances tierces et métadonnées dist-info)
 if sys.platform == "darwin":
     _exe_res = Path(sys.executable).parent.parent / "Resources"
     if _exe_res.exists() and str(_exe_res) not in sys.path:
         sys.path.insert(0, str(_exe_res))
+    _exe_lib = _exe_res / "lib"
+    if _exe_lib.exists() and str(_exe_lib) not in sys.path:
+        sys.path.insert(0, str(_exe_lib))
     try:
         _mod_res = Path(__file__).resolve().parent.parent.parent / "Resources"
         if _mod_res.exists() and str(_mod_res) not in sys.path:
