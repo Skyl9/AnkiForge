@@ -27,7 +27,7 @@ wheels = [
 
 [[package]]
 name = "ankiforge"
-version = "0.2.0"
+version = "1.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },

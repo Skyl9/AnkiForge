@@ -227,7 +227,111 @@ class GeneralTab(QWidget):
         self.rows_labels.append(add_setting_row(card_startup_layout, "Espace de travail de démarrage :", self.cb_default_profile))
 
         layout.addWidget(self.card_startup)
+
+        # ── SECTION 4 : À PROPOS & MISES À JOUR ─────────────────────────────
+        self.lbl_sec_about = QLabel("À PROPOS & MISES À JOUR")
+        self.lbl_sec_about.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        layout.addWidget(self.lbl_sec_about)
+
+        self.card_about = SettingsCard()
+        card_about_layout = QVBoxLayout(self.card_about)
+        card_about_layout.setContentsMargins(14, 12, 14, 12)
+        card_about_layout.setSpacing(12)
+
+        from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL
+        from ankiforge.ui.components.badges import Badge
+        from ankiforge.version import VERSION_INFO
+
+        # 1. Version et informations système
+        version_row = QHBoxLayout()
+        lbl_v_title = QLabel("Version d'AnkiForge :")
+        lbl_v_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        self.rows_labels.append(lbl_v_title)
+        version_row.addWidget(lbl_v_title)
+        version_row.addStretch()
+
+        v_badge = Badge(f"v{VERSION_INFO.version}", variant="primary")
+        version_row.addWidget(v_badge)
+
+        lbl_meta = QLabel(f"({VERSION_INFO.commit_hash}) · {VERSION_INFO.platform_str}")
+        lbl_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
+        version_row.addWidget(lbl_meta)
+        card_about_layout.addLayout(version_row)
+
+        # 2. Canal de mise à jour (Stable vs Nightly)
+        self.cb_update_channel = StyledComboBox()
+        self.cb_update_channel.setMinimumWidth(260)
+        self.cb_update_channel.setFixedHeight(30)
+        self.cb_update_channel.addItem(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN), "🟢 Canal Stable (Recommandé)", "stable")
+        self.cb_update_channel.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.COLOR_YELLOW), "🌙 Canal Nightly (Bêta / Edge)", "nightly")
+
+        saved_channel = str(q_settings.value(SETTINGS_KEY_CHANNEL, "stable"))
+        ch_idx = self.cb_update_channel.findData(saved_channel)
+        if ch_idx >= 0:
+            self.cb_update_channel.setCurrentIndex(ch_idx)
+
+        self.rows_labels.append(add_setting_row(card_about_layout, "Canal de distribution des mises à jour :", self.cb_update_channel))
+
+        # 3. Action de recherche manuelle
+        check_row = QHBoxLayout()
+        lbl_check_title = QLabel("Recherche de mises à jour :")
+        lbl_check_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        self.rows_labels.append(lbl_check_title)
+        check_row.addWidget(lbl_check_title)
+        check_row.addStretch()
+
+        self.lbl_update_status = QLabel("")
+        self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
+        check_row.addWidget(self.lbl_update_status)
+
+        self.btn_check_updates = SecondaryButton("Rechercher")
+        self.btn_check_updates.setIcon(load_phosphor_icon("ph.arrow-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_check_updates.setFixedHeight(30)
+        self.btn_check_updates.clicked.connect(self._on_check_updates_clicked)
+        check_row.addWidget(self.btn_check_updates)
+
+        card_about_layout.addLayout(check_row)
+        layout.addWidget(self.card_about)
+
         layout.addStretch()
+
+    def _on_check_updates_clicked(self) -> None:
+        """Déclenche manuellement la recherche de mise à jour avec retour visuel."""
+        from PySide6.QtCore import QThreadPool
+
+        from ankiforge.services.update_checker import UpdateCheckerWorker, UpdateInfo
+        from ankiforge.ui.dialogs.update_dialog import UpdateDialog
+        from ankiforge.version import VERSION_INFO
+
+        selected_channel = str(self.cb_update_channel.currentData() or "stable")
+        self.btn_check_updates.setEnabled(False)
+        self.lbl_update_status.setText("🔍 Recherche en cours...")
+        self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11.5px;")
+
+        worker = UpdateCheckerWorker(channel=selected_channel, force=True)
+
+        def on_avail(info: Any) -> None:
+            self.btn_check_updates.setEnabled(True)
+            self.lbl_update_status.setText(f"🎉 Version v{info.version} disponible !")
+            self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px; font-weight: bold;")
+            if isinstance(info, UpdateInfo):
+                dialog = UpdateDialog(info, parent=self.window())
+                dialog.exec()
+
+        def on_none(_cur: str) -> None:
+            self.btn_check_updates.setEnabled(True)
+            self.lbl_update_status.setText(f"✨ Vous disposez de la version la plus récente (v{VERSION_INFO.version})")
+            self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px;")
+
+        def on_err(msg: str) -> None:
+            self.btn_check_updates.setEnabled(True)
+            self.lbl_update_status.setText(f"⚠️ Échec : {msg}")
+            self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11.5px;")
+
+        worker.signals.update_available.connect(on_avail)
+        worker.signals.no_update.connect(on_none)
+        worker.signals.check_failed.connect(on_err)
+        QThreadPool.globalInstance().start(worker)
 
     def _get_main_window(self) -> Any | None:
         w = self.window()
@@ -259,6 +363,7 @@ class GeneralTab(QWidget):
 
     def save_tab(self) -> tuple[bool, str | None, str | None]:
         """Sauvegarde les paramètres de l'onglet et retourne (has_theme_change, selected_layout_id, selected_theme_id)."""
+        from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.style_engine import get_style_engine
 
@@ -273,12 +378,14 @@ class GeneralTab(QWidget):
         SettingsService.set("app/batch_factory_style", self.cb_batch_style.currentText(), category="general")
         SettingsService.set("app/export_path", self.le_export.text().strip(), category="general")
 
-        # Enregistrement des préférences de démarrage profil dans QSettings
+        # Enregistrement des préférences de démarrage profil et canal de mise à jour dans QSettings
         q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
         if hasattr(self, "chk_auto_startup"):
             q_settings.setValue("profiles/auto_open_startup", self.chk_auto_startup.isChecked())
         if hasattr(self, "cb_default_profile") and self.cb_default_profile.currentData():
             q_settings.setValue("profiles/default_startup_profile", self.cb_default_profile.currentData())
+        if hasattr(self, "cb_update_channel") and self.cb_update_channel.currentData():
+            q_settings.setValue(SETTINGS_KEY_CHANNEL, self.cb_update_channel.currentData())
 
         LayoutManager.save_layout_id(profile_name, selected_layout_id)
         engine.save_theme_preference(profile_name, selected_theme_id)
@@ -291,11 +398,17 @@ class GeneralTab(QWidget):
         self.lbl_sec_exp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         if hasattr(self, "lbl_sec_startup"):
             self.lbl_sec_startup.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
+        if hasattr(self, "lbl_sec_about"):
+            self.lbl_sec_about.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
         self.card_app.refresh_theme(profile)
         self.card_exp.refresh_theme(profile)
         if hasattr(self, "card_startup"):
             self.card_startup.refresh_theme(profile)
+        if hasattr(self, "card_about"):
+            self.card_about.refresh_theme(profile)
         for lbl in self.rows_labels:
             lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_exp_dir"):
             self.lbl_exp_dir.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "btn_check_updates") and hasattr(self.btn_check_updates, "refresh_theme"):
+            self.btn_check_updates.refresh_theme(profile)

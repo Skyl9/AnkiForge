@@ -1,6 +1,6 @@
 ; Script Inno Setup 6 pour AnkiForge Desktop
 #define MyAppName "AnkiForge"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "AnkiForgeOrg"
 #define MyAppURL "https://github.com/Skyl9/AnkiForge"
 #define MyAppExeName "AnkiForge.exe"

@@ -1,7 +1,7 @@
 # pyproject.toml
 [project]
 name = "ankiforge"
-version = "0.2.0"
+version = "1.0.5"
 description = "Générateur de cartes Anki assisté par IA"
 readme = "README.md"
 requires-python = ">=3.12"

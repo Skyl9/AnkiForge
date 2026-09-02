@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from copy_runtime_dependencies import copy_runtime_deps
+from generate_version import generate_version_file, read_pyproject_version
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AnkiForgeBuilder")
@@ -34,7 +35,7 @@ def load_config() -> dict[str, Any]:
         return json.load(f)
 
 
-def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int) -> list[str]:
+def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int, version: str = "1.0.5") -> list[str]:
     """Construit la liste des arguments de la commande Nuitka à partir de la configuration."""
     common = config.get("common", {})
     platforms = config.get("platforms", {})
@@ -66,14 +67,25 @@ def build_nuitka_command(config: dict[str, Any], target_os: str, jobs: int) -> l
     for nofollow in common.get("nofollow_imports", []):
         cmd.append(f"--nofollow-import-to={nofollow}")
 
+    # Métadonnées globales d'application
+    cmd.append("--company-name=AnkiForge")
+    cmd.append("--product-name=AnkiForge")
+    cmd.append(f"--product-version={version}")
+
     # 7. Flags spécifiques à la plateforme
     if target_os == "darwin":
         app_name = plat_cfg.get("app_name", "AnkiForge")
         cmd.append(f"--macos-app-name={app_name}")
+        cmd.append(f"--macos-app-version={version}")
         icon = plat_cfg.get("icon")
         if icon and (PROJECT_ROOT / icon).exists():
             cmd.append(f"--macos-app-icon={icon}")
     elif target_os == "windows":
+        win_ver = f"{version}.0" if len(version.split(".")) == 3 else version
+        cmd.append(f"--windows-product-version={win_ver}")
+        cmd.append(f"--windows-file-version={win_ver}")
+        cmd.append("--windows-company-name=AnkiForge")
+        cmd.append("--windows-product-name=AnkiForge")
         icon = plat_cfg.get("icon")
         if icon and (PROJECT_ROOT / icon).exists():
             cmd.append(f"--windows-icon-from-ico={icon}")
@@ -248,12 +260,31 @@ def sign_macos_bundle(dist_dir: Path) -> None:
         logger.warning("Avertissement de signature macOS : %s", verify.stderr)
 
 
+def update_macos_plist_metadata(dist_dir: Path, version: str) -> None:
+    """Met à jour le fichier Info.plist avec les versions et identifiants officiels."""
+    import re
+
+    plist_path = dist_dir / "Contents" / "Info.plist"
+    if not plist_path.exists():
+        return
+    try:
+        content = plist_path.read_text(encoding="utf-8")
+        content = re.sub(r"(<key>CFBundleShortVersionString</key>\s*<string>)[^<]*(</string>)", rf"\g<1>{version}\g<2>", content)
+        content = re.sub(r"(<key>CFBundleVersion</key>\s*<string>)[^<]*(</string>)", rf"\g<1>{version}\g<2>", content)
+        plist_path.write_text(content, encoding="utf-8")
+        logger.info("Info.plist mis à jour avec la version v%s", version)
+    except Exception as err:
+        logger.warning("Impossible de mettre à jour Info.plist : %s", err)
+
+
 def main() -> None:
     """Point d'entrée principal du pilote de compilation."""
     parser = argparse.ArgumentParser(description="Pilote de compilation Nuitka multi-plateformes AnkiForge.")
     parser.add_argument("--dry-run", action="store_true", help="Affiche la commande Nuitka générée sans l'exécuter.")
     parser.add_argument("--jobs", type=int, default=0, help="Nombre de cœurs CPU (0 = auto-détection).")
     parser.add_argument("--target-os", choices=["darwin", "linux", "windows"], default="", help="OS cible forcé.")
+    parser.add_argument("--version", default="", help="Version sémantique du build (ex: 1.0.5).")
+    parser.add_argument("--channel", default="stable", choices=["stable", "nightly", "dev"], help="Canal de distribution.")
     args = parser.parse_args()
 
     # Détection de la plateforme
@@ -268,16 +299,20 @@ def main() -> None:
     # Calcul adaptatif des cœurs CPU
     jobs = args.jobs or min(os.cpu_count() or 4, 8)
 
+    # 0. Résolution et génération des métadonnées de version
+    build_version = args.version or read_pyproject_version()
+    generate_version_file(version=build_version, channel=args.channel)
+
     config = load_config()
-    cmd = build_nuitka_command(config, target_os, jobs)
+    cmd = build_nuitka_command(config, target_os, jobs, version=build_version)
 
     if args.dry_run:
         print("\n=== Commande Nuitka Générée (Dry Run) ===")
         print(" ".join(cmd))
-        print(f"OS cible : {target_os} | CPU Jobs : {jobs}\n")
+        print(f"OS cible : {target_os} | Version : {build_version} | CPU Jobs : {jobs}\n")
         return
 
-    logger.info("Démarrage de la compilation AnkiForge pour %s (Jobs: %d)...", target_os, jobs)
+    logger.info("Démarrage de la compilation AnkiForge v%s pour %s (Jobs: %d)...", build_version, target_os, jobs)
     os.chdir(PROJECT_ROOT)
 
     # 1. Exécution de la compilation Nuitka
@@ -318,11 +353,12 @@ def main() -> None:
     # 4. Stripping des symboles
     strip_binary_symbols(dist_dir, target_os)
 
-    # 5. Signature Ad-Hoc macOS si applicable
+    # 5. Mise à jour des métadonnées Info.plist et Signature Ad-Hoc macOS si applicable
     if target_os == "darwin":
+        update_macos_plist_metadata(dist_dir, build_version)
         sign_macos_bundle(dist_dir)
 
-    logger.info("✨ Compilation et empaquetage achevés avec succès pour %s dans %s !", target_os, dist_dir)
+    logger.info("✨ Compilation et empaquetage achevés avec succès pour %s (v%s) dans %s !", target_os, build_version, dist_dir)
 
 
 if __name__ == "__main__":

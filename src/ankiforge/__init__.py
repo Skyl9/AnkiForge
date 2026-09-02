@@ -15,4 +15,6 @@ if sys.platform == "darwin":
     except Exception:
         pass
 
-__version__ = "0.2.0"
+from ankiforge.version import VERSION_INFO, AppVersionInfo, __version__, get_version_info
+
+__all__ = ["AppVersionInfo", "VERSION_INFO", "__version__", "get_version_info"]

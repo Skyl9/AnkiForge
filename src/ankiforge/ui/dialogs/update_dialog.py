@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge import __version__
 from ankiforge.services.auto_updater import (
     UpdateDownloaderWorker,
     apply_update_and_restart,
@@ -36,6 +35,7 @@ from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.version import VERSION_INFO
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class UpdateDialog(QDialog):
         badge_layout.setContentsMargins(12, 6, 12, 6)
         badge_layout.setSpacing(12)
 
-        curr_lbl = QLabel(f"Version installée : <b>v{__version__}</b>")
+        curr_lbl = QLabel(f"Version installée : <b>v{VERSION_INFO.version}</b>")
         curr_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 13px;")
         badge_layout.addWidget(curr_lbl)
 
@@ -103,7 +103,8 @@ class UpdateDialog(QDialog):
 
         badge_layout.addStretch(1)
 
-        new_badge = Badge(f"Disponible : v{self.update_info.version}", variant="success")
+        channel_label = f" [{self.update_info.channel.upper()}]" if self.update_info.channel != "stable" else ""
+        new_badge = Badge(f"Disponible : v{self.update_info.version}{channel_label}", variant="success")
         badge_layout.addWidget(new_badge)
 
         root_layout.addWidget(badge_card)
