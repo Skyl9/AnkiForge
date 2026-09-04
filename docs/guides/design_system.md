@@ -47,10 +47,10 @@ Toutes les feuilles de style Qt (QSS) sont générées dynamiquement par `StyleE
 
 ```python
 # Exemple de tokenisation sémantique
-bg_surface = theme.bg_surface        # Arrière-plan des panneaux et cartes
-accent_primary = theme.accent_primary # Boutons d'action et éléments actifs
-text_primary = theme.text_primary     # Typographie principale
-border_subtle = theme.border_subtle   # Séparateurs discrets
+bg_surface = theme.bg_surface  # Arrière-plan des panneaux et cartes
+accent_primary = theme.accent_primary  # Boutons d'action et éléments actifs
+text_primary = theme.text_primary  # Typographie principale
+border_subtle = theme.border_subtle  # Séparateurs discrets
 ```
 
 Cette architecture garantit que tout nouveau composant UI hérite immédiatement et parfaitement des 12 thèmes sans effort supplémentaire.
