@@ -130,3 +130,24 @@ def test_system_speech_provider_available_or_graceful() -> None:
     voices = provider.get_voices()
     assert isinstance(voices, list)
     assert len(voices) >= 1
+
+
+def test_piper_executable_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie la détection de l'exécutable Piper dans un sous-dossier piper/."""
+    from ankiforge.services.cards.tts_service import PiperSidecarProvider
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+
+    # Avant installation
+    assert PiperSidecarProvider.get_piper_executable() is None
+
+    # Création d'un binaire factice dans piper/piper
+    sub_dir = tmp_path / "tools" / "tts" / "piper"
+    sub_dir.mkdir(parents=True)
+    fake_exe = sub_dir / "piper"
+    fake_exe.write_text("#!/bin/sh\necho piper")
+    fake_exe.chmod(0o755)
+
+    detected = PiperSidecarProvider.get_piper_executable()
+    assert detected is not None
+    assert detected == fake_exe

@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.services.cards.note_manager import NoteManager
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
@@ -605,6 +606,18 @@ class NoteFieldEditorWidget(QWidget):
         # Lecteur audio natif Qt PySide6
         self._player = QMediaPlayer(self)
         self._audio_output = QAudioOutput(self)
+        self._audio_output.setVolume(1.0)
+        self._audio_output.setMuted(False)
+
+        saved_dev_name = SettingsService.get("tts.device_name")
+        if saved_dev_name:
+            from PySide6.QtMultimedia import QMediaDevices
+
+            for dev in QMediaDevices.audioOutputs():
+                if dev.description() == saved_dev_name:
+                    self._audio_output.setDevice(dev)
+                    break
+
         self._player.setAudioOutput(self._audio_output)
         self._player.playbackStateChanged.connect(self._on_playback_state_changed)
 

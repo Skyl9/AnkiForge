@@ -398,8 +398,8 @@ class ToastManager:
 
 
 def show_toast(
-    parent: QWidget | None,
-    message: str,
+    parent: QWidget | str | None,
+    message: str | None = None,
     is_error: bool | None = None,
     level: ToastLevel | str | None = None,
     title: str = "",
@@ -407,10 +407,21 @@ def show_toast(
 ) -> Toast | None:
     """
     Fonction globale pour afficher un toast flottant.
-    100% rétrocompatible avec les signatures historiques :
+    Rétrocompatible et résiliente :
     - show_toast(parent, message, is_error=True/False)
     - show_toast(parent, message, level='success'|'info'|'warning'|'error', title='...')
+    - show_toast(message, is_error=True/False)  # parent implicite résolu via la fenêtre active
     """
+    real_parent: QWidget | None = None
+    real_message: str = ""
+
+    if isinstance(parent, str):
+        real_message = parent
+        real_parent = None
+    else:
+        real_parent = parent
+        real_message = message or ""
+
     target_level: ToastLevel | str
     if level is not None:
         target_level = level
@@ -422,8 +433,8 @@ def show_toast(
         target_level = ToastLevel.INFO
 
     return ToastManager.get_instance().show(
-        parent=parent,
-        message=message,
+        parent=real_parent,
+        message=real_message,
         level=target_level,
         title=title,
         duration_ms=duration_ms,

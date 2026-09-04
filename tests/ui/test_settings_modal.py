@@ -225,3 +225,23 @@ def test_settings_modal_theme_reactivity(qtbot):
     # Appliquer thème clair
     modal.refresh_theme(light_prof)
     assert modal.lbl_title.text() == "Paramètres AnkiForge"
+
+
+def test_tts_settings_tab_actions(qtbot, tmp_path):
+    """Vérifie le test de voix et les callbacks d'installation de Piper dans TTSSettingsTab."""
+    tab = TTSSettingsTab()
+    qtbot.addWidget(tab)
+
+    fake_audio = tmp_path / "sample.mp3"
+    fake_audio.write_bytes(b"fake mp3 audio data")
+
+    with patch.object(tab.tts_service, "synthesize", return_value=("[sound:sample.mp3]", fake_audio)), patch.object(tab._player, "play") as mock_play:
+        tab._on_test_voice()
+        mock_play.assert_called_once()
+
+    # Vérification des callbacks installateur sans exception
+    tab._on_installer_success()
+    assert "Piper installé avec succès" in tab.lbl_install_progress.text()
+
+    tab._on_installer_failed("Réseau indisponible")
+    assert "Échec du téléchargement" in tab.lbl_install_progress.text()

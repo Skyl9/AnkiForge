@@ -152,3 +152,50 @@ def test_toast_manager_resolves_dialog_host_window(qtbot) -> None:
 
     assert toast.parent() == win
     manager.clear()
+
+
+def test_show_toast_with_parent_and_message(parent_widget: QWidget, qtbot) -> None:
+    """Vérifie l'appel canonique show_toast(parent, message)."""
+    manager = ToastManager.get_instance()
+    manager.clear()
+
+    toast = show_toast(parent_widget, "Notification standard")
+    assert toast is not None
+    qtbot.addWidget(toast)
+
+    labels = toast.findChildren(QLabel)
+    texts = " ".join([label.text() for label in labels])
+    assert "Notification standard" in texts
+    assert toast.level == ToastLevel.INFO
+    manager.clear()
+
+
+def test_show_toast_direct_message_string(parent_widget: QWidget, qtbot) -> None:
+    """Vérifie la résilience show_toast(message) où parent est omis."""
+    manager = ToastManager.get_instance()
+    manager.clear()
+
+    parent_widget.show()
+    toast = show_toast("Message direct sans parent explicite")
+    assert toast is not None
+    qtbot.addWidget(toast)
+
+    labels = toast.findChildren(QLabel)
+    texts = " ".join([label.text() for label in labels])
+    assert "Message direct sans parent explicite" in texts
+    assert toast.level == ToastLevel.INFO
+    manager.clear()
+
+
+def test_show_toast_direct_message_with_is_error(parent_widget: QWidget, qtbot) -> None:
+    """Vérifie show_toast(message, is_error=True) où parent est omis."""
+    manager = ToastManager.get_instance()
+    manager.clear()
+
+    parent_widget.show()
+    toast = show_toast("Erreur directe", is_error=True)
+    assert toast is not None
+    qtbot.addWidget(toast)
+
+    assert toast.level == ToastLevel.ERROR
+    manager.clear()

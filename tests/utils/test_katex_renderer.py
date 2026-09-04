@@ -175,19 +175,18 @@ def test_webengine_headless_renders_katex_formulas(qtbot: Any) -> None:
     css_res = get_resource_path("resources", "katex", "katex.min.css")
     base_url = QUrl.fromLocalFile(str(css_res.parent) + "/")
 
-    page.setHtml(html, base_url)
+    with qtbot.waitSignal(page.loadFinished, timeout=5000):
+        page.setHtml(html, base_url)
 
     rendered_count: list[int] = []
 
     def check_result(count: Any) -> None:
+        rendered_count.clear()
         rendered_count.append(int(count) if count is not None else 0)
 
-    # On attend que KaTeX termine son auto-render dans WebEngine
-    qtbot.wait(2000)
+    def poll_katex() -> bool:
+        page.runJavaScript("document.querySelectorAll('.katex').length", check_result)
+        return len(rendered_count) > 0 and rendered_count[0] >= 5
 
-    page.runJavaScript("document.querySelectorAll('.katex').length", check_result)
-    qtbot.wait(500)
-
-    assert len(rendered_count) > 0
-    # Les 5 formules doivent toutes avoir généré des éléments .katex
+    qtbot.waitUntil(poll_katex, timeout=5000)
     assert rendered_count[0] >= 5, f"Nombre de formules KaTeX rendues insuffisant : {rendered_count[0]}"

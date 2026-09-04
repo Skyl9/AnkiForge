@@ -214,6 +214,8 @@ class PiperSidecarProvider(TTSProvider):
         # 1. Dossier tools AnkiForge
         app_tools = get_app_data_dir() / "tools" / "tts"
         candidates = [
+            app_tools / "piper" / "piper",
+            app_tools / "piper" / "piper.exe",
             app_tools / "piper",
             app_tools / "piper.exe",
             app_tools / "bin" / "piper",
@@ -221,7 +223,7 @@ class PiperSidecarProvider(TTSProvider):
             get_app_data_dir() / "tools" / "bin" / "piper",
         ]
         for c in candidates:
-            if c.exists() and os.access(c, os.X_OK):
+            if c.is_file() and os.access(c, os.X_OK):
                 return c
 
         # 2. PATH système
@@ -238,9 +240,33 @@ class PiperSidecarProvider(TTSProvider):
         voices_dir.mkdir(parents=True, exist_ok=True)
         return voices_dir
 
+    @classmethod
+    def is_functional(cls) -> tuple[bool, str]:
+        """Vérifie que le binaire piper existe ET s'exécute sans erreur de dépendance dynamique."""
+        exe = cls.get_piper_executable()
+        if not exe:
+            return False, "Binaire Piper introuvable."
+        try:
+            res = subprocess.run(
+                [str(exe), "--version"],
+                capture_output=True,
+                check=False,
+                timeout=2,
+                cwd=str(exe.parent),
+            )  # nosec B603
+            if res.returncode == 0:
+                return True, "Opérationnel"
+            err = res.stderr.decode("utf-8", errors="ignore").strip()
+            if "Library not loaded" in err or "libespeak-ng" in err:
+                return False, "Dépendance système requise (libespeak-ng)"
+            return False, f"Erreur ({res.returncode}) : {err}"
+        except Exception as e:
+            return False, str(e)
+
     def is_available(self) -> bool:
-        """Vérifie la présence du binaire piper."""
-        return self.get_piper_executable() is not None
+        """Vérifie la présence et le bon fonctionnement du binaire piper."""
+        ok, _ = self.is_functional()
+        return ok
 
     def get_voices(self) -> list[dict[str, str]]:
         """Liste les modèles .onnx présents dans le dossier des voix Piper."""
@@ -276,6 +302,10 @@ class PiperSidecarProvider(TTSProvider):
         if not piper_exe:
             raise RuntimeError("Le binaire Piper est introuvable. Téléchargez-le dans les Paramètres d'AnkiForge ou installez-le dans ~/.ankiforge/tools/tts/piper.")
 
+        ok, reason = self.is_functional()
+        if not ok:
+            raise RuntimeError(f"Le moteur Piper ne peut pas s'exécuter sur cette machine : {reason}. Sélectionnez Edge-TTS ou le Moteur Système dans les Paramètres.")
+
         voices_dir = self.get_voices_dir()
         model_path: Path | None = None
 
@@ -299,6 +329,7 @@ class PiperSidecarProvider(TTSProvider):
                 input=text.encode("utf-8"),
                 capture_output=True,
                 check=False,
+                cwd=str(piper_exe.parent),
             )  # nosec B603
             if proc.returncode != 0:
                 err_msg = proc.stderr.decode("utf-8", errors="ignore")
@@ -495,10 +526,10 @@ class TTSService:
     def synthesize(
         self,
         text: str,
-        engine: str = "edge-tts",
+        engine: str | None = None,
         voice: str | None = None,
-        rate: str = "+0%",
-        pitch: str = "+0Hz",
+        rate: str | None = None,
+        pitch: str | None = None,
         strip_cloze: bool = True,
     ) -> tuple[str, Path]:
         """
@@ -513,14 +544,16 @@ class TTSService:
         if not clean_text:
             raise ValueError("Le texte à synthétiser est vide après normalisation.")
 
-        # Récupération de la voix par défaut depuis les paramètres si omise
-        if not voice:
-            voice = SettingsService.get("tts.voice", "fr-FR-VivienneMultilingualNeural")
+        # Récupération des paramètres par défaut si omis
+        actual_engine = engine or SettingsService.get("tts.engine", "edge-tts")
+        actual_voice = voice or SettingsService.get("tts.voice", "fr-FR-VivienneMultilingualNeural")
+        actual_rate = rate or SettingsService.get("tts.rate", "+0%")
+        actual_pitch = pitch or SettingsService.get("tts.pitch", "+0Hz")
 
-        provider = self.get_provider(engine)
+        provider = self.get_provider(actual_engine)
 
         # 1. Calcul du hash d'identification unique pour le cache
-        cache_key = f"{provider.id}:{voice}:{rate}:{pitch}:{clean_text}"
+        cache_key = f"{provider.id}:{actual_voice}:{actual_rate}:{actual_pitch}:{clean_text}"
         audio_hash = hashlib.md5(cache_key.encode("utf-8"), usedforsecurity=False).hexdigest()
 
         # Déterminer l'extension cible
@@ -543,11 +576,11 @@ class TTSService:
         logger.info(
             "Synthèse vocale en cours [%s / %s] : '%s' (%d caractères)",
             provider.id,
-            voice,
+            actual_voice,
             clean_text[:40],
             len(clean_text),
         )
-        raw_bytes = provider.synthesize(clean_text, voice=voice, rate=rate, pitch=pitch)
+        raw_bytes = provider.synthesize(clean_text, voice=actual_voice, rate=actual_rate, pitch=actual_pitch)
 
         # 3. Sauvegarde directe sous target_filename dans media_dir
         dest_path = self.media_manager.media_dir / target_filename
@@ -595,12 +628,15 @@ class TTSService:
         is_tar = True
 
         if sys_name == "Darwin":
-            if "arm" in arch:
-                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_arm64.tar.gz"
+            if "arm" in arch or "aarch64" in arch:
+                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_aarch64.tar.gz"
             else:
-                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_x86_64.tar.gz"
+                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_x64.tar.gz"
         elif sys_name == "Linux":
-            url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz"
+            if "arm" in arch or "aarch64" in arch:
+                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz"
+            else:
+                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz"
         elif sys_name == "Windows":
             url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip"
             is_tar = False
@@ -610,10 +646,25 @@ class TTSService:
         archive_path = tools_dir / ("piper_archive.tar.gz" if is_tar else "piper_archive.zip")
 
         if progress_callback:
-            progress_callback(f"Téléchargement de Piper depuis {url}...")
+            progress_callback("Téléchargement de Piper depuis GitHub...")
 
         try:
-            urllib.request.urlretrieve(url, archive_path)  # nosec B310
+            req = urllib.request.Request(url, headers={"User-Agent": "AnkiForge/1.0"})
+            with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out_file:  # nosec B310
+                total_size = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
+                chunk_size = 1024 * 64
+                while True:
+                    chunk = resp.read(chunk_size)
+                    if not chunk:
+                        break
+                    out_file.write(chunk)
+                    downloaded += len(chunk)
+                    if progress_callback and total_size > 0:
+                        percent = int((downloaded / total_size) * 100)
+                        mb = downloaded / (1024 * 1024)
+                        total_mb = total_size / (1024 * 1024)
+                        progress_callback(f"Téléchargement de Piper : {mb:.1f}/{total_mb:.1f} Mo ({percent}%)")
 
             if progress_callback:
                 progress_callback("Extraction de l'archive...")
@@ -631,6 +682,23 @@ class TTSService:
             exe = PiperSidecarProvider.get_piper_executable()
             if exe and sys_name != "Windows":
                 os.chmod(exe, 0o755)  # nosec B103
+                for helper_name in ("piper_phonemize", "espeak-ng"):
+                    helper = exe.parent / helper_name
+                    if helper.exists():
+                        os.chmod(helper, 0o755)  # nosec B103
+
+            # Télécharger une voix française par défaut si aucune voix n'est présente
+            voices_dir = PiperSidecarProvider.get_voices_dir()
+            if not list(voices_dir.glob("*.onnx")):
+                if progress_callback:
+                    progress_callback("Téléchargement de la voix française (fr_FR-siwis-low)...")
+                voice_base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low"
+                for ext in (".onnx", ".onnx.json"):
+                    v_url = f"{voice_base}/fr_FR-siwis-low{ext}"
+                    v_dest = voices_dir / f"fr_FR-siwis-low{ext}"
+                    v_req = urllib.request.Request(v_url, headers={"User-Agent": "AnkiForge/1.0"})
+                    with urllib.request.urlopen(v_req) as v_resp, open(v_dest, "wb") as v_out:  # nosec B310
+                        shutil.copyfileobj(v_resp, v_out)
 
             if progress_callback:
                 progress_callback("Piper installé avec succès !")

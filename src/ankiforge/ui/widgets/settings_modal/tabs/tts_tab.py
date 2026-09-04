@@ -4,10 +4,11 @@ Permet de choisir le moteur de voix par défaut, d'auditionner les voix,
 et d'installer/mettre à jour le binaire autonome Piper TTS en local.
 """
 
+import logging
 from typing import Any
 
 from PySide6.QtCore import QThread, QUrl, Signal
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -27,6 +28,8 @@ from ankiforge.ui.widgets.settings_modal.components.settings_card import Setting
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
 
 
 class PiperInstallerWorker(QThread):
@@ -54,7 +57,11 @@ class TTSSettingsTab(QWidget):
         # Lecteur audio pour les tests de voix
         self._player = QMediaPlayer(self)
         self._audio_output = QAudioOutput(self)
+        self._audio_output.setVolume(1.0)
+        self._audio_output.setMuted(False)
         self._player.setAudioOutput(self._audio_output)
+        self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+        self._player.errorOccurred.connect(self._on_player_error)
 
         self._installer_worker: PiperInstallerWorker | None = None
 
@@ -117,10 +124,22 @@ class TTSSettingsTab(QWidget):
         self.cb_rate.addItem("Rapide (115%)", "+15%")
         self.cb_rate.addItem("Très rapide (130%)", "+30%")
         row_params.addWidget(self.cb_rate)
-
         card_gen_layout.addLayout(row_params)
 
-        # 4. Bouton Tester la Voix
+        # 4. Périphérique de Sortie Audio
+        row_device = QHBoxLayout()
+        lbl_device = QLabel("Sortie audio :")
+        lbl_device.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_device.addWidget(lbl_device)
+
+        self.cb_device = StyledComboBox()
+        self.cb_device.setFixedHeight(28)
+        self._populate_audio_devices()
+        self.cb_device.currentIndexChanged.connect(self._on_audio_device_changed)
+        row_device.addWidget(self.cb_device)
+        card_gen_layout.addLayout(row_device)
+
+        # 5. Bouton Tester la Voix
         row_test = QHBoxLayout()
         row_test.addStretch()
 
@@ -183,8 +202,14 @@ class TTSSettingsTab(QWidget):
         """Met à jour le libellé et la couleur du statut d'installation de Piper."""
         is_installed = PiperSidecarProvider.get_piper_executable() is not None
         if is_installed:
-            self.lbl_piper_status.setText("● Installé et opérationnel")
-            self.lbl_piper_status.setStyleSheet("color: #10b981; font-size: 11px; font-weight: bold;")
+            is_functional, msg = PiperSidecarProvider.is_functional()
+            if is_functional:
+                self.lbl_piper_status.setText("● Installé et opérationnel")
+                self.lbl_piper_status.setStyleSheet("color: #10b981; font-size: 11px; font-weight: bold;")
+            else:
+                self.lbl_piper_status.setText(f"⚠️ Dépendance manquante ({msg})")
+                self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
+                self.lbl_piper_status.setToolTip(msg)
         else:
             self.lbl_piper_status.setText("○ Non installé (binaire absent)")
             self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
@@ -207,9 +232,12 @@ class TTSSettingsTab(QWidget):
         engine = SettingsService.get("tts.engine", "edge-tts")
         idx_engine = self.cb_engine.findData(engine)
         if idx_engine >= 0:
+            self.cb_engine.blockSignals(True)
             self.cb_engine.setCurrentIndex(idx_engine)
-        else:
-            self._on_engine_changed()
+            self.cb_engine.blockSignals(False)
+
+        # Toujours peupler la liste des voix du moteur sélectionné
+        self._on_engine_changed()
 
         saved_voice = SettingsService.get("tts.voice")
         if saved_voice:
@@ -227,13 +255,63 @@ class TTSSettingsTab(QWidget):
         SettingsService.set("tts.engine", self.cb_engine.currentData(), category="multimedia")
         SettingsService.set("tts.voice", self.cb_voice.currentData(), category="multimedia")
         SettingsService.set("tts.rate", self.cb_rate.currentData(), category="multimedia")
+        dev_desc = self._audio_output.device().description()
+        if dev_desc:
+            SettingsService.set("tts.device_name", dev_desc, category="multimedia")
 
     def save_tab(self) -> None:
         """Alias conventionnel pour save_settings()."""
         self.save_settings()
 
+    def _populate_audio_devices(self) -> None:
+        """Remplit la liste des périphériques de sortie audio disponibles."""
+        self.cb_device.clear()
+        default_device = QMediaDevices.defaultAudioOutput()
+        self._audio_devices = list(QMediaDevices.audioOutputs())
+        saved_dev_name = SettingsService.get("tts.device_name")
+
+        default_idx = 0
+        saved_idx: int | None = None
+
+        for idx, dev in enumerate(self._audio_devices):
+            name = dev.description()
+            is_def = dev.id() == default_device.id()
+            label = f"{name} (Par défaut)" if is_def else name
+            self.cb_device.addItem(label, dev.id())
+            if is_def:
+                default_idx = idx
+            if saved_dev_name and name == saved_dev_name:
+                saved_idx = idx
+
+        target_idx = saved_idx if saved_idx is not None else default_idx
+        if self.cb_device.count() > 0:
+            self.cb_device.setCurrentIndex(target_idx)
+            self._on_audio_device_changed()
+
+    def _on_audio_device_changed(self) -> None:
+        """Applique le périphérique audio sélectionné au lecteur."""
+        selected_id = self.cb_device.currentData()
+        for dev in getattr(self, "_audio_devices", []):
+            if dev.id() == selected_id:
+                self._audio_output.setDevice(dev)
+                logger.info("Sortie audio changée vers : %s", dev.description())
+                break
+
+    def _on_playback_state_changed(self, state: QMediaPlayer.PlaybackState) -> None:
+        """Met à jour l'icône et l'intitulé du bouton de test selon la lecture."""
+        if state == QMediaPlayer.PlaybackState.PlayingState:
+            self.btn_test.setText(" Arrêter la lecture")
+            self.btn_test.setIcon(load_phosphor_icon("ph.stop", color="#ef4444"))
+        else:
+            self.btn_test.setText(" Tester la voix sélectionnée")
+            self.btn_test.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.ACCENT_PRIMARY))
+
     def _on_test_voice(self) -> None:
         """Génère et lit un échantillon de voix avec les réglages actuels."""
+        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self._player.stop()
+            return
+
         engine = self.cb_engine.currentData()
         voice = self.cb_voice.currentData()
         rate = self.cb_rate.currentData()
@@ -250,9 +328,11 @@ class TTSSettingsTab(QWidget):
             )
             self._player.setSource(QUrl.fromLocalFile(str(audio_path)))
             self._player.play()
-            show_toast("Lecture de l'échantillon audio en cours...")
+            dev_desc = self._audio_output.device().description() or "Sortie audio"
+            show_toast(self, f"Lecture audio en cours sur '{dev_desc}'...")
         except Exception as e:
-            show_toast(f"Erreur lors du test vocal : {e}", is_error=True)
+            logger.exception("Erreur lors du test vocal : %s", e)
+            show_toast(self, f"Erreur lors du test vocal : {e}", is_error=True)
         finally:
             self.btn_test.setEnabled(True)
 
@@ -271,12 +351,16 @@ class TTSSettingsTab(QWidget):
         self.btn_install_piper.setEnabled(True)
         self.lbl_install_progress.setText("Piper installé avec succès !")
         self._update_piper_status_ui()
-        show_toast("Piper TTS a été installé avec succès.")
+        show_toast(self, "Piper TTS a été installé avec succès.")
 
     def _on_installer_failed(self, err_msg: str) -> None:
         self.btn_install_piper.setEnabled(True)
         self.lbl_install_progress.setText("Échec du téléchargement.")
-        show_toast(f"Installation de Piper échouée : {err_msg}", is_error=True)
+        show_toast(self, f"Installation de Piper échouée : {err_msg}", is_error=True)
+
+    def _on_player_error(self, error: QMediaPlayer.Error, error_string: str) -> None:
+        logger.warning("Erreur du lecteur audio : %s - %s", error, error_string)
+        show_toast(self, f"Erreur de lecture audio : {error_string}", is_error=True)
 
     def closeEvent(self, event: Any) -> None:
         if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
