@@ -195,6 +195,16 @@ def run_migrations() -> None:
         # Exécute toutes les migrations en attente
         router.run()
 
+        # Vérification post-migration : s'assurer que personas possède llm_config_id
+        if db.table_exists("personas"):
+            cols = [col.name for col in db.get_columns("personas")]
+            if "llm_config_id" not in cols:
+                try:
+                    db.execute_sql("ALTER TABLE personas ADD COLUMN llm_config_id INTEGER REFERENCES llm_configs (id);")
+                    logger.info("Colonne 'llm_config_id' ajoutée post-migration à la table 'personas'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de llm_config_id sur personas : %s", e)
+
         try:
             db.execute_sql("PRAGMA foreign_keys = ON;")
         except Exception as fk_err:
