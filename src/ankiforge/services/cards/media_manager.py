@@ -59,6 +59,33 @@ class MediaManager:
         )
         return media
 
+    def store_media_bytes(self, data: bytes, original_name: str, mime_type: str | None = None) -> Any:
+        """Enregistre des données brutes en média et retourne son MediaModel."""
+        file_hash = hashlib.md5(data, usedforsecurity=False).hexdigest()
+        suffix = Path(original_name).suffix.lower() or ".png"
+        new_filename = f"{file_hash}{suffix}"
+        destination_path = self.media_dir / new_filename
+
+        if not destination_path.exists():
+            destination_path.write_bytes(data)
+            logger.info("Données média archivées : %s (hash: %s, taille: %d)", original_name, file_hash, len(data))
+
+        from ankiforge.database.models import MediaModel
+
+        if not mime_type:
+            mime_type, _ = mimetypes.guess_type(original_name)
+            mime_type = mime_type or "image/png"
+
+        media, _ = MediaModel.get_or_create(
+            checksum=file_hash,
+            defaults={
+                "filename": new_filename,
+                "original_name": original_name,
+                "mime_type": mime_type,
+            },
+        )
+        return media
+
     def process_extracted_folder(self, source_folder: str, markdown_content: str) -> str:
         """
         1. Trouve toutes les images dans le dossier source (généré par Marker).

@@ -650,6 +650,10 @@ class DocumentsView(QWidget):
                         item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
                 elif getattr(doc, "file_type", "") == "txt" or title_lower.endswith(".txt"):
                     item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
+                elif getattr(doc, "file_type", "") == "epub" or title_lower.endswith(".epub"):
+                    item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE))
+                elif getattr(doc, "file_type", "") == "pptx" or title_lower.endswith(".pptx"):
+                    item.setIcon(0, load_phosphor_icon("ph.presentation", color=DesignTokens.COLOR_YELLOW))
                 elif getattr(doc, "file_type", "") == "md" or title_lower.endswith(".md"):
                     item.setIcon(0, load_phosphor_icon("ph.file-code", color="#eab308"))
                 elif getattr(doc, "file_type", "") == "web":
@@ -757,7 +761,7 @@ class DocumentsView(QWidget):
             self,
             "Importer un document",
             "",
-            "Documents (*.pdf *.txt *.md *.docx *.pptx);;Tous les fichiers (*.*)",
+            "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx);;Tous les fichiers (*.*)",
         )
         if file_path:
             ext = pathlib.Path(file_path).suffix.lower()

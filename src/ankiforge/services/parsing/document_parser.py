@@ -86,7 +86,11 @@ class DocumentParser:
         elif ext == ".pptx":
             if progress_callback:
                 progress_callback("Analyse de la présentation PowerPoint en cours...")
-            res = self._parse_pptx(file_path)
+            res = self._parse_pptx(file_path, progress_callback, check_cancel)
+        elif ext == ".epub":
+            if progress_callback:
+                progress_callback("Extraction du livre numérique EPUB en cours...")
+            res = self._parse_epub(file_path, progress_callback, check_cancel)
         else:
             logger.warning("Format de fichier non supporté : %s", ext)
             raise ValueError(f"Format de fichier non supporté : {ext}")
@@ -354,32 +358,22 @@ class DocumentParser:
 
         return "\n\n".join(full_text)
 
-    @staticmethod
-    def _parse_pptx(file_path: Path) -> str:
-        """Extrait le texte d'un PowerPoint, diapositive par diapositive."""
+    def _parse_pptx(self, file_path: Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+        """Extrait le texte enrichi, les tableaux, les images et les notes d'orateur d'un PowerPoint."""
         if Presentation is None:
             raise RuntimeError("Le module python-pptx n'est pas installé. Lancez 'uv add python-pptx'")
 
-        prs = Presentation(str(file_path))
-        full_text = []
+        from ankiforge.services.parsing.pptx_parser import PptxParser
 
-        for i, slide in enumerate(prs.slides):
-            slide_text = []
-            for shape in slide.shapes:
-                if hasattr(shape, "has_text_frame") and shape.has_text_frame:
-                    for paragraph in shape.text_frame.paragraphs:
-                        text = paragraph.text.strip()
-                        if text:
-                            slide_text.append(text)
+        parser = PptxParser(media_manager=self.media_manager)
+        return parser.parse(file_path, progress_callback=progress_callback, check_cancel=check_cancel)
 
-            if slide_text:
-                slide_content = "\n".join(slide_text)
-                # Force un titre Markdown pour chaque slide.
-                # Le Chunking "Sémantique" d'ankiforge_obsidian découpera donc la prez' slide par slide !
-                full_text.append(f"## Diapositive {i + 1}\n{slide_content}")
+    def _parse_epub(self, file_path: Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+        """Extrait le texte structuré, les formules MathML et les images d'un fichier EPUB."""
+        from ankiforge.services.parsing.epub_parser import EpubParser
 
-        # Séparation forte entre les slides
-        return "\n\n[SPLIT]\n\n".join(full_text)
+        parser = EpubParser(media_manager=self.media_manager)
+        return parser.parse(file_path, progress_callback=progress_callback, check_cancel=check_cancel)
 
     @staticmethod
     def _parse_text(file_path: Path) -> str:

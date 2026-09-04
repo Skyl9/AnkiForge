@@ -50,7 +50,7 @@ class ChunkingService:
             return []
 
         markers = list(cls.PAGE_MARKER_REGEX.finditer(content))
-        is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx"))
+        is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx", "epub"))
 
         logger.debug(
             "Extraction de chunks pour document (%d caractères, file_type=%s, paginé=%s)",

@@ -4,7 +4,7 @@ from typing import Any, cast
 
 from peewee import fn
 from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent
+from PySide6.QtGui import QCloseEvent, QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -838,8 +838,10 @@ class CreationView(QWidget):
                         else:
                             item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
                             item.setText(0, f"{doc.title} (Non extrait)")
-                            item.setForeground(0, QColor(DesignTokens.TEXT_MUTED))
-                            item.setToolTip(0, "Ce PDF n'a pas encore été analysé par Marker. Allez dans 'Mes Documents' pour l'extraire.")
+                    elif getattr(doc, "file_type", "") == "epub" or title_lower.endswith(".epub"):
+                        item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE, weight="fill"))
+                    elif getattr(doc, "file_type", "") == "pptx" or title_lower.endswith(".pptx"):
+                        item.setIcon(0, load_phosphor_icon("ph.presentation", color=DesignTokens.COLOR_YELLOW, weight="fill"))
                     elif getattr(doc, "file_type", "") in ("md", "txt", "json", "csv") or title_lower.endswith((".md", ".txt", ".json", ".csv")):
                         item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW, weight="fill"))
                     else:

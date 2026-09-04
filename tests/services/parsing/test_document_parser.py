@@ -18,15 +18,15 @@ def test_parse_document_file_not_found():
 
 
 def test_parse_document_unsupported_format(tmp_path):
-    """Test 2: On passe un format exotique non géré (.epub)."""
-    fake_epub = tmp_path / "document.epub"
-    fake_epub.write_text("fake content")
+    """Test 2: On passe un format exotique non géré (.xyz)."""
+    fake_unsupported = tmp_path / "document.xyz"
+    fake_unsupported.write_text("fake content")
 
     parser = DocumentParser()
     with pytest.raises(ValueError) as exc_info:
-        parser.parse_document(str(fake_epub))
+        parser.parse_document(str(fake_unsupported))
 
-    assert "Format de fichier non supporté : .epub" in str(exc_info.value)
+    assert "Format de fichier non supporté : .xyz" in str(exc_info.value)
 
 
 def test_parse_text_file(tmp_path):
