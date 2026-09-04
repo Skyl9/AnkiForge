@@ -34,6 +34,8 @@ class RRFScoreBreakdown:
     rrf_score: float = 0.0
     relevance_pct: int = 0
     retrieval_channel: str = "hybrid"  # "hybrid", "dense_only", "sparse_only"
+    media_id: int | None = None
+    media_filename: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convertit l'objet en dictionnaire enrichi compatible avec l'API existante."""
@@ -51,6 +53,8 @@ class RRFScoreBreakdown:
             "rrf_score": round(self.rrf_score, 6),
             "relevance_pct": self.relevance_pct,
             "channel": self.retrieval_channel,
+            "media_id": self.media_id,
+            "media_filename": self.media_filename,
         }
 
 
@@ -176,6 +180,8 @@ class HybridRAGRetriever:
                     rrf_score=cand["rrf_score"],
                     relevance_pct=cand["relevance_pct"],
                     retrieval_channel=cand["channel"],
+                    media_id=chunk.media_id if chunk.media else None,
+                    media_filename=chunk.media.filename if chunk.media else None,
                 )
                 results.append(breakdown.to_dict())
 

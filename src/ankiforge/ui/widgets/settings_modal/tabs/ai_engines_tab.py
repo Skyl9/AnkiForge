@@ -293,8 +293,8 @@ class AIEnginesTab(QWidget):
             card_layout.addWidget(btn_edit)
 
             # Bouton Supprimer (uniquement pour les catégories personnalisées)
-            if cat.id not in ("reasoning", "massive", "structured", "hardware"):
-                btn_del = DangerButton(ghost=True)
+            if cat.id not in ("reasoning", "massive", "structured", "hardware", "visual_rag"):
+                btn_del = DangerButton("", ghost=True)
                 btn_del.setFixedSize(28, 28)
                 btn_del.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
                 btn_del.clicked.connect(lambda _, cid=cat.id: self._delete_vision_category(cid))

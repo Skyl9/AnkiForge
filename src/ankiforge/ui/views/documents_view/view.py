@@ -339,6 +339,12 @@ class DocumentsView(QWidget):
         header_main_layout.addLayout(row2)
         editor_layout.addWidget(doc_header_card)
 
+        from ankiforge.ui.views.documents_view.widgets.audio_player import AudioPlayerWidget
+
+        self.audio_player = AudioPlayerWidget()
+        self.audio_player.hide()
+        editor_layout.addWidget(self.audio_player)
+
         self.inner_editor_stack = QStackedWidget()
 
         try:
@@ -380,6 +386,8 @@ class DocumentsView(QWidget):
         self.album_viewer = AlbumViewerWidget()
         self.album_viewer.album_modified.connect(self._on_album_modified)
         self.album_viewer.forge_requested.connect(self._on_album_forge_requested)
+        self.album_viewer.visual_rag_requested.connect(self._on_vectorize_rag)
+        self.album_viewer.search_rag_requested.connect(self._on_open_rag_test_dialog)
         self.editor_stack.addWidget(self.album_viewer)
 
         self.editor_panel.add_tab("Éditeur", self.editor_stack, "ph.file-text", closable=False)
@@ -460,6 +468,7 @@ class DocumentsView(QWidget):
             }}
         """)
         cov_layout.addWidget(self.chapters_list, 1)
+        self.chapters_list.itemClicked.connect(self._on_chapter_clicked)
 
         self.btn_forge_chapter = PrimaryButton("⚡ Forger la section")
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
@@ -654,6 +663,8 @@ class DocumentsView(QWidget):
                     item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE))
                 elif getattr(doc, "file_type", "") == "pptx" or title_lower.endswith(".pptx"):
                     item.setIcon(0, load_phosphor_icon("ph.presentation", color=DesignTokens.COLOR_YELLOW))
+                elif getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac") or title_lower.endswith((".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac")):
+                    item.setIcon(0, load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN))
                 elif getattr(doc, "file_type", "") == "md" or title_lower.endswith(".md"):
                     item.setIcon(0, load_phosphor_icon("ph.file-code", color="#eab308"))
                 elif getattr(doc, "file_type", "") == "web":
@@ -708,6 +719,21 @@ class DocumentsView(QWidget):
                 self._update_word_count()
                 self._update_rag_status_pill()
 
+                is_audio = getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac")
+                if is_audio and doc.original_media:
+                    from ankiforge.utils.paths import get_app_data_dir
+
+                    audio_path = get_app_data_dir() / "media" / doc.original_media.filename
+                    if audio_path.exists():
+                        self.audio_player.load_audio(str(audio_path))
+                        self.audio_player.show()
+                    else:
+                        self.audio_player.hide()
+                else:
+                    if hasattr(self, "audio_player"):
+                        self.audio_player.stop()
+                        self.audio_player.hide()
+
                 if doc.file_type == "pdf" and doc.original_media:
                     from ankiforge.utils.paths import get_app_data_dir
 
@@ -726,6 +752,9 @@ class DocumentsView(QWidget):
                 self.editor_stack.setCurrentIndex(1)
                 self._refresh_chapters_list()
         else:
+            if hasattr(self, "audio_player"):
+                self.audio_player.stop()
+                self.audio_player.hide()
             self._current_doc_id = None
             self.editor_stack.setCurrentIndex(0)
             self._refresh_chapters_list()
@@ -761,7 +790,7 @@ class DocumentsView(QWidget):
             self,
             "Importer un document",
             "",
-            "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx);;Tous les fichiers (*.*)",
+            "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx *.mp3 *.m4a *.wav *.ogg *.flac *.aac);;Tous les fichiers (*.*)",
         )
         if file_path:
             ext = pathlib.Path(file_path).suffix.lower()
@@ -922,7 +951,8 @@ class DocumentsView(QWidget):
                         media = media_manager.store_document_source(path_or_url)
                         if media:
                             original_media_id = media.id
-                        file_type = pathlib.Path(path_or_url).suffix.replace(".", "") or "txt"
+                        ext_clean = pathlib.Path(path_or_url).suffix.replace(".", "").lower()
+                        file_type = "audio" if ext_clean in ("mp3", "m4a", "wav", "ogg", "flac", "aac", "wma") else ext_clean or "txt"
 
                 doc = DocumentModel.create(
                     title=title,
@@ -942,6 +972,8 @@ class DocumentsView(QWidget):
                         content=chunk_data["content"],
                         page_number=chunk_data.get("page_number"),
                         heading_path=chunk_data.get("heading_path"),
+                        start_time=chunk_data.get("start_time"),
+                        end_time=chunk_data.get("end_time"),
                         content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                     )
 
@@ -1150,6 +1182,15 @@ class DocumentsView(QWidget):
         self.coverage_bar.setValue(percent)
         self.lbl_coverage_details.setText(f"{total_chunks} sections • {covered_count} couvertes • {len(linked_chunk_ids)} liens")
 
+    @Slot(QListWidgetItem)
+    def _on_chapter_clicked(self, item: QListWidgetItem) -> None:
+        chunk_id = item.data(Qt.ItemDataRole.UserRole)
+        if not chunk_id:
+            return
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+        if chunk and chunk.start_time is not None and hasattr(self, "audio_player") and not self.audio_player.isHidden():
+            self.audio_player.seek_seconds(chunk.start_time)
+
     @Slot()
     def _on_forge_selected_chapter(self) -> None:
         items = self.chapters_list.selectedItems()
@@ -1200,6 +1241,8 @@ class DocumentsView(QWidget):
         show_toast(self, "Document indexé avec succès dans FAISS !")
         self._refresh_chapters_list()
         self._update_rag_status_pill()
+        if hasattr(self, "album_viewer"):
+            self.album_viewer.refresh_pages()
 
     @Slot(str)
     def _on_vectorization_error(self, err: str) -> None:

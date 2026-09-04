@@ -19,6 +19,10 @@ class ChunkingService:
         r"<!--\s*PAGE:\s*(\d+)\s*-->|\{(\d+)\}-{5,}|\x0c|\[SPLIT\]",
         re.IGNORECASE,
     )
+    TIME_MARKER_REGEX = re.compile(
+        r"<!--\s*TIME:\s*([\d.]+)\s*-\s*([\d.]+)\s*-->",
+        re.IGNORECASE,
+    )
     HEADING_REGEX = re.compile(r"^(#{1,6})\s+(.*)", re.MULTILINE)
 
     @classmethod
@@ -44,13 +48,15 @@ class ChunkingService:
             - content: str (texte complet de la page ou de la section)
             - page_number: int | None
             - heading_path: str | None
+            - start_time: float | None
+            - end_time: float | None
             - content_hash: str
         """
         if not content or not content.strip():
             return []
 
         markers = list(cls.PAGE_MARKER_REGEX.finditer(content))
-        is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx", "epub"))
+        is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx", "epub", "audio", "mp3", "m4a", "wav", "ogg", "flac", "aac"))
 
         logger.debug(
             "Extraction de chunks pour document (%d caractères, file_type=%s, paginé=%s)",
@@ -88,6 +94,12 @@ class ChunkingService:
 
         for p_num, p_text in pages:
             clean_text = cls.PAGE_MARKER_REGEX.sub("", p_text).strip()
+            time_match = cls.TIME_MARKER_REGEX.search(clean_text)
+            start_time = float(time_match.group(1)) if time_match else None
+            end_time = float(time_match.group(2)) if time_match else None
+            if time_match:
+                clean_text = cls.TIME_MARKER_REGEX.sub("", clean_text).strip()
+
             if not clean_text or len(clean_text) < 15:
                 continue
 
@@ -109,6 +121,8 @@ class ChunkingService:
                     "content": clean_text,
                     "page_number": p_num,
                     "heading_path": heading_path_str,
+                    "start_time": start_time,
+                    "end_time": end_time,
                     "content_hash": cls.hash_content(clean_text),
                 }
             )
@@ -134,6 +148,11 @@ class ChunkingService:
             nonlocal chunk_idx, current_section_lines, current_heading_path
             text = "\n".join(current_section_lines).strip()
             text = cls.PAGE_MARKER_REGEX.sub("", text).strip()
+            time_match = cls.TIME_MARKER_REGEX.search(text)
+            start_time = float(time_match.group(1)) if time_match else None
+            end_time = float(time_match.group(2)) if time_match else None
+            if time_match:
+                text = cls.TIME_MARKER_REGEX.sub("", text).strip()
             if text and len(text) >= 15:
                 chunks.append(
                     {
@@ -141,6 +160,8 @@ class ChunkingService:
                         "content": text,
                         "page_number": None,
                         "heading_path": current_heading_path or "Introduction",
+                        "start_time": start_time,
+                        "end_time": end_time,
                         "content_hash": cls.hash_content(text),
                     }
                 )

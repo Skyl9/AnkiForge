@@ -4,9 +4,16 @@ import time
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, LLMConfigModel, db
+from ankiforge.database.models import (
+    DocumentChunkModel,
+    DocumentModel,
+    DocumentPageModel,
+    LLMConfigModel,
+    db,
+)
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.rag.vector_manager import VectorManager
+from ankiforge.services.rag.visual_rag_service import VisualRAGService
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +22,7 @@ class CoverageWorker(QThread):
     """
     Worker asynchrone pour la structuration documentaire et l'indexation RAG.
     Découpe un document en sections/pages (DocumentChunkModel) et construit son index FAISS.
+    Prend en charge le RAG Visuel (VisualRAGService) pour les albums et documents à base de pages.
     """
 
     progress_update = Signal(str)
@@ -41,7 +49,37 @@ class CoverageWorker(QThread):
                 self.error_occurred.emit(f"Document {self.document_id} introuvable.")
                 return
 
-            # 1. DÉCOUPAGE DU DOCUMENT via ChunkingService
+            # 1. CAS VISUEL : Album d'images ou Document avec pages DocumentPageModel
+            has_pages = DocumentPageModel.select().where(DocumentPageModel.document == doc).exists()
+            if doc.file_type == "album" or has_pages:
+                self.progress_update.emit("Indexation RAG Visuel des planches / pages de l'album...")
+                cfg = LLMConfigModel.get_or_none(LLMConfigModel.id == self.llm_config_id) if self.llm_config_id else None
+                vector_mgr = VectorManager(llm_config=cfg)
+                visual_rag = VisualRAGService(llm_config=cfg)
+
+                def _on_visual_progress(cur: int, tot: int, msg: str) -> None:
+                    self.progress_update.emit(f"[{cur}/{tot}] {msg}")
+
+                success = visual_rag.index_visual_document(
+                    doc,
+                    vector_manager=vector_mgr,
+                    progress_callback=_on_visual_progress,
+                )
+                if not success:
+                    self.error_occurred.emit("Échec de l'indexation RAG Visuel.")
+                    return
+
+                elapsed = time.perf_counter() - t0
+                logger.info(
+                    "CoverageWorker terminé avec succès pour l'album '%s' (Visual RAG) en %.2fs",
+                    doc.title,
+                    elapsed,
+                )
+                self.progress_update.emit("Indexation RAG Visuel terminée avec succès !")
+                self.finished_processing.emit()
+                return
+
+            # 2. CAS TEXTUEL : DÉCOUPAGE DU DOCUMENT via ChunkingService
             extracted_chunks = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type)
             if not extracted_chunks:
                 logger.warning("Document '%s' vide ou trop court pour générer des chunks.", doc.title)

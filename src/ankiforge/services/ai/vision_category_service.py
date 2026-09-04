@@ -99,10 +99,38 @@ class VisionCategoryService:
         ]
 
     @classmethod
+    def get_visual_rag_category(cls) -> VisionCategory:
+        """Retourne la catégorie dédiée au RAG Visuel et à l'indexation dense."""
+        for cat in cls.get_categories():
+            if cat.id == "visual_rag":
+                return cat
+        return VisionCategory(
+            id="visual_rag",
+            name="RAG Visuel & Indexation Dense",
+            description="Indexation sémantique des diagrammes, schémas, cartes et planches anatomiques par description visuelle dense.",
+            icon="ph.eye",
+            provider="gemini",
+            model_id="gemini-2.5-flash",
+            thinking_budget=0,
+            temperature=0.2,
+            custom_instructions=(
+                "Tu es un analyste visuel pour un système de recherche documentaire et de mémorisation (Visual RAG). "
+                "Analyse minutieusement cette image/page (diagramme, schéma, carte, planche anatomique ou document). "
+                "Produis une description sémantique visuelle dense comprenant : "
+                "1. Titre et sujet principal du visuel. "
+                "2. Entités et concepts visibles. "
+                "3. Relations spatiales, flèches, flux et causalités. "
+                "4. Textes, étiquettes et légendes explicites. "
+                "5. Formules ou données chiffrées éventuelles. "
+                "Formate la réponse en Markdown clair et dense."
+            ),
+        )
+
+    @classmethod
     def get_categories(cls) -> list[VisionCategory]:
         """Récupère la liste des catégories configurées en base, avec repli sur les valeurs par défaut."""
         raw_val = SettingsService.get(cls.SETTINGS_KEY, default=None)
-        if not raw_val:
+        if raw_val is None:
             defaults = cls.get_default_categories()
             cls.save_all_categories(defaults)
             return defaults
@@ -134,6 +162,8 @@ class VisionCategoryService:
         for cat in cls.get_categories():
             if cat.id == cat_id:
                 return cat
+        if cat_id == "visual_rag":
+            return cls.get_visual_rag_category()
         return None
 
     @classmethod

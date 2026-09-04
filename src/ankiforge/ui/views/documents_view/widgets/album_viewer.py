@@ -421,6 +421,8 @@ class AlbumViewerWidget(QWidget):
 
     album_modified = Signal(int)  # document_id
     forge_requested = Signal(int)  # document_id
+    visual_rag_requested = Signal(int)  # document_id
+    search_rag_requested = Signal(int)  # document_id
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -476,6 +478,18 @@ class AlbumViewerWidget(QWidget):
         self.btn_ocr.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_ocr.clicked.connect(self._on_start_ocr_flow)
         row1.addWidget(self.btn_ocr)
+
+        self.btn_rag = SecondaryButton("RAG Visuel")
+        self.btn_rag.setIcon(load_phosphor_icon("ph.eye", color="#10b981"))
+        self.btn_rag.setToolTip("Indexer les planches et schémas dans FAISS pour la recherche multimodale")
+        self.btn_rag.setFixedHeight(28)
+        self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 3px 10px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_rag.clicked.connect(lambda: self.visual_rag_requested.emit(self._doc.id) if self._doc else None)
+        row1.addWidget(self.btn_rag)
+
+        self.btn_search_rag = IconButton("ph.magnifying-glass", tooltip="Recherche sémantique visuelle", size=22)
+        self.btn_search_rag.clicked.connect(lambda: self.search_rag_requested.emit(self._doc.id) if self._doc else None)
+        row1.addWidget(self.btn_search_rag)
 
         self.btn_compile_pdf = SecondaryButton("Compiler en PDF")
         self.btn_compile_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))

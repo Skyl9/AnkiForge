@@ -187,22 +187,31 @@ class VectorManager:
         try:
             chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == document).order_by(DocumentChunkModel.chunk_index))
 
-            # Si aucun chunk n'existe en base, on utilise ChunkingService
+            # Si aucun chunk n'existe en base, on prépare les chunks (ChunkingService ou VisualRAGService)
             if not chunks:
-                extracted = ChunkingService.extract_chunks(str(document.content or ""), file_type=str(document.file_type or ""))
-                from ankiforge.database.base import db
+                from ankiforge.database.models import DocumentPageModel
 
-                with db.atomic():
-                    for item in extracted:
-                        c = DocumentChunkModel.create(
-                            document=document,
-                            chunk_index=item["index"],
-                            content=item["content"],
-                            page_number=item["page_number"],
-                            heading_path=item["heading_path"],
-                            content_hash=item["content_hash"],
-                        )
-                        chunks.append(c)
+                has_pages = DocumentPageModel.select().where(DocumentPageModel.document == document).exists()
+                if document.file_type == "album" or has_pages:
+                    from ankiforge.services.rag.visual_rag_service import VisualRAGService
+
+                    visual_rag = VisualRAGService(llm_config=self.llm_config)
+                    chunks = visual_rag.prepare_visual_chunks(document)
+                else:
+                    extracted = ChunkingService.extract_chunks(str(document.content or ""), file_type=str(document.file_type or ""))
+                    from ankiforge.database.base import db
+
+                    with db.atomic():
+                        for item in extracted:
+                            c = DocumentChunkModel.create(
+                                document=document,
+                                chunk_index=item["index"],
+                                content=item["content"],
+                                page_number=item["page_number"],
+                                heading_path=item["heading_path"],
+                                content_hash=item["content_hash"],
+                            )
+                            chunks.append(c)
 
             if not chunks:
                 logger.warning("Aucun fragment à indexer pour le document %s", document.id)
@@ -369,6 +378,8 @@ class VectorManager:
                         "rrf_score": round(sim, 6),
                         "relevance_pct": rel_pct,
                         "channel": "dense_only",
+                        "media_id": chunk.media_id if chunk.media else None,
+                        "media_filename": chunk.media.filename if chunk.media else None,
                     }
                 )
         return results
@@ -399,6 +410,8 @@ class VectorManager:
                         "rrf_score": round(bm25_s, 6),
                         "relevance_pct": rel_pct,
                         "channel": "sparse_only",
+                        "media_id": chunk.media_id if chunk.media else None,
+                        "media_filename": chunk.media.filename if chunk.media else None,
                     }
                 )
         return results
@@ -432,6 +445,8 @@ class VectorManager:
                 "rrf_score": 1.0,
                 "relevance_pct": 100,
                 "channel": "db_fallback",
+                "media_id": c.media_id if c.media else None,
+                "media_filename": c.media.filename if c.media else None,
             }
             for idx, c in enumerate(chunks)
         ]

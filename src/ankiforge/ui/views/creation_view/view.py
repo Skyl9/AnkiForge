@@ -842,6 +842,8 @@ class CreationView(QWidget):
                         item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE, weight="fill"))
                     elif getattr(doc, "file_type", "") == "pptx" or title_lower.endswith(".pptx"):
                         item.setIcon(0, load_phosphor_icon("ph.presentation", color=DesignTokens.COLOR_YELLOW, weight="fill"))
+                    elif getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac") or title_lower.endswith((".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac")):
+                        item.setIcon(0, load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN, weight="fill"))
                     elif getattr(doc, "file_type", "") in ("md", "txt", "json", "csv") or title_lower.endswith((".md", ".txt", ".json", ".csv")):
                         item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW, weight="fill"))
                     else:
@@ -1046,7 +1048,11 @@ class CreationView(QWidget):
 
             pages_models = list(DocumentPageModel.select().where((DocumentPageModel.document == doc) & DocumentPageModel.page_number.in_(pages)).order_by(DocumentPageModel.page_number))
             content_parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages_models if p.ocr_text and p.ocr_text.strip()]
-            msg = f"_Aucune transcription trouvée pour les pages d'album {scope_text}_" if not content_parts else "\n\n".join(content_parts)
+            if not content_parts:
+                visual_chunks = list(DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.in_(pages)).order_by(DocumentChunkModel.page_number))
+                if visual_chunks:
+                    content_parts = [vc.content for vc in visual_chunks if vc.content]
+            msg = f"_Aucune transcription ou analyse visuelle trouvée pour les pages d'album {scope_text}_" if not content_parts else "\n\n".join(content_parts)
             editor.set_content(msg)
             return
 
@@ -1097,8 +1103,10 @@ class CreationView(QWidget):
             parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages if p.ocr_text and p.ocr_text.strip()]
             if parts:
                 content_to_use = "\n\n".join(parts)
+            elif doc.content and doc.content.strip():
+                content_to_use = doc.content
             elif pages:
-                show_toast(self, "Cet album n'a pas encore été transcrit par Vision IA.", is_error=True)
+                show_toast(self, "Cet album n'a pas encore été analysé par RAG Visuel ou Vision IA.", is_error=True)
                 return
             else:
                 show_toast(self, "Cet album ne contient aucune page.", is_error=True)

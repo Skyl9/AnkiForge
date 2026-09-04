@@ -91,6 +91,10 @@ class DocumentParser:
             if progress_callback:
                 progress_callback("Extraction du livre numérique EPUB en cours...")
             res = self._parse_epub(file_path, progress_callback, check_cancel)
+        elif ext in (".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac", ".wma"):
+            if progress_callback:
+                progress_callback("Transcription de l'enregistrement audio en cours...")
+            res = self._parse_audio(file_path, progress_callback, check_cancel)
         else:
             logger.warning("Format de fichier non supporté : %s", ext)
             raise ValueError(f"Format de fichier non supporté : {ext}")
@@ -373,6 +377,13 @@ class DocumentParser:
         from ankiforge.services.parsing.epub_parser import EpubParser
 
         parser = EpubParser(media_manager=self.media_manager)
+        return parser.parse(file_path, progress_callback=progress_callback, check_cancel=check_cancel)
+
+    def _parse_audio(self, file_path: Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+        """Transcrit et extrait le texte horodaté d'un fichier audio (cours, podcast)."""
+        from ankiforge.services.parsing.audio_parser import AudioParser
+
+        parser = AudioParser(media_manager=self.media_manager)
         return parser.parse(file_path, progress_callback=progress_callback, check_cancel=check_cancel)
 
     @staticmethod

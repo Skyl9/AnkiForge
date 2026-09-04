@@ -136,9 +136,35 @@ class RAGTestDialog(QDialog):
                 else:
                     badge_info = "📄 BDD Directe"
 
+                media_fn = r.get("media_filename")
+                has_media = bool(media_fn)
+                media_badge = " 🖼️ [Visuel]" if has_media else ""
                 content_snippet = r.get("content", "")[:180] + "..." if len(r.get("content", "")) > 180 else r.get("content", "")
-                item_txt = f"📍 {loc}  (Pertinence : {rel_pct}%)  [{badge_info}]\n{content_snippet}"
+                item_txt = f"📍 {loc}{media_badge}  (Pertinence : {rel_pct}%)  [{badge_info}]\n{content_snippet}"
                 item = QListWidgetItem(item_txt)
+
+                if has_media and media_fn:
+                    from pathlib import Path
+
+                    from PySide6.QtGui import QIcon, QPixmap
+
+                    from ankiforge.services.cards.media_manager import MediaManager
+
+                    img_path = Path(MediaManager().media_dir) / media_fn
+                    if img_path.exists():
+                        pix = QPixmap(str(img_path))
+                        if not pix.isNull():
+                            item.setIcon(
+                                QIcon(
+                                    pix.scaled(
+                                        36,
+                                        36,
+                                        Qt.AspectRatioMode.KeepAspectRatio,
+                                        Qt.TransformationMode.SmoothTransformation,
+                                    )
+                                )
+                            )
+
                 item.setData(Qt.ItemDataRole.UserRole, r)
                 self.results_list.addItem(item)
 

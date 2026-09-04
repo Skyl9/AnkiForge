@@ -13,9 +13,11 @@ from .hybrid_retriever import (
     RRFScoreBreakdown,
 )
 from .vector_manager import VectorManager
+from .visual_rag_service import VisualRAGService
 
 __all__ = [
     "VectorManager",
+    "VisualRAGService",
     "BM25OkapiIndex",
     "tokenize",
     "normalize_text",
