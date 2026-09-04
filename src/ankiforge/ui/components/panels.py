@@ -313,6 +313,7 @@ class IdePanel(QFrame):
         self.menu_btn.setStyleSheet(action_btn_style)
         self.menu_btn.clicked.connect(self._show_tabs_menu)
         self.header_layout.addWidget(self.menu_btn)
+        self._show_menu_btn: bool = True
 
         # Detach button
         if detachable:
@@ -409,7 +410,7 @@ class IdePanel(QFrame):
         else:
             # Show header when populated
             self.header.setVisible(True)
-            self.menu_btn.setVisible(True)
+            self.menu_btn.setVisible(getattr(self, "_show_menu_btn", True))
             if hasattr(self, "detach_btn"):
                 self.detach_btn.setVisible(True)
             if self._extra_layout.count() > 0:
@@ -419,6 +420,11 @@ class IdePanel(QFrame):
             self.content_stack.setVisible(True)
             if self._static_title_label is not None:
                 self._static_title_label.setVisible(False)
+
+    def set_menu_button_visible(self, visible: bool) -> None:
+        """Contrôle la visibilité du bouton '+' de gestion des onglets."""
+        self._show_menu_btn = visible
+        self.menu_btn.setVisible(visible)
 
     def register_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = True, active_by_default: bool = True, icon_color: str = ""):
         title = title.strip()

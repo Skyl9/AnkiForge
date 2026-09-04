@@ -655,3 +655,67 @@ def test_consultant_view_open_in_editor_navigation(qtbot):
         view._on_open_in_editor_requested(42)
 
     assert blocker.args == ["edition", {"note_id": 42}]
+
+
+def test_consultant_view_on_add_context_menu_anchoring(qtbot, monkeypatch):
+    """Vérifie que _on_add_context ouvre le menu contextuel sans lever d'erreur d'attribut et gère les ancrages."""
+    from ankiforge.ui.theme import StyledMenu
+
+    menu_exec_called = []
+
+    def mock_exec(self, pos=None):
+        menu_exec_called.append(pos)
+        return None
+
+    monkeypatch.setattr(StyledMenu, "exec", mock_exec)
+
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # 1. Appel direct de _on_add_context (aucun sender)
+    view._on_add_context()
+    assert len(menu_exec_called) == 1
+
+    # 2. Clic sur btn_attach
+    qtbot.mouseClick(view.btn_attach, Qt.MouseButton.LeftButton)
+    assert len(menu_exec_called) == 2
+
+    # 3. Clic sur btn_mention
+    qtbot.mouseClick(view.btn_mention, Qt.MouseButton.LeftButton)
+    assert len(menu_exec_called) == 3
+
+    # 4. Émission via context_hub.add_context_requested
+    view.context_hub.add_context_requested.emit()
+    assert len(menu_exec_called) == 4
+
+
+def test_consultant_view_quick_action_buttons_trigger_modals(qtbot, monkeypatch):
+    """Vérifie que les boutons rapides Paquet et Doc ouvrent directement leurs modaux respectifs."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    deck_dialog_opened = []
+    doc_dialog_opened = []
+
+    monkeypatch.setattr(view, "_open_deck_selection_dialog", lambda: deck_dialog_opened.append(True))
+    monkeypatch.setattr(view, "_open_doc_selection_dialog", lambda: doc_dialog_opened.append(True))
+
+    # Clic sur le signal ou méthode des boutons rapides
+    view.context_hub.add_deck_requested.emit()
+    assert len(deck_dialog_opened) == 1
+
+    view.context_hub.add_doc_requested.emit()
+    assert len(doc_dialog_opened) == 1
+
+
+def test_consultant_view_modal_selection_handlers(qtbot):
+    """Vérifie que la sélection issue des modaux Deck et Doc attache correctement les contextes."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view._on_deck_modal_selected(12, "Deck Anatomie")
+    assert "deck_12" in view.active_context
+
+    view._on_doc_modal_selected(99, "Cours Physiologie")
+    assert "doc_99" in view.active_context
+    assert len(view.active_context) == 2

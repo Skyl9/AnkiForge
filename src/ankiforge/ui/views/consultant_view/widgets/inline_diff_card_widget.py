@@ -261,6 +261,7 @@ class FieldDiffWidget(QFrame):
 
         # Colonne Gauche : Actuel (Original)
         col_orig = QFrame()
+        col_orig.setMinimumWidth(0)
         col_orig.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -276,6 +277,7 @@ class FieldDiffWidget(QFrame):
         col_orig_layout.addWidget(lbl_orig_header)
 
         self.orig_text_browser = QTextBrowser()
+        self.orig_text_browser.setMinimumWidth(0)
         self.orig_text_browser.setMaximumHeight(85)
         self.orig_text_browser.setPlainText(self.original_val)
         self.orig_text_browser.setStyleSheet(f"font-size: 11px; border: none; background: transparent; color: {DesignTokens.TEXT_SECONDARY};")
@@ -283,6 +285,7 @@ class FieldDiffWidget(QFrame):
 
         # Colonne Droite : Proposition IA (Éditable)
         col_mod = QFrame()
+        col_mod.setMinimumWidth(0)
         col_mod.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -298,6 +301,7 @@ class FieldDiffWidget(QFrame):
         col_mod_layout.addWidget(lbl_mod_header)
 
         self.sbs_editor = QTextEdit()
+        self.sbs_editor.setMinimumWidth(0)
         self.sbs_editor.setMaximumHeight(85)
         self.sbs_editor.setPlainText(self.modified_val)
         self.sbs_editor.setStyleSheet(f"font-size: 11px; border: none; background: transparent; color: {DesignTokens.TEXT_PRIMARY};")
@@ -310,6 +314,7 @@ class FieldDiffWidget(QFrame):
 
         # ── 3. Index 2 : Vue Édition Pleine Largeur ─────────────────────────
         self.editor = QTextEdit()
+        self.editor.setMinimumWidth(0)
         self.editor.setPlainText(self.modified_val)
         self.editor.setMaximumHeight(85)
         self.editor.setStyleSheet(f"""
@@ -535,8 +540,9 @@ class InlineDiffCardWidget(QFrame):
 
         title = self.patch_data.get("title", "Proposition de Modification")
         lbl_title = QLabel(f"<b>🛡️ {html.escape(title)}</b>")
+        lbl_title.setWordWrap(True)
         lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px;")
-        header.addWidget(lbl_title)
+        header.addWidget(lbl_title, 1)
         header.addStretch()
 
         self.status_badge = Badge("🛡️ En attente", variant="status")
@@ -721,10 +727,10 @@ class InlineDiffCardWidget(QFrame):
         self.btn_reject.clicked.connect(self._on_reject_clicked)
         actions_layout.addWidget(self.btn_reject)
 
-        self.btn_open_editor = QPushButton("Ouvrir dans l'Éditeur ↗")
+        self.btn_open_editor = QPushButton("Éditeur ↗")
         self.btn_open_editor.setFixedHeight(26)
         self.btn_open_editor.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_open_editor.setToolTip("Naviguer vers cette carte dans l'onglet Édition")
+        self.btn_open_editor.setToolTip("Ouvrir cette carte dans l'onglet Édition")
         self.btn_open_editor.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;

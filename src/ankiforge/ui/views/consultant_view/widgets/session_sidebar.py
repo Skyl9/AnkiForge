@@ -55,6 +55,28 @@ class SessionItemWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        if self.is_active:
+            self.setStyleSheet(f"""
+                SessionItemWidget {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                SessionItemWidget {{
+                    background-color: transparent;
+                    border: 1px solid transparent;
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+                SessionItemWidget:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 6, 6, 6)
         layout.setSpacing(8)
@@ -250,6 +272,7 @@ class ConsultantSessionSidebar(QFrame):
             QListWidget::item:selected {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
         self.list_widget.itemClicked.connect(self._on_item_clicked)

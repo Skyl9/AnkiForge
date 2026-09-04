@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QAction, QMouseEvent
+from PySide6.QtGui import QAction, QCursor, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -42,11 +42,14 @@ from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
 from ankiforge.ui.components import (
     Badge,
+    DeckSelectWindow,
+    DocumentSelectWindow,
     IconButton,
     IdePanel,
     PrimaryButton,
     StyledComboBox,
 )
+from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.viewmodels import ConsultantViewModel
 from ankiforge.ui.views.consultant_view.constants import apply_pill_style
@@ -218,6 +221,8 @@ class ConsultantView(QWidget):
         self.modified_cards_count = 0
         self.active_context: list[str] = []
         self.committed_context: set[str] = set()
+        self._deck_modal: DeckSelectWindow | None = None
+        self._doc_modal: DocumentSelectWindow | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -263,6 +268,7 @@ class ConsultantView(QWidget):
 
         # ── 1. Panneau Principal Central : Chat & Discussions ────────────────
         self.chat_panel = IdePanel(detachable=True)
+        self.chat_panel.set_menu_button_visible(False)
 
         # Bouton toggle de la sidebar (intégré dans l'en-tête de l'onglet)
         self.btn_toggle_sidebar = IconButton("ph.sidebar-simple", tooltip="Afficher/Masquer l'historique des discussions", size=22)
@@ -331,12 +337,13 @@ class ConsultantView(QWidget):
         self.chat_scroll = QScrollArea()
         self.chat_scroll.setWidgetResizable(True)
         self.chat_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.chat_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.chat_scroll.setStyleSheet("background: transparent;")
 
         self.chat_scroll_widget = QWidget()
         self.chat_messages_layout = QVBoxLayout(self.chat_scroll_widget)
-        self.chat_messages_layout.setContentsMargins(16, 16, 16, 16)
-        self.chat_messages_layout.setSpacing(14)
+        self.chat_messages_layout.setContentsMargins(12, 12, 12, 12)
+        self.chat_messages_layout.setSpacing(12)
         self.chat_messages_layout.addStretch()
 
         self.chat_scroll.setWidget(self.chat_scroll_widget)
@@ -387,6 +394,8 @@ class ConsultantView(QWidget):
         self.btn_mention = IconButton("ph.at", tooltip="Attacher un Paquet/Doc (@)", size=22)
         self.btn_mention.clicked.connect(self._on_add_context)
 
+        self.btn_add_context = self.btn_attach
+
         tools_layout.addWidget(self.btn_attach)
         tools_layout.addWidget(self.btn_mention)
         box_footer.addLayout(tools_layout)
@@ -424,10 +433,13 @@ class ConsultantView(QWidget):
 
         # ── 2. Panneau de Contexte & Cerveau de l'Agent IA (Droite) ─────────
         self.context_panel = IdePanel(detachable=True)
-        self.context_panel.setMinimumWidth(340)
+        self.context_panel.set_menu_button_visible(False)
+        self.context_panel.setMinimumWidth(300)
 
         self.context_hub = ContextHubWidget(self)
         self.context_hub.add_context_requested.connect(self._on_add_context)
+        self.context_hub.add_deck_requested.connect(self._open_deck_selection_dialog)
+        self.context_hub.add_doc_requested.connect(self._open_doc_selection_dialog)
         self.context_hub.context_removed.connect(self._remove_context)
         self.context_hub.compact_requested.connect(self._on_compact_requested)
         self.context_hub.action_triggered.connect(self._on_proactive_action_triggered)
@@ -453,9 +465,9 @@ class ConsultantView(QWidget):
         self.splitter.addWidget(self.context_panel)
         self.splitter.setCollapsible(0, False)
         self.splitter.setCollapsible(1, True)
-        self.splitter.setSizes([960, 360])
-        self.splitter.setStretchFactor(0, 3)
-        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([940, 340])
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 0)
 
     def _connect_signals(self) -> None:
         self.chat_input.textChanged.connect(self._on_input_text_changed)
@@ -1052,66 +1064,122 @@ class ConsultantView(QWidget):
 
     @Slot()
     def _on_add_context(self) -> None:
+        """Affiche un menu de sélection de catégorie (Paquets, Documents, Modèles, Cartes)."""
         menu = StyledMenu(self)
 
-        menu_decks = menu.addMenu("🎴 Attacher un Paquet (Deck)")
-        decks = list(DeckModel.select())
-        if decks:
-            for d in decks:
-                action = QAction(d.name, self)
-                action.triggered.connect(lambda _, deck_id=d.id: self._attach_context(f"deck_{deck_id}"))
-                menu_decks.addAction(action)
-        else:
-            no_deck = QAction("Aucun paquet disponible", self)
-            no_deck.setEnabled(False)
-            menu_decks.addAction(no_deck)
+        act_deck = QAction("🎴 Paquet Anki...", self)
+        act_deck.triggered.connect(self._open_deck_selection_dialog)
+        menu.addAction(act_deck)
 
-        menu_docs = menu.addMenu("📄 Attacher un Document")
-        docs = list(DocumentModel.select())
-        if docs:
-            for doc in docs:
-                action = QAction(doc.title, self)
-                action.triggered.connect(lambda _, doc_id=doc.id: self._attach_context(f"doc_{doc_id}"))
-                menu_docs.addAction(action)
-        else:
-            no_doc = QAction("Aucun document disponible", self)
-            no_doc.setEnabled(False)
-            menu_docs.addAction(no_doc)
+        act_doc = QAction("📄 Cours / Document PDF...", self)
+        act_doc.triggered.connect(self._open_doc_selection_dialog)
+        menu.addAction(act_doc)
 
-        menu_models = menu.addMenu("🎨 Attacher un Modèle de carte")
-        models = list(NoteTypeModel.select())
-        if models:
-            for m in models:
-                action = QAction(m.name, self)
-                action.triggered.connect(lambda _, model_id=m.id: self._attach_context(f"model_{model_id}"))
-                menu_models.addAction(action)
-        else:
-            no_model = QAction("Aucun modèle disponible", self)
-            no_model.setEnabled(False)
-            menu_models.addAction(no_model)
+        act_model = QAction("🎨 Modèle de carte...", self)
+        act_model.triggered.connect(self._open_model_selection_dialog)
+        menu.addAction(act_model)
 
-        menu_cards = menu.addMenu("🗂️ Attacher une Carte (Note)")
-        recent_notes = list(NoteModel.select().order_by(NoteModel.id.desc()).limit(20))
-        if recent_notes:
-            for n in recent_notes:
-                active_v = n.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
-                snippet = f"Note #{n.id}"
-                if active_v and active_v.content:
-                    try:
-                        d_c = json.loads(active_v.content)
-                        front_text = d_c.get("Front", d_c.get("Recto", active_v.content))
-                        snippet = f"#{n.id} : {str(front_text)[:30]}"
-                    except Exception:
-                        snippet = f"#{n.id} : {active_v.content[:30]}"
-                action = QAction(snippet, self)
-                action.triggered.connect(lambda _, note_id=n.id: self._attach_context(f"card_{note_id}"))
-                menu_cards.addAction(action)
-        else:
-            no_card = QAction("Aucune carte disponible", self)
-            no_card.setEnabled(False)
-            menu_cards.addAction(no_card)
+        act_card = QAction("🗂️ Carte ciblée...", self)
+        act_card.triggered.connect(self._open_card_selection_dialog)
+        menu.addAction(act_card)
 
-        menu.exec(self.btn_add_context.mapToGlobal(self.btn_add_context.rect().bottomLeft()))
+        sender = self.sender()
+        anchor: QWidget | None = None
+        if isinstance(sender, QWidget):
+            anchor = self.context_hub.btn_add_source if sender == self.context_hub and hasattr(self.context_hub, "btn_add_source") else sender
+        elif hasattr(self, "btn_add_context") and isinstance(self.btn_add_context, QWidget):
+            anchor = self.btn_add_context
+        elif hasattr(self, "btn_attach") and isinstance(self.btn_attach, QWidget):
+            anchor = self.btn_attach
+
+        if anchor is not None and anchor.isVisible():
+            menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
+        else:
+            menu.exec(QCursor.pos())
+
+    @Slot()
+    def _open_deck_selection_dialog(self) -> None:
+        """Ouvre la fenêtre modale de sélection de paquet (DeckSelectWindow)."""
+        try:
+            if hasattr(self, "_deck_modal") and self._deck_modal and self._deck_modal.isVisible():
+                self._deck_modal.raise_()
+                self._deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._deck_modal = None
+
+        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet à attacher au contexte", parent=self)
+        self._deck_modal.deck_selected.connect(self._on_deck_modal_selected)
+        self._deck_modal.show()
+
+    @Slot(int, str)
+    def _on_deck_modal_selected(self, deck_id: int, deck_name: str) -> None:
+        if deck_id > 0:
+            self._attach_context(f"deck_{deck_id}")
+
+    @Slot()
+    def _open_doc_selection_dialog(self) -> None:
+        """Ouvre la fenêtre modale de sélection de document/cours (DocumentSelectWindow)."""
+        try:
+            if hasattr(self, "_doc_modal") and self._doc_modal and self._doc_modal.isVisible():
+                self._doc_modal.raise_()
+                self._doc_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._doc_modal = None
+
+        self._doc_modal = DocumentSelectWindow(title="Sélectionner un cours / document à attacher", parent=self)
+        self._doc_modal.document_selected.connect(self._on_doc_modal_selected)
+        self._doc_modal.show()
+
+    @Slot(int, str)
+    def _on_doc_modal_selected(self, doc_id: int, doc_title: str) -> None:
+        if doc_id > 0:
+            self._attach_context(f"doc_{doc_id}")
+
+    @Slot()
+    def _open_model_selection_dialog(self) -> None:
+        """Ouvre la boîte de dialogue modale de sélection de modèle de carte."""
+        models = list(NoteTypeModel.select().order_by(NoteTypeModel.name.asc()))
+        dialog = SelectionDialog(
+            title="Sélectionner un modèle de carte",
+            items=models,
+            display_func=lambda m: f"🎨 {m.name} — {getattr(m, 'description', '') or 'Gabarit de carte'}",
+            parent=self,
+        )
+        if dialog.exec():
+            selected = dialog.get_selected_item()
+            if selected and hasattr(selected, "id"):
+                self._attach_context(f"model_{selected.id}")
+
+    @Slot()
+    def _open_card_selection_dialog(self) -> None:
+        """Ouvre la boîte de dialogue modale de sélection de carte ciblée."""
+
+        def _format_note(n: NoteModel) -> str:
+            active_v = n.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+            snippet = f"Note #{n.id}"
+            if active_v and active_v.content:
+                try:
+                    d_c = json.loads(active_v.content)
+                    front_text = d_c.get("Front", d_c.get("Recto", active_v.content))
+                    snippet = f"#{n.id} : {str(front_text)[:45]}"
+                except Exception:
+                    snippet = f"#{n.id} : {str(active_v.content)[:45]}"
+            tags = f" [{n.tags}]" if n.tags else ""
+            return f"🗂️ {snippet}{tags}"
+
+        notes = list(NoteModel.select().order_by(NoteModel.id.desc()).limit(150))
+        dialog = SelectionDialog(
+            title="Sélectionner une carte ciblée",
+            items=notes,
+            display_func=_format_note,
+            parent=self,
+        )
+        if dialog.exec():
+            selected = dialog.get_selected_item()
+            if selected and hasattr(selected, "id"):
+                self._attach_context(f"card_{selected.id}")
 
     def _attach_context(self, ctx_id: str) -> None:
         if ctx_id not in self.active_context:

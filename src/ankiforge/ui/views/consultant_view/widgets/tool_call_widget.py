@@ -44,6 +44,7 @@ class ToolCallWidget(QFrame):
         header.addWidget(self.icon_lbl)
 
         self.lbl_tool = QLabel(f"Outil invoqué : <b>{tool_name}</b>")
+        self.lbl_tool.setWordWrap(True)
         self.lbl_tool.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
         header.addWidget(self.lbl_tool, 1)
 

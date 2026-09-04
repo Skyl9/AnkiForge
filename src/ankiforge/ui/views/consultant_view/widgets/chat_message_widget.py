@@ -76,17 +76,13 @@ class ChatMessageWidget(QWidget):
         self.avatar_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if is_user:
-            self.avatar_lbl.setText("Vous")
+            self.avatar_lbl.setPixmap(load_phosphor_icon("ph.user", color="white").pixmap(18, 18))
             self.avatar_lbl.setStyleSheet(f"""
                 QLabel {{
                     background-color: {DesignTokens.ACCENT_PRIMARY};
-                    color: white;
-                    font-weight: 700;
-                    font-size: 11px;
                     border-radius: 17px;
                 }}
             """)
-            layout.addStretch()
         else:
             self.avatar_lbl.setPixmap(load_phosphor_icon("ph.sparkle", color="white").pixmap(18, 18))
             self.avatar_lbl.setStyleSheet(f"""
@@ -225,7 +221,10 @@ class ChatMessageWidget(QWidget):
             layout.addWidget(self.avatar_lbl, alignment=Qt.AlignmentFlag.AlignTop)
             layout.addWidget(self.content_wrapper, 1)
         else:
-            layout.addWidget(self.content_wrapper, 1)
+            self.content_wrapper.setMaximumWidth(720)
+            self.header_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+            layout.addStretch(1)
+            layout.addWidget(self.content_wrapper, 0)
             layout.addWidget(self.avatar_lbl, alignment=Qt.AlignmentFlag.AlignTop)
 
     def append_text_chunk(self, chunk: str) -> None:
@@ -393,9 +392,6 @@ class ChatMessageWidget(QWidget):
             self.avatar_lbl.setStyleSheet(f"""
                 QLabel {{
                     background-color: {profile.accent_primary};
-                    color: white;
-                    font-weight: 700;
-                    font-size: 11px;
                     border-radius: 17px;
                 }}
             """)

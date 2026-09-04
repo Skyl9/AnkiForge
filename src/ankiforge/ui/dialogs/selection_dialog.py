@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -110,6 +111,12 @@ class SelectionDialog(QDialog):
 
     def _populate_list(self, items: Sequence[Any]) -> None:
         self.list_widget.clear()
+        if not items:
+            empty_item = QListWidgetItem("Aucun élément disponible")
+            empty_item.setFlags(Qt.ItemFlag.NoItemFlags)
+            empty_item.setForeground(QColor(DesignTokens.TEXT_MUTED))
+            self.list_widget.addItem(empty_item)
+            return
         for item in items:
             list_item = QListWidgetItem(self.display_func(item))
             list_item.setData(Qt.ItemDataRole.UserRole, item)
@@ -122,13 +129,18 @@ class SelectionDialog(QDialog):
 
     def _on_selection_changed(self) -> None:
         selected = self.list_widget.selectedItems()
-        self.btn_accept.setEnabled(len(selected) > 0)
-        if selected:
-            self.selected_item = selected[0].data(Qt.ItemDataRole.UserRole)
+        valid = [s for s in selected if s.data(Qt.ItemDataRole.UserRole) is not None]
+        self.btn_accept.setEnabled(len(valid) > 0)
+        if valid:
+            self.selected_item = valid[0].data(Qt.ItemDataRole.UserRole)
+        else:
+            self.selected_item = None
 
     def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
-        self.selected_item = item.data(Qt.ItemDataRole.UserRole)
-        self.accept()
+        data = item.data(Qt.ItemDataRole.UserRole)
+        if data is not None:
+            self.selected_item = data
+            self.accept()
 
     def get_selected_item(self) -> Any | None:
         return self.selected_item

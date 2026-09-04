@@ -874,7 +874,7 @@ class StyleEngine(QObject):
 
         ContextHubWidget, QFrame#ContextHubWidget {{
             background-color: {p.bg_panel};
-            border-left: 1px solid {p.border_color};
+            border: none;
         }}
         ContextAssetCard, QFrame#ContextAssetCard {{
             background-color: {p.bg_input};
