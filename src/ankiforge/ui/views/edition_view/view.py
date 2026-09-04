@@ -349,6 +349,7 @@ class EditionView(QWidget):
         self.editor_toolbar.history_requested.connect(self._open_history_modal)
         self.editor_toolbar.toggle_preview_requested.connect(self._toggle_preview_pane)
         self.editor_toolbar.toggle_table_requested.connect(self._toggle_table_collapsed)
+        self.editor_toolbar.consult_ai_requested.connect(self._on_consult_ai_clicked)
         editor_layout.addWidget(self.editor_toolbar)
 
         self.fields_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -697,6 +698,23 @@ class EditionView(QWidget):
         dialog = TimeMachineDialog(note=self._current_note, parent=self)
         dialog.version_restored.connect(self._on_version_restored)
         dialog.exec()
+
+    @Slot()
+    def _on_consult_ai_clicked(self) -> None:
+        """Transmet la note courante au Consultant IA et bascule immédiatement sur son onglet."""
+        if not self._current_note:
+            show_toast(self, "Sélectionnez une carte à analyser par le Consultant IA.", is_error=True)
+            return
+
+        from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
+
+        event_bus.publish(
+            OpenConsultantRequestedEvent(
+                context_item=f"card_{self._current_note.id}",
+                initial_prompt=f"Analyse la note #{self._current_note.id} : vérifie son atomicité et propose des optimisations de formulation.",
+            )
+        )
+        show_toast(self, f"Note #{self._current_note.id} transmise au Consultant IA !")
 
     def _on_version_restored(self, note_id: int, restored_dict: dict[str, str]) -> None:
         for field, widget in self.dynamic_field_widgets.items():

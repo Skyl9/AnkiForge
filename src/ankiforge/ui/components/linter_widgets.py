@@ -510,6 +510,12 @@ class WozniakCardItemWidget(QFrame):
         self.btn_ignore.setFixedHeight(24)
         self.btn_ignore.clicked.connect(self.on_ignore)
 
+        self.btn_consult_ai = SecondaryButton("Consulter l'IA")
+        self.btn_consult_ai.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_PURPLE))
+        self.btn_consult_ai.setToolTip("Ouvrir cette carte dans le Consultant IA")
+        self.btn_consult_ai.setFixedHeight(24)
+        self.btn_consult_ai.clicked.connect(self.on_consult_ai)
+
         self.btn_apply = PrimaryButton("Appliquer la Correction")
         self.btn_apply.setIcon(load_phosphor_icon("ph.check", color="#ffffff"))
         self.btn_apply.setFixedHeight(24)
@@ -517,6 +523,7 @@ class WozniakCardItemWidget(QFrame):
 
         ab_layout.addWidget(chk_synthese)
         ab_layout.addStretch()
+        ab_layout.addWidget(self.btn_consult_ai)
         ab_layout.addWidget(self.btn_ignore)
         ab_layout.addWidget(self.btn_apply)
         layout.addWidget(act_bar)
@@ -529,6 +536,19 @@ class WozniakCardItemWidget(QFrame):
     def on_ignore(self) -> None:
         self.setVisible(False)
         self.ignored.emit()
+
+    def on_consult_ai(self) -> None:
+        nid = self.item_data.get("note_id")
+        rule_name = self.item_data.get("badge", "Règle Wozniak")
+        if nid:
+            from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
+
+            event_bus.publish(
+                OpenConsultantRequestedEvent(
+                    context_item=f"card_{nid}",
+                    initial_prompt=f"La note #{nid} a enfreint la règle '{rule_name}'. Analyse et propose une refactorisation ergonomique.",
+                )
+            )
 
     def on_apply(self) -> None:
         nid = self.item_data.get("note_id")

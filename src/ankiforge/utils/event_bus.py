@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import traceback
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -200,6 +199,13 @@ class SettingChangedEvent(AppEvent):
     value: Any = None
 
 
+# Consultant AI Events
+@dataclass(frozen=True)
+class OpenConsultantRequestedEvent(AppEvent):
+    context_item: str = ""
+    initial_prompt: str = ""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AppEventBus Singleton & Dispatcher
 # ─────────────────────────────────────────────────────────────────────────────
@@ -292,14 +298,22 @@ class AppEventBus:
                 res = handler(event) if isinstance(event, AppEvent) else handler(*args, **kwargs)
                 results.append(res)
             except Exception as e:
-                handler_name = getattr(handler, "__qualname__", str(handler))
-                logger.error(
-                    "Error executing event handler %s for event %s: %s\n%s",
+                try:
+                    handler_name = getattr(handler, "__qualname__", "unknown_handler")
+                except Exception:
+                    handler_name = "deleted_shiboken_handler"
+
+                logger.debug(
+                    "Error executing event handler %s for event %s: %s",
                     handler_name,
                     event,
                     e,
-                    traceback.format_exc(),
                 )
+                if "already deleted" in str(e):
+                    with self._rw_lock:
+                        for listeners in self._listeners.values():
+                            if handler in listeners:
+                                listeners.remove(handler)
 
         return results
 

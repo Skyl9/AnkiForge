@@ -61,7 +61,7 @@ def render_markdown_message(text: str) -> str:
                 background-color: transparent;
                 border: none;
                 padding: 0;
-                color: #38bdf8;
+                color: {DesignTokens.SYNTAX_TAG};
             }}
         </style>
         {html_content}

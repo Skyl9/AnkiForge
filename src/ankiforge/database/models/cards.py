@@ -46,6 +46,7 @@ class NoteModel(BaseModel):
 
     note_type_id: Any
     cards: Any
+    versions: Any
 
     anki_id = BigIntegerField(unique=True, null=True)
     guid = CharField(unique=True, default=generate_guid)

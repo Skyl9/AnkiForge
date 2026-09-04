@@ -37,6 +37,7 @@ class EditorToolbarWidget(QWidget):
     action_triggered = Signal(str)  # action_id
     save_requested = Signal()
     history_requested = Signal()
+    consult_ai_requested = Signal()
     toggle_preview_requested = Signal()
     toggle_table_requested = Signal()
 
@@ -74,6 +75,25 @@ class EditorToolbarWidget(QWidget):
         self.main_layout.addLayout(self.tools_layout)
 
         self.main_layout.addStretch()
+
+        # Bouton Dé-silotage : Consulter l'IA sur la note courante
+        self.btn_consult_ai = SecondaryButton("Consulter l'IA")
+        self.btn_consult_ai.setIcon(load_phosphor_icon("sparkle", color=DesignTokens.COLOR_PURPLE))
+        self.btn_consult_ai.setToolTip("Ouvrir le Consultant IA pour auditer ou optimiser cette note")
+        self.btn_consult_ai.setFixedHeight(26)
+        self.btn_consult_ai.setStyleSheet(f"""
+            QPushButton {{
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: 600;
+                border-color: {DesignTokens.COLOR_PURPLE};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+        self.btn_consult_ai.clicked.connect(self.consult_ai_requested.emit)
+        self.main_layout.addWidget(self.btn_consult_ai)
 
         # Boutons système à droite : Historique + Sauvegarder + Toggle Preview
         self.btn_history = SecondaryButton("Historique")

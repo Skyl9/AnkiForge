@@ -13,16 +13,24 @@ from ankiforge.ui.views.consultant_view.view import (
 )
 from ankiforge.ui.views.consultant_view.widgets import (
     ChatMessageWidget,
+    ConsultantChatInput,
+    InlineDiffCardWidget,
+    MentionCompleter,
     ThoughtStepWidget,
     ToolCallWidget,
+    WorkspaceInspectorWidget,
 )
 
 __all__ = [
-    "ConsultantView",
+    "ChatMessageWidget",
+    "ConsultantChatInput",
     "ConsultantTab",
+    "ConsultantView",
+    "InlineDiffCardWidget",
+    "MentionCompleter",
     "ThoughtStepWidget",
     "ToolCallWidget",
-    "ChatMessageWidget",
+    "WorkspaceInspectorWidget",
     "apply_pill_style",
     "render_markdown_message",
 ]

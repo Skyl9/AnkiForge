@@ -51,8 +51,9 @@ def test_consultant_viewmodel_chat_and_thoughts() -> None:
     assert len(vm.current_tool_calls) == 0
 
     # Metrics
+    tokens_before = vm.used_tokens_count
     vm.update_metrics(tokens_delta=150, cards_delta=1)
-    assert vm.used_tokens_count == 150
+    assert vm.used_tokens_count == tokens_before + 150
     assert vm.modified_cards_count == 1
 
     # Clear chat

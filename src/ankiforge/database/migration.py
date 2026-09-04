@@ -173,6 +173,11 @@ def run_migrations() -> None:
                 router.model.create(name="020_notetype_description")
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 020_notetype_description.")
 
+        # Si les tables consultant_sessions et consultant_messages existent déjà
+        if "022_consultant_sessions" not in done_migrations and db.table_exists("consultant_sessions") and db.table_exists("consultant_messages"):
+            router.model.create(name="022_consultant_sessions")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 022_consultant_sessions.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

@@ -40,7 +40,10 @@ def test_run_migrations_idempotency(mock_db):
     assert "018_app_settings" in router.done, "La migration 018 devrait être marquée comme terminée."
     assert "020_notetype_description" in router.done, "La migration 020 devrait être marquée comme terminée."
     assert "021_performance_indexes" in router.done, "La migration 021 devrait être marquée comme terminée."
+    assert "022_consultant_sessions" in router.done, "La migration 022 devrait être marquée comme terminée."
     assert db.table_exists("settings"), "La table settings devrait exister."
+    assert db.table_exists("consultant_sessions"), "La table consultant_sessions devrait exister."
+    assert db.table_exists("consultant_messages"), "La table consultant_messages devrait exister."
 
     # 2. Deuxième exécution (Idempotence)
     run_migrations()
@@ -53,3 +56,4 @@ def test_run_migrations_idempotency(mock_db):
     assert "018_app_settings" in router.done
     assert "020_notetype_description" in router.done
     assert "021_performance_indexes" in router.done
+    assert "022_consultant_sessions" in router.done

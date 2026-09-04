@@ -78,3 +78,15 @@ def test_edition_view_placeholder_stack(qtbot, mock_db):
     # Select note -> flips to editor index 1
     view.select_note_by_id(note.id)
     assert view.editor_stack.currentIndex() == 1
+
+
+def test_open_consultant_event_switches_main_window_tab(qtbot, mock_db):
+    """Vérifie que la publication de OpenConsultantRequestedEvent bascule MainWindow sur la vue Consultant."""
+    from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
+
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        event_bus.publish(OpenConsultantRequestedEvent(context_item="card_42", initial_prompt="Analyse"))
+        assert window._current_view_id == "consultant"

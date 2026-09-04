@@ -16,7 +16,12 @@ from ankiforge.ui.components.title_bar import GlobalTitleBar  # noqa: F401 — r
 from ankiforge.ui.components.topbar import TopBar  # noqa: F401 — re-export rétrocompatible
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.utils.event_bus import ProfileSwitchedEvent, ThemeChangedEvent, event_bus
+from ankiforge.utils.event_bus import (
+    OpenConsultantRequestedEvent,
+    ProfileSwitchedEvent,
+    ThemeChangedEvent,
+    event_bus,
+)
 from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -124,9 +129,17 @@ class MainWindow(QMainWindow):
 
         self._setup_debug_shortcuts()
         self._setup_global_shortcuts()
+        event_bus.subscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
 
         # 4. Vérification asynchrone des mises à jour en arrière-plan (non-bloquante)
         QTimer.singleShot(2000, self._check_for_updates)
+
+    def _on_open_consultant_requested(self, event: OpenConsultantRequestedEvent) -> None:
+        """Bascule immédiatement sur l'onglet Consultant IA et pré-attache le contexte."""
+        self._on_view_selected("consultant")
+        consultant_widget = self._view_widgets.get("consultant")
+        if consultant_widget and hasattr(consultant_widget, "attach_and_prompt"):
+            consultant_widget.attach_and_prompt(event.context_item, event.initial_prompt)
 
     def _check_for_updates(self) -> None:
         """Lance la vérification asynchrone des mises à jour dans QThreadPool."""
@@ -531,6 +544,7 @@ class MainWindow(QMainWindow):
             self._view_widgets[view_id] = placeholder
 
     def closeEvent(self, event: Any) -> None:
+        event_bus.unsubscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
         # Close all floating windows
         from ankiforge.ui.components.tabs.floating_dock import _floating_windows
 
