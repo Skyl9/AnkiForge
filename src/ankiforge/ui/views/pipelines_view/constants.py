@@ -59,6 +59,17 @@ STEP_TYPES_META: dict[str, dict[str, Any]] = {
         "default_input": "generated_cards",
         "default_output": "generated_cards",
     },
+    "AUDIO_TTS": {
+        "label": "Génération Audio (TTS)",
+        "badge": "TTS",
+        "badge_variant": "status",
+        "badge_color": "#ec4899",
+        "icon": "ph.speaker-high",
+        "default_title": "Synthèse Vocale des Cartes",
+        "requires_persona": False,
+        "default_input": "generated_cards",
+        "default_output": "generated_cards",
+    },
 }
 
 # Modèles de pipelines prédéfinis

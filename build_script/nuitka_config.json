@@ -12,7 +12,9 @@
       "uvicorn",
       "anyio",
       "sniffio",
-      "urllib"
+      "urllib",
+      "edge_tts",
+      "aiohttp"
     ],
     "include_package_data": [
       "zoneinfo"

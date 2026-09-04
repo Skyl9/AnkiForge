@@ -30,6 +30,7 @@ from ankiforge.ui.widgets.settings_modal import (
     PasswordLineEdit,
     SettingsModal,
     StorageMaintenanceTab,
+    TTSSettingsTab,
 )
 
 
@@ -62,11 +63,12 @@ def test_settings_modal_creation_and_tabs(qtbot):
     assert isinstance(modal.general_tab, GeneralTab)
     assert isinstance(modal.ai_tab, AIEnginesTab)
     assert isinstance(modal.anki_tab, AnkiSyncTab)
+    assert isinstance(modal.tts_tab, TTSSettingsTab)
     assert isinstance(modal.maint_tab, StorageMaintenanceTab)
-    assert modal.stacked_widget.count() == 5
+    assert modal.stacked_widget.count() == 6
 
     # Navigation dans tous les onglets
-    for i in range(5):
+    for i in range(6):
         modal.stacked_widget.setCurrentIndex(i)
         assert modal.stacked_widget.currentIndex() == i
 

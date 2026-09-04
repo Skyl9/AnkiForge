@@ -213,6 +213,9 @@ class PipelineOrchestrator(QRunnable):
                     elif step_type == "PYTHON_TOOL":
                         self._execute_python_tool(current_step)
 
+                    elif step_type == "AUDIO_TTS":
+                        self._execute_audio_tts(current_step)
+
                     else:
                         logger.warning("Type d'étape inconnu '%s', exécution standard LLM.", step_type)
                         self._execute_llm_prompt(current_step)
@@ -551,6 +554,89 @@ class PipelineOrchestrator(QRunnable):
         out_var = cfg.get("output_variable") or f"result_tool_{step.step_order}"
         self.state.set_variable(out_var, result)
         self.state.set_variable(f"result_tool_{step.step_order}", result)
+
+    def _execute_audio_tts(self, step: PipelineStepModel) -> None:
+        """
+        Exécute la synthèse vocale sur les cartes générées (AUDIO_TTS).
+        Lit chaque carte, synthétise l'audio pour le champ source désigné,
+        et injecte la balise Anki [sound:xxx.mp3] dans le champ cible.
+        """
+        cfg: dict[str, Any] = {}
+        if step.config_data:
+            try:
+                cfg = json.loads(str(step.config_data))
+            except Exception as e:
+                logger.warning("Échec du décodage config_data AUDIO_TTS : %s", e)
+                cfg = {}
+
+        source_field = str(cfg.get("source_field", "Front"))
+        target_field = str(cfg.get("target_field", "Front"))
+        insertion_mode = str(cfg.get("insertion_mode", "append"))  # "append" | "replace_field"
+        engine = str(cfg.get("engine", "edge-tts"))
+        voice = cfg.get("voice")
+        rate = str(cfg.get("rate", "+0%"))
+        pitch = str(cfg.get("pitch", "+0Hz"))
+        strip_cloze = bool(cfg.get("strip_cloze", True))
+
+        cards = self.state.get_variable("generated_cards", [])
+        if not cards or not isinstance(cards, list):
+            logger.info("[AUDIO_TTS] Aucune carte dans 'generated_cards' à traiter.")
+            return
+
+        from ankiforge.services.cards.tts_service import get_tts_service
+
+        tts_svc = get_tts_service()
+        total = len(cards)
+        processed_count = 0
+
+        for idx, card in enumerate(cards):
+            if self._is_cancelled:
+                break
+
+            if not isinstance(card, dict):
+                continue
+
+            # Extraire le texte du champ source (au niveau racine ou dans card["fields"])
+            raw_fields = card.get("fields")
+            fields_dict: dict[str, Any] = raw_fields if isinstance(raw_fields, dict) else card
+            text_to_speak = str(fields_dict.get(source_field, fields_dict.get(source_field.lower(), "")))
+
+            if not text_to_speak.strip():
+                continue
+
+            try:
+                sound_tag, _ = tts_svc.synthesize(
+                    text=text_to_speak,
+                    engine=engine,
+                    voice=voice,
+                    rate=rate,
+                    pitch=pitch,
+                    strip_cloze=strip_cloze,
+                )
+
+                # Injection dans le champ cible
+                current_target_val = str(fields_dict.get(target_field, fields_dict.get(target_field.lower(), "")))
+                if insertion_mode == "append" and sound_tag not in current_target_val:
+                    new_target_val = f"{current_target_val} {sound_tag}".strip()
+                elif insertion_mode == "append":
+                    new_target_val = current_target_val
+                else:
+                    new_target_val = sound_tag
+
+                # Mettre à jour fields_dict et card
+                fields_dict[target_field] = new_target_val
+                if isinstance(raw_fields, dict):
+                    raw_fields[target_field] = new_target_val
+                card[target_field] = new_target_val
+
+                processed_count += 1
+                self.signals.step_progress.emit(idx + 1, total, f"Audio généré ({idx + 1}/{total}) : {sound_tag}")
+
+            except Exception as err:
+                logger.warning("[AUDIO_TTS] Échec de synthèse pour la carte %d : %s", idx + 1, err)
+
+        self.state.set_variable("generated_cards", cards)
+        logger.info("[AUDIO_TTS] Synthèse audio terminée : %d/%d cartes enrichies.", processed_count, total)
 
     # ==========================================
     # CONTRÔLES EXTERNES (THREAD-SAFE / APPELÉS PAR L'UI)

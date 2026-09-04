@@ -28,6 +28,7 @@ from ankiforge.ui.widgets.settings_modal.tabs import (
     AnkiSyncTab,
     GeneralTab,
     StorageMaintenanceTab,
+    TTSSettingsTab,
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -124,8 +125,9 @@ class SettingsModal(QDialog):
             ("Général", "ph.paint-brush-broad", 0),
             ("Moteurs IA", "ph.cpu", 1),
             ("Anki && Formats", "ph.cards", 2),
-            ("Maintenance", "ph.wrench", 3),
-            ("Extensions", "ph.puzzle-piece", 4),
+            ("Audio && TTS", "ph.speaker-high", 3),
+            ("Maintenance", "ph.wrench", 4),
+            ("Extensions", "ph.puzzle-piece", 5),
         ]
 
         for title, icon_name, idx in tabs_info:
@@ -140,16 +142,18 @@ class SettingsModal(QDialog):
 
         body_layout.addWidget(self.sidebar)
 
-        # Stacked Widget avec les 5 onglets
+        # Stacked Widget avec les 6 onglets
         self.general_tab = GeneralTab()
         self.ai_tab = AIEnginesTab(self.ai_manager)
         self.anki_tab = AnkiSyncTab()
+        self.tts_tab = TTSSettingsTab()
         self.maint_tab = StorageMaintenanceTab()
         self.addons_tab = AddonManagerWidget()
 
         self.stacked_widget.addWidget(self.general_tab)
         self.stacked_widget.addWidget(self.ai_tab)
         self.stacked_widget.addWidget(self.anki_tab)
+        self.stacked_widget.addWidget(self.tts_tab)
         self.stacked_widget.addWidget(self.maint_tab)
         self.stacked_widget.addWidget(self.addons_tab)
 
@@ -222,6 +226,7 @@ class SettingsModal(QDialog):
         has_theme_change, selected_layout_id, selected_theme_id = self.general_tab.save_tab()
         self.ai_tab.save_tab()
         self.anki_tab.save_tab()
+        self.tts_tab.save_tab()
         self.maint_tab.save_tab()
 
         theme_title = self.general_tab.cb_theme.currentText() or "Nouveau Thème"

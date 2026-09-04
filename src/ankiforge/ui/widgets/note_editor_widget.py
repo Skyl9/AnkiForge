@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 import qtawesome
-from PySide6.QtCore import QRect, QRegularExpression, QSize, QStringListModel, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QRect, QRegularExpression, QSize, QStringListModel, Qt, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -23,6 +23,7 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QTextCursor,
 )
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QComboBox,
     QCompleter,
@@ -33,6 +34,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QTextEdit,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -45,6 +47,7 @@ from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
+from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -599,6 +602,12 @@ class NoteFieldEditorWidget(QWidget):
         self._is_first = is_first
         self._is_collapsed = False
 
+        # Lecteur audio natif Qt PySide6
+        self._player = QMediaPlayer(self)
+        self._audio_output = QAudioOutput(self)
+        self._player.setAudioOutput(self._audio_output)
+        self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+
         self._setup_ui(initial_value)
 
     def _setup_ui(self, initial_value: str) -> None:
@@ -606,34 +615,63 @@ class NoteFieldEditorWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 8)
         layout.setSpacing(0)
 
-        self.btn_header = QPushButton()
+        # ── EN-TÊTE DU CHAMP (CONTENEUR AVEC ACTIONS AUDIO & TTS) ────────────
+        self.header_bar = QWidget(self)
+        header_layout = QHBoxLayout(self.header_bar)
+        header_layout.setContentsMargins(8, 4, 8, 4)
+        header_layout.setSpacing(6)
+
+        self.btn_header = QPushButton(self.header_bar)
         self.btn_header.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_header.setFlat(True)
         self._update_header_text()
+        self.btn_header.clicked.connect(self.toggle_collapsed)
+        header_layout.addWidget(self.btn_header, 1)
 
-        accent_color = DesignTokens.ACCENT_PRIMARY if self._is_first else DesignTokens.TEXT_PRIMARY
-        radius = DesignTokens.RADIUS_SM
-
-        self.btn_header.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {accent_color};
-                text-align: left;
-                font-size: 11px;
-                font-weight: bold;
-                padding: 6px 12px;
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-top-left-radius: {radius}px;
-                border-top-right-radius: {radius}px;
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
+        # Bouton Play/Stop audio inline
+        self.btn_play_audio = QToolButton(self.header_bar)
+        self.btn_play_audio.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_play_audio.setToolTip("Écouter la prononciation audio")
+        self.btn_play_audio.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_play_audio.setStyleSheet(f"""
+            QToolButton {{
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 2px;
             }}
-            QPushButton:hover {{
+            QToolButton:hover {{
                 background-color: {DesignTokens.BG_HOVER};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """)
-        self.btn_header.clicked.connect(self.toggle_collapsed)
-        layout.addWidget(self.btn_header)
+        self.btn_play_audio.clicked.connect(self._toggle_audio_playback)
+        header_layout.addWidget(self.btn_play_audio)
 
+        # Bouton Générer Audio (TTS)
+        self.btn_tts_generate = QToolButton(self.header_bar)
+        self.btn_tts_generate.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_tts_generate.setToolTip("Générer la prononciation audio (TTS)")
+        self.btn_tts_generate.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.TEXT_MUTED))
+        self.btn_tts_generate.setStyleSheet(f"""
+            QToolButton {{
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 2px;
+            }}
+            QToolButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        self.btn_tts_generate.clicked.connect(self._on_generate_tts)
+        header_layout.addWidget(self.btn_tts_generate)
+
+        self._apply_header_style()
+        layout.addWidget(self.header_bar)
+
+        # ── ZONE DE SAISIE DE TEXTE ──────────────────────────────────────────
         self.editor = NoteFieldTextEdit(self)
         self.editor.setPlainText(initial_value)
         self.editor.setMinimumHeight(75)
@@ -644,6 +682,36 @@ class NoteFieldEditorWidget(QWidget):
         self.editor.history_requested.connect(self.history_requested)
 
         layout.addWidget(self.editor)
+        self._update_audio_visibility()
+
+    def _apply_header_style(self) -> None:
+        accent_color = DesignTokens.ACCENT_PRIMARY if self._is_first else DesignTokens.TEXT_PRIMARY
+        radius = DesignTokens.RADIUS_SM
+        bottom_radius = 0 if not self._is_collapsed else radius
+
+        self.header_bar.setStyleSheet(f"""
+            QWidget#NoteFieldHeader {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top-left-radius: {radius}px;
+                border-top-right-radius: {radius}px;
+                border-bottom-left-radius: {bottom_radius}px;
+                border-bottom-right-radius: {bottom_radius}px;
+            }}
+        """)
+        self.header_bar.setObjectName("NoteFieldHeader")
+
+        self.btn_header.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {accent_color if not self._is_collapsed else DesignTokens.TEXT_MUTED};
+                text-align: left;
+                font-size: 11px;
+                font-weight: bold;
+                border: none;
+                padding: 2px 4px;
+            }}
+        """)
 
     def _update_header_text(self) -> None:
         icon_arrow = "▶" if self._is_collapsed else "▼"
@@ -653,46 +721,80 @@ class NoteFieldEditorWidget(QWidget):
         self._is_collapsed = not self._is_collapsed
         self.editor.setVisible(not self._is_collapsed)
         self._update_header_text()
+        self._apply_header_style()
 
-        radius = DesignTokens.RADIUS_SM
-        if self._is_collapsed:
-            self.btn_header.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.BG_PANEL};
-                    color: {DesignTokens.TEXT_MUTED};
-                    text-align: left;
-                    font-size: 11px;
-                    font-weight: bold;
-                    padding: 6px 12px;
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: {radius}px;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignTokens.BG_HOVER};
-                }}
-            """)
+    def _update_audio_visibility(self) -> None:
+        """Affiche le bouton de lecture si une balise audio [sound:xxx] est présente."""
+        has_sound = bool(re.search(r"\[sound:[^\]]+\]", self.editor.toPlainText()))
+        self.btn_play_audio.setVisible(has_sound)
+
+    def _toggle_audio_playback(self) -> None:
+        """Démarre ou arrête la lecture du fichier audio associé au champ."""
+        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self._player.stop()
+            return
+
+        text = self.editor.toPlainText()
+        match = re.search(r"\[sound:([^\]]+)\]", text)
+        if not match:
+            return
+
+        filename = match.group(1).strip()
+        from ankiforge.utils.paths import resolve_media_path
+
+        media_path = resolve_media_path(filename)
+        if not media_path.exists() or media_path.stat().st_size == 0:
+            logger.warning("Fichier audio introuvable ou vide : %s", media_path)
+            show_toast(self, f"Audio introuvable : {filename}", is_error=True)
+            return
+
+        self._player.setSource(QUrl.fromLocalFile(str(media_path)))
+        self._player.play()
+
+    def _on_playback_state_changed(self, state: QMediaPlayer.PlaybackState) -> None:
+        """Met à jour l'icône Play / Stop selon l'état de lecture du média."""
+        if state == QMediaPlayer.PlaybackState.PlayingState:
+            self.btn_play_audio.setIcon(load_phosphor_icon("ph.stop", color="#ef4444"))
+            self.btn_play_audio.setToolTip("Arrêter la lecture")
         else:
-            accent_color = DesignTokens.ACCENT_PRIMARY if self._is_first else DesignTokens.TEXT_PRIMARY
-            self.btn_header.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.BG_PANEL};
-                    color: {accent_color};
-                    text-align: left;
-                    font-size: 11px;
-                    font-weight: bold;
-                    padding: 6px 12px;
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-top-left-radius: {radius}px;
-                    border-top-right-radius: {radius}px;
-                    border-bottom-left-radius: 0px;
-                    border-bottom-right-radius: 0px;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignTokens.BG_HOVER};
-                }}
-            """)
+            self.btn_play_audio.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.ACCENT_PRIMARY))
+            self.btn_play_audio.setToolTip("Écouter la prononciation audio")
+
+    def _on_generate_tts(self) -> None:
+        """Synthétise le texte du champ (ou la sélection) en audio via TTSService."""
+        cursor = self.editor.textCursor()
+        selected_text = cursor.selectedText().strip()
+        text_to_speak = selected_text if selected_text else self.editor.toPlainText().strip()
+
+        if not text_to_speak:
+            show_toast(self, "Le champ est vide, impossible de générer l'audio.", is_error=True)
+            return
+
+        try:
+            from ankiforge.services.cards.tts_service import get_tts_service
+
+            tts_svc = get_tts_service()
+            sound_tag, _ = tts_svc.synthesize(text=text_to_speak)
+
+            current_text = self.editor.toPlainText()
+            if sound_tag not in current_text:
+                new_text = f"{current_text} {sound_tag}".strip()
+                self.editor.setPlainText(new_text)
+                self.content_changed.emit(self.field_name)
+
+            self._update_audio_visibility()
+            show_toast(self, f"Prononciation audio générée : {sound_tag}")
+        except Exception as e:
+            logger.exception("Échec de la synthèse vocale : %s", e)
+            show_toast(self, f"Erreur TTS : {e}", is_error=True)
+
+    def closeEvent(self, event: Any) -> None:
+        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self._player.stop()
+        super().closeEvent(event)
 
     def _on_text_changed(self) -> None:
+        self._update_audio_visibility()
         self.content_changed.emit(self.field_name)
 
     def _on_focus_changed(self, has_focus: bool) -> None:
@@ -704,6 +806,7 @@ class NoteFieldEditorWidget(QWidget):
 
     def set_text(self, text: str) -> None:
         self.editor.setPlainText(text)
+        self._update_audio_visibility()
 
     def set_known_fields(self, fields: list[str]) -> None:
         self.editor.set_known_fields(fields)
