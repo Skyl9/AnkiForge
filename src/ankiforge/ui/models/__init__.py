@@ -9,12 +9,14 @@ from .chunk_list_model import ChunkItemData, VirtualChunkListModel
 from .delegates import (
     BADGE_BG_COLOR_ROLE,
     BADGE_TEXT_COLOR_ROLE,
+    FLAG_ROLE,
     IS_INVALID_CARD_ROLE,
     NOTE_ID_ROLE,
     RAW_CONTENT_ROLE,
     TAGS_LIST_ROLE,
     BadgeItemDelegate,
     CheckboxItemDelegate,
+    FlagItemDelegate,
     ProgressBarItemDelegate,
     SimilarityBadgeDelegate,
     SrsMasteryDelegate,
@@ -34,6 +36,7 @@ __all__ = [
     "BadgeItemDelegate",
     "TagItemDelegate",
     "CheckboxItemDelegate",
+    "FlagItemDelegate",
     "ProgressBarItemDelegate",
     "TextSnippetDelegate",
     "SimilarityBadgeDelegate",
@@ -44,4 +47,5 @@ __all__ = [
     "BADGE_TEXT_COLOR_ROLE",
     "IS_INVALID_CARD_ROLE",
     "RAW_CONTENT_ROLE",
+    "FLAG_ROLE",
 ]

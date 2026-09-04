@@ -21,7 +21,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import (
+    CardModel,
+    LLMConfigModel,
+    NoteModel,
+    NoteTypeModel,
+    NoteVersionModel,
+    db,
+)
 from ankiforge.repositories import DeckRepository, NoteRepository
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
@@ -36,6 +43,7 @@ from ankiforge.ui.components.tag_select_window import TagSelectWindow
 from ankiforge.ui.models import (
     BadgeItemDelegate,
     CheckboxItemDelegate,
+    FlagItemDelegate,
     NoteVirtualTableModel,
     TagItemDelegate,
     TextSnippetDelegate,
@@ -90,6 +98,7 @@ class EditionView(QWidget):
         self._active_folder_id: int | None = None
         self._active_tags: list[str] = []
         self._active_model_id: int | None = None
+        self._active_flag: int | None = None
         self._current_table_fields: list[str] | None = None
         self._original_content: dict[str, str] = {}
 
@@ -197,6 +206,25 @@ class EditionView(QWidget):
         self.btn_open_model.clicked.connect(self._show_model_menu)
         filter_layout.addWidget(self.btn_open_model)
 
+        self.btn_filter_flag = QPushButton("Drapeau : Tous ▾")
+        self.btn_filter_flag.setIcon(load_phosphor_icon("flag", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_filter_flag.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: bold;
+                color: {DesignTokens.TEXT_SECONDARY};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+        self.btn_filter_flag.clicked.connect(self._show_flag_filter_menu)
+        filter_layout.addWidget(self.btn_filter_flag)
+
         separator = QFrame()
         separator.setFixedSize(1, 14)
         separator.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
@@ -247,6 +275,8 @@ class EditionView(QWidget):
         self.card_table.setModel(self.note_table_model)
 
         self.checkbox_delegate = CheckboxItemDelegate(self.card_table)
+        self.flag_delegate = FlagItemDelegate(self.card_table)
+        self.flag_delegate.flag_clicked.connect(self._on_flag_clicked)
         self.text_code_delegate = TextSnippetDelegate(is_code_font=True, parent=self.card_table)
         self.text_regular_delegate = TextSnippetDelegate(is_code_font=False, parent=self.card_table)
         self.badge_delegate = BadgeItemDelegate(parent=self.card_table)
@@ -414,10 +444,12 @@ class EditionView(QWidget):
         QShortcut(QKeySequence("Alt+Down"), self, self._select_next_card)
         QShortcut(QKeySequence("Ctrl+B"), self, lambda: self._handle_editor_action("bold"))
         QShortcut(QKeySequence("Ctrl+I"), self, lambda: self._handle_editor_action("italic"))
-        QShortcut(QKeySequence("Ctrl+U"), self, lambda: self._handle_editor_action("underline"))
-        QShortcut(QKeySequence("Ctrl+K"), self, lambda: self._handle_editor_action("link"))
-        QShortcut(QKeySequence("Ctrl+M"), self, lambda: self._handle_editor_action("math"))
         QShortcut(QKeySequence("Ctrl+Shift+C"), self, lambda: self._handle_editor_action("cloze"))
+
+        # Raccourcis drapeaux Anki (Ctrl+0 à Ctrl+7)
+        QShortcut(QKeySequence("Ctrl+0"), self, lambda: self._apply_flag_to_selected_notes(0))
+        for f_idx in range(1, 8):
+            QShortcut(QKeySequence(f"Ctrl+{f_idx}"), self, lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg))
 
     @Slot()
     def _toggle_table_collapsed(self) -> None:
@@ -913,14 +945,17 @@ class EditionView(QWidget):
 
                     self.card_table.setColumnWidth(0, 36)
                     self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
-                    for i in range(1, len(current_fields) + 1):
+                    self.card_table.setColumnWidth(1, 32)
+                    self.card_table.setItemDelegateForColumn(1, self.flag_delegate)
+
+                    for i in range(2, 2 + len(current_fields)):
                         self.card_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
-                        if i == 1:
+                        if i == 2:
                             self.card_table.setItemDelegateForColumn(i, self.text_code_delegate)
                         else:
                             self.card_table.setItemDelegateForColumn(i, self.text_regular_delegate)
 
-                    deck_col = len(current_fields) + 1
+                    deck_col = 2 + len(current_fields)
                     tags_col = deck_col + 1
                     self.card_table.setColumnWidth(deck_col, 140)
                     self.card_table.setColumnWidth(tags_col, 140)
@@ -933,18 +968,20 @@ class EditionView(QWidget):
         self._current_table_fields = None
         self.note_table_model.set_active_model_fields(None)
         self.card_table.setColumnWidth(0, 36)
+        self.card_table.setColumnWidth(1, 32)
         self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.card_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.card_table.setColumnWidth(3, 110)
-        self.card_table.setColumnWidth(4, 140)
+        self.card_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.card_table.setColumnWidth(4, 110)
         self.card_table.setColumnWidth(5, 140)
+        self.card_table.setColumnWidth(6, 140)
         self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
-        self.card_table.setItemDelegateForColumn(1, self.text_code_delegate)
-        self.card_table.setItemDelegateForColumn(2, self.text_regular_delegate)
-        self.card_table.setItemDelegateForColumn(3, self.badge_delegate)
+        self.card_table.setItemDelegateForColumn(1, self.flag_delegate)
+        self.card_table.setItemDelegateForColumn(2, self.text_code_delegate)
+        self.card_table.setItemDelegateForColumn(3, self.text_regular_delegate)
         self.card_table.setItemDelegateForColumn(4, self.badge_delegate)
-        self.card_table.setItemDelegateForColumn(5, self.tag_delegate)
+        self.card_table.setItemDelegateForColumn(5, self.badge_delegate)
+        self.card_table.setItemDelegateForColumn(6, self.tag_delegate)
 
     def _show_card_context_menu(self, pos: Any) -> None:
         index = self.card_table.indexAt(pos)
@@ -974,10 +1011,133 @@ class EditionView(QWidget):
 
         menu.addSeparator()
 
+        flag_menu = menu.addMenu("Drapeau")
+        flag_menu.setIcon(load_phosphor_icon("flag", color=DesignTokens.TEXT_PRIMARY))
+
+        action_flag_0 = flag_menu.addAction("Aucun drapeau\t(Ctrl+0)")
+        action_flag_0.triggered.connect(lambda: self._apply_flag_to_selected_notes(0, fallback_note_id=note.id))
+
+        flag_menu.addSeparator()
+
+        for f_idx in range(1, 8):
+            f_name = DesignTokens.FLAG_NAMES.get(f_idx, f"Drapeau {f_idx}")
+            f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
+            act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), f"{f_name}\t(Ctrl+{f_idx})")
+            act.triggered.connect(lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg, fallback_note_id=note.id))
+
+        menu.addSeparator()
+
         action_delete = menu.addAction(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED), "Supprimer la carte")
         action_delete.triggered.connect(lambda: self.reject_selected_notes([note.id]))
 
         menu.exec(self.card_table.mapToGlobal(pos))
+
+    def _on_flag_clicked(self, row: int, current_flag: int) -> None:
+        """Ouvre un menu contextuel rapide au clic direct sur la cellule de drapeau."""
+        note = self.note_table_model.get_note_at(row)
+        if not note:
+            return
+
+        menu = StyledMenu(self)
+        action_none = menu.addAction("Aucun drapeau")
+        if current_flag == 0:
+            action_none.setIcon(load_phosphor_icon("check", color=DesignTokens.TEXT_MUTED))
+        action_none.triggered.connect(lambda: self._apply_flag_to_selected_notes(0, fallback_note_id=note.id))
+
+        menu.addSeparator()
+
+        for f_idx in range(1, 8):
+            f_name = DesignTokens.FLAG_NAMES.get(f_idx, f"Drapeau {f_idx}")
+            f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
+            act = menu.addAction(load_phosphor_icon("flag", color=f_color), f_name)
+            if current_flag == f_idx:
+                act.setIcon(load_phosphor_icon("check", color=f_color))
+            act.triggered.connect(lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg, fallback_note_id=note.id))
+
+        rect = self.card_table.visualRect(self.note_table_model.index(row, 1))
+        global_pos = self.card_table.viewport().mapToGlobal(rect.bottomLeft())
+        menu.exec(global_pos)
+
+    def _apply_flag_to_selected_notes(self, flag: int, fallback_note_id: int | None = None) -> None:
+        """Applique un drapeau aux notes sélectionnées/cochées ou à la note active."""
+        target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
+        if not target_ids:
+            if fallback_note_id:
+                target_ids = [fallback_note_id]
+            elif self._current_note:
+                target_ids = [self._current_note.id]
+
+        if not target_ids:
+            return
+
+        with db.atomic():
+            CardModel.update(flags=flag).where(CardModel.note.in_(target_ids)).execute()
+
+        for nid in target_ids:
+            self.note_table_model.update_note_flag(nid, flag)
+
+        flag_label = DesignTokens.FLAG_NAMES.get(flag, "Aucun")
+        if flag == 0:
+            show_toast(self, f"Drapeau retiré pour {len(target_ids)} note(s).")
+        else:
+            show_toast(self, f"Drapeau '{flag_label}' appliqué à {len(target_ids)} note(s).")
+
+    @Slot()
+    def _show_flag_filter_menu(self) -> None:
+        """Affiche le menu de filtrage par drapeau."""
+        menu = StyledMenu(self)
+
+        all_action = menu.addAction("Tous les drapeaux")
+        all_action.triggered.connect(lambda: self._on_flag_filter_selected(None, "Drapeau : Tous ▾"))
+
+        none_action = menu.addAction("Sans drapeau")
+        none_action.triggered.connect(lambda: self._on_flag_filter_selected(0, "Sans drapeau ▾"))
+
+        menu.addSeparator()
+
+        for f_idx in range(1, 8):
+            f_name = DesignTokens.FLAG_NAMES.get(f_idx, f"Drapeau {f_idx}")
+            f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
+            act = menu.addAction(load_phosphor_icon("flag", color=f_color), f_name)
+            act.triggered.connect(lambda checked=False, flg=f_idx, fn=f_name: self._on_flag_filter_selected(flg, f"Drapeau : {fn} ▾"))
+
+        menu.exec(self.btn_filter_flag.mapToGlobal(self.btn_filter_flag.rect().bottomLeft()))
+
+    def _on_flag_filter_selected(self, flag_val: int | None, label: str) -> None:
+        """Met à jour le filtre actif par drapeau et rafraîchit la table."""
+        self._active_flag = flag_val
+        self.btn_filter_flag.setText(label)
+        if flag_val is None:
+            self.btn_filter_flag.setIcon(load_phosphor_icon("flag", color=DesignTokens.TEXT_SECONDARY))
+            self.btn_filter_flag.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+        else:
+            flag_color = DesignTokens.FLAG_COLORS.get(flag_val, DesignTokens.ACCENT_PRIMARY) if flag_val > 0 else DesignTokens.TEXT_MUTED
+            self.btn_filter_flag.setIcon(load_phosphor_icon("flag", color=flag_color))
+            self.btn_filter_flag.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(99, 102, 241, 0.15);
+                    border: 1px solid {flag_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {flag_color};
+                }}
+            """)
+        self.refresh_data()
 
     @Slot(int)
     def show_version_history(self, note_id: int) -> None:
@@ -1127,6 +1287,16 @@ class EditionView(QWidget):
                 query = query.where(NoteModel.tags.contains(tag))
             if self._active_model_id is not None:
                 query = query.where(NoteModel.note_type == self._active_model_id)
+
+            if self._active_flag is not None:
+                from ankiforge.database.models import CardModel
+
+                if self._active_flag > 0:
+                    flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags == self._active_flag)]
+                    query = query.where(NoteModel.id.in_(flagged_note_ids))
+                else:
+                    flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]
+                    query = query.where(NoteModel.id.not_in(flagged_note_ids))
 
             self.note_table_model.set_filter_query(query, active_model_fields=self._current_table_fields)
             self._update_table_headers()

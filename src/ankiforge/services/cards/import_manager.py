@@ -530,6 +530,7 @@ class ImportManager:
                                 "ivl": cdict.get("ivl", 0),
                                 "reps": cdict.get("reps", 0),
                                 "lapses": cdict.get("lapses", 0),
+                                "flags": int(cdict.get("flags", 0) or 0) & 7,
                             }
                             note_cards_map.setdefault(nid, []).append(card_entry)
                     except Exception as e:
@@ -556,7 +557,7 @@ class ImportManager:
                     content_dict = dict(zip(field_names, field_values, strict=False))
                     tags = tags_raw.strip().split(" ") if tags_raw and tags_raw.strip() else []
 
-                    attached_cards = note_cards_map.get(nid, [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0}])
+                    attached_cards = note_cards_map.get(nid, [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0, "flags": 0}])
                     did = attached_cards[0]["did"] if attached_cards else 1
                     deck_name = deck_id_to_name.get(did, "Par défaut")
 
@@ -788,6 +789,7 @@ class ImportManager:
                             "ivl": cinfo.get("ivl", 0),
                             "reps": cinfo.get("reps", 0),
                             "lapses": cinfo.get("lapses", 0),
+                            "flags": cinfo.get("flags", 0),
                         },
                     )
                 created_count += 1
@@ -818,6 +820,8 @@ class ImportManager:
                                 card_match.reps = cinfo["reps"]
                             if cinfo.get("lapses"):
                                 card_match.lapses = cinfo["lapses"]
+                            if "flags" in cinfo:
+                                card_match.flags = cinfo["flags"]
                             card_match.save()
 
                 # Mise à jour version si raison == incoming_newer

@@ -10,9 +10,9 @@ import hashlib
 import json
 import logging
 import re
-import warnings
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import genanki
 
@@ -27,9 +27,41 @@ from ankiforge.database.models import (
 from ankiforge.utils.paths import get_media_dir
 
 # Suppression des avertissements genanki pour le parsing LaTeX / HTML
-warnings.filterwarnings("ignore", module="genanki")
-
 logger = logging.getLogger(__name__)
+
+
+class AnkiForgeCard(genanki.Card):
+    """Extension de genanki.Card préservant fidèlement les drapeaux Anki (flags 1..7)."""
+
+    def __init__(self, ord: int, suspend: bool = False, flags: int = 0) -> None:
+        super().__init__(ord=ord, suspend=suspend)
+        self.flags = flags
+
+    def write_to_db(self, cursor: Any, timestamp: float, deck_id: int, note_id: int, id_gen: Any, due: int = 0) -> None:
+        queue = -1 if self.suspend else 0
+        cursor.execute(
+            "INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
+            (
+                next(id_gen),
+                note_id,
+                deck_id,
+                self.ord,
+                int(timestamp),
+                -1,
+                0,
+                queue,
+                due,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                int(getattr(self, "flags", 0) or 0),
+                "",
+            ),
+        )
 
 
 class ExportManager:
@@ -213,6 +245,17 @@ class ExportManager:
                     logger.debug("Remarque sur le parsing des tags de la note ID=%d : %s", note.id, err)
 
             g_note = genanki.Note(model=g_model, fields=field_values, guid=note.guid, tags=tags_list)
+
+            # Préservation des drapeaux Anki (CardModel.flags ➔ AnkiForgeCard)
+            try:
+                card_flags = {c.template_index: int(getattr(c, "flags", 0) or 0) for c in note.cards}
+                custom_cards = []
+                for orig_card in g_note.cards:
+                    c_flag = card_flags.get(orig_card.ord, 0)
+                    custom_cards.append(AnkiForgeCard(ord=orig_card.ord, suspend=orig_card.suspend, flags=c_flag))
+                g_note.cards = custom_cards
+            except Exception as flag_err:
+                logger.debug("Remarque sur l'assignation des drapeaux pour la note ID=%d : %s", note.id, flag_err)
 
             if card.deck and card.deck.id in genanki_decks:
                 genanki_decks[card.deck.id].add_note(g_note)

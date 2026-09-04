@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from ankiforge.database.models import (
@@ -16,6 +17,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.ui.theme import DesignTokens
 
 logger = logging.getLogger(__name__)
 
@@ -188,14 +190,86 @@ class NoteRepository(BaseRepository):
         """Count total cards in database."""
         return int(CardModel.select().count())
 
+    def set_card_flag(self, card_id: int, flag: int) -> bool:
+        """Déclare ou modifie le drapeau (0..7) d'une carte individuelle."""
+        try:
+            flag_val = max(0, min(7, int(flag)))
+            with self.atomic():
+                updated = CardModel.update(flags=flag_val).where(CardModel.id == card_id).execute()
+                return bool(updated > 0)
+        except Exception as e:
+            logger.error("Erreur lors de la modification du drapeau de la carte %s: %s", card_id, e)
+            return False
+
+    def set_note_flag(self, note_id: int, flag: int) -> bool:
+        """Assigne un drapeau (0..7) à toutes les cartes associées à une note."""
+        try:
+            flag_val = max(0, min(7, int(flag)))
+            with self.atomic():
+                updated = CardModel.update(flags=flag_val).where(CardModel.note_id == note_id).execute()
+                return bool(updated > 0)
+        except Exception as e:
+            logger.error("Erreur lors de la modification du drapeau pour la note %s: %s", note_id, e)
+            return False
+
+    def get_note_flag(self, note_id: int) -> int:
+        """Récupère le drapeau maximal parmi les cartes associées à une note (0 si aucun)."""
+        try:
+            cards = list(CardModel.select(CardModel.flags).where(CardModel.note_id == note_id))
+            if not cards:
+                return 0
+            return max(int(getattr(c, "flags", 0) or 0) for c in cards)
+        except Exception as e:
+            logger.debug("Erreur récupération drapeau note %s: %s", note_id, e)
+            return 0
+
     def search_notes(self, query: str, limit: int = 50) -> list[NoteModel]:
-        """Search notes containing a text query in active content or tags."""
-        return list(
-            NoteModel.select()
-            .join(NoteVersionModel)
-            .where(NoteVersionModel.is_active & (NoteVersionModel.content.contains(query) | (NoteModel.tags.is_null(False) & NoteModel.tags.contains(query))))
-            .limit(limit)
-        )
+        """Recherche les notes correspondant à une requête texte et/ou syntaxe de drapeau Anki."""
+        raw_query = query.strip()
+        if not raw_query:
+            return self.get_all_notes(limit=limit)
+
+        flag_filter: int | None = None
+        invert_flag: bool = False
+
+        # Détection de la syntaxe Anki flag:X ou -flag:X
+        flag_match = re.search(r"(-?)flag:(\w+)", raw_query, flags=re.IGNORECASE)
+        if flag_match:
+            neg, val_str = flag_match.group(1), flag_match.group(2).lower()
+            invert_flag = bool(neg)
+            if val_str in DesignTokens.FLAG_SEARCH_MAP:
+                flag_filter = DesignTokens.FLAG_SEARCH_MAP[val_str]
+            # Épuration du token flag de la requête textuelle
+            raw_query = re.sub(r"(-?)flag:\w+", "", raw_query, flags=re.IGNORECASE).strip()
+
+        db_query = NoteModel.select().distinct()
+
+        # Filtrage par drapeau
+        if flag_filter is not None:
+            if flag_filter == 0:
+                if invert_flag:
+                    # -flag:0 => cartes ayant au moins un drapeau actif (> 0)
+                    flagged_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]
+                    db_query = db_query.where(NoteModel.id.in_(flagged_nids))
+                else:
+                    # flag:0 => cartes sans aucun drapeau (flags == 0 ou sans drapeaux > 0)
+                    flagged_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]
+                    db_query = db_query.where(NoteModel.id.not_in(flagged_nids))
+            else:
+                if invert_flag:
+                    matched_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags == flag_filter)]
+                    db_query = db_query.where(NoteModel.id.not_in(matched_nids))
+                else:
+                    matched_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags == flag_filter)]
+                    db_query = db_query.where(NoteModel.id.in_(matched_nids))
+
+        # Filtrage textuel résiduel sur le contenu ou les tags
+        if raw_query:
+            db_query = db_query.join(NoteVersionModel).where(
+                NoteVersionModel.is_active & (NoteVersionModel.content.contains(raw_query) | (NoteModel.tags.is_null(False) & NoteModel.tags.contains(raw_query)))
+            )
+
+        return list(db_query.order_by(NoteModel.id.asc()).limit(limit))
 
     def get_all_tags(self) -> list[str]:
         """Extract all unique tags from notes."""

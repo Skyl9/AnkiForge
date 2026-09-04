@@ -20,6 +20,7 @@ from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteVersi
 from ankiforge.ui.models.delegates import (
     BADGE_BG_COLOR_ROLE,
     BADGE_TEXT_COLOR_ROLE,
+    FLAG_ROLE,
     IS_INVALID_CARD_ROLE,
     NOTE_ID_ROLE,
     RAW_CONTENT_ROLE,
@@ -50,6 +51,7 @@ class NoteRowData:
     note_id: int
     guid: str
     checked: bool = False
+    flag: int = 0
     recto: str = ""
     verso: str = ""
     fields_dict: dict[str, str] = field(default_factory=dict)
@@ -65,7 +67,7 @@ class NoteRowData:
 class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
     """
     Modèle de tableau virtuel paginé pour NoteModel.
-    Gère les colonnes génériques (Recto / Autres / Modèle / Deck / Tags)
+    Gère les colonnes génériques (Checkbox / Drapeau / Recto / Autres / Modèle / Deck / Tags)
     ou dynamiques (quand un modèle de note spécifique est sélectionné).
     """
 
@@ -89,9 +91,9 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
 
     def _update_headers(self) -> None:
         if self._active_model_fields:
-            self._headers = [""] + list(self._active_model_fields) + ["Deck", "Tags"]
+            self._headers = ["", ""] + list(self._active_model_fields) + ["Deck", "Tags"]
         else:
-            self._headers = ["", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
+            self._headers = ["", "", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
 
     def set_active_model_fields(self, fields: list[str] | None) -> None:
         """Change le schéma des colonnes affichées."""
@@ -173,22 +175,33 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
                 return ""
             return None
 
+        # ── Colonne 1 : Drapeau Anki ──
+        if col == 1:
+            if role == FLAG_ROLE:
+                return row_data.flag
+            if role == Qt.ItemDataRole.ToolTipRole:
+                flag_name = DesignTokens.FLAG_NAMES.get(row_data.flag, "Aucun")
+                return f"Drapeau : {flag_name}" if row_data.flag > 0 else "Définir un drapeau"
+            if role == Qt.ItemDataRole.DisplayRole:
+                return ""
+            return None
+
         # ── Mode Dynamique (Modèle Unique Sélectionné) ──
         if self._active_model_fields:
             num_fields = len(self._active_model_fields)
-            deck_col = 1 + num_fields
+            deck_col = 2 + num_fields
             tags_col = deck_col + 1
 
-            if 1 <= col <= num_fields:
-                field_name = self._active_model_fields[col - 1]
+            if 2 <= col <= 1 + num_fields:
+                field_name = self._active_model_fields[col - 2]
                 val = row_data.fields_dict.get(field_name, "")
                 if role == Qt.ItemDataRole.DisplayRole:
                     return val[:120]
-                if role == Qt.ItemDataRole.FontRole and col == 1:
+                if role == Qt.ItemDataRole.FontRole and col == 2:
                     return QFont(DesignTokens.FONT_CODE, 10)
-                if role == Qt.ItemDataRole.ForegroundRole and col > 1:
+                if role == Qt.ItemDataRole.ForegroundRole and col > 2:
                     return QColor(DesignTokens.TEXT_SECONDARY)
-                if role == IS_INVALID_CARD_ROLE and col == 1:
+                if role == IS_INVALID_CARD_ROLE and col == 2:
                     return row_data.is_invalid
 
             elif col == deck_col:
@@ -208,8 +221,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             return None
 
         # ── Mode Standard (Tous les Modèles / Mixte) ──
-        # Headers: ["", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
-        if col == 1:  # Recto
+        # Headers: ["", "", "Recto (Tri)", "Autres champs", "Modèle", "Deck", "Tags"]
+        if col == 2:  # Recto
             if role == Qt.ItemDataRole.DisplayRole:
                 return row_data.recto[:120]
             if role == Qt.ItemDataRole.FontRole:
@@ -219,13 +232,13 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             if role == Qt.ItemDataRole.ForegroundRole:
                 return QColor(DesignTokens.COLOR_RED) if row_data.is_invalid else QColor(DesignTokens.TEXT_PRIMARY)
 
-        elif col == 2:  # Verso / Autres champs
+        elif col == 3:  # Verso / Autres champs
             if role == Qt.ItemDataRole.DisplayRole:
                 return row_data.verso[:120]
             if role == Qt.ItemDataRole.ForegroundRole:
                 return QColor(DesignTokens.TEXT_SECONDARY)
 
-        elif col == 3:  # Modèle
+        elif col == 4:  # Modèle
             if role == Qt.ItemDataRole.DisplayRole:
                 return row_data.model_name
             if role == BADGE_BG_COLOR_ROLE:
@@ -233,7 +246,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             if role == BADGE_TEXT_COLOR_ROLE:
                 return DesignTokens.TEXT_MUTED
 
-        elif col == 4:  # Deck
+        elif col == 5:  # Deck
             if role == Qt.ItemDataRole.DisplayRole:
                 return row_data.deck_name
             if role == BADGE_BG_COLOR_ROLE:
@@ -241,7 +254,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             if role == BADGE_TEXT_COLOR_ROLE:
                 return DesignTokens.ACCENT_PRIMARY
 
-        elif col == 5:  # Tags
+        elif col == 6:  # Tags
             if role == Qt.ItemDataRole.DisplayRole:
                 return row_data.tags_display
             if role == TAGS_LIST_ROLE:
@@ -254,6 +267,11 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
             return False
 
         row_data = self._loaded_rows[index.row()]
+        if index.column() == 1 and role == FLAG_ROLE:
+            row_data.flag = int(value or 0)
+            self.dataChanged.emit(index, index, [FLAG_ROLE, Qt.ItemDataRole.ToolTipRole])
+            return True
+
         if index.column() == 0 and role == Qt.ItemDataRole.CheckStateRole:
             checked = value == Qt.CheckState.Checked
             row_data.checked = checked
@@ -302,15 +320,19 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
         except Exception as e:
             logger.warning("Erreur préchargement NoteVersionModel: %s", e)
 
-        # 2. Requête groupée des paquets (CardModel ➔ DeckModel)
+        # 2. Requête groupée des paquets et drapeaux (CardModel ➔ DeckModel)
         deck_by_note_id: dict[int, str] = {}
+        flag_by_note_id: dict[int, int] = {}
         try:
-            cards = CardModel.select(CardModel.note, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
+            cards = CardModel.select(CardModel.note, CardModel.flags, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
             for c in cards:
                 if c.note_id not in deck_by_note_id and c.deck:
                     deck_by_note_id[c.note_id] = c.deck.name
+                c_flag = int(getattr(c, "flags", 0) or 0)
+                if c_flag > 0:
+                    flag_by_note_id[c.note_id] = max(flag_by_note_id.get(c.note_id, 0), c_flag)
         except Exception as e:
-            logger.warning("Erreur préchargement DeckModel: %s", e)
+            logger.warning("Erreur préchargement DeckModel et drapeaux: %s", e)
 
         # 3. Assemblage vectorisé des structures NoteRowData
         results: list[NoteRowData] = []
@@ -343,6 +365,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
                 note_id=nid,
                 guid=str(getattr(note, "guid", "")),
                 checked=(nid not in self._unchecked_note_ids if self._all_checked_mode else nid in self._checked_note_ids),
+                flag=flag_by_note_id.get(nid, 0),
                 recto=recto,
                 verso=verso,
                 fields_dict=fields_data,
@@ -429,6 +452,15 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
         top_left = self.index(row_idx, 0)
         bottom_right = self.index(row_idx, self.columnCount() - 1)
         self.dataChanged.emit(top_left, bottom_right)
+
+    def update_note_flag(self, note_id: int, flag: int) -> None:
+        """Met à jour instantanément le drapeau d'une note dans le modèle virtuel."""
+        row_idx = self.find_row_by_note_id(note_id)
+        if row_idx < 0:
+            return
+        self._loaded_rows[row_idx].flag = flag
+        flag_idx = self.index(row_idx, 1)
+        self.dataChanged.emit(flag_idx, flag_idx, [FLAG_ROLE, Qt.ItemDataRole.ToolTipRole])
 
     def prepend_note(self, note: NoteModel) -> None:
         """Insère une note nouvellement forgée tout en haut de la table."""

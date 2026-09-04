@@ -151,6 +151,7 @@ class CardModel(BaseModel):
     note = ForeignKeyField(NoteModel, backref="cards", on_delete="CASCADE")
     deck = ForeignKeyField(DeckModel, backref="cards", on_delete="CASCADE")
     template_index = IntegerField(default=0)  # Index du template (Recto=0, Verso=1)
+    flags = IntegerField(default=0)  # Drapeau Anki (0=Aucun, 1..7=Couleurs Anki)
 
     # --- Statistiques FSRS synchronisées depuis Anki ---
     ivl = IntegerField(default=0)
@@ -165,4 +166,5 @@ class CardModel(BaseModel):
         indexes = (
             (("deck", "note"), False),
             (("note", "template_index"), False),
+            (("flags",), False),
         )

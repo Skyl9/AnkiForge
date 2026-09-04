@@ -260,6 +260,16 @@ def run_migrations() -> None:
                 except Exception as e:
                     logger.debug("Remarque sur l'ajout post-migration de bounding_box sur document_chunks : %s", e)
 
+        # Vérification dynamique de la colonne flags sur cardmodel
+        if db.table_exists("cardmodel"):
+            card_cols = [col.name for col in db.get_columns("cardmodel")]
+            if "flags" not in card_cols:
+                try:
+                    db.execute_sql("ALTER TABLE cardmodel ADD COLUMN flags INTEGER DEFAULT 0;")
+                    logger.info("Colonne 'flags' ajoutée dynamiquement à la table 'cardmodel'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout de flags sur cardmodel : %s", e)
+
         try:
             db.execute_sql("PRAGMA foreign_keys = ON;")
         except Exception as fk_err:

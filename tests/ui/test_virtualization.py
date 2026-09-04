@@ -25,6 +25,7 @@ from ankiforge.database.models import (
 from ankiforge.ui.components.lists import VirtualListView
 from ankiforge.ui.components.tables import VirtualTableView
 from ankiforge.ui.models import (
+    FLAG_ROLE,
     IS_INVALID_CARD_ROLE,
     NOTE_ID_ROLE,
     TAGS_LIST_ROLE,
@@ -133,32 +134,36 @@ def test_note_virtual_table_model_standard_mode(sample_virtual_data):
     query = NoteModel.select().order_by(NoteModel.id.asc())
     model = NoteVirtualTableModel(query=query, chunk_size=15)
 
-    assert model.columnCount() == 6
+    assert model.columnCount() == 7
     assert model.headerData(0, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == ""
-    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Recto (Tri)"
-    assert model.headerData(3, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Modèle"
-    assert model.headerData(4, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Deck"
-    assert model.headerData(5, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Tags"
+    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == ""
+    assert model.headerData(2, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Recto (Tri)"
+    assert model.headerData(4, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Modèle"
+    assert model.headerData(5, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Deck"
+    assert model.headerData(6, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Tags"
 
     # Vérification des données de ligne 0 (Basique, Question 1, Réponse 1)
     idx_chk = model.index(0, 0)
     assert model.data(idx_chk, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Unchecked
     assert model.data(idx_chk, NOTE_ID_ROLE) == sample_virtual_data["notes"][0].id
 
-    idx_recto = model.index(0, 1)
+    idx_flag = model.index(0, 1)
+    assert model.data(idx_flag, FLAG_ROLE) == 0
+
+    idx_recto = model.index(0, 2)
     assert model.data(idx_recto, Qt.ItemDataRole.DisplayRole) == "Question 1"
     assert model.data(idx_recto, IS_INVALID_CARD_ROLE) is False
 
-    idx_verso = model.index(0, 2)
+    idx_verso = model.index(0, 3)
     assert "Réponse 1" in model.data(idx_verso, Qt.ItemDataRole.DisplayRole)
 
-    idx_model = model.index(0, 3)
+    idx_model = model.index(0, 4)
     assert model.data(idx_model, Qt.ItemDataRole.DisplayRole) == "Basique"
 
-    idx_deck = model.index(0, 4)
+    idx_deck = model.index(0, 5)
     assert model.data(idx_deck, Qt.ItemDataRole.DisplayRole) == "Médecine"
 
-    idx_tags = model.index(0, 5)
+    idx_tags = model.index(0, 6)
     assert "#cours" in model.data(idx_tags, Qt.ItemDataRole.DisplayRole)
     assert model.data(idx_tags, TAGS_LIST_ROLE) == ["cours"]
 
@@ -179,17 +184,17 @@ def test_note_virtual_table_model_dynamic_fields_mode(sample_virtual_data):
     query = NoteModel.select().where(NoteModel.note_type == sample_virtual_data["nt_basic"].id)
     model = NoteVirtualTableModel(query=query, active_model_fields=["Front", "Back"])
 
-    assert model.columnCount() == 5  # "", "Front", "Back", "Deck", "Tags" -> 1 + 2 + 2 = 5
-    assert model.headerData(1, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Front"
-    assert model.headerData(2, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Back"
-    assert model.headerData(3, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Deck"
-    assert model.headerData(4, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Tags"
+    assert model.columnCount() == 6  # "", "", "Front", "Back", "Deck", "Tags" -> 2 + 2 + 2 = 6
+    assert model.headerData(2, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Front"
+    assert model.headerData(3, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Back"
+    assert model.headerData(4, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Deck"
+    assert model.headerData(5, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole) == "Tags"
 
     # Mise à jour de contenu à chaud
     first_nid = sample_virtual_data["notes"][0].id
     model.update_note_content(first_nid, {"Front": "Question 1 Modifiée", "Back": "Nouvelle Réponse"})
-    assert model.data(model.index(0, 1), Qt.ItemDataRole.DisplayRole) == "Question 1 Modifiée"
-    assert model.data(model.index(0, 2), Qt.ItemDataRole.DisplayRole) == "Nouvelle Réponse"
+    assert model.data(model.index(0, 2), Qt.ItemDataRole.DisplayRole) == "Question 1 Modifiée"
+    assert model.data(model.index(0, 3), Qt.ItemDataRole.DisplayRole) == "Nouvelle Réponse"
 
 
 def test_note_virtual_table_model_crud_and_invalid_card(sample_virtual_data):
@@ -204,8 +209,8 @@ def test_note_virtual_table_model_crud_and_invalid_card(sample_virtual_data):
 
     model.prepend_note(empty_note)
     assert model.rowCount() == 25
-    assert model.data(model.index(0, 1), IS_INVALID_CARD_ROLE) is True
-    assert "CARTE INVALIDE" in model.data(model.index(0, 1), Qt.ItemDataRole.DisplayRole)
+    assert model.data(model.index(0, 2), IS_INVALID_CARD_ROLE) is True
+    assert "CARTE INVALIDE" in model.data(model.index(0, 2), Qt.ItemDataRole.DisplayRole)
 
     # Suppression
     model.remove_notes_by_ids([empty_note.id])
@@ -382,7 +387,7 @@ def test_note_virtual_table_model_stress_10k_rows(mock_db, qtbot) -> None:
     assert fetch_duration < 1.0, f"Chargement paginé 1.2k trop lent: {fetch_duration:.4f}s"
 
     # Test d'accès aux données des lignes chargées
-    idx_front = model.index(0, 1)
+    idx_front = model.index(0, 2)
     assert "Question 0" in str(model.data(idx_front, Qt.ItemDataRole.DisplayRole))
 
     # Test de filtrage / recherche
@@ -391,7 +396,7 @@ def test_note_virtual_table_model_stress_10k_rows(mock_db, qtbot) -> None:
     model.set_filter_query(filtered_query)
     assert model.total_count == 1
     assert model.loaded_count == 1
-    idx_filtered = model.index(0, 1)
+    idx_filtered = model.index(0, 2)
     assert "Question 5000" in str(model.data(idx_filtered, Qt.ItemDataRole.DisplayRole))
     filter_duration = time.perf_counter() - t_filter
     assert filter_duration < 1.0, f"Filtrage 10k trop lent: {filter_duration:.4f}s"

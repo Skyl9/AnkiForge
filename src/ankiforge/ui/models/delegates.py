@@ -36,6 +36,7 @@ BADGE_BG_COLOR_ROLE = Qt.ItemDataRole.UserRole + 3
 BADGE_TEXT_COLOR_ROLE = Qt.ItemDataRole.UserRole + 4
 IS_INVALID_CARD_ROLE = Qt.ItemDataRole.UserRole + 5
 RAW_CONTENT_ROLE = Qt.ItemDataRole.UserRole + 6
+FLAG_ROLE = Qt.ItemDataRole.UserRole + 7
 
 
 class CheckboxItemDelegate(QStyledItemDelegate):
@@ -117,6 +118,97 @@ class CheckboxItemDelegate(QStyledItemDelegate):
             painter.fillRect(option.rect, QColor(99, 102, 241, 35))
         elif option.state & QStyle.StateFlag.State_MouseOver:
             painter.fillRect(option.rect, QColor(DesignTokens.BG_HOVER))
+
+
+class FlagItemDelegate(QStyledItemDelegate):
+    """
+    Délégué graphique vectoriel haute performance pour les drapeaux Anki (flags 1..7).
+    Dessine un mât et un fanion vectoriel coloré (QPainter) sans instancier de QWidget.
+    """
+
+    flag_clicked = Signal(int, int)  # (row, current_flag)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
+        if option.state & QStyle.StateFlag.State_Selected:
+            painter.fillRect(option.rect, QColor(99, 102, 241, 35))
+        elif option.state & QStyle.StateFlag.State_MouseOver:
+            painter.fillRect(option.rect, QColor(DesignTokens.BG_HOVER))
+
+        flag_val = index.data(FLAG_ROLE)
+        flag_num = int(flag_val or 0)
+
+        is_hover = bool(option.state & QStyle.StateFlag.State_MouseOver)
+        if flag_num == 0 and not is_hover:
+            return
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w = option.rect.width()
+        h = option.rect.height()
+        cx = option.rect.x() + (w - 14) // 2
+        cy = option.rect.y() + (h - 16) // 2
+
+        if flag_num > 0:
+            color_hex = DesignTokens.FLAG_COLORS.get(flag_num, DesignTokens.COLOR_RED)
+            flag_color = QColor(color_hex)
+
+            # Mât du drapeau
+            pen_pole = QPen(QColor(DesignTokens.TEXT_MUTED), 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen_pole)
+            painter.drawLine(cx + 2, cy + 1, cx + 2, cy + 15)
+
+            # Fanion coloré
+            path = QPainterPath()
+            path.moveTo(cx + 2, cy + 1)
+            path.lineTo(cx + 12, cy + 5)
+            path.lineTo(cx + 2, cy + 9)
+            path.closeSubpath()
+
+            painter.setPen(QPen(flag_color.darker(115), 1.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            painter.setBrush(flag_color)
+            painter.drawPath(path)
+        elif is_hover:
+            # Silhouette discrète au survol pour indiquer que la case est cliquable
+            faint_color = QColor(DesignTokens.TEXT_MUTED)
+            faint_color.setAlpha(120)
+
+            pen_pole = QPen(faint_color, 1.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen_pole)
+            painter.drawLine(cx + 2, cy + 1, cx + 2, cy + 15)
+
+            path = QPainterPath()
+            path.moveTo(cx + 2, cy + 1)
+            path.lineTo(cx + 12, cy + 5)
+            path.lineTo(cx + 2, cy + 9)
+            path.closeSubpath()
+
+            painter.setPen(pen_pole)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(path)
+
+        painter.restore()
+
+    def editorEvent(
+        self,
+        event: QEvent,
+        model: Any,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> bool:
+        if event.type() == QEvent.Type.MouseButtonRelease:
+            mouse_event = event if isinstance(event, QMouseEvent) else None
+            if mouse_event and mouse_event.button() == Qt.MouseButton.LeftButton:
+                current_flag = int(index.data(FLAG_ROLE) or 0)
+                self.flag_clicked.emit(index.row(), current_flag)
+                return True
+        return super().editorEvent(event, model, option, index)
+
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> QSize:
+        return QSize(32, 34)
 
 
 def parse_qcolor(color_val: Any, fallback: str = "#6366f1") -> QColor:
