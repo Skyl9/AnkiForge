@@ -41,9 +41,15 @@ def test_run_migrations_idempotency(mock_db):
     assert "020_notetype_description" in router.done, "La migration 020 devrait être marquée comme terminée."
     assert "021_performance_indexes" in router.done, "La migration 021 devrait être marquée comme terminée."
     assert "022_consultant_sessions" in router.done, "La migration 022 devrait être marquée comme terminée."
+    assert "024_document_multimedia_and_albums" in router.done, "La migration 024 devrait être marquée comme terminée."
+    assert "025_document_chunk_pages_and_headings" in router.done, "La migration 025 devrait être marquée comme terminée."
     assert db.table_exists("settings"), "La table settings devrait exister."
     assert db.table_exists("consultant_sessions"), "La table consultant_sessions devrait exister."
     assert db.table_exists("consultant_messages"), "La table consultant_messages devrait exister."
+
+    chunk_cols = [c.name for c in db.get_columns("document_chunks")]
+    assert "page_number" in chunk_cols, "La colonne page_number est manquante sur document_chunks."
+    assert "heading_path" in chunk_cols, "La colonne heading_path est manquante sur document_chunks."
 
     # 2. Deuxième exécution (Idempotence)
     run_migrations()
@@ -57,3 +63,5 @@ def test_run_migrations_idempotency(mock_db):
     assert "020_notetype_description" in router.done
     assert "021_performance_indexes" in router.done
     assert "022_consultant_sessions" in router.done
+    assert "024_document_multimedia_and_albums" in router.done
+    assert "025_document_chunk_pages_and_headings" in router.done

@@ -43,6 +43,10 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
         # 3. Champs multimodaux sur document_chunks
         if database.table_exists("document_chunks"):
             chunk_cols = [col.name for col in database.get_columns("document_chunks")]
+            if "page_number" not in chunk_cols:
+                migrator.add_fields("document_chunks", page_number=pw.IntegerField(null=True))
+            if "heading_path" not in chunk_cols:
+                migrator.add_fields("document_chunks", heading_path=pw.CharField(max_length=255, null=True))
             if "start_time" not in chunk_cols:
                 migrator.add_fields("document_chunks", start_time=pw.FloatField(null=True))
             if "end_time" not in chunk_cols:

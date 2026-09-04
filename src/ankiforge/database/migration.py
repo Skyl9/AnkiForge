@@ -186,6 +186,13 @@ def run_migrations() -> None:
                 router.model.create(name="024_document_multimedia_and_albums")
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 024_document_multimedia_and_albums.")
 
+        # Si les colonnes page_number et heading_path existent déjà sur document_chunks
+        if "025_document_chunk_pages_and_headings" not in done_migrations and db.table_exists("document_chunks"):
+            chunk_cols = [col.name for col in db.get_columns("document_chunks")]
+            if "page_number" in chunk_cols and "heading_path" in chunk_cols:
+                router.model.create(name="025_document_chunk_pages_and_headings")
+                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 025_document_chunk_pages_and_headings.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:
@@ -212,6 +219,46 @@ def run_migrations() -> None:
                     logger.info("Colonne 'llm_config_id' ajoutée post-migration à la table 'personas'.")
                 except Exception as e:
                     logger.debug("Remarque sur l'ajout post-migration de llm_config_id sur personas : %s", e)
+
+        # Vérification post-migration : auto-guérison de la table document_chunks
+        if db.table_exists("document_chunks"):
+            chunk_cols = [col.name for col in db.get_columns("document_chunks")]
+            if "page_number" not in chunk_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_chunks ADD COLUMN page_number INTEGER;")
+                    logger.info("Colonne 'page_number' ajoutée post-migration à la table 'document_chunks'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de page_number sur document_chunks : %s", e)
+            if "heading_path" not in chunk_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_chunks ADD COLUMN heading_path VARCHAR(255);")
+                    logger.info("Colonne 'heading_path' ajoutée post-migration à la table 'document_chunks'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de heading_path sur document_chunks : %s", e)
+            if "start_time" not in chunk_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_chunks ADD COLUMN start_time REAL;")
+                    logger.info("Colonne 'start_time' ajoutée post-migration à la table 'document_chunks'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de start_time sur document_chunks : %s", e)
+            if "end_time" not in chunk_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_chunks ADD COLUMN end_time REAL;")
+                    logger.info("Colonne 'end_time' ajoutée post-migration à la table 'document_chunks'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de end_time sur document_chunks : %s", e)
+            if "media_id" not in chunk_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_chunks ADD COLUMN media_id INTEGER REFERENCES mediamodel (id) ON DELETE SET NULL;")
+                    logger.info("Colonne 'media_id' ajoutée post-migration à la table 'document_chunks'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de media_id sur document_chunks : %s", e)
+            if "bounding_box" not in chunk_cols:
+                try:
+                    db.execute_sql("ALTER TABLE document_chunks ADD COLUMN bounding_box VARCHAR(255);")
+                    logger.info("Colonne 'bounding_box' ajoutée post-migration à la table 'document_chunks'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de bounding_box sur document_chunks : %s", e)
 
         try:
             db.execute_sql("PRAGMA foreign_keys = ON;")
