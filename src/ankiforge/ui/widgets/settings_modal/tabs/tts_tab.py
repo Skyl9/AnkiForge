@@ -8,7 +8,16 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QThread, QUrl, Signal
-from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
+
+try:
+    from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
+
+    HAS_QTMULTIMEDIA = True
+except (ImportError, OSError):
+    QAudioOutput = None  # type: ignore[assignment, misc]
+    QMediaDevices = None  # type: ignore[assignment, misc]
+    QMediaPlayer = None  # type: ignore[assignment, misc]
+    HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -54,14 +63,18 @@ class TTSSettingsTab(QWidget):
         super().__init__(parent)
         self.tts_service = get_tts_service()
 
-        # Lecteur audio pour les tests de voix
-        self._player = QMediaPlayer(self)
-        self._audio_output = QAudioOutput(self)
-        self._audio_output.setVolume(1.0)
-        self._audio_output.setMuted(False)
-        self._player.setAudioOutput(self._audio_output)
-        self._player.playbackStateChanged.connect(self._on_playback_state_changed)
-        self._player.errorOccurred.connect(self._on_player_error)
+        # Lecteur audio pour les tests de voix (sécurisé contre absence de libpulse)
+        if HAS_QTMULTIMEDIA and QMediaPlayer is not None and QAudioOutput is not None:
+            self._player: Any = QMediaPlayer(self)
+            self._audio_output: Any = QAudioOutput(self)
+            self._audio_output.setVolume(1.0)
+            self._audio_output.setMuted(False)
+            self._player.setAudioOutput(self._audio_output)
+            self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+            self._player.errorOccurred.connect(self._on_player_error)
+        else:
+            self._player = None
+            self._audio_output = None
 
         self._installer_worker: PiperInstallerWorker | None = None
 
@@ -255,9 +268,10 @@ class TTSSettingsTab(QWidget):
         SettingsService.set("tts.engine", self.cb_engine.currentData(), category="multimedia")
         SettingsService.set("tts.voice", self.cb_voice.currentData(), category="multimedia")
         SettingsService.set("tts.rate", self.cb_rate.currentData(), category="multimedia")
-        dev_desc = self._audio_output.device().description()
-        if dev_desc:
-            SettingsService.set("tts.device_name", dev_desc, category="multimedia")
+        if self._audio_output:
+            dev_desc = self._audio_output.device().description()
+            if dev_desc:
+                SettingsService.set("tts.device_name", dev_desc, category="multimedia")
 
     def save_tab(self) -> None:
         """Alias conventionnel pour save_settings()."""
@@ -266,6 +280,11 @@ class TTSSettingsTab(QWidget):
     def _populate_audio_devices(self) -> None:
         """Remplit la liste des périphériques de sortie audio disponibles."""
         self.cb_device.clear()
+        if not HAS_QTMULTIMEDIA or QMediaDevices is None:
+            self.cb_device.addItem("Sortie audio système par défaut", "")
+            self.cb_device.setEnabled(False)
+            return
+
         default_device = QMediaDevices.defaultAudioOutput()
         self._audio_devices = list(QMediaDevices.audioOutputs())
         saved_dev_name = SettingsService.get("tts.device_name")
@@ -290,6 +309,8 @@ class TTSSettingsTab(QWidget):
 
     def _on_audio_device_changed(self) -> None:
         """Applique le périphérique audio sélectionné au lecteur."""
+        if not self._audio_output:
+            return
         selected_id = self.cb_device.currentData()
         for dev in getattr(self, "_audio_devices", []):
             if dev.id() == selected_id:
@@ -297,9 +318,10 @@ class TTSSettingsTab(QWidget):
                 logger.info("Sortie audio changée vers : %s", dev.description())
                 break
 
-    def _on_playback_state_changed(self, state: QMediaPlayer.PlaybackState) -> None:
+    def _on_playback_state_changed(self, state: Any) -> None:
         """Met à jour l'icône et l'intitulé du bouton de test selon la lecture."""
-        if state == QMediaPlayer.PlaybackState.PlayingState:
+        is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
+        if is_playing:
             self.btn_test.setText(" Arrêter la lecture")
             self.btn_test.setIcon(load_phosphor_icon("ph.stop", color="#ef4444"))
         else:
@@ -308,7 +330,11 @@ class TTSSettingsTab(QWidget):
 
     def _on_test_voice(self) -> None:
         """Génère et lit un échantillon de voix avec les réglages actuels."""
-        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if not self._player or QMediaPlayer is None:
+            show_toast(self, "La lecture audio n'est pas supportée sur ce système (libpulse manquant).", is_error=True)
+            return
+
+        if hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self._player.stop()
             return
 
@@ -328,7 +354,7 @@ class TTSSettingsTab(QWidget):
             )
             self._player.setSource(QUrl.fromLocalFile(str(audio_path)))
             self._player.play()
-            dev_desc = self._audio_output.device().description() or "Sortie audio"
+            dev_desc = self._audio_output.device().description() if self._audio_output else "Sortie audio"
             show_toast(self, f"Lecture audio en cours sur '{dev_desc}'...")
         except Exception as e:
             logger.exception("Erreur lors du test vocal : %s", e)
@@ -358,11 +384,11 @@ class TTSSettingsTab(QWidget):
         self.lbl_install_progress.setText("Échec du téléchargement.")
         show_toast(self, f"Installation de Piper échouée : {err_msg}", is_error=True)
 
-    def _on_player_error(self, error: QMediaPlayer.Error, error_string: str) -> None:
+    def _on_player_error(self, error: Any, error_string: str) -> None:
         logger.warning("Erreur du lecteur audio : %s - %s", error, error_string)
         show_toast(self, f"Erreur de lecture audio : {error_string}", is_error=True)
 
     def closeEvent(self, event: Any) -> None:
-        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self._player and QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self._player.stop()
         super().closeEvent(event)

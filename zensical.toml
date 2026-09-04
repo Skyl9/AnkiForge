@@ -11,43 +11,64 @@
 # The site_name is shown in the page header and the browser window title
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_name
-site_name = "AnkiForge Documentation"
+site_name = "AnkiForge"
 
 # The site_description is included in the HTML head and should contain a
 # meaningful description of the site content for use by search engines.
-#
-# Read more: https://zensical.org/docs/setup/basics/#site_description
-site_description = "A new project generated from the default template project."
+site_description = "L'Atelier d'Ingénierie de la Connaissance et la Forge de Flashcards de Nouvelle Génération."
 
 # The site_author attribute. This is used in the HTML head element.
-#
-# Read more: https://zensical.org/docs/setup/basics/#site_author
-site_author = "<your name here>"
-
-# The site_url is the canonical URL for your site. When building online
-# documentation you should set this.
-# Read more: https://zensical.org/docs/setup/basics/#site_url
-#site_url = "https://www.example.com/"
+site_author = "Skyl9 / AnkiForge Team"
 
 # The copyright notice appears in the page footer and can contain an HTML
 # fragment.
-#
-# Read more: https://zensical.org/docs/setup/basics/#copyright
 copyright = """
-Copyright &copy; 2026 The authors
+Copyright &copy; 2026 AnkiForge Team - Tous droits réservés.
 """
 
-# Zensical supports both implicit navigation and explicitly defined navigation.
-# If you decide not to define a navigation here then Zensical will simply
-# derive the navigation structure from the directory structure of your
-# "docs_dir". The definition below demonstrates how a navigation structure
-# can be defined using TOML syntax.
-#
-# Read more: https://zensical.org/docs/setup/navigation/
-# nav = [
-#   { "Get started" = "index.md" },
-#   { "Markdown in 5min" = "markdown.md" },
-# ]
+# Navigation explicite structurée par sections et onglets
+nav = [
+  { "Accueil" = "index.md" },
+  { "Démarrage" = [
+      { "Guide d'Installation" = "installation.md" },
+      { "Prise en Main Rapide" = "guide_demarrage.md" },
+  ]},
+  { "Fonctionnalités" = [
+      { "Hub Documentaire & Multimodalité" = "features/hub_multimodal.md" },
+      { "Éditeur de Notes & KaTeX" = "features/editeur_notes_katex.md" },
+      { "Synthèse Vocale (TTS) & Audio" = "features/tts_audio.md" },
+      { "Consultant IA & Protocole MCP" = "features/consultant_mcp.md" },
+      { "Moteur DAG & RAG Hybride" = "features/dag_et_rag.md" },
+      { "Laboratoire de Tests A/B" = "features/ab_testing.md" },
+      { "Linter Wozniak & Hôpital d'Audit" = "features/linter_wozniak.md" },
+      { "Synchronisation & Smart Merge" = "features/synchro_smart_merge.md" },
+      { "Personas & Modèles d'Agents" = "features/personas_et_agents.md" },
+  ]},
+  { "Architecture" = [
+      { "01 - Vision & Cas d'Usage" = "Dossier_architecture/01_vision_et_cas_d_usage.md" },
+      { "02 - Architecture Technique" = "Dossier_architecture/02_architecture_technique.md" },
+      { "03 - Modèle de Données & Synchro" = "Dossier_architecture/03_modele_donnees_synchro.md" },
+      { "04 - UI/UX & Navigation" = "Dossier_architecture/04_ui_ux_et_maquettes.md" },
+      { "05 - Services IA & Analyse" = "Dossier_architecture/05_services_ia_et_analyse.md" },
+      { "06 - Moteur d'Orchestration DAG" = "Dossier_architecture/06_moteur_orchestration_ia.md" },
+      { "07 - Inventaire des Composants UI" = "Dossier_architecture/07_inventaire_composants_ui.md" },
+      { "08 - Plan d'Implémentation Global" = "Dossier_architecture/08_plan_implementation_global.md" },
+      { "09 - Qualité & Déploiement" = "Dossier_architecture/09_qualite_et_deploiement.md" },
+      { "Plan de Test IA" = "Dossier_architecture/test_plan_ia.md" },
+      { "Plan de Test Fonctionnalités IA" = "Dossier_architecture/test_plan_ia_features.md" },
+  ]},
+  { "Guides & Prompts" = [
+      { "Fournisseurs LLM & Agnosticisme" = "guides/ia_fournisseurs.md" },
+      { "Ingénierie de Prompts & Jinja2" = "guides/guide_prompts_ia.md" },
+      { "Design System & Thèmes" = "guides/design_system.md" },
+  ]},
+  { "Développement" = [
+      { "Standards de Code & Typage Strict" = "dev/standards_et_qualite.md" },
+      { "Tests Automatisés & CI/CD" = "dev/tests_et_cicd.md" },
+      { "Compilation Binaire Nuitka" = "dev/compilation_nuitka.md" },
+      { "Parcours de Test Consultant" = "dev/parcours_consultant.md" },
+  ]},
+]
 
 # With the "extra_css" option you can add your own CSS styling to customize
 # your Zensical project according to your needs. You can add any number of
@@ -108,7 +129,7 @@ Copyright &copy; 2026 The authors
 # Read more:
 # - https://zensical.org/docs/setup/language/
 #
-language = "en"
+language = "fr"
 
 # Zensical provides a number of feature toggles that change the behavior
 # of the documentation site.
@@ -215,12 +236,12 @@ features = [
     # When tabs are enabled, top-level sections are rendered in a menu layer
     # below the header for viewports above 1220px, but remain as-is on mobile.
     # https://zensical.org/docs/setup/navigation/#navigation-tabs
-    #"navigation.tabs",
+    "navigation.tabs",
 
     # When sticky tabs are enabled, navigation tabs will lock below the header
     # and always remain visible when scrolling down.
     # https://zensical.org/docs/setup/navigation/#sticky-navigation-tabs
-    #"navigation.tabs.sticky",
+    "navigation.tabs.sticky",
 
     # A back-to-top button can be shown when the user, after scrolling down,
     # starts to scroll up again.
@@ -265,8 +286,8 @@ features = [
 # - https://zensical.org/docs/setup/logo-and-icons
 # - https://github.com/zensical/ui/tree/master/dist/.icons
 # ----------------------------------------------------------------------------
-#[project.theme.icon]
-#logo = "lucide/smile"
+[project.theme.icon]
+logo = "material/cards-outline"
 
 # ----------------------------------------------------------------------------
 # In the "font" subsection you can configure the fonts used. By default, fonts

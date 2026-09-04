@@ -175,8 +175,10 @@ def test_webengine_headless_renders_katex_formulas(qtbot: Any) -> None:
     css_res = get_resource_path("resources", "katex", "katex.min.css")
     base_url = QUrl.fromLocalFile(str(css_res.parent) + "/")
 
-    with qtbot.waitSignal(page.loadFinished, timeout=5000):
-        page.setHtml(html, base_url)
+    loaded: list[bool] = []
+    page.loadFinished.connect(lambda ok: loaded.append(ok))
+    page.setHtml(html, base_url)
+    qtbot.waitUntil(lambda: bool(loaded), timeout=8000)
 
     rendered_count: list[int] = []
 

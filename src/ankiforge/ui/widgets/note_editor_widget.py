@@ -23,7 +23,16 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QTextCursor,
 )
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+
+try:
+    from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
+
+    HAS_QTMULTIMEDIA = True
+except (ImportError, OSError):
+    QAudioOutput = None  # type: ignore[assignment, misc]
+    QMediaDevices = None  # type: ignore[assignment, misc]
+    QMediaPlayer = None  # type: ignore[assignment, misc]
+    HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
     QComboBox,
     QCompleter,
@@ -603,23 +612,28 @@ class NoteFieldEditorWidget(QWidget):
         self._is_first = is_first
         self._is_collapsed = False
 
-        # Lecteur audio natif Qt PySide6
-        self._player = QMediaPlayer(self)
-        self._audio_output = QAudioOutput(self)
-        self._audio_output.setVolume(1.0)
-        self._audio_output.setMuted(False)
+        # Lecteur audio natif Qt PySide6 (sécurisé contre absence de libpulse)
+        if HAS_QTMULTIMEDIA and QMediaPlayer is not None and QAudioOutput is not None:
+            self._player: Any = QMediaPlayer(self)
+            self._audio_output: Any = QAudioOutput(self)
+            self._audio_output.setVolume(1.0)
+            self._audio_output.setMuted(False)
 
-        saved_dev_name = SettingsService.get("tts.device_name")
-        if saved_dev_name:
-            from PySide6.QtMultimedia import QMediaDevices
+            saved_dev_name = SettingsService.get("tts.device_name")
+            if saved_dev_name and QMediaDevices is not None:
+                try:
+                    for dev in QMediaDevices.audioOutputs():
+                        if dev.description() == saved_dev_name:
+                            self._audio_output.setDevice(dev)
+                            break
+                except Exception:
+                    pass
 
-            for dev in QMediaDevices.audioOutputs():
-                if dev.description() == saved_dev_name:
-                    self._audio_output.setDevice(dev)
-                    break
-
-        self._player.setAudioOutput(self._audio_output)
-        self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+            self._player.setAudioOutput(self._audio_output)
+            self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+        else:
+            self._player = None
+            self._audio_output = None
 
         self._setup_ui(initial_value)
 
@@ -743,7 +757,12 @@ class NoteFieldEditorWidget(QWidget):
 
     def _toggle_audio_playback(self) -> None:
         """Démarre ou arrête la lecture du fichier audio associé au champ."""
-        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if not self._player:
+            show_toast(self, "La lecture audio n'est pas supportée sur ce système (libpulse manquant).", is_error=True)
+            return
+
+        is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
+        if is_playing:
             self._player.stop()
             return
 
@@ -764,9 +783,10 @@ class NoteFieldEditorWidget(QWidget):
         self._player.setSource(QUrl.fromLocalFile(str(media_path)))
         self._player.play()
 
-    def _on_playback_state_changed(self, state: QMediaPlayer.PlaybackState) -> None:
+    def _on_playback_state_changed(self, state: Any) -> None:
         """Met à jour l'icône Play / Stop selon l'état de lecture du média."""
-        if state == QMediaPlayer.PlaybackState.PlayingState:
+        is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
+        if is_playing:
             self.btn_play_audio.setIcon(load_phosphor_icon("ph.stop", color="#ef4444"))
             self.btn_play_audio.setToolTip("Arrêter la lecture")
         else:
@@ -802,7 +822,7 @@ class NoteFieldEditorWidget(QWidget):
             show_toast(self, f"Erreur TTS : {e}", is_error=True)
 
     def closeEvent(self, event: Any) -> None:
-        if self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+        if self._player and QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self._player.stop()
         super().closeEvent(event)
 

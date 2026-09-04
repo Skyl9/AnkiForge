@@ -192,9 +192,19 @@ uv run zensical build
 ```
 
 ### 3. Fichiers sources de référence
-Vous pouvez également consulter directement les fichiers Markdown situés dans :
-* [GEMINI.md](GEMINI.md) : Directives agentiques et règles d'architecture fondamentales.
-* [`docs/Dossier_architecture/`](docs/Dossier_architecture/) :
+Vous pouvez également consulter directement les guides et documentations détaillées :
+* 📦 [Guide d'Installation](docs/installation.md) & ⚡ [Prise en Main Rapide](docs/guide_demarrage.md)
+* 🚀 **Fonctionnalités Clés** :
+  * [Hub Documentaire & Multimodalité](docs/features/hub_multimodal.md)
+  * [Éditeur de Notes & Mathématiques KaTeX](docs/features/editeur_notes_katex.md)
+  * [Synthèse Vocale (TTS) & Audio](docs/features/tts_audio.md)
+  * [Consultant IA & Protocole MCP](docs/features/consultant_mcp.md)
+  * [Moteur DAG & RAG Hybride](docs/features/dag_et_rag.md)
+  * [Laboratoire de Tests A/B](docs/features/ab_testing.md)
+  * [Linter Wozniak & Hôpital d'Audit](docs/features/linter_wozniak.md)
+  * [Synchronisation & Smart Merge](docs/features/synchro_smart_merge.md)
+  * [Personas & Modèles d'Agents](docs/features/personas_et_agents.md)
+* 📐 **Dossier d'Architecture** ([`docs/Dossier_architecture/`](docs/Dossier_architecture/)) :
   * [01_vision_et_cas_d_usage.md](docs/Dossier_architecture/01_vision_et_cas_d_usage.md) : Vision produit et ergonomie adaptative.
   * [02_architecture_technique.md](docs/Dossier_architecture/02_architecture_technique.md) : Stack technique et gestion des dépendances.
   * [03_modele_donnees_synchro.md](docs/Dossier_architecture/03_modele_donnees_synchro.md) : Modèle de données Peewee et politique de fusion.
@@ -204,6 +214,11 @@ Vous pouvez également consulter directement les fichiers Markdown situés dans 
   * [07_inventaire_composants_ui.md](docs/Dossier_architecture/07_inventaire_composants_ui.md) : Inventaire exhaustif des widgets et dialogues.
   * [08_plan_implementation_global.md](docs/Dossier_architecture/08_plan_implementation_global.md) : Rapport d'architecture des modules implémentés.
   * [09_qualite_et_deploiement.md](docs/Dossier_architecture/09_qualite_et_deploiement.md) : Standards de test, CI/CD et compilation Nuitka.
+* 🛠️ **Développement & Guides** :
+  * [Standards de Code & Typage Strict](docs/dev/standards_et_qualite.md)
+  * [Tests Automatisés & CI/CD](docs/dev/tests_et_cicd.md)
+  * [Compilation Binaire Nuitka](docs/dev/compilation_nuitka.md)
+  * [GEMINI.md](GEMINI.md) : Directives agentiques et règles fondamentales.
 
 ---
 

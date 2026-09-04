@@ -6,9 +6,18 @@ la transcription textuelle, avec navigation par clic sur les fragments horodaté
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QTime, QUrl, Signal, Slot
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+
+try:
+    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+
+    HAS_QTMULTIMEDIA = True
+except (ImportError, OSError):
+    QAudioOutput = None  # type: ignore[assignment, misc]
+    QMediaPlayer = None  # type: ignore[assignment, misc]
+    HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -60,15 +69,19 @@ class AudioPlayerWidget(QFrame):
         self._apply_styling()
 
     def _setup_audio_engine(self) -> None:
-        """Initialise le moteur audio Qt."""
-        self._player = QMediaPlayer(self)
-        self._audio_output = QAudioOutput(self)
-        self._player.setAudioOutput(self._audio_output)
-        self._audio_output.setVolume(0.8)
+        """Initialise le moteur audio Qt (sécurisé contre absence de libpulse)."""
+        if HAS_QTMULTIMEDIA and QMediaPlayer is not None and QAudioOutput is not None:
+            self._player: Any = QMediaPlayer(self)
+            self._audio_output: Any = QAudioOutput(self)
+            self._player.setAudioOutput(self._audio_output)
+            self._audio_output.setVolume(0.8)
 
-        self._player.positionChanged.connect(self._on_player_position_changed)
-        self._player.durationChanged.connect(self._on_player_duration_changed)
-        self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+            self._player.positionChanged.connect(self._on_player_position_changed)
+            self._player.durationChanged.connect(self._on_player_duration_changed)
+            self._player.playbackStateChanged.connect(self._on_playback_state_changed)
+        else:
+            self._player = None
+            self._audio_output = None
 
     def _setup_ui(self) -> None:
         """Construit l'interface du lecteur."""
@@ -190,8 +203,11 @@ class AudioPlayerWidget(QFrame):
 
         self._current_file = str(path_obj)
         self.stop()
-        self._player.setSource(QUrl.fromLocalFile(str(path_obj.resolve())))
-        self.lbl_title.setText(path_obj.name)
+        if self._player:
+            self._player.setSource(QUrl.fromLocalFile(str(path_obj.resolve())))
+            self.lbl_title.setText(path_obj.name)
+        else:
+            self.lbl_title.setText(f"{path_obj.name} (Audio non supporté)")
         self.lbl_time.setText("00:00 / 00:00")
         self.slider_timeline.setValue(0)
         logger.info("Fichier audio chargé dans le lecteur : %s", path_obj.name)
@@ -200,27 +216,34 @@ class AudioPlayerWidget(QFrame):
     @Slot()
     def toggle_play(self) -> None:
         """Alterne entre lecture et pause."""
-        state = self._player.playbackState()
-        if state == QMediaPlayer.PlaybackState.PlayingState:
+        if not self._player or QMediaPlayer is None:
+            return
+        is_playing = hasattr(QMediaPlayer, "PlaybackState") and self._player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
+        if is_playing:
             self._player.pause()
         else:
             self._player.play()
 
     def play(self) -> None:
         """Démarre la lecture."""
-        self._player.play()
+        if self._player:
+            self._player.play()
 
     def pause(self) -> None:
         """Met en pause la lecture."""
-        self._player.pause()
+        if self._player:
+            self._player.pause()
 
     def stop(self) -> None:
         """Arrête la lecture et revient au début."""
-        self._player.stop()
+        if self._player:
+            self._player.stop()
         self.slider_timeline.setValue(0)
 
     def seek_seconds(self, seconds: float) -> None:
         """Saute à un temps précis (en secondes) et démarre la lecture."""
+        if not self._player:
+            return
         ms = int(max(0.0, seconds) * 1000)
         self._player.setPosition(ms)
         self.slider_timeline.setValue(ms)
@@ -243,14 +266,16 @@ class AudioPlayerWidget(QFrame):
         """Met à jour la durée totale du fichier."""
         self._duration_ms = duration_ms
         self.slider_timeline.setRange(0, duration_ms)
-        current_str = format_duration(self._player.position())
+        pos = self._player.position() if self._player else 0
+        current_str = format_duration(pos)
         total_str = format_duration(duration_ms)
         self.lbl_time.setText(f"{current_str} / {total_str}")
 
-    @Slot(QMediaPlayer.PlaybackState)
-    def _on_playback_state_changed(self, state: QMediaPlayer.PlaybackState) -> None:
+    @Slot(object)
+    def _on_playback_state_changed(self, state: Any) -> None:
         """Met à jour l'icône du bouton play/pause."""
-        if state == QMediaPlayer.PlaybackState.PlayingState:
+        is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
+        if is_playing:
             self.btn_play.setIcon(load_phosphor_icon("ph.pause", color=DesignTokens.TEXT_PRIMARY))
             self.btn_play.setToolTip("Mettre en pause")
         else:
@@ -265,7 +290,8 @@ class AudioPlayerWidget(QFrame):
     def _on_slider_released(self) -> None:
         self._is_slider_dragging = False
         new_ms = self.slider_timeline.value()
-        self._player.setPosition(new_ms)
+        if self._player:
+            self._player.setPosition(new_ms)
         self.time_jumped.emit(new_ms / 1000.0)
 
     @Slot(int)
@@ -277,18 +303,24 @@ class AudioPlayerWidget(QFrame):
     @Slot()
     def _on_skip_backward(self) -> None:
         """Recule de 10 secondes."""
+        if not self._player:
+            return
         new_ms = max(0, self._player.position() - 10000)
         self._player.setPosition(new_ms)
 
     @Slot()
     def _on_skip_forward(self) -> None:
         """Avance de 10 secondes."""
+        if not self._player:
+            return
         new_ms = min(self._duration_ms, self._player.position() + 10000)
         self._player.setPosition(new_ms)
 
     @Slot(str)
     def _on_speed_changed(self, speed_text: str) -> None:
         """Modifie la vitesse de lecture."""
+        if not self._player:
+            return
         try:
             factor = float(speed_text.replace("x", ""))
             self._player.setPlaybackRate(factor)
@@ -299,6 +331,8 @@ class AudioPlayerWidget(QFrame):
     @Slot(int)
     def _on_volume_changed(self, value: int) -> None:
         """Ajuste le volume sonore (0.0 à 1.0)."""
+        if not self._audio_output:
+            return
         vol = max(0.0, min(1.0, value / 100.0))
         self._audio_output.setVolume(vol)
         if vol > 0 and self._audio_output.isMuted():
@@ -308,6 +342,8 @@ class AudioPlayerWidget(QFrame):
     @Slot()
     def _on_toggle_mute(self) -> None:
         """Active ou désactive la sourdine."""
+        if not self._audio_output:
+            return
         is_muted = not self._audio_output.isMuted()
         self._audio_output.setMuted(is_muted)
         icon_name = "ph.speaker-slash" if is_muted else "ph.speaker-high"
