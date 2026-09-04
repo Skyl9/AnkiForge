@@ -36,7 +36,7 @@ from ankiforge.ui.components.flow_layout import FlowLayout
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import resolve_media_path
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class AlbumPageCard(QFrame):
         """Charge l'image, applique la rotation actuelle et l'affiche à l'échelle."""
         try:
             filename = self.page.media.filename if self.page.media else ""
-            img_path = get_app_data_dir() / "media" / filename
+            img_path = resolve_media_path(filename)
             if not img_path.exists():
                 self.img_lbl.setText("Image absente")
                 self.img_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
@@ -348,7 +348,7 @@ class PageInspectorWidget(QWidget):
         self._zoom_factor = 1.0
 
         filename = page.media.filename if page.media else ""
-        img_path = get_app_data_dir() / "media" / filename
+        img_path = resolve_media_path(filename)
         if img_path.exists():
             pix = QPixmap(str(img_path))
             if page.rotation % 360 != 0:

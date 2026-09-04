@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import mimetypes
+import os
 import re
 import shutil
 from pathlib import Path
@@ -165,7 +166,7 @@ class MediaManager:
         Returns:
             int: Le nombre de fichiers supprimés.
         """
-        from ankiforge.database.models import DocumentModel, DocumentPageModel, MediaModel, NoteVersionModel
+        from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, MediaModel, NoteVersionModel
 
         # 1. Lister tous les médias réellement utilisés en base
         used_media = set()
@@ -181,11 +182,23 @@ class MediaManager:
                 used_media.add(doc.original_media.filename)
 
         # Médias utilisés comme pages d'albums
-        for page in DocumentPageModel.select(DocumentPageModel.media):
+        for page in DocumentPageModel.select(DocumentPageModel.media).where(DocumentPageModel.media.is_null(False)):
             if page.media:
                 used_media.add(page.media.filename)
 
-        logger.info("Démarrage du nettoyage des médias orphelins (%d médias actifs référencés)", len(used_media))
+        # Médias utilisés dans les chunks de documents
+        for chunk in DocumentChunkModel.select(DocumentChunkModel.media).where(DocumentChunkModel.media.is_null(False)):
+            if chunk.media:
+                used_media.add(chunk.media.filename)
+
+        # Garde-fou critique : interdiction formelle de supprimer des fichiers du dossier utilisateur réel sous pytest
+        if os.environ.get("PYTEST_CURRENT_TEST") and str(self.media_dir).startswith(str(Path.home() / ".ankiforge")):
+            deleted_db = MediaModel.delete().where(~(MediaModel.filename.in_(used_media))).execute() if used_media else MediaModel.delete().execute()
+            logger.warning(
+                "Garde-fou de sécurité : nettoyage des fichiers réels bloqué sous pytest (%d enregistrement(s) orphelin(s) supprimé(s) en base test).",
+                deleted_db,
+            )
+            return int(deleted_db)
 
         # 2. Comparer avec les fichiers physiques et supprimer les orphelins
         deleted_count = 0
@@ -203,6 +216,12 @@ class MediaManager:
                             file_path.name,
                             err,
                         )
+
+        # 3. Supprimer les éventuels enregistrements orphelins résiduels en base de données
+        if used_media:
+            deleted_count += MediaModel.delete().where(~(MediaModel.filename.in_(used_media))).execute()
+        else:
+            deleted_count += MediaModel.delete().execute()
 
         logger.info("Nettoyage des médias orphelins terminé : %d fichier(s) supprimé(s)", deleted_count)
         return deleted_count

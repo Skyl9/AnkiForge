@@ -1,5 +1,6 @@
 import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -249,15 +250,16 @@ def test_cascade_delete_document(tmp_path: Path):
 
 def test_clean_orphaned_media_preserves_album_media(tmp_path: Path):
     """Vérifie que clean_orphaned_media() ne détruit pas les images d'albums."""
-    manager = MediaManager()
-    service = AlbumService(media_manager=manager)
+    with patch("ankiforge.services.cards.media_manager.get_app_data_dir", return_value=tmp_path):
+        manager = MediaManager()
+        service = AlbumService(media_manager=manager)
 
-    img = _create_test_image(tmp_path / "keep_me.png")
-    doc = service.create_album_from_images("Album Keep", [img])
-    page = service.get_album_pages(doc.id)[0]
-    filename = page.media.filename
+        img = _create_test_image(tmp_path / "keep_me.png")
+        doc = service.create_album_from_images("Album Keep", [img])
+        page = service.get_album_pages(doc.id)[0]
+        filename = page.media.filename
 
-    # Exécution du nettoyage
-    manager.clean_orphaned_media()
-    assert (manager.media_dir / filename).exists()
-    assert MediaModel.select().where(MediaModel.filename == filename).exists()
+        # Exécution du nettoyage
+        manager.clean_orphaned_media()
+        assert (manager.media_dir / filename).exists()
+        assert MediaModel.select().where(MediaModel.filename == filename).exists()

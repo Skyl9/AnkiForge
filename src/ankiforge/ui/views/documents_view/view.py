@@ -721,9 +721,9 @@ class DocumentsView(QWidget):
 
                 is_audio = getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac")
                 if is_audio and doc.original_media:
-                    from ankiforge.utils.paths import get_app_data_dir
+                    from ankiforge.utils.paths import resolve_media_path
 
-                    audio_path = get_app_data_dir() / "media" / doc.original_media.filename
+                    audio_path = resolve_media_path(doc.original_media.filename)
                     if audio_path.exists():
                         self.audio_player.load_audio(str(audio_path))
                         self.audio_player.show()
@@ -735,9 +735,9 @@ class DocumentsView(QWidget):
                         self.audio_player.hide()
 
                 if doc.file_type == "pdf" and doc.original_media:
-                    from ankiforge.utils.paths import get_app_data_dir
+                    from ankiforge.utils.paths import resolve_media_path
 
-                    pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
+                    pdf_path = resolve_media_path(doc.original_media.filename)
                     if pdf_path.exists():
                         self.pdf_document.load(str(pdf_path))
                         self.view_toggle_frame.show()
@@ -881,9 +881,9 @@ class DocumentsView(QWidget):
         self.text_editor.set_content("Cliquer sur 'Marker OCR' pour extraire le texte et les formules en KaTeX...")
         self.editor_stack.setCurrentIndex(1)
 
-        from ankiforge.utils.paths import get_app_data_dir
+        from ankiforge.utils.paths import resolve_media_path
 
-        pdf_path = get_app_data_dir() / "media" / media.filename
+        pdf_path = resolve_media_path(media.filename)
         if pdf_path.exists():
             self.pdf_document.load(str(pdf_path))
             self.view_toggle_frame.show()
@@ -1110,9 +1110,9 @@ class DocumentsView(QWidget):
                 return
 
         if doc.file_type == "pdf" and doc.original_media:
-            from ankiforge.utils.paths import get_app_data_dir
+            from ankiforge.utils.paths import resolve_media_path
 
-            pdf_path = get_app_data_dir() / "media" / doc.original_media.filename
+            pdf_path = resolve_media_path(doc.original_media.filename)
             if pdf_path.exists():
                 self._start_document_worker(str(pdf_path), doc_id=doc.id)
                 return

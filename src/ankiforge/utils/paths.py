@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -105,14 +106,15 @@ def get_resource_path(*subpaths: str) -> Path:
 
 def get_app_data_dir() -> Path:
     """
-    Retourne le chemin vers le dossier de données persistant de l'application (~/.ankiforge).
+    Retourne le chemin vers le dossier de données persistant de l'application (~/.ankiforge ou ANKIFORGE_DATA_DIR).
     Garantit que le dossier existe sur le disque avant de le retourner.
     Conforme à la règle 9 de GEMINI.md.
 
     Returns:
         Path: Objet Path représentant le dossier de données.
     """
-    app_dir = Path.home() / ".ankiforge"
+    custom_dir = os.environ.get("ANKIFORGE_DATA_DIR")
+    app_dir = Path(custom_dir) if custom_dir else Path.home() / ".ankiforge"
     app_dir.mkdir(parents=True, exist_ok=True)
     return app_dir
 
@@ -146,3 +148,16 @@ def get_media_dir(profile_name: str | None = None) -> Path:
     media_dir = get_profile_dir(target_prof) / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     return media_dir
+
+
+def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
+    """Résout le chemin absolu d'un média en cherchant dans le profil actif, le profil par défaut et le dossier global."""
+    candidates = [
+        get_media_dir(profile_name) / filename,
+        get_app_data_dir() / "profiles" / "default" / "media" / filename,
+        get_app_data_dir() / "media" / filename,
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]

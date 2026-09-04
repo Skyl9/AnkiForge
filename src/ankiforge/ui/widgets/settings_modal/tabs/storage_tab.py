@@ -15,9 +15,7 @@ import ankiforge.ui.widgets.settings_modal as settings_pkg
 from ankiforge.database.base import db
 from ankiforge.database.models import (
     CardModel,
-    MediaModel,
     NoteModel,
-    NoteVersionMediaModel,
     NoteVersionModel,
 )
 from ankiforge.services.profile_manager import ProfileManager
@@ -31,7 +29,7 @@ from ankiforge.ui.widgets.settings_modal.components.settings_card import Setting
 from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import StorageMetricCard
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.utils.paths import get_active_profile, get_app_data_dir
+from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_media_dir
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +154,7 @@ class StorageMaintenanceTab(QWidget):
             self.c_db.update_metric(db_size_str, f"WAL Actif • {notes_count} note{'s' if notes_count > 1 else ''}, {cards_count} carte{'s' if cards_count > 1 else ''}")
 
             # Médias
-            media_dir = pm.PROFILES_DIR / profile_name / "media"
-            if not media_dir.exists():
-                media_dir = get_app_data_dir() / "media"
+            media_dir = get_media_dir(profile_name)
 
             media_count = 0
             media_size_bytes = 0
@@ -201,28 +197,12 @@ class StorageMaintenanceTab(QWidget):
 
     def _clean_orphan_media(self) -> None:
         try:
-            pm = ProfileManager()
-            profile_name = get_active_profile()
-            media_dir = pm.PROFILES_DIR / profile_name / "media"
-            if not media_dir.exists():
-                media_dir = get_app_data_dir() / "media"
+            from ankiforge.services.cards.media_manager import MediaManager
 
-            used_media_ids = {m.media_id for m in NoteVersionMediaModel.select(NoteVersionMediaModel.media)}
-            orphan_records = list(MediaModel.select().where(~(MediaModel.id.in_(used_media_ids)))) if used_media_ids else list(MediaModel.select())
-
-            cleaned_count = 0
-            freed_bytes = 0
-            for record in orphan_records:
-                target_f = media_dir / record.filename
-                if target_f.exists():
-                    freed_bytes += target_f.stat().st_size
-                    target_f.unlink()
-                record.delete_instance()
-                cleaned_count += 1
-
+            manager = MediaManager()
+            cleaned_count = manager.clean_orphaned_media()
             self.refresh_metrics()
-            freed_kb = freed_bytes / 1024
-            show_toast(self, f"Nettoyage terminé : {cleaned_count} médias orphelins supprimés ({freed_kb:.1f} Ko libérés) !")
+            show_toast(self, f"Nettoyage terminé : {cleaned_count} médias orphelins supprimés !")
         except Exception as e:
             show_toast(self, f"Erreur lors du nettoyage : {e}", is_error=True)
 

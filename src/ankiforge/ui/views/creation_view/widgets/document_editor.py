@@ -28,7 +28,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
-from ankiforge.utils.paths import get_app_data_dir, get_media_dir
+from ankiforge.utils.paths import resolve_media_path
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +316,7 @@ class DocumentEditorWidget(QWidget):
 
         if self.doc_model:
             if file_type == "pdf" and getattr(self.doc_model, "original_media", None):
-                pdf_path = get_app_data_dir() / "media" / self.doc_model.original_media.filename
+                pdf_path = resolve_media_path(self.doc_model.original_media.filename)
                 if pdf_path.exists() and self.pdf_document is not None:
                     self.pdf_document.load(str(pdf_path))
                 self.view_toggle_frame.show()
@@ -386,7 +386,6 @@ class DocumentEditorWidget(QWidget):
             album_grid.setContentsMargins(8, 8, 8, 8)
             album_grid.setSpacing(12)
 
-            media_dir = get_media_dir()
             pages = list(DocumentPageModel.select().where(DocumentPageModel.document == self.doc_model).order_by(DocumentPageModel.page_number))
 
             visual_chunks = {
@@ -397,7 +396,7 @@ class DocumentEditorWidget(QWidget):
 
             cols = 3
             for i, page in enumerate(pages):
-                media_path = (media_dir / page.media.filename) if (page.media and page.media.filename) else None
+                media_path = resolve_media_path(page.media.filename) if (page.media and page.media.filename) else None
                 desc = page.ocr_text or visual_chunks.get(page.page_number, "")
                 card = AlbumPageMiniWidget(page_num=page.page_number, media_path=media_path, snippet=desc)
                 card.clicked.connect(self._on_album_mini_card_clicked)
@@ -453,7 +452,7 @@ class DocumentEditorWidget(QWidget):
 
             media = getattr(self.doc_model, "original_media", None)
             if media and media.filename:
-                file_path = get_media_dir() / media.filename
+                file_path = resolve_media_path(media.filename)
                 if file_path.exists():
                     self._audio_player.setSource(QUrl.fromLocalFile(str(file_path)))
 
