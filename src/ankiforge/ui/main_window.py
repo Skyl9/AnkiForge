@@ -391,8 +391,11 @@ class MainWindow(QMainWindow):
             if view_id == "edition" and isinstance(data, dict) and "note_id" in data and hasattr(widget, "select_note_by_id"):
                 cast(Any, widget).select_note_by_id(data["note_id"])
 
-            if view_id == "creation" and isinstance(data, dict) and "prompt" in data and hasattr(widget, "_open_document_tab"):
-                cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+            if view_id == "creation" and isinstance(data, dict):
+                if hasattr(widget, "load_context"):
+                    cast(Any, widget).load_context(data)
+                elif "prompt" in data and hasattr(widget, "_open_document_tab"):
+                    cast(Any, widget)._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
 
             if view_id == "analysis" and isinstance(data, dict) and "tab" in data and hasattr(widget, "set_active_tab_by_name"):
                 cast(Any, widget).set_active_tab_by_name(data["tab"])

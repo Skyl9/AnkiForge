@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
+    DocumentPageModel,
     NoteChunkLinkModel,
     NoteTypeModel,
 )
@@ -119,6 +120,9 @@ class CreationView(QWidget):
         self.models_cache: list[NoteTypeModel] = []
         self.open_editors: dict[str, DocumentEditorWidget] = {}
         self.thread_pool = QThreadPool(self)
+        self._current_selected_doc: Any | None = None
+        self._current_doc_total_pages: int = 10
+        self._current_doc_unit: str = "pages"
 
         self._setup_ui()
         self._connect_signals()
@@ -303,7 +307,7 @@ class CreationView(QWidget):
         vision_top = QHBoxLayout()
         self.lbl_vision_icon = QLabel()
         self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye-closed", color=DesignTokens.TEXT_MUTED).pixmap(16, 16))
-        self.lbl_vision_title = QLabel("Vision (PDF)")
+        self.lbl_vision_title = QLabel("Vision Multimodale")
         self.lbl_vision_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 12px; border: none; background: transparent;")
 
         self.vision_badge = Badge("OFF", variant="neutral")
@@ -314,7 +318,7 @@ class CreationView(QWidget):
         vision_top.addWidget(self.vision_badge)
         vision_layout.addLayout(vision_top)
 
-        self.lbl_vision_desc = QLabel("Extraction multimodale des schémas & figures.")
+        self.lbl_vision_desc = QLabel("Extraction multimodale des figures, schémas & planches.")
         self.lbl_vision_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         self.lbl_vision_desc.setWordWrap(True)
         vision_layout.addWidget(self.lbl_vision_desc)
@@ -346,13 +350,13 @@ class CreationView(QWidget):
         scope_ico = QLabel()
         scope_ico.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
         scope_ico.setStyleSheet("border: none; background: transparent;")
-        lbl_scope = QLabel("PORTÉE DU DOCUMENT")
-        lbl_scope.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        self.lbl_scope = QLabel("PORTÉE DU DOCUMENT")
+        self.lbl_scope.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
 
         self.scope_badge = Badge("10 pages", variant="neutral")
 
         scope_top.addWidget(scope_ico)
-        scope_top.addWidget(lbl_scope)
+        scope_top.addWidget(self.lbl_scope)
         scope_top.addStretch()
         scope_top.addWidget(self.scope_badge)
         scope_layout.addLayout(scope_top)
@@ -664,6 +668,8 @@ class CreationView(QWidget):
     def _connect_signals(self) -> None:
         self.btn_new_free_input.clicked.connect(lambda: self._open_document_tab("Nouvelle Saisie"))
         self.file_tree.itemDoubleClicked.connect(self._on_explorer_item_double_clicked)
+        self.file_tree.itemClicked.connect(self._on_explorer_item_clicked)
+        self.file_tree.itemSelectionChanged.connect(self._on_explorer_selection_changed)
         self.btn_generate_cards.clicked.connect(self._on_generate_from_tree)
 
         self.btn_select_deck.clicked.connect(self._on_click_select_deck)
@@ -671,7 +677,7 @@ class CreationView(QWidget):
 
         self.btn_preset_all.clicked.connect(self._on_preset_all)
         self.btn_preset_page.clicked.connect(self._on_preset_single_page)
-        self.btn_preset_range.clicked.connect(lambda: self.input_page_scope.setText("1-10"))
+        self.btn_preset_range.clicked.connect(self._on_preset_range)
         self.btn_scope_minus.clicked.connect(self._on_scope_step_minus)
         self.btn_scope_plus.clicked.connect(self._on_scope_step_plus)
         self.input_page_scope.textChanged.connect(self._on_page_scope_changed)
@@ -689,6 +695,149 @@ class CreationView(QWidget):
         self.btn_valider.clicked.connect(self._on_validate_card)
         self.btn_editer.clicked.connect(self._on_edit_card)
         self.btn_rejeter.clicked.connect(self._on_reject_card)
+
+    @Slot(QTreeWidgetItem, int)
+    def _on_explorer_item_clicked(self, item: QTreeWidgetItem, column: int) -> None:
+        doc = item.data(0, Qt.ItemDataRole.UserRole)
+        if doc and hasattr(doc, "id"):
+            self._current_selected_doc = doc
+            self._update_scope_and_vision_for_doc(doc)
+
+    @Slot()
+    def _on_explorer_selection_changed(self) -> None:
+        selected_items = self.file_tree.selectedItems()
+        if selected_items:
+            doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+            if doc and hasattr(doc, "id"):
+                self._current_selected_doc = doc
+                self._update_scope_and_vision_for_doc(doc)
+
+    @Slot()
+    def _on_preset_range(self) -> None:
+        doc_total = getattr(self, "_current_doc_total_pages", 10) or 10
+        self.input_page_scope.setText(f"1-{min(10, doc_total)}")
+
+    @Slot(int)
+    def _on_album_page_selected(self, page_num: int) -> None:
+        self.input_page_scope.setText(str(page_num))
+
+    def load_context(self, data: dict[str, Any]) -> None:
+        """Charge un document ou un extrait depuis un événement de navigation externe (ex: DocumentsView)."""
+        if "doc_id" in data:
+            try:
+                doc = self.doc_repo.get_document_by_id(data["doc_id"])
+                if doc:
+                    self._select_doc_in_tree(doc.id)
+                    self._open_document_for_model(doc)
+            except Exception as e:
+                logger.warning("Impossible de charger le document id=%s: %s", data.get("doc_id"), e)
+        elif "text_source" in data:
+            title = data.get("source_title", "Extrait Document")
+            self._open_document_tab(title=title, content=data["text_source"])
+        elif "prompt" in data:
+            self._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+
+    def _select_doc_in_tree(self, doc_id: int) -> None:
+        """Sélectionne visuellement le document correspondant dans l'arborescence."""
+
+        def search_item(parent: Any) -> QTreeWidgetItem | None:
+            count = parent.childCount() if isinstance(parent, QTreeWidgetItem) else parent.topLevelItemCount()
+            for i in range(count):
+                child = parent.child(i) if isinstance(parent, QTreeWidgetItem) else parent.topLevelItem(i)
+                if not child:
+                    continue
+                d = child.data(0, Qt.ItemDataRole.UserRole)
+                if d and getattr(d, "id", None) == doc_id:
+                    return child
+                sub = search_item(child)
+                if sub:
+                    return sub
+            return None
+
+        item = search_item(self.file_tree)
+        if item:
+            self.file_tree.setCurrentItem(item)
+            item.setSelected(True)
+
+    def _update_scope_and_vision_for_doc(self, doc_model: Any) -> None:
+        """Adapte la carte de portée et la vision en fonction du type de document sélectionné."""
+        f_type = getattr(doc_model, "file_type", "").lower()
+        is_album = f_type == "album"
+        is_pdf = f_type == "pdf"
+        is_pptx = f_type == "pptx"
+        is_epub = f_type == "epub"
+        is_audio = f_type in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac")
+
+        if is_album:
+            p_count = getattr(doc_model, "total_pages", 0)
+            if not p_count:
+                p_count = DocumentPageModel.select().where(DocumentPageModel.document == doc_model).count()
+            total_units = int(p_count) if p_count else 1
+            unit_singular = "planche"
+            unit_plural = "planches"
+            unit_abbrev = "p"
+            scope_title = "PORTÉE DE L'ALBUM"
+            vision_desc = "Extraction des figures, schémas manuscrits et planches d'images."
+        elif is_pdf:
+            max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
+            total_units = int(max_page_chunk) if max_page_chunk else 10
+            unit_singular = "page"
+            unit_plural = "pages"
+            unit_abbrev = "p"
+            scope_title = "PORTÉE DU DOCUMENT"
+            vision_desc = "Extraction multimodale des schémas & figures."
+        elif is_pptx:
+            max_slide = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
+            total_units = int(max_slide) if max_slide else (DocumentChunkModel.select().where(DocumentChunkModel.document == doc_model).count() or getattr(doc_model, "total_pages", 1) or 1)
+            unit_singular = "diapositive"
+            unit_plural = "diapos"
+            unit_abbrev = "d"
+            scope_title = "PORTÉE DU DIAPORAMA"
+            vision_desc = "Extraction des figures et schémas des diapositives."
+        elif is_epub:
+            max_chap = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
+            total_units = int(max_chap) if max_chap else (DocumentChunkModel.select().where(DocumentChunkModel.document == doc_model).count() or getattr(doc_model, "total_pages", 1) or 1)
+            unit_singular = "chapitre"
+            unit_plural = "chapitres"
+            unit_abbrev = "c"
+            scope_title = "PORTÉE DU LIVRE"
+            vision_desc = "Extraction multimodale des visuels."
+        elif is_audio:
+            total_units = DocumentChunkModel.select().where(DocumentChunkModel.document == doc_model).count() or getattr(doc_model, "total_pages", 1) or 1
+            unit_singular = "segment"
+            unit_plural = "segments"
+            unit_abbrev = "seg"
+            scope_title = "PORTÉE AUDIO"
+            vision_desc = "Extraction multimodale des visuels."
+        else:
+            total_units = DocumentChunkModel.select().where(DocumentChunkModel.document == doc_model).count() or getattr(doc_model, "total_pages", 1) or 1
+            unit_singular = "section"
+            unit_plural = "sections"
+            unit_abbrev = "sec"
+            scope_title = "PORTÉE DU CONTENU"
+            vision_desc = "Extraction multimodale des visuels."
+
+        self._current_doc_total_pages = total_units
+        self._current_doc_unit_singular = unit_singular
+        self._current_doc_unit_plural = unit_plural
+        self._current_doc_unit = unit_plural
+
+        self.lbl_scope.setText(scope_title)
+        self.scope_card.show()
+        self.btn_preset_all.setText(f"Tout ({total_units}{unit_abbrev})")
+        self.btn_preset_page.setText(f"{unit_singular.capitalize()} 1")
+        self.btn_preset_range.setText(f"1 – {min(10, total_units)}")
+        self.input_page_scope.blockSignals(True)
+        self.input_page_scope.setText(f"1-{min(10, total_units)}")
+        self.input_page_scope.blockSignals(False)
+
+        is_visual = is_pdf or is_album or is_pptx
+        self.vision_card.setVisible(is_visual)
+        if is_visual:
+            self.lbl_vision_title.setText("Vision Multimodale")
+            self.lbl_vision_desc.setText(vision_desc)
+
+        self._on_page_scope_changed()
 
     @Slot()
     def _on_hub_open_documents(self) -> None:
@@ -824,27 +973,32 @@ class CreationView(QWidget):
                     item.setText(0, doc.title)
 
                     title_lower = doc.title.lower()
-                    is_album = getattr(doc, "file_type", "") == "album"
-                    is_pdf = getattr(doc, "file_type", "") == "pdf"
+                    f_type = getattr(doc, "file_type", "").lower()
+                    is_album = f_type == "album"
+                    is_pdf = f_type == "pdf"
                     has_content = bool(doc.content and doc.content.strip())
 
                     if is_album:
                         p_count = getattr(doc, "total_pages", 0) or 0
                         item.setIcon(0, load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE, weight="fill"))
-                        item.setText(0, f"{doc.title} ({p_count}p)")
+                        item.setText(0, f"{doc.title} ({p_count} planches)")
                     elif is_pdf:
                         if has_content:
                             item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED, weight="fill"))
                         else:
                             item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.TEXT_MUTED))
                             item.setText(0, f"{doc.title} (Non extrait)")
-                    elif getattr(doc, "file_type", "") == "epub" or title_lower.endswith(".epub"):
+                    elif f_type == "epub" or title_lower.endswith(".epub"):
                         item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE, weight="fill"))
-                    elif getattr(doc, "file_type", "") == "pptx" or title_lower.endswith(".pptx"):
+                    elif f_type == "pptx" or title_lower.endswith(".pptx"):
                         item.setIcon(0, load_phosphor_icon("ph.presentation", color=DesignTokens.COLOR_YELLOW, weight="fill"))
-                    elif getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac") or title_lower.endswith((".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac")):
+                    elif f_type in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac") or title_lower.endswith((".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac")):
                         item.setIcon(0, load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN, weight="fill"))
-                    elif getattr(doc, "file_type", "") in ("md", "txt", "json", "csv") or title_lower.endswith((".md", ".txt", ".json", ".csv")):
+                    elif f_type in ("web", "youtube") or title_lower.startswith(("http://", "https://")):
+                        ico_name = "ph.youtube-logo" if ("youtube" in title_lower or f_type == "youtube") else "ph.globe"
+                        ico_color = DesignTokens.COLOR_RED if ico_name == "ph.youtube-logo" else DesignTokens.COLOR_BLUE
+                        item.setIcon(0, load_phosphor_icon(ico_name, color=ico_color, weight="fill"))
+                    elif f_type in ("md", "txt", "json", "csv") or title_lower.endswith((".md", ".txt", ".json", ".csv")):
                         item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW, weight="fill"))
                     else:
                         item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_GREEN, weight="fill"))
@@ -888,6 +1042,7 @@ class CreationView(QWidget):
         editor_widget = DocumentEditorWidget(content, source_title=title, doc_model=doc_model, parent=self)
         editor_widget.generate_requested.connect(self._on_generate)
         editor_widget.cancel_requested.connect(self._on_cancel_generation)
+        editor_widget.album_page_selected.connect(self._on_album_page_selected)
 
         self.open_editors[title] = editor_widget
         icon = "ph.text-t"
@@ -895,14 +1050,26 @@ class CreationView(QWidget):
 
         if doc_model:
             title_lower = title.lower()
-            is_album = getattr(doc_model, "file_type", "") == "album"
-            if is_album:
+            f_type = getattr(doc_model, "file_type", "").lower()
+            if f_type == "album":
                 icon = "ph.images"
                 icon_color = DesignTokens.COLOR_PURPLE
-            elif title_lower.endswith(".pdf"):
+            elif f_type == "pdf" or title_lower.endswith(".pdf"):
                 icon = "ph.file-pdf"
                 icon_color = DesignTokens.COLOR_RED
-            elif title_lower.endswith((".md", ".txt", ".json", ".csv")):
+            elif f_type == "pptx" or title_lower.endswith(".pptx"):
+                icon = "ph.presentation"
+                icon_color = DesignTokens.COLOR_YELLOW
+            elif f_type == "epub" or title_lower.endswith(".epub"):
+                icon = "ph.book-open"
+                icon_color = DesignTokens.COLOR_PURPLE
+            elif f_type in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac") or title_lower.endswith((".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac")):
+                icon = "ph.waveform"
+                icon_color = DesignTokens.COLOR_GREEN
+            elif f_type in ("web", "youtube"):
+                icon = "ph.youtube-logo" if f_type == "youtube" else "ph.globe"
+                icon_color = DesignTokens.COLOR_RED if icon == "ph.youtube-logo" else DesignTokens.COLOR_BLUE
+            elif f_type in ("md", "txt", "json", "csv") or title_lower.endswith((".md", ".txt", ".json", ".csv")):
                 icon = "ph.file-code"
                 icon_color = DesignTokens.COLOR_BLUE
             else:
@@ -912,23 +1079,8 @@ class CreationView(QWidget):
         self.source_panel.register_tab(title, editor_widget, icon, closable=True, icon_color=icon_color)
 
         if doc_model is not None:
-            self.scope_card.show()
-            is_pdf = getattr(doc_model, "file_type", "") == "pdf"
-            is_album = getattr(doc_model, "file_type", "") == "album"
-            self.vision_card.setVisible(is_pdf or is_album)
-
-            if is_album:
-                total_pages = int(getattr(doc_model, "total_pages", 0) or 1)
-            else:
-                max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
-                total_pages = int(max_page_chunk) if max_page_chunk else 10
-            self._current_doc_total_pages = total_pages
-            self.btn_preset_all.setText(f"Tout ({total_pages}p)")
-            self.btn_preset_range.setText(f"1 – {min(10, total_pages)}")
-            self.input_page_scope.blockSignals(True)
-            self.input_page_scope.setText(f"1-{min(10, total_pages)}")
-            self.input_page_scope.blockSignals(False)
-            self._on_page_scope_changed()
+            self._current_selected_doc = doc_model
+            self._update_scope_and_vision_for_doc(doc_model)
         else:
             self.scope_card.hide()
             self.vision_card.hide()
@@ -939,34 +1091,52 @@ class CreationView(QWidget):
     def _on_explorer_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         doc = item.data(0, Qt.ItemDataRole.UserRole)
         if doc and hasattr(doc, "content"):
-            title = doc.title if hasattr(doc, "title") else "Document"
-            is_pdf = getattr(doc, "file_type", "") == "pdf"
-            is_album = getattr(doc, "file_type", "") == "album"
-            has_content = bool(doc.content and doc.content.strip())
+            self._open_document_for_model(doc)
 
-            if is_pdf and not has_content:
-                show_toast(self, "Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte.", is_error=True)
-                return
+    def _open_document_for_model(self, doc: Any) -> None:
+        """Ouvre un document complet dans un onglet dédié avec extraction optimisée du contenu."""
+        title = doc.title if hasattr(doc, "title") else "Document"
+        is_pdf = getattr(doc, "file_type", "") == "pdf"
+        is_album = getattr(doc, "file_type", "") == "album"
+        has_content = bool(doc.content and doc.content.strip())
 
-            album_content = doc.content or ""
-            if is_album:
-                from ankiforge.database.models import DocumentPageModel
+        if is_pdf and not has_content:
+            show_toast(self, "Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte.", is_error=True)
+            return
 
-                pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
-                parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages if p.ocr_text and p.ocr_text.strip()]
-                if parts:
-                    album_content = "\n\n".join(parts)
+        doc_content = doc.content or ""
+        if is_album:
+            pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
+            visual_chunks = {
+                c.page_number: c.content for c in DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.is_null(False)) if c.page_number is not None
+            }
+            parts = []
+            for p in pages:
+                ocr = (p.ocr_text or "").strip()
+                vis = (visual_chunks.get(p.page_number, "") or "").strip()
+                p_text = ""
+                if ocr and vis:
+                    p_text = f"**Transcription OCR :**\n{ocr}\n\n**Analyse visuelle (VLM) :**\n{vis}"
+                elif ocr:
+                    p_text = ocr
+                elif vis:
+                    p_text = f"**Analyse visuelle (VLM) :**\n{vis}"
+                else:
+                    p_text = "_Planche non transcrite (activez le Mode Vision pour analyser directement)._"
+                parts.append(f"### Planche {p.page_number}\n\n{p_text}")
+            if parts:
+                doc_content = "\n\n".join(parts)
 
-            if title in self.open_editors:
-                try:
-                    _ = self.open_editors[title].parent()
-                    self.source_panel.open_tab(title)
-                    self.config_panel.set_active_tab(1)
-                except RuntimeError:
-                    self.open_editors.pop(title, None)
-                    self._open_document_tab(title, album_content, doc)
-            else:
-                self._open_document_tab(title, album_content, doc)
+        if title in self.open_editors:
+            try:
+                _ = self.open_editors[title].parent()
+                self.source_panel.open_tab(title)
+                self.config_panel.set_active_tab(1)
+            except RuntimeError:
+                self.open_editors.pop(title, None)
+                self._open_document_tab(title, doc_content, doc)
+        else:
+            self._open_document_tab(title, doc_content, doc)
 
     def _set_all_generation_states(self, is_generating: bool) -> None:
         for editor in self.open_editors.values():
@@ -1002,18 +1172,21 @@ class CreationView(QWidget):
         doc_total = getattr(self, "_current_doc_total_pages", 9999) or 9999
         pages = parse_page_ranges(scope_text, max_pages=doc_total)
 
+        unit_sg = getattr(self, "_current_doc_unit_singular", "page")
+        unit_pl = getattr(self, "_current_doc_unit_plural", "pages")
+
         if not pages:
-            self.scope_badge.setText("0 page")
+            self.scope_badge.setText(f"0 {unit_pl}")
             self.scope_badge.set_variant("danger")
-            self.lbl_scope_stats.setText("Aucune page sélectionnée")
+            self.lbl_scope_stats.setText(f"Aucune sélection ({unit_pl})")
             return
 
         count = len(pages)
         if count == 1:
-            self.scope_badge.setText("1 page")
+            self.scope_badge.setText(f"1 {unit_sg}")
             self.scope_badge.set_variant("neutral")
         else:
-            self.scope_badge.setText(f"{count} pages")
+            self.scope_badge.setText(f"{count} {unit_pl}")
             self.scope_badge.set_variant("success")
 
         approx_words = count * 280
@@ -1044,16 +1217,27 @@ class CreationView(QWidget):
 
         is_album = getattr(doc, "file_type", "") == "album"
         if is_album:
-            from ankiforge.database.models import DocumentPageModel
-
             pages_models = list(DocumentPageModel.select().where((DocumentPageModel.document == doc) & DocumentPageModel.page_number.in_(pages)).order_by(DocumentPageModel.page_number))
-            content_parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages_models if p.ocr_text and p.ocr_text.strip()]
-            if not content_parts:
-                visual_chunks = list(DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.in_(pages)).order_by(DocumentChunkModel.page_number))
-                if visual_chunks:
-                    content_parts = [vc.content for vc in visual_chunks if vc.content]
-            msg = f"_Aucune transcription ou analyse visuelle trouvée pour les pages d'album {scope_text}_" if not content_parts else "\n\n".join(content_parts)
+            v_chunks_list = list(DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.in_(pages)))
+            v_chunks_map = {vc.page_number: vc.content for vc in v_chunks_list if vc.page_number is not None}
+            parts = []
+            for p in pages_models:
+                ocr = (p.ocr_text or "").strip()
+                vis = (v_chunks_map.get(p.page_number, "") or "").strip()
+                p_text = ""
+                if ocr and vis:
+                    p_text = f"**Transcription OCR :**\n{ocr}\n\n**Analyse visuelle (VLM) :**\n{vis}"
+                elif ocr:
+                    p_text = ocr
+                elif vis:
+                    p_text = f"**Analyse visuelle (VLM) :**\n{vis}"
+                else:
+                    p_text = "_Planche non transcrite._"
+                parts.append(f"### Planche {p.page_number}\n\n{p_text}")
+
+            msg = f"_Aucune transcription ou analyse visuelle trouvée pour les planches {scope_text}_" if not parts else "\n\n".join(parts)
             editor.set_content(msg)
+            editor.set_album_scope(pages)
             return
 
         has_pages = DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.is_null(False)).exists()
@@ -1097,10 +1281,24 @@ class CreationView(QWidget):
         content_to_use = editor.get_text() if editor else doc.content
 
         if is_album and (not content_to_use or not content_to_use.strip()):
-            from ankiforge.database.models import DocumentPageModel
-
             pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
-            parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages if p.ocr_text and p.ocr_text.strip()]
+            visual_chunks = {
+                c.page_number: c.content for c in DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.is_null(False)) if c.page_number is not None
+            }
+            parts = []
+            for p in pages:
+                ocr = (p.ocr_text or "").strip()
+                vis = (visual_chunks.get(p.page_number, "") or "").strip()
+                p_text = ""
+                if ocr and vis:
+                    p_text = f"**Transcription OCR :**\n{ocr}\n\n**Analyse visuelle (VLM) :**\n{vis}"
+                elif ocr:
+                    p_text = ocr
+                elif vis:
+                    p_text = f"**Analyse visuelle (VLM) :**\n{vis}"
+                else:
+                    continue
+                parts.append(f"### Planche {p.page_number}\n\n{p_text}")
             if parts:
                 content_to_use = "\n\n".join(parts)
             elif doc.content and doc.content.strip():
@@ -1237,6 +1435,18 @@ class CreationView(QWidget):
         initial_state.set_variable("note_type_id", nt_id)
         initial_state.set_variable("note_type_fields_schema", nt_schema)
         initial_state.set_variable("selected_models", self.selected_models or ([selected_nt] if selected_nt else []))
+
+        if getattr(self, "_current_selected_doc", None):
+            initial_state.set_variable("document_id", getattr(self._current_selected_doc, "id", None))
+            initial_state.set_variable("document_title", getattr(self._current_selected_doc, "title", ""))
+            initial_state.set_variable("file_type", getattr(self._current_selected_doc, "file_type", "text"))
+
+        use_vision = self.vision_cb.isChecked() if hasattr(self, "vision_cb") else False
+        initial_state.set_variable("use_vision", use_vision)
+
+        if hasattr(self, "input_page_scope"):
+            scope_pages = parse_page_ranges(self.input_page_scope.text())
+            initial_state.set_variable("scope_pages", scope_pages)
 
         self._set_all_generation_states(True)
         self.results_panel.show()

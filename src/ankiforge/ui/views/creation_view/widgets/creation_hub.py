@@ -61,7 +61,7 @@ class CreationHubWidget(QWidget):
         # Card 1: Explorer les Documents
         card_doc = QFrame()
         card_doc.setObjectName("cardDoc")
-        card_doc.setFixedSize(300, 180)
+        card_doc.setFixedSize(320, 190)
         card_doc.setStyleSheet(f"""
             QFrame#cardDoc {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -85,7 +85,7 @@ class CreationHubWidget(QWidget):
         doc_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 700; font-size: 13px; border: none; background: transparent;")
         doc_l.addWidget(doc_title)
 
-        doc_desc = QLabel("Sélectionnez un cours (PDF, Markdown) ou importez de nouvelles sources pour forger des cartes.")
+        doc_desc = QLabel("Sélectionnez un cours (PDF, Album d'images, Diaporama PPTX, Livre EPUB, Audio Whisper, Markdown) pour forger des cartes.")
         doc_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         doc_desc.setWordWrap(True)
         doc_l.addWidget(doc_desc)
@@ -102,7 +102,7 @@ class CreationHubWidget(QWidget):
         # Card 2: Saisie Libre
         card_text = QFrame()
         card_text.setObjectName("cardText")
-        card_text.setFixedSize(300, 180)
+        card_text.setFixedSize(320, 190)
         card_text.setStyleSheet(f"""
             QFrame#cardText {{
                 background-color: {DesignTokens.BG_PANEL};

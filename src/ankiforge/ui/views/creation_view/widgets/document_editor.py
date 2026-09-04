@@ -1,12 +1,17 @@
+import logging
+from pathlib import Path
 from typing import Any
 
 import markdown
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
+from PySide6.QtGui import QCloseEvent, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QTextBrowser,
     QVBoxLayout,
@@ -23,6 +28,92 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.paths import get_app_data_dir, get_media_dir
+
+logger = logging.getLogger(__name__)
+
+
+class AlbumPageMiniWidget(QFrame):
+    """Mini-carte représentant une planche d'album dans l'éditeur du Studio."""
+
+    clicked = Signal(int)
+
+    def __init__(
+        self,
+        page_num: int,
+        media_path: Path | None,
+        snippet: str,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.page_num = page_num
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setObjectName("albumMiniCard")
+        self.setFixedWidth(180)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        self.lbl_page = QLabel(f"Planche {page_num}")
+        self.lbl_page.setStyleSheet(f"font-weight: 700; font-size: 11px; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        self.badge = Badge("Portée", variant="success")
+        header.addWidget(self.lbl_page)
+        header.addStretch()
+        header.addWidget(self.badge)
+        layout.addLayout(header)
+
+        self.img_lbl = QLabel()
+        self.img_lbl.setFixedSize(168, 112)
+        self.img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_lbl.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; border-radius: {DesignTokens.RADIUS_SM}px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        if media_path and media_path.exists():
+            pix = QPixmap(str(media_path))
+            if not pix.isNull():
+                self.img_lbl.setPixmap(pix.scaled(168, 112, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            else:
+                self.img_lbl.setPixmap(load_phosphor_icon("ph.image", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
+        else:
+            self.img_lbl.setPixmap(load_phosphor_icon("ph.image", color=DesignTokens.TEXT_MUTED).pixmap(32, 32))
+        layout.addWidget(self.img_lbl)
+
+        clean_snippet = snippet.replace("\n", " ").strip()
+        if len(clean_snippet) > 75:
+            clean_snippet = clean_snippet[:72] + "..."
+        self.lbl_desc = QLabel(clean_snippet or "Aucune transcription")
+        self.lbl_desc.setWordWrap(True)
+        self.lbl_desc.setStyleSheet(f"font-size: 10px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        layout.addWidget(self.lbl_desc)
+
+        self.set_in_scope(True)
+
+    def mousePressEvent(self, event: Any) -> None:
+        super().mousePressEvent(event)
+        self.clicked.emit(self.page_num)
+
+    def set_in_scope(self, in_scope: bool) -> None:
+        if in_scope:
+            self.setStyleSheet(f"""
+                QFrame#albumMiniCard {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+            self.badge.setText("Portée")
+            self.badge.set_variant("success")
+        else:
+            self.setStyleSheet(f"""
+                QFrame#albumMiniCard {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+            self.badge.setText("Hors portée")
+            self.badge.set_variant("neutral")
 
 
 class DocumentEditorWidget(QWidget):
@@ -30,10 +121,16 @@ class DocumentEditorWidget(QWidget):
 
     generate_requested = Signal(str, str)  # text_source, source_title
     cancel_requested = Signal()
+    album_page_selected = Signal(int)
 
     def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.source_title = source_title
+        self._raw_content: str = content
+        self._album_cards: dict[int, AlbumPageMiniWidget] = {}
+        self._album_selected_pages: list[int] = []
+        self._audio_player: Any | None = None
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
@@ -41,7 +138,9 @@ class DocumentEditorWidget(QWidget):
         self.doc_model = doc_model
         self.pdf_document = None
 
-        # --- Segmented Control pour vue PDF / Markdown ---
+        file_type = getattr(self.doc_model, "file_type", "").lower() if self.doc_model else ""
+
+        # --- Segmented Control pour vue Document / Markdown ---
         self.view_toggle_frame = QFrame()
         self.view_toggle_frame.setStyleSheet(f"""
             QFrame {{
@@ -67,11 +166,24 @@ class DocumentEditorWidget(QWidget):
         toggle_layout.setContentsMargins(2, 2, 2, 2)
         toggle_layout.setSpacing(0)
 
-        self.btn_view_pdf = QPushButton("PDF")
+        # Boutons adaptatifs selon le type de document
+        primary_btn_text = "PDF"
+        secondary_btn_text = "Markdown Stylisé"
+        if file_type == "album":
+            primary_btn_text = "Galerie Planches"
+            secondary_btn_text = "Texte & Analyse"
+        elif file_type == "pdf":
+            primary_btn_text = "PDF"
+            secondary_btn_text = "Texte Extrait"
+        elif self.doc_model is not None:
+            primary_btn_text = "Rendu Stylisé"
+            secondary_btn_text = "Source Markdown"
+
+        self.btn_view_pdf = QPushButton(primary_btn_text)
         self.btn_view_pdf.setCheckable(True)
         self.btn_view_pdf.setChecked(True)
 
-        self.btn_view_md = QPushButton("Markdown Stylisé")
+        self.btn_view_md = QPushButton(secondary_btn_text)
         self.btn_view_md.setCheckable(True)
 
         toggle_layout.addWidget(self.btn_view_pdf)
@@ -202,14 +314,25 @@ class DocumentEditorWidget(QWidget):
         self.editor_stack.addWidget(self.raw_editor)
         self.editor_stack.addWidget(self.markdown_viewer)
 
-        if self.doc_model and getattr(self.doc_model, "file_type", "") == "pdf" and getattr(self.doc_model, "original_media", None):
-            from ankiforge.utils.paths import get_app_data_dir
-
-            pdf_path = get_app_data_dir() / "media" / self.doc_model.original_media.filename
-            if pdf_path.exists() and self.pdf_document is not None:
-                self.pdf_document.load(str(pdf_path))
+        if self.doc_model:
+            if file_type == "pdf" and getattr(self.doc_model, "original_media", None):
+                pdf_path = get_app_data_dir() / "media" / self.doc_model.original_media.filename
+                if pdf_path.exists() and self.pdf_document is not None:
+                    self.pdf_document.load(str(pdf_path))
                 self.view_toggle_frame.show()
                 self._on_view_toggled("pdf")
+            elif file_type == "album":
+                self._init_album_container()
+                self.view_toggle_frame.show()
+                self._on_view_toggled("pdf")
+            elif file_type in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac"):
+                self._init_audio_bar()
+                self.view_toggle_frame.show()
+                self._on_view_toggled("pdf")
+            else:
+                self.view_toggle_frame.show()
+                self._on_view_toggled("pdf")
+
         layout.addWidget(self.editor_stack, 1)
 
         bot_widget = QWidget()
@@ -242,15 +365,164 @@ class DocumentEditorWidget(QWidget):
 
         self.set_content(content)
 
+    def _init_album_container(self) -> None:
+        """Initialise la galerie miniature des planches d'album."""
+        try:
+            from ankiforge.database.models import DocumentChunkModel, DocumentPageModel
+
+            self.album_container = QWidget()
+            album_layout = QVBoxLayout(self.album_container)
+            album_layout.setContentsMargins(0, 0, 0, 0)
+            album_layout.setSpacing(6)
+
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            scroll.setStyleSheet("background: transparent; border: none;")
+
+            scroll_content = QWidget()
+            scroll_content.setStyleSheet("background: transparent;")
+            album_grid = QGridLayout(scroll_content)
+            album_grid.setContentsMargins(8, 8, 8, 8)
+            album_grid.setSpacing(12)
+
+            media_dir = get_media_dir()
+            pages = list(DocumentPageModel.select().where(DocumentPageModel.document == self.doc_model).order_by(DocumentPageModel.page_number))
+
+            visual_chunks = {
+                c.page_number: c.content
+                for c in DocumentChunkModel.select().where((DocumentChunkModel.document == self.doc_model) & DocumentChunkModel.page_number.is_null(False))
+                if c.page_number is not None
+            }
+
+            cols = 3
+            for i, page in enumerate(pages):
+                media_path = (media_dir / page.media.filename) if (page.media and page.media.filename) else None
+                desc = page.ocr_text or visual_chunks.get(page.page_number, "")
+                card = AlbumPageMiniWidget(page_num=page.page_number, media_path=media_path, snippet=desc)
+                card.clicked.connect(self._on_album_mini_card_clicked)
+                self._album_cards[page.page_number] = card
+                album_grid.addWidget(card, i // cols, i % cols)
+
+            album_grid.setRowStretch((len(pages) + cols - 1) // cols, 1)
+            scroll.setWidget(scroll_content)
+            album_layout.addWidget(scroll)
+            self.editor_stack.addWidget(self.album_container)
+        except Exception as e:
+            logger.warning("Erreur lors de l'initialisation de l'aperçu d'album : %s", e)
+
+    def _init_audio_bar(self) -> None:
+        """Initialise la barre de contrôle audio interactif."""
+        try:
+            self.audio_bar = QFrame()
+            self.audio_bar.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 2px 6px;
+                }}
+            """)
+            audio_layout = QHBoxLayout(self.audio_bar)
+            audio_layout.setContentsMargins(6, 4, 6, 4)
+            audio_layout.setSpacing(8)
+
+            ico = QLabel()
+            ico.setPixmap(load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
+            ico.setStyleSheet("border: none; background: transparent;")
+
+            self.btn_audio_play = IconButton("ph.play", "Lecture / Pause", 16)
+            self.lbl_audio_title = QLabel(self.doc_model.title if self.doc_model else "Audio")
+            self.lbl_audio_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600; border: none; background: transparent;")
+
+            self.lbl_audio_time = QLabel("00:00 / 00:00")
+            self.lbl_audio_time.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; border: none; background: transparent;")
+
+            audio_layout.addWidget(ico)
+            audio_layout.addWidget(self.btn_audio_play)
+            audio_layout.addWidget(self.lbl_audio_title)
+            audio_layout.addStretch()
+            audio_layout.addWidget(self.lbl_audio_time)
+
+            from PySide6.QtCore import QUrl
+            from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+
+            self._audio_player = QMediaPlayer(self)
+            self._audio_output = QAudioOutput(self)
+            self._audio_player.setAudioOutput(self._audio_output)
+
+            media = getattr(self.doc_model, "original_media", None)
+            if media and media.filename:
+                file_path = get_media_dir() / media.filename
+                if file_path.exists():
+                    self._audio_player.setSource(QUrl.fromLocalFile(str(file_path)))
+
+            self.btn_audio_play.clicked.connect(self._toggle_audio_play)
+            self._audio_player.positionChanged.connect(self._on_audio_pos_changed)
+            self._audio_player.durationChanged.connect(self._on_audio_duration_changed)
+
+            self.layout().insertWidget(1, self.audio_bar)
+        except Exception as e:
+            logger.debug("Erreur ou absence de QtMultimedia pour barre audio: %s", e)
+            self._audio_player = None
+
+    @Slot(int)
+    def _on_album_mini_card_clicked(self, page_num: int) -> None:
+        self.album_page_selected.emit(page_num)
+
+    def set_album_scope(self, pages: list[int]) -> None:
+        """Met à jour la portée active de l'album et asservit les mini-cartes."""
+        self._album_selected_pages = sorted(pages)
+        for p_num, card in self._album_cards.items():
+            card.set_in_scope(p_num in self._album_selected_pages)
+
+    def _toggle_audio_play(self) -> None:
+        if self._audio_player is None:
+            return
+        from PySide6.QtMultimedia import QMediaPlayer
+
+        if self._audio_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self._audio_player.pause()
+            self.btn_audio_play.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
+        else:
+            self._audio_player.play()
+            self.btn_audio_play.setIcon(load_phosphor_icon("ph.pause", color=DesignTokens.TEXT_PRIMARY))
+
+    def _on_audio_pos_changed(self, pos_ms: int) -> None:
+        if self._audio_player is None:
+            return
+        dur_ms = self._audio_player.duration()
+        pos_s = pos_ms // 1000
+        dur_s = dur_ms // 1000
+        self.lbl_audio_time.setText(f"{pos_s // 60:02d}:{pos_s % 60:02d} / {dur_s // 60:02d}:{dur_s % 60:02d}")
+
+    def _on_audio_duration_changed(self, dur_ms: int) -> None:
+        self._on_audio_pos_changed(self._audio_player.position() if self._audio_player else 0)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._audio_player is not None:
+            self._audio_player.stop()
+        super().closeEvent(event)
+
     @Slot(str)
     def _on_view_toggled(self, mode: str) -> None:
         self.btn_view_pdf.setChecked(mode == "pdf")
         self.btn_view_md.setChecked(mode == "md")
 
+        file_type = getattr(self.doc_model, "file_type", "").lower() if self.doc_model else ""
+
         if mode == "pdf":
-            self.editor_stack.setCurrentWidget(self.pdf_container)
+            if file_type == "album" and hasattr(self, "album_container"):
+                self.editor_stack.setCurrentWidget(self.album_container)
+            elif file_type == "pdf":
+                self.editor_stack.setCurrentWidget(self.pdf_container)
+            else:
+                self.editor_stack.setCurrentWidget(self.markdown_viewer)
         else:
-            self.editor_stack.setCurrentWidget(self.markdown_viewer)
+            if file_type in ("pdf", "album"):
+                self.editor_stack.setCurrentWidget(self.markdown_viewer)
+            else:
+                self.editor_stack.setCurrentWidget(self.raw_editor)
 
     def set_pdf_scope(self, pages: list[int]) -> None:
         """Met à jour la portée active du PDF et asservit le bandeau de navigation."""
@@ -361,18 +633,20 @@ class DocumentEditorWidget(QWidget):
             self.pdf_view.pageNavigator().jump(page_index, QPointF(0, 0), self.pdf_view.zoomFactor())
 
     def set_content(self, content: str) -> None:
+        self._raw_content = content
+        self.raw_editor.setPlainText(content)
+        html = markdown.markdown(content, extensions=["fenced_code", "tables"])
+        self.markdown_viewer.setHtml(html)
+
         if self.source_title == "Saisie Libre":
             self.editor_stack.setCurrentWidget(self.raw_editor)
-            self.raw_editor.setPlainText(content)
         else:
-            html = markdown.markdown(content, extensions=["fenced_code", "tables"])
-            self.markdown_viewer.setHtml(html)
             if hasattr(self, "btn_view_pdf") and self.btn_view_pdf.isChecked():
-                self.editor_stack.setCurrentWidget(self.pdf_container)
+                self._on_view_toggled("pdf")
             else:
                 if hasattr(self, "btn_view_md"):
                     self.btn_view_md.setChecked(True)
-                self.editor_stack.setCurrentWidget(self.markdown_viewer)
+                self._on_view_toggled("md")
         self._on_text_changed()
 
     @Slot()
@@ -388,10 +662,12 @@ class DocumentEditorWidget(QWidget):
         self.generate_requested.emit(self.get_text(), getattr(self, "source_title", "Saisie Libre"))
 
     def get_text(self) -> str:
-        if self.source_title == "Saisie Libre":
-            return self.raw_editor.toPlainText().strip()
-        else:
-            return self.markdown_viewer.toPlainText().strip()
+        text = self.raw_editor.toPlainText().strip()
+        if text:
+            return text
+        if hasattr(self, "_raw_content") and self._raw_content:
+            return self._raw_content.strip()
+        return self.markdown_viewer.toPlainText().strip()
 
     def set_generation_state(self, is_generating: bool) -> None:
         self.btn_generate.setEnabled(not is_generating)

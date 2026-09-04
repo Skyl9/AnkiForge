@@ -318,11 +318,27 @@ class PipelineOrchestrator(QRunnable):
                 except Exception as e:
                     logger.warning("Impossible d'instancier le provider dédié: %s", e)
 
-        response_text = provider.generate(
-            system_prompt=rendered_sys,
-            user_prompt=user_input,
-            response_format=output_format,
-        )
+        use_vision = bool(self.state.get_variable("use_vision", False))
+        if use_vision:
+            from ankiforge.utils.paths import get_media_dir
+            from ankiforge.utils.vision_utils import prepare_multimodal_payload
+
+            media_dir = get_media_dir()
+            multimodal_input = prepare_multimodal_payload(user_input, media_dir)
+            response_text = provider.generate(
+                system_prompt=rendered_sys,
+                user_prompt=multimodal_input,
+                response_format=output_format,
+            )
+        else:
+            from ankiforge.utils.vision_utils import strip_image_tags
+
+            clean_input = strip_image_tags(user_input) if isinstance(user_input, str) else user_input
+            response_text = provider.generate(
+                system_prompt=rendered_sys,
+                user_prompt=clean_input,
+                response_format=output_format,
+            )
 
         parsed_output: Any = response_text
         if output_format == "json":
