@@ -45,6 +45,7 @@ from ankiforge.database.models.pipelines import (
 from ankiforge.database.models.rag import (
     DocumentChunkModel,
     DocumentModel,
+    DocumentPageModel,
     EmbeddingCacheModel,
     FolderModel,
     NoteChunkLinkModel,
@@ -80,6 +81,7 @@ ALL_MODELS = [
     PythonToolModel,
     FolderModel,
     DocumentModel,
+    DocumentPageModel,
     DocumentChunkModel,
     NoteChunkLinkModel,
     EmbeddingCacheModel,
@@ -124,6 +126,7 @@ __all__ = [
     # Documents & RAG
     "FolderModel",
     "DocumentModel",
+    "DocumentPageModel",
     "DocumentChunkModel",
     "NoteChunkLinkModel",
     "EmbeddingCacheModel",

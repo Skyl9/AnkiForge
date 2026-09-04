@@ -46,11 +46,15 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.documents_view.dialogs import (
+    AlbumImportDialog,
     DocumentDelimitationDialog,
     RAGTestDialog,
 )
 from ankiforge.ui.views.documents_view.utils import apply_pill_style
-from ankiforge.ui.views.documents_view.widgets import DocumentTreeWidget
+from ankiforge.ui.views.documents_view.widgets import (
+    AlbumViewerWidget,
+    DocumentTreeWidget,
+)
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -108,6 +112,9 @@ class DocumentsView(QWidget):
         self.btn_import_url = IconButton("ph.link", tooltip="Importer depuis le Web / YouTube", size=24)
         self.btn_import_url.clicked.connect(self._on_import_url)
 
+        self.btn_new_album = IconButton("ph.images", tooltip="Créer un Album d'images", size=24)
+        self.btn_new_album.clicked.connect(self._on_new_album)
+
         self.btn_new_folder = IconButton("ph.folder-plus", tooltip="Nouveau dossier", size=24)
         self.btn_new_folder.clicked.connect(self._on_new_folder)
 
@@ -117,6 +124,7 @@ class DocumentsView(QWidget):
 
         explorer_toolbar.addWidget(self.btn_import, 1)
         explorer_toolbar.addWidget(self.btn_import_url)
+        explorer_toolbar.addWidget(self.btn_new_album)
         explorer_toolbar.addWidget(self.btn_new_folder)
         explorer_toolbar.addWidget(self.btn_delete)
         explorer_layout.addLayout(explorer_toolbar)
@@ -193,8 +201,13 @@ class DocumentsView(QWidget):
         btn_quick_url.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.TEXT_PRIMARY))
         btn_quick_url.clicked.connect(self._on_import_url)
 
+        btn_quick_album = SecondaryButton("Créer un album")
+        btn_quick_album.setIcon(load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE))
+        btn_quick_album.clicked.connect(self._on_new_album)
+
         empty_actions.addWidget(btn_quick_import)
         empty_actions.addWidget(btn_quick_url)
+        empty_actions.addWidget(btn_quick_album)
         empty_layout.addLayout(empty_actions)
 
         self.editor_stack.addWidget(empty_page)
@@ -362,6 +375,13 @@ class DocumentsView(QWidget):
         editor_layout.addWidget(self.inner_editor_stack, 1)
 
         self.editor_stack.addWidget(editor_container)
+
+        # PAGE 2 : Album Viewer
+        self.album_viewer = AlbumViewerWidget()
+        self.album_viewer.album_modified.connect(self._on_album_modified)
+        self.album_viewer.forge_requested.connect(self._on_album_forge_requested)
+        self.editor_stack.addWidget(self.album_viewer)
+
         self.editor_panel.add_tab("Éditeur", self.editor_stack, "ph.file-text", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
@@ -613,10 +633,15 @@ class DocumentsView(QWidget):
                 item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
 
                 title_lower = doc.title.lower()
+                is_album = getattr(doc, "file_type", "") == "album"
                 is_pdf = getattr(doc, "file_type", "") == "pdf"
                 has_content = bool(doc.content and doc.content.strip())
 
-                if is_pdf:
+                if is_album:
+                    item.setIcon(0, load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE))
+                    p_count = getattr(doc, "total_pages", 0) or 0
+                    item.setText(0, f"{title_to_display} ({p_count}p)")
+                elif is_pdf:
                     if has_content:
                         item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
                     else:
@@ -664,6 +689,14 @@ class DocumentsView(QWidget):
                 self._current_doc_id = doc.id
                 title_to_display = doc.original_media.original_name if doc.original_media else doc.title
                 self.doc_title_lbl.setText(title_to_display)
+
+                if getattr(doc, "file_type", "") == "album":
+                    self.album_viewer.load_album(doc)
+                    self.editor_stack.setCurrentIndex(2)
+                    self._update_rag_status_pill()
+                    self._refresh_chapters_list()
+                    return
+
                 self.text_editor.blockSignals(True)
                 self.text_editor.set_content(doc.content if hasattr(doc, "content") else "")
                 self.text_editor.blockSignals(False)
@@ -738,6 +771,44 @@ class DocumentsView(QWidget):
         url, ok = QInputDialog.getText(self, "Importer depuis le Web", "Entrez l'URL de la page web ou de la vidéo YouTube :")
         if ok and url.strip():
             self._start_document_worker(url.strip())
+
+    @Slot()
+    def _on_new_album(self) -> None:
+        dialog = AlbumImportDialog(self)
+        dialog.album_created.connect(self._on_album_created)
+        dialog.exec()
+
+    @Slot(int)
+    def _on_album_created(self, doc_id: int) -> None:
+        self.refresh_data()
+        self._select_doc_id_in_tree(doc_id)
+
+    @Slot(int)
+    def _on_album_modified(self, doc_id: int) -> None:
+        self.refresh_data()
+
+    @Slot(int)
+    def _on_album_forge_requested(self, doc_id: int) -> None:
+        self.request_navigation.emit("creation", {"doc_id": doc_id})
+
+    def _select_doc_id_in_tree(self, doc_id: int) -> None:
+        def find_item(parent: QTreeWidgetItem | DocumentTreeWidget) -> QTreeWidgetItem | None:
+            count = parent.childCount() if isinstance(parent, QTreeWidgetItem) else parent.topLevelItemCount()
+            for i in range(count):
+                child = parent.child(i) if isinstance(parent, QTreeWidgetItem) else parent.topLevelItem(i)
+                if not child:
+                    continue
+                d = child.data(0, Qt.ItemDataRole.UserRole)
+                if d and d.get("type") == "doc" and d.get("id") == doc_id:
+                    return child
+                found = find_item(child)
+                if found:
+                    return found
+            return None
+
+        it = find_item(self.tree_explorer)
+        if it:
+            self.tree_explorer.setCurrentItem(it)
 
     @Slot(str)
     def _on_view_toggled(self, mode: str) -> None:

@@ -1,11 +1,12 @@
-# ruff: noqa: E501
 import datetime
 import logging
+from typing import Any
 
 from peewee import (
     BooleanField,
     CharField,
     DateTimeField,
+    FloatField,
     ForeignKeyField,
     IntegerField,
     TextField,
@@ -32,8 +33,29 @@ class DocumentModel(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     folder = ForeignKeyField(FolderModel, backref="documents", null=True, on_delete="CASCADE")
     original_media = ForeignKeyField(MediaModel, backref="parsed_documents", null=True, on_delete="SET NULL")
-    file_type = CharField(default="md")  # pdf, md, png, youtube, web
+    file_type = CharField(default="md")  # pdf, md, png, youtube, web, album, epub, audio
     source_url = CharField(null=True)
+    total_pages = IntegerField(default=1)
+
+
+class DocumentPageModel(BaseModel):
+    """Représente une page individuelle au sein d'un Document de type Album/Livre scanné."""
+
+    document_id: Any
+    media_id: Any
+
+    document = ForeignKeyField(DocumentModel, backref="pages", on_delete="CASCADE")
+    media = ForeignKeyField(MediaModel, backref="album_pages", on_delete="CASCADE")
+    page_number = IntegerField(default=1)
+    rotation = IntegerField(default=0)  # 0, 90, 180, 270 degrés
+    crop_data = CharField(null=True)  # JSON [x, y, w, h] si recadrée
+    ocr_text = TextField(default="")
+    bounding_boxes = TextField(null=True)  # JSON list des figures détectées
+    status = CharField(default="ready")  # pending, ocr_running, ready
+
+    class Meta:
+        table_name = "document_pages"
+        indexes = ((("document", "page_number"), True),)
 
 
 class DocumentChunkModel(BaseModel):
@@ -42,6 +64,9 @@ class DocumentChunkModel(BaseModel):
     Permet le suivi fin de la couverture de cours et l'indexation RAG.
     """
 
+    document_id: Any
+    media_id: Any
+
     document = ForeignKeyField(DocumentModel, backref="chunks", on_delete="CASCADE")
     chunk_index = IntegerField(default=0)
     content = TextField(default="")
@@ -49,6 +74,10 @@ class DocumentChunkModel(BaseModel):
     page_number = IntegerField(null=True)
     heading_path = CharField(null=True)
     is_profiled = BooleanField(default=False, null=True)
+    start_time = FloatField(null=True)
+    end_time = FloatField(null=True)
+    media = ForeignKeyField(MediaModel, backref="chunks", null=True, on_delete="SET NULL")
+    bounding_box = CharField(null=True)
 
     class Meta:
         table_name = "document_chunks"

@@ -178,6 +178,14 @@ def run_migrations() -> None:
             router.model.create(name="022_consultant_sessions")
             logger.info("Base legacy détectée : enregistrement rétroactif de la migration 022_consultant_sessions.")
 
+        # Si la table document_pages existe déjà ou si total_pages existe sur documentmodel
+        if "024_document_multimedia_and_albums" not in done_migrations:
+            has_doc_pages = db.table_exists("document_pages")
+            doc_cols = [col.name for col in db.get_columns("documentmodel")] if db.table_exists("documentmodel") else []
+            if has_doc_pages or ("total_pages" in doc_cols):
+                router.model.create(name="024_document_multimedia_and_albums")
+                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 024_document_multimedia_and_albums.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

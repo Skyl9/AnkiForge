@@ -5,15 +5,18 @@ from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QScrollArea,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from ankiforge.database.models import LLMConfigModel
+from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     DangerButton,
@@ -27,6 +30,7 @@ from ankiforge.ui.widgets.settings_modal.components.settings_card import (
     SettingsCard,
     apply_pill_badge_style,
 )
+from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -34,19 +38,31 @@ logger = logging.getLogger(__name__)
 
 
 class AIEnginesTab(QWidget):
-    """Onglet Configuration des Moteurs IA et Clés API."""
+    """Onglet Configuration des Moteurs IA, Clés API et Catégories de Vision d'Image."""
 
     def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.lbl_provider_labels: list[QLabel] = []
+        self.vision_cards: list[SettingsCard] = []
         self._setup_ui()
         self.refresh_data()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Zone défilante pour garantir l'absence de débordement
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setStyleSheet("background: transparent; border: none;")
+
+        self.content_widget = QWidget()
+        layout = QVBoxLayout(self.content_widget)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(14)
 
         # ── SECTION 1 : CLÉS D'AUTHENTIFICATION CLOUD ────────────────────────
         self.lbl_sec_keys = QLabel("CLÉS D'AUTHENTIFICATION FOURNISSEURS CLOUD")
@@ -138,7 +154,7 @@ class AIEnginesTab(QWidget):
         layout.addWidget(self.card_ollama)
 
         # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
-        self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES IA (Peewee ORM)")
+        self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES TEXTUELS (Peewee ORM)")
         self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_cat)
 
@@ -148,7 +164,8 @@ class AIEnginesTab(QWidget):
         self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
-        layout.addWidget(self.table_engines, 1)
+        self.table_engines.setMinimumHeight(140)
+        layout.addWidget(self.table_engines)
 
         # Barre d'outils Catalogue
         toolbar = QHBoxLayout()
@@ -178,6 +195,142 @@ class AIEnginesTab(QWidget):
 
         layout.addLayout(toolbar)
 
+        # ── SECTION 4 : CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (VISION) ───
+        self.lbl_sec_vision = QLabel("CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (STANDARDS 2025-2026)")
+        self.lbl_sec_vision.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        layout.addWidget(self.lbl_sec_vision)
+
+        self.vision_container = QVBoxLayout()
+        self.vision_container.setSpacing(8)
+        layout.addLayout(self.vision_container)
+
+        # Barre d'outils Vision
+        vision_toolbar = QHBoxLayout()
+        vision_toolbar.setSpacing(8)
+
+        self.btn_add_vision_cat = SecondaryButton("+ Ajouter une catégorie")
+        self.btn_add_vision_cat.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_add_vision_cat.clicked.connect(self._add_vision_category)
+        vision_toolbar.addWidget(self.btn_add_vision_cat)
+
+        self.btn_reset_vision = SecondaryButton("Rétablir les préréglages")
+        self.btn_reset_vision.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.TEXT_MUTED))
+        self.btn_reset_vision.clicked.connect(self._reset_vision_categories)
+        vision_toolbar.addWidget(self.btn_reset_vision)
+
+        vision_toolbar.addStretch()
+        layout.addLayout(vision_toolbar)
+
+        self.scroll.setWidget(self.content_widget)
+        root_layout.addWidget(self.scroll)
+
+    def _render_vision_categories(self) -> None:
+        """Génère dynamiquement les cartes de chaque catégorie de vision configurée."""
+        # Nettoyage des anciennes cartes
+        while self.vision_container.count():
+            item = self.vision_container.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        self.vision_cards.clear()
+        categories = VisionCategoryService.get_categories()
+
+        for cat in categories:
+            card = SettingsCard()
+            card_layout = QHBoxLayout(card)
+            card_layout.setContentsMargins(12, 10, 12, 10)
+            card_layout.setSpacing(10)
+
+            # Icône catégorie
+            icon_lbl = QLabel()
+            icon_color = DesignTokens.COLOR_GREEN if cat.provider in ("ollama", "native") else DesignTokens.COLOR_BLUE
+            icon_lbl.setPixmap(load_phosphor_icon(cat.icon, color=icon_color).pixmap(20, 20))
+            card_layout.addWidget(icon_lbl)
+
+            # Contenu texte & badges
+            content_col = QVBoxLayout()
+            content_col.setSpacing(3)
+
+            title_row = QHBoxLayout()
+            title_row.setSpacing(6)
+
+            title_lbl = QLabel(cat.name)
+            title_lbl.setStyleSheet(f"font-size: 12.5px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
+            title_row.addWidget(title_lbl)
+
+            # Badge Fournisseur
+            prov_badge = QLabel(cat.provider.upper())
+            apply_pill_badge_style(prov_badge, DesignTokens.COLOR_GREEN if cat.provider in ("ollama", "native") else DesignTokens.COLOR_BLUE)
+            title_row.addWidget(prov_badge)
+
+            # Badge Modèle
+            model_badge = QLabel(cat.model_id)
+            apply_pill_badge_style(model_badge, DesignTokens.TEXT_MUTED)
+            title_row.addWidget(model_badge)
+
+            # Badge Thinking si actif
+            if cat.thinking_budget > 0:
+                thinking_badge = QLabel(f"🧠 {cat.thinking_budget}t")
+                apply_pill_badge_style(thinking_badge, DesignTokens.ACCENT_PRIMARY)
+                title_row.addWidget(thinking_badge)
+
+            title_row.addStretch()
+            content_col.addLayout(title_row)
+
+            desc_lbl = QLabel(cat.description)
+            desc_lbl.setWordWrap(True)
+            desc_lbl.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED};")
+            content_col.addWidget(desc_lbl)
+
+            card_layout.addLayout(content_col, 1)
+
+            # Bouton Modifier
+            btn_edit = SecondaryButton("Modifier")
+            btn_edit.setFixedHeight(28)
+            btn_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+            btn_edit.clicked.connect(lambda _, c=cat: self._edit_vision_category(c))
+            card_layout.addWidget(btn_edit)
+
+            # Bouton Supprimer (uniquement pour les catégories personnalisées)
+            if cat.id not in ("reasoning", "massive", "structured", "hardware"):
+                btn_del = DangerButton(ghost=True)
+                btn_del.setFixedSize(28, 28)
+                btn_del.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+                btn_del.clicked.connect(lambda _, cid=cat.id: self._delete_vision_category(cid))
+                card_layout.addWidget(btn_del)
+
+            self.vision_container.addWidget(card)
+            self.vision_cards.append(card)
+
+    def _edit_vision_category(self, cat: VisionCategory) -> None:
+        dialog = VisionCategoryDialog(category=cat, parent=self)
+        if dialog.exec():
+            updated = dialog.get_category()
+            if updated:
+                VisionCategoryService.save_category(updated)
+                self._render_vision_categories()
+                show_toast(self, f"Catégorie '{updated.name}' mise à jour !")
+
+    def _add_vision_category(self) -> None:
+        dialog = VisionCategoryDialog(category=None, parent=self)
+        if dialog.exec():
+            new_cat = dialog.get_category()
+            if new_cat:
+                VisionCategoryService.save_category(new_cat)
+                self._render_vision_categories()
+                show_toast(self, f"Catégorie '{new_cat.name}' créée avec succès !")
+
+    def _delete_vision_category(self, cat_id: str) -> None:
+        if VisionCategoryService.delete_category(cat_id):
+            self._render_vision_categories()
+            show_toast(self, "Catégorie de vision supprimée.")
+
+    def _reset_vision_categories(self) -> None:
+        VisionCategoryService.reset_to_defaults()
+        self._render_vision_categories()
+        show_toast(self, "Catégories de vision réinitialisées aux valeurs standard !")
+
     def _test_cloud_key(self, provider_id: str, provider_name: str) -> None:
         key_edit = self.key_edits.get(provider_id)
         badge = self.key_status_badges.get(provider_id)
@@ -192,7 +345,6 @@ class AIEnginesTab(QWidget):
             show_toast(self, f"Veuillez saisir une clé {provider_name}.", is_error=True)
             return
 
-        # Validation de format
         valid_format = False
         if (
             (provider_id == "openai" and (key_val.startswith("sk-") or len(key_val) > 20))
@@ -228,7 +380,6 @@ class AIEnginesTab(QWidget):
                     apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
                     self.badge_ollama_status.show()
 
-                    # Ajouter automatiquement le premier modèle manquant
                     added_count = 0
                     for m_name in models:
                         if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
@@ -254,7 +405,7 @@ class AIEnginesTab(QWidget):
             show_toast(self, "Serveur Ollama inaccessible sur cette adresse.", is_error=True)
 
     def refresh_data(self) -> None:
-        """Recharge les moteurs IA depuis la base Peewee."""
+        """Recharge les moteurs IA et les catégories de vision."""
         try:
             self.table_engines.blockSignals(True)
             engines = list(LLMConfigModel.select())
@@ -265,7 +416,6 @@ class AIEnginesTab(QWidget):
                 item_name.setData(Qt.ItemDataRole.UserRole, eg.id)
                 self.table_engines.setItem(i, 0, item_name)
 
-                # Badge Fournisseur
                 p_text = getattr(eg, "provider", "inconnu").upper()
                 self.table_engines.setItem(i, 1, QTableWidgetItem(p_text))
 
@@ -279,7 +429,13 @@ class AIEnginesTab(QWidget):
 
             self.table_engines.blockSignals(False)
         except Exception as e:
-            logger.warning("Erreur refresh_data ai_engines_tab: %s", e)
+            logger.warning("Erreur refresh_data table_engines: %s", e)
+
+        # Rafraîchissement des catégories de vision
+        try:
+            self._render_vision_categories()
+        except Exception as e:
+            logger.warning("Erreur refresh_data vision_categories: %s", e)
 
     def _quick_add_engine(self, name: str, provider: str, model_id: str, is_free: bool) -> None:
         try:
@@ -349,8 +505,15 @@ class AIEnginesTab(QWidget):
         self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         self.lbl_sec_ollama.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        if hasattr(self, "lbl_sec_vision"):
+            self.lbl_sec_vision.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+
         self.card_keys.refresh_theme(profile)
         self.card_ollama.refresh_theme(profile)
+
+        for card in self.vision_cards:
+            card.refresh_theme(profile)
+
         if hasattr(self, "lbl_ol_url"):
             self.lbl_ol_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         for lbl in self.lbl_provider_labels:

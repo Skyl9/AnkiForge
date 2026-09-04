@@ -824,10 +824,15 @@ class CreationView(QWidget):
                     item.setText(0, doc.title)
 
                     title_lower = doc.title.lower()
+                    is_album = getattr(doc, "file_type", "") == "album"
                     is_pdf = getattr(doc, "file_type", "") == "pdf"
                     has_content = bool(doc.content and doc.content.strip())
 
-                    if is_pdf:
+                    if is_album:
+                        p_count = getattr(doc, "total_pages", 0) or 0
+                        item.setIcon(0, load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE, weight="fill"))
+                        item.setText(0, f"{doc.title} ({p_count}p)")
+                    elif is_pdf:
                         if has_content:
                             item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED, weight="fill"))
                         else:
@@ -886,7 +891,11 @@ class CreationView(QWidget):
 
         if doc_model:
             title_lower = title.lower()
-            if title_lower.endswith(".pdf"):
+            is_album = getattr(doc_model, "file_type", "") == "album"
+            if is_album:
+                icon = "ph.images"
+                icon_color = DesignTokens.COLOR_PURPLE
+            elif title_lower.endswith(".pdf"):
                 icon = "ph.file-pdf"
                 icon_color = DesignTokens.COLOR_RED
             elif title_lower.endswith((".md", ".txt", ".json", ".csv")):
@@ -901,10 +910,14 @@ class CreationView(QWidget):
         if doc_model is not None:
             self.scope_card.show()
             is_pdf = getattr(doc_model, "file_type", "") == "pdf"
-            self.vision_card.setVisible(is_pdf)
+            is_album = getattr(doc_model, "file_type", "") == "album"
+            self.vision_card.setVisible(is_pdf or is_album)
 
-            max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
-            total_pages = int(max_page_chunk) if max_page_chunk else 10
+            if is_album:
+                total_pages = int(getattr(doc_model, "total_pages", 0) or 1)
+            else:
+                max_page_chunk = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.page_number)).where(DocumentChunkModel.document == doc_model).scalar()
+                total_pages = int(max_page_chunk) if max_page_chunk else 10
             self._current_doc_total_pages = total_pages
             self.btn_preset_all.setText(f"Tout ({total_pages}p)")
             self.btn_preset_range.setText(f"1 – {min(10, total_pages)}")
@@ -924,11 +937,21 @@ class CreationView(QWidget):
         if doc and hasattr(doc, "content"):
             title = doc.title if hasattr(doc, "title") else "Document"
             is_pdf = getattr(doc, "file_type", "") == "pdf"
+            is_album = getattr(doc, "file_type", "") == "album"
             has_content = bool(doc.content and doc.content.strip())
 
             if is_pdf and not has_content:
                 show_toast(self, "Ce PDF n'a pas encore été extrait. Vous ne pouvez pas l'ouvrir en texte.", is_error=True)
                 return
+
+            album_content = doc.content or ""
+            if is_album:
+                from ankiforge.database.models import DocumentPageModel
+
+                pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
+                parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages if p.ocr_text and p.ocr_text.strip()]
+                if parts:
+                    album_content = "\n\n".join(parts)
 
             if title in self.open_editors:
                 try:
@@ -937,9 +960,9 @@ class CreationView(QWidget):
                     self.config_panel.set_active_tab(1)
                 except RuntimeError:
                     self.open_editors.pop(title, None)
-                    self._open_document_tab(title, doc.content, doc)
+                    self._open_document_tab(title, album_content, doc)
             else:
-                self._open_document_tab(title, doc.content, doc)
+                self._open_document_tab(title, album_content, doc)
 
     def _set_all_generation_states(self, is_generating: bool) -> None:
         for editor in self.open_editors.values():
@@ -1015,6 +1038,16 @@ class CreationView(QWidget):
         if not editor:
             return
 
+        is_album = getattr(doc, "file_type", "") == "album"
+        if is_album:
+            from ankiforge.database.models import DocumentPageModel
+
+            pages_models = list(DocumentPageModel.select().where((DocumentPageModel.document == doc) & DocumentPageModel.page_number.in_(pages)).order_by(DocumentPageModel.page_number))
+            content_parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages_models if p.ocr_text and p.ocr_text.strip()]
+            msg = f"_Aucune transcription trouvée pour les pages d'album {scope_text}_" if not content_parts else "\n\n".join(content_parts)
+            editor.set_content(msg)
+            return
+
         has_pages = DocumentChunkModel.select().where((DocumentChunkModel.document == doc) & DocumentChunkModel.page_number.is_null(False)).exists()
 
         if has_pages:
@@ -1051,12 +1084,26 @@ class CreationView(QWidget):
             show_toast(self, "Veuillez sélectionner un document valide.", is_error=True)
             return
 
-        if not doc.content or not doc.content.strip():
-            show_toast(self, "Ce document est vide ou n'a pas encore été extrait.", is_error=True)
-            return
-
+        is_album = getattr(doc, "file_type", "") == "album"
         editor = self.open_editors.get(doc.title)
         content_to_use = editor.get_text() if editor else doc.content
+
+        if is_album and (not content_to_use or not content_to_use.strip()):
+            from ankiforge.database.models import DocumentPageModel
+
+            pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
+            parts = [f"### Page {p.page_number}\n\n{p.ocr_text}" for p in pages if p.ocr_text and p.ocr_text.strip()]
+            if parts:
+                content_to_use = "\n\n".join(parts)
+            elif pages:
+                show_toast(self, "Cet album n'a pas encore été transcrit par Vision IA.", is_error=True)
+                return
+            else:
+                show_toast(self, "Cet album ne contient aucune page.", is_error=True)
+                return
+        elif not content_to_use or not content_to_use.strip():
+            show_toast(self, "Ce document est vide ou n'a pas encore été extrait.", is_error=True)
+            return
 
         self._on_generate(content_to_use, doc.title)
 

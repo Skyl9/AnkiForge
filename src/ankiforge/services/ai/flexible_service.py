@@ -169,23 +169,89 @@ class OpenRouterProvider(OpenAICompatibleProvider):
 
 class AnthropicProvider(LLMProvider):
     """
-    Fournisseur pour les modèles Anthropic (Claude 3.5, etc.).
+    Fournisseur pour les modèles Anthropic (Claude 3.5, Claude 3.7 Sonnet avec Thinking Mode, etc.).
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "claude-3-5-sonnet-20240620"):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model_name: str = "claude-3-7-sonnet-20250219",
+        thinking_budget: int = 0,
+    ):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy_key")
         self.model_name = model_name
+        self.thinking_budget = thinking_budget
 
     def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
-        headers = {"x-api-key": self.api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
 
-        payload = {"model": self.model_name, "max_tokens": 4096, "system": system_prompt, "messages": [{"role": "user", "content": cast(Any, user_prompt)}]}
+        # Conversion du prompt utilisateur au format Anthropic (compatible OpenAI multimodal)
+        anthropic_content: list[dict[str, Any]] = []
+        if isinstance(user_prompt, str):
+            anthropic_content = [{"type": "text", "text": user_prompt}]
+        else:
+            for item in user_prompt:
+                if item.get("type") == "text":
+                    anthropic_content.append({"type": "text", "text": item.get("text", "")})
+                elif item.get("type") == "image_url":
+                    url = item.get("image_url", {}).get("url", "")
+                    if "base64," in url:
+                        parts = url.split("base64,")
+                        b64_data = parts[1]
+                        mime_type = parts[0].split(";")[0].replace("data:", "") or "image/png"
+                    else:
+                        b64_data = url
+                        mime_type = "image/png"
+
+                    anthropic_content.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": mime_type,
+                                "data": b64_data,
+                            },
+                        }
+                    )
+
+        max_tokens = 4096
+        payload: dict[str, Any] = {
+            "model": self.model_name,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": anthropic_content}],
+        }
+
+        # Support du Thinking Mode pour Claude 3.7
+        if self.thinking_budget > 0:
+            payload["thinking"] = {"type": "enabled", "budget_tokens": self.thinking_budget}
+            max_tokens = max(max_tokens, self.thinking_budget + 2048)
+
+        payload["max_tokens"] = max_tokens
 
         try:
-            response = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=30)
+            response = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=60)
             response.raise_for_status()
             data = response.json()
-            return data["content"][0]["text"]
+
+            # Enregistrement des tokens consommés
+            if "usage" in data:
+                usage = data["usage"]
+                log_token_usage("anthropic", self.model_name, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+
+            # Extraction du bloc de réponse textuelle (en ignorant les blocs de réflexion "thinking")
+            content_blocks = data.get("content", [])
+            for block in content_blocks:
+                if block.get("type") == "text":
+                    return str(block.get("text", ""))
+
+            if content_blocks and "text" in content_blocks[0]:
+                return str(content_blocks[0]["text"])
+
+            return ""
         except requests.RequestException as e:
             logger.exception("Erreur API Anthropic (%s) : %s", self.model_name, e)
             raise RuntimeError(f"Erreur API Anthropic ({self.model_name}) : {e}") from e
@@ -213,7 +279,12 @@ class AIManager:
         return AIManager.create_provider(provider_name=str(config.provider), model_id=str(config.model_id), api_key=str(config.api_key) if config.api_key else None)
 
     @staticmethod
-    def create_provider(provider_name: str, model_id: str, api_key: str | None = None) -> LLMProvider:
+    def create_provider(
+        provider_name: str,
+        model_id: str,
+        api_key: str | None = None,
+        thinking_budget: int = 0,
+    ) -> LLMProvider:
         """
         Instancie un fournisseur d'IA à partir de données brutes (Thread-safe).
         """
@@ -240,7 +311,7 @@ class AIManager:
                 api_key=key,
             )
         elif p_name == "anthropic":
-            return AnthropicProvider(api_key=key, model_name=model_id)
+            return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget)
         return MockProvider()
 
     def reload_provider(self) -> None:

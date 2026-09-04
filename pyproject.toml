@@ -29,6 +29,7 @@ dependencies = [
     "mcp>=2.0.0",
     "faiss-cpu>=1.14.3",
     "numpy>=2.4.4",
+    "pillow>=10.0.0",
 ]
 
 [project.gui-scripts]

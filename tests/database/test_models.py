@@ -7,7 +7,9 @@ from peewee import IntegrityError
 
 from ankiforge.database.models import (
     AICacheModel,
+    DocumentChunkModel,
     DocumentModel,
+    DocumentPageModel,
     FolderModel,
     MediaModel,
     NoteModel,
@@ -372,3 +374,38 @@ def test_setting_model_crud_and_json():
 
     # 6. Fallback par défaut
     assert SettingModel.get_value("non_existent_key", default="default_val") == "default_val"
+
+
+def test_document_page_model_and_multimodal_chunk():
+    """Vérifie l'intégrité de DocumentPageModel et des champs multimodaux de DocumentChunkModel."""
+    doc = DocumentModel.create(title="Doc Multimodal", file_type="album", total_pages=2)
+    media1 = MediaModel.create(filename="p1.png", original_name="p1.png", checksum="hash1", mime_type="image/png")
+    media2 = MediaModel.create(filename="p2.png", original_name="p2.png", checksum="hash2", mime_type="image/png")
+
+    page1 = DocumentPageModel.create(document=doc, media=media1, page_number=1, rotation=90)
+    assert page1.rotation == 90
+    assert page1.page_number == 1
+
+    # L'unicité de (document, page_number) doit être respectée
+    with pytest.raises(IntegrityError):
+        DocumentPageModel.create(document=doc, media=media2, page_number=1)
+
+    # DocumentChunkModel avec champs multimodaux (audio/bounding_box)
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        content="Extrait audio transcrit",
+        start_time=12.5,
+        end_time=45.0,
+        media=media1,
+        bounding_box="[10, 20, 100, 200]",
+    )
+    assert chunk.start_time == 12.5
+    assert chunk.end_time == 45.0
+    assert chunk.media == media1
+    assert chunk.bounding_box == "[10, 20, 100, 200]"
+
+    # Suppression de média met media_id à NULL sur chunk (on_delete="SET NULL")
+    media1.delete_instance()
+    chunk_reloaded = DocumentChunkModel.get_by_id(chunk.id)
+    assert chunk_reloaded.media is None

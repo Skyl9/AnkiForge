@@ -138,7 +138,7 @@ class MediaManager:
         Returns:
             int: Le nombre de fichiers supprimés.
         """
-        from ankiforge.database.models import MediaModel, NoteVersionModel
+        from ankiforge.database.models import DocumentModel, DocumentPageModel, MediaModel, NoteVersionModel
 
         # 1. Lister tous les médias réellement utilisés en base
         used_media = set()
@@ -147,6 +147,16 @@ class MediaManager:
         for version in NoteVersionModel.select(NoteVersionModel.content):
             matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', version.content)
             used_media.update(matches)
+
+        # Médias utilisés comme documents originaux
+        for doc in DocumentModel.select(DocumentModel.original_media).where(DocumentModel.original_media.is_null(False)):
+            if doc.original_media:
+                used_media.add(doc.original_media.filename)
+
+        # Médias utilisés comme pages d'albums
+        for page in DocumentPageModel.select(DocumentPageModel.media):
+            if page.media:
+                used_media.add(page.media.filename)
 
         logger.info("Démarrage du nettoyage des médias orphelins (%d médias actifs référencés)", len(used_media))
 
