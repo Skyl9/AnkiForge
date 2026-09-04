@@ -23,7 +23,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
-    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QProgressBar,
@@ -119,7 +118,7 @@ class Toast(QWidget):
         icon_name = cfg["icon"]
         display_title = title or cfg["title"]
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip | Qt.WindowType.SubWindow)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.ToolTip)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setFixedWidth(340)
@@ -205,12 +204,10 @@ class Toast(QWidget):
         shadow.setColor(QColor(0, 0, 0, 90))
         self.card.setGraphicsEffect(shadow)
 
-        # Animation d'opacité
-        self.opacity_effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(self.opacity_effect)
-        self.opacity_effect.setOpacity(0.0)
+        # Animation d'opacité native (évite les conflits QPainter / QWidgetEffectSourcePrivate avec QGraphicsDropShadowEffect)
+        self.setWindowOpacity(0.0)
 
-        self.fade_anim = QPropertyAnimation(self.opacity_effect, b"opacity", self)
+        self.fade_anim = QPropertyAnimation(self, b"windowOpacity", self)
         self.fade_anim.setDuration(220)
         self.fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
@@ -246,7 +243,7 @@ class Toast(QWidget):
         self._tick_timer.stop()
 
         self.fade_anim.stop()
-        self.fade_anim.setStartValue(self.opacity_effect.opacity())
+        self.fade_anim.setStartValue(self.windowOpacity())
         self.fade_anim.setEndValue(0.0)
         self.fade_anim.finished.connect(self._on_fade_out_finished)
         self.fade_anim.start()
@@ -287,6 +284,32 @@ class ToastManager:
             cls._instance = ToastManager()
         return cls._instance
 
+    def _resolve_host_window(self, parent: QWidget | None) -> QWidget | None:
+        """
+        Résout la fenêtre hôte durable (QMainWindow ou fenêtre principale active).
+        Évite d'ancrer un toast à une boîte de dialogue (QDialog) temporaire qui va être détruite.
+        """
+        from PySide6.QtWidgets import QApplication, QDialog, QMainWindow
+
+        host: QWidget | None = parent
+        if host and isinstance(host, QDialog):
+            host = host.parentWidget() or (host.parent() if isinstance(host.parent(), QWidget) else None)
+
+        if host and hasattr(host, "window"):
+            host = host.window()
+
+        if host is None or not host.isVisible():
+            app = QApplication.instance()
+            if app:
+                for widget in app.topLevelWidgets():
+                    if isinstance(widget, QMainWindow) and widget.isVisible():
+                        host = widget
+                        break
+                if host is None:
+                    host = app.activeWindow()
+
+        return host
+
     def show(
         self,
         parent: QWidget | None,
@@ -301,6 +324,8 @@ class ToastManager:
         if QApplication.instance() is None:
             return None
 
+        host_window = self._resolve_host_window(parent)
+
         if isinstance(level, str):
             try:
                 level_enum = ToastLevel(level.lower().strip())
@@ -314,11 +339,11 @@ class ToastManager:
             level=level_enum,
             title=title,
             duration_ms=duration_ms,
-            parent=parent,
+            parent=host_window,
         )
         toast.dismissed.connect(self._on_toast_dismissed)
         self._active_toasts.append(toast)
-        self._reposition_toasts(parent)
+        self._reposition_toasts(host_window)
         toast.show_toast()
         return toast
 
@@ -327,13 +352,14 @@ class ToastManager:
             self._active_toasts.remove(toast)
             try:
                 parent = toast.parentWidget()
-                self._reposition_toasts(parent)
+                self._reposition_toasts(self._resolve_host_window(parent))
             except Exception:
                 pass
 
     def _reposition_toasts(self, parent: QWidget | None) -> None:
         """Repositionne tous les toasts actifs empilés verticalement depuis le bas à droite."""
-        if not parent or not self._active_toasts:
+        host = self._resolve_host_window(parent)
+        if not host or not self._active_toasts:
             return
 
         from shiboken6 import isValid
@@ -344,8 +370,7 @@ class ToastManager:
             return
 
         try:
-            window = parent.window() if hasattr(parent, "window") else parent
-            win_geom = window.geometry()
+            win_geom = host.geometry()
             right_x = win_geom.x() + win_geom.width() - self._margin_right
             current_bottom_y = win_geom.y() + win_geom.height() - self._margin_bottom
 
@@ -402,4 +427,43 @@ def show_toast(
         level=target_level,
         title=title,
         duration_ms=duration_ms,
+    )
+
+
+def show_import_toast(parent: QWidget | None, summary: dict[str, int]) -> Toast | None:
+    """
+    Affiche une notification Toast détaillée récapitulant les résultats d'une importation Anki.
+    Fournit un retour utilisateur clair et exhaustif (cartes créées, mises à jour, fusions, médias).
+    """
+    created = summary.get("created", 0)
+    updated = summary.get("updated", 0)
+    merged = summary.get("merged", 0)
+    media = summary.get("media", 0)
+    total = created + updated + merged
+
+    if total == 0 and media == 0:
+        return show_toast(
+            parent=parent,
+            message="Aucune nouvelle carte ni modification détectée dans le paquet.",
+            level=ToastLevel.INFO,
+            title="Importation Terminée",
+            duration_ms=4500,
+        )
+
+    lines: list[str] = []
+    if created > 0:
+        lines.append(f"✨ {created} carte{'s' if created > 1 else ''} créée{'s' if created > 1 else ''}")
+    if updated > 0:
+        lines.append(f"🔄 {updated} mise{'s' if updated > 1 else ''} à jour silencieuse{'s' if updated > 1 else ''}")
+    if merged > 0:
+        lines.append(f"🤝 {merged} fusion{'s' if merged > 1 else ''} arbitrée{'s' if merged > 1 else ''}")
+    if media > 0:
+        lines.append(f"📎 {media} média{'s' if media > 1 else ''} indexé{'s' if media > 1 else ''}")
+
+    return show_toast(
+        parent=parent,
+        message="\n".join(lines),
+        level=ToastLevel.SUCCESS,
+        title="Importation Réussie",
+        duration_ms=6000,
     )

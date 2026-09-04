@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from ankiforge.services.audit.metrics_service import MetricsService
 from ankiforge.ui.components import IdePanel, PrimaryButton, SecondaryButton
@@ -341,8 +342,12 @@ class ProactiveDiagnosticsWidget(QFrame):
         self.main_layout.addWidget(self.cards_container)
 
         # État vierge / parfait
-        self.empty_card = QFrame()
-        self.empty_card.setStyleSheet(f"""
+        self.empty_card = self._create_empty_card()
+        self.cards_layout.addWidget(self.empty_card)
+
+    def _create_empty_card(self) -> QFrame:
+        empty_card = QFrame()
+        empty_card.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
@@ -350,7 +355,7 @@ class ProactiveDiagnosticsWidget(QFrame):
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
-        empty_layout = QHBoxLayout(self.empty_card)
+        empty_layout = QHBoxLayout(empty_card)
         empty_layout.setContentsMargins(16, 12, 16, 12)
         empty_layout.setSpacing(10)
         empty_icon = QLabel()
@@ -361,20 +366,25 @@ class ProactiveDiagnosticsWidget(QFrame):
         self.empty_text.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
         empty_layout.addWidget(self.empty_text)
         empty_layout.addStretch()
-
-        self.cards_layout.addWidget(self.empty_card)
+        return empty_card
 
     def set_diagnostics(self, diagnostics: list[dict[str, Any]]) -> None:
         """Met à jour les cartes de diagnostics affichées."""
         while self.cards_layout.count() > 0:
             item = self.cards_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w and isValid(w) and w is not getattr(self, "empty_card", None):
+                w.deleteLater()
 
         if not diagnostics:
-            self.cards_layout.addWidget(self.empty_card)
+            if not hasattr(self, "empty_card") or not isValid(self.empty_card):
+                self.empty_card = self._create_empty_card()
+            if self.cards_layout.indexOf(self.empty_card) == -1:
+                self.cards_layout.addWidget(self.empty_card)
             self.empty_card.show()
         else:
+            if hasattr(self, "empty_card") and isValid(self.empty_card):
+                self.empty_card.hide()
             for diag in diagnostics:
                 card = DiagnosticCardWidget(diag, self.cards_container)
                 card.action_clicked.connect(self.action_clicked.emit)
@@ -382,7 +392,8 @@ class ProactiveDiagnosticsWidget(QFrame):
 
     def refresh_theme(self, profile: Any) -> None:
         self.header_title.setStyleSheet(f"color: {profile.text_primary};")
-        self.empty_text.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
+        if hasattr(self, "empty_text") and isValid(self.empty_text):
+            self.empty_text.setStyleSheet(f"color: {profile.text_muted}; border: none; background: transparent;")
 
 
 class ActivityItem(QFrame):

@@ -31,7 +31,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.dialogs.smart_merge_dialog import SmartMergeDialog
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.ui.widgets.toast import show_import_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -275,6 +275,16 @@ class ImportDialog(QDialog):
         if file_path:
             self._on_file_selected(file_path)
 
+    def set_initial_file(self, file_path: str) -> None:
+        """Définit le fichier initial sélectionné (ex: via Drag & Drop du Dashboard)."""
+        self.path_input.setText(file_path)
+
+    def reject(self) -> None:
+        """Nettoie les ressources temporaires et ferme le dialogue."""
+        if self.analysis_result:
+            self.analysis_result.cleanup()
+        super().reject()
+
     def _on_file_selected(self, path: str) -> None:
         self.path_input.setText(path)
 
@@ -321,36 +331,38 @@ class ImportDialog(QDialog):
                 self.lbl_status.setText("Importation annulée par l'utilisateur.")
                 return
 
-        # Commit final
+        # Commit final asynchrone
         target_id = self.target_deck_id if self.radio_merge_deck.isChecked() else None
 
         self.lbl_status.setText("Écriture en base de données...")
         self.progress_bar.show()
 
-        try:
-            summary = self.import_manager.commit_import(
-                analysis=analysis,
-                conflict_resolutions=resolutions,
-                target_deck_id=target_id,
-                progress_callback=self.lbl_status.setText,
-            )
-            self.progress_bar.hide()
-            self.btn_import.setEnabled(True)
+        self.worker = ImportCardsWorker(
+            mode="commit",
+            import_manager=self.import_manager,
+            analysis=analysis,
+            conflict_resolutions=resolutions,
+            target_deck_id=target_id,
+            parent=self,
+        )
+        self.worker.progress.connect(self.lbl_status.setText)
+        self.worker.commit_finished.connect(self._on_commit_finished)
+        self.worker.error_signal.connect(self._on_import_error)
+        self.worker.start()
 
-            msg = (
-                f"Importation terminée avec succès !\n\n"
-                f"• {summary['created']} nouvelle(s) carte(s) créée(s)\n"
-                f"• {summary['updated']} mise(s) à jour silencieuse(s)\n"
-                f"• {summary['merged']} conflit(s) de contenu fusionné(s)\n"
-                f"• {summary['media']} fichier(s) média indexé(s)"
-            )
-            QMessageBox.information(self, "Importation Réussie", msg)
-            show_toast(self, "Importation Anki terminée !")
-            self.import_finished.emit(summary)
-            self.accept()
+    def _on_commit_finished(self, summary: dict[str, int]) -> None:
+        self.progress_bar.hide()
+        self.btn_import.setEnabled(True)
 
-        except Exception as e:
-            self._on_import_error(str(e))
+        # Récupérer la fenêtre parente (MainWindow ou Vue) pour persister le Toast
+        parent_widget = self.parentWidget() or self.window()
+
+        # Émission du signal et fermeture propre de la boîte de dialogue
+        self.import_finished.emit(summary)
+        self.accept()
+
+        # Notification Toast enrichie récapitulant les résultats d'importation
+        show_import_toast(parent=parent_widget, summary=summary)
 
     def _on_import_error(self, err_msg: str) -> None:
         self.progress_bar.hide()

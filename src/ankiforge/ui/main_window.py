@@ -457,6 +457,7 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.dialogs.import_dialog import ImportDialog
 
         dialog = ImportDialog(parent=self)
+        dialog.import_finished.connect(self._on_import_finished)
         dialog.exec()
 
     def _on_import_finished(self, summary: dict) -> None:

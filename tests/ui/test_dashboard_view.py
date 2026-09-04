@@ -111,3 +111,29 @@ def test_notification_menu_popup(qtbot):
 
     assert len(action_signals) == 1
     assert action_signals[0] == ("analysis", {"tab": "sources"})
+
+
+def test_dashboard_multiple_empty_diagnostics_no_crash(qtbot):
+    """Vérifie que recharger le dashboard plusieurs fois avec 0 diagnostic ne détruit pas empty_card."""
+    with patch("ankiforge.ui.views.dashboard_view.DashboardWorker.start"):
+        view = DashboardView(ai_manager=MagicMock())
+        qtbot.addWidget(view)
+        view.show()
+
+        # 1er chargement avec diagnostics vides
+        view._on_data_loaded({"kpis": {}, "diagnostics": [], "macro_activities": []})
+        assert not view.diagnostics_widget.empty_card.isHidden()
+
+        # 2e chargement avec diagnostics non-vides
+        view._on_data_loaded(
+            {
+                "kpis": {},
+                "diagnostics": [{"type": "test", "title": "Diag 1", "message": "msg"}],
+                "macro_activities": [],
+            }
+        )
+        assert view.diagnostics_widget.empty_card.isHidden()
+
+        # 3e chargement avec diagnostics vides à nouveau (ne doit pas crasher sur C++ deleted)
+        view._on_data_loaded({"kpis": {}, "diagnostics": [], "macro_activities": []})
+        assert not view.diagnostics_widget.empty_card.isHidden()
