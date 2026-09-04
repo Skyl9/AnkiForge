@@ -5,6 +5,7 @@ import logging
 import re
 from typing import Any
 
+import peewee
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QAction, QCursor, QMouseEvent
 from PySide6.QtWidgets import (
@@ -82,8 +83,8 @@ def extract_card_proposal_from_text(response: str, user_query: str = "") -> dict
                 act_v = n.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
                 if act_v and act_v.content:
                     return robust_json_loads(act_v.content)
-        except Exception:
-            pass
+        except (ValueError, TypeError, KeyError, peewee.PeeweeException) as err:
+            logger.debug("Impossible de récupérer la version originale de la note %s : %s", nid, err)
         return {}
 
     # 1. Chercher les blocs ```json ... ``` ou ``` ... ```
@@ -141,7 +142,8 @@ def extract_card_proposal_from_text(response: str, user_query: str = "") -> dict
                         "modified": parsed,
                         "explanation": f"Scission en {len(parsed)} cartes atomiques.",
                     }
-        except Exception:
+        except (ValueError, json.JSONDecodeError, TypeError, KeyError) as err:
+            logger.debug("Bloc markdown non convertible en patch diff : %s", err)
             continue
 
     # 2. Chercher du JSON brut sans markdown
@@ -162,8 +164,8 @@ def extract_card_proposal_from_text(response: str, user_query: str = "") -> dict
                 "modified": parsed,
                 "explanation": explanation,
             }
-    except Exception:
-        pass
+    except (json.JSONDecodeError, ValueError, TypeError, KeyError) as err:
+        logger.debug("Échec parsing JSON brut pour diff : %s", err)
 
     return None
 

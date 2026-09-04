@@ -296,7 +296,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
                         parsed = json.loads(v.content)
                         if isinstance(parsed, dict):
                             content_by_note_id[v.note_id] = {str(k): strip_html(val) for k, val in parsed.items()}
-                    except Exception:
+                    except (json.JSONDecodeError, ValueError, TypeError):
                         pass
                 version_num_by_note_id[v.note_id] = getattr(v, "version_number", 1)
         except Exception as e:
@@ -367,7 +367,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[NoteRowData]):
                 parsed = json.loads(v.content)
                 if isinstance(parsed, dict):
                     data = {str(k): strip_html(val) for k, val in parsed.items()}
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError, peewee.PeeweeException):
             pass
         return data
 

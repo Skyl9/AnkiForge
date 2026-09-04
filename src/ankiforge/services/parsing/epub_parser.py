@@ -9,13 +9,13 @@ import logging
 import mimetypes
 import posixpath
 import re
-import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
+import defusedxml.ElementTree as ET
 import markdownify
 from bs4 import BeautifulSoup, Tag
 

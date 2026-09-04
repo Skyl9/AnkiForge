@@ -339,8 +339,9 @@ def install_crash_handlers(log_dir: Path | None = None) -> None:
         try:
             with open(crash_file, "a", encoding="utf-8") as f:
                 f.write(f"\n{'=' * 70}\nCRASH REPORT - {platform.platform()} | Python {platform.python_version()}\nProfil actif : {get_active_profile()}\n{'=' * 70}\n{sanitized_tb}\n")
-        except Exception:
-            pass
+        except OSError as err:
+            if sys.__stderr__:
+                sys.__stderr__.write(f"Impossible d'enregistrer le crash report dans {crash_file}: {err}\n")
 
     def handle_thread_exception(args: threading.ExceptHookArgs) -> None:
         handle_exception(args.exc_type, args.exc_value, args.exc_traceback)

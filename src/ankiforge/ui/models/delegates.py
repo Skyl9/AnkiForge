@@ -133,7 +133,7 @@ def parse_qcolor(color_val: Any, fallback: str = "#6366f1") -> QColor:
                 r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
                 a = int(float(parts[3]) * 255)
                 return QColor(r, g, b, a)
-        except Exception:
+        except (ValueError, IndexError):
             pass
     elif val.startswith("rgb(") and val.endswith(")"):
         try:
@@ -141,7 +141,7 @@ def parse_qcolor(color_val: Any, fallback: str = "#6366f1") -> QColor:
             if len(parts) == 3:
                 r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
                 return QColor(r, g, b)
-        except Exception:
+        except (ValueError, IndexError):
             pass
     col = QColor(val)
     if col.isValid():

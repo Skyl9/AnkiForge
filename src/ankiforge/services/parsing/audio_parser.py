@@ -147,20 +147,24 @@ class AudioParser:
         openai_key = os.environ.get("OPENAI_API_KEY")
         if not openai_key:
             try:
+                from peewee import PeeweeException
+
                 from ankiforge.services.settings_service import SettingsService
 
                 openai_key = str(SettingsService.get("keys/openai", ""))
-            except Exception:
+            except (PeeweeException, KeyError, AttributeError):
                 pass
 
         if not openai_key:
             try:
+                from peewee import PeeweeException
+
                 from ankiforge.database.models import LLMConfigModel
 
                 cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "openai").first()
                 if cfg and cfg.api_key:
                     openai_key = str(cfg.api_key)
-            except Exception:
+            except (PeeweeException, KeyError, AttributeError):
                 pass
 
         if openai_key:
@@ -170,20 +174,24 @@ class AudioParser:
         groq_key = os.environ.get("GROQ_API_KEY")
         if not groq_key:
             try:
+                from peewee import PeeweeException
+
                 from ankiforge.services.settings_service import SettingsService
 
                 groq_key = str(SettingsService.get("keys/groq", ""))
-            except Exception:
+            except (PeeweeException, KeyError, AttributeError):
                 pass
 
         if not groq_key:
             try:
+                from peewee import PeeweeException
+
                 from ankiforge.database.models import LLMConfigModel
 
                 cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "groq").first()
                 if cfg and cfg.api_key:
                     groq_key = str(cfg.api_key)
-            except Exception:
+            except (PeeweeException, KeyError, AttributeError):
                 pass
 
         if groq_key:

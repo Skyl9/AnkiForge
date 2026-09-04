@@ -18,7 +18,7 @@ if sys.platform == "darwin":
         _mod_res = Path(__file__).resolve().parent.parent.parent / "Resources"
         if _mod_res.exists() and str(_mod_res) not in sys.path:
             sys.path.insert(0, str(_mod_res))
-    except Exception:
+    except (OSError, ValueError):
         pass
 
 from dotenv import load_dotenv

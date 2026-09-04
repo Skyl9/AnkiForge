@@ -353,8 +353,8 @@ class ToastManager:
             try:
                 parent = toast.parentWidget()
                 self._reposition_toasts(self._resolve_host_window(parent))
-            except Exception:
-                pass
+            except RuntimeError as err:
+                logger.debug("Repositionnement toast ignoré (widget détruit) : %s", err)
 
     def _reposition_toasts(self, parent: QWidget | None) -> None:
         """Repositionne tous les toasts actifs empilés verticalement depuis le bas à droite."""
@@ -383,8 +383,8 @@ class ToastManager:
                     target_y = current_bottom_y - t_height
                     toast.move(QPoint(target_x, target_y))
                     current_bottom_y = target_y - self._spacing
-        except Exception:
-            pass
+        except RuntimeError as err:
+            logger.debug("Erreur géométrie toast (widget détruit) : %s", err)
 
     def clear(self) -> None:
         """Ferme immédiatement tous les toasts actifs."""

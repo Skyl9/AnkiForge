@@ -394,7 +394,7 @@ class ImportManager:
                         text_cand = raw_media_bytes.decode("utf-8")
                         if text_cand.strip().startswith("{"):
                             media_map = json.loads(text_cand)
-                    except Exception:
+                    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
                         pass
 
                     # Essai 2 : Protobuf MediaEntries
@@ -518,21 +518,10 @@ class ImportManager:
                 note_cards_map: dict[int, list[dict[str, Any]]] = {}
                 if "cards" in tables:
                     try:
-                        cursor.execute("PRAGMA table_info(cards)")
-                        card_cols = {r[1] for r in cursor.fetchall()}
-                        query_cols = ["id", "nid", "did"]
-                        if "ord" in card_cols:
-                            query_cols.append("ord")
-                        if "ivl" in card_cols:
-                            query_cols.append("ivl")
-                        if "reps" in card_cols:
-                            query_cols.append("reps")
-                        if "lapses" in card_cols:
-                            query_cols.append("lapses")
-
-                        cursor.execute(f"SELECT {', '.join(query_cols)} FROM cards ORDER BY id")
+                        cursor.execute("SELECT * FROM cards ORDER BY id")
+                        col_names = [desc[0] for desc in cursor.description]
                         for crow in cursor.fetchall():
-                            cdict = dict(zip(query_cols, crow, strict=False))
+                            cdict = dict(zip(col_names, crow, strict=False))
                             nid = cdict["nid"]
                             card_entry = {
                                 "id": cdict["id"],

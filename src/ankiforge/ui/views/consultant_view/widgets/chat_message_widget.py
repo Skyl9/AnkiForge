@@ -147,7 +147,7 @@ class ChatMessageWidget(QWidget):
                     step_num = int(item[0])
                     th_txt = str(item[1])
                     self.add_or_update_thought(step_num, th_txt, is_running=False)
-                except Exception:
+                except (ValueError, IndexError, TypeError):
                     pass
 
         if tool_calls:
@@ -160,7 +160,7 @@ class ChatMessageWidget(QWidget):
                     tc_widget = ToolCallWidget(t_name, t_args, t_res, is_error=t_err, is_running=False)
                     self._tool_widgets.append(tc_widget)
                     self.steps_layout.addWidget(tc_widget)
-                except Exception:
+                except (IndexError, TypeError):
                     pass
 
         has_steps = bool(self._thought_widgets or self._tool_widgets)

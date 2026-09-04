@@ -4,6 +4,7 @@ Génère et applique dynamiquement les règles QSS sémantiques basées sur les 
 """
 
 import contextlib
+import logging
 from typing import Optional
 
 from PySide6.QtCore import QObject, QSettings, Signal
@@ -20,6 +21,8 @@ from ankiforge.ui.style_engine.themes import (
     get_unique_builtin_themes,
 )
 from ankiforge.ui.theme import DesignTokens
+
+logger = logging.getLogger(__name__)
 
 
 class StyleEngine(QObject):
@@ -970,15 +973,15 @@ class StyleEngine(QObject):
                         try:
                             widget.refresh_theme(profile)
                         except TypeError:
-                            with contextlib.suppress(Exception):
+                            with contextlib.suppress(TypeError, RuntimeError):
                                 widget.refresh_theme()
-                        except Exception:
-                            pass
+                        except (RuntimeError, AttributeError) as err:
+                            logger.debug("Échec rafraîchissement thème du widget %s : %s", widget, err)
                     style.unpolish(widget)
                     style.polish(widget)
                     widget.update()
-                except Exception:
-                    pass  # nosec B110
+                except RuntimeError as err:
+                    logger.debug("Widget Qt détruit pendant la propagation de style : %s", err)
 
     def get_theme_families(self) -> list[ThemeFamily]:
         """Retourne la liste des 12 familles de thèmes bivalentes."""

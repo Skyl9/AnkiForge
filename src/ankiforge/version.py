@@ -72,7 +72,7 @@ def _read_git_commit(project_root: Path) -> str:
         )
         if res.returncode == 0 and res.stdout.strip():
             return res.stdout.strip()
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         pass
     return "dev"
 
@@ -87,7 +87,7 @@ def _read_pyproject_version(project_root: Path) -> str:
                     stripped = line.strip()
                     if stripped.startswith("version") and "=" in stripped:
                         return stripped.split("=")[1].strip().strip("\"'")
-    except Exception:
+    except (OSError, UnicodeDecodeError, ValueError):
         pass
     return DEFAULT_VERSION
 

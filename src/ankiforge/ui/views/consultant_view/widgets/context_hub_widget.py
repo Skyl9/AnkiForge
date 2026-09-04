@@ -15,6 +15,7 @@ import json
 import logging
 from typing import Any
 
+import peewee
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
@@ -662,7 +663,7 @@ class ContextHubWidget(QWidget):
                         icon = "ph.cards"
                         icon_color = DesignTokens.ACCENT_PRIMARY
                         bg_tint = "rgba(99, 102, 241, 0.15)"
-                except Exception:
+                except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
             elif ctx_id.startswith("doc_"):
@@ -677,7 +678,7 @@ class ContextHubWidget(QWidget):
                         icon = "ph.file-text"
                         icon_color = DesignTokens.COLOR_BLUE
                         bg_tint = "rgba(59, 130, 246, 0.15)"
-                except Exception:
+                except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
             elif ctx_id.startswith("card_"):
@@ -691,7 +692,7 @@ class ContextHubWidget(QWidget):
                             try:
                                 d_c = json.loads(active_v.content)
                                 snip = d_c.get("Front", d_c.get("Recto", active_v.content))
-                            except Exception:
+                            except (json.JSONDecodeError, ValueError, TypeError):
                                 snip = active_v.content
                         title = f"🗂️ Carte ciblée #{note.id}"
                         subtitle = f"{str(snip)[:30]}..."
@@ -699,7 +700,7 @@ class ContextHubWidget(QWidget):
                         icon = "ph.cardholder"
                         icon_color = DesignTokens.COLOR_GREEN
                         bg_tint = "rgba(16, 185, 129, 0.15)"
-                except Exception:
+                except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
             elif ctx_id.startswith("model_"):
@@ -713,7 +714,7 @@ class ContextHubWidget(QWidget):
                         icon = "ph.paint-brush"
                         icon_color = DesignTokens.COLOR_YELLOW
                         bg_tint = "rgba(245, 158, 11, 0.15)"
-                except Exception:
+                except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
             total_sources_tok += tok

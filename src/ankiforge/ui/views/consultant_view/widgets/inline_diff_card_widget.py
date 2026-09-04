@@ -17,7 +17,7 @@ import uuid
 import weakref
 from typing import Any
 
-from peewee import fn
+from peewee import PeeweeException, fn
 from PySide6.QtCore import QSettings, Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -60,7 +60,7 @@ def get_saved_diff_view_mode() -> str:
         repo_val = SettingRepository().get_setting("consultant_diff_view_mode")
         if repo_val:
             return str(repo_val)
-    except Exception:
+    except (PeeweeException, KeyError, AttributeError, OSError):
         pass
     return "unified"
 
@@ -73,7 +73,7 @@ def save_saved_diff_view_mode(mode: str) -> None:
         from ankiforge.repositories import SettingRepository
 
         SettingRepository().set_setting("consultant_diff_view_mode", mode)
-    except Exception:
+    except (PeeweeException, KeyError, AttributeError, OSError):
         pass
 
 
@@ -759,7 +759,7 @@ class InlineDiffCardWidget(QFrame):
             self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
             try:
                 self.btn_apply.clicked.disconnect()
-            except Exception:
+            except RuntimeError:
                 pass
             self.btn_apply.clicked.connect(self._on_revert_clicked)
             self.btn_reject.setEnabled(False)
@@ -840,7 +840,7 @@ class InlineDiffCardWidget(QFrame):
                     self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
                     try:
                         self.btn_apply.clicked.disconnect()
-                    except Exception:
+                    except RuntimeError:
                         pass
                     self.btn_apply.clicked.connect(self._on_revert_clicked)
                     self.btn_reject.setEnabled(False)
@@ -945,7 +945,7 @@ class InlineDiffCardWidget(QFrame):
             self.btn_apply.setIcon(load_phosphor_icon("ph.check", color="white"))
             try:
                 self.btn_apply.clicked.disconnect()
-            except Exception:
+            except RuntimeError:
                 pass
             self.btn_apply.clicked.connect(self._on_apply_clicked)
             self.btn_reject.setEnabled(True)

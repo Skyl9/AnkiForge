@@ -18,7 +18,7 @@ import logging
 import uuid
 from typing import Any
 
-from peewee import fn
+from peewee import PeeweeException, fn
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QApplication,
@@ -414,7 +414,7 @@ class WorkspaceInspectorWidget(QWidget):
                     n = NoteModel.get_or_none(NoteModel.id == int(note_id))
                     if n:
                         nt = n.note_type
-                except Exception:
+                except (ValueError, TypeError, PeeweeException):
                     pass
             if not nt:
                 nt = NoteTypeModel.select().first()
@@ -424,7 +424,7 @@ class WorkspaceInspectorWidget(QWidget):
             if isinstance(raw_mod, str) and raw_mod.strip().startswith(("{", "[")):
                 try:
                     raw_mod = json.loads(raw_mod)
-                except Exception:
+                except (json.JSONDecodeError, ValueError, TypeError):
                     pass
 
             if p_type == "card" and isinstance(raw_mod, dict):

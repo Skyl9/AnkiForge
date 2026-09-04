@@ -98,7 +98,7 @@ class MentionCompleter(QCompleter):
                             f_list = json.loads(nt.fields_schema)
                             if isinstance(f_list, list):
                                 fields_repr = f" — [{', '.join(f_list[:4])}{'...' if len(f_list) > 4 else ''}]"
-                        except Exception:
+                        except (json.JSONDecodeError, ValueError, TypeError):
                             pass
                     display_text = f"@model:{nt.name}{fields_repr}"
                     if not clean_filter or clean_filter in nt.name.lower() or "model" in clean_filter:

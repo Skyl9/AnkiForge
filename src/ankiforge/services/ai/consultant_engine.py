@@ -57,13 +57,13 @@ def robust_json_loads(text: Any) -> Any:
     # 1. Essai direct standard (permet de préserver les \uXXXX unicode natifs)
     try:
         return json.loads(clean)
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     # 2. Essai en mode non strict
     try:
         return json.loads(clean, strict=False)
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     # 3. Réparation ciblée des anti-slashs LaTeX (si json.loads standard a échoué)
@@ -79,14 +79,14 @@ def robust_json_loads(text: Any) -> Any:
     try:
         repaired = _fix_latex_backslashes(clean)
         return json.loads(repaired, strict=False)
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     # 4. Remplacement global de tous les \ isolés sauf devant " ou \
     try:
         repaired_all = re.sub(r'(?<!\\)\\(?!["\\])', r"\\\\", clean)
         return json.loads(repaired_all, strict=False)
-    except Exception:
+    except (json.JSONDecodeError, ValueError):
         pass
 
     # 5. Fallback vers ast.literal_eval pour les structures Python
@@ -94,7 +94,7 @@ def robust_json_loads(text: Any) -> Any:
         import ast
 
         return ast.literal_eval(clean)
-    except Exception:
+    except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
         pass
 
     raise ValueError(f"Impossible de parser le JSON : {clean[:120]}...")
