@@ -88,12 +88,14 @@ class BatchView(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
         # TOP ROW: Metrics Cards
-        metrics_row = QHBoxLayout()
-        metrics_row.setContentsMargins(0, 0, 0, 0)
+        metrics_container = QWidget()
+        metrics_container.setObjectName("batchMetricsContainer")
+        metrics_row = QHBoxLayout(metrics_container)
+        metrics_row.setContentsMargins(12, 10, 12, 10)
         metrics_row.setSpacing(12)
 
         self.card_status = CicdMetricCard("STATUT GLOBAL", "En attente", "ph.check-circle", color="#10b981")
@@ -106,7 +108,7 @@ class BatchView(QWidget):
         metrics_row.addWidget(self.card_cards, 1)
         metrics_row.addWidget(self.card_cost, 1)
 
-        main_layout.addLayout(metrics_row)
+        main_layout.addWidget(metrics_container)
 
         # MAIN SPLITTER
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)

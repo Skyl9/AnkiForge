@@ -108,56 +108,59 @@ def capture(
 
     # Thème
     engine = get_style_engine()
-    engine.save_theme_preference("default", theme_id)
-    engine.apply_theme(theme_id, app)
+    from ankiforge.ui.layouts.layout_manager import LayoutManager
 
-    from ankiforge.ui.main_window import MainWindow
+    orig_theme = engine.get_saved_theme_id(profile_name)
+    orig_layout = LayoutManager.get_saved_layout_id(profile_name)
+    try:
+        engine.save_theme_preference(profile_name, theme_id)
+        engine.apply_theme(theme_id, app)
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
-        window = MainWindow(ai_manager=None, profile_name="default")
-        window.resize(width, height)
-        window.show()
-        app.processEvents()
+        from ankiforge.ui.main_window import MainWindow
 
-        if layout_id != "ide":
-            window.apply_layout(layout_id)
+        with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+            window = MainWindow(ai_manager=None, profile_name=profile_name)
+            window.resize(width, height)
+            window.show()
             app.processEvents()
 
-        all_views = list(window.VIEW_REGISTRY.keys())
-
-        if capture_all:
-            out_dir = Path(output_path) if output_path else get_project_root() / "temp" / "screens"
-            out_dir.mkdir(parents=True, exist_ok=True)
-
-            for vid in all_views:
-                try:
-                    window._on_view_selected(vid)
-                    for _ in range(6):
-                        app.processEvents()
-                    target_file = out_dir / f"{vid}.png"
-                    window.grab().save(str(target_file))
-                    print(f"✅ Capture réussie : {vid} -> {target_file}")
-                except Exception as e:
-                    print(f"❌ Erreur sur {vid} : {e}")
-        else:
-            target_view = view_name or "dashboard"
-            if target_view not in all_views:
-                print(f"⚠️ Vue inconnue '{target_view}'. Vues disponibles : {', '.join(all_views)}")
-                return
-
-            window._on_view_selected(target_view)
-            for _ in range(6):
+            if layout_id != orig_layout:
+                window.apply_layout(layout_id)
                 app.processEvents()
 
-            if output_path:
-                target_file = Path(output_path)
-                target_file.parent.mkdir(parents=True, exist_ok=True)
-            else:
-                target_file = get_project_root() / "temp" / "screens" / f"{target_view}.png"
-                target_file.parent.mkdir(parents=True, exist_ok=True)
+            all_views = list(window.VIEW_REGISTRY.keys())
 
-            window.grab().save(str(target_file))
-            print(f"✅ Capture réussie : {target_view} -> {target_file}")
+            if capture_all:
+                out_dir = Path(output_path) if output_path else get_project_root() / "temp" / "screens"
+                out_dir.mkdir(parents=True, exist_ok=True)
+
+                for vid in all_views:
+                    try:
+                        window._on_view_selected(vid)
+                        for _ in range(6):
+                            app.processEvents()
+                        target_file = out_dir / f"{vid}.png"
+                        window.grab().save(str(target_file))
+                        print(f"✅ Capture réussie : {vid} -> {target_file}")
+                    except Exception as e:
+                        print(f"❌ Erreur sur {vid} : {e}")
+            else:
+                target_view = view_name or "dashboard"
+                if target_view not in all_views:
+                    print(f"⚠️ Vue inconnue '{target_view}'. Vues disponibles : {', '.join(all_views)}")
+                    return
+
+                window._on_view_selected(target_view)
+                for _ in range(6):
+                    app.processEvents()
+
+                out_file = Path(output_path) if output_path else get_project_root() / "temp" / "screens" / f"{target_view}.png"
+                out_file.parent.mkdir(parents=True, exist_ok=True)
+                window.grab().save(str(out_file))
+                print(f"✅ Capture réussie : {target_view} -> {out_file}")
+    finally:
+        engine.save_theme_preference(profile_name, orig_theme)
+        LayoutManager.save_layout_id(profile_name, orig_layout)
 
 
 def main():
