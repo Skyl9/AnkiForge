@@ -1,20 +1,13 @@
-import base64
-import io
-import re
+from typing import Any
 
-from PySide6.QtCore import QRegularExpression, QStringListModel, Qt, QTimer, Signal
+from PySide6.QtCore import QRegularExpression, QStringListModel, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QFont, QKeyEvent, QSyntaxHighlighter, QTextCharFormat, QTextCursor
-from PySide6.QtWidgets import QCompleter, QFrame, QHBoxLayout, QPlainTextEdit, QPushButton, QSplitter, QTextBrowser, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCompleter, QFrame, QHBoxLayout, QPlainTextEdit, QPushButton, QSplitter, QVBoxLayout, QWidget
 
-from ankiforge.ui.theme import DesignTokens, is_dark_mode
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 
-# Optional mathtext import
-try:
-    from matplotlib.mathtext import math_to_image
-
-    HAS_MATHTEXT = True
-except ImportError:
-    HAS_MATHTEXT = False
+HAS_MATHTEXT = False
 
 
 LATEX_MACROS = [
@@ -65,10 +58,10 @@ class KaTeXHighlighter(QSyntaxHighlighter):
         # 2. LaTeX : vert
         latex_format = QTextCharFormat()
         latex_format.setForeground(QColor(DesignTokens.COLOR_GREEN))
-        self.rules.append((QRegularExpression(r"\$.*?\$"), latex_format))
-        self.rules.append((QRegularExpression(r"\\\([^)]+\\\)"), latex_format))
-        self.rules.append((QRegularExpression(r"\\\[.*?\\\]"), latex_format))
-        self.rules.append((QRegularExpression(r"\$\$.*?\$\$"), latex_format))
+        self.rules.append((QRegularExpression(r"\$\$.+?\$\$"), latex_format))
+        self.rules.append((QRegularExpression(r"\\\[.+?\\\]"), latex_format))
+        self.rules.append((QRegularExpression(r"\\\(.+?\\\)"), latex_format))
+        self.rules.append((QRegularExpression(r"\$[^$\n]+\$"), latex_format))
 
         # 3. Jinja2 : orange
         jinja_format = QTextCharFormat()
@@ -277,8 +270,7 @@ class KaTeXEditor(QWidget):
         self.highlighter = KaTeXHighlighter(self.editor.document())
 
         # Preview
-        self.preview = QTextBrowser()
-        self.preview.setOpenExternalLinks(True)
+        self.preview = SafeWebEngineView()
 
         self.splitter.addWidget(self.editor)
         self.splitter.addWidget(self.preview)
@@ -319,54 +311,31 @@ class KaTeXEditor(QWidget):
         self._update_preview()
 
     def _render_math(self, math_str: str) -> str:
-        if not HAS_MATHTEXT:
-            return f"<i>{math_str}</i>"
-
-        if math_str in self.math_cache:
-            return self.math_cache[math_str]
-
-        try:
-            buf = io.BytesIO()
-            color = "white" if is_dark_mode() else "black"
-            # Utilisation de mathtext pour générer une image
-            math_to_image(f"${math_str}$", buf, format="png", dpi=120, color=color)
-            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            img_tag = f'<img src="data:image/png;base64,{b64}" style="vertical-align: middle;">'
-            self.math_cache[math_str] = img_tag
-            return img_tag
-        except Exception:
-            # Fallback si erreur de parsing LaTeX
-            return '<span style="color: red;">[Math Error]</span>'
+        return f"\\({math_str}\\)"
 
     def _update_preview(self):
         import markdown
 
-        text = self.editor.toPlainText()
+        from ankiforge.utils.anki_renderer import _preprocess_math_blocks, get_mathjax_script
+        from ankiforge.utils.paths import get_media_dir
 
-        # On remplace les blocs LaTeX par les images HTML
-        # 1. $...$ (non-greedy)
-        text = re.sub(r"\$(.*?)\$", lambda m: self._render_math(m.group(1)), text)
-        # 2. \(...\)
-        text = re.sub(r"\\\((.*?)\\\)", lambda m: self._render_math(m.group(1)), text)
-        # 3. \[...\]
-        text = re.sub(r"\\\[(.*?)\\\]", lambda m: f"<div align='center'>{self._render_math(m.group(1))}</div>", text)
-        # 4. $$...$$
-        text = re.sub(r"\$\$(.*?)\$\$", lambda m: f"<div align='center'>{self._render_math(m.group(1))}</div>", text)
+        text = self.editor.toPlainText()
+        text = _preprocess_math_blocks(text)
 
         # Conversion Markdown vers HTML
-        # On utilise nl2br pour préserver les retours à la ligne simples
         html_body = markdown.markdown(text, extensions=["tables", "fenced_code", "nl2br", "sane_lists"])
 
-        html_content = f"""
+        html_content = f"""<!DOCTYPE html>
         <html>
         <head>
+        <meta charset="utf-8">
         <style>
             body {{
                 font-family: {DesignTokens.FONT_MAIN};
                 font-size: {DesignTokens.FONT_SIZE_BASE}px;
                 color: {DesignTokens.TEXT_PRIMARY};
                 background-color: {DesignTokens.BG_MAIN};
-                margin: 10px;
+                margin: 15px;
                 line-height: 1.6;
             }}
             h1, h2, h3 {{ color: {DesignTokens.ACCENT_PRIMARY}; }}
@@ -376,11 +345,22 @@ class KaTeXEditor(QWidget):
             table {{ border-collapse: collapse; width: 100%; }}
             th, td {{ border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 8px; text-align: left; }}
             th {{ background-color: {DesignTokens.BG_HOVER}; }}
+            .cloze {{ color: #38bdf8; font-weight: bold; }}
+            .katex .cloze {{ color: #38bdf8 !important; font-weight: bold; background: rgba(56, 189, 248, 0.15); border-radius: 3px; padding: 0 3px; }}
         </style>
         </head>
         <body>
             {html_body}
+            {get_mathjax_script()}
         </body>
         </html>
         """
-        self.preview.setHtml(html_content)
+        media_dir = get_media_dir()
+        media_dir.mkdir(exist_ok=True)
+        base_url = QUrl.fromLocalFile(str(media_dir) + "/")
+        self.preview.setHtmlSafe(html_content, base_url)
+
+    def closeEvent(self, event: Any) -> None:
+        if hasattr(self, "preview") and hasattr(self.preview, "cleanup"):
+            self.preview.cleanup()
+        super().closeEvent(event)

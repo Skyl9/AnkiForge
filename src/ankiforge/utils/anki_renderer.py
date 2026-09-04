@@ -1,6 +1,8 @@
 import logging
 import re
 
+from ankiforge.utils.paths import get_resource_path
+
 logger = logging.getLogger(__name__)
 
 AnkiFields = dict[str, str | list[str]]
@@ -106,25 +108,85 @@ def _process_front_side(html: str, front_html: str, safe_fields: dict[str, str])
     return html.replace("{{FrontSide}}", front_rendered)
 
 
+def _preprocess_math_blocks(html: str) -> str:
+    """
+    Normalise et prépare les blocs mathématiques pour KaTeX :
+    - Convertit les balises Anki historiques [latex]...[/latex], [math]...[/math], [$]...[/$], [$$]...[/$$].
+    - Nettoie les balises parasites (<br>, &nbsp;, &amp;, etc.) à l'intérieur des délimiteurs mathématiques.
+    - Transforme les clozes imbriqués (<span class='cloze'>...</span>) en macro KaTeX \\htmlClass{cloze}{...}
+      pour garantir un rendu KaTeX continu tout en conservant le style visuel de trou cloze.
+    """
+    # 1. Conversion des balises math Anki historiques et variantes
+    html = re.sub(r"\[latex\](.*?)\[/latex\]", lambda m: r"\[" + m.group(1) + r"\]", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"\[math\](.*?)\[/math\]", lambda m: r"\(" + m.group(1) + r"\)", html, flags=re.DOTALL | re.IGNORECASE)
+    html = html.replace("[$]", r"\(").replace("[/$]", r"\)")
+    html = html.replace("[$$]", r"\[").replace("[/$$]", r"\]")
+
+    # 2. Nettoyage interne des blocs mathématiques
+    math_pattern = re.compile(r"(\\\[.*?\\\]|\\\(.*?\\\)|\$\$.*?\$\$)", flags=re.DOTALL)
+
+    def _clean_block(m: re.Match[str]) -> str:
+        block = m.group(0)
+        # Cloze span dans la formule -> \htmlClass{cloze}{contenu}
+        block = re.sub(
+            r"<span class=[\"']cloze[\"'][^>]*>(.*?)</span>",
+            lambda cm: r"\htmlClass{cloze}{" + cm.group(1) + r"}",
+            block,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        # Balises de saut de ligne HTML -> \n
+        block = re.sub(r"<br\s*/?>", "\n", block, flags=re.IGNORECASE)
+        # Entités HTML courantes
+        block = block.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+        return block
+
+    return math_pattern.sub(_clean_block, html)
+
+
 def get_mathjax_script() -> str:
-    return r"""
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+    css_res = get_resource_path("resources", "katex", "katex.min.css")
+    js_res = get_resource_path("resources", "katex", "katex.min.js")
+    auto_render_res = get_resource_path("resources", "katex", "auto-render.min.js")
+
+    if css_res.exists() and js_res.exists() and auto_render_res.exists():
+        css_url = css_res.as_uri()
+        js_url = js_res.as_uri()
+        auto_render_url = auto_render_res.as_uri()
+    else:
+        css_url = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+        js_url = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        auto_render_url = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+
+    return f"""
+    <link rel="stylesheet" href="{css_url}" crossorigin="anonymous">
+    <script src="{js_url}" crossorigin="anonymous"></script>
+    <script src="{auto_render_url}" crossorigin="anonymous"></script>
     <script>
-        var katexInterval = setInterval(function() {
-            if (window.renderMathInElement) {
+        var katexAttempts = 0;
+        var katexInterval = setInterval(function() {{
+            katexAttempts++;
+            if (window.renderMathInElement) {{
                 clearInterval(katexInterval);
-                renderMathInElement(document.body, {
+                renderMathInElement(document.body, {{
                     delimiters: [
-                        {left: '$$', right: '$$', display: true},
-                        {left: '\\[', right: '\\]', display: true},
-                        {left: '\\(', right: '\\)', display: false}
+                        {{left: '$$', right: '$$', display: true}},
+                        {{left: '\\\\[', right: '\\\\]', display: true}},
+                        {{left: '\\\\(', right: '\\\\)', display: false}},
+                        {{left: '\\\\begin{{equation}}', right: '\\\\end{{equation}}', display: true}},
+                        {{left: '\\\\begin{{align}}', right: '\\\\end{{align}}', display: true}},
+                        {{left: '\\\\begin{{aligned}}', right: '\\\\end{{aligned}}', display: true}},
+                        {{left: '\\\\begin{{alignat}}', right: '\\\\end{{alignat}}', display: true}},
+                        {{left: '\\\\begin{{gather}}', right: '\\\\end{{gather}}', display: true}},
+                        {{left: '\\\\begin{{CD}}', right: '\\\\end{{CD}}', display: true}}
                     ],
+                    trust: function(ctx) {{ return true; }},
+                    strict: 'ignore',
                     throwOnError: false
-                });
-            }
-        }, 50);
+                }});
+            }} else if (katexAttempts >= 100) {{
+                clearInterval(katexInterval);
+            }}
+        }}, 50);
     </script>
     """
 
@@ -142,7 +204,7 @@ def render_anki_card(
     Simule le rendu HTML d'une carte Anki.
 
     Gère les remplacements de champs, les sections conditionnelles, les trous de complétion
-    (cloze deletion), le mode nuit et l'injection de MathJax pour le rendu LaTeX.
+    (cloze deletion), le mode nuit et l'injection de MathJax/KaTeX pour le rendu LaTeX.
 
     Args:
         raw_html (str): Le template HTML brut (Recto ou Verso).
@@ -173,9 +235,8 @@ def render_anki_card(
     if not is_recto:
         html = _process_front_side(html, front_html, safe_fields)
 
-    # Conversion des balises math Anki historiques
-    html = html.replace("[$]", "\\(").replace("[/$]", "\\)")
-    html = html.replace("[$$]", "\\[").replace("[/$$]", "\\]")
+    # Pré-traitement et normalisation des blocs mathématiques KaTeX / LaTeX
+    html = _preprocess_math_blocks(html)
 
     body_class = "nightMode" if is_dark_mode else ""
     final_html = f"""<!DOCTYPE html>
@@ -188,6 +249,8 @@ def render_anki_card(
                     ::-webkit-scrollbar-track {{ background: transparent; }}
                     ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 5px; }}
                     ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
+                    .cloze {{ color: #38bdf8; font-weight: bold; }}
+                    .katex .cloze {{ color: #38bdf8 !important; font-weight: bold; background: rgba(56, 189, 248, 0.15); border-radius: 3px; padding: 0 3px; }}
                     {css}
                 </style>
             </head>

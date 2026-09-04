@@ -564,7 +564,7 @@ class EditionView(QWidget):
         elif action_id == "code_block":
             editor.wrap_selection("<pre><code>\n", "\n</code></pre>")
         elif action_id == "math":
-            editor.wrap_selection("$", "$")
+            editor.wrap_selection(r"\(", r"\)")
         elif action_id == "cloze":
             current_dict = {name: w.get_text() for name, w in self.dynamic_field_widgets.items()}
             max_c = get_max_cloze_index(current_dict)

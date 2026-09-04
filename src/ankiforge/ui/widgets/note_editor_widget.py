@@ -150,10 +150,10 @@ class NoteKaTeXHighlighter(QSyntaxHighlighter):
         # 2. LaTeX inline & display : Vert Émeraude
         latex_fmt = QTextCharFormat()
         latex_fmt.setForeground(QColor("#34d399" if DesignTokens.is_dark_mode() else "#059669"))
-        self.rules.append((QRegularExpression(r"\$[^$]+\$"), latex_fmt))
-        self.rules.append((QRegularExpression(r"\$\$[\s\S]*?\$\$"), latex_fmt))
-        self.rules.append((QRegularExpression(r"\\\([^\)]+\\\)"), latex_fmt))
-        self.rules.append((QRegularExpression(r"\\\[[\s\S]*?\\\]"), latex_fmt))
+        self.rules.append((QRegularExpression(r"\$\$.+?\$\$", QRegularExpression.PatternOption.DotMatchesEverythingOption), latex_fmt))
+        self.rules.append((QRegularExpression(r"\\\[.+?\\\]", QRegularExpression.PatternOption.DotMatchesEverythingOption), latex_fmt))
+        self.rules.append((QRegularExpression(r"\\\(.+?\\\)"), latex_fmt))
+        self.rules.append((QRegularExpression(r"\$[^$\n]+\$"), latex_fmt))
 
         # 3. Macros LaTeX isolées (\\frac, \\alpha...)
         macro_fmt = QTextCharFormat()
@@ -504,6 +504,16 @@ class NoteFieldTextEdit(QPlainTextEdit):
             cursor = self.textCursor()
             selected = cursor.selectedText()
             closing = pairs[key_char]
+
+            # Cas particulier pour KaTeX : si le caractère précédent est '\',
+            # appairer avec '\)' pour '(' ou '\]' pour '['
+            pos_in_block = cursor.positionInBlock()
+            block_text = cursor.block().text()
+            if pos_in_block > 0 and block_text[pos_in_block - 1] == "\\":
+                if key_char == "(":
+                    closing = r"\)"
+                elif key_char == "[":
+                    closing = r"\]"
 
             if selected:
                 cursor.insertText(f"{key_char}{selected}{closing}")
