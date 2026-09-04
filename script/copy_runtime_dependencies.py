@@ -88,12 +88,12 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
             print(f"[WARNING] Erreur lors de la copie de {item.name}: {err}")
 
     # Élagage des plugins Qt inutilisés par AnkiForge pour alléger le bundle (-50 à -80 Mo)
+    # Note : Le plugin 'multimedia' est conservé pour la lecture audio et le TTS via QtMultimedia.
     unused_qt_plugins = {
         "canbus",
         "designer",
         "geometryloaders",
         "geoservices",
-        "multimedia",
         "position",
         "qmllint",
         "qmltooling",
@@ -102,7 +102,6 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
         "sceneparsers",
         "scxmldatamodel",
         "sensors",
-        "texttospeech",
         "webview",
         "assetimporters",
     }
@@ -121,6 +120,27 @@ def copy_runtime_deps(target_dist: pathlib.Path) -> None:
                         shutil.rmtree(target_plugin)
                     except Exception:
                         pass
+
+    # Sur Linux, inclure en secours les bibliothèques EGL et GLdispatch si présentes sur l'hôte
+    if sys.platform.startswith("linux"):
+        linux_lib_dirs = [
+            pathlib.Path("/usr/lib/x86_64-linux-gnu"),
+            pathlib.Path("/usr/lib64"),
+            pathlib.Path("/usr/lib"),
+        ]
+        for lib_dir in linux_lib_dirs:
+            if not lib_dir.exists():
+                continue
+            for pattern in ("libEGL.so*", "libGLdispatch.so*"):
+                for lib_file in lib_dir.glob(pattern):
+                    dest_file = target_dist / lib_file.name
+                    if not dest_file.exists():
+                        try:
+                            real_file = lib_file.resolve()
+                            if real_file.exists() and real_file.is_file():
+                                shutil.copy2(real_file, dest_file)
+                        except Exception as err:
+                            print(f"[WARNING] Erreur copie lib Linux {lib_file.name}: {err}")
 
     # Élagage des traductions Qt non supportées (*.qm) pour alléger le bundle (-25 à -30 Mo)
     # On conserve uniquement le français et l'anglais
