@@ -110,7 +110,7 @@ class ChatMessageWidget(QWidget):
         self.steps_wrapper_layout.setContentsMargins(0, 0, 0, 0)
         self.steps_wrapper_layout.setSpacing(4)
 
-        self.accordion_toggle_btn = QPushButton("🧠 Réflexion & Outils ReAct")
+        self.accordion_toggle_btn = QPushButton("🧠 Réflexion && Outils ReAct")
         self.accordion_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.accordion_toggle_btn.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_MUTED))
         self.accordion_toggle_btn.setStyleSheet(f"""

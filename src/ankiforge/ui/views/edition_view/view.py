@@ -508,7 +508,7 @@ class EditionView(QWidget):
 
         panel_layout.addWidget(self.main_splitter)
 
-        self.main_panel.add_tab("Navigateur & Éditeur de Cartes", panel_content, icon_name="ph.cards", closable=False)
+        self.main_panel.add_tab("Navigateur && Éditeur de Cartes", panel_content, icon_name="ph.cards", closable=False)
         main_layout.addWidget(self.main_panel)
 
         self.editor_stack.setCurrentIndex(0)

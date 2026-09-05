@@ -78,6 +78,7 @@ class ScrollableTabBarWidget(QWidget):
     def set_tab_text(self, index: int, text: str) -> None:
         if 0 <= index < len(self.tabs):
             btn = self.tabs[index]
+            btn.title = text
             icon_name = btn.property("icon_name") or ""
             display_text = f" {text}" if icon_name else text
             btn.setText(display_text)

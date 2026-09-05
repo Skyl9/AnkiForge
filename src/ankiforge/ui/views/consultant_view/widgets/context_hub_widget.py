@@ -307,6 +307,7 @@ class ContextHubWidget(QWidget):
         persona_top_row.addWidget(self.persona_combo, 1)
 
         self.persona_badge = Badge("MCP", variant="neutral")
+        self.persona_badge.setMinimumWidth(44)
         persona_top_row.addWidget(self.persona_badge)
         persona_layout.addLayout(persona_top_row)
 
@@ -351,6 +352,7 @@ class ContextHubWidget(QWidget):
 
         self.btn_add_source = SecondaryButton("+ Lier (@)")
         self.btn_add_source.setFixedHeight(24)
+        self.btn_add_source.setMinimumWidth(75)
         self.btn_add_source.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.btn_add_source.setStyleSheet("""
             QPushButton {
@@ -496,6 +498,7 @@ class ContextHubWidget(QWidget):
         bar_header.addStretch()
 
         self.badge_usage_pct = Badge("0%", variant="success")
+        self.badge_usage_pct.setMinimumWidth(44)
         bar_header.addWidget(self.badge_usage_pct)
         memory_layout.addLayout(bar_header)
 
@@ -532,6 +535,8 @@ class ContextHubWidget(QWidget):
         row_sys.addWidget(lbl_sys_title)
         row_sys.addStretch()
         self.lbl_bd_system = QLabel("~250 tok")
+        self.lbl_bd_system.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.lbl_bd_system.setMinimumWidth(60)
         self.lbl_bd_system.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
         row_sys.addWidget(self.lbl_bd_system)
         bd_layout.addLayout(row_sys)
@@ -547,6 +552,8 @@ class ContextHubWidget(QWidget):
         row_src.addWidget(lbl_src_title)
         row_src.addStretch()
         self.lbl_bd_sources = QLabel("0 tok")
+        self.lbl_bd_sources.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.lbl_bd_sources.setMinimumWidth(60)
         self.lbl_bd_sources.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
         row_src.addWidget(self.lbl_bd_sources)
         bd_layout.addLayout(row_src)
@@ -562,6 +569,8 @@ class ContextHubWidget(QWidget):
         row_hist.addWidget(lbl_hist_title)
         row_hist.addStretch()
         self.lbl_bd_history = QLabel("0 tok")
+        self.lbl_bd_history.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.lbl_bd_history.setMinimumWidth(60)
         self.lbl_bd_history.setStyleSheet(f"font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600;")
         row_hist.addWidget(self.lbl_bd_history)
         bd_layout.addLayout(row_hist)

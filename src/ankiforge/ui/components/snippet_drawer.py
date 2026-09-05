@@ -76,6 +76,7 @@ class SnippetCardWidget(QFrame):
         title_lbl = QLabel(snippet.name)
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        title_lbl.setWordWrap(True)
         header_layout.addWidget(title_lbl, 1)
 
         self.btn_insert = IconButton("ph.plus", tooltip="Insérer dans le code au curseur", size=18)

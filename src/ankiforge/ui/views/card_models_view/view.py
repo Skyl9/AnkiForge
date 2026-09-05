@@ -451,10 +451,11 @@ class CardModelsView(QWidget):
 
         editor_layout.addWidget(self.editor_horizontal_splitter, 1)
 
+        self.left_panel.setMinimumWidth(280)
         self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
-        self.main_splitter.setSizes([260, 820])
+        self.main_splitter.setSizes([290, 810])
         self.main_splitter.setStretchFactor(0, 0)
         self.main_splitter.setStretchFactor(1, 1)
         self._switch_subtab(0)
@@ -593,6 +594,9 @@ class CardModelsView(QWidget):
 
             if models and not self._current_model:
                 self.list_widget.setCurrentRow(0)
+                cur_item = self.list_widget.currentItem()
+                if cur_item:
+                    self._on_item_selected(cur_item, None)
 
         except Exception as e:
             logger.warning("Erreur refresh_data card_models_view: %s", e)
@@ -641,6 +645,7 @@ class CardModelsView(QWidget):
         self._current_model = model
         self.lbl_editor_title.setText(model.name)
         self.description_input.setText(getattr(model, "description", "") or "")
+        self.description_input.setCursorPosition(0)
 
         if model.fields_schema:
             try:
@@ -653,6 +658,7 @@ class CardModelsView(QWidget):
                 self.fields_input.setText("Front, Back")
         else:
             self.fields_input.setText("Front, Back")
+        self.fields_input.setCursorPosition(0)
 
         default_css = (
             ".card {\n  font-family: arial;\n  font-size: 20px;\n  text-align: center;\n  color: #1e293b;\n  background-color: #ffffff;\n}\n\n.cloze {\n  font-weight: bold;\n  color: #3b82f6;\n}"

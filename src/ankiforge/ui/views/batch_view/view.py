@@ -396,6 +396,7 @@ class BatchView(QWidget):
         btn_layout.addWidget(self.btn_add_to_queue)
         build_main_layout.addWidget(btn_container)
 
+        self.build_panel.setMinimumWidth(380)
         self.build_panel.add_tab("Paramètres du Build", build_content, "ph.sliders-horizontal", closable=False)
         self.middle_splitter.addWidget(self.build_panel)
 
@@ -468,7 +469,7 @@ class BatchView(QWidget):
         self.queue_panel.add_tab("File d'attente détaillée", queue_content, "ph.list-dashes", closable=False)
         self.middle_splitter.addWidget(self.queue_panel)
 
-        self.middle_splitter.setSizes([350, 750])
+        self.middle_splitter.setSizes([400, 700])
         self.main_splitter.addWidget(self.middle_splitter)
 
         # BOTTOM ROW

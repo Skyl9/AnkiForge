@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal
@@ -8,11 +9,19 @@ from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
+def _escape_ampersand(text: str) -> str:
+    """Remplace les '&' isolés par '&&' pour éviter que Qt ne les interprète comme raccourci clavier (mnémonique)."""
+    return re.sub(r"(?<!&)&(?!&)", "&&", text)
+
+
 class PrimaryButton(QPushButton):
     """Bouton principal avec glow et affordance tactile. Usage: actions primaires."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+        args_list = list(args)
+        if args_list and isinstance(args_list[0], str):
+            args_list[0] = _escape_ampersand(args_list[0])
+        super().__init__(*args_list, **kwargs)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -26,6 +35,9 @@ class PrimaryButton(QPushButton):
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 10
             self.hover_blur = 16
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
 
     def enterEvent(self, event: Any) -> None:
         if hasattr(self, "anim"):
@@ -47,7 +59,10 @@ class SecondaryButton(QPushButton):
     """Bouton secondaire avec relief, contour d'accentuation au survol et affordance tactile."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+        args_list = list(args)
+        if args_list and isinstance(args_list[0], str):
+            args_list[0] = _escape_ampersand(args_list[0])
+        super().__init__(*args_list, **kwargs)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -61,6 +76,9 @@ class SecondaryButton(QPushButton):
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
             self.hover_blur = 10
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
 
     def enterEvent(self, event: Any) -> None:
         if hasattr(self, "anim"):
@@ -111,11 +129,14 @@ class DangerButton(QPushButton):
     """Bouton danger rouge avec halo lumineux au survol. Variantes: filled et ghost."""
 
     def __init__(self, text: str, ghost: bool = False, parent: QWidget | None = None) -> None:
-        super().__init__(text, parent)
+        super().__init__(_escape_ampersand(text), parent)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "danger")
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
 
         apply_shadow(self, blur=2, offset_y=1, color="rgba(239,68,68,0.25)")
         effect = self.graphicsEffect()

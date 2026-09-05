@@ -1,7 +1,7 @@
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 
@@ -12,9 +12,14 @@ class Badge(QLabel):
     def __init__(self, text: str, variant: str = "filled", color: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.base_color = color
         self.current_variant = variant
         self.set_variant(variant)
+
+    def setText(self, text: str) -> None:
+        super().setText(text)
+        self.adjustSize()
 
     def set_variant(self, variant: str, profile: Any = None) -> None:
         self.current_variant = variant

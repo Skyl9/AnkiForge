@@ -14,10 +14,12 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 def find_tab_owner(title: str):
     from PySide6.QtWidgets import QApplication
 
+    clean_query = title.replace("&&", "&").strip()
     for widget in QApplication.allWidgets():
         if hasattr(widget, "tabs_bar") and hasattr(widget, "content_stack"):
             for i, btn in enumerate(widget.tabs_bar.tabs):
-                if btn.text().strip() == title.strip():
+                btn_title = getattr(btn, "title", btn.text()).replace("&&", "&").strip()
+                if btn_title == clean_query or btn.text().strip() == title.strip():
                     return widget, i
     return None, -1
 

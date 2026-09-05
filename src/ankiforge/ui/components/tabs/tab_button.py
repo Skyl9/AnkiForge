@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
@@ -35,6 +36,7 @@ class TabButton(QPushButton):
     def __init__(self, title: str, icon_name: str = "", closable: bool = False, variant: str = "ide", icon_color: str = "", parent: QWidget | None = None):
         super().__init__(parent)
         self.closable = closable
+        self.title = title
         text = f" {title}" if icon_name else title
         self.setText(text)
 
@@ -74,6 +76,10 @@ class TabButton(QPushButton):
             self.close_btn.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_SECONDARY))
             self.close_btn.clicked.connect(self.close_requested.emit)
         self._drag_start_pos = QPoint()
+
+    def setText(self, text: str) -> None:
+        escaped = re.sub(r"(?<!&)&(?!&)", "&&", text)
+        super().setText(escaped)
 
     def _apply_style(self) -> None:
         padding_right = 28 if self.closable else 12

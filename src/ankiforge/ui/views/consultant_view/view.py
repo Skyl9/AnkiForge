@@ -436,7 +436,7 @@ class ConsultantView(QWidget):
         # ── 2. Panneau de Contexte & Cerveau de l'Agent IA (Droite) ─────────
         self.context_panel = IdePanel(detachable=True)
         self.context_panel.set_menu_button_visible(False)
-        self.context_panel.setMinimumWidth(300)
+        self.context_panel.setMinimumWidth(350)
 
         self.context_hub = ContextHubWidget(self)
         self.context_hub.add_context_requested.connect(self._on_add_context)
@@ -467,7 +467,7 @@ class ConsultantView(QWidget):
         self.splitter.addWidget(self.context_panel)
         self.splitter.setCollapsible(0, False)
         self.splitter.setCollapsible(1, True)
-        self.splitter.setSizes([940, 340])
+        self.splitter.setSizes([840, 360])
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
 
