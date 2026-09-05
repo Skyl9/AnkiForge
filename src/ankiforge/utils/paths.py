@@ -184,6 +184,27 @@ def get_media_dir(profile_name: str | None = None) -> Path:
     return media_dir
 
 
+def ensure_media_decompressed(path: Path) -> Path:
+    """Si le fichier média est compressé avec Zstandard (archives Anki v3), le décompresse sur place."""
+    if not path.is_file():
+        return path
+    try:
+        with open(path, "rb") as fp:
+            header = fp.read(4)
+        if header == b"\x28\xb5\x2f\xfd":
+            import zstandard as zstd
+
+            dctx = zstd.ZstdDecompressor()
+            tmp_decomp = path.with_suffix(path.suffix + ".tmp_zstd")
+            with open(path, "rb") as sf, open(tmp_decomp, "wb") as df:
+                dctx.copy_stream(sf, df)
+            tmp_decomp.replace(path)
+            logger.info("Média décompressé automatiquement depuis Zstandard : %s", path.name)
+    except Exception as e:
+        logger.warning("Échec décompression Zstandard automatique pour %s: %s", path.name, e)
+    return path
+
+
 def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
     """
     Résout le chemin absolu d'un média physique de façon robuste et bidirectionnelle.
@@ -191,6 +212,7 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
     2. En cas d'échec, interroge MediaModel pour résoudre les correspondances entre nom d'origine
        (ex: CM entier.pdf, _page_1.jpeg) et nom de stockage haché (ex: 33c6d32...pdf).
     3. Recherche en repli dans les dossiers médias des autres profils existants.
+    4. Garantit que le fichier retourné est décompressé s'il était au format Zstandard Anki v3.
     """
     if not filename:
         return get_media_dir(profile_name) / "empty"
@@ -203,7 +225,7 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
     ]
     for p in candidates:
         if p.exists():
-            return p
+            return ensure_media_decompressed(p)
 
     # 2. Résolution bidirectionnelle via MediaModel (original_name <-> filename haché)
     resolved_alt_names: list[str] = []
@@ -224,7 +246,7 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
             for base_folder in (get_media_dir(profile_name), get_app_data_dir() / "profiles" / "default" / "media", get_app_data_dir() / "media"):
                 alt_p = base_folder / alt_name
                 if alt_p.exists():
-                    return alt_p
+                    return ensure_media_decompressed(alt_p)
     except Exception as err:
         logger.debug("Résolution via MediaModel impossible ou échouée pour '%s': %s", filename, err)
 
@@ -237,11 +259,11 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
                 if p_dir.is_dir() and p_dir.name not in (target_prof, "default"):
                     cand = p_dir / "media" / filename
                     if cand.exists():
-                        return cand
+                        return ensure_media_decompressed(cand)
                     for alt_name in resolved_alt_names:
                         cand_alt = p_dir / "media" / alt_name
                         if cand_alt.exists():
-                            return cand_alt
+                            return ensure_media_decompressed(cand_alt)
     except Exception as err:
         logger.debug("Recherche de média inter-profils échouée: %s", err)
 

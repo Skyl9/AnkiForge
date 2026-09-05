@@ -191,6 +191,58 @@ def get_mathjax_script() -> str:
     """
 
 
+def _process_media_references(html: str) -> str:
+    """
+    Résout et réécrit les balises de médias dans le HTML d'une carte Anki :
+    - <img src="..."> : résout le chemin physique réel avec resolve_media_path (support des noms hachés,
+      cross-profils, et décompression Zstandard automatique). Si l'image est résolue, utilise son URL
+      locale absolue (file://...) pour garantir que WebEngine la charge sans ambiguïté.
+    - [sound:...] : convertit la syntaxe audio standard d'Anki en lecteur HTML5 <audio controls>.
+    """
+    from PySide6.QtCore import QUrl
+
+    from ankiforge.utils.paths import resolve_media_path
+
+    # 1. Remplacement des balises <img src="...">
+    def _replace_img(match: re.Match[str]) -> str:
+        prefix = match.group(1)
+        src = match.group(2)
+        suffix = match.group(3)
+
+        if src.startswith(("http://", "https://", "data:", "qrc:/")):
+            return match.group(0)
+
+        resolved = resolve_media_path(src)
+        if resolved.exists():
+            file_url = QUrl.fromLocalFile(str(resolved)).toString()
+            return f'<img{prefix}src="{file_url}"{suffix}>'
+        return match.group(0)
+
+    html = re.sub(
+        r'<img([^>]*?)\bsrc=["\']([^"\']+)["\']([^>]*?)>',
+        _replace_img,
+        html,
+        flags=re.IGNORECASE,
+    )
+
+    # 2. Conversion des balises audio Anki [sound:nom_fichier.mp3]
+    def _replace_sound(match: re.Match[str]) -> str:
+        audio_name = match.group(1).strip()
+        resolved = resolve_media_path(audio_name)
+        if resolved.exists():
+            audio_url = QUrl.fromLocalFile(str(resolved)).toString()
+            return (
+                f'<span class="anki-audio-container" style="display: inline-block; margin: 4px 0;">'
+                f'<audio controls preload="none" src="{audio_url}" style="height: 30px; vertical-align: middle; max-width: 280px;"></audio>'
+                f"</span>"
+            )
+        return f'<span class="anki-audio-missing" style="opacity: 0.7; font-size: 11px;">🔊 {audio_name}</span>'
+
+    html = re.sub(r"\[sound:([^\]]+)\]", _replace_sound, html, flags=re.IGNORECASE)
+
+    return html
+
+
 def render_anki_card(
     raw_html: str,
     css: str,
@@ -238,6 +290,9 @@ def render_anki_card(
     # Pré-traitement et normalisation des blocs mathématiques KaTeX / LaTeX
     html = _preprocess_math_blocks(html)
 
+    # Résolution des médias (images et balises audio [sound:...])
+    html = _process_media_references(html)
+
     body_class = "nightMode" if is_dark_mode else ""
     final_html = f"""<!DOCTYPE html>
             <html>
@@ -251,6 +306,7 @@ def render_anki_card(
                     ::-webkit-scrollbar-thumb:hover {{ background: #777; }}
                     .cloze {{ color: #38bdf8; font-weight: bold; }}
                     .katex .cloze {{ color: #38bdf8 !important; font-weight: bold; background: rgba(56, 189, 248, 0.15); border-radius: 3px; padding: 0 3px; }}
+                    img {{ max-width: 100%; height: auto; }}
                     {css}
                 </style>
             </head>

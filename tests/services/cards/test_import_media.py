@@ -193,3 +193,33 @@ def test_import_media_zstd_no_content_size_in_frame(tmp_path: Path) -> None:
     dest_file = manager.media_dir / "no_size_image.jpg"
     assert dest_file.exists()
     assert dest_file.read_bytes() == b"fake_jpeg_content_no_size"
+
+
+def test_import_media_files_zstd_compressed(tmp_path: Path) -> None:
+    """Vérifie que les fichiers médias eux-mêmes compressés en Zstandard (Anki v3 / 2.1.50+) sont décompressés."""
+    db_file = tmp_path / "legacy.db"
+    _create_minimal_anki2(db_file)
+
+    raw_img_data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR_real_uncompressed_png_data"
+    cctx = zstd.ZstdCompressor(write_content_size=False)
+    zstd_compressed_img = cctx.compress(raw_img_data)
+    assert zstd_compressed_img.startswith(b"\x28\xb5\x2f\xfd")
+
+    apkg_path = tmp_path / "media_file_zstd.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", json.dumps({"0": "photo_zstd.png"}))
+        zf.writestr("0", zstd_compressed_img)
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(apkg_path)
+    assert analysis.media_map == {"0": "photo_zstd.png"}
+
+    summary = manager.commit_import(analysis)
+    assert summary["media"] == 1
+
+    dest_file = manager.media_dir / "photo_zstd.png"
+    assert dest_file.exists()
+    # Le fichier sur disque DOIT être décompressé et non le flux Zstd brut
+    assert dest_file.read_bytes() == raw_img_data
+    assert not dest_file.read_bytes().startswith(b"\x28\xb5\x2f\xfd")

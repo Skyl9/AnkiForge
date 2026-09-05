@@ -18,8 +18,12 @@ class SafeWebEngineView(QWebEngineView):
     def _configure_page(self, page: QWebEnginePage | None) -> None:
         if page is not None:
             page.setBackgroundColor(Qt.GlobalColor.transparent)
+            page.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+            page.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+            page.settings().setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
             self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
             self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+            self.settings().setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
 
     def _setup_new_page(self) -> None:
         """Crée une nouvelle page propre et détruit l'ancienne pour libérer la RAM."""

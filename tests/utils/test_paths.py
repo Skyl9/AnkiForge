@@ -71,3 +71,23 @@ def test_profiles_and_media_paths():
         assert m_dir.parent == p_dir
     finally:
         set_active_profile(orig_profile)
+
+
+def test_ensure_media_decompressed(tmp_path):
+    """Vérifie la décompression automatique des fichiers Zstandard (Anki v3)."""
+    import zstandard as zstd
+
+    from ankiforge.utils.paths import ensure_media_decompressed
+
+    raw_content = b"Contenu d'image PNG non compresse"
+    cctx = zstd.ZstdCompressor()
+    compressed = cctx.compress(raw_content)
+
+    test_file = tmp_path / "compressed_img.png"
+    test_file.write_bytes(compressed)
+
+    assert test_file.read_bytes().startswith(b"\x28\xb5\x2f\xfd")
+
+    result = ensure_media_decompressed(test_file)
+    assert result == test_file
+    assert result.read_bytes() == raw_content

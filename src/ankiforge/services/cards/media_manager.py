@@ -225,3 +225,35 @@ class MediaManager:
 
         logger.info("Nettoyage des médias orphelins terminé : %d fichier(s) supprimé(s)", deleted_count)
         return deleted_count
+
+    def decompress_all_zstd_media(self, profile_name: str | None = None) -> int:
+        """
+        Scanne le dossier médias et décompresse en place tous les fichiers restants au format Zstandard.
+        Retourne le nombre de fichiers décompressés.
+        """
+        import zstandard as zstd
+
+        target_dir = get_media_dir(profile_name) if profile_name is not None else self.media_dir
+        if not target_dir.exists():
+            return 0
+
+        dctx = zstd.ZstdDecompressor()
+        decompressed_count = 0
+
+        for file_path in target_dir.iterdir():
+            if file_path.is_file():
+                try:
+                    with open(file_path, "rb") as fp:
+                        header = fp.read(4)
+                    if header == b"\x28\xb5\x2f\xfd":
+                        tmp_path = file_path.with_suffix(file_path.suffix + ".tmp_zstd")
+                        with open(file_path, "rb") as sf, open(tmp_path, "wb") as df:
+                            dctx.copy_stream(sf, df)
+                        tmp_path.replace(file_path)
+                        decompressed_count += 1
+                except Exception as err:
+                    logger.warning("Échec décompression Zstd pour %s: %s", file_path.name, err)
+
+        if decompressed_count > 0:
+            logger.info("Décompression globale Zstandard achevée : %d fichier(s) traités dans %s", decompressed_count, target_dir)
+        return decompressed_count

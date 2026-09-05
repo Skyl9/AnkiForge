@@ -891,7 +891,17 @@ class ImportManager:
                     if src_file.exists() and src_file.is_file():
                         dest_file = self.media_dir / filename
                         try:
-                            shutil.copy2(src_file, dest_file)
+                            with open(src_file, "rb") as sf:
+                                header = sf.read(4)
+                                sf.seek(0)
+                                if header == b"\x28\xb5\x2f\xfd":
+                                    dctx = zstd.ZstdDecompressor()
+                                    with open(dest_file, "wb") as df:
+                                        dctx.copy_stream(sf, df)
+                                else:
+                                    with open(dest_file, "wb") as df:
+                                        shutil.copyfileobj(sf, df)
+
                             sha256 = hashlib.sha256()
                             with open(dest_file, "rb") as mf:
                                 for chunk in iter(lambda: mf.read(65536), b""):
