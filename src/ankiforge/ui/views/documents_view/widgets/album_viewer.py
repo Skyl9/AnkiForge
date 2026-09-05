@@ -265,6 +265,13 @@ class PageInspectorWidget(QWidget):
         self.slider_contrast.valueChanged.connect(self._apply_image_transformations)
         top_layout.addWidget(self.slider_contrast)
 
+        # Bouton Image Occlusion IA
+        self.btn_occlusion = SecondaryButton("Image Occlusion")
+        self.btn_occlusion.setIcon(load_phosphor_icon("ph.bounding-box", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_occlusion.setToolTip("Créer des masques d'Image Occlusion sur cette page avec l'IA")
+        self.btn_occlusion.clicked.connect(self._on_open_image_occlusion)
+        top_layout.addWidget(self.btn_occlusion)
+
         main_layout.addWidget(top_bar)
 
         # ── Corps Principal : Splitter Image / Transcription OCR ─────────────
@@ -411,6 +418,19 @@ class PageInspectorWidget(QWidget):
         self.current_page.save()
         self.page_saved.emit(self.current_page.id, text)
         show_toast(self, "Transcription enregistrée avec succès.")
+
+    def _on_open_image_occlusion(self) -> None:
+        """Ouvre le dialogue Image Occlusion préchargé avec la page courante."""
+        if not self.current_page or not self.current_page.media:
+            return
+        filename = self.current_page.media.filename
+        img_path = resolve_media_path(filename)
+        if not img_path.exists():
+            return
+        from ankiforge.ui.dialogs.image_occlusion_dialog import ImageOcclusionDialog
+
+        dialog = ImageOcclusionDialog(image_path=img_path, parent=self.window())
+        dialog.exec()
 
 
 class AlbumViewerWidget(QWidget):

@@ -78,6 +78,82 @@ def seed_initial_data() -> None:
             css_style=".card { font-family: arial; font-size: 20px; text-align: center; color: palette(text); }\n.cloze { font-weight: bold; color: #2196f3; }",
         )
 
+    if NoteTypeModel.select().where(NoteTypeModel.name == "Image Occlusion Enhanced").count() == 0:
+        NoteTypeModel.create(
+            name="Image Occlusion Enhanced",
+            description="Masquage d'images (Image Occlusion). Découverte active sur schémas, diagrammes et planches anatomiques.",
+            fields_schema=json.dumps(
+                [
+                    "id",
+                    "Header",
+                    "Image",
+                    "Question Mask",
+                    "Answer Mask",
+                    "Original Mask",
+                    "Footer",
+                    "Remarks",
+                    "Sources",
+                    "Extra 1",
+                    "Extra 2",
+                ],
+                ensure_ascii=False,
+            ),
+            templates=json.dumps(
+                [
+                    {
+                        "name": "Image Occlusion",
+                        "qfmt": (
+                            "{{#Header}}<div style='font-weight: bold; margin-bottom: 8px;'>{{Header}}</div>{{/Header}}\n"
+                            "<div id='image-wrapper'>\n"
+                            "    {{Image}}\n"
+                            "    {{Question Mask}}\n"
+                            "</div>\n"
+                            "{{#Footer}}<div style='margin-top: 8px; font-size: 0.9em; opacity: 0.8;'>{{Footer}}</div>{{/Footer}}"
+                        ),
+                        "afmt": (
+                            "{{#Header}}<div style='font-weight: bold; margin-bottom: 8px;'>{{Header}}</div>{{/Header}}\n"
+                            "<div id='image-wrapper'>\n"
+                            "    {{Image}}\n"
+                            "    {{Answer Mask}}\n"
+                            "</div>\n"
+                            "{{#Footer}}<div style='margin-top: 8px; font-size: 0.9em; opacity: 0.8;'>{{Footer}}</div>{{/Footer}}\n"
+                            "{{#Remarks}}<hr id=answer><div style='text-align: left; margin-top: 8px;'>{{Remarks}}</div>{{/Remarks}}"
+                        ),
+                    }
+                ],
+                ensure_ascii=False,
+            ),
+            css_style=(
+                ".card {\n"
+                "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
+                "  font-size: 16px;\n"
+                "  text-align: center;\n"
+                "  color: palette(text);\n"
+                "}\n"
+                "#image-wrapper {\n"
+                "  position: relative;\n"
+                "  display: inline-block;\n"
+                "  max-width: 100%;\n"
+                "}\n"
+                "#image-wrapper img {\n"
+                "  max-width: 100%;\n"
+                "  height: auto;\n"
+                "}\n"
+                "#image-wrapper img:first-child {\n"
+                "  display: block;\n"
+                "  position: static;\n"
+                "}\n"
+                "#image-wrapper img:not(:first-child) {\n"
+                "  position: absolute;\n"
+                "  top: 0;\n"
+                "  left: 0;\n"
+                "  width: 100%;\n"
+                "  height: 100%;\n"
+                "  pointer-events: none;\n"
+                "}\n"
+            ),
+        )
+
     # Lecture des prompts depuis les fichiers .jinja2
     extracteur_prompt = (prompts_dir / "extracteur.jinja2").read_text(encoding="utf-8") if (prompts_dir / "extracteur.jinja2").exists() else ""
     controleur_prompt = (prompts_dir / "controleur.jinja2").read_text(encoding="utf-8") if (prompts_dir / "controleur.jinja2").exists() else ""
