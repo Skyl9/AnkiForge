@@ -37,6 +37,8 @@ BADGE_TEXT_COLOR_ROLE = Qt.ItemDataRole.UserRole + 4
 IS_INVALID_CARD_ROLE = Qt.ItemDataRole.UserRole + 5
 RAW_CONTENT_ROLE = Qt.ItemDataRole.UserRole + 6
 FLAG_ROLE = Qt.ItemDataRole.UserRole + 7
+CARD_ID_ROLE = Qt.ItemDataRole.UserRole + 8
+TEMPLATE_INDEX_ROLE = Qt.ItemDataRole.UserRole + 9
 
 
 class CheckboxItemDelegate(QStyledItemDelegate):

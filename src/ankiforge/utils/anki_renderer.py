@@ -1,11 +1,17 @@
 import logging
 import re
+from collections.abc import Mapping
+from typing import Any
 
 from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
 
-AnkiFields = dict[str, str | list[str]]
+
+class AnkiFields(dict[str, Any]):
+    """Dictionnaire typé représentant les champs d'une note Anki."""
+
+    pass
 
 
 def get_max_cloze_index(fields_dict: dict) -> int:
@@ -32,11 +38,19 @@ def get_max_cloze_index(fields_dict: dict) -> int:
 
 
 def _is_empty(html_str: str) -> bool:
-    clean_text = re.sub(r"<[^>]+>", "", str(html_str)).replace("&nbsp;", "").strip()
+    if not html_str:
+        return True
+    s = str(html_str).strip()
+    if not s:
+        return True
+    lower_s = s.lower()
+    if "<img" in lower_s or "<svg" in lower_s or "[sound:" in lower_s or "<audio" in lower_s or "<video" in lower_s:
+        return False
+    clean_text = re.sub(r"<[^>]+>", "", s).replace("&nbsp;", "").strip()
     return len(clean_text) == 0
 
 
-def _sanitize_fields(fields_dict: AnkiFields) -> dict[str, str]:
+def _sanitize_fields(fields_dict: Mapping[str, Any]) -> dict[str, str]:
     safe_fields = {}
     for k, v in fields_dict.items():
         if isinstance(v, list):
@@ -246,7 +260,7 @@ def _process_media_references(html: str) -> str:
 def render_anki_card(
     raw_html: str,
     css: str,
-    fields_dict: AnkiFields,
+    fields_dict: Mapping[str, Any],
     is_recto: bool = True,
     front_html: str = "",
     is_dark_mode: bool = False,
@@ -317,3 +331,37 @@ def render_anki_card(
             </html>
             """
     return final_html
+
+
+def render_card_text(
+    template_html: str,
+    fields_dict: Mapping[str, Any],
+    template_index: int = 0,
+    is_recto: bool = True,
+    front_raw_html: str = "",
+) -> str:
+    """Rend le texte lisible et épuré d'une carte (recto ou verso) pour l'affichage en tableau avec préservation des médias."""
+    if not template_html:
+        return ""
+    safe_fields = _sanitize_fields(fields_dict)
+
+    # Repli intelligent des champs si Front/Back absents dans le dictionnaire
+    if "Front" not in safe_fields and len(safe_fields) > 0:
+        safe_fields["Front"] = list(safe_fields.values())[0]
+    if "Back" not in safe_fields and len(safe_fields) > 1:
+        safe_fields["Back"] = list(safe_fields.values())[1]
+
+    html = template_html
+    html = _process_conditionals(html, safe_fields)
+    html = _process_cloze_fields(html, safe_fields, template_index, is_recto)
+    html = _process_standard_fields(html, safe_fields)
+    if not is_recto and front_raw_html:
+        html = _process_front_side(html, front_raw_html, safe_fields)
+
+    # Préserver les médias sous une forme textuelle descriptive avant suppression du HTML structurel
+    html = re.sub(r'<img[^>]*src=["\']?([^"\'>\s]+)["\']?[^>]*>', r"🖼️ [\1]", html, flags=re.IGNORECASE)
+    html = re.sub(r"<svg[^>]*>.*?</svg>", r"🔲 [Masque d'occlusion]", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"\[sound:([^\]]+)\]", r"🔊 [\1]", html, flags=re.IGNORECASE)
+
+    clean = re.sub(r"<[^>]+>", "", html)
+    return clean.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").strip()

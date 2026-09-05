@@ -2,11 +2,12 @@ import csv
 import json
 
 from ankiforge.database.models import (
+    DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.import_manager import ImportManager
+from ankiforge.services.cards.import_manager import ImportAnalysisResult, ImportManager
 
 
 def test_compute_field_diffs():
@@ -116,3 +117,97 @@ def test_silent_update_when_no_manual_edit(tmp_path):
     latest_v = NoteVersionModel.select().where(NoteVersionModel.note == updated_note).order_by(NoteVersionModel.version_number.desc()).first()
     assert latest_v.source == "import"
     assert "Texte V2" in latest_v.content
+
+
+def test_ensure_deck_default_alias_resolution(mock_db):
+    """Vérifie que 'Default' (did=1) est résolu vers le paquet existant 'Par défaut' sans violation UNIQUE."""
+    default_deck = DeckModel.create(name="Par défaut", anki_id=1)
+    manager = ImportManager()
+    deck_cache = {}
+
+    resolved = manager._ensure_deck("Default", deck_cache, anki_id=1)
+
+    assert resolved.id == default_deck.id
+    assert resolved.name == "Par défaut"
+    assert deck_cache["Default"].id == default_deck.id
+    assert DeckModel.select().count() == 1
+
+
+def test_ensure_deck_anki_id_collision_fallback(mock_db):
+    """Vérifie qu'un nouveau deck avec un anki_id déjà attribué est créé avec anki_id=None sans crasher."""
+    existing_deck = DeckModel.create(name="Mathématiques", anki_id=99999)
+    manager = ImportManager()
+    deck_cache = {}
+
+    new_deck = manager._ensure_deck("Physique", deck_cache, anki_id=99999)
+
+    assert new_deck.name == "Physique"
+    assert new_deck.anki_id is None
+    assert existing_deck.anki_id == 99999
+    assert DeckModel.select().count() == 2
+
+
+def test_commit_import_with_default_deck_alias(mock_db):
+    """Vérifie que commit_import réussit sans erreur UNIQUE constraint failed: deckmodel.anki_id."""
+    default_deck = DeckModel.create(name="Par défaut", anki_id=1)
+    manager = ImportManager()
+
+    analysis = ImportAnalysisResult(
+        temp_dir="",
+        source_type="apkg",
+        sqlite_path=None,
+        txt_path=None,
+        new_notes=[
+            {
+                "guid": "guid_test_def_1",
+                "deck_name": "Default",
+                "notetype_name": "Basic",
+                "tags": [],
+                "content": {"Front": "Q1", "Back": "A1"},
+                "field_names": ["Front", "Back"],
+                "cards": [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0}],
+            },
+            {
+                "guid": "guid_test_sec_2",
+                "deck_name": "Sécurité",
+                "notetype_name": "Basic",
+                "tags": [],
+                "content": {"Front": "Q2", "Back": "A2"},
+                "field_names": ["Front", "Back"],
+                "cards": [{"ord": 0, "did": 500, "ivl": 0, "reps": 0, "lapses": 0}],
+            },
+        ],
+        silent_updates=[],
+        identical_count=0,
+        conflicts=[],
+        media_map={},
+        raw_models={
+            1: {
+                "name": "Basic",
+                "fields": ["Front", "Back"],
+                "templates": [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}],
+                "css": "",
+            }
+        },
+        raw_decks=[
+            {"id": 1, "name": "Default"},
+            {"id": 500, "name": "Sécurité"},
+        ],
+    )
+
+    result = manager.commit_import(analysis)
+    assert result["created"] == 2
+
+    # La note dans 'Default' a été rattachée à 'Par défaut'
+    note1 = NoteModel.get(NoteModel.guid == "guid_test_def_1")
+    card1 = note1.cards.first()
+    assert card1 is not None
+    assert card1.deck.id == default_deck.id
+    assert card1.deck.name == "Par défaut"
+
+    # La note dans 'Sécurité' a été rattachée à 'Sécurité'
+    note2 = NoteModel.get(NoteModel.guid == "guid_test_sec_2")
+    card2 = note2.cards.first()
+    assert card2 is not None
+    assert card2.deck.name == "Sécurité"
+    assert card2.deck.anki_id == 500

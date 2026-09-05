@@ -282,6 +282,19 @@ class CardPreviewWidget(QWidget):
 
         self._render()
 
+    @property
+    def current_template_index(self) -> int:
+        """Retourne l'indice du gabarit sélectionné dans le sélecteur."""
+        return self.card_selector.currentIndex()
+
+    def set_selected_template_index(self, index: int) -> None:
+        """Sélectionne le gabarit (template) à afficher dans le sélecteur sans boucle."""
+        if 0 <= index < self.card_selector.count():
+            if self.card_selector.currentIndex() != index:
+                self.card_selector.setCurrentIndex(index)
+            else:
+                self._render()
+
     @Slot()
     def _render(self) -> None:
         """Génère le HTML final sans modification externe de style."""

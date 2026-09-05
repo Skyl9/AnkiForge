@@ -296,6 +296,9 @@ class ImportManager:
         conflicts: list[ConflictItem] = []
         identical_count = 0
 
+        raw_models: dict[int, dict[str, Any]] = {}
+        known_models = {nt.name: nt for nt in NoteTypeModel.select()}
+
         for row in cards:
             guid = row[header_dict["guid"]] if "guid" in header_dict and header_dict["guid"] < len(row) else str(uuid.uuid4())
             deck_name = row[header_dict["deck"]] if "deck" in header_dict and header_dict["deck"] < len(row) else "Par défaut"
@@ -304,8 +307,43 @@ class ImportManager:
 
             meta_indices = header_dict.values()
             content_values = [val for idx, val in enumerate(row) if idx not in meta_indices]
-            field_names = [f"Field_{i + 1}" for i in range(len(content_values))]
+
+            # Détermination intelligente des noms de champs
+            field_names: list[str] = []
+            if notetype_name in known_models and known_models[notetype_name].fields_schema:
+                try:
+                    field_names = list(json.loads(known_models[notetype_name].fields_schema))
+                except Exception:
+                    field_names = []
+
+            if not field_names:
+                field_names = [f"Field_{i + 1}" for i in range(len(content_values))]
+            elif len(content_values) > len(field_names):
+                field_names = list(field_names) + [f"Field_{i + 1}" for i in range(len(field_names), len(content_values))]
+            else:
+                field_names = field_names[: len(content_values)]
+
             content_dict = dict(zip(field_names, content_values, strict=False))
+
+            if notetype_name not in [m["name"] for m in raw_models.values()]:
+                m_tmpls: list[dict[str, Any]] = []
+                m_css = ""
+                if notetype_name in known_models:
+                    try:
+                        m_tmpls = json.loads(known_models[notetype_name].templates) if known_models[notetype_name].templates else []
+                    except Exception:
+                        m_tmpls = []
+                    m_css = getattr(known_models[notetype_name], "css_style", "") or ""
+                if not m_tmpls and field_names:
+                    back_f = field_names[1] if len(field_names) > 1 else field_names[0]
+                    m_tmpls = [{"name": "Carte 1", "qfmt": f"{{{{{field_names[0]}}}}}", "afmt": f"{{{{FrontSide}}}}<hr id=answer>{{{{{back_f}}}}}"}]
+
+                raw_models[len(raw_models) + 1] = {
+                    "name": notetype_name,
+                    "fields": field_names,
+                    "templates": m_tmpls,
+                    "css": m_css,
+                }
 
             existing_note = NoteModel.get_or_none(NoteModel.guid == guid)
             if not existing_note:
@@ -333,10 +371,26 @@ class ImportManager:
             identical_count=identical_count,
             conflicts=conflicts,
             media_map={},
+            raw_models=raw_models,
         )
 
+    DEFAULT_DECK_NAMES: set[str] = {
+        "default",
+        "par défaut",
+        "predeterminado",
+        "standard",
+        "predefinito",
+        "padrão",
+        "по умолчанию",
+        "既定",
+        "默认",
+    }
+
     def _ensure_deck(self, name: str, deck_cache: dict[str, DeckModel], anki_id: int | None = None) -> DeckModel:
-        """Crée ou récupère un deck et toute son arborescence de sous-decks."""
+        """Crée ou récupère un deck et toute son arborescence de sous-decks en évitant les collisions d'anki_id."""
+        if not name or not name.strip():
+            name = "Par défaut"
+
         if name in deck_cache:
             return deck_cache[name]
 
@@ -347,16 +401,59 @@ class ImportManager:
             accumulated_name = part if i == 0 else f"{accumulated_name}::{part}"
             if accumulated_name in deck_cache:
                 current_deck = deck_cache[accumulated_name]
-            else:
-                is_leaf = i == len(parts) - 1
-                defaults: dict[str, Any] = {"parent_deck": current_deck}
-                if is_leaf and anki_id:
-                    defaults["anki_id"] = anki_id
-                current_deck, _ = DeckModel.get_or_create(
-                    name=accumulated_name,
-                    defaults=defaults,
-                )
+                continue
+
+            is_leaf = i == len(parts) - 1
+            leaf_anki_id = anki_id if is_leaf else None
+
+            # 1. Recherche par nom exact
+            existing_by_name = DeckModel.get_or_none(DeckModel.name == accumulated_name)
+            if existing_by_name:
+                current_deck = existing_by_name
+                if leaf_anki_id and current_deck.anki_id is None and not DeckModel.select().where(DeckModel.anki_id == leaf_anki_id).exists():
+                    current_deck.anki_id = leaf_anki_id
+                    current_deck.save()
                 deck_cache[accumulated_name] = current_deck
+                continue
+
+            # 2. Gestion des alias du paquet racine par défaut (ex: 'Default' vs 'Par défaut', did=1)
+            is_default_alias = accumulated_name.lower() in self.DEFAULT_DECK_NAMES or leaf_anki_id == 1
+            if is_default_alias:
+                existing_default = DeckModel.get_or_none(DeckModel.anki_id == 1)
+                if not existing_default:
+                    for alias in ("Par défaut", "Default"):
+                        existing_default = DeckModel.get_or_none(DeckModel.name == alias)
+                        if existing_default:
+                            break
+                if existing_default:
+                    current_deck = existing_default
+                    if leaf_anki_id == 1 and current_deck.anki_id is None:
+                        current_deck.anki_id = 1
+                        current_deck.save()
+                    deck_cache[accumulated_name] = current_deck
+                    deck_cache[current_deck.name] = current_deck
+                    continue
+
+            # 3. Vérification de l'unicité de anki_id pour les nouveaux decks
+            target_anki_id = leaf_anki_id
+            if target_anki_id is not None:
+                existing_by_anki_id = DeckModel.get_or_none(DeckModel.anki_id == target_anki_id)
+                if existing_by_anki_id:
+                    logger.warning(
+                        "Conflit anki_id=%s pour le deck '%s' (déjà attribué au deck '%s'). Création sans anki_id.",
+                        target_anki_id,
+                        accumulated_name,
+                        existing_by_anki_id.name,
+                    )
+                    target_anki_id = None
+
+            current_deck = DeckModel.create(
+                name=accumulated_name,
+                parent_deck=current_deck,
+                anki_id=target_anki_id,
+            )
+            deck_cache[accumulated_name] = current_deck
+
         return current_deck or DeckModel.get_or_create(name="Par défaut")[0]
 
     def _analyze_apkg(self, apkg_path: Path, progress_callback: Callable[[str], None] | None = None) -> ImportAnalysisResult:
@@ -500,19 +597,58 @@ class ImportManager:
                                     field_names = [f[0] for f in cursor.fetchall()]
                                 except Exception as f_err:
                                     logger.debug("Remarque extraction champs notetype %s: %s", mid, f_err)
-                            css_style = self.extract_pb_string(config_blob, 3) if config_blob else ""
+
+                            css_style = ""
+                            if config_blob:
+                                try:
+                                    c_str = config_blob.decode("utf-8", errors="ignore") if isinstance(config_blob, bytes | bytearray) else str(config_blob)
+                                    if c_str.strip().startswith("{"):
+                                        c_json = json.loads(c_str)
+                                        css_style = c_json.get("css", "")
+                                except Exception:
+                                    pass
+                                if not css_style and isinstance(config_blob, bytes | bytearray):
+                                    css_style = self.extract_pb_string(bytes(config_blob), 3)
+
                             tmpls = []
                             if "templates" in tables:
                                 try:
                                     cursor.execute("SELECT name, config FROM templates WHERE ntid=? ORDER BY ord", (mid,))
                                     for t_row in cursor.fetchall():
                                         t_name, t_config = t_row
-                                        qfmt = self.extract_pb_string(t_config, 1) if t_config else ""
-                                        afmt = self.extract_pb_string(t_config, 2) if t_config else ""
+                                        qfmt = ""
+                                        afmt = ""
+                                        if t_config:
+                                            try:
+                                                cfg_str = t_config.decode("utf-8", errors="ignore") if isinstance(t_config, bytes | bytearray) else str(t_config)
+                                                if cfg_str.strip().startswith("{"):
+                                                    cfg_json = json.loads(cfg_str)
+                                                    qfmt = cfg_json.get("qfmt", cfg_json.get("q_format", ""))
+                                                    afmt = cfg_json.get("afmt", cfg_json.get("a_format", ""))
+                                            except Exception:
+                                                pass
+
+                                            if not qfmt and isinstance(t_config, bytes | bytearray):
+                                                qfmt = self.extract_pb_string(bytes(t_config), 1)
+                                            if not afmt and isinstance(t_config, bytes | bytearray):
+                                                afmt = self.extract_pb_string(bytes(t_config), 2)
+
+                                        # Si le gabarit n'a pas pu être extrait, créer un gabarit par défaut basé sur les champs réels
+                                        if not qfmt and field_names:
+                                            qfmt = f"{{{{{field_names[0]}}}}}"
+                                        if not afmt and field_names:
+                                            back_f = field_names[1] if len(field_names) > 1 else field_names[0]
+                                            afmt = f"{{{{FrontSide}}}}<hr id=answer>{{{{{back_f}}}}}"
+
                                         tmpls.append({"name": t_name, "qfmt": qfmt, "afmt": afmt})
                                 except Exception as t_err:
                                     logger.debug("Remarque extraction templates notetype %s: %s", mid, t_err)
-                            raw_models[mid] = {"name": name, "fields": field_names, "templates": tmpls, "css": css_style}
+                            raw_models[mid] = {
+                                "name": name,
+                                "fields": field_names,
+                                "templates": tmpls,
+                                "css": css_style,
+                            }
                     except Exception as e:
                         logger.warning("Erreur extraction table notetypes: %s", e)
 
@@ -547,7 +683,12 @@ class ImportManager:
                 cursor.execute("SELECT id, guid, mid, tags, flds FROM notes")
                 for row in cursor.fetchall():
                     nid, guid, mid, tags_raw, flds_raw = row
-                    model_info = raw_models.get(mid, {"name": "Basic", "fields": ["Front", "Back"], "templates": [], "css": ""})
+                    try:
+                        int_mid = int(mid)
+                    except (ValueError, TypeError):
+                        int_mid = 0
+                    fallback_model: dict[str, Any] = {"name": "Basic", "fields": ["Front", "Back"], "templates": [], "css": ""}
+                    model_info = raw_models.get(int_mid, fallback_model)
                     field_names = model_info.get("fields", [])
                     field_values = flds_raw.split("\x1f")
 
@@ -725,44 +866,81 @@ class ImportManager:
                 templates_json = json.dumps(m_info.get("templates", []), ensure_ascii=False)
                 css = m_info.get("css", "")
 
-                nt_obj, _ = NoteTypeModel.get_or_create(
-                    name=m_name,
-                    defaults={"fields_schema": fields_schema, "templates": templates_json, "css_style": css},
-                )
-                updated = False
-                if fields_schema and fields_schema != "[]" and (not nt_obj.fields_schema or nt_obj.fields_schema == "[]"):
-                    nt_obj.fields_schema = fields_schema
-                    updated = True
-                if templates_json and templates_json != "[]" and (not nt_obj.templates or nt_obj.templates == "[]"):
-                    nt_obj.templates = templates_json
-                    updated = True
-                if css and not nt_obj.css_style:
-                    nt_obj.css_style = css
-                    updated = True
-                if updated:
-                    nt_obj.save()
+                existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == m_name)
+                if existing_nt:
+                    # Vérifier si ce modèle local est vierge (0 notes associées en base)
+                    notes_count = NoteModel.select().where(NoteModel.note_type == existing_nt).count()
+                    if notes_count == 0:
+                        # Modèle vierge : on applique directement la structure et les templates du modèle entrant
+                        existing_nt.fields_schema = fields_schema
+                        existing_nt.templates = templates_json
+                        if css:
+                            existing_nt.css_style = css
+                        existing_nt.save()
+                        nt_obj = existing_nt
+                    else:
+                        # Le modèle local est déjà utilisé par des notes existantes
+                        existing_fields = json.loads(existing_nt.fields_schema) if existing_nt.fields_schema else []
+                        incoming_fields = m_info.get("fields", [])
+                        existing_tmpls = json.loads(existing_nt.templates) if existing_nt.templates else []
+                        incoming_tmpls = m_info.get("templates", [])
+
+                        if existing_fields == incoming_fields and len(existing_tmpls) == len(incoming_tmpls):
+                            # Schéma compatible, réutilisation sans duplication
+                            nt_obj = existing_nt
+                        else:
+                            # Conflit de structure : créer un modèle avec suffixe unique pour préserver l'intégrité
+                            unique_name = f"{m_name} (Importé)"
+                            counter = 1
+                            while NoteTypeModel.select().where(NoteTypeModel.name == unique_name).exists():
+                                counter += 1
+                                unique_name = f"{m_name} (Importé {counter})"
+                            nt_obj = NoteTypeModel.create(
+                                name=unique_name,
+                                fields_schema=fields_schema,
+                                templates=templates_json,
+                                css_style=css,
+                            )
+                else:
+                    nt_obj = NoteTypeModel.create(
+                        name=m_name,
+                        fields_schema=fields_schema,
+                        templates=templates_json,
+                        css_style=css,
+                    )
                 model_cache[m_name] = nt_obj
+                model_cache[str(_mid)] = nt_obj
 
             # 3. Insertion des Nouvelles Notes et de leurs Cartes
-            default_fallback_tmpl = json.dumps(
-                [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}],
-                ensure_ascii=False,
-            )
             for n_info in analysis.new_notes:
                 deck_name = n_info["deck_name"]
                 nt_name = n_info["notetype_name"]
-                nt_obj = model_cache.get(nt_name)
-                if not nt_obj:
-                    nt_obj, _ = NoteTypeModel.get_or_create(
-                        name=nt_name,
-                        defaults={
-                            "fields_schema": json.dumps(n_info.get("field_names", ["Front", "Back"])),
-                            "templates": default_fallback_tmpl,
-                            "css_style": "",
-                        },
-                    )
-                    model_cache[nt_name] = nt_obj
+                note_type_model: NoteTypeModel | None = model_cache.get(nt_name)
+                if not note_type_model:
+                    # Essayer via model_info si présent
+                    m_info = n_info.get("model_info", {})
+                    if m_info and m_info.get("name") in model_cache:
+                        note_type_model = model_cache[m_info["name"]]
+                    else:
+                        existing_nt = NoteTypeModel.get_or_none(NoteTypeModel.name == nt_name)
+                        if existing_nt:
+                            note_type_model = existing_nt
+                        else:
+                            fields_list = n_info.get("field_names", ["Front", "Back"])
+                            back_f = fields_list[1] if len(fields_list) > 1 else fields_list[0]
+                            dyn_tmpl = json.dumps(
+                                [{"name": "Carte 1", "qfmt": f"{{{{{fields_list[0]}}}}}", "afmt": f"{{{{FrontSide}}}}<hr id=answer>{{{{{back_f}}}}}"}],
+                                ensure_ascii=False,
+                            )
+                            note_type_model = NoteTypeModel.create(
+                                name=nt_name,
+                                fields_schema=json.dumps(fields_list),
+                                templates=dyn_tmpl,
+                                css_style="",
+                            )
+                            model_cache[nt_name] = note_type_model
 
+                assert note_type_model is not None
                 anki_id_val = n_info.get("anki_id")
                 if anki_id_val and NoteModel.select().where(NoteModel.anki_id == anki_id_val).exists():
                     anki_id_val = None
@@ -770,7 +948,7 @@ class ImportManager:
                 note = NoteModel.create(
                     guid=n_info["guid"],
                     anki_id=anki_id_val,
-                    note_type=nt_obj,
+                    note_type=note_type_model,
                     tags=json.dumps(n_info.get("tags", [])),
                     status="imported",
                 )

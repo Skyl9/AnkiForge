@@ -171,7 +171,6 @@ class KaTeXTextEdit(QPlainTextEdit):
         # Let the editor handle the key first, except if it's the trigger character
         super().keyPressEvent(e)
 
-        cr = self.cursorRect()
         completion_prefix = self.textUnderCursor()
 
         if completion_prefix and (completion_prefix.startswith("\\") or completion_prefix.startswith("<") or completion_prefix.startswith("{")):
@@ -182,14 +181,49 @@ class KaTeXTextEdit(QPlainTextEdit):
             if popup is not None:
                 popup.setCurrentIndex(self.completer.completionModel().index(0, 0))
 
-                scroll_bar = popup.verticalScrollBar()
-                scroll_width = scroll_bar.sizeHint().width() if scroll_bar else 0
-                cr.setWidth(popup.sizeHintForColumn(0) + scroll_width)
-            self.completer.complete(cr)
         else:
             popup = self.completer.popup()
             if popup is not None:
                 popup.hide()
+
+
+def sanitize_user_markdown_html(html_body: str) -> str:
+    """
+    Neutralise les balises scripts et attributs d'exécution arbitraire dans le HTML utilisateur (Anti-XSS).
+    Affiche le code sous forme de bloc <pre><code> sans exécution par le moteur web.
+    """
+    import html as html_lib
+    import re
+
+    # 1. Neutralisation des balises <script>...</script>
+    html_body = re.sub(
+        r"<\s*script\b[^>]*>([\s\S]*?)<\s*/\s*script\s*>",
+        lambda m: f"<pre class='xss-neutralized'><code>&lt;script&gt;{html_lib.escape(m.group(1))}&lt;/script&gt;</code></pre>",
+        html_body,
+        flags=re.IGNORECASE,
+    )
+    # 2. Neutralisation des balises <script .../>
+    html_body = re.sub(
+        r"<\s*script\b[^>]*/>",
+        lambda m: f"<pre class='xss-neutralized'><code>{html_lib.escape(m.group(0))}</code></pre>",
+        html_body,
+        flags=re.IGNORECASE,
+    )
+    # 3. Neutralisation des gestionnaires d'événements inline (onload, onerror, onclick, etc.)
+    html_body = re.sub(
+        r"\b(on[a-zA-Z]+)\s*=\s*(['\"][^'\"]*['\"]|[^\s>]+)",
+        r"data-blocked-\1=\2",
+        html_body,
+        flags=re.IGNORECASE,
+    )
+    # 4. Neutralisation des pseudo-protocoles javascript: dans les liens ou images
+    html_body = re.sub(
+        r'\b(href|src)\s*=\s*["\']\s*javascript:[^"\']*["\']',
+        r'\1="#"',
+        html_body,
+        flags=re.IGNORECASE,
+    )
+    return html_body
 
 
 class KaTeXEditor(QWidget):
@@ -322,8 +356,9 @@ class KaTeXEditor(QWidget):
         text = self.editor.toPlainText()
         text = _preprocess_math_blocks(text)
 
-        # Conversion Markdown vers HTML
+        # Conversion Markdown vers HTML et désinfection Anti-XSS
         html_body = markdown.markdown(text, extensions=["tables", "fenced_code", "nl2br", "sane_lists"])
+        html_body = sanitize_user_markdown_html(html_body)
 
         html_content = f"""<!DOCTYPE html>
         <html>

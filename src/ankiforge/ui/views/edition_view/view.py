@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 
+import peewee
 from PySide6.QtCore import QModelIndex, Qt, Slot
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -23,6 +25,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import (
     CardModel,
+    DeckModel,
     LLMConfigModel,
     NoteModel,
     NoteTypeModel,
@@ -111,6 +114,7 @@ class EditionView(QWidget):
         self._saved_table_height: int = 260
         self._preview_visible: bool = True
         self._saved_preview_width: int = 400
+        self._display_mode: Literal["notes", "cards"] = "notes"
 
         self._deck_modal: DeckSelectWindow | None = None
         self._tag_modal: TagSelectWindow | None = None
@@ -169,6 +173,78 @@ class EditionView(QWidget):
         filter_layout = QHBoxLayout(filter_bar)
         filter_layout.setContentsMargins(8, 6, 8, 6)
         filter_layout.setSpacing(8)
+
+        # Sélecteur de mode : [ 📝 Notes | 🗂️ Cartes ]
+        self.mode_container = QWidget()
+        self.mode_container.setFixedHeight(28)
+        self.mode_container.setStyleSheet(f"""
+            QWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+        """)
+        mode_layout = QHBoxLayout(self.mode_container)
+        mode_layout.setContentsMargins(2, 2, 2, 2)
+        mode_layout.setSpacing(2)
+
+        self.btn_mode_notes = QPushButton("📝 Notes")
+        self.btn_mode_notes.setCheckable(True)
+        self.btn_mode_notes.setChecked(True)
+        self.btn_mode_notes.setFixedHeight(22)
+        self.btn_mode_notes.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_mode_notes.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: none;
+                border-radius: {DesignTokens.RADIUS_SM - 2}px;
+                padding: 0 10px;
+                font-size: 11px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-weight: bold;
+            }}
+        """)
+
+        self.btn_mode_cards = QPushButton("🗂️ Cartes")
+        self.btn_mode_cards.setCheckable(True)
+        self.btn_mode_cards.setFixedHeight(22)
+        self.btn_mode_cards.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_mode_cards.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: none;
+                border-radius: {DesignTokens.RADIUS_SM - 2}px;
+                padding: 0 10px;
+                font-size: 11px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-weight: bold;
+            }}
+        """)
+
+        self.mode_btn_group = QButtonGroup(self)
+        self.mode_btn_group.addButton(self.btn_mode_notes, 0)
+        self.mode_btn_group.addButton(self.btn_mode_cards, 1)
+        self.mode_btn_group.idClicked.connect(self._on_display_mode_changed)
+
+        mode_layout.addWidget(self.btn_mode_notes)
+        mode_layout.addWidget(self.btn_mode_cards)
+        filter_layout.addWidget(self.mode_container)
 
         self.btn_open_folder = QPushButton("Dossier : Tous ▾")
         self.btn_open_folder.setIcon(load_phosphor_icon("folders", color=DesignTokens.TEXT_SECONDARY))
@@ -473,6 +549,14 @@ class EditionView(QWidget):
             self.editor_toolbar.btn_toggle_table.setToolTip("Replier la liste des cartes (Ctrl+Shift+T)")
             self.main_splitter.setSizes([self._saved_table_height, max(300, sizes[0] + sizes[1] - self._saved_table_height)])
 
+    @Slot(int)
+    def _on_display_mode_changed(self, btn_id: int) -> None:
+        """Bascule entre le mode 'notes' et le mode 'cards'."""
+        new_mode: Literal["notes", "cards"] = "cards" if btn_id == 1 else "notes"
+        if new_mode != self._display_mode:
+            self._display_mode = new_mode
+            self.refresh_data()
+
     def _update_nav_ribbon_info(self) -> None:
         if not self._current_note:
             self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
@@ -481,6 +565,15 @@ class EditionView(QWidget):
         selected_rows = self.card_table.get_selected_rows()
         current_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
         total_rows = self.note_table_model.rowCount()
+
+        if self._display_mode == "cards":
+            card_data = self.note_table_model.get_card_data_at(current_row)
+            if card_data:
+                row_info = f"({current_row + 1}/{total_rows})" if current_row >= 0 else ""
+                q_text = card_data.question[:50] + "..." if len(card_data.question) > 50 else card_data.question
+                self.lbl_card_ribbon_info.setText(f"Carte #{card_data.card_id} {row_info} [{card_data.template_name}] (Note #{card_data.note_id}) : {q_text}")
+                return
+
         recto_text = ""
         for widget in self.dynamic_field_widgets.values():
             recto_text = strip_html_tags(widget.get_text())
@@ -738,6 +831,10 @@ class EditionView(QWidget):
         self._build_dynamic_editors(note, data)
 
         self._update_preview()
+        if self._display_mode == "cards":
+            card_data = self.note_table_model.get_card_data_at(row)
+            if card_data is not None:
+                self.card_preview.set_selected_template_index(card_data.template_index)
         self._update_nav_ribbon_info()
         self._dirty = False
 
@@ -1003,6 +1100,33 @@ class EditionView(QWidget):
         self.refresh_data()
 
     def _update_table_headers(self) -> None:
+        if self._display_mode == "cards":
+            self._current_table_fields = None
+            self.note_table_model.set_active_model_fields(None)
+            self.card_table.setColumnWidth(0, 36)
+            self.card_table.setItemDelegateForColumn(0, self.checkbox_delegate)
+            self.card_table.setColumnWidth(1, 32)
+            self.card_table.setItemDelegateForColumn(1, self.flag_delegate)
+
+            self.card_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            self.card_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            self.card_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            self.card_table.setItemDelegateForColumn(2, self.text_code_delegate)
+            self.card_table.setItemDelegateForColumn(3, self.text_regular_delegate)
+
+            self.card_table.setColumnWidth(4, 130)
+            self.card_table.setItemDelegateForColumn(4, self.badge_delegate)
+
+            self.card_table.setColumnWidth(5, 140)
+            self.card_table.setItemDelegateForColumn(5, self.badge_delegate)
+
+            self.card_table.setColumnWidth(6, 120)
+            self.card_table.setItemDelegateForColumn(6, self.badge_delegate)
+
+            self.card_table.setColumnWidth(7, 140)
+            self.card_table.setItemDelegateForColumn(7, self.tag_delegate)
+            return
+
         if self._active_model_id:
             try:
                 model = NoteTypeModel.get_or_none(NoteTypeModel.id == self._active_model_id)
@@ -1128,7 +1252,31 @@ class EditionView(QWidget):
         menu.exec(global_pos)
 
     def _apply_flag_to_selected_notes(self, flag: int, fallback_note_id: int | None = None) -> None:
-        """Applique un drapeau aux notes sélectionnées/cochées ou à la note active."""
+        """Applique un drapeau aux notes/cartes sélectionnées/cochées ou à l'élément actif."""
+        if self._display_mode == "cards":
+            target_card_ids: list[int] = list(self.note_table_model.get_checked_card_ids())
+            if not target_card_ids:
+                selected_rows = self.card_table.get_selected_rows()
+                c_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
+                c_data = self.note_table_model.get_card_data_at(c_row)
+                if c_data:
+                    target_card_ids = [c_data.card_id]
+            if not target_card_ids:
+                return
+
+            with db.atomic():
+                CardModel.update(flags=flag).where(CardModel.id.in_(target_card_ids)).execute()
+
+            for cid in target_card_ids:
+                self.note_table_model.update_card_flag(cid, flag)
+
+            flag_label = DesignTokens.FLAG_NAMES.get(flag, "Aucun")
+            if flag == 0:
+                show_toast(self, f"Drapeau retiré pour {len(target_card_ids)} carte(s).")
+            else:
+                show_toast(self, f"Drapeau '{flag_label}' appliqué à {len(target_card_ids)} carte(s).")
+            return
+
         target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
         if not target_ids:
             if fallback_note_id:
@@ -1341,34 +1489,65 @@ class EditionView(QWidget):
             self.lbl_card_ribbon_info.setText("Aucune carte sélectionnée")
 
         try:
-            query = NoteModel.select().order_by(NoteModel.id.asc())
-            if self._active_folder_id is not None:
-                from ankiforge.database.models import CardModel, DeckModel
+            if self._display_mode == "cards":
+                query = (
+                    CardModel.select(CardModel, NoteModel, DeckModel, NoteTypeModel)
+                    .join(NoteModel, peewee.JOIN.LEFT_OUTER)
+                    .join(NoteTypeModel, peewee.JOIN.LEFT_OUTER)
+                    .switch(CardModel)
+                    .join(DeckModel, peewee.JOIN.LEFT_OUTER)
+                    .order_by(CardModel.id.asc())
+                )
+                if self._active_folder_id is not None:
+                    active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
+                    if active_deck:
+                        deck_name = active_deck.name
+                        descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(f"{deck_name}::")))
+                        deck_ids = [d.id for d in descendant_decks]
+                        query = query.where(CardModel.deck.in_(deck_ids))
+                for tag in self._active_tags:
+                    query = query.where(NoteModel.tags.contains(tag))
+                if self._active_model_id is not None:
+                    query = query.where(NoteModel.note_type == self._active_model_id)
 
-                active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
-                if active_deck:
-                    deck_name = active_deck.name
-                    descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(f"{deck_name}::")))
-                    deck_ids = [d.id for d in descendant_decks]
-                    matching_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.deck.in_(deck_ids))]
-                    query = query.where(NoteModel.id.in_(matching_note_ids))
-            for tag in self._active_tags:
-                query = query.where(NoteModel.tags.contains(tag))
-            if self._active_model_id is not None:
-                query = query.where(NoteModel.note_type == self._active_model_id)
+                if self._active_flag is not None:
+                    query = query.where(CardModel.flags == self._active_flag) if self._active_flag > 0 else query.where((CardModel.flags == 0) | (CardModel.flags.is_null(True)))
 
-            if self._active_flag is not None:
-                from ankiforge.database.models import CardModel
+                self.note_table_model.set_filter_query(
+                    query,
+                    active_model_fields=None,
+                    display_mode="cards",
+                )
+                self._update_table_headers()
+            else:
+                query = NoteModel.select().order_by(NoteModel.id.asc())
+                if self._active_folder_id is not None:
+                    active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
+                    if active_deck:
+                        deck_name = active_deck.name
+                        descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(f"{deck_name}::")))
+                        deck_ids = [d.id for d in descendant_decks]
+                        matching_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.deck.in_(deck_ids))]
+                        query = query.where(NoteModel.id.in_(matching_note_ids))
+                for tag in self._active_tags:
+                    query = query.where(NoteModel.tags.contains(tag))
+                if self._active_model_id is not None:
+                    query = query.where(NoteModel.note_type == self._active_model_id)
 
-                if self._active_flag > 0:
-                    flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags == self._active_flag)]
-                    query = query.where(NoteModel.id.in_(flagged_note_ids))
-                else:
-                    flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]
-                    query = query.where(NoteModel.id.not_in(flagged_note_ids))
+                if self._active_flag is not None:
+                    if self._active_flag > 0:
+                        flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags == self._active_flag)]
+                        query = query.where(NoteModel.id.in_(flagged_note_ids))
+                    else:
+                        flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]
+                        query = query.where(NoteModel.id.not_in(flagged_note_ids))
 
-            self.note_table_model.set_filter_query(query, active_model_fields=self._current_table_fields)
-            self._update_table_headers()
+                self.note_table_model.set_filter_query(
+                    query,
+                    active_model_fields=self._current_table_fields,
+                    display_mode="notes",
+                )
+                self._update_table_headers()
 
         except Exception as e:
             logger.warning("Erreur lors du rafraîchissement d'EditionView: %s", e)
@@ -1409,6 +1588,37 @@ class EditionView(QWidget):
             self.editor_container.setStyleSheet(f"background-color: {profile.bg_sidebar};")
         if hasattr(self, "fields_container"):
             self.fields_container.setStyleSheet(f"background-color: {profile.bg_sidebar};")
+
+        if hasattr(self, "mode_container"):
+            self.mode_container.setStyleSheet(f"""
+                QWidget {{
+                    background-color: {profile.bg_input};
+                    border-radius: {profile.radius_sm}px;
+                    border: 1px solid {profile.border_color};
+                }}
+            """)
+        if hasattr(self, "btn_mode_notes") and hasattr(self, "btn_mode_cards"):
+            btn_style = f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {profile.text_secondary};
+                    border: none;
+                    border-radius: {profile.radius_sm - 2}px;
+                    padding: 0 10px;
+                    font-size: 11px;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{
+                    color: {profile.text_primary};
+                }}
+                QPushButton:checked {{
+                    background-color: {profile.bg_panel};
+                    color: {profile.accent_primary};
+                    font-weight: bold;
+                }}
+            """
+            self.btn_mode_notes.setStyleSheet(btn_style)
+            self.btn_mode_cards.setStyleSheet(btn_style)
 
         if hasattr(self, "btn_open_folder"):
             is_active = self._active_folder_id is not None
