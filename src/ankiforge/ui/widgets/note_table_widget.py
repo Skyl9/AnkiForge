@@ -16,10 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 def strip_html(text: str | None) -> str:
-    """Retire toutes les balises HTML d'une chaîne pour l'affichage brut dans les tableaux."""
+    """Retire toutes les balises HTML d'une chaîne pour l'affichage brut dans les tableaux en préservant les médias."""
     if not text:
         return ""
-    clean = re.compile("<.*?>")
+    # Préserver les balises image sous forme lisible : 🖼️ [01.jpg]
+    text = re.sub(r'<img[^>]*src=["\']([^"\']+)["\'][^>]*>', r"🖼️ [\1]", text, flags=re.IGNORECASE)
+    # Préserver les sons [sound:...] ou balises <audio>
+    text = re.sub(r"\[sound:([^\]]+)\]", r"🔊 [\1]", text, flags=re.IGNORECASE)
+    text = re.sub(r'<audio[^>]*src=["\']([^"\']+)["\'][^>]*>.*?</audio>', r"🔊 [\1]", text, flags=re.IGNORECASE)
+    clean = re.compile(r"<.*?>")
     return re.sub(clean, "", text).replace("&nbsp;", " ").replace("\n", " ").strip()
 
 

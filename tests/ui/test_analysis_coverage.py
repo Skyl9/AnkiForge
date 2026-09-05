@@ -118,6 +118,65 @@ def test_ai_sources_diagnostic_tab_grid_and_kpis(qtbot):
     assert tab.stack.currentIndex() == 1
 
 
+def test_ai_sources_align_buttons(qtbot):
+    """Vérifie les boutons et actions d'alignement intelligent des cartes dans AISourcesDiagnosticTab et DocumentInspectorPanel."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Réseau {uid}",
+        content="# TCP Handshake\nLe protocole TCP utilise le syn syn-ack ack pour établir la connexion.\n\n# UDP Datagramme\nLe protocole UDP fonctionne sans connexion préalable.",
+        file_type="md",
+    )
+    chunk1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Réseau > TCP Handshake",
+        content="Le protocole TCP utilise le syn syn-ack ack pour établir la connexion.",
+        content_hash=f"h_tcp_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Réseau > UDP Datagramme",
+        content="Le protocole UDP fonctionne sans connexion préalable.",
+        content_hash=f"h_udp_{uid}",
+    )
+
+    deck = DeckModel.create(name=f"Deck Réseau {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name=f"Model Réseau {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style="",
+    )
+    note_tcp = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note_tcp.add_version(
+        {"Front": "Comment fonctionne le handshake TCP ?", "Back": "Il utilise syn syn-ack ack pour établir la connexion."},
+        source="manual",
+    )
+    CardModel.create(note=note_tcp, deck=deck, template_index=0)
+
+    # 1. Test DocumentInspectorPanel btn_align_cards
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    panel.load_chunks()
+
+    # Initialement pas de lien
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 0
+
+    # Clic sur Aligner les fiches
+    panel.btn_align_cards.click()
+
+    # Vérification que le lien a été créé
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 1
+
+    # 2. Test AISourcesDiagnosticTab btn_align_all
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+    assert hasattr(tab, "btn_align_all")
+    tab.btn_align_all.click()
+    assert tab.lbl_kpi_docs_val.text() != ""
+
+
 def test_ai_wozniak_linter_tab_and_widgets(qtbot):
     """Vérifie l'onglet Linter Wozniak, la sélection de catégorie et l'inspection de carte."""
     tab = AIWozniakLinterTab()

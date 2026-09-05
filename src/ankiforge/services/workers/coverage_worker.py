@@ -110,11 +110,26 @@ class CoverageWorker(QThread):
             vector_mgr = VectorManager(llm_config=cfg)
             vector_mgr.index_document(doc)
 
+            # 4. Alignement automatique des fiches existantes de la collection
+            self.progress_update.emit("Alignement automatique des fiches Anki existantes...")
+            from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+            align_stats = CoverageAlignmentService.align_document(self.document_id)
+            matched = align_stats.get("matched_notes", 0)
+            cov_pct = align_stats.get("coverage_pct", 0.0)
+            logger.info(
+                "Alignement automatique pour '%s' : %d cartes associées (Couverture : %.1f%%)",
+                doc.title,
+                matched,
+                cov_pct,
+            )
+
             elapsed = time.perf_counter() - t0
             logger.info(
-                "CoverageWorker terminé avec succès pour '%s' (%d chunks, indexation FAISS) en %.2fs",
+                "CoverageWorker terminé avec succès pour '%s' (%d chunks, indexation FAISS, %d cartes alignées) en %.2fs",
                 doc.title,
                 len(extracted_chunks),
+                matched,
                 elapsed,
             )
             self.progress_update.emit("Indexation et structuration terminées avec succès !")

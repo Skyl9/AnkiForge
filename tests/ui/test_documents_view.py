@@ -206,3 +206,46 @@ def test_rag_test_dialog_modes(qtbot, tmp_path, monkeypatch):
     dlg.search_input.setText("glycémie régulation")
     dlg._on_search()
     assert dlg.results_list.count() >= 1
+
+
+def test_documents_view_smart_align_button(qtbot):
+    """Vérifie le déclenchement de l'alignement intelligent depuis le bouton de DocumentsView."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Réseaux Test {uid}",
+        content="Les adresses IP et protocoles TCP assurent le routage.",
+        file_type="md",
+    )
+    chunk1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Réseau > Protocole TCP",
+        content="Le protocole TCP garantit la fiabilité des échanges de paquets.",
+        content_hash=f"hash_tcp_{uid}",
+    )
+
+    deck = DeckModel.create(name=f"Deck IP {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model IP {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note.add_version({"Front": "Rôle du protocole TCP ?", "Back": "Fiabilité des paquets réseau."}, source="manual")
+    from ankiforge.database.models import CardModel
+
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+
+    # Initialement non couvert (0 carte liée)
+    assert view.chapters_list.count() == 1
+    assert "Non couvert" in view.chapters_list.item(0).text()
+    assert "0%" in view.lbl_coverage_summary.text()
+
+    # Clic sur le bouton d'alignement intelligent
+    view.btn_align_cards.click()
+
+    # Après alignement : couvert à 100%
+    assert "Couvert" in view.chapters_list.item(0).text()
+    assert "100%" in view.lbl_coverage_summary.text()
+    assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 1

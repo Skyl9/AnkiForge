@@ -8,10 +8,14 @@ from ankiforge.services.cards.media_manager import MediaManager
 
 @pytest.fixture
 def media_manager(tmp_path):
-    """Fixture qui isole le dossier de données de l'application."""
-    with patch("ankiforge.services.cards.media_manager.get_app_data_dir") as mock_dir:
-        mock_dir.return_value = tmp_path
-        yield MediaManager()
+    """Fixture qui isole le dossier de données et de médias de l'application."""
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    with (
+        patch("ankiforge.services.cards.media_manager.get_app_data_dir", return_value=tmp_path),
+        patch("ankiforge.services.cards.media_manager.get_media_dir", return_value=media_dir),
+    ):
+        yield MediaManager(media_dir=media_dir)
 
 
 def test_calculate_md5(media_manager, tmp_path):

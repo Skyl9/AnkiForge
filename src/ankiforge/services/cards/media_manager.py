@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from ankiforge.utils.paths import get_app_data_dir
+from ankiforge.utils.paths import get_app_data_dir, get_media_dir
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 class MediaManager:
     """Gère l'importation, le hachage et le formatage HTML des images extraites."""
 
-    def __init__(self) -> None:
-        # On s'assure que le dossier "data/media" existe
-        self.base_dir = get_app_data_dir()
-        self.media_dir = self.base_dir / "media"
+    def __init__(self, media_dir: Path | None = None) -> None:
+        # On stocke prioritairement dans le dossier médias du profil actif
+        self.media_dir = media_dir or get_media_dir()
         self.media_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir = get_app_data_dir()
 
     @staticmethod
     def _calculate_md5(file_path: str) -> str:

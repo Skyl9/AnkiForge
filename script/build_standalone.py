@@ -141,17 +141,24 @@ def copy_app_resources_to_bundle(dist_dir: Path, target_os: str) -> None:
         return
 
     logger.info("Copie des ressources applicatives (icônes Phosphor, logo, templates, traductions)...")
+    resources_src = PROJECT_ROOT / "src" / "ankiforge" / "resources"
     if target_os == "darwin":
         res_dir = dist_dir / "Contents" / "Resources"
         target_res = res_dir / "ressources"
         target_src_res = res_dir / "src" / "ressources"
         shutil.copytree(ressources_src, target_res, dirs_exist_ok=True)
         shutil.copytree(ressources_src, target_src_res, dirs_exist_ok=True)
+        if resources_src.exists():
+            shutil.copytree(resources_src, res_dir / "resources", dirs_exist_ok=True)
+            shutil.copytree(resources_src, res_dir / "src" / "ankiforge" / "resources", dirs_exist_ok=True)
     else:
         target_res = dist_dir / "ressources"
         target_src_res = dist_dir / "src" / "ressources"
         shutil.copytree(ressources_src, target_res, dirs_exist_ok=True)
         shutil.copytree(ressources_src, target_src_res, dirs_exist_ok=True)
+        if resources_src.exists():
+            shutil.copytree(resources_src, dist_dir / "resources", dirs_exist_ok=True)
+            shutil.copytree(resources_src, dist_dir / "src" / "ankiforge" / "resources", dirs_exist_ok=True)
 
 
 def strip_binary_symbols(dist_dir: Path, target_os: str) -> None:

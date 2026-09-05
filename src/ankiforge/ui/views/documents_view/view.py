@@ -122,8 +122,12 @@ class DocumentsView(QWidget):
         self.btn_delete.setEnabled(False)
         self.btn_delete.clicked.connect(self._on_delete_item)
 
+        self.btn_copy_profile = IconButton("ph.arrows-left-right", tooltip="Importer des documents depuis un autre profil", size=24)
+        self.btn_copy_profile.clicked.connect(self._on_import_from_other_profile)
+
         explorer_toolbar.addWidget(self.btn_import, 1)
         explorer_toolbar.addWidget(self.btn_import_url)
+        explorer_toolbar.addWidget(self.btn_copy_profile)
         explorer_toolbar.addWidget(self.btn_new_album)
         explorer_toolbar.addWidget(self.btn_new_folder)
         explorer_toolbar.addWidget(self.btn_delete)
@@ -441,6 +445,14 @@ class DocumentsView(QWidget):
         self.lbl_coverage_details = QLabel("0 sections analysées • 0 cartes liées")
         self.lbl_coverage_details.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
         cov_card_layout.addWidget(self.lbl_coverage_details)
+
+        self.btn_align_cards = SecondaryButton("Aligner les cartes")
+        self.btn_align_cards.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
+        self.btn_align_cards.setToolTip("Associer automatiquement les fiches existantes de la collection aux sections de ce document")
+        self.btn_align_cards.setFixedHeight(24)
+        self.btn_align_cards.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_align_cards.clicked.connect(self._on_smart_align_document)
+        cov_card_layout.addWidget(self.btn_align_cards)
 
         cov_layout.addWidget(self.coverage_card)
 
@@ -1218,6 +1230,92 @@ class DocumentsView(QWidget):
                 "chunk_id": chunk.id,
             },
         )
+
+    @Slot()
+    def _on_smart_align_document(self) -> None:
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document d'abord.", is_error=True)
+            return
+
+        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+        show_toast(self, "Alignement des fiches Anki en cours...")
+        res = CoverageAlignmentService.align_document(self._current_doc_id)
+        matched = res.get("matched_notes", 0)
+        cov_pct = res.get("coverage_pct", 0.0)
+        self._refresh_chapters_list()
+        show_toast(self, f"✅ {matched} cartes liées au document ! Couverture : {cov_pct:.0f}%")
+
+    @Slot()
+    def _on_import_from_other_profile(self) -> None:
+        import sqlite3
+
+        from ankiforge.services.profile_manager import ProfileManager
+        from ankiforge.utils.paths import get_active_profile
+
+        pm = ProfileManager()
+        current_prof = get_active_profile()
+        other_profiles = [p for p in pm.list_profiles() if p != current_prof]
+
+        if not other_profiles:
+            show_toast(self, "Aucun autre profil disponible pour importer des documents.", is_error=True)
+            return
+
+        src_prof, ok = QInputDialog.getItem(
+            self,
+            "Importer depuis un profil",
+            "Sélectionnez le profil source :",
+            other_profiles,
+            0,
+            False,
+        )
+        if not ok or not src_prof:
+            return
+
+        src_db = pm.get_db_path(src_prof)
+        if not src_db.exists():
+            show_toast(self, f"Base introuvable pour le profil {src_prof}.", is_error=True)
+            return
+
+        con = sqlite3.connect(src_db)
+        cur = con.cursor()
+        docs = cur.execute("SELECT id, title, file_type FROM documentmodel ORDER BY title").fetchall()
+        con.close()
+
+        if not docs:
+            show_toast(self, f"Aucun document trouvé dans le profil '{src_prof}'.", is_error=True)
+            return
+
+        doc_choices = ["Tous les documents"] + [f"#{d[0]} : {d[1]} ({d[2]})" for d in docs]
+        chosen_doc, ok_doc = QInputDialog.getItem(
+            self,
+            "Choisir le document",
+            f"Documents disponibles dans '{src_prof}' :",
+            doc_choices,
+            0,
+            False,
+        )
+        if not ok_doc or not chosen_doc:
+            return
+
+        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+        imported_count = 0
+        if chosen_doc == "Tous les documents":
+            for d in docs:
+                new_doc = CoverageAlignmentService.copy_document_from_profile(src_prof, current_prof, d[0])
+                if new_doc:
+                    CoverageAlignmentService.align_document(new_doc.id)
+                    imported_count += 1
+        else:
+            doc_id = int(chosen_doc.split(":")[0].replace("#", "").strip())
+            new_doc = CoverageAlignmentService.copy_document_from_profile(src_prof, current_prof, doc_id)
+            if new_doc:
+                CoverageAlignmentService.align_document(new_doc.id)
+                imported_count += 1
+
+        self.refresh_data()
+        show_toast(self, f"✅ {imported_count} document(s) importé(s) et aligné(s) avec succès !")
 
     @Slot()
     def _on_vectorize_rag(self) -> None:

@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QModelIndex, Qt, Slot
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -605,6 +605,63 @@ class EditionView(QWidget):
                 logger.warning("Échec du chargement du schéma des champs : %s", e)
                 fields = []
 
+        if not fields:
+            fields = list(data.keys()) if data else ["Front", "Back"]
+        else:
+            for k in data:
+                if k not in fields:
+                    fields.append(k)
+        # Badge de Traçabilité Documentaire
+        from ankiforge.database.models import NoteChunkLinkModel
+
+        link = NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).first()
+        if link and link.chunk:
+            doc_title = link.chunk.document.title if link.chunk.document else "Document"
+            heading = link.chunk.heading_path or (f"Page {link.chunk.page_number}" if link.chunk.page_number else f"Section #{link.chunk.chunk_index + 1}")
+            source_badge = QFrame()
+            source_badge.setStyleSheet(f"""
+                QFrame {{
+                    background-color: rgba(56, 189, 248, 0.08);
+                    border: 1px solid rgba(56, 189, 248, 0.25);
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 8px;
+                    margin-bottom: 6px;
+                }}
+            """)
+            sb_layout = QHBoxLayout(source_badge)
+            sb_layout.setContentsMargins(4, 2, 4, 2)
+            sb_layout.setSpacing(6)
+
+            ico_src = QLabel()
+            ico_src.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+            ico_src.setStyleSheet("border: none; background: transparent;")
+            sb_layout.addWidget(ico_src)
+
+            lbl_src = QLabel(f"Source : {doc_title} · {heading}")
+            lbl_src.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+            lbl_src.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; border: none; background: transparent;")
+            sb_layout.addWidget(lbl_src, 1)
+
+            btn_go_doc = QPushButton("Voir le cours ➔")
+            btn_go_doc.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent;
+                    color: {DesignTokens.COLOR_BLUE};
+                    font-size: 10px;
+                    font-weight: bold;
+                    border: none;
+                    text-decoration: underline;
+                }}
+                QPushButton:hover {{
+                    color: {DesignTokens.ACCENT_PRIMARY};
+                }}
+            """)
+            target_doc_id = link.chunk.document_id
+            btn_go_doc.clicked.connect(lambda: self.request_navigation.emit("documents", {"doc_id": target_doc_id}))
+            sb_layout.addWidget(btn_go_doc)
+
+            self.fields_layout.addWidget(source_badge)
+
         for i, field_name in enumerate(fields):
             val = data.get(field_name, data.get(field_name.lower(), ""))
 
@@ -697,7 +754,17 @@ class EditionView(QWidget):
             fields_dict["Back"] = list(fields_dict.values())[1]
 
         override_templates = None
-        if not note_type or not getattr(note_type, "templates", None):
+        templates_val = getattr(note_type, "templates", None)
+        has_valid_templates = False
+        if templates_val:
+            try:
+                parsed_tmpls = json.loads(str(templates_val))
+                if isinstance(parsed_tmpls, list) and len(parsed_tmpls) > 0:
+                    has_valid_templates = True
+            except Exception:
+                has_valid_templates = False
+
+        if not note_type or not has_valid_templates:
             override_templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}]
 
         self.card_preview.update_preview(

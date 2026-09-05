@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import difflib
 import hashlib
+import io
 import json
 import logging
 import mimetypes
@@ -385,7 +386,8 @@ class ImportManager:
                     if raw_media_bytes.startswith(b"\x28\xb5\x2f\xfd"):
                         try:
                             dctx = zstd.ZstdDecompressor()
-                            raw_media_bytes = dctx.decompress(raw_media_bytes)
+                            with dctx.stream_reader(io.BytesIO(raw_media_bytes)) as reader:
+                                raw_media_bytes = reader.read()
                         except Exception as z_err:
                             logger.debug("Remarque décompression zstd media : %s", z_err)
 
@@ -727,12 +729,25 @@ class ImportManager:
                     name=m_name,
                     defaults={"fields_schema": fields_schema, "templates": templates_json, "css_style": css},
                 )
+                updated = False
+                if fields_schema and fields_schema != "[]" and (not nt_obj.fields_schema or nt_obj.fields_schema == "[]"):
+                    nt_obj.fields_schema = fields_schema
+                    updated = True
+                if templates_json and templates_json != "[]" and (not nt_obj.templates or nt_obj.templates == "[]"):
+                    nt_obj.templates = templates_json
+                    updated = True
                 if css and not nt_obj.css_style:
                     nt_obj.css_style = css
+                    updated = True
+                if updated:
                     nt_obj.save()
                 model_cache[m_name] = nt_obj
 
             # 3. Insertion des Nouvelles Notes et de leurs Cartes
+            default_fallback_tmpl = json.dumps(
+                [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}],
+                ensure_ascii=False,
+            )
             for n_info in analysis.new_notes:
                 deck_name = n_info["deck_name"]
                 nt_name = n_info["notetype_name"]
@@ -742,7 +757,7 @@ class ImportManager:
                         name=nt_name,
                         defaults={
                             "fields_schema": json.dumps(n_info.get("field_names", ["Front", "Back"])),
-                            "templates": "[]",
+                            "templates": default_fallback_tmpl,
                             "css_style": "",
                         },
                     )

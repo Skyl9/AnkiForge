@@ -185,7 +185,17 @@ def get_media_dir(profile_name: str | None = None) -> Path:
 
 
 def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
-    """Résout le chemin absolu d'un média en cherchant dans le profil actif, le profil par défaut et le dossier global."""
+    """
+    Résout le chemin absolu d'un média physique de façon robuste et bidirectionnelle.
+    1. Recherche directe dans le profil actif, le profil par défaut et le dossier global.
+    2. En cas d'échec, interroge MediaModel pour résoudre les correspondances entre nom d'origine
+       (ex: CM entier.pdf, _page_1.jpeg) et nom de stockage haché (ex: 33c6d32...pdf).
+    3. Recherche en repli dans les dossiers médias des autres profils existants.
+    """
+    if not filename:
+        return get_media_dir(profile_name) / "empty"
+
+    # 1. Candidats standards immédiats
     candidates = [
         get_media_dir(profile_name) / filename,
         get_app_data_dir() / "profiles" / "default" / "media" / filename,
@@ -194,4 +204,45 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
     for p in candidates:
         if p.exists():
             return p
+
+    # 2. Résolution bidirectionnelle via MediaModel (original_name <-> filename haché)
+    resolved_alt_names: list[str] = []
+    try:
+        from ankiforge.database.models.cards import MediaModel
+
+        # Cas A : filename fourni est le nom original, on cherche le filename haché
+        media_by_orig = MediaModel.get_or_none(MediaModel.original_name == filename)
+        if media_by_orig and media_by_orig.filename:
+            resolved_alt_names.append(media_by_orig.filename)
+
+        # Cas B : filename fourni est le nom haché, on cherche le nom original si stocké tel quel
+        media_by_fn = MediaModel.get_or_none(MediaModel.filename == filename)
+        if media_by_fn and media_by_fn.original_name:
+            resolved_alt_names.append(media_by_fn.original_name)
+
+        for alt_name in resolved_alt_names:
+            for base_folder in (get_media_dir(profile_name), get_app_data_dir() / "profiles" / "default" / "media", get_app_data_dir() / "media"):
+                alt_p = base_folder / alt_name
+                if alt_p.exists():
+                    return alt_p
+    except Exception as err:
+        logger.debug("Résolution via MediaModel impossible ou échouée pour '%s': %s", filename, err)
+
+    # 3. Repli dans les dossiers médias des autres profils enregistrés
+    try:
+        profiles_dir = get_app_data_dir() / "profiles"
+        if profiles_dir.exists():
+            target_prof = profile_name if profile_name is not None else get_active_profile()
+            for p_dir in profiles_dir.iterdir():
+                if p_dir.is_dir() and p_dir.name not in (target_prof, "default"):
+                    cand = p_dir / "media" / filename
+                    if cand.exists():
+                        return cand
+                    for alt_name in resolved_alt_names:
+                        cand_alt = p_dir / "media" / alt_name
+                        if cand_alt.exists():
+                            return cand_alt
+    except Exception as err:
+        logger.debug("Recherche de média inter-profils échouée: %s", err)
+
     return candidates[0]

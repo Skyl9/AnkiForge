@@ -163,3 +163,33 @@ def test_import_media_graceful_on_missing_file_in_zip(tmp_path: Path) -> None:
 
     assert summary["created"] == 1
     assert summary["media"] == 0
+
+
+def test_import_media_zstd_no_content_size_in_frame(tmp_path: Path) -> None:
+    """Vérifie la décompression Zstandard lorsque la taille non compressée est omise dans l'en-tête de frame."""
+    db_file = tmp_path / "legacy.db"
+    _create_minimal_anki2(db_file)
+
+    name_bytes = b"no_size_image.jpg"
+    entry = bytes([0x0A, len(name_bytes)]) + name_bytes
+    pb_msg = bytes([0x0A, len(entry)]) + entry
+
+    cctx = zstd.ZstdCompressor(write_content_size=False)
+    zstd_media = cctx.compress(pb_msg)
+
+    apkg_path = tmp_path / "media_zstd_no_size.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", zstd_media)
+        zf.writestr("0", b"fake_jpeg_content_no_size")
+
+    manager = ImportManager()
+    analysis = manager.analyze_archive(apkg_path)
+
+    assert analysis.media_map == {"0": "no_size_image.jpg"}
+
+    summary = manager.commit_import(analysis)
+    assert summary["media"] == 1
+    dest_file = manager.media_dir / "no_size_image.jpg"
+    assert dest_file.exists()
+    assert dest_file.read_bytes() == b"fake_jpeg_content_no_size"

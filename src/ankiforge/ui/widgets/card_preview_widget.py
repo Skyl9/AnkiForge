@@ -259,7 +259,13 @@ class CardPreviewWidget(QWidget):
         if override_templates is not None:
             self.current_templates = override_templates
         else:
-            self.current_templates = json.loads(note_type.templates) if note_type and note_type.templates else []
+            try:
+                self.current_templates = json.loads(note_type.templates) if note_type and note_type.templates else []
+            except Exception:
+                self.current_templates = []
+
+        if not self.current_templates:
+            self.current_templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}]
 
         if override_css is not None:
             self.current_css = override_css
@@ -280,7 +286,7 @@ class CardPreviewWidget(QWidget):
     def _render(self) -> None:
         """Génère le HTML final sans modification externe de style."""
         if not self.current_templates:
-            return
+            self.current_templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}"}]
 
         from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 
@@ -296,7 +302,13 @@ class CardPreviewWidget(QWidget):
         is_recto = self.is_recto
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
 
-        cur_fields = AnkiFields(self.current_fields.copy())
+        fields_copy = self.current_fields.copy()
+        if "Front" not in fields_copy and len(fields_copy) > 0:
+            fields_copy["Front"] = list(fields_copy.values())[0]
+        if "Back" not in fields_copy and len(fields_copy) > 1:
+            fields_copy["Back"] = list(fields_copy.values())[1]
+
+        cur_fields = AnkiFields(fields_copy)
 
         final_html = render_anki_card(
             raw_html=raw_html,
