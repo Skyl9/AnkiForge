@@ -123,3 +123,88 @@ def test_update_checker_handles_network_error_gracefully() -> None:
 
     assert len(failed_messages) == 1
     assert "Connection refused" in failed_messages[0]
+
+
+def test_semver_tuple_and_comparison_logic() -> None:
+    """Vérifie l'exactitude mathématique de parse_semver_tuple et is_version_strictly_greater."""
+    from ankiforge.services.update_checker import is_version_strictly_greater, parse_semver_tuple
+
+    assert parse_semver_tuple("v1.1.0") == (1, 1, 0)
+    assert parse_semver_tuple("1.1.0") == (1, 1, 0)
+    assert parse_semver_tuple("V2.4.12") == (2, 4, 12)
+    assert parse_semver_tuple("invalid") is None
+
+    # Patch supérieur
+    assert is_version_strictly_greater("v1.0.6", "v1.0.5") is True
+    assert is_version_strictly_greater("1.0.6", "1.0.5") is True
+    # Mineure supérieure
+    assert is_version_strictly_greater("v1.1.0", "v1.0.6") is True
+    # Majeure supérieure
+    assert is_version_strictly_greater("v2.0.0", "v1.99.99") is True
+    # Égalité
+    assert is_version_strictly_greater("v1.1.0", "v1.1.0") is False
+    assert is_version_strictly_greater("1.1.0", "v1.1.0") is False
+    # Inférieure
+    assert is_version_strictly_greater("v1.0.5", "v1.1.0") is False
+
+
+def test_update_checker_selects_highest_semver_from_releases_list() -> None:
+    """Vérifie que même si un patch a été publié plus récemment qu'une mineure, la version max absolue est choisie."""
+    worker = UpdateCheckerWorker(current_version="v1.0.5", channel="stable", force=True)
+
+    # v1.0.6 a été publié chronologiquement après v1.1.0 (ex: premier de la liste)
+    fake_releases = [
+        {
+            "tag_name": "v1.0.6",
+            "name": "AnkiForge 1.0.6 (Patch récent)",
+            "published_at": "2026-09-04T12:00:00Z",
+            "draft": False,
+            "prerelease": False,
+        },
+        {
+            "tag_name": "v1.1.0",
+            "name": "AnkiForge 1.1.0 (Version supérieure)",
+            "published_at": "2026-09-01T12:00:00Z",
+            "draft": False,
+            "prerelease": False,
+        },
+        {
+            "tag_name": "v1.0.5",
+            "name": "AnkiForge 1.0.5",
+            "published_at": "2026-08-30T12:00:00Z",
+            "draft": False,
+            "prerelease": False,
+        },
+    ]
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = fake_releases
+
+    received_updates: list[UpdateInfo] = []
+    worker.signals.update_available.connect(lambda info: received_updates.append(info))
+
+    with patch("requests.get", return_value=fake_response):
+        worker.run()
+
+    assert len(received_updates) == 1
+    # La version sélectionnée doit être 1.1.0 (et non 1.0.6)
+    assert received_updates[0].version == "1.1.0"
+    assert received_updates[0].title == "AnkiForge 1.1.0 (Version supérieure)"
+
+
+def test_update_checker_handles_rate_limit_403() -> None:
+    """Vérifie le message d'erreur clair en cas de quota d'API GitHub dépassé (HTTP 403)."""
+    worker = UpdateCheckerWorker(current_version="v1.0.5", channel="stable", force=True)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 403
+
+    failed_messages: list[str] = []
+    worker.signals.check_failed.connect(lambda msg: failed_messages.append(msg))
+
+    with patch("requests.get", return_value=fake_response):
+        worker.run()
+
+    assert len(failed_messages) == 1
+    assert "HTTP 403" in failed_messages[0]

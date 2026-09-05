@@ -126,7 +126,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           chmod +x build_script/*.sh
-          ./build_script/build_prod_linux.sh
+          ./build_script/build_prod_linux.sh --channel nightly
           ./build_script/package_appimage.sh
 
       # ── Compilation macOS ──
@@ -134,7 +134,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           chmod +x build_script/*.sh
-          ./build_script/build_prod_mac.sh
+          ./build_script/build_prod_mac.sh --channel nightly
           ./build_script/package_dmg.sh
 
       # ── Compilation Windows ──
@@ -142,7 +142,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          ./build_script/build_prod_windows.ps1
+          ./build_script/build_prod_windows.ps1 -Channel "nightly"
 
       # ── Archivage des artefacts de distribution ──
       - name: Prepare Artifacts (Linux)

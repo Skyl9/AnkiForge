@@ -43,3 +43,18 @@ def test_version_info_display_strings() -> None:
         is_standalone=True,
     )
     assert "[NIGHTLY]" in nightly_info.full_display_version
+
+
+def test_version_info_handles_v_prefix_cleanly() -> None:
+    """Vérifie que la présence éventuelle d'un préfixe v ne produit jamais 'vv'."""
+    info_with_v = AppVersionInfo(
+        version="v1.1.0",
+        commit_hash="abcdef12",
+        build_date="2026-09-05T12:00:00Z",
+        build_channel="stable",
+        platform_str="macOS arm64",
+        is_standalone=True,
+    )
+    assert info_with_v.short_display_version == "v1.1.0"
+    assert info_with_v.full_display_version.startswith("v1.1.0")
+    assert not info_with_v.short_display_version.startswith("vv")

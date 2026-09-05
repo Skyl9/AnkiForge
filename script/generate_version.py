@@ -57,12 +57,21 @@ def generate_version_file(
     """Génère le fichier src/ankiforge/_version.py."""
     # Résolution de la version
     if not version:
-        ref_name = os.environ.get("GITHUB_REF_NAME", "")
-        version = ref_name.lstrip("v") if (ref_name.startswith("v") and "." in ref_name) else read_pyproject_version()
+        env_ver = os.environ.get("BUILD_VERSION") or os.environ.get("ANKIFORGE_BUILD_VERSION") or ""
+        if env_ver:
+            version = env_ver
+        else:
+            ref_name = os.environ.get("GITHUB_REF_NAME", "")
+            version = ref_name if (ref_name.startswith(("v", "V")) and "." in ref_name) else read_pyproject_version()
+
+    # Normalisation stricte vx.x.x -> x.x.x pour la constante interne
+    clean_version = str(version).strip().lstrip("vV").strip()
+    if not clean_version:
+        clean_version = read_pyproject_version()
 
     # Résolution du canal
     if not channel:
-        channel = "nightly" if (os.environ.get("GITHUB_WORKFLOW") == "Nightly" or "nightly" in str(version).lower()) else "stable"
+        channel = "nightly" if (os.environ.get("GITHUB_WORKFLOW") == "Nightly" or "nightly" in str(clean_version).lower()) else "stable"
 
     # Résolution du commit
     if not commit:
@@ -79,39 +88,40 @@ def generate_version_file(
 Ne pas modifier manuellement.
 """
 
-VERSION: str = "{version}"
+VERSION: str = "{clean_version}"
 COMMIT_HASH: str = "{commit}"
 BUILD_DATE: str = "{build_date}"
 BUILD_CHANNEL: str = "{channel}"
 '''
 
     target_file.write_text(content, encoding="utf-8")
-    print(f"[SUCCESS] _version.py généré avec succès : v{version} ({commit}) [{channel}]")
+    print(f"[SUCCESS] _version.py généré avec succès : v{clean_version} ({commit}) [{channel}]")
     return target_file
 
 
 def sync_project_files(version: str) -> None:
     """Synchronise la version dans pyproject.toml et windows_installer.iss."""
+    clean_version = str(version).strip().lstrip("vV").strip()
     # 1. pyproject.toml
     pyproject_path = PROJECT_ROOT / "pyproject.toml"
     if pyproject_path.exists():
         txt = pyproject_path.read_text(encoding="utf-8")
-        updated_txt = re.sub(r'version\s*=\s*["\'][^"\']+["\']', f'version = "{version}"', txt, count=1)
+        updated_txt = re.sub(r'version\s*=\s*["\'][^"\']+["\']', f'version = "{clean_version}"', txt, count=1)
         pyproject_path.write_text(updated_txt, encoding="utf-8")
-        print(f"[INFO] Synchronisé pyproject.toml -> {version}")
+        print(f"[INFO] Synchronisé pyproject.toml -> {clean_version}")
 
     # 2. windows_installer.iss
     iss_path = PROJECT_ROOT / "build_script" / "windows_installer.iss"
     if iss_path.exists():
         txt = iss_path.read_text(encoding="utf-8")
-        updated_txt = re.sub(r'#define\s+MyAppVersion\s+["\'][^"\']+["\']', f'#define MyAppVersion "{version}"', txt)
+        updated_txt = re.sub(r'#define\s+MyAppVersion\s+["\'][^"\']+["\']', f'#define MyAppVersion "{clean_version}"', txt)
         iss_path.write_text(updated_txt, encoding="utf-8")
-        print(f"[INFO] Synchronisé windows_installer.iss -> {version}")
+        print(f"[INFO] Synchronisé windows_installer.iss -> {clean_version}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Générateur de métadonnées de version AnkiForge")
-    parser.add_argument("--version", default=None, help="Version sémantique (ex: 1.0.5)")
+    parser.add_argument("--version", default=None, help="Version sémantique (ex: v1.1.0 ou 1.1.0)")
     parser.add_argument("--channel", default=None, choices=["stable", "nightly", "dev"], help="Canal de distribution")
     parser.add_argument("--commit", default=None, help="Hash du commit Git")
     parser.add_argument("--date", default=None, help="Date ISO du build")

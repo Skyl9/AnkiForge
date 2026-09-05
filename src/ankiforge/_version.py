@@ -3,6 +3,6 @@ Ne pas modifier manuellement.
 """
 
 VERSION: str = "1.0.5"
-COMMIT_HASH: str = "c673440a"
-BUILD_DATE: str = "2026-09-02T18:15:23Z"
+COMMIT_HASH: str = "144ef57d"
+BUILD_DATE: str = "2026-09-05T10:54:30Z"
 BUILD_CHANNEL: str = "stable"

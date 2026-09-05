@@ -1,5 +1,9 @@
 # Script PowerShell de compilation Nuitka pour Windows (Pilote Universel)
 # A lancer depuis la racine du projet
+param (
+    [string]$Version = "",
+    [string]$Channel = "stable"
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -24,7 +28,17 @@ try {
 
 Write-Host "[INFO] Execution du pilote de compilation universel..."
 $env:_CL_ = "/bigobj"
-uv run python script/build_standalone.py --target-os=windows
+$buildArgs = @("--target-os=windows")
+if ($Version) {
+    $buildArgs += @("--version", $Version)
+} elseif ($env:BUILD_VERSION) {
+    $buildArgs += @("--version", $env:BUILD_VERSION)
+}
+if ($Channel) {
+    $buildArgs += @("--channel", $Channel)
+}
+$buildArgs += $args
+uv run python script/build_standalone.py @buildArgs
 
 # Creation de l'installeur Windows si Inno Setup est installe
 if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {

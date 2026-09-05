@@ -321,7 +321,7 @@ class GeneralTab(QWidget):
 
         def on_none(_cur: str) -> None:
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"✨ Vous disposez de la version la plus récente (v{VERSION_INFO.version})")
+            self.lbl_update_status.setText(f"✨ Vous disposez de la version la plus récente ({VERSION_INFO.short_display_version})")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px;")
 
         def on_err(msg: str) -> None:

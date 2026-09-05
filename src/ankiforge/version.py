@@ -107,12 +107,14 @@ class AppVersionInfo:
     def full_display_version(self) -> str:
         """Version complète formatée pour les diagnostics et logs (ex: 'v1.0.5 (c673440a) · macOS arm64')."""
         channel_suffix = f" [{self.build_channel.upper()}]" if self.build_channel != "stable" else ""
-        return f"v{self.version}{channel_suffix} ({self.commit_hash}) · {self.platform_str}"
+        clean_v = self.version.strip().lstrip("vV")
+        return f"v{clean_v}{channel_suffix} ({self.commit_hash}) · {self.platform_str}"
 
     @property
     def short_display_version(self) -> str:
         """Version courte formatée (ex: 'v1.0.5' ou 'v1.0.5-nightly')."""
-        return f"v{self.version}"
+        clean_v = self.version.strip().lstrip("vV")
+        return f"v{clean_v}"
 
 
 def get_version_info() -> AppVersionInfo:
@@ -124,8 +126,10 @@ def get_version_info() -> AppVersionInfo:
     try:
         from ankiforge import _version  # type: ignore[attr-defined]
 
+        raw_ver = str(getattr(_version, "VERSION", DEFAULT_VERSION)).strip()
+        clean_ver = raw_ver.lstrip("vV") or DEFAULT_VERSION
         return AppVersionInfo(
-            version=str(getattr(_version, "VERSION", DEFAULT_VERSION)),
+            version=clean_ver,
             commit_hash=str(getattr(_version, "COMMIT_HASH", "standalone")),
             build_date=str(getattr(_version, "BUILD_DATE", "")),
             build_channel=str(getattr(_version, "BUILD_CHANNEL", "stable")),
@@ -137,7 +141,7 @@ def get_version_info() -> AppVersionInfo:
 
     # 2. Mode Développement source : Résolution dynamique
     root = Path(__file__).resolve().parent.parent.parent
-    ver = _read_pyproject_version(root)
+    ver = _read_pyproject_version(root).strip().lstrip("vV")
     commit = _read_git_commit(root)
     date_str = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 

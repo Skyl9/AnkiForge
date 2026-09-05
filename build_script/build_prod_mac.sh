@@ -13,7 +13,11 @@ mkdir -p c_ext
 clang -O3 -flto -shared -fPIC -arch arm64 -arch x86_64 -o c_ext/levenshtein_distance.so c_ext/levenshtein_distance.c 2>/dev/null || true
 
 echo "[INFO] Execution du pilote de compilation universel..."
-uv run python script/build_standalone.py --target-os=darwin
+BUILD_ARGS=(--target-os=darwin)
+if [[ -n "${BUILD_VERSION:-}" && "$*" != *"--version"* ]]; then
+  BUILD_ARGS+=(--version "$BUILD_VERSION")
+fi
+uv run python script/build_standalone.py "${BUILD_ARGS[@]}" "$@"
 
 echo "[SUCCESS] Compilation macOS terminee avec succes !"
 echo "[INFO] Bundle produit : dist_prod/AnkiForge.app"

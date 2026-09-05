@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from copy_runtime_dependencies import copy_runtime_deps
-from generate_version import generate_version_file, read_pyproject_version
+from generate_version import generate_version_file, read_pyproject_version, sync_project_files
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("AnkiForgeBuilder")
@@ -308,9 +308,18 @@ def main() -> None:
     # Calcul adaptatif des cœurs CPU
     jobs = args.jobs or min(os.cpu_count() or 4, 8)
 
-    # 0. Résolution et génération des métadonnées de version
-    build_version = args.version or read_pyproject_version()
+    # 0. Résolution et génération des métadonnées de version (vx.x.x -> x.x.x)
+    raw_version = args.version or os.environ.get("BUILD_VERSION") or os.environ.get("ANKIFORGE_BUILD_VERSION") or ""
+    if not raw_version:
+        ref_name = os.environ.get("GITHUB_REF_NAME", "")
+        raw_version = ref_name if (ref_name.startswith(("v", "V")) and "." in ref_name) else read_pyproject_version()
+
+    build_version = str(raw_version).strip().lstrip("vV").strip()
+    if not build_version:
+        build_version = read_pyproject_version()
+
     generate_version_file(version=build_version, channel=args.channel)
+    sync_project_files(version=build_version)
 
     config = load_config()
     cmd = build_nuitka_command(config, target_os, jobs, version=build_version)

@@ -103,6 +103,15 @@ def get_current_environment() -> AppEnvironment:
         _current_env = AppEnvironment.PRODUCTION
         return _current_env
 
+    if "APPIMAGE" in os.environ:
+        _current_env = AppEnvironment.PRODUCTION
+        return _current_env
+
+    exe_path = Path(sys.executable).resolve()
+    if sys.platform == "darwin" and "Contents/MacOS" in str(exe_path):
+        _current_env = AppEnvironment.PRODUCTION
+        return _current_env
+
     # 5. Défaut : Exécution depuis les sources Python -> Développement
     _current_env = AppEnvironment.DEVELOPMENT
     return _current_env
