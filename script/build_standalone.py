@@ -201,8 +201,10 @@ def isolate_macos_binaries_and_resources(dist_dir: Path) -> None:
         if item.is_dir() and item.name not in ("PySide6", "shiboken6", "websockets"):
             target = res_dir / item.name
             if target.exists():
-                shutil.rmtree(target, ignore_errors=True)
-            shutil.move(str(item), str(target))
+                shutil.copytree(str(item), str(target), dirs_exist_ok=True)
+                shutil.rmtree(str(item), ignore_errors=True)
+            else:
+                shutil.move(str(item), str(target))
 
     # 2. Déplacer les fichiers de données non Mach-O vers Resources
     for ext in ("*.dat", "*.pak", "*.bin", "*.conf", "*.xcprivacy", "*.plist", "*.json", "*.txt", "*.qm"):

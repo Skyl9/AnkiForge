@@ -54,6 +54,7 @@ def main() -> None:
         "--hidden-import=PySide6.QtGui",
         "--hidden-import=PySide6.QtWidgets",
         "--hidden-import=PySide6.QtMultimedia",
+        "--hidden-import=zstandard",
         str(entrypoint),
     ]
 

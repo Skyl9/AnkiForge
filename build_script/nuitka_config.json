@@ -14,8 +14,7 @@
       "sniffio",
       "urllib",
       "edge_tts",
-      "aiohttp",
-      "zstandard"
+      "aiohttp"
     ],
     "include_package_data": [
       "zoneinfo"
@@ -32,6 +31,7 @@
       "yaml",
       "PIL",
       "lxml",
+      "zstandard",
       "jiter",
       "tiktoken",
       "regex",
