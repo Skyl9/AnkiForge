@@ -22,7 +22,7 @@ if sys.platform == "darwin":
         pass
 
 from dotenv import load_dotenv
-from PySide6.QtCore import QCoreApplication, QSettings, QTranslator
+from PySide6.QtCore import QCoreApplication, QTranslator
 
 from ankiforge.database.backup import backup_database
 from ankiforge.database.migration import run_migrations
@@ -44,6 +44,21 @@ from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
 
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        from ankiforge import __version__
+
+        sys.stdout.write(
+            f"AnkiForge v{__version__}\n\n"
+            "Options:\n"
+            "  -h, --help               Affiche ce message d'aide et quitte.\n"
+            "  -v, --version            Affiche la version de l'application et quitte.\n"
+            "  --dev                    Force l'environnement de DÉVELOPPEMENT (~/.ankiforge-dev).\n"
+            "  --prod                   Force l'environnement de PRODUCTION (~/.ankiforge).\n"
+            "  --smoke-test             Exécute une vérification rapide d'intégrité binaire et quitte.\n"
+            "  --clone-prod-to-dev      Clone les profils et médias de production vers le dossier dev.\n"
+        )
+        sys.exit(0)
+
     if "--version" in sys.argv or "-v" in sys.argv:
         from ankiforge import __version__
 
@@ -56,12 +71,56 @@ def main() -> None:
         sys.stdout.write(f"AnkiForge v{__version__} - Smoke Test Passed\n")
         sys.exit(0)
 
+    from ankiforge.utils.environment import (
+        AppEnvironment,
+        clone_production_data_to_development,
+        get_app_qsettings,
+        get_current_environment,
+        get_settings_app_name,
+        get_settings_org_name,
+        is_development,
+        set_environment,
+    )
+    from ankiforge.utils.paths import get_app_data_dir, get_project_root
+
+    # Gestion précoce des drapeaux d'environnement CLI
+    if "--dev" in sys.argv:
+        set_environment(AppEnvironment.DEVELOPMENT)
+    elif "--prod" in sys.argv:
+        set_environment(AppEnvironment.PRODUCTION)
+
+    if "--clone-prod-to-dev" in sys.argv:
+        sys.stdout.write("Clonage des données de production (~/.ankiforge) vers le développement (~/.ankiforge-dev)...\n")
+        cloned, media = clone_production_data_to_development(copy_media=True)
+        sys.stdout.write(f"Succès : {cloned} profil(s) et {media} média(s) copiés dans ~/.ankiforge-dev/profiles/.\n")
+        sys.exit(0)
+
+    # Chargement dynamique des variables d'environnement (.env)
+    if is_development():
+        root_dir = get_project_root()
+        for env_file in (".env.development", ".env.dev", ".env"):
+            candidate = root_dir / env_file
+            if candidate.exists():
+                load_dotenv(dotenv_path=candidate)
+    else:
+        prod_env = get_app_data_dir() / ".env"
+        if prod_env.exists():
+            load_dotenv(dotenv_path=prod_env)
+        else:
+            load_dotenv()
+
     # 1. Initialisation du logging asynchrone et des gestionnaires de crash
     setup_logging()
     install_crash_handlers()
 
-    QCoreApplication.setOrganizationName("AnkiForgeOrg")
-    QCoreApplication.setApplicationName("AnkiForge")
+    env_name = get_current_environment().value
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info("Démarrage d'AnkiForge en environnement : [%s] (Données : %s)", env_name, get_app_data_dir())
+
+    QCoreApplication.setOrganizationName(get_settings_org_name())
+    QCoreApplication.setApplicationName(get_settings_app_name())
 
     app = QApplication(sys.argv)
     app.aboutToQuit.connect(shutdown_logging)
@@ -76,7 +135,7 @@ def main() -> None:
     pm = ProfileManager()
     profiles = pm.list_profiles()
 
-    settings = QSettings("AnkiForgeOrg", "AnkiForge")
+    settings = get_app_qsettings()
     auto_open = settings.value("profiles/auto_open_startup", False, type=bool)
     default_profile = str(settings.value("profiles/default_startup_profile", "default"))
 
@@ -101,14 +160,13 @@ def main() -> None:
 
     pm.switch_profile(selected_profile)
 
-    load_dotenv()
     init_db()
     backup_database(keep_last=5)
     run_migrations()
     seed_initial_data()
     ai_manager = AIManager()
 
-    settings = QSettings("AnkiForgeOrg", "AnkiForge")
+    settings = get_app_qsettings()
     lang = settings.value("ui/language", "English")
     if lang == "Français":
         translator = QTranslator()

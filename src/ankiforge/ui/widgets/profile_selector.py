@@ -72,7 +72,10 @@ class ProfileItemWidget(QFrame):
         self.name_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.DemiBold))
         self.name_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        path_hint = f"~/.ankiforge/profiles/{name}"
+        from ankiforge.utils.environment import is_development
+
+        base_name = ".ankiforge-dev" if is_development() else ".ankiforge"
+        path_hint = f"~/{base_name}/profiles/{name}"
         self.path_lbl = QLabel(path_hint)
         self.path_lbl.setFont(QFont(DesignTokens.FONT_CODE, 9))
         self.path_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
@@ -316,9 +319,9 @@ class ProfileSelectorDialog(QDialog):
         """)
 
         # Initialiser l'état depuis QSettings
-        from PySide6.QtCore import QSettings
+        from ankiforge.utils.environment import get_app_qsettings
 
-        settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        settings = get_app_qsettings()
         auto_open_val = settings.value("profiles/auto_open_startup", False, type=bool)
         default_prof = str(settings.value("profiles/default_startup_profile", "default"))
         self.chk_auto_open.setChecked(bool(auto_open_val and (self.selected_profile == default_prof)))
@@ -356,9 +359,9 @@ class ProfileSelectorDialog(QDialog):
 
     def accept(self) -> None:
         """Enregistre les préférences de bascule automatique avant d'accepter."""
-        from PySide6.QtCore import QSettings
+        from ankiforge.utils.environment import get_app_qsettings
 
-        settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        settings = get_app_qsettings()
         if hasattr(self, "chk_auto_open") and self.chk_auto_open.isChecked():
             settings.setValue("profiles/auto_open_startup", True)
             settings.setValue("profiles/default_startup_profile", self.selected_profile)

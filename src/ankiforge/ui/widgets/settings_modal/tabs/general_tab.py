@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QSettings
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -195,7 +194,9 @@ class GeneralTab(QWidget):
         card_startup_layout.setContentsMargins(14, 12, 14, 12)
         card_startup_layout.setSpacing(12)
 
-        q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        q_settings = get_app_qsettings()
         auto_open_val = q_settings.value("profiles/auto_open_startup", False, type=bool)
         default_prof_val = str(q_settings.value("profiles/default_startup_profile", profile_name or "default"))
 
@@ -379,7 +380,9 @@ class GeneralTab(QWidget):
         SettingsService.set("app/export_path", self.le_export.text().strip(), category="general")
 
         # Enregistrement des préférences de démarrage profil et canal de mise à jour dans QSettings
-        q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        q_settings = get_app_qsettings()
         if hasattr(self, "chk_auto_startup"):
             q_settings.setValue("profiles/auto_open_startup", self.chk_auto_startup.isChecked())
         if hasattr(self, "cb_default_profile") and self.cb_default_profile.currentData():

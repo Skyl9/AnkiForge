@@ -210,26 +210,37 @@ class PiperSidecarProvider(TTSProvider):
 
     @staticmethod
     def get_piper_executable() -> Path | None:
-        """Localise l'exécutable piper dans ~/.ankiforge/tools/tts/ ou dans le PATH."""
-        # 1. Dossier tools AnkiForge
-        app_tools = get_app_data_dir() / "tools" / "tts"
-        candidates = [
-            app_tools / "piper" / "piper",
-            app_tools / "piper" / "piper.exe",
-            app_tools / "piper",
-            app_tools / "piper.exe",
-            app_tools / "bin" / "piper",
-            app_tools / "bin" / "piper.exe",
-            get_app_data_dir() / "tools" / "bin" / "piper",
-        ]
-        for c in candidates:
-            if c.is_file() and os.access(c, os.X_OK):
-                return c
+        """Localise l'exécutable piper dans les dossiers d'outils AnkiForge ou dans le PATH."""
+        # 1. Dossiers tools AnkiForge (environnement actif + repli prod si non test)
+        from ankiforge.utils.environment import is_testing
+        from ankiforge.utils.paths import get_tools_search_dirs
 
-        # 2. PATH système
-        system_exe = shutil.which("piper")
-        if system_exe:
-            return Path(system_exe)
+        search_dirs = [get_app_data_dir() / "tools"]
+        if not is_testing():
+            for d in get_tools_search_dirs():
+                if d not in search_dirs:
+                    search_dirs.append(d)
+
+        for tools_dir in search_dirs:
+            app_tools = tools_dir / "tts"
+            candidates = [
+                app_tools / "piper" / "piper",
+                app_tools / "piper" / "piper.exe",
+                app_tools / "piper",
+                app_tools / "piper.exe",
+                app_tools / "bin" / "piper",
+                app_tools / "bin" / "piper.exe",
+                tools_dir / "bin" / "piper",
+            ]
+            for c in candidates:
+                if c.is_file() and os.access(c, os.X_OK):
+                    return c
+
+        # 2. PATH système (ignoré en mode test pour garantir l'isolation)
+        if not is_testing():
+            system_exe = shutil.which("piper")
+            if system_exe:
+                return Path(system_exe)
 
         return None
 
@@ -269,18 +280,26 @@ class PiperSidecarProvider(TTSProvider):
         return ok
 
     def get_voices(self) -> list[dict[str, str]]:
-        """Liste les modèles .onnx présents dans le dossier des voix Piper."""
-        voices_dir = self.get_voices_dir()
+        """Liste les modèles .onnx présents dans le dossier des voix Piper (avec repli prod si vide en dev)."""
+        from ankiforge.utils.paths import get_tools_search_dirs
+
         voices: list[dict[str, str]] = []
-        for model_file in voices_dir.glob("*.onnx"):
-            voice_id = model_file.stem
-            voices.append(
-                {
-                    "id": str(model_file),
-                    "name": f"Piper - {voice_id}",
-                    "lang": voice_id.split("-")[0] if "-" in voice_id else "local",
-                }
-            )
+        seen_ids: set[str] = set()
+
+        for tools_dir in get_tools_search_dirs():
+            v_dir = tools_dir / "tts" / "voices"
+            if v_dir.exists() and v_dir.is_dir():
+                for model_file in v_dir.glob("*.onnx"):
+                    voice_id = model_file.stem
+                    if voice_id not in seen_ids:
+                        seen_ids.add(voice_id)
+                        voices.append(
+                            {
+                                "id": str(model_file),
+                                "name": f"Piper - {voice_id}",
+                                "lang": voice_id.split("-")[0] if "-" in voice_id else "local",
+                            }
+                        )
         if not voices:
             voices.append(
                 {

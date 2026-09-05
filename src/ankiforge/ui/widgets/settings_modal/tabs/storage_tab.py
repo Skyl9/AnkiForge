@@ -48,7 +48,9 @@ class StorageMaintenanceTab(QWidget):
         layout.setSpacing(14)
 
         # ── SECTION 1 : COCKPIT DU STOCKAGE RÉEL ─────────────────────────────
-        self.lbl_sec_stat = QLabel("ÉTAT DU STOCKAGE ET DE LA BASE DE DONNÉES")
+        from ankiforge.utils.environment import get_environment_display_name
+
+        self.lbl_sec_stat = QLabel(f"STOCKAGE & BDD — ENVIRONNEMENT : {get_environment_display_name().upper()} ({get_app_data_dir()})")
         self.lbl_sec_stat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_stat)
 

@@ -9,7 +9,7 @@ from typing import Any
 
 import requests
 from packaging import version
-from PySide6.QtCore import QObject, QRunnable, QSettings, Signal
+from PySide6.QtCore import QObject, QRunnable, Signal
 
 from ankiforge.version import VERSION_INFO
 
@@ -64,7 +64,14 @@ class UpdateCheckerWorker(QRunnable):
 
     def run(self) -> None:
         """Exécute la vérification HTTP non-bloquante."""
-        settings = QSettings("AnkiForgeOrg", "AnkiForge")
+        from ankiforge.utils.environment import get_app_qsettings, is_development
+
+        if is_development() and not self.force:
+            logger.debug("[DEV] Vérification des mises à jour désactivée en mode Développement.")
+            self.signals.no_update.emit(self.current_version)
+            return
+
+        settings = get_app_qsettings()
 
         # Résolution du canal actif (Paramètres utilisateur ou métadonnées de build)
         active_channel = self.channel or str(settings.value(SETTINGS_KEY_CHANNEL, VERSION_INFO.build_channel if VERSION_INFO.build_channel in ("stable", "nightly") else "stable"))

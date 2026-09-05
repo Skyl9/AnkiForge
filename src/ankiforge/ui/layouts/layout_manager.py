@@ -3,8 +3,6 @@ Layout Manager pour l'Architecture UI Enfichable d'AnkiForge.
 Permet d'instancier, enregistrer et basculer à chaud entre les différents layouts et leurs thèmes visuels.
 """
 
-from PySide6.QtCore import QSettings
-
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.layouts.dashboard_layout import DashboardLayout
 from ankiforge.ui.layouts.glass_layout import GlassmorphismLayout
@@ -81,7 +79,9 @@ class LayoutManager:
         except Exception:
             pass  # nosec B110
 
-        settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings("obsidian")
         saved_id = str(settings.value(f"profiles/{profile_name}/layout_id", cls.DEFAULT_LAYOUT_ID))
         if saved_id not in cls.LAYOUTS:
             return cls.DEFAULT_LAYOUT_ID
@@ -98,5 +98,7 @@ class LayoutManager:
             except Exception:
                 pass  # nosec B110
 
-            settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+            from ankiforge.utils.environment import get_app_qsettings
+
+            settings = get_app_qsettings("obsidian")
             settings.setValue(f"profiles/{profile_name}/layout_id", layout_id)

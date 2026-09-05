@@ -213,22 +213,24 @@ class DocumentParser:
 
     @staticmethod
     def get_marker_executable() -> str | None:
-        """Localise l'exécutable marker_single sur le système ou dans ~/.ankiforge/tools/."""
+        """Localise l'exécutable marker_single sur le système ou dans les dossiers d'outils AnkiForge."""
         # 1. Recherche dans le PATH système
         exe = shutil.which("marker_single")
         if exe:
             return exe
-        # 2. Recherche dans le dossier persistant d'outils AnkiForge (~/.ankiforge/tools/)
-        app_tools = Path.home() / ".ankiforge" / "tools"
-        candidates = [
-            app_tools / "bin" / "marker_single",
-            app_tools / "Scripts" / "marker_single.exe",
-            app_tools / "marker_single",
-            app_tools / "marker_single.exe",
-        ]
-        for c in candidates:
-            if c.exists() and os.access(c, os.X_OK):
-                return str(c)
+        # 2. Recherche dans les dossiers d'outils AnkiForge (environnement actif + repli prod)
+        from ankiforge.utils.paths import get_tools_search_dirs
+
+        for tools_dir in get_tools_search_dirs():
+            candidates = [
+                tools_dir / "bin" / "marker_single",
+                tools_dir / "Scripts" / "marker_single.exe",
+                tools_dir / "marker_single",
+                tools_dir / "marker_single.exe",
+            ]
+            for c in candidates:
+                if c.exists() and os.access(c, os.X_OK):
+                    return str(c)
         return None
 
     @classmethod

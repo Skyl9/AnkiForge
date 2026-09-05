@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 import platform
 import queue
 import re
@@ -219,7 +220,7 @@ def get_ring_buffer() -> RingBufferHandler:
 
 
 def setup_logging(
-    level: int = logging.INFO,
+    level: int | None = None,
     log_to_file: bool = True,
     log_to_console: bool = True,
     max_bytes: int = 10 * 1024 * 1024,  # 10 Mo par fichier
@@ -229,30 +230,44 @@ def setup_logging(
     """
     Initialise le pipeline de logging asynchrone global d'AnkiForge.
 
+    - En mode Développement : niveau DEBUG par défaut, console colorée.
+    - En mode Production : niveau INFO par défaut.
     - Les producteurs (threads, workers, UI) déposent leurs logs dans une file RAM (zéro latence).
     - Un QueueListener d'arrière-plan distribue les logs aux handlers de sortie.
     """
     global _global_listener, _log_queue, _global_ring_buffer
 
-    # 1. Arrêter un éventuel listener précédent (ex: réinitialisation ou tests)
+    # 1. Résolution dynamique du niveau de log selon l'environnement
+    if level is None:
+        env_level = os.environ.get("ANKIFORGE_LOG_LEVEL", "").strip().upper()
+        if env_level in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+            effective_level = getattr(logging, env_level)
+        else:
+            from ankiforge.utils.environment import is_development
+
+            effective_level = logging.DEBUG if is_development() else logging.INFO
+    else:
+        effective_level = level
+
+    # 2. Arrêter un éventuel listener précédent (ex: réinitialisation ou tests)
     shutdown_logging()
 
-    # 2. Préparation du répertoire de log
+    # 3. Préparation du répertoire de log
     target_dir = log_dir if log_dir is not None else get_app_data_dir() / "logs"
     target_dir.mkdir(parents=True, exist_ok=True)
     log_file = target_dir / "ankiforge.log"
 
     handlers: list[logging.Handler] = []
 
-    # 3. Handler Console (Développement / Terminal)
+    # 4. Handler Console (Développement / Terminal)
     if log_to_console:
         console_fmt = AnkiForgeLogFormatter(use_colors=sys.stdout.isatty())
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(console_fmt)
-        console_handler.setLevel(level)
+        console_handler.setLevel(effective_level)
         handlers.append(console_handler)
 
-    # 4. Handler Fichier Rotatif (Production / Diagnostic)
+    # 5. Handler Fichier Rotatif (Production / Diagnostic)
     if log_to_file:
         file_fmt = AnkiForgeLogFormatter(use_colors=False)
         file_handler = RotatingFileHandler(
@@ -262,18 +277,18 @@ def setup_logging(
             encoding="utf-8",
         )
         file_handler.setFormatter(file_fmt)
-        file_handler.setLevel(level)
+        file_handler.setLevel(effective_level)
         handlers.append(file_handler)
 
-    # 5. Handler Buffer Circulaire (IHM Live View)
+    # 6. Handler Buffer Circulaire (IHM Live View)
     ring_fmt = AnkiForgeLogFormatter(use_colors=False)
     _global_ring_buffer.setFormatter(ring_fmt)
-    _global_ring_buffer.setLevel(level)
+    _global_ring_buffer.setLevel(effective_level)
     handlers.append(_global_ring_buffer)
 
-    # 6. Configuration du Root Logger avec QueueHandler
+    # 7. Configuration du Root Logger avec QueueHandler
     root_logger = logging.getLogger()
-    root_logger.setLevel(level)
+    root_logger.setLevel(effective_level)
     root_logger.handlers = []
 
     # Application des filtres globaux de sécurité et de contexte

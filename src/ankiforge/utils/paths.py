@@ -106,7 +106,11 @@ def get_resource_path(*subpaths: str) -> Path:
 
 def get_app_data_dir() -> Path:
     """
-    Retourne le chemin vers le dossier de données persistant de l'application (~/.ankiforge ou ANKIFORGE_DATA_DIR).
+    Retourne le chemin vers le dossier de données persistant de l'application selon l'environnement actif :
+    - Production : ~/.ankiforge (ou ANKIFORGE_DATA_DIR)
+    - Développement : ~/.ankiforge-dev (ou ANKIFORGE_DATA_DIR)
+    - Test : ~/.ankiforge-test (ou ANKIFORGE_DATA_DIR)
+
     Garantit que le dossier existe sur le disque avant de le retourner.
     Conforme à la règle 9 de GEMINI.md.
 
@@ -114,9 +118,39 @@ def get_app_data_dir() -> Path:
         Path: Objet Path représentant le dossier de données.
     """
     custom_dir = os.environ.get("ANKIFORGE_DATA_DIR")
-    app_dir = Path(custom_dir) if custom_dir else Path.home() / ".ankiforge"
+    if custom_dir:
+        app_dir = Path(custom_dir)
+    else:
+        from ankiforge.utils.environment import AppEnvironment, get_current_environment
+
+        env = get_current_environment()
+        if env == AppEnvironment.DEVELOPMENT:
+            app_dir = Path.home() / ".ankiforge-dev"
+        elif env == AppEnvironment.TESTING:
+            app_dir = Path.home() / ".ankiforge-test"
+        else:
+            app_dir = Path.home() / ".ankiforge"
+
     app_dir.mkdir(parents=True, exist_ok=True)
     return app_dir
+
+
+def get_tools_search_dirs() -> list[Path]:
+    """
+    Retourne la liste ordonnée des répertoires de recherche d'outils et modèles d'IA déportés (Piper TTS, Kokoro, Marker).
+    En mode développement, cherche d'abord dans ~/.ankiforge-dev/tools, puis en repli dans ~/.ankiforge/tools
+    pour éviter d'avoir à re-télécharger les modèles volumineux (300 Mo+).
+    En mode test, on n'ajoute pas le repli ~/.ankiforge/tools afin de garantir l'isolation des tests.
+    """
+    from ankiforge.utils.environment import is_testing
+
+    current_tools = get_app_data_dir() / "tools"
+    dirs = [current_tools]
+    if not is_testing():
+        prod_tools = Path.home() / ".ankiforge" / "tools"
+        if prod_tools != current_tools:
+            dirs.append(prod_tools)
+    return dirs
 
 
 _active_profile = "default"

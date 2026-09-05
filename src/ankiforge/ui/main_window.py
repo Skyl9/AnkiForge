@@ -78,7 +78,12 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.ai_manager = ai_manager
         self.profile_name = profile_name
-        self.setWindowTitle("AnkiForge")
+
+        from ankiforge import __version__
+        from ankiforge.utils.environment import is_development
+
+        title_suffix = f" [DEV] - profil: {profile_name} (v{__version__})" if is_development() else f" - {profile_name}"
+        self.setWindowTitle(f"AnkiForge{title_suffix}")
         self.setMinimumSize(1200, 720)
 
         # Application & Window Icon

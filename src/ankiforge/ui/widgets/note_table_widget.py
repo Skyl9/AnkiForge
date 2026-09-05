@@ -4,7 +4,7 @@ import re
 from typing import cast
 
 from peewee import prefetch
-from PySide6.QtCore import QPoint, QSettings, Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 
@@ -54,7 +54,9 @@ class NoteTableWidget(RoundedPanel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        self.settings = get_app_qsettings("obsidian")
         self._setup_ui()
         self._connect_signals()
 

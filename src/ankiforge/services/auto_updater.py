@@ -34,6 +34,11 @@ def is_standalone_app() -> bool:
     (Nuitka, PyInstaller, macOS App Bundle, Linux AppImage, Windows EXE).
     Retourne False en environnement de développement source (Python / venv / IDE).
     """
+    from ankiforge.utils.environment import is_development
+
+    if is_development():
+        return False
+
     if "__compiled__" in globals() or "__compiled__" in sys.modules:
         return True
 

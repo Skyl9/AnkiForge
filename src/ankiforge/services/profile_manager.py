@@ -8,22 +8,76 @@ from ankiforge.utils.paths import get_app_data_dir, set_active_profile
 logger = logging.getLogger(__name__)
 
 
-class ProfileManager:
+class _ProfileManagerMeta(type):
+    _custom_profiles_dir: Path | None = None
+
+    @property
+    def PROFILES_DIR(cls) -> Path:
+        """Retourne dynamiquement le dossier des profils pour la classe."""
+        if cls._custom_profiles_dir is not None:
+            return cls._custom_profiles_dir
+        return get_app_data_dir() / "profiles"
+
+    @PROFILES_DIR.setter
+    def PROFILES_DIR(cls, val: object) -> None:
+        if isinstance(val, str | Path):
+            cls._custom_profiles_dir = Path(val)
+        else:
+            cls._custom_profiles_dir = None
+
+    @PROFILES_DIR.deleter
+    def PROFILES_DIR(cls) -> None:
+        cls._custom_profiles_dir = None
+
+
+class ProfileManager(metaclass=_ProfileManagerMeta):
     """Gère les profils isolés. Chaque profil = 1 DB + 1 dossier médias."""
 
-    # Utilise le dossier de données de l'application (ex: .ankiforge/profiles)
-    PROFILES_DIR = get_app_data_dir() / "profiles"
+    _custom_instance_dir: Path | None = None
+
+    @property
+    def profiles_dir(self) -> Path:
+        """Retourne dynamiquement le dossier des profils pour l'instance."""
+        if self._custom_instance_dir is not None:
+            return self._custom_instance_dir
+        if ProfileManager._custom_profiles_dir is not None:
+            return ProfileManager._custom_profiles_dir
+        return get_app_data_dir() / "profiles"
+
+    @profiles_dir.setter
+    def profiles_dir(self, val: object) -> None:
+        if isinstance(val, str | Path):
+            self._custom_instance_dir = Path(val)
+        else:
+            self._custom_instance_dir = None
+
+    @profiles_dir.deleter
+    def profiles_dir(self) -> None:
+        self._custom_instance_dir = None
+
+    @property
+    def PROFILES_DIR(self) -> Path:
+        """Alias rétrocompatible vers profiles_dir."""
+        return self.profiles_dir
+
+    @PROFILES_DIR.setter
+    def PROFILES_DIR(self, val: object) -> None:
+        self.profiles_dir = val
+
+    @PROFILES_DIR.deleter
+    def PROFILES_DIR(self) -> None:
+        self.profiles_dir = None
 
     def list_profiles(self) -> list[str]:
         """Retourne la liste des noms de profils existants."""
-        if not self.PROFILES_DIR.exists():
+        if not self.profiles_dir.exists():
             return []
-        return [p.name for p in self.PROFILES_DIR.iterdir() if p.is_dir()]
+        return [p.name for p in self.profiles_dir.iterdir() if p.is_dir()]
 
     def create_profile(self, name: str) -> Path:
-        """Crée ~/.ankiforge/profiles/<name>/ankiforge.db + media/"""
+        """Crée ~/.ankiforge[-dev]/profiles/<name>/ankiforge.db + media/"""
         logger.info("Création d'un nouveau profil utilisateur : '%s'", name)
-        profile_dir = self.PROFILES_DIR / name
+        profile_dir = self.profiles_dir / name
         profile_dir.mkdir(parents=True, exist_ok=True)
 
         media_dir = profile_dir / "media"
@@ -34,17 +88,17 @@ class ProfileManager:
     def delete_profile(self, name: str) -> None:
         """Supprime un profil et toutes ses données."""
         logger.info("Suppression définitive du profil utilisateur : '%s'", name)
-        profile_dir = self.PROFILES_DIR / name
+        profile_dir = self.profiles_dir / name
         if profile_dir.exists():
             shutil.rmtree(profile_dir)
 
     def get_db_path(self, profile_name: str) -> Path:
-        """Retourne ~/.ankiforge/profiles/<profile_name>/ankiforge.db"""
-        return self.PROFILES_DIR / profile_name / "ankiforge.db"
+        """Retourne ~/.ankiforge[-dev]/profiles/<profile_name>/ankiforge.db"""
+        return self.profiles_dir / profile_name / "ankiforge.db"
 
     def get_media_dir(self, profile_name: str) -> Path:
         """Retourne le chemin du dossier médias pour un profil donné."""
-        return self.PROFILES_DIR / profile_name / "media"
+        return self.profiles_dir / profile_name / "media"
 
     def switch_profile(self, profile_name: str) -> None:
         """Ferme la DB courante, ouvre celle du nouveau profil."""
@@ -78,3 +132,9 @@ class ProfileManager:
                 exc_info=True,
             )
             raise
+
+    def clone_production_to_development(self, copy_media: bool = True) -> tuple[int, int]:
+        """Clone la base de données et les médias de production vers l'environnement de développement."""
+        from ankiforge.utils.environment import clone_production_data_to_development
+
+        return clone_production_data_to_development(copy_media=copy_media)

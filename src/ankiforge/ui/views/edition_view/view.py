@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import QModelIndex, QSettings, Qt, Slot
+from PySide6.QtCore import QModelIndex, Qt, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
@@ -87,7 +87,9 @@ class EditionView(QWidget):
             bus=event_bus,
             parent=self,
         )
-        self.settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        self.settings = get_app_qsettings("obsidian")
 
         self.batch_thread: BatchEditWorker | None = None
         self.import_thread: ImportCardsWorker | None = None

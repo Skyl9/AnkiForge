@@ -35,7 +35,9 @@ class PluginManager:
 
     def __init__(self, addons_dir: Path | None = None) -> None:
         if addons_dir is None:
-            self.addons_dir = Path.home() / ".ankiforge" / "addons"
+            from ankiforge.utils.paths import get_app_data_dir
+
+            self.addons_dir = get_app_data_dir() / "addons"
         else:
             self.addons_dir = Path(addons_dir)
 

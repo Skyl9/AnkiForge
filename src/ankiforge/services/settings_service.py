@@ -7,9 +7,8 @@ avec synchronisation transparente et fallback sur QSettings.
 import logging
 from typing import Any
 
-from PySide6.QtCore import QSettings
-
 from ankiforge.database.models import SettingModel
+from ankiforge.utils.environment import get_app_qsettings
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class SettingsService:
 
         # Fallback sur QSettings
         try:
-            q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+            q_settings = get_app_qsettings()
             if q_settings.contains(key):
                 return q_settings.value(key, default)
         except Exception as q_err:
@@ -52,7 +51,7 @@ class SettingsService:
 
         if sync_qsettings:
             try:
-                q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+                q_settings = get_app_qsettings()
                 q_settings.setValue(key, value)
             except Exception as e:
                 logger.debug("Synchronisation QSettings '%s' échouée: %s", key, e)
@@ -76,7 +75,7 @@ class SettingsService:
             logger.warning("set_batch échoué pour la catégorie '%s': %s", category, e)
 
         try:
-            q_settings = QSettings("AnkiForgeOrg", "AnkiForge")
+            q_settings = get_app_qsettings()
             for k, v in settings_dict.items():
                 q_settings.setValue(k, v)
         except Exception as q_err:

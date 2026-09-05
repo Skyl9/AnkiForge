@@ -7,7 +7,7 @@ import contextlib
 import logging
 from typing import Optional
 
-from PySide6.QtCore import QObject, QSettings, Signal
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -1018,7 +1018,9 @@ class StyleEngine(QObject):
         except Exception:
             pass  # nosec B110
 
-        settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings("obsidian")
         settings.setValue(f"profiles/{profile_name}/theme_id", theme_id)
 
     def get_saved_theme_id(self, profile_name: str) -> str:
@@ -1032,7 +1034,9 @@ class StyleEngine(QObject):
         except Exception:
             pass  # nosec B110
 
-        settings = QSettings("AnkiForgeOrg", "ankiforge_obsidian")
+        from ankiforge.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings("obsidian")
         return str(settings.value(f"profiles/{profile_name}/theme_id", "ide"))
 
 
