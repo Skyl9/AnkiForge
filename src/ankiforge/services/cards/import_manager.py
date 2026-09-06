@@ -661,6 +661,7 @@ class ImportManager:
                         for crow in cursor.fetchall():
                             cdict = dict(zip(col_names, crow, strict=False))
                             nid = cdict["nid"]
+                            queue_val = int(cdict.get("queue", 0) or 0)
                             card_entry = {
                                 "id": cdict["id"],
                                 "did": cdict.get("did", 1),
@@ -669,6 +670,7 @@ class ImportManager:
                                 "reps": cdict.get("reps", 0),
                                 "lapses": cdict.get("lapses", 0),
                                 "flags": int(cdict.get("flags", 0) or 0) & 7,
+                                "is_suspended": (queue_val == -1),
                             }
                             note_cards_map.setdefault(nid, []).append(card_entry)
                     except Exception as e:
@@ -700,7 +702,7 @@ class ImportManager:
                     content_dict = dict(zip(field_names, field_values, strict=False))
                     tags = tags_raw.strip().split(" ") if tags_raw and tags_raw.strip() else []
 
-                    attached_cards = note_cards_map.get(nid, [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0, "flags": 0}])
+                    attached_cards = note_cards_map.get(nid, [{"ord": 0, "did": 1, "ivl": 0, "reps": 0, "lapses": 0, "flags": 0, "is_suspended": False}])
                     did = attached_cards[0]["did"] if attached_cards else 1
                     deck_name = deck_id_to_name.get(did, "Par défaut")
 
@@ -862,7 +864,8 @@ class ImportManager:
             model_cache: dict[str, NoteTypeModel] = {}
             for _mid, m_info in analysis.raw_models.items():
                 m_name = m_info.get("name", "Basic")
-                fields_schema = json.dumps(m_info.get("fields", ["Front", "Back"]))
+                fields_data = m_info.get("fields") or ["Front", "Back"]
+                fields_schema = json.dumps(fields_data)
                 templates_json = json.dumps(m_info.get("templates", []), ensure_ascii=False)
                 css = m_info.get("css", "")
 
@@ -983,6 +986,7 @@ class ImportManager:
                             "reps": cinfo.get("reps", 0),
                             "lapses": cinfo.get("lapses", 0),
                             "flags": cinfo.get("flags", 0),
+                            "is_suspended": cinfo.get("is_suspended", False),
                         },
                     )
                 created_count += 1
@@ -1015,6 +1019,8 @@ class ImportManager:
                                 card_match.lapses = cinfo["lapses"]
                             if "flags" in cinfo:
                                 card_match.flags = cinfo["flags"]
+                            if "is_suspended" in cinfo:
+                                card_match.is_suspended = cinfo["is_suspended"]
                             card_match.save()
 
                 # Mise à jour version si raison == incoming_newer

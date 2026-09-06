@@ -886,13 +886,9 @@ class DashboardView(QWidget):
     def _open_export_dialog(self) -> None:
         from ankiforge.ui.dialogs.export_dialog import ExportDialog
 
-        if not self._export_dialog:
-            self._export_dialog = ExportDialog(parent=self)
-
-        if isinstance(self._export_dialog, ExportDialog):
-            self._export_dialog.show()
-            self._export_dialog.raise_()
-            self._export_dialog.activateWindow()
+        dialog = ExportDialog(parent=self)
+        self._export_dialog = dialog
+        dialog.exec()
 
     def refresh_theme(self, profile: Any) -> None:
         """Adapte les composants de la vue lors du switch de thème."""

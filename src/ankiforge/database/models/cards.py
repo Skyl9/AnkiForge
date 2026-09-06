@@ -152,6 +152,7 @@ class CardModel(BaseModel):
     deck = ForeignKeyField(DeckModel, backref="cards", on_delete="CASCADE")
     template_index = IntegerField(default=0)  # Index du template (Recto=0, Verso=1)
     flags = IntegerField(default=0)  # Drapeau Anki (0=Aucun, 1..7=Couleurs Anki)
+    is_suspended = BooleanField(default=False)  # Carte suspendue (queue == -1 dans Anki)
 
     # --- Statistiques FSRS synchronisées depuis Anki ---
     ivl = IntegerField(default=0)
@@ -167,4 +168,5 @@ class CardModel(BaseModel):
             (("deck", "note"), False),
             (("note", "template_index"), False),
             (("flags",), False),
+            (("is_suspended",), False),
         )

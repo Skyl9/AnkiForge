@@ -125,6 +125,29 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
             seed_initial_data()
             logger.info("Profil '%s' initialisé et prêt avec succès.", profile_name)
         except Exception as e:
+            if "malformed" in str(e).lower():
+                logger.warning(
+                    "Base SQLite corrompue détectée pour le profil '%s' (%s). Tentative de restauration automatique...",
+                    profile_name,
+                    e,
+                )
+                from ankiforge.database.backup import restore_latest_valid_backup
+
+                if not db.is_closed():
+                    db.close()
+
+                restored = restore_latest_valid_backup(profile_name)
+                if restored:
+                    db.init(str(new_path))
+                    from ankiforge.database.migration import run_migrations
+                    from ankiforge.database.models import init_db, seed_initial_data
+
+                    init_db()
+                    run_migrations()
+                    seed_initial_data()
+                    logger.info("Profil '%s' réparé et initialisé avec succès depuis sa sauvegarde saine.", profile_name)
+                    return
+
             logger.critical(
                 "Échec de l'initialisation ou des migrations pour le profil '%s' : %s",
                 profile_name,

@@ -477,12 +477,12 @@ class MainWindow(QMainWindow):
             cast(Any, current_widget).load_data()
 
     def _open_export_dialog(self) -> None:
-        """Ouvre la boîte de dialogue d'exportation de paquets Anki."""
+        """Ouvre la boîte de dialogue d'exportation de paquets Anki en mode modal."""
+        from ankiforge.ui.dialogs.export_dialog import ExportDialog
 
-        if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
-            self._export_dialog.raise_()
-            self._export_dialog.activateWindow()
-            return
+        dialog = ExportDialog(parent=self)
+        self._export_dialog = dialog
+        dialog.exec()
 
     def _on_switch_profile_requested(self) -> None:
         """Ouvre la boîte de dialogue de sélection/création de profil et bascule à chaud."""

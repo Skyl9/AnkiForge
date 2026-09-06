@@ -23,6 +23,7 @@ from ankiforge.ui.models.delegates import (
     CARD_ID_ROLE,
     FLAG_ROLE,
     IS_INVALID_CARD_ROLE,
+    IS_SUSPENDED_ROLE,
     NOTE_ID_ROLE,
     RAW_CONTENT_ROLE,
     TAGS_LIST_ROLE,
@@ -61,6 +62,7 @@ class NoteRowData:
     guid: str
     checked: bool = False
     flag: int = 0
+    is_suspended: bool = False
     recto: str = ""
     verso: str = ""
     fields_dict: dict[str, str] = field(default_factory=dict)
@@ -82,6 +84,7 @@ class CardRowData:
     guid: str
     checked: bool = False
     flag: int = 0
+    is_suspended: bool = False
     template_index: int = 0
     template_name: str = "Carte 1"
     question: str = ""
@@ -224,6 +227,12 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
             return row_data.template_index
         if role == RAW_CONTENT_ROLE:
             return row_data.fields_dict
+        if role == IS_SUSPENDED_ROLE:
+            return getattr(row_data, "is_suspended", False)
+        if role == Qt.ItemDataRole.BackgroundRole:
+            if getattr(row_data, "is_suspended", False):
+                return QColor(234, 179, 8, 25)
+            return None
         if role == Qt.ItemDataRole.UserRole:
             if hasattr(row_data, "raw_card") and row_data.raw_card is not None:
                 return row_data.raw_card
@@ -262,6 +271,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                     return row_data.is_invalid
                 if role == Qt.ItemDataRole.ForegroundRole:
                     return QColor(DesignTokens.COLOR_RED) if row_data.is_invalid else QColor(DesignTokens.TEXT_PRIMARY)
+                if role == Qt.ItemDataRole.ToolTipRole and row_data.is_suspended:
+                    return "Carte suspendue (exclue des révisions Anki)"
 
             elif col == 3:  # Réponse
                 if role == Qt.ItemDataRole.DisplayRole:
@@ -271,11 +282,14 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
 
             elif col == 4:  # Carte (Gabarit)
                 if role == Qt.ItemDataRole.DisplayRole:
-                    return row_data.template_name
+                    tmpl_suffix = " ⏸️" if row_data.is_suspended else ""
+                    return f"{row_data.template_name}{tmpl_suffix}"
                 if role == BADGE_BG_COLOR_ROLE:
                     return DesignTokens.BG_INPUT
                 if role == BADGE_TEXT_COLOR_ROLE:
                     return DesignTokens.TEXT_MUTED
+                if role == Qt.ItemDataRole.ToolTipRole and row_data.is_suspended:
+                    return f"{row_data.template_name} (Suspendue)"
 
             elif col == 5:  # Paquet
                 if role == Qt.ItemDataRole.DisplayRole:
@@ -311,6 +325,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 field_name = self._active_model_fields[col - 2]
                 val = row_data.fields_dict.get(field_name, "")
                 if role == Qt.ItemDataRole.DisplayRole:
+                    if col == 2 and row_data.is_suspended:
+                        return f"⏸️ {val[:120]}"
                     return val[:120]
                 if role == Qt.ItemDataRole.FontRole and col == 2:
                     return QFont(DesignTokens.FONT_CODE, 10)
@@ -318,6 +334,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                     return QColor(DesignTokens.TEXT_SECONDARY)
                 if role == IS_INVALID_CARD_ROLE and col == 2:
                     return row_data.is_invalid
+                if role == Qt.ItemDataRole.ToolTipRole and col == 2 and row_data.is_suspended:
+                    return "Note suspendue (toutes ses cartes sont suspendues)"
 
             elif col == deck_col:
                 if role == Qt.ItemDataRole.DisplayRole:
@@ -339,13 +357,16 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
         if isinstance(row_data, NoteRowData):
             if col == 2:  # Recto
                 if role == Qt.ItemDataRole.DisplayRole:
-                    return row_data.recto[:120]
+                    susp_prefix = "⏸️ " if row_data.is_suspended else ""
+                    return f"{susp_prefix}{row_data.recto[:120]}"
                 if role == Qt.ItemDataRole.FontRole:
                     return QFont(DesignTokens.FONT_CODE, 10)
                 if role == IS_INVALID_CARD_ROLE:
                     return row_data.is_invalid
                 if role == Qt.ItemDataRole.ForegroundRole:
                     return QColor(DesignTokens.COLOR_RED) if row_data.is_invalid else QColor(DesignTokens.TEXT_PRIMARY)
+                if role == Qt.ItemDataRole.ToolTipRole and row_data.is_suspended:
+                    return "Note suspendue (toutes ses cartes sont suspendues)"
 
             elif col == 3:  # Verso / Autres champs
                 if role == Qt.ItemDataRole.DisplayRole:
@@ -515,6 +536,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
             tags_list = self._parse_tags(note.tags) if note else []
             tags_display = "  ".join(f"#{t}" for t in tags_list) if tags_list else ""
             c_flag = int(getattr(card, "flags", 0) or 0)
+            c_suspended = bool(getattr(card, "is_suspended", False))
 
             checked = cid not in self._unchecked_note_ids if self._all_checked_mode else cid in self._checked_note_ids
 
@@ -524,6 +546,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 guid=str(getattr(note, "guid", "") if note else ""),
                 checked=checked,
                 flag=c_flag,
+                is_suspended=c_suspended,
                 template_index=tmpl_idx,
                 template_name=tmpl_name,
                 question=question,
@@ -568,19 +591,21 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
         except Exception as e:
             logger.warning("Erreur préchargement NoteVersionModel: %s", e)
 
-        # 2. Requête groupée des paquets et drapeaux (CardModel ➔ DeckModel)
+        # 2. Requête groupée des paquets, drapeaux et suspension (CardModel ➔ DeckModel)
         deck_by_note_id: dict[int, str] = {}
         flag_by_note_id: dict[int, int] = {}
+        suspended_by_note_id: dict[int, list[bool]] = {}
         try:
-            cards = CardModel.select(CardModel.note, CardModel.flags, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
+            cards = CardModel.select(CardModel.note, CardModel.flags, CardModel.is_suspended, DeckModel.name).join(DeckModel).where(CardModel.note.in_(note_ids))
             for c in cards:
                 if c.note_id not in deck_by_note_id and c.deck:
                     deck_by_note_id[c.note_id] = c.deck.name
                 c_flag = int(getattr(c, "flags", 0) or 0)
                 if c_flag > 0:
                     flag_by_note_id[c.note_id] = max(flag_by_note_id.get(c.note_id, 0), c_flag)
+                suspended_by_note_id.setdefault(c.note_id, []).append(bool(getattr(c, "is_suspended", False)))
         except Exception as e:
-            logger.warning("Erreur préchargement DeckModel et drapeaux: %s", e)
+            logger.warning("Erreur préchargement DeckModel, drapeaux et suspension: %s", e)
 
         # 3. Assemblage vectorisé des structures NoteRowData
         results: list[NoteRowData] = []
@@ -612,11 +637,15 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
             tags_list = self._parse_tags(note.tags)
             tags_display = "  ".join(f"#{t}" for t in tags_list) if tags_list else ""
 
+            cards_susp = suspended_by_note_id.get(nid, [])
+            note_is_suspended = bool(cards_susp) and all(cards_susp)
+
             row_obj = NoteRowData(
                 note_id=nid,
                 guid=str(getattr(note, "guid", "")),
                 checked=(nid not in self._unchecked_note_ids if self._all_checked_mode else nid in self._checked_note_ids),
                 flag=flag_by_note_id.get(nid, 0),
+                is_suspended=note_is_suspended,
                 recto=recto,
                 verso=verso,
                 fields_dict=fields_data,
@@ -724,6 +753,25 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 row.flag = flag
                 flag_idx = self.index(idx, 1)
                 self.dataChanged.emit(flag_idx, flag_idx, [FLAG_ROLE, Qt.ItemDataRole.ToolTipRole])
+
+    def update_card_suspended(self, card_id: int, suspend: bool) -> None:
+        """Met à jour instantanément l'état suspendu d'une carte dans le modèle virtuel."""
+        row_idx = self.find_row_by_card_id(card_id)
+        if row_idx < 0:
+            return
+        self._loaded_rows[row_idx].is_suspended = suspend
+        top_left = self.index(row_idx, 0)
+        bottom_right = self.index(row_idx, self.columnCount() - 1)
+        self.dataChanged.emit(top_left, bottom_right, [IS_SUSPENDED_ROLE, Qt.ItemDataRole.BackgroundRole, Qt.ItemDataRole.DisplayRole])
+
+    def update_note_suspended(self, note_id: int, suspend: bool) -> None:
+        """Met à jour instantanément l'état suspendu d'une note (ou de toutes ses cartes associées)."""
+        for idx, row in enumerate(self._loaded_rows):
+            if row.note_id == note_id:
+                row.is_suspended = suspend
+                top_left = self.index(idx, 0)
+                bottom_right = self.index(idx, self.columnCount() - 1)
+                self.dataChanged.emit(top_left, bottom_right, [IS_SUSPENDED_ROLE, Qt.ItemDataRole.BackgroundRole, Qt.ItemDataRole.DisplayRole])
 
     def update_note_content(self, note_id: int, new_content: dict[str, str]) -> None:
         """Met à jour instantanément les champs d'une note ou de ses cartes dans le modèle virtuel."""

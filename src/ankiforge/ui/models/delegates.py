@@ -39,6 +39,7 @@ RAW_CONTENT_ROLE = Qt.ItemDataRole.UserRole + 6
 FLAG_ROLE = Qt.ItemDataRole.UserRole + 7
 CARD_ID_ROLE = Qt.ItemDataRole.UserRole + 8
 TEMPLATE_INDEX_ROLE = Qt.ItemDataRole.UserRole + 9
+IS_SUSPENDED_ROLE = Qt.ItemDataRole.UserRole + 10
 
 
 class CheckboxItemDelegate(QStyledItemDelegate):

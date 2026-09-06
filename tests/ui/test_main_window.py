@@ -90,3 +90,21 @@ def test_open_consultant_event_switches_main_window_tab(qtbot, mock_db):
 
         event_bus.publish(OpenConsultantRequestedEvent(context_item="card_42", initial_prompt="Analyse"))
         assert window._current_view_id == "consultant"
+
+
+def test_open_export_dialog_instantiates_and_shows_dialog(qtbot, mock_db):
+    """Vérifie que l'appel à _open_export_dialog instancie bien ExportDialog et l'exécute."""
+    from ankiforge.ui.dialogs.export_dialog import ExportDialog
+
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        assert not hasattr(window, "_export_dialog") or window._export_dialog is None
+
+        with patch.object(ExportDialog, "exec") as mock_exec:
+            window._open_export_dialog()
+            mock_exec.assert_called_once()
+
+        assert hasattr(window, "_export_dialog")
+        assert isinstance(window._export_dialog, ExportDialog)

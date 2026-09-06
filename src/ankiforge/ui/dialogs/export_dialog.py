@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import DeckModel
+from ankiforge.database.models import CardModel, DeckModel
 from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
@@ -113,6 +113,7 @@ class ExportDialog(QDialog):
                 self.selected_deck_name = d.name
 
         self.btn_select_deck = SecondaryButton(f"📁 {self.selected_deck_name} ▾")
+        self._update_deck_button_label()
         self.btn_select_deck.clicked.connect(self._open_deck_select_modal)
         deck_picker_row.addWidget(self.btn_select_deck, 1)
 
@@ -153,6 +154,18 @@ class ExportDialog(QDialog):
         self.chk_include_media.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold;")
         filters_layout.addWidget(self.chk_include_media)
 
+        # Options Drapeaux & Suspensions
+        self.chk_sync_tags = QCheckBox("Synchroniser drapeaux et suspensions sous forme de tags (flag::couleur, is::suspended)")
+        self.chk_sync_tags.setChecked(True)
+        self.chk_sync_tags.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        self.chk_sync_tags.setToolTip("Ajoute des tags aux notes pour garantir la visibilité des drapeaux et des cartes suspendues dans Anki, même sans importer la planification.")
+        filters_layout.addWidget(self.chk_sync_tags)
+
+        lbl_anki_tip = QLabel("💡 <i>Pour restaurer les drapeaux de couleur et cartes suspendues natives dans Anki Desktop, cochez « Importer la planification » lors de l'import.</i>")
+        lbl_anki_tip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; margin-top: 2px;")
+        lbl_anki_tip.setWordWrap(True)
+        filters_layout.addWidget(lbl_anki_tip)
+
         layout.addWidget(filters_frame)
 
         # 3. Fichier de Destination
@@ -189,25 +202,28 @@ class ExportDialog(QDialog):
         footer.setSpacing(10)
 
         btn_cancel = SecondaryButton("Annuler")
+        btn_cancel.setAutoDefault(False)
         btn_cancel.clicked.connect(self.reject)
         footer.addWidget(btn_cancel)
 
         footer.addStretch()
 
         self.btn_export = PrimaryButton("Exporter le Paquet")
+        self.btn_export.setDefault(True)
         self.btn_export.setIcon(load_phosphor_icon("arrow-square-out", color="white"))
         self.btn_export.clicked.connect(self._start_export)
         footer.addWidget(self.btn_export)
 
         layout.addLayout(footer)
 
-    def _update_default_dest_filename(self) -> None:
+    def _get_default_filename(self) -> str:
         if self.selected_deck_id is None:
-            filename = "export_collection.apkg"
-        else:
-            clean_name = self.selected_deck_name.replace("::", "_").replace(" ", "_")
-            filename = f"export_{clean_name}.apkg"
-        self.dest_input.setText(str(Path.home() / "Desktop" / filename))
+            return "export_collection.apkg"
+        clean_name = self.selected_deck_name.replace("::", "_").replace(" ", "_")
+        return f"export_{clean_name}.apkg"
+
+    def _update_default_dest_filename(self) -> None:
+        self.dest_input.setText(str(Path.home() / "Desktop" / self._get_default_filename()))
 
     @Slot()
     def _open_deck_select_modal(self) -> None:
@@ -225,6 +241,22 @@ class ExportDialog(QDialog):
         self._deck_modal.raise_()
         self._deck_modal.activateWindow()
 
+    def _update_deck_button_label(self) -> None:
+        try:
+            if self.selected_deck_id is None:
+                cnt = CardModel.select().count()
+            else:
+                root_deck = DeckModel.get_or_none(DeckModel.id == self.selected_deck_id)
+                if root_deck:
+                    matching = list(DeckModel.select().where((DeckModel.id == root_deck.id) | DeckModel.name.startswith(f"{root_deck.name}::")))
+                    cnt = CardModel.select().where(CardModel.deck.in_(matching)).count()
+                else:
+                    cnt = 0
+            formatted_cnt = f"{cnt:,}".replace(",", " ")
+            self.btn_select_deck.setText(f"📁 {self.selected_deck_name} ({formatted_cnt} cartes) ▾")
+        except Exception:
+            self.btn_select_deck.setText(f"📁 {self.selected_deck_name} ▾")
+
     @Slot(int, str)
     def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
         if deck_id == -1:
@@ -234,18 +266,25 @@ class ExportDialog(QDialog):
             self.selected_deck_id = deck_id
             self.selected_deck_name = deck_name
 
-        self.btn_select_deck.setText(f"📁 {self.selected_deck_name} ▾")
+        self._update_deck_button_label()
         self._update_default_dest_filename()
 
     def _browse_destination(self) -> None:
+        current_dest = self.dest_input.text().strip()
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Enregistrer le paquet Anki",
-            self.dest_input.text(),
+            current_dest,
             "Archives Anki (*.apkg);;Collections Anki (*.colpkg);;Tous les fichiers (*.*)",
         )
         if file_path:
+            p = Path(file_path)
+            if not p.suffix:
+                file_path = str(p.with_suffix(".apkg"))
             self.dest_input.setText(file_path)
+
+        self.raise_()
+        self.activateWindow()
 
     def _start_export(self) -> None:
         dest_path = self.dest_input.text().strip()
@@ -253,8 +292,18 @@ class ExportDialog(QDialog):
             QMessageBox.warning(self, "Destination manquante", "Veuillez choisir un chemin de destination pour l'exportation.")
             return
 
+        # Normalisation automatique du chemin
+        p = Path(dest_path)
+        if p.is_dir():
+            dest_path = str(p / self._get_default_filename())
+            self.dest_input.setText(dest_path)
+        elif not p.suffix:
+            dest_path = f"{dest_path}.apkg"
+            self.dest_input.setText(dest_path)
+
         status_filter = "new" if self.radio_new_only.isChecked() else "all"
         include_media = self.chk_include_media.isChecked()
+        sync_tags = self.chk_sync_tags.isChecked()
 
         self.btn_export.setEnabled(False)
         self.progress_bar.show()
@@ -267,12 +316,15 @@ class ExportDialog(QDialog):
                 tags=self.selected_tags if self.selected_tags else None,
                 status_filter=status_filter,
                 include_media=include_media,
+                sync_flags_and_suspension_tags=sync_tags,
                 progress_callback=self.lbl_status.setText,
             )
+
             self.progress_bar.hide()
             self.btn_export.setEnabled(True)
 
-            show_toast(self, f"{count} cartes exportées avec succès !")
+            parent_window = self.parentWidget() or self
+            show_toast(parent_window, f"✅ {count} cartes exportées avec succès !", level="success")
             QMessageBox.information(
                 self,
                 "Exportation Réussie",

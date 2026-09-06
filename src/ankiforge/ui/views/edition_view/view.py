@@ -104,6 +104,7 @@ class EditionView(QWidget):
         self._active_tags: list[str] = []
         self._active_model_id: int | None = None
         self._active_flag: int | None = None
+        self._active_suspended: bool | None = None
         self._current_table_fields: list[str] | None = None
         self._original_content: dict[str, str] = {}
 
@@ -302,6 +303,25 @@ class EditionView(QWidget):
         """)
         self.btn_filter_flag.clicked.connect(self._show_flag_filter_menu)
         filter_layout.addWidget(self.btn_filter_flag)
+
+        self.btn_filter_status = QPushButton("Statut : Tous ▾")
+        self.btn_filter_status.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_SECONDARY))
+        self.btn_filter_status.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: bold;
+                color: {DesignTokens.TEXT_SECONDARY};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+        self.btn_filter_status.clicked.connect(self._show_status_filter_menu)
+        filter_layout.addWidget(self.btn_filter_status)
 
         separator = QFrame()
         separator.setFixedSize(1, 14)
@@ -528,6 +548,10 @@ class EditionView(QWidget):
         QShortcut(QKeySequence("Ctrl+0"), self, lambda: self._apply_flag_to_selected_notes(0))
         for f_idx in range(1, 8):
             QShortcut(QKeySequence(f"Ctrl+{f_idx}"), self, lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg))
+
+        # Raccourcis suspension Anki (! ou Ctrl+J)
+        QShortcut(QKeySequence("!"), self, self._toggle_suspend_selected)
+        QShortcut(QKeySequence("Ctrl+J"), self, self._toggle_suspend_selected)
 
     @Slot()
     def _toggle_table_collapsed(self) -> None:
@@ -1217,6 +1241,19 @@ class EditionView(QWidget):
             f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
             act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), f"{f_name}\t(Ctrl+{f_idx})")
             act.triggered.connect(lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg, fallback_note_id=note.id))
+        menu.addSeparator()
+
+        # Action Suspendre / Réactiver
+        is_item_suspended = False
+        if self._display_mode == "cards":
+            card_obj = self.note_table_model.get_card_at(row)
+            is_item_suspended = bool(getattr(card_obj, "is_suspended", False)) if card_obj else False
+        else:
+            is_item_suspended = self.note_repo.is_note_suspended(note.id)
+
+        suspend_text = "▶️ Réactiver la sélection\t(!)" if is_item_suspended else "⏸️ Suspendre la sélection\t(!)"
+        action_suspend = menu.addAction(load_phosphor_icon("play" if is_item_suspended else "pause", color=DesignTokens.TEXT_PRIMARY), suspend_text)
+        action_suspend.triggered.connect(lambda: self._toggle_suspend_selected(fallback_note_id=note.id))
 
         menu.addSeparator()
 
@@ -1352,6 +1389,112 @@ class EditionView(QWidget):
                     font-size: 11px;
                     font-weight: bold;
                     color: {flag_color};
+                }}
+            """)
+        self.refresh_data()
+
+    def _toggle_suspend_selected(self, fallback_note_id: int | None = None) -> None:
+        """Bascule l'état suspendu/actif des cartes ou notes sélectionnées."""
+        if self._display_mode == "cards":
+            target_card_ids: list[int] = list(self.note_table_model.get_checked_card_ids())
+            if not target_card_ids:
+                selected_rows = self.card_table.get_selected_rows()
+                c_row = selected_rows[0] if selected_rows else self.card_table.currentIndex().row()
+                c_data = self.note_table_model.get_card_data_at(c_row)
+                if c_data:
+                    target_card_ids = [c_data.card_id]
+            if not target_card_ids:
+                return
+
+            cards = list(CardModel.select(CardModel.id, CardModel.is_suspended).where(CardModel.id.in_(target_card_ids)))
+            any_active = any(not getattr(c, "is_suspended", False) for c in cards)
+            new_suspended = any_active
+
+            with db.atomic():
+                CardModel.update(is_suspended=new_suspended).where(CardModel.id.in_(target_card_ids)).execute()
+
+            for cid in target_card_ids:
+                self.note_table_model.update_card_suspended(cid, new_suspended)
+
+            status_text = "suspendue(s) ⏸️" if new_suspended else "réactivée(s) ▶️"
+            show_toast(self, f"{len(target_card_ids)} carte(s) {status_text}.")
+            return
+
+        target_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
+        if not target_ids:
+            if fallback_note_id:
+                target_ids = [fallback_note_id]
+            elif self._current_note:
+                target_ids = [self._current_note.id]
+
+        if not target_ids:
+            return
+
+        cards = list(CardModel.select(CardModel.note_id, CardModel.is_suspended).where(CardModel.note.in_(target_ids)))
+        any_active = any(not getattr(c, "is_suspended", False) for c in cards)
+        new_suspended = any_active
+
+        with db.atomic():
+            CardModel.update(is_suspended=new_suspended).where(CardModel.note.in_(target_ids)).execute()
+
+        for nid in target_ids:
+            self.note_table_model.update_note_suspended(nid, new_suspended)
+
+        status_text = "suspendue(s) ⏸️" if new_suspended else "réactivée(s) ▶️"
+        show_toast(self, f"{len(target_ids)} note(s) {status_text}.")
+
+    @Slot()
+    def _show_status_filter_menu(self) -> None:
+        """Affiche le menu de filtrage par statut d'activation (Actif / Suspendu)."""
+        menu = StyledMenu(self)
+
+        all_action = menu.addAction("Toutes les cartes (Tous)")
+        all_action.triggered.connect(lambda: self._on_status_filter_selected(None, "Statut : Tous ▾"))
+
+        menu.addSeparator()
+
+        active_action = menu.addAction(load_phosphor_icon("play", color=DesignTokens.COLOR_GREEN), "Actives uniquement")
+        active_action.triggered.connect(lambda: self._on_status_filter_selected(False, "Statut : Actives ▾"))
+
+        suspended_action = menu.addAction(load_phosphor_icon("pause", color=DesignTokens.COLOR_YELLOW), "Suspendues uniquement ⏸️")
+        suspended_action.triggered.connect(lambda: self._on_status_filter_selected(True, "Statut : Suspendues ⏸️ ▾"))
+
+        menu.exec(self.btn_filter_status.mapToGlobal(self.btn_filter_status.rect().bottomLeft()))
+
+    def _on_status_filter_selected(self, suspended_val: bool | None, label: str) -> None:
+        """Met à jour le filtre actif par statut et rafraîchit la table."""
+        self._active_suspended = suspended_val
+        self.btn_filter_status.setText(label)
+        if suspended_val is None:
+            self.btn_filter_status.setIcon(load_phosphor_icon("funnel", color=DesignTokens.TEXT_SECONDARY))
+            self.btn_filter_status.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {DesignTokens.TEXT_SECONDARY};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+        else:
+            accent_color = DesignTokens.COLOR_YELLOW if suspended_val else DesignTokens.COLOR_GREEN
+            icon_name = "pause" if suspended_val else "play"
+            self.btn_filter_status.setIcon(load_phosphor_icon(icon_name, color=accent_color))
+            bg_color = "rgba(234, 179, 8, 0.15)" if suspended_val else "rgba(34, 197, 94, 0.15)"
+            self.btn_filter_status.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {bg_color};
+                    border: 1px solid {accent_color};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: {accent_color};
                 }}
             """)
         self.refresh_data()
@@ -1513,6 +1656,9 @@ class EditionView(QWidget):
                 if self._active_flag is not None:
                     query = query.where(CardModel.flags == self._active_flag) if self._active_flag > 0 else query.where((CardModel.flags == 0) | (CardModel.flags.is_null(True)))
 
+                if self._active_suspended is not None:
+                    query = query.where(CardModel.is_suspended == self._active_suspended)
+
                 self.note_table_model.set_filter_query(
                     query,
                     active_model_fields=None,
@@ -1541,6 +1687,14 @@ class EditionView(QWidget):
                     else:
                         flagged_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]
                         query = query.where(NoteModel.id.not_in(flagged_note_ids))
+
+                if self._active_suspended is not None:
+                    active_card_note_ids = CardModel.select(CardModel.note).where(CardModel.is_suspended == False)  # noqa: E712
+                    notes_with_cards = CardModel.select(CardModel.note)
+                    if self._active_suspended:
+                        query = query.where((NoteModel.id.in_(notes_with_cards)) & (NoteModel.id.not_in(active_card_note_ids)))
+                    else:
+                        query = query.where(NoteModel.id.in_(active_card_note_ids))
 
                 self.note_table_model.set_filter_query(
                     query,
@@ -1705,15 +1859,9 @@ class EditionView(QWidget):
     def _open_export_dialog(self) -> None:
         from ankiforge.ui.dialogs.export_dialog import ExportDialog
 
-        if hasattr(self, "_export_dialog") and self._export_dialog is not None and self._export_dialog.isVisible():
-            self._export_dialog.raise_()
-            self._export_dialog.activateWindow()
-            return
-
-        self._export_dialog = ExportDialog(default_deck_id=self.current_folder_id, parent=self)
-        self._export_dialog.show()
-        self._export_dialog.raise_()
-        self._export_dialog.activateWindow()
+        dialog = ExportDialog(default_deck_id=self.current_folder_id, parent=self)
+        self._export_dialog = dialog
+        dialog.exec()
 
 
 EditionTab = EditionView

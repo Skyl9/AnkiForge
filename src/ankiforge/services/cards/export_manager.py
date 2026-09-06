@@ -86,6 +86,7 @@ class ExportManager:
         status_filter: str = "all",  # 'all', 'new', 'modified'
         format_type: str = "apkg",
         include_media: bool = True,
+        sync_flags_and_suspension_tags: bool = True,
         progress_callback: Callable[[str], None] | None = None,
     ) -> int:
         """
@@ -98,11 +99,13 @@ class ExportManager:
             status_filter: Filtre de statut ('all', 'new', 'modified').
             format_type: 'apkg' ou 'colpkg'.
             include_media: Si True, inclut les images et audios référencés.
+            sync_flags_and_suspension_tags: Si True, enrichit les notes exportées avec des tags (flag::couleur, is::suspended).
             progress_callback: Fonction de notification de progression.
 
         Returns:
             int: Nombre de notes exportées.
         """
+
         import time
 
         t0 = time.perf_counter()
@@ -177,26 +180,101 @@ class ExportManager:
 
             # Modèle genanki
             if nt.id not in genanki_models:
-                fields_list = json.loads(nt.fields_schema) if nt.fields_schema else ["Front", "Back"]
-                templates_list = json.loads(nt.templates) if nt.templates else []
+                fields_list: list[str] = []
+                if nt.fields_schema:
+                    try:
+                        parsed = json.loads(nt.fields_schema)
+                        if isinstance(parsed, list):
+                            fields_list = [str(f) for f in parsed if str(f).strip()]
+                    except Exception as err:
+                        logger.debug("Remarque sur le parsing du fields_schema de nt ID=%d : %s", nt.id, err)
 
-                g_templates = []
+                # Fallback 1: Si fields_list est vide, inspecter les versions des notes associées à ce note_type
+                if not fields_list:
+                    sample_v = NoteVersionModel.select(NoteVersionModel.content).join(NoteModel).where(NoteModel.note_type == nt, NoteVersionModel.content.is_null(False)).first()
+                    if sample_v and sample_v.content:
+                        try:
+                            c_dict = json.loads(sample_v.content)
+                            if isinstance(c_dict, dict) and c_dict:
+                                fields_list = list(c_dict.keys())
+                        except Exception as err:
+                            logger.debug("Remarque sur l'inférence des champs pour nt ID=%d : %s", nt.id, err)
+
+                # Fallback 2: Si toujours vide, repli sur champs par défaut
+                if not fields_list:
+                    fields_list = ["Front", "Back"]
+
+                # Auto-guérison de la BDD pour ce modèle de note
+                if not nt.fields_schema or nt.fields_schema.strip() in ("[]", ""):
+                    try:
+                        nt.fields_schema = json.dumps(fields_list)
+                        nt.save()
+                    except Exception as save_err:
+                        logger.debug("Remarque sur la persistance de l'auto-healing pour nt ID=%d : %s", nt.id, save_err)
+
+                # Templates
+                templates_list: list[dict[str, Any]] = []
+                if nt.templates:
+                    try:
+                        parsed_tmpls = json.loads(nt.templates)
+                        if isinstance(parsed_tmpls, list):
+                            templates_list = parsed_tmpls
+                    except Exception as err:
+                        logger.debug("Remarque sur le parsing des templates de nt ID=%d : %s", nt.id, err)
+
+                # Détection Cloze (via nom, templates ou présence de balises cloze)
+                is_cloze = "cloze" in nt.name.lower() or "trou" in nt.name.lower() or any("{{cloze:" in str(t.get("qfmt", "")) or "{{cloze:" in str(t.get("afmt", "")) for t in templates_list)
+                if not is_cloze:
+                    # Vérification rapide sur une note échantillon
+                    sample_v_cloze = NoteVersionModel.select(NoteVersionModel.content).join(NoteModel).where(NoteModel.note_type == nt, NoteVersionModel.content.is_null(False)).first()
+                    if sample_v_cloze and sample_v_cloze.content and re.search(r"\{\{c\d+::", sample_v_cloze.content):
+                        is_cloze = True
+
+                g_templates: list[dict[str, str]] = []
                 for i, t in enumerate(templates_list):
-                    g_templates.append(
-                        {
-                            "name": t.get("name", f"Template {i + 1}"),
-                            "qfmt": t.get("qfmt", "{{Front}}"),
-                            "afmt": t.get("afmt", "{{FrontSide}}<hr id=answer>{{Back}}"),
-                        }
-                    )
+                    qfmt = str(t.get("qfmt", ""))
+                    afmt = str(t.get("afmt", ""))
+                    if qfmt or afmt:
+                        g_templates.append(
+                            {
+                                "name": str(t.get("name", f"Template {i + 1}")),
+                                "qfmt": qfmt or f"{{{{{fields_list[0]}}}}}",
+                                "afmt": afmt or f"{{{{FrontSide}}}}<hr id=answer>{{{{{fields_list[1] if len(fields_list) > 1 else fields_list[0]}}}}}",
+                            }
+                        )
+
+                # Si aucun gabarit fonctionnel n'est défini
+                if not g_templates:
+                    if is_cloze:
+                        f0 = fields_list[0]
+                        extra = f"<hr id=answer>{{{{{fields_list[1]}}}}}" if len(fields_list) > 1 else ""
+                        g_templates = [
+                            {
+                                "name": "Cloze",
+                                "qfmt": f"{{{{cloze:{f0}}}}}",
+                                "afmt": f"{{{{cloze:{f0}}}}}{extra}",
+                            }
+                        ]
+                    else:
+                        f0 = fields_list[0]
+                        f1 = fields_list[1] if len(fields_list) > 1 else fields_list[0]
+                        g_templates = [
+                            {
+                                "name": "Card 1",
+                                "qfmt": f"{{{{{f0}}}}}",
+                                "afmt": f"{{{{FrontSide}}}}<hr id=answer>{{{{{f1}}}}}",
+                            }
+                        ]
 
                 mid = nt.anki_id if nt.anki_id else self.generate_stable_id(nt.name)
+                model_type = genanki.Model.CLOZE if is_cloze else 0
                 g_model = genanki.Model(
                     model_id=mid,
                     name=nt.name,
                     fields=[{"name": f} for f in fields_list],
                     templates=g_templates,
                     css=nt.css_style or "",
+                    model_type=model_type,
                 )
                 genanki_models[nt.id] = (g_model, fields_list)
 
@@ -235,27 +313,61 @@ class ExportManager:
                         if snd_path.exists():
                             media_files_to_export.add(str(snd_path))
 
-            tags_list = []
+            if not field_values:
+                field_values = [""]
+
+            tags_list: list[str] = []
             if note.tags:
-                try:
-                    parsed = json.loads(note.tags)
-                    if isinstance(parsed, list):
-                        tags_list = parsed
-                except Exception as err:
-                    logger.debug("Remarque sur le parsing des tags de la note ID=%d : %s", note.id, err)
+                if isinstance(note.tags, list):
+                    tags_list = [str(t).strip() for t in note.tags if str(t).strip()]
+                else:
+                    try:
+                        parsed = json.loads(str(note.tags))
+                        if isinstance(parsed, list):
+                            tags_list = [str(t).strip() for t in parsed if str(t).strip()]
+                        elif isinstance(parsed, str) and parsed.strip():
+                            tags_list = [t for t in parsed.split() if t]
+                    except Exception:
+                        tags_list = [t for t in str(note.tags).split() if t]
 
-            g_note = genanki.Note(model=g_model, fields=field_values, guid=note.guid, tags=tags_list)
+            # Option de synchronisation par tags pour les drapeaux et suspensions
+            note_cards_list = list(note.cards)
+            if sync_flags_and_suspension_tags:
+                from ankiforge.ui.theme import DesignTokens
 
-            # Préservation des drapeaux Anki (CardModel.flags ➔ AnkiForgeCard)
+                added_tags = set(tags_list)
+                for c in note_cards_list:
+                    c_flg = int(getattr(c, "flags", 0) or 0)
+                    if c_flg > 0:
+                        flg_name = DesignTokens.FLAG_NAMES.get(c_flg, str(c_flg)).lower()
+                        flag_tag = f"flag::{flg_name}"
+                        if flag_tag not in added_tags:
+                            tags_list.append(flag_tag)
+                            added_tags.add(flag_tag)
+                    if getattr(c, "is_suspended", False) and "is::suspended" not in added_tags:
+                        tags_list.append("is::suspended")
+                        added_tags.add("is::suspended")
+
+            g_note = genanki.Note(
+                model=g_model,
+                fields=field_values,
+                sort_field=field_values[0] if field_values else "",
+                guid=note.guid,
+                tags=tags_list,
+            )
+
+            # Préservation des drapeaux Anki et de l'état suspendu (CardModel ➔ AnkiForgeCard)
             try:
-                card_flags = {c.template_index: int(getattr(c, "flags", 0) or 0) for c in note.cards}
+                card_flags = {c.template_index: int(getattr(c, "flags", 0) or 0) for c in note_cards_list}
+                card_suspends = {c.template_index: bool(getattr(c, "is_suspended", False)) for c in note_cards_list}
                 custom_cards = []
                 for orig_card in g_note.cards:
                     c_flag = card_flags.get(orig_card.ord, 0)
-                    custom_cards.append(AnkiForgeCard(ord=orig_card.ord, suspend=orig_card.suspend, flags=c_flag))
+                    c_susp = card_suspends.get(orig_card.ord, False)
+                    custom_cards.append(AnkiForgeCard(ord=orig_card.ord, suspend=c_susp, flags=c_flag))
                 g_note.cards = custom_cards
             except Exception as flag_err:
-                logger.debug("Remarque sur l'assignation des drapeaux pour la note ID=%d : %s", note.id, flag_err)
+                logger.debug("Remarque sur l'assignation des drapeaux et suspensions pour la note ID=%d : %s", note.id, flag_err)
 
             if card.deck and card.deck.id in genanki_decks:
                 genanki_decks[card.deck.id].add_note(g_note)
@@ -277,7 +389,12 @@ class ExportManager:
         out_path = Path(output_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        package = genanki.Package(list(genanki_decks.values()))
+        # N'inclure que les paquets contenant des cartes (ou le premier si vide)
+        non_empty_decks = [d for d in genanki_decks.values() if d.notes]
+        if not non_empty_decks and genanki_decks:
+            non_empty_decks = list(genanki_decks.values())
+
+        package = genanki.Package(non_empty_decks)
         if include_media:
             package.media_files = list(media_files_to_export)
 

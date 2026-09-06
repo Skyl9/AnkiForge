@@ -223,8 +223,39 @@ class NoteRepository(BaseRepository):
             logger.debug("Erreur récupération drapeau note %s: %s", note_id, e)
             return 0
 
+    def suspend_card(self, card_id: int, suspend: bool = True) -> bool:
+        """Suspend ou réactive une carte individuelle."""
+        try:
+            with self.atomic():
+                updated = CardModel.update(is_suspended=suspend).where(CardModel.id == card_id).execute()
+                return bool(updated > 0)
+        except Exception as e:
+            logger.error("Erreur lors de la modification de l'état suspendu de la carte %s: %s", card_id, e)
+            return False
+
+    def suspend_note(self, note_id: int, suspend: bool = True) -> bool:
+        """Suspend ou réactive toutes les cartes associées à une note."""
+        try:
+            with self.atomic():
+                updated = CardModel.update(is_suspended=suspend).where(CardModel.note_id == note_id).execute()
+                return bool(updated > 0)
+        except Exception as e:
+            logger.error("Erreur lors de la modification de l'état suspendu pour la note %s: %s", note_id, e)
+            return False
+
+    def is_note_suspended(self, note_id: int) -> bool:
+        """Vérifie si toutes les cartes de la note sont suspendues (True si au moins une et toutes sont suspendues)."""
+        try:
+            cards = list(CardModel.select(CardModel.is_suspended).where(CardModel.note_id == note_id))
+            if not cards:
+                return False
+            return all(bool(getattr(c, "is_suspended", False)) for c in cards)
+        except Exception as e:
+            logger.debug("Erreur récupération état suspendu note %s: %s", note_id, e)
+            return False
+
     def search_notes(self, query: str, limit: int = 50) -> list[NoteModel]:
-        """Recherche les notes correspondant à une requête texte et/ou syntaxe de drapeau Anki."""
+        """Recherche les notes correspondant à une requête texte, drapeau (flag:X) et/ou suspension (is:suspended)."""
         raw_query = query.strip()
         if not raw_query:
             return self.get_all_notes(limit=limit)
@@ -241,6 +272,14 @@ class NoteRepository(BaseRepository):
                 flag_filter = DesignTokens.FLAG_SEARCH_MAP[val_str]
             # Épuration du token flag de la requête textuelle
             raw_query = re.sub(r"(-?)flag:\w+", "", raw_query, flags=re.IGNORECASE).strip()
+
+        # Détection de la syntaxe Anki is:suspended ou -is:suspended
+        suspended_filter: bool | None = None
+        susp_match = re.search(r"(-?)is:suspended", raw_query, flags=re.IGNORECASE)
+        if susp_match:
+            neg_susp = bool(susp_match.group(1))
+            suspended_filter = not neg_susp  # True si is:suspended, False si -is:suspended
+            raw_query = re.sub(r"(-?)is:suspended", "", raw_query, flags=re.IGNORECASE).strip()
 
         db_query = NoteModel.select().distinct()
 
@@ -262,6 +301,17 @@ class NoteRepository(BaseRepository):
                 else:
                     matched_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags == flag_filter)]
                     db_query = db_query.where(NoteModel.id.in_(matched_nids))
+
+        # Filtrage par état suspendu
+        if suspended_filter is not None:
+            if suspended_filter:
+                # is:suspended => notes ayant au moins une carte suspendue
+                susp_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.is_suspended == True)]  # noqa: E712
+                db_query = db_query.where(NoteModel.id.in_(susp_nids))
+            else:
+                # -is:suspended => notes n'ayant aucune carte suspendue
+                susp_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.is_suspended == True)]  # noqa: E712
+                db_query = db_query.where(NoteModel.id.not_in(susp_nids))
 
         # Filtrage textuel résiduel sur le contenu ou les tags
         if raw_query:
