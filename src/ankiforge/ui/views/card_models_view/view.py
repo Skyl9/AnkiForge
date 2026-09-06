@@ -28,6 +28,7 @@ from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetItem
 from ankiforge.ui.components import (
     Badge,
+    EmptyStateWidget,
     FlowWidget,
     GlowLineEdit,
     IconButton,
@@ -146,6 +147,14 @@ class CardModelsView(QWidget):
             }}
         """)
         list_layout.addWidget(self.list_widget, 1)
+
+        self.empty_models_widget = EmptyStateWidget(
+            icon_name="ph.cards",
+            title="Aucun modèle",
+            description="Cliquez sur 'Nouveau Modèle' pour créer votre premier modèle de cartes.",
+        )
+        self.empty_models_widget.hide()
+        list_layout.addWidget(self.empty_models_widget, 1)
 
         list_toolbar = QHBoxLayout()
         list_toolbar.setSpacing(6)
@@ -590,6 +599,13 @@ class CardModelsView(QWidget):
                 self.list_widget.addItem(item)
 
             self.list_widget.blockSignals(False)
+
+            if not models:
+                self.list_widget.hide()
+                self.empty_models_widget.show()
+            else:
+                self.empty_models_widget.hide()
+                self.list_widget.show()
 
             if models and not self._current_model:
                 self.list_widget.setCurrentRow(0)

@@ -134,6 +134,7 @@ class CommandPalette(QDialog):
         # 2. Actions globales
         self.register_command("action.import", "Importer un paquet Anki (.apkg)", "download-simple", "Ctrl+Shift+I", "Actions")
         self.register_command("action.export", "Exporter des cartes Anki (.apkg)", "upload-simple", "Ctrl+Shift+E", "Actions")
+        self.register_command("action.tour", "Lancer la visite guidée d'AnkiForge", "compass", "F1", "Aide")
         self.register_command("action.settings", "Ouvrir les Paramètres", "gear", "Ctrl+,", "Système")
 
         self.refresh_data()
@@ -224,6 +225,8 @@ class CommandPalette(QDialog):
                 action_name = command_id.replace("action.", "")
                 if action_name == "settings":
                     self.view_requested.emit("settings")
+                elif action_name == "tour":
+                    self.view_requested.emit("tour")
             else:
                 self.view_requested.emit(command_id)
             self.accept()

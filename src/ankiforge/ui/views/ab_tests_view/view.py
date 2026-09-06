@@ -558,6 +558,9 @@ class ABTestsView(QWidget):
 
         self._apply_theme_to_widgets()
 
+        self.preview_a.set_empty_state("Branche A en attente. Configurez les options et cliquez sur 'Lancer le Test A/B'.")
+        self.preview_b.set_empty_state("Branche B en attente. Configurez les options et cliquez sur 'Lancer le Test A/B'.")
+
         self.ab_panel.add_tab("Laboratoire A/B", ab_content, "ph.scales", closable=False)
         main_layout.addWidget(self.ab_panel, 1)
 

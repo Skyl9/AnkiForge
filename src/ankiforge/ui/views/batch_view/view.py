@@ -39,6 +39,7 @@ from ankiforge.database.models import (
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.components import (
     Badge,
+    EmptyStateWidget,
     IconButton,
     IdePanel,
     OptionToggleRow,
@@ -467,6 +468,13 @@ class BatchView(QWidget):
 
         queue_layout.addWidget(self.queue_table, 1)
 
+        self.queue_empty = EmptyStateWidget(
+            icon_name="ph.tray",
+            title="File d'attente vide",
+            description="Sélectionnez des documents et configurez la forge à gauche pour ajouter des tâches par lots.",
+        )
+        queue_layout.addWidget(self.queue_empty, 1)
+
         self.queue_panel.add_tab("File d'attente détaillée", queue_content, "ph.list-dashes", closable=False)
         self.middle_splitter.addWidget(self.queue_panel)
 
@@ -741,15 +749,13 @@ class BatchView(QWidget):
         self.cell_widgets_map.clear()
 
         if not self.queue_tasks_data:
-            self.queue_table.setRowCount(1)
-            empty_item = QTableWidgetItem("La file d'attente est vide. Sélectionnez des documents à gauche pour commencer.")
-            empty_item.setFlags(Qt.ItemFlag.NoItemFlags)
-            empty_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.queue_table.setItem(0, 0, empty_item)
-            self.queue_table.setSpan(0, 0, 1, 6)
+            self.queue_table.hide()
+            self.queue_empty.show()
             self.queue_table.blockSignals(False)
             return
 
+        self.queue_empty.hide()
+        self.queue_table.show()
         self.queue_table.clearSpans()
         self.queue_table.setRowCount(len(self.queue_tasks_data))
 

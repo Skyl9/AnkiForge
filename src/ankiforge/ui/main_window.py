@@ -112,6 +112,7 @@ class MainWindow(QMainWindow):
         self._import_dialog: QWidget | None = None
         self._export_dialog: QWidget | None = None
         self._notif_popup: QWidget | None = None
+        self._tour_bubble: Any | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
@@ -237,6 +238,9 @@ class MainWindow(QMainWindow):
         self.shortcut_export = QShortcut(QKeySequence("Ctrl+Shift+E"), self)
         self.shortcut_export.activated.connect(self._open_export_dialog)
 
+        self.shortcut_tour = QShortcut(QKeySequence("F1"), self)
+        self.shortcut_tour.activated.connect(self.start_tour_guide)
+
     def _on_shortcut_save(self) -> None:
         """Déclenche la sauvegarde sur la vue active si elle le supporte."""
         current_widget = self.stacked_widget.currentWidget()
@@ -343,6 +347,13 @@ class MainWindow(QMainWindow):
 
     def _on_view_selected(self, view_id: str, data: dict | None = None) -> None:
         """Navigation: instancie la vue à la demande (Lazy Loading), vérifie dirty state et switch."""
+        if view_id == "settings":
+            self._open_settings_modal()
+            return
+        if view_id == "tour":
+            self.start_tour_guide()
+            return
+
         if self._current_view_id == view_id and not data:
             return
 
@@ -458,7 +469,29 @@ class MainWindow(QMainWindow):
 
         palette = CommandPaletteModal(self.VIEW_REGISTRY, parent=self)
         palette.view_requested.connect(self._on_view_selected)
+        palette.command_selected.connect(self._on_command_selected)
         palette.exec()
+
+    def _on_command_selected(self, command_id: str) -> None:
+        """Traite les actions globales déclenchées depuis la palette de commandes."""
+        if command_id == "action.import":
+            self._open_import_dialog()
+        elif command_id == "action.export":
+            self._open_export_dialog()
+        elif command_id == "action.settings":
+            self._open_settings_modal()
+        elif command_id == "action.tour":
+            self.start_tour_guide()
+
+    def start_tour_guide(self) -> None:
+        """Lance la visite guidée interactive d'AnkiForge."""
+        from ankiforge.ui.widgets.tour_guide import TourBubble, create_default_tour_steps
+
+        if self._tour_bubble is None:
+            self._tour_bubble = TourBubble(self)
+        steps = create_default_tour_steps(self)
+        self._tour_bubble.set_scenario(steps)
+        self._tour_bubble.start_tour()
 
     def _open_import_dialog(self) -> None:
         """Ouvre la boîte de dialogue d'importation de paquets Anki."""
