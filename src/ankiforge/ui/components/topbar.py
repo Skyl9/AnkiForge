@@ -147,6 +147,10 @@ class TopBar(QWidget):
         self.token_lbl = QLabel("Dépenses : 0.00 $ (0 tk)")
         self.token_lbl.setObjectName("TopBarTokenLabel")
 
+        token_tooltip = "Coût estimé et volume cumulé de jetons (tokens) consommés par les requêtes IA"
+        self.token_container.setToolTip(token_tooltip)
+        self.token_lbl.setToolTip(token_tooltip)
+
         token_layout.addWidget(self.dollar_icon)
         token_layout.addWidget(self.token_lbl)
 

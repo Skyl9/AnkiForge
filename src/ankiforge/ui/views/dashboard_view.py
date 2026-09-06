@@ -570,9 +570,11 @@ class DashboardDropZone(QFrame):
 class StatItem(QFrame):
     """Tuile KPI anti-troncation avec word-wrap et typographie adaptative."""
 
-    def __init__(self, value, label, value_color=None, parent=None):
+    def __init__(self, value, label, value_color=None, tooltip=None, parent=None):
         super().__init__(parent)
         self.value_color = value_color
+        if tooltip:
+            self.setToolTip(tooltip)
         self._apply_style()
 
         layout = QVBoxLayout(self)
@@ -726,10 +728,10 @@ class DashboardView(QWidget):
         stats_grid.setContentsMargins(0, 0, 0, 0)
         stats_grid.setSpacing(8)
 
-        self.stat_wozniak = StatItem("100%", "Santé Wozniak", DesignTokens.COLOR_GREEN)
-        self.stat_coverage = StatItem("100%", "Couverture RAG", DesignTokens.COLOR_BLUE)
-        self.stat_cost = StatItem("$ 0.00", "Dépenses IA", DesignTokens.ACCENT_PRIMARY)
-        self.stat_duplicates = StatItem("0", "Doublons", DesignTokens.COLOR_GREEN)
+        self.stat_wozniak = StatItem("100%", "Santé Wozniak", DesignTokens.COLOR_GREEN, tooltip="Score global de conformité de votre collection aux 20 règles de formulation de Piotr Wozniak")
+        self.stat_coverage = StatItem("100%", "Couverture RAG", DesignTokens.COLOR_BLUE, tooltip="Pourcentage de cours et documents délimités ayant au moins une flashcard associée")
+        self.stat_cost = StatItem("$ 0.00", "Dépenses IA", DesignTokens.ACCENT_PRIMARY, tooltip="Coût total estimé des requêtes LLM (OpenAI, Anthropic, Gemini, Ollama)")
+        self.stat_duplicates = StatItem("0", "Doublons", DesignTokens.COLOR_GREEN, tooltip="Paires de cartes suspectées de redondance sémantique ou lexicale (FAISS / Levenshtein)")
 
         stats_grid.addWidget(self.stat_wozniak, 0, 0)
         stats_grid.addWidget(self.stat_coverage, 0, 1)
@@ -763,11 +765,12 @@ class DashboardView(QWidget):
         self.activity_list_layout.setContentsMargins(0, 0, 0, 0)
         self.activity_list_layout.setSpacing(6)
         self.activity_list_layout.addStretch(1)
+        self._set_activity_empty_state()
 
         activity_scroll.setWidget(activity_inner)
         activity_layout.addWidget(activity_scroll, 1)
 
-        view_all_btn = SecondaryButton("Voir tout l'historique")
+        view_all_btn = SecondaryButton("Voir tout l'historique", tooltip="Ouvrir l'Éditeur & Navigateur pour inspecter toutes les cartes de la collection")
         view_all_btn.setFixedHeight(28)
         view_all_btn.clicked.connect(lambda: self._navigate("edition"))
         activity_layout.addWidget(view_all_btn)
@@ -794,6 +797,43 @@ class DashboardView(QWidget):
         self.worker = DashboardWorker()
         self.worker.data_loaded.connect(self._on_data_loaded)
         self.worker.start()
+
+    def _set_activity_empty_state(self) -> None:
+        """Affiche un conteneur convivial invitant l'utilisateur à créer ou importer des notes."""
+        empty_box = QFrame()
+        empty_box.setObjectName("ActivityEmptyState")
+        empty_box.setStyleSheet(f"""
+            QFrame#ActivityEmptyState {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        eb_layout = QVBoxLayout(empty_box)
+        eb_layout.setContentsMargins(8, 12, 8, 12)
+        eb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        eb_layout.setSpacing(4)
+
+        lbl_empty_ico = QLabel()
+        lbl_empty_ico.setPixmap(load_phosphor_icon("ph.clock-counter-clockwise", color=DesignTokens.TEXT_MUTED).pixmap(22, 22))
+        lbl_empty_ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_empty_ico.setStyleSheet("border: none; background: transparent;")
+        eb_layout.addWidget(lbl_empty_ico)
+
+        lbl_empty_text = QLabel("Aucune activité récente")
+        lbl_empty_text.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        lbl_empty_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
+        lbl_empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        eb_layout.addWidget(lbl_empty_text)
+
+        lbl_empty_sub = QLabel("Forgez des cartes ou importez des documents pour voir votre historique.")
+        lbl_empty_sub.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        lbl_empty_sub.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        lbl_empty_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_empty_sub.setWordWrap(True)
+        eb_layout.addWidget(lbl_empty_sub)
+
+        self.activity_list_layout.insertWidget(0, empty_box)
 
     def _on_data_loaded(self, data: dict):
         """Réception et affichage des métriques, alertes et grandes actions."""
@@ -846,18 +886,21 @@ class DashboardView(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        for m in macro_items:
-            act_item = ActivityItem(
-                note_id=m.get("sample_note_id"),
-                title=m.get("title", "Action"),
-                subtitle=m.get("subtitle", ""),
-                icon_name=m.get("icon", "ph.sparkle"),
-                bg_color=m.get("bg_color", "rgba(99, 102, 241, 0.15)"),
-            )
-            nid = m.get("sample_note_id")
-            if nid:
-                act_item.clicked.connect(lambda n=nid: self._navigate("edition", {"note_id": n}))
-            self.activity_list_layout.insertWidget(self.activity_list_layout.count() - 1, act_item)
+        if not macro_items:
+            self._set_activity_empty_state()
+        else:
+            for m in macro_items:
+                act_item = ActivityItem(
+                    note_id=m.get("sample_note_id"),
+                    title=m.get("title", "Action"),
+                    subtitle=m.get("subtitle", ""),
+                    icon_name=m.get("icon", "ph.sparkle"),
+                    bg_color=m.get("bg_color", "rgba(99, 102, 241, 0.15)"),
+                )
+                nid = m.get("sample_note_id")
+                if nid:
+                    act_item.clicked.connect(lambda n=nid: self._navigate("edition", {"note_id": n}))
+                self.activity_list_layout.insertWidget(self.activity_list_layout.count() - 1, act_item)
 
         # Émettre l'événement pour TopBar et MainWindow
         self.dashboard_data_updated.emit(data)

@@ -279,7 +279,7 @@ class ProfileSelectorDialog(QDialog):
         self.new_profile_input.setFixedHeight(34)
         self.new_profile_input.returnPressed.connect(self._on_create_profile)
 
-        self.btn_create = SecondaryButton("+ Créer")
+        self.btn_create = SecondaryButton("+ Créer", tooltip="Créer un nouvel espace de profil indépendant")
         self.btn_create.setFixedHeight(34)
         self.btn_create.clicked.connect(self._on_create_profile)
 
@@ -335,7 +335,7 @@ class ProfileSelectorDialog(QDialog):
         bottom_layout.setContentsMargins(0, 4, 0, 0)
         bottom_layout.setSpacing(10)
 
-        self.delete_btn = DangerButton("Supprimer cet espace")
+        self.delete_btn = DangerButton("Supprimer cet espace", tooltip="Supprimer définitivement cet espace et toutes ses données associées")
         self.delete_btn.setFixedHeight(36)
         self.delete_btn.setIcon(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED))
         self.delete_btn.clicked.connect(self._on_delete_profile)
@@ -344,12 +344,12 @@ class ProfileSelectorDialog(QDialog):
 
         bottom_layout.addStretch()
 
-        self.btn_cancel = SecondaryButton("Annuler")
+        self.btn_cancel = SecondaryButton("Annuler", tooltip="Fermer sans changer d'espace")
         self.btn_cancel.setFixedHeight(36)
         self.btn_cancel.clicked.connect(self.reject)
         bottom_layout.addWidget(self.btn_cancel)
 
-        self.btn_select = PrimaryButton("Basculer vers cet Espace")
+        self.btn_select = PrimaryButton("Basculer vers cet Espace", tooltip="Ouvrir le profil sélectionné et charger ses données")
         self.btn_select.setFixedHeight(36)
         self.btn_select.setIcon(load_phosphor_icon("arrow-right", color="#ffffff"))
         self.btn_select.clicked.connect(self.accept)

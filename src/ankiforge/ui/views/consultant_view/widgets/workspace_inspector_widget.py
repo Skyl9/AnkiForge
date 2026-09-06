@@ -106,6 +106,7 @@ class WorkspaceInspectorWidget(QWidget):
         queue_layout.setSpacing(6)
 
         self.btn_prev_patch = QPushButton("◀")
+        self.btn_prev_patch.setToolTip("Proposition de modification précédente")
         self.btn_prev_patch.setFixedSize(24, 24)
         self.btn_prev_patch.clicked.connect(self._on_prev_patch)
         queue_layout.addWidget(self.btn_prev_patch)
@@ -116,11 +117,12 @@ class WorkspaceInspectorWidget(QWidget):
         queue_layout.addWidget(self.lbl_queue_status, 1)
 
         self.btn_next_patch = QPushButton("▶")
+        self.btn_next_patch.setToolTip("Proposition de modification suivante")
         self.btn_next_patch.setFixedSize(24, 24)
         self.btn_next_patch.clicked.connect(self._on_next_patch)
         queue_layout.addWidget(self.btn_next_patch)
 
-        self.btn_apply_all = PrimaryButton("Tout appliquer")
+        self.btn_apply_all = PrimaryButton("Tout appliquer", tooltip="Appliquer toutes les modifications validées en base de données")
         self.btn_apply_all.setFixedHeight(24)
         self.btn_apply_all.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
         self.btn_apply_all.clicked.connect(self._on_apply_all_clicked)
@@ -258,23 +260,23 @@ class WorkspaceInspectorWidget(QWidget):
         actions_layout.setContentsMargins(4, 4, 4, 4)
         actions_layout.setSpacing(6)
 
-        self.btn_apply = PrimaryButton("Appliquer")
+        self.btn_apply = PrimaryButton("Appliquer", tooltip="Valider et appliquer cette modification individuelle sur la note")
         self.btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
         self.btn_apply.clicked.connect(self._on_apply_clicked)
         actions_layout.addWidget(self.btn_apply)
 
-        self.btn_revert = SecondaryButton("Annuler (Revert)")
+        self.btn_revert = SecondaryButton("Annuler (Revert)", tooltip="Annuler la modification et revenir à la version antérieure")
         self.btn_revert.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
         self.btn_revert.clicked.connect(self._on_revert_clicked)
         self.btn_revert.hide()
         actions_layout.addWidget(self.btn_revert)
 
-        self.btn_reject = SecondaryButton("Rejeter")
+        self.btn_reject = SecondaryButton("Rejeter", tooltip="Rejeter cette suggestion de refactorisation")
         self.btn_reject.setIcon(load_phosphor_icon("ph.x-circle", color=DesignTokens.COLOR_RED))
         self.btn_reject.clicked.connect(self._on_reject_clicked)
         actions_layout.addWidget(self.btn_reject)
 
-        self.btn_copy_patch = SecondaryButton("Copier")
+        self.btn_copy_patch = SecondaryButton("Copier", tooltip="Copier le contenu du différentiel dans le presse-papier")
         self.btn_copy_patch.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
         self.btn_copy_patch.clicked.connect(self._on_copy_patch_clicked)
         actions_layout.addWidget(self.btn_copy_patch)

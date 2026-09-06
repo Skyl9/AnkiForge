@@ -130,7 +130,7 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addStretch()
 
         # Action Principale : Tester DAG
-        self.btn_test_full = SecondaryButton("Tester le DAG")
+        self.btn_test_full = SecondaryButton("Tester le DAG", tooltip="Exécuter une simulation pas-à-pas du pipeline DAG sur un texte de test")
         self.btn_test_full.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.TEXT_PRIMARY))
         self.btn_test_full.setIconSize(QSize(14, 14))
         self.btn_test_full.setFixedHeight(30)
@@ -138,7 +138,7 @@ class PipelinesView(QWidget):
         pipeline_sel_row.addWidget(self.btn_test_full, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Action Secondaire : Sauvegarder
-        self.btn_save_pipeline = PrimaryButton("Enregistrer")
+        self.btn_save_pipeline = PrimaryButton("Enregistrer", tooltip="Enregistrer la structure et la configuration du pipeline (Ctrl+S)")
         self.btn_save_pipeline.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
         self.btn_save_pipeline.setIconSize(QSize(14, 14))
         self.btn_save_pipeline.setFixedHeight(30)
@@ -191,7 +191,7 @@ class PipelinesView(QWidget):
         scroll.setWidget(self.steps_inner)
         left_layout.addWidget(scroll, 1)
 
-        self.btn_add_step = PrimaryButton("Ajouter une étape au workflow")
+        self.btn_add_step = PrimaryButton("Ajouter une étape au workflow", tooltip="Ajouter une étape (LLM, RAG, Outil, Map-Reduce) à ce workflow")
         self.btn_add_step.setIcon(load_phosphor_icon("ph.plus", color="white"))
         self.btn_add_step.setIconSize(QSize(14, 14))
         self.btn_add_step.setFixedHeight(32)

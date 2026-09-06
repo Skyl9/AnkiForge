@@ -56,7 +56,7 @@ class DuplicateMatrixTable(QFrame):
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
 
-        self.badge_count = QLabel("14 paires à examiner")
+        self.badge_count = QLabel("0 paire à examiner")
         self.badge_count.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
         self.badge_count.setStyleSheet(
             f"background: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.BORDER_COLOR};"
@@ -83,15 +83,15 @@ class DuplicateMatrixTable(QFrame):
         lbl_target.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
         lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
 
-        self.btn_deck = SecondaryButton("L'ensemble des paquets")
+        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip="Sélectionner le paquet Anki cible pour la détection de doublons")
         self.btn_deck.setIcon(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.setFixedHeight(28)
 
-        self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%")
+        self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%", tooltip="Fusionner automatiquement les doublons dont la similarité dépasse 95%")
         self.btn_auto_merge.setIcon(load_phosphor_icon("ph.lightning", color="#ffffff"))
         self.btn_auto_merge.setFixedHeight(28)
 
-        self.btn_reanalyze = PrimaryButton("Relancer l'analyse")
+        self.btn_reanalyze = PrimaryButton("Relancer l'analyse", tooltip="Relancer le scan de détection vectorielle des doublons sur ce paquet")
         self.btn_reanalyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="#ffffff"))
         self.btn_reanalyze.setFixedHeight(28)
 

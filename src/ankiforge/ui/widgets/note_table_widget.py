@@ -80,23 +80,23 @@ class NoteTableWidget(RoundedPanel):
         toolbar_layout.addWidget(self.view_mode_cb)
         toolbar_layout.addStretch()
 
-        self.btn_approve = PrimaryButton("Approuver")
+        self.btn_approve = PrimaryButton("Approuver", tooltip="Approuver les cartes sélectionnées et lever la quarantaine")
         self.btn_approve.setVisible(False)
-        self.btn_reject = DangerButton("Rejeter")
+        self.btn_reject = DangerButton("Rejeter", tooltip="Rejeter et supprimer définitivement les cartes sélectionnées")
         self.btn_reject.setVisible(False)
 
-        self.btn_new_note = PrimaryButton("Nouvelle Note")
+        self.btn_new_note = PrimaryButton("Nouvelle Note", tooltip="Créer une nouvelle note dans le paquet sélectionné (Ctrl+N)")
         self.btn_new_note.setEnabled(False)
 
-        self.btn_scan_dupes = ActionButton("fa5s.search", " Traquer les doublons")
+        self.btn_scan_dupes = ActionButton("fa5s.search", " Traquer les doublons", tooltip="Lancer l'algorithme FAISS / Levenshtein pour détecter les doublons")
 
-        self.btn_batch_ai = ActionButton("fa5s.magic", " Modification IA")
+        self.btn_batch_ai = ActionButton("fa5s.magic", " Modification IA", tooltip="Appliquer une instruction IA sur toutes les cartes sélectionnées")
         self.btn_batch_ai.setEnabled(False)
 
-        self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA")
+        self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA", tooltip="Générer automatiquement des étiquettes sémantiques par l'IA")
         self.btn_auto_tag.setEnabled(False)
 
-        self.btn_audit_ai = ActionButton("fa5s.clipboard-check", " Auditer IA")
+        self.btn_audit_ai = ActionButton("fa5s.clipboard-check", " Auditer IA", tooltip="Auditer les cartes sélectionnées avec le linter IA Wozniak")
         self.btn_audit_ai.setEnabled(False)
 
         toolbar_layout.addWidget(self.btn_new_note)

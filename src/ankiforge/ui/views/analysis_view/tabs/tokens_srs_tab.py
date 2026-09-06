@@ -49,7 +49,7 @@ class AITokensSrsTab(QWidget):
         lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
 
-        self.btn_deck = SecondaryButton("L'ensemble des paquets")
+        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip="Choisir le paquet de cartes à auditer")
         self.btn_deck.setIcon(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_PRIMARY))
         self.btn_deck.setFixedHeight(28)
         self.btn_deck.clicked.connect(self.open_deck_select_dialog)
@@ -64,7 +64,7 @@ class AITokensSrsTab(QWidget):
             f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_MUTED}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 9999px; padding: 3px 10px;"
         )
 
-        btn_analyze = PrimaryButton("Analyser ce paquet")
+        btn_analyze = PrimaryButton("Analyser ce paquet", tooltip="Rafraîchir les métriques de tokens, dépenses IA et rétention SRS")
         btn_analyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="white"))
         btn_analyze.setFixedHeight(28)
         btn_analyze.clicked.connect(self.refresh_stats)
@@ -187,7 +187,10 @@ class AITokensSrsTab(QWidget):
         canvas = RetentionCurveCanvas()
         r_layout.addWidget(canvas)
 
-        btn_opt = PrimaryButton("Optimiser FSRS-4.5 (ML Local)")
+        btn_opt = PrimaryButton(
+            "Optimiser FSRS-4.5 (ML Local)",
+            tooltip="Calibrer les 17 paramètres FSRS-4.5 sur votre historique de révision via apprentissage automatique local",
+        )
         btn_opt.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
         btn_opt.setFixedHeight(30)
         btn_opt.clicked.connect(self._on_optimize_fsrs)

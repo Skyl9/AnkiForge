@@ -150,7 +150,7 @@ class CreationView(QWidget):
         explorer_layout.setContentsMargins(10, 10, 10, 10)
         explorer_layout.setSpacing(8)
 
-        self.btn_new_free_input = SecondaryButton("Nouvelle Saisie Libre")
+        self.btn_new_free_input = SecondaryButton("Nouvelle Saisie Libre", tooltip="Créer une saisie libre sans document source")
         self.btn_new_free_input.setIcon(load_phosphor_icon("ph.plus", color=DesignTokens.TEXT_PRIMARY))
         explorer_layout.addWidget(self.btn_new_free_input)
 
@@ -384,14 +384,17 @@ class CreationView(QWidget):
         self.btn_preset_all = QPushButton("Tout le doc")
         self.btn_preset_all.setStyleSheet(preset_btn_style)
         self.btn_preset_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_preset_all.setToolTip("Sélectionner tout le document source pour la génération")
 
         self.btn_preset_page = QPushButton("Page 1")
         self.btn_preset_page.setStyleSheet(preset_btn_style)
         self.btn_preset_page.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_preset_page.setToolTip("Limiter la génération à la première page")
 
         self.btn_preset_range = QPushButton("1 – 10")
         self.btn_preset_range.setStyleSheet(preset_btn_style)
         self.btn_preset_range.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_preset_range.setToolTip("Sélectionner une plage de 10 pages consécutives")
 
         preset_row.addWidget(self.btn_preset_all, 1)
         preset_row.addWidget(self.btn_preset_page, 1)
@@ -458,6 +461,7 @@ class CreationView(QWidget):
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_advanced.setToolTip("Afficher ou masquer les réglages avancés de génération")
 
         advanced_header = QHBoxLayout(self.btn_toggle_advanced)
         advanced_header.setContentsMargins(0, 0, 0, 0)
@@ -633,9 +637,9 @@ class CreationView(QWidget):
         self.btn_editer.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_editer.setToolTip("Modifier le texte de la carte (Raccourci: E)")
 
-        self.btn_valider = PrimaryButton("Garder")
+        self.btn_valider = PrimaryButton("Valider la carte")
         self.btn_valider.setIcon(load_phosphor_icon("ph.check", color="white"))
-        self.btn_valider.setToolTip("Garder la carte active et passer à la suivante (Raccourci: Espace ou V)")
+        self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
 
         main_bot_toolbar.addWidget(self.btn_rejeter)
         main_bot_toolbar.addWidget(self.btn_editer)

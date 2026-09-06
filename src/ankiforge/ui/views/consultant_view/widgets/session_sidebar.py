@@ -230,9 +230,8 @@ class ConsultantSessionSidebar(QFrame):
         header_row.addWidget(lbl_header)
         header_row.addStretch()
 
-        self.btn_new = PrimaryButton("Nouveau")
-        self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
-        self.btn_new.setFixedHeight(28)
+        self.btn_new = PrimaryButton("+ Nouveau", tooltip="Créer une nouvelle discussion avec le Consultant IA")
+        self.btn_new.setFixedHeight(26)
         self.btn_new.setStyleSheet("""
             QPushButton {
                 padding: 4px 10px;

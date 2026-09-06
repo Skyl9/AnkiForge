@@ -105,7 +105,7 @@ class DocumentsView(QWidget):
         explorer_toolbar = QHBoxLayout()
         explorer_toolbar.setSpacing(6)
 
-        self.btn_import = SecondaryButton("Importer")
+        self.btn_import = SecondaryButton("Importer", tooltip="Importer un fichier local (PDF, Markdown, Texte, .apkg)")
         self.btn_import.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
         self.btn_import.clicked.connect(self._on_import_file)
 
@@ -197,15 +197,15 @@ class DocumentsView(QWidget):
 
         empty_actions = QHBoxLayout()
         empty_actions.setSpacing(10)
-        btn_quick_import = PrimaryButton("Importer un fichier")
+        btn_quick_import = PrimaryButton("Importer un fichier", tooltip="Parcourir vos fichiers locaux pour importer un document")
         btn_quick_import.setIcon(load_phosphor_icon("ph.upload-simple", color="white"))
         btn_quick_import.clicked.connect(self._on_import_file)
 
-        btn_quick_url = SecondaryButton("Importer depuis le Web")
+        btn_quick_url = SecondaryButton("Importer depuis le Web", tooltip="Importer du contenu depuis une URL Web ou une vidéo YouTube")
         btn_quick_url.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.TEXT_PRIMARY))
         btn_quick_url.clicked.connect(self._on_import_url)
 
-        btn_quick_album = SecondaryButton("Créer un album")
+        btn_quick_album = SecondaryButton("Créer un album", tooltip="Créer un album d'images à annoter ou occlure")
         btn_quick_album.setIcon(load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE))
         btn_quick_album.clicked.connect(self._on_new_album)
 
@@ -250,7 +250,7 @@ class DocumentsView(QWidget):
         apply_pill_style(self.rag_status_pill, "#94a3b8")
         row1.addWidget(self.rag_status_pill)
 
-        self.btn_save = PrimaryButton("Sauvegarder")
+        self.btn_save = PrimaryButton("Sauvegarder", tooltip="Enregistrer les modifications textuelles du document (Ctrl+S)")
         self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
         self.btn_save.setFixedHeight(28)
         self.btn_save.setStyleSheet("font-size: 11px; padding: 4px 10px;")
@@ -289,15 +289,18 @@ class DocumentsView(QWidget):
         toggle_layout.setSpacing(1)
 
         self.btn_view_pdf = QPushButton("PDF")
+        self.btn_view_pdf.setToolTip("Afficher le visualiseur PDF haute définition")
         self.btn_view_pdf.setIcon(load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
         self.btn_view_pdf.setCheckable(True)
         self.btn_view_pdf.setChecked(True)
 
         self.btn_view_md = QPushButton("MD")
+        self.btn_view_md.setToolTip("Afficher et éditer le texte Markdown extrait")
         self.btn_view_md.setIcon(load_phosphor_icon("ph.markdown-logo", color=DesignTokens.COLOR_YELLOW))
         self.btn_view_md.setCheckable(True)
 
         self.btn_view_term = QPushButton("Logs")
+        self.btn_view_term.setToolTip("Afficher la console des journaux d'extraction")
         self.btn_view_term.setIcon(load_phosphor_icon("ph.terminal-window", color=DesignTokens.COLOR_BLUE))
         self.btn_view_term.setCheckable(True)
 
@@ -482,7 +485,7 @@ class DocumentsView(QWidget):
         cov_layout.addWidget(self.chapters_list, 1)
         self.chapters_list.itemClicked.connect(self._on_chapter_clicked)
 
-        self.btn_forge_chapter = PrimaryButton("⚡ Forger la section")
+        self.btn_forge_chapter = PrimaryButton("⚡ Forger la section", tooltip="Envoyer cette section dans le Studio de Création pour générer des cartes")
         self.btn_forge_chapter.clicked.connect(self._on_forge_selected_chapter)
         cov_layout.addWidget(self.btn_forge_chapter)
 
@@ -503,7 +506,7 @@ class DocumentsView(QWidget):
         self.rag_sandbox_input.setPlaceholderText("Poser une question au document...")
         self.rag_sandbox_input.returnPressed.connect(self._on_sandbox_search)
 
-        self.btn_sandbox_search = PrimaryButton("")
+        self.btn_sandbox_search = PrimaryButton("", tooltip="Lancer la recherche sémantique multimodale dans FAISS")
         self.btn_sandbox_search.setIcon(load_phosphor_icon("ph.magnifying-glass", color="white"))
         self.btn_sandbox_search.setFixedWidth(36)
         self.btn_sandbox_search.clicked.connect(self._on_sandbox_search)

@@ -115,7 +115,7 @@ class DocumentInspectorPanel(QWidget):
         h_layout.setContentsMargins(12, 8, 12, 8)
         h_layout.setSpacing(10)
 
-        btn_back = SecondaryButton("Retour")
+        btn_back = SecondaryButton("Retour", tooltip="Retourner à la liste générale des documents")
         btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
         btn_back.clicked.connect(self.back_requested.emit)
 
@@ -135,11 +135,11 @@ class DocumentInspectorPanel(QWidget):
             f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 10px;"
         )
 
-        self.btn_fill_orphans = PrimaryButton("Combler les trous")
+        self.btn_fill_orphans = PrimaryButton("Générer les cartes manquantes", tooltip="Générer automatiquement des flashcards pour les sections non couvertes")
         self.btn_fill_orphans.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
         self.btn_fill_orphans.clicked.connect(self._on_fill_all_orphans)
 
-        self.btn_reindex = SecondaryButton("Ré-indexer FAISS")
+        self.btn_reindex = SecondaryButton("Ré-indexer FAISS", tooltip="Recalculer les embeddings vectoriels et réindexer ce document dans FAISS")
         self.btn_reindex.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_reindex.clicked.connect(self._on_reindex_faiss)
 

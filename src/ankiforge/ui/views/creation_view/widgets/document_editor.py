@@ -180,10 +180,12 @@ class DocumentEditorWidget(QWidget):
             secondary_btn_text = "Source Markdown"
 
         self.btn_view_pdf = QPushButton(primary_btn_text)
+        self.btn_view_pdf.setToolTip("Basculer vers la vue PDF / rendu du document")
         self.btn_view_pdf.setCheckable(True)
         self.btn_view_pdf.setChecked(True)
 
         self.btn_view_md = QPushButton(secondary_btn_text)
+        self.btn_view_md.setToolTip("Basculer vers l'éditeur Markdown extrait")
         self.btn_view_md.setCheckable(True)
 
         toggle_layout.addWidget(self.btn_view_pdf)
@@ -345,15 +347,15 @@ class DocumentEditorWidget(QWidget):
         bot_layout.addWidget(self.tokens_lbl)
         bot_layout.addStretch()
 
-        self.btn_paste = SecondaryButton("Coller")
+        self.btn_paste = SecondaryButton("Coller", tooltip="Coller le contenu du presse-papier (Ctrl+V)")
         self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
         self.btn_paste.clicked.connect(self.raw_editor.paste)
 
-        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)")
+        self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)", tooltip="Lancer la forge des flashcards avec le modèle IA sélectionné (Ctrl+Entrée)")
         self.btn_generate.setIcon(load_phosphor_icon("ph.play", color="white"))
         self.btn_generate.clicked.connect(self._on_generate_clicked)
 
-        self.btn_cancel = DangerButton("Arrêter", ghost=True)
+        self.btn_cancel = DangerButton("Arrêter", ghost=True, tooltip="Interrompre la génération de cartes en cours")
         self.btn_cancel.setIcon(load_phosphor_icon("ph.stop-circle", color=DesignTokens.COLOR_RED))
         self.btn_cancel.hide()
         self.btn_cancel.clicked.connect(self.cancel_requested.emit)

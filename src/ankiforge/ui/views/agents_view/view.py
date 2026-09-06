@@ -132,7 +132,7 @@ class AgentsView(QWidget):
         self.edit_search.textChanged.connect(self._apply_filters)
         search_row.addWidget(self.edit_search, 1)
 
-        self.btn_new = PrimaryButton("Nouvel Agent")
+        self.btn_new = PrimaryButton("Nouvel Agent", tooltip="Créer un nouveau persona d'agent IA")
         self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
         self.btn_new.setIconSize(QSize(14, 14))
         self.btn_new.setFixedHeight(30)
@@ -145,9 +145,13 @@ class AgentsView(QWidget):
         filter_bar.setSpacing(4)
 
         self.btn_filter_all = QPushButton("Tous")
+        self.btn_filter_all.setToolTip("Afficher tous les agents enregistrés")
         self.btn_filter_pipe = QPushButton("⚡ Pipeline")
+        self.btn_filter_pipe.setToolTip("Filtrer les agents utilisables dans les étapes de pipelines DAG")
         self.btn_filter_mcp = QPushButton("🤝 MCP")
+        self.btn_filter_mcp.setToolTip("Filtrer les agents connectés au protocole MCP et outils autonomes")
         self.btn_filter_univ = QPushButton("🌐 Universel")
+        self.btn_filter_univ.setToolTip("Filtrer les agents polyvalents universels")
 
         self._filter_buttons = [
             (self.btn_filter_all, "all"),
@@ -219,7 +223,7 @@ class AgentsView(QWidget):
         list_toolbar = QHBoxLayout()
         list_toolbar.setSpacing(6)
 
-        self.btn_new_folder = SecondaryButton("Nouveau Dossier")
+        self.btn_new_folder = SecondaryButton("Nouveau Dossier", tooltip="Créer un dossier pour organiser l'arborescence d'agents")
         self.btn_new_folder.setIcon(load_phosphor_icon("ph.folder-plus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_new_folder.setIconSize(QSize(14, 14))
         self.btn_new_folder.setFixedHeight(30)

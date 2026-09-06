@@ -18,10 +18,13 @@ class PrimaryButton(QPushButton):
     """Bouton principal avec glow et affordance tactile. Usage: actions primaires."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        tooltip = kwargs.pop("tooltip", None)
         args_list = list(args)
         if args_list and isinstance(args_list[0], str):
             args_list[0] = _escape_ampersand(args_list[0])
         super().__init__(*args_list, **kwargs)
+        if tooltip:
+            self.setToolTip(tooltip)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -59,10 +62,13 @@ class SecondaryButton(QPushButton):
     """Bouton secondaire avec relief, contour d'accentuation au survol et affordance tactile."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        tooltip = kwargs.pop("tooltip", None)
         args_list = list(args)
         if args_list and isinstance(args_list[0], str):
             args_list[0] = _escape_ampersand(args_list[0])
         super().__init__(*args_list, **kwargs)
+        if tooltip:
+            self.setToolTip(tooltip)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -128,8 +134,10 @@ class ActionButton(SecondaryButton):
 class DangerButton(QPushButton):
     """Bouton danger rouge avec halo lumineux au survol. Variantes: filled et ghost."""
 
-    def __init__(self, text: str, ghost: bool = False, parent: QWidget | None = None) -> None:
+    def __init__(self, text: str, ghost: bool = False, tooltip: str = "", parent: QWidget | None = None) -> None:
         super().__init__(_escape_ampersand(text), parent)
+        if tooltip:
+            self.setToolTip(tooltip)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFixedHeight(36)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)

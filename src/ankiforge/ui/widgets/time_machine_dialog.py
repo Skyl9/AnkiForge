@@ -249,13 +249,13 @@ class TimeMachineDialog(QDialog):
 
         # Barre d'actions inférieure
         bottom_layout = QHBoxLayout()
-        self.btn_close = SecondaryButton("Fermer")
+        self.btn_close = SecondaryButton("Fermer", tooltip="Fermer l'historique sans restaurer")
         self.btn_close.clicked.connect(self.reject)
         bottom_layout.addWidget(self.btn_close)
 
         bottom_layout.addStretch()
 
-        self.btn_restore = PrimaryButton("Restaurer cette version")
+        self.btn_restore = PrimaryButton("Restaurer cette version", tooltip="Rétablir cette révision historique comme version active de la note")
         self.btn_restore.setIcon(load_phosphor_icon("arrow-counter-clockwise", color="white"))
         self.btn_restore.clicked.connect(self._restore_selected_version)
         self.btn_restore.setEnabled(False)

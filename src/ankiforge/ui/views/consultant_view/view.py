@@ -229,8 +229,6 @@ class ConsultantView(QWidget):
         self._setup_ui()
         self._connect_signals()
         self.refresh_data()
-        if not self.view_model.messages:
-            self._insert_welcome_message()
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "session_sidebar") and hasattr(self.session_sidebar, "refresh_theme"):
@@ -390,10 +388,10 @@ class ConsultantView(QWidget):
 
         tools_layout = QHBoxLayout()
         tools_layout.setSpacing(4)
-        self.btn_attach = IconButton("ph.paperclip", tooltip="Attacher un Paquet ou Document (@)", size=22)
+        self.btn_attach = IconButton("ph.paperclip", tooltip="Attacher une ressource au contexte (Paquet, Document, Modèle)", size=22)
         self.btn_attach.clicked.connect(self._on_add_context)
 
-        self.btn_mention = IconButton("ph.at", tooltip="Attacher un Paquet/Doc (@)", size=22)
+        self.btn_mention = IconButton("ph.at", tooltip="Mentionner une ressource spécifique (@)", size=22)
         self.btn_mention.clicked.connect(self._on_add_context)
 
         self.btn_add_context = self.btn_attach
@@ -939,6 +937,13 @@ class ConsultantView(QWidget):
             self.context_hub.set_history_tokens(self.view_model.used_tokens_count)
 
     def _insert_welcome_message(self) -> None:
+        for i in range(self.chat_messages_layout.count()):
+            item = self.chat_messages_layout.itemAt(i)
+            if item and item.widget():
+                w_existing = item.widget()
+                if isinstance(w_existing, ChatMessageWidget) and not getattr(w_existing, "is_user", True):
+                    return
+
         msg_ai = (
             "Bonjour ! Je suis votre <b>Consultant IA AnkiForge</b>.<br><br>"
             "Je dispose d'outils d'audit Wozniak, de recherche de doublons Levenshtein, de RAG documentaire, "
@@ -947,6 +952,12 @@ class ConsultantView(QWidget):
         )
         w = ChatMessageWidget("AnkiForge AI", msg_ai, is_user=False)
         self.chat_messages_layout.insertWidget(self.chat_messages_layout.count() - 1, w)
+
+    @Slot()
+    def _on_insert_mention(self) -> None:
+        """Insère le caractère @ dans la zone de saisie pour déclencher l'autocomplétion."""
+        self.chat_input.insertPlainText("@")
+        self.chat_input.setFocus()
 
     @Slot()
     def _on_input_text_changed(self) -> None:

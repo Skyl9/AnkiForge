@@ -123,11 +123,11 @@ class AIWozniakLinterTab(QWidget):
             display_name = getattr(c, "display_name", getattr(c, "name", str(c)))
             self.engine_combo.addItem(f"{display_name}", userData=c)
 
-        self.btn_rules = SecondaryButton("Règles")
+        self.btn_rules = SecondaryButton("Règles", tooltip="Activer, désactiver ou ajuster les 20 règles de formulation de Wozniak")
         self.btn_rules.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
         self.btn_rules.clicked.connect(self.open_rules_dialog)
 
-        self.btn_analyze = PrimaryButton("Lancer l'audit")
+        self.btn_analyze = PrimaryButton("Lancer l'audit", tooltip="Lancer l'audit de conformité Wozniak sur le paquet sélectionné")
         self.btn_analyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="#ffffff"))
         self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
 
@@ -307,7 +307,7 @@ class AIWozniakLinterTab(QWidget):
         lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_icon.setStyleSheet("border: none; background: transparent;")
 
-        lbl_text = QLabel(message or "Veuillez choisir un paquet ci-dessus et cliquer sur 'Analyser ce paquet' pour démarrer l'audit Wozniak.")
+        lbl_text = QLabel(message or "Veuillez choisir un paquet ci-dessus et cliquer sur 'Lancer l'audit' pour démarrer l'analyse Wozniak.")
         lbl_text.setFont(QFont(DesignTokens.FONT_MAIN, 11))
         lbl_text.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; border: none; background: transparent;")
         lbl_text.setAlignment(Qt.AlignmentFlag.AlignCenter)

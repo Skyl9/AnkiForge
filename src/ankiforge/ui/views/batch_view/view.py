@@ -285,6 +285,7 @@ class BatchView(QWidget):
         self.btn_toggle_advanced = QPushButton()
         self.btn_toggle_advanced.setStyleSheet("background: transparent; border: none; text-align: left; padding: 4px 0;")
         self.btn_toggle_advanced.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_advanced.setToolTip("Déplier / replier les options avancées de découpage et vision")
 
         advanced_header = QHBoxLayout(self.btn_toggle_advanced)
         advanced_header.setContentsMargins(0, 0, 0, 0)
@@ -385,7 +386,7 @@ class BatchView(QWidget):
         build_layout.addWidget(self.advanced_container)
         build_layout.addStretch()
 
-        self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue")
+        self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue", tooltip="Ajouter la sélection actuelle à la file d'attente du lot")
         self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
         apply_shadow(self.btn_add_to_queue, blur=20, offset_y=0, color="rgba(99, 102, 241, 0.75)")
         self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
@@ -407,7 +408,7 @@ class BatchView(QWidget):
         self.btn_clear_table.clicked.connect(self._on_clear_queue)
         self.queue_panel.add_header_widget(self.btn_clear_table)
 
-        self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline")
+        self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline", tooltip="Démarrer l'exécution du traitement par lots en arrière-plan")
         self.btn_start_pipeline.setIcon(load_phosphor_icon("ph.play", color="white"))
         self.btn_start_pipeline.setStyleSheet(f"""
             QPushButton {{

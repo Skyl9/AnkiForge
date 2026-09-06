@@ -110,10 +110,9 @@ class CardModelsView(QWidget):
         self.model_search_input.textChanged.connect(self._filter_models_list)
         search_row.addWidget(self.model_search_input, 1)
 
-        self.btn_new = PrimaryButton("Nouveau")
+        self.btn_new = PrimaryButton("Nouveau Modèle", tooltip="Créer un nouveau modèle de cartes Anki")
         self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
         self.btn_new.setFixedHeight(28)
-        self.btn_new.setToolTip("Créer un nouveau modèle de carte")
         search_row.addWidget(self.btn_new)
 
         list_layout.addLayout(search_row)
