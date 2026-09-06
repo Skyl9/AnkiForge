@@ -1,5 +1,5 @@
 from ankiforge.database.models import DeckModel
-from ankiforge.ui.components.components import DBComboBox
+from ankiforge.ui.components import DBComboBox
 
 
 def test_db_combobox_initialization(qtbot, mock_db):

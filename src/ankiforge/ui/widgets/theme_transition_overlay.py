@@ -24,7 +24,7 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class SpinningIconLabel(QWidget):
     """Widget d'icône avec rotation fluide et gestion propre du cycle de vie QPainter."""
 
-    def __init__(self, icon_name: str = "ph.palette", color: str = "#6366f1", size: int = 36, parent: QWidget | None = None) -> None:
+    def __init__(self, icon_name: str = "ph.palette", color: str = DesignTokens.ACCENT_PRIMARY, size: int = 36, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._angle = 0
         self._icon_name = icon_name

@@ -1,5 +1,7 @@
+from PySide6.QtWidgets import QLabel
+
 from .badges import Badge, StatusBadge, TagButton
-from .buttons import DangerButton, IconButton, PremiumActionCard, PrimaryButton, SecondaryButton
+from .buttons import ActionButton, DangerButton, IconButton, PremiumActionCard, PrimaryButton, SecondaryButton
 from .code_editor import (
     CodeEditorWithGutter,
     CSSFormatter,
@@ -12,19 +14,21 @@ from .code_editor import (
     NativeCodeEditor,
     extract_colors_from_text,
 )
-from .components import ActionButton, EmptyStateWidget, HeaderLabel, RoundedPanel
 from .deck_select_window import DeckSelectWindow
 from .document_select_window import DocumentSelectWindow
 from .flow_layout import FlowLayout, FlowWidget
-from .inputs import GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
+from .inputs import DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
 from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
 from .misc import StyledToolbar, UserAvatar
-from .panels import GlassPanel, IdePanel, MetricCard, StatCard
+from .panels import EmptyStateWidget, GlassPanel, IdePanel, MetricCard, StatCard
 from .sidebar import ClickableLabel, Sidebar, SidebarItem
 from .tables import CicdTable, StyledTableWidget, VirtualTableView
 from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
 from .title_bar import GlobalTitleBar
 from .topbar import TopBar
+
+HeaderLabel = QLabel
+RoundedPanel = GlassPanel
 
 __all__ = [
     "PrimaryButton",
@@ -49,6 +53,7 @@ __all__ = [
     "ToggleSwitch",
     "OptionToggleRow",
     "StyledComboBox",
+    "DBComboBox",
     "StyledListItem",
     "ActivityItem",
     "DocTreeItem",

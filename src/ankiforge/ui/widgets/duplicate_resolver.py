@@ -1,12 +1,12 @@
 import difflib
 
-import qtawesome as qta
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar, QTextEdit, QVBoxLayout
 
 from ankiforge.database.models import IgnoredDuplicateModel, NoteModel, db
-from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
+from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import is_dark_mode
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class DuplicateResolverDialog(QDialog):
@@ -63,7 +63,8 @@ class DuplicateResolverDialog(QDialog):
         self.text_left.setStyleSheet("QTextEdit { border: none; background-color: transparent; font-size: 14px; }")
         left_layout.addWidget(self.text_left)
 
-        self.btn_keep_a = PrimaryButton(qta.icon("fa5s.arrow-left", color="white"), " Garder l'Originale (Supprime B)")
+        self.btn_keep_a = PrimaryButton(" Garder l'Originale (Supprime B)")
+        self.btn_keep_a.setIcon(load_phosphor_icon("arrow-left", color="white"))
         self.btn_keep_a.clicked.connect(self.keep_a)
         left_layout.addWidget(self.btn_keep_a)
 
@@ -83,7 +84,8 @@ class DuplicateResolverDialog(QDialog):
         self.text_right.setStyleSheet("QTextEdit { border: none; background-color: transparent; font-size: 14px; }")
         right_layout.addWidget(self.text_right)
 
-        self.btn_keep_b = PrimaryButton(qta.icon("fa5s.arrow-right", color="white"), " Garder la Nouvelle (Supprime A)")
+        self.btn_keep_b = PrimaryButton(" Garder la Nouvelle (Supprime A)")
+        self.btn_keep_b.setIcon(load_phosphor_icon("arrow-right", color="white"))
         self.btn_keep_b.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.btn_keep_b.clicked.connect(self.keep_b)
         right_layout.addWidget(self.btn_keep_b)
@@ -94,7 +96,7 @@ class DuplicateResolverDialog(QDialog):
         # 3. Bouton Ignorer
         btn_bottom_layout = QHBoxLayout()
         btn_bottom_layout.addStretch()
-        self.btn_ignore = ActionButton("fa5s.forward", " Ignorer le conflit (Garder les deux)")
+        self.btn_ignore = ActionButton("arrow-right", " Ignorer le conflit (Garder les deux)")
         self.btn_ignore.clicked.connect(self.ignore_conflict)
         btn_bottom_layout.addWidget(self.btn_ignore)
         btn_bottom_layout.addStretch()

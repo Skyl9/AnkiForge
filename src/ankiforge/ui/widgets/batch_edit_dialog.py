@@ -1,8 +1,8 @@
-import qtawesome as qta
 from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QSpinBox, QTextEdit, QVBoxLayout
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
-from ankiforge.ui.components.components import ActionButton, PrimaryButton
+from ankiforge.ui.components import ActionButton, PrimaryButton
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class BatchEditDialog(QDialog):
@@ -54,10 +54,11 @@ class BatchEditDialog(QDialog):
 
         # 4. Boutons
         btn_layout = QHBoxLayout()
-        self.btn_cancel = ActionButton("fa5s.times", "Annuler")
+        self.btn_cancel = ActionButton("x", "Annuler")
         self.btn_cancel.clicked.connect(self.reject)
 
-        self.btn_start = PrimaryButton(qta.icon("fa5s.magic", color="white"), "Lancer le traitement")
+        self.btn_start = PrimaryButton("Lancer le traitement")
+        self.btn_start.setIcon(load_phosphor_icon("sparkle", color="white"))
         self.btn_start.clicked.connect(self.accept)
 
         btn_layout.addStretch()

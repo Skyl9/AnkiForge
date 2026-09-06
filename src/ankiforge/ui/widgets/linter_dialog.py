@@ -1,12 +1,13 @@
 import json
 
-import qtawesome as qta
 from PySide6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QScrollArea, QVBoxLayout, QWidget
 
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.linter_worker import LinterWorker
-from ankiforge.ui.components.components import ActionButton, HeaderLabel, PrimaryButton
+from ankiforge.ui.components import ActionButton, HeaderLabel, PrimaryButton
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class LinterDialog(QDialog):
@@ -42,7 +43,7 @@ class LinterDialog(QDialog):
         self.main_layout.addWidget(self.scroll_area)
 
         # Footer
-        self.btn_close = ActionButton("fa5s.times", "Fermer")
+        self.btn_close = ActionButton("x", "Fermer")
         self.btn_close.clicked.connect(self.close)
 
         footer = QHBoxLayout()
@@ -79,11 +80,11 @@ class LinterDialog(QDialog):
 
             if passed:
                 lbl = QLabel(f"✅ Carte #{note_id} : Parfait !")
-                lbl.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                lbl.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-weight: bold;")
                 p_layout.addWidget(lbl)
             else:
                 lbl = QLabel(f"⚠️ Carte #{note_id} : {rule}")
-                lbl.setStyleSheet("color: #F44336; font-weight: bold;")
+                lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-weight: bold;")
                 p_layout.addWidget(lbl)
 
                 desc = QLabel(f"Raison : {reason}")
@@ -96,7 +97,8 @@ class LinterDialog(QDialog):
                     sugg_lbl.setWordWrap(True)
                     p_layout.addWidget(sugg_lbl)
 
-                    btn_apply = PrimaryButton(qta.icon("fa5s.check", color="white"), "Appliquer la suggestion")
+                    btn_apply = PrimaryButton("Appliquer la suggestion")
+                    btn_apply.setIcon(load_phosphor_icon("check", color="white"))
                     # Capture variable in closure safely
                     btn_apply.clicked.connect(lambda _, nid=note_id, sug=suggestion, pnl=panel: self._apply_suggestion(nid, sug, pnl))
                     p_layout.addWidget(btn_apply)

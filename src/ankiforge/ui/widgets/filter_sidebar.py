@@ -7,7 +7,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QFrame, QLabel, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel
-from ankiforge.ui.components.components import RoundedPanel
+from ankiforge.ui.components import RoundedPanel
 from ankiforge.ui.theme import StyledMenu
 
 logger = logging.getLogger(__name__)

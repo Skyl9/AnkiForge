@@ -78,22 +78,22 @@ class Toast(QWidget):
 
     LEVEL_CONFIG: dict[ToastLevel, dict[str, Any]] = {
         ToastLevel.SUCCESS: {
-            "color": "#10B981",
+            "color": DesignTokens.COLOR_GREEN,
             "icon": "check-circle",
             "title": "Succès",
         },
         ToastLevel.INFO: {
-            "color": "#3B82F6",
+            "color": DesignTokens.COLOR_BLUE,
             "icon": "info",
             "title": "Information",
         },
         ToastLevel.WARNING: {
-            "color": "#F59E0B",
+            "color": DesignTokens.COLOR_YELLOW,
             "icon": "warning",
             "title": "Attention",
         },
         ToastLevel.ERROR: {
-            "color": "#EF4444",
+            "color": DesignTokens.COLOR_RED,
             "icon": "warning-octagon",
             "title": "Erreur",
         },

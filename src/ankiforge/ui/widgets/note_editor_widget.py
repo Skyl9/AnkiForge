@@ -11,7 +11,6 @@ import logging
 import re
 from typing import Any
 
-import qtawesome
 from PySide6.QtCore import QRect, QRegularExpression, QSize, QStringListModel, Qt, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import (
     QColor,
@@ -51,7 +50,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.services.cards.note_manager import NoteManager
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.components.components import ActionButton, PrimaryButton, RoundedPanel
+from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
@@ -787,7 +786,7 @@ class NoteFieldEditorWidget(QWidget):
         """Met à jour l'icône Play / Stop selon l'état de lecture du média."""
         is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
         if is_playing:
-            self.btn_play_audio.setIcon(load_phosphor_icon("ph.stop", color="#ef4444"))
+            self.btn_play_audio.setIcon(load_phosphor_icon("ph.stop", color=DesignTokens.COLOR_RED))
             self.btn_play_audio.setToolTip("Arrêter la lecture")
         else:
             self.btn_play_audio.setIcon(load_phosphor_icon("ph.play", color=DesignTokens.ACCENT_PRIMARY))
@@ -911,10 +910,11 @@ class NoteEditorWidget(QWidget):
         editor_layout.addWidget(self.details_scroll)
 
         buttons_layout = QHBoxLayout()
-        self.btn_history = ActionButton("fa5s.history", " Historique")
+        self.btn_history = ActionButton("clock-counter-clockwise", " Historique")
         self.btn_history.setEnabled(False)
 
-        self.btn_save_edits = PrimaryButton(qtawesome.icon("fa5s.save", color="white"), " Sauvegarder modifications")
+        self.btn_save_edits = PrimaryButton(" Sauvegarder modifications")
+        self.btn_save_edits.setIcon(load_phosphor_icon("floppy-disk", color="white"))
         self.btn_save_edits.setEnabled(False)
 
         buttons_layout.addWidget(self.btn_history)
@@ -931,7 +931,7 @@ class NoteEditorWidget(QWidget):
         self.preview_widget = CardPreviewWidget(show_header=True)
 
         preview_tools_layout = QHBoxLayout()
-        self.btn_toggle_mobile = ActionButton("fa5s.mobile-alt", " Mobile")
+        self.btn_toggle_mobile = ActionButton("device-mobile", " Mobile")
         self.btn_toggle_mobile.setCheckable(True)
         self.btn_toggle_mobile.toggled.connect(self._toggle_mobile_preview)
 
@@ -959,11 +959,11 @@ class NoteEditorWidget(QWidget):
         if checked:
             self.preview_widget.setMaximumWidth(375)
             self.btn_toggle_mobile.setText(" Desktop")
-            self.btn_toggle_mobile.setIcon(qtawesome.icon("fa5s.desktop", color="white"))
+            self.btn_toggle_mobile.setIcon(load_phosphor_icon("monitor", color="white"))
         else:
             self.preview_widget.setMaximumWidth(16777215)
             self.btn_toggle_mobile.setText(" Mobile")
-            self.btn_toggle_mobile.setIcon(qtawesome.icon("fa5s.mobile-alt", color="white"))
+            self.btn_toggle_mobile.setIcon(load_phosphor_icon("device-mobile", color="white"))
 
     def set_current_deck(self, deck_id: int | None) -> None:
         self.current_deck_id = deck_id

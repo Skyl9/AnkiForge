@@ -9,7 +9,7 @@ from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.components.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
+from ankiforge.ui.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import StyledMenu
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,7 @@ class NoteTableWidget(RoundedPanel):
         self.data_table.setSortingEnabled(True)
 
         self.empty_overlay = EmptyStateWidget(
-            icon_name="fa5s.clone",
+            icon_name="cards",
             title=self.tr("Aucune carte à afficher"),
             description=self.tr("Sélectionnez un paquet dans l'explorateur à gauche ou créez votre première carte pour la voir apparaître ici."),
         )

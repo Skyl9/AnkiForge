@@ -40,7 +40,7 @@ def test_toast_levels_styling(parent_widget: QWidget, qtbot) -> None:
     ]:
         toast = Toast(message=f"Test {level.value}", level=level, parent=parent_widget)
         qtbot.addWidget(toast)
-        assert expected_color in toast.card.styleSheet()
+        assert expected_color.lower() in toast.card.styleSheet().lower()
 
 
 def test_toast_manager_stacking_and_reposition(parent_widget: QWidget, qtbot) -> None:

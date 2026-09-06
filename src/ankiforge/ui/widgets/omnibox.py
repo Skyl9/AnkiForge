@@ -1,12 +1,13 @@
 import json
 import re
 
-import qtawesome as qta
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import QDialog, QGraphicsDropShadowEffect, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
 from ankiforge.database.models import DocumentModel, NoteModel, NoteVersionModel
+from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class Omnibox(QDialog):
@@ -18,13 +19,37 @@ class Omnibox(QDialog):
         # Rend la fenêtre flottante, sans bordures OS, style "Spotlight"
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Popup)
         self.setMinimumWidth(650)
-        self.setStyleSheet("""
-                    QDialog { background-color: palette(window); border: 1px solid palette(alternate-base); border-radius: 8px; }
-                    QLineEdit { padding: 15px; font-size: 18px; border: none; background-color: palette(base); color: palette(text); border-radius: 4px; }
-                    QListWidget { border: none; background-color: palette(window); color: palette(text); font-size: 15px; outline: none; }
-                    QListWidget::item { padding: 12px; border-bottom: 1px solid palette(alternate-base); }
-                    QListWidget::item:selected { background-color: palette(highlight); color: palette(highlighted-text); border-radius: 4px; }
-                """)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QLineEdit {{
+                padding: 12px;
+                font-size: 15px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QListWidget {{
+                border: none;
+                background-color: transparent;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 13px;
+                outline: none;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QListWidget::item:selected {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)  # Légèrement augmenté pour laisser respirer l'ombre
@@ -86,7 +111,8 @@ class Omnibox(QDialog):
         docs = DocumentModel.select().where(DocumentModel.title.contains(query) | DocumentModel.content.contains(query)).limit(5)
 
         for doc in docs:
-            item = QListWidgetItem(qta.icon("fa5s.file-alt", color="#90CAF9"), f" [Cours] {doc.title}")
+            icon = load_phosphor_icon("file-text", color=DesignTokens.COLOR_BLUE)
+            item = QListWidgetItem(icon, f" [Cours] {doc.title}")
             item.setData(Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "deck_id": None})
             self.results_list.addItem(item)
 
@@ -104,7 +130,8 @@ class Omnibox(QDialog):
             first_card = note.cards.first()
             deck_id = first_card.deck.id if first_card and first_card.deck else None
 
-            item = QListWidgetItem(qta.icon("fa5s.clone", color="#4CAF50"), f" [Carte] {preview}")
+            icon = load_phosphor_icon("cards", color=DesignTokens.COLOR_GREEN)
+            item = QListWidgetItem(icon, f" [Carte] {preview}")
             item.setData(Qt.ItemDataRole.UserRole, {"type": "note", "id": note.id, "deck_id": deck_id})
             self.results_list.addItem(item)
 

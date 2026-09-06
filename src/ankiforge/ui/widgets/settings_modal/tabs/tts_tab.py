@@ -218,7 +218,7 @@ class TTSSettingsTab(QWidget):
             is_functional, msg = PiperSidecarProvider.is_functional()
             if is_functional:
                 self.lbl_piper_status.setText("● Installé et opérationnel")
-                self.lbl_piper_status.setStyleSheet("color: #10b981; font-size: 11px; font-weight: bold;")
+                self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
             else:
                 self.lbl_piper_status.setText(f"⚠️ Dépendance manquante ({msg})")
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
@@ -323,7 +323,7 @@ class TTSSettingsTab(QWidget):
         is_playing = QMediaPlayer is not None and hasattr(QMediaPlayer, "PlaybackState") and state == QMediaPlayer.PlaybackState.PlayingState
         if is_playing:
             self.btn_test.setText(" Arrêter la lecture")
-            self.btn_test.setIcon(load_phosphor_icon("ph.stop", color="#ef4444"))
+            self.btn_test.setIcon(load_phosphor_icon("ph.stop", color=DesignTokens.COLOR_RED))
         else:
             self.btn_test.setText(" Tester la voix sélectionnée")
             self.btn_test.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.ACCENT_PRIMARY))
