@@ -628,7 +628,8 @@ def test_context_uncommitted_safe_mouse_clicks(qtbot):
     assert len(view.active_context) == 1
     badge = view.mentions_layout.itemAt(0).widget()
     qtbot.mouseClick(badge, Qt.MouseButton.LeftButton)
-    qtbot.wait(50)
+    # Attente déterministe : le badge est supprimé dès que active_context est vide
+    qtbot.waitUntil(lambda: len(view.active_context) == 0, timeout=500)
 
     # Le badge a été supprimé sans erreur C++
     assert len(view.active_context) == 0
@@ -641,7 +642,8 @@ def test_context_uncommitted_safe_mouse_clicks(qtbot):
     btn_del = hub_card.findChild(QPushButton)
     assert btn_del is not None
     qtbot.mouseClick(btn_del, Qt.MouseButton.LeftButton)
-    qtbot.wait(50)
+    # Attente déterministe : la carte source est retirée du hub dès que active_context est vide
+    qtbot.waitUntil(lambda: len(view.active_context) == 0, timeout=500)
 
     assert len(view.active_context) == 0
 

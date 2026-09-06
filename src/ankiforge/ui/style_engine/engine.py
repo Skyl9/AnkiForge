@@ -5,7 +5,6 @@ Génère et applique dynamiquement les règles QSS sémantiques basées sur les 
 
 import contextlib
 import logging
-from typing import Optional
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QPalette
@@ -33,7 +32,7 @@ class StyleEngine(QObject):
 
     theme_changed = Signal(ThemeProfile)
 
-    _instance: Optional["StyleEngine"] = None
+    _instance: "StyleEngine | None" = None
 
     def __init__(self) -> None:
         super().__init__()

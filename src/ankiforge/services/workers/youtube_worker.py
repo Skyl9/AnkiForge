@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QRunnable, Signal
 
@@ -21,7 +21,7 @@ class YouTubeWorkerSignals(QObject):
 class YouTubeWorker(QRunnable):
     """Worker pour extraire le texte d'une vidéo YouTube en asynchrone."""
 
-    def __init__(self, url: str, ai_manager: Optional["AIManager"] = None):
+    def __init__(self, url: str, ai_manager: "AIManager | None" = None):
         super().__init__()
         self.url = url
         self.ai_manager = ai_manager

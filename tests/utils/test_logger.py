@@ -6,7 +6,6 @@ le buffer circulaire RingBuffer, le pipeline asynchrone QueueHandler et les gest
 
 import logging
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -200,8 +199,7 @@ def test_setup_logging_and_async_queue(tmp_path: Path):
     test_logger = logging.getLogger("ankiforge.test_async")
     test_logger.info("Message asynchrone avec clé sk-123456789012345678901234567890")
 
-    # Attendre brièvement le passage dans la queue
-    time.sleep(0.1)
+    # Arrêt propre du QueueListener → flush déterministe de la queue avant lecture du fichier
     shutdown_logging()
 
     log_file = log_dir / "ankiforge.log"

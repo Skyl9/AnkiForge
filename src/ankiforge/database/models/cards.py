@@ -50,7 +50,7 @@ class NoteModel(BaseModel):
 
     anki_id = BigIntegerField(unique=True, null=True)
     guid = CharField(unique=True, default=generate_guid)
-    note_type = ForeignKeyField(NoteTypeModel, backref="notes")
+    note_type = ForeignKeyField(NoteTypeModel, backref="notes", on_delete="RESTRICT")
     tags = TextField(null=True)
     status = CharField(default="new")
     last_synced_at = DateTimeField(null=True)

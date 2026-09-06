@@ -222,7 +222,7 @@ class UpdateDialog(QDialog):
         self._downloaded_file = cast(Path, dest_path)
         self.progress_bar.setValue(100)
         self.progress_status_lbl.setText(f"✅ Téléchargement vérifié (SHA-256 : {sha256_hash[:12]}...)")
-        self.progress_status_lbl.setStyleSheet("font-size: 12px; font-weight: 600; color: #10b981;")
+        self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_GREEN};")
 
         self.action_btn.setEnabled(True)
         self.cancel_btn.setText("Fermer")
@@ -239,7 +239,7 @@ class UpdateDialog(QDialog):
     def _on_download_failed(self, error_msg: str) -> None:
         """Gestionnaire d'erreur de téléchargement."""
         self.progress_status_lbl.setText(f"❌ Échec du téléchargement : {error_msg}")
-        self.progress_status_lbl.setStyleSheet("font-size: 12px; font-weight: 600; color: #ef4444;")
+        self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_RED};")
         self.action_btn.setEnabled(True)
         self.action_btn.setText("Réessayer")
         self.cancel_btn.setText("Fermer")

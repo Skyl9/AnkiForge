@@ -18,6 +18,7 @@ from ankiforge.database.models import (
     EmbeddingCacheModel,
     FolderModel,
     IgnoredDuplicateModel,
+    JobModel,
     LinterRuleModel,
     LLMConfigModel,
     MediaModel,
@@ -85,6 +86,7 @@ def mock_db():
         AuditRecordModel,
         SettingModel,
         TokenUsageModel,
+        JobModel,  # Ajouté pour aligner avec ALL_MODELS et éviter les tests cassés
     ]
 
     # On force Peewee à utiliser cette fausse base plutôt que le fichier .db réel

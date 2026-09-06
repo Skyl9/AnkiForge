@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -64,12 +64,12 @@ class YouTubeParser:
             )
             return None
 
-    def download_and_transcribe(self, url: str, ai_manager: Optional["AIManager"] = None) -> str:
+    def download_and_transcribe(self, url: str, ai_manager: "AIManager | None" = None) -> str:
         """Fallback : yt-dlp audio download + transcription IA (Whisper/Gemini)."""
         logger.info("Démarrage du téléchargement audio / transcription de secours pour : %s", url)
         return ""
 
-    def parse(self, url: str, ai_manager: Optional["AIManager"] = None) -> str:
+    def parse(self, url: str, ai_manager: "AIManager | None" = None) -> str:
         """Pipeline complet : subtitles d'abord, fallback transcription."""
         result = self.extract_subtitles(url)
         if result is None:
