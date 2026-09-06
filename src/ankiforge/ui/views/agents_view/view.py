@@ -451,7 +451,7 @@ class AgentsView(QWidget):
         layout_prompt.addWidget(self.prompt_edit, 1)
 
         self.lbl_tokens = QLabel("Aa 0 caractères  |  ~0 Tokens estimés")
-        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-family: monospace;")
+        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-family: '{DesignTokens.FONT_CODE}';")
         layout_prompt.addWidget(self.lbl_tokens)
 
         self.tabs.addWidget(tab_prompt)

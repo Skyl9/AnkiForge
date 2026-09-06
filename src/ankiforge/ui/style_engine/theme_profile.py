@@ -3,7 +3,18 @@ ThemeProfile definition for AnkiForge Style Engine.
 Représente la structure complète et typée d'un profil de thème visuel.
 """
 
+import sys
 from dataclasses import dataclass
+
+if sys.platform == "darwin":
+    DEFAULT_FONT_MAIN = ".AppleSystemUIFont"
+    DEFAULT_FONT_CODE = "Menlo"
+elif sys.platform == "win32":
+    DEFAULT_FONT_MAIN = "Segoe UI"
+    DEFAULT_FONT_CODE = "Consolas"
+else:
+    DEFAULT_FONT_MAIN = "DejaVu Sans"
+    DEFAULT_FONT_CODE = "DejaVu Sans Mono"
 
 
 @dataclass(frozen=True)
@@ -51,8 +62,8 @@ class ThemeProfile:
 
     # Typography & Mode (with defaults)
     is_dark: bool = True
-    font_main: str = ".AppleSystemUIFont"
-    font_code: str = "Menlo"
+    font_main: str = DEFAULT_FONT_MAIN
+    font_code: str = DEFAULT_FONT_CODE
     font_size_base: int = 13
     font_size_sm: int = 11
 

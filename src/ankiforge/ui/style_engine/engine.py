@@ -7,7 +7,7 @@ import contextlib
 import logging
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
@@ -947,6 +947,10 @@ class StyleEngine(QObject):
             palette.setColor(QPalette.ColorRole.Highlight, QColor(profile.accent_primary))
             palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
             application.setPalette(palette)
+
+            # Application de la police système par défaut pour éliminer les fallbacks lents ("Sans Serif")
+            app_font = QFont(profile.font_main, profile.font_size_base)
+            application.setFont(app_font)
 
             # Global QSS
             application.setStyleSheet(self.generate_stylesheet(profile))

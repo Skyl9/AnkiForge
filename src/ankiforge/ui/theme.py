@@ -4,11 +4,22 @@ Single point of truth for all visual values and multi-layout theme profiles.
 """
 
 import re
+import sys
 from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QMenu, QWidget
+
+if sys.platform == "darwin":
+    DEFAULT_FONT_MAIN = ".AppleSystemUIFont"
+    DEFAULT_FONT_CODE = "Menlo"
+elif sys.platform == "win32":
+    DEFAULT_FONT_MAIN = "Segoe UI"
+    DEFAULT_FONT_CODE = "Consolas"
+else:
+    DEFAULT_FONT_MAIN = "DejaVu Sans"
+    DEFAULT_FONT_CODE = "DejaVu Sans Mono"
 
 
 class DesignTokens:
@@ -128,8 +139,8 @@ class DesignTokens:
     SHADOW_COLOR = "rgba(0, 0, 0, 0.45)"
 
     # Typography
-    FONT_MAIN = ".AppleSystemUIFont"
-    FONT_CODE = "Menlo"
+    FONT_MAIN = DEFAULT_FONT_MAIN
+    FONT_CODE = DEFAULT_FONT_CODE
     FONT_SIZE_BASE = 13
     FONT_SIZE_SMALL = 11
     FONT_SIZE_SM = 11
@@ -188,8 +199,8 @@ class DesignTokens:
         cls.RADIUS_MD = profile.radius_md
         cls.RADIUS_LG = profile.radius_lg
 
-        cls.FONT_MAIN = getattr(profile, "font_main", ".AppleSystemUIFont")
-        cls.FONT_CODE = getattr(profile, "font_code", "Menlo")
+        cls.FONT_MAIN = getattr(profile, "font_main", DEFAULT_FONT_MAIN)
+        cls.FONT_CODE = getattr(profile, "font_code", DEFAULT_FONT_CODE)
         cls.FONT_SIZE_BASE = getattr(profile, "font_size_base", 13)
         cls.FONT_SIZE_SMALL = getattr(profile, "font_size_sm", 11)
         cls.FONT_SIZE_SM = getattr(profile, "font_size_sm", 11)

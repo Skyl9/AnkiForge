@@ -318,7 +318,7 @@ class ABTestsView(QWidget):
         src_header.addStretch()
 
         self.lbl_src_chars = QLabel("0 caractères")
-        self.lbl_src_chars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-family: monospace;")
+        self.lbl_src_chars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-family: '{DesignTokens.FONT_CODE}';")
         src_header.addWidget(self.lbl_src_chars, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         btn_clear_src = IconButton("ph.trash", tooltip="Effacer le texte source", size=22)
@@ -655,7 +655,7 @@ class ABTestsView(QWidget):
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.COLOR_BLUE};
-                font-family: '{DesignTokens.FONT_CODE}', monospace;
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 11.5px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_SM}px;

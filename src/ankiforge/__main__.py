@@ -36,7 +36,7 @@ from ankiforge.utils.paths import get_resource_path
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from ankiforge.services.profile_manager import ProfileManager
@@ -123,6 +123,9 @@ def main() -> None:
     QCoreApplication.setApplicationName(get_settings_app_name())
 
     app = QApplication(sys.argv)
+    from ankiforge.ui.theme import DesignTokens
+
+    app.setFont(QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE))
     app.aboutToQuit.connect(shutdown_logging)
 
     # Application Window & Dock Icon

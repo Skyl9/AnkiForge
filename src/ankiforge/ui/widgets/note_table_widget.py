@@ -88,15 +88,15 @@ class NoteTableWidget(RoundedPanel):
         self.btn_new_note = PrimaryButton("Nouvelle Note", tooltip="Créer une nouvelle note dans le paquet sélectionné (Ctrl+N)")
         self.btn_new_note.setEnabled(False)
 
-        self.btn_scan_dupes = ActionButton("fa5s.search", " Traquer les doublons", tooltip="Lancer l'algorithme FAISS / Levenshtein pour détecter les doublons")
+        self.btn_scan_dupes = ActionButton("magnifying-glass", " Traquer les doublons", tooltip="Lancer l'algorithme FAISS / Levenshtein pour détecter les doublons")
 
-        self.btn_batch_ai = ActionButton("fa5s.magic", " Modification IA", tooltip="Appliquer une instruction IA sur toutes les cartes sélectionnées")
+        self.btn_batch_ai = ActionButton("sparkle", " Modification IA", tooltip="Appliquer une instruction IA sur toutes les cartes sélectionnées")
         self.btn_batch_ai.setEnabled(False)
 
-        self.btn_auto_tag = ActionButton("fa5s.tags", " Auto-Tag IA", tooltip="Générer automatiquement des étiquettes sémantiques par l'IA")
+        self.btn_auto_tag = ActionButton("tag", " Auto-Tag IA", tooltip="Générer automatiquement des étiquettes sémantiques par l'IA")
         self.btn_auto_tag.setEnabled(False)
 
-        self.btn_audit_ai = ActionButton("fa5s.clipboard-check", " Auditer IA", tooltip="Auditer les cartes sélectionnées avec le linter IA Wozniak")
+        self.btn_audit_ai = ActionButton("clipboard-text", " Auditer IA", tooltip="Auditer les cartes sélectionnées avec le linter IA Wozniak")
         self.btn_audit_ai.setEnabled(False)
 
         toolbar_layout.addWidget(self.btn_new_note)

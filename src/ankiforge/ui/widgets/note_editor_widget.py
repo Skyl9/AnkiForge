@@ -884,10 +884,15 @@ class NoteEditorWidget(QWidget):
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setContentsMargins(0, 0, 0, 10)
 
-        btn_bold = ActionButton("fa5s.bold", "")
-        btn_italic = ActionButton("fa5s.italic", "")
-        btn_h2 = ActionButton("fa5s.heading", "")
-        btn_latex = ActionButton("fa5s.square-root-alt", "")
+        btn_bold = ActionButton("text-b", "", tooltip="Gras (<b>...</b>)")
+        btn_italic = ActionButton("text-italic", "", tooltip="Italique (<i>...</i>)")
+        btn_h2 = ActionButton("text-h-two", "", tooltip="Titre H2 (<h2>...</h2>)")
+        btn_latex = ActionButton("function", "", tooltip="Formule LaTeX ($...$)")
+
+        btn_bold.clicked.connect(lambda: self._wrap_in_focused_editor("<b>", "</b>"))
+        btn_italic.clicked.connect(lambda: self._wrap_in_focused_editor("<i>", "</i>"))
+        btn_h2.clicked.connect(lambda: self._wrap_in_focused_editor("<h2>", "</h2>"))
+        btn_latex.clicked.connect(lambda: self._wrap_in_focused_editor("$", "$"))
 
         toolbar_layout.addWidget(btn_bold)
         toolbar_layout.addWidget(btn_italic)
@@ -1176,3 +1181,15 @@ class NoteEditorWidget(QWidget):
 
         current_fields = {name: editor.toPlainText().replace("\n", "<br>") for name, editor in self.field_editors.items()}
         self.preview_widget.update_preview(note_type, current_fields)
+
+    def _wrap_in_focused_editor(self, prefix: str, suffix: str) -> None:
+        """Entoure la sélection ou insère des balises dans l'éditeur de champ actuellement actif."""
+        for editor in self.field_editors.values():
+            if editor.hasFocus():
+                cursor = editor.textCursor()
+                sel = cursor.selectedText()
+                cursor.insertText(f"{prefix}{sel}{suffix}")
+                if not sel:
+                    cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, len(suffix))
+                    editor.setTextCursor(cursor)
+                break

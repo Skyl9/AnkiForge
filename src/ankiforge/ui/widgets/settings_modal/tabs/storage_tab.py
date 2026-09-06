@@ -135,7 +135,7 @@ class StorageMaintenanceTab(QWidget):
         bku_layout.addLayout(top_bku_row)
 
         self.lbl_recent_backups = QLabel("Dernières sauvegardes : Aucune pour le moment.")
-        self.lbl_recent_backups.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-family: monospace;")
+        self.lbl_recent_backups.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-family: '{DesignTokens.FONT_CODE}';")
         bku_layout.addWidget(self.lbl_recent_backups)
 
         layout.addWidget(self.card_bku)
@@ -266,4 +266,4 @@ class StorageMaintenanceTab(QWidget):
         self.c_tm.refresh_theme(profile)
         self.card_act.refresh_theme(profile)
         self.card_bku.refresh_theme(profile)
-        self.lbl_recent_backups.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11.5px; font-family: monospace;")
+        self.lbl_recent_backups.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11.5px; font-family: '{profile.font_code}';")

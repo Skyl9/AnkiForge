@@ -173,7 +173,7 @@ class PromptPreviewDialog(QDialog):
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 color: #38bdf8;
-                font-family: monospace;
+                font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.4;
                 padding: 10px;

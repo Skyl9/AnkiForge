@@ -65,7 +65,7 @@ class ToolCallWidget(QFrame):
         details_layout.setSpacing(4)
 
         self.lbl_args = QLabel(f"<b>Entrée (JSON) :</b> <code>{args_json}</code>")
-        self.lbl_args.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: monospace;")
+        self.lbl_args.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}';")
         self.lbl_args.setWordWrap(True)
         details_layout.addWidget(self.lbl_args)
 

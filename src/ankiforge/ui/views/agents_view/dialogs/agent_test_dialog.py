@@ -60,7 +60,7 @@ class AgentTestDialog(QDialog):
 
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: #38bdf8; font-family: monospace; font-size: 12px;")
+        self.output_text.setStyleSheet(f"background: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: #38bdf8; font-family: '{DesignTokens.FONT_CODE}'; font-size: 12px;")
         layout.addWidget(self.output_text, 1)
 
         h_btn = QHBoxLayout()

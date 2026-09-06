@@ -378,7 +378,7 @@ class DocumentsView(QWidget):
             QTextBrowser {{
                 background-color: {DesignTokens.BG_HOVER};
                 color: {DesignTokens.ACCENT_PRIMARY};
-                font-family: '{DesignTokens.FONT_CODE}', Courier, monospace;
+                font-family: '{DesignTokens.FONT_CODE}';
                 padding: 12px;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;

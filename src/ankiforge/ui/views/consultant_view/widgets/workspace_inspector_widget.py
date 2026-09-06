@@ -308,7 +308,7 @@ class WorkspaceInspectorWidget(QWidget):
         self.btn_copy_patch.setEnabled(False)
 
         empty_html = f"""
-        <div style="text-align: center; color: {DesignTokens.TEXT_MUTED}; margin-top: 40px; font-family: sans-serif;">
+        <div style="text-align: center; color: {DesignTokens.TEXT_MUTED}; margin-top: 40px; font-family: {DesignTokens.FONT_MAIN};">
             <p style="font-size: 14px; font-weight: bold;">Aucune proposition en attente</p>
             <p style="font-size: 12px;">Lorsque le Consultant IA propose une refactorisation ou scission de carte,<br>le diff comparatif avant/après et l'éditeur direct s'afficheront ici.</p>
         </div>
@@ -500,7 +500,8 @@ class WorkspaceInspectorWidget(QWidget):
             return f"""
                 <div style="font-family: {DesignTokens.FONT_MAIN}; padding: 6px;">
                     <div style="font-size: 12px; font-weight: bold; color: {DesignTokens.COLOR_BLUE}; margin-bottom: 8px;">{title}</div>
-                    <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px; background: {DesignTokens.BG_PANEL}; font-family: monospace; font-size: 12px;">
+                    <div style="border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 12px;
+                    background: {DesignTokens.BG_PANEL}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 12px;">
                         {escaped_body}
                     </div>
                 </div>

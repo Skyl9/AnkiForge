@@ -95,7 +95,7 @@ class DonutChartWidget(QWidget):
 
             # HTML propre pour le centre
             html = f"""
-            <div style='font-family: sans-serif; text-align: center;'>
+            <div style='font-family: {DesignTokens.FONT_MAIN}; text-align: center;'>
                 <div style='font-size: 12px; color: palette(placeholder-text); font-weight: bold;'>{slice_.label().upper()}</div>
                 <div style='font-size: 28px; color: {color}; font-weight: bold; margin-top: 2px;'>{int(slice_.value())}</div>
                 <div style='font-size: 11px; color: palette(placeholder-text);'>({pct}%)</div>
@@ -108,7 +108,7 @@ class DonutChartWidget(QWidget):
 
     def update_center_label_default(self):
         html = f"""
-        <div style='font-family: sans-serif; text-align: center;'>
+        <div style='font-family: {DesignTokens.FONT_MAIN}; text-align: center;'>
             <div style='font-size: 12px; color: palette(placeholder-text); font-weight: bold;'>{self.title_center}</div>
             <div style='font-size: 28px; color: palette(text); font-weight: bold; margin-top: 2px;'>{self.total}</div>
         </div>

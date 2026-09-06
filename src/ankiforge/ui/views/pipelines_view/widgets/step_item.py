@@ -87,7 +87,7 @@ class StepItemWidget(QFrame):
         var_in = cfg.get("input_variable", meta.get("default_input", "text_source"))
         var_out = cfg.get("output_variable", meta.get("default_output", "generated_cards"))
         lbl_vars = QLabel(f"📥 {var_in} ➔ 📤 {var_out}")
-        lbl_vars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: monospace; background: transparent;")
+        lbl_vars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-family: '{DesignTokens.FONT_CODE}'; background: transparent;")
         lbl_vars.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         row2.addWidget(lbl_vars, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 

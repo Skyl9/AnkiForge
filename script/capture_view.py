@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 from ankiforge.database.models import (
@@ -25,6 +26,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
 )
 from ankiforge.ui.style_engine import get_style_engine
+from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.paths import get_project_root
 
 
@@ -105,6 +107,7 @@ def capture(
         seed_rich_demo_data()
 
     app = QApplication.instance() or QApplication([])
+    app.setFont(QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE))
 
     # Thème
     engine = get_style_engine()
