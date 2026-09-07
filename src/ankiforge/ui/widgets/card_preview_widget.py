@@ -234,7 +234,7 @@ class CardPreviewWidget(QWidget):
         placeholder = f"""
         <html>
         <body style='background: transparent; margin: 0; display: flex; height: 100vh; align-items: center; justify-content: center;'>
-            <div style='color: {text_color}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align: center; font-size: 13px; font-weight: 500;'>
+            <div style='color: {text_color}; font-family: {DesignTokens.FONT_MAIN}, -apple-system, sans-serif; text-align: center; font-size: 13px; font-weight: 500;'>
                 {message}
             </div>
         </body>

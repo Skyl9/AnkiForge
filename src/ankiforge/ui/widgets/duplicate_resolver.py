@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgre
 
 from ankiforge.database.models import IgnoredDuplicateModel, NoteModel, db
 from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
-from ankiforge.ui.theme import is_dark_mode
+from ankiforge.ui.theme import DesignTokens, is_dark_mode
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -173,7 +173,7 @@ class DuplicateResolverDialog(QDialog):
                 full_html_b += f"<div style='color: {text_color};'>{html_b}</div>"
 
         # Injection dans les zones de texte (Police native lisible)
-        font_family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font_family = DesignTokens.FONT_MAIN
         self.text_left.setHtml(f"<div style='font-family: {font_family}; line-height: 1.5;'>{full_html_a}</div>")
         self.text_right.setHtml(f"<div style='font-family: {font_family}; line-height: 1.5;'>{full_html_b}</div>")
 

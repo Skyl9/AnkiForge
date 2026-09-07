@@ -300,7 +300,9 @@ class AddonDetailWidget(QWidget):
         # Tab 3: Logs d'Erreur (affiché si statut ERROR)
         self.error_edit = QTextEdit()
         self.error_edit.setReadOnly(True)
-        self.error_edit.setStyleSheet(f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.COLOR_RED}; border: none; font-family: monospace; font-size: 11px; padding: 10px;")
+        self.error_edit.setStyleSheet(
+            f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.COLOR_RED}; border: none; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; padding: 10px;"
+        )
         self.tabs.addTab(self.error_edit, "⚠️ Diagnostic Erreur")
 
         content_layout.addWidget(self.tabs, 1)
@@ -426,7 +428,7 @@ class AddonDetailWidget(QWidget):
         if hasattr(self, "doc_edit"):
             self.doc_edit.setStyleSheet(f"background-color: {profile.bg_panel}; color: {profile.text_primary}; border: none; padding: 12px;")
         if hasattr(self, "error_edit"):
-            self.error_edit.setStyleSheet(f"background-color: {profile.bg_input}; color: {profile.color_red}; border: none; font-family: monospace; font-size: 11px; padding: 10px;")
+            self.error_edit.setStyleSheet(f"background-color: {profile.bg_input}; color: {profile.color_red}; border: none; font-family: '{profile.font_code}'; font-size: 11px; padding: 10px;")
 
 
 class AddonManagerWidget(QWidget):

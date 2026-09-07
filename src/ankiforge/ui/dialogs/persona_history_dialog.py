@@ -56,7 +56,7 @@ class PersonaPromptDiffViewer(QTextBrowser):
         cur_lines = (current_prompt or "").splitlines()
 
         html: list[str] = [
-            "<div style='font-family: monospace; line-height: 1.6;'>",
+            f"<div style='font-family: {DesignTokens.FONT_CODE}; line-height: 1.6;'>",
             f"<div style='padding-bottom: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; margin-bottom: 10px;'>",
             (
                 f"DIFFÉRENTIEL DU PROMPT : "

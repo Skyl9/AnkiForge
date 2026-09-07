@@ -53,7 +53,7 @@ class DiffViewerWidget(QTextBrowser):
     def set_content_diff(self, old_dict: dict[str, str], current_dict: dict[str, str]) -> None:
         """Génère le diff HTML comparant la version historique (old) à la version active (current)."""
         html: list[str] = [
-            "<div style='font-family: monospace; line-height: 1.5;'>",
+            f"<div style='font-family: {DesignTokens.FONT_CODE}; line-height: 1.5;'>",
             f"<div style='padding-bottom: 8px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'>",
             "COMPARAISON AVEC LA VERSION ACTUELLE : <span style='color: #ef4444;'>[ROUGE = SUPPRESSION]</span> | <span style='color: #10b981;'>[VERT = AJOUT]</span>",
             "</div>",

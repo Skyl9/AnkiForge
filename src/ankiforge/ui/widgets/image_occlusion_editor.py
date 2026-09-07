@@ -204,7 +204,7 @@ class OcclusionGraphicsItem(QGraphicsRectItem):
 
         # Badge numéroté [ID]
         badge_text = f"[{self.box.id}]"
-        badge_font = QFont("-apple-system", 9, QFont.Weight.Bold)
+        badge_font = QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold)
         painter.setFont(badge_font)
         painter.setPen(QPen(QColor("#ffffff")))
         painter.drawText(r, Qt.AlignmentFlag.AlignCenter, badge_text)

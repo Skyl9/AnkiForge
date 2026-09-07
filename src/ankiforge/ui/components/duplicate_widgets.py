@@ -603,7 +603,7 @@ class DuplicateMergeInspector(QFrame):
                             background-color: transparent;
                             margin: 0;
                             padding: 2px;
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            font-family: {DesignTokens.FONT_MAIN}, -apple-system, sans-serif;
                             font-size: 14px;
                             color: {text_color};
                             line-height: 1.5;

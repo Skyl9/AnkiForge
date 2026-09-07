@@ -338,7 +338,7 @@ class ImageOcclusionService:
             "      .mask-active-q { fill: #e11d48; stroke: #be123c; stroke-width: 2; rx: 4px; ry: 4px; }",
             "      .mask-inactive { fill: #f59e0b; stroke: #d97706; stroke-width: 2; rx: 4px; ry: 4px; }",
             "      .mask-active-a { fill: none; stroke: #10b981; stroke-width: 2.5; stroke-dasharray: 4,4; rx: 4px; ry: 4px; }",
-            "      .mask-badge { font-family: sans-serif; font-size: 11px; font-weight: bold; fill: #fff; text-anchor: middle; dominant-baseline: middle; }",
+            "      .mask-badge { font-family: Arial; font-size: 11px; font-weight: bold; fill: #fff; text-anchor: middle; dominant-baseline: middle; }",
             "    </style>",
             "  </defs>",
         ]
