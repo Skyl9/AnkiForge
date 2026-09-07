@@ -625,8 +625,8 @@ class NoteFieldEditorWidget(QWidget):
                         if dev.description() == saved_dev_name:
                             self._audio_output.setDevice(dev)
                             break
-                except Exception:
-                    pass
+                except (RuntimeError, AttributeError, OSError) as e:
+                    logger.debug("Impossible d'assigner le périphérique audio TTS : %s", e)
 
             self._player.setAudioOutput(self._audio_output)
             self._player.playbackStateChanged.connect(self._on_playback_state_changed)

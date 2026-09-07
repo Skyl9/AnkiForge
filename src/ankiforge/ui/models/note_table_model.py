@@ -500,8 +500,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                     parsed_tmpl = json.loads(nt.templates)
                     if isinstance(parsed_tmpl, list):
                         templates = parsed_tmpl
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    templates = []
 
             from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 
@@ -802,8 +802,8 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                         parsed_tmpl = json.loads(nt.templates)
                         if isinstance(parsed_tmpl, list):
                             templates = parsed_tmpl
-                    except Exception:
-                        pass
+                    except (json.JSONDecodeError, TypeError, ValueError):
+                        templates = []
                 from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 
                 is_cloze = is_template_cloze(templates)

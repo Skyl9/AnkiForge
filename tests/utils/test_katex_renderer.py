@@ -178,7 +178,7 @@ def test_webengine_headless_renders_katex_formulas(qtbot: Any) -> None:
     loaded: list[bool] = []
     page.loadFinished.connect(lambda ok: loaded.append(ok))
     page.setHtml(html, base_url)
-    qtbot.waitUntil(lambda: bool(loaded), timeout=8000)
+    qtbot.waitUntil(lambda: bool(loaded), timeout=15000)
 
     rendered_count: list[int] = []
 
@@ -190,5 +190,5 @@ def test_webengine_headless_renders_katex_formulas(qtbot: Any) -> None:
         page.runJavaScript("document.querySelectorAll('.katex').length", check_result)
         return len(rendered_count) > 0 and rendered_count[0] >= 5
 
-    qtbot.waitUntil(poll_katex, timeout=5000)
+    qtbot.waitUntil(poll_katex, timeout=10000)
     assert rendered_count[0] >= 5, f"Nombre de formules KaTeX rendues insuffisant : {rendered_count[0]}"

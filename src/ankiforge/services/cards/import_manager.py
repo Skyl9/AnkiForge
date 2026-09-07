@@ -605,8 +605,8 @@ class ImportManager:
                                     if c_str.strip().startswith("{"):
                                         c_json = json.loads(c_str)
                                         css_style = c_json.get("css", "")
-                                except Exception:
-                                    pass
+                                except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
+                                    logger.debug("Échec décodage JSON css config_blob : %s", e)
                                 if not css_style and isinstance(config_blob, bytes | bytearray):
                                     css_style = self.extract_pb_string(bytes(config_blob), 3)
 
@@ -625,8 +625,8 @@ class ImportManager:
                                                     cfg_json = json.loads(cfg_str)
                                                     qfmt = cfg_json.get("qfmt", cfg_json.get("q_format", ""))
                                                     afmt = cfg_json.get("afmt", cfg_json.get("a_format", ""))
-                                            except Exception:
-                                                pass
+                                            except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
+                                                logger.debug("Échec décodage JSON template config : %s", e)
 
                                             if not qfmt and isinstance(t_config, bytes | bytearray):
                                                 qfmt = self.extract_pb_string(bytes(t_config), 1)
@@ -943,7 +943,8 @@ class ImportManager:
                             )
                             model_cache[nt_name] = note_type_model
 
-                assert note_type_model is not None
+                if note_type_model is None:
+                    continue
                 anki_id_val = n_info.get("anki_id")
                 if anki_id_val and NoteModel.select().where(NoteModel.anki_id == anki_id_val).exists():
                     anki_id_val = None

@@ -1351,7 +1351,7 @@ Tu es connecté en direct aux outils de la base de données AnkiForge :
 ```
 3. N'hésite pas à appeler `find_cards_by_content` ou `get_cards_by_deck_or_tag` pour retrouver l'ID exact des cartes avant de les refactoriser.
 4. Les formules et commandes LaTeX (`\\Sigma`, `\\delta`, `\\frac{...}{...}`, `\\[ ... \\]`, etc.) sont parfaitement supportées dans les champs.
-"""  # nosec B608
+"""
 
         # Construction de l'historique conversationnel multi-tours
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]

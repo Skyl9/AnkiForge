@@ -270,8 +270,8 @@ class TourBubble(QWidget):
         if hasattr(self.main_window, "settings") and hasattr(self.main_window.settings, "setValue"):
             try:
                 self.main_window.settings.setValue("app/tour_completed", True)
-            except Exception:
-                pass
+            except (RuntimeError, AttributeError, OSError) as e:
+                logger.debug("Échec enregistrement tour_completed : %s", e)
         self.tour_finished.emit()
 
 

@@ -66,8 +66,8 @@ def get_saved_diff_view_mode() -> str:
         try:
             legacy = QSettings("AnkiForge", "AnkiForge")
             val = legacy.value("consultant/diff_view_mode", None)
-        except Exception:
-            pass
+        except (RuntimeError, OSError, TypeError) as e:
+            logger.debug("Échec lecture QSettings legacy : %s", e)
     if val:
         return str(val)
     try:
@@ -91,8 +91,8 @@ def save_saved_diff_view_mode(mode: str) -> None:
     settings.setValue("consultant/diff_view_mode", mode)
     try:
         QSettings("AnkiForge", "AnkiForge").setValue("consultant/diff_view_mode", mode)
-    except Exception:
-        pass
+    except (RuntimeError, OSError, TypeError) as e:
+        logger.debug("Échec écriture QSettings legacy : %s", e)
     try:
         from ankiforge.repositories import SettingRepository
 
