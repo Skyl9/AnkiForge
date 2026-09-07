@@ -9,7 +9,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ankiforge.services.auto_updater import (
+    MAX_DOWNLOAD_SIZE_BYTES,
     UpdateDownloaderWorker,
+    _validate_download_url,
     apply_update_and_restart,
     find_asset_for_current_platform,
     is_standalone_app,
@@ -74,8 +76,65 @@ def test_validate_update_file_confinement_rejects_symlink(tmp_path: Path) -> Non
     except OSError:
         pytest.skip("Les liens symboliques ne sont pas supportés sur ce système.")
 
-    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path), pytest.raises(ValueError, match="est un lien symbolique non autorisé"):
+    with (
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        pytest.raises(ValueError, match="est un lien symbolique non autorisé"),
+    ):
         validate_update_file_confinement(symlink_file)
+
+
+# ── Tests ISSUE 6 : Validation URL (HTTPS + domaine de confiance) ──────────────
+
+
+def test_validate_download_url_accepts_trusted_github_domains() -> None:
+    """ISSUE 6 : Vérifie que les domaines GitHub de confiance sont acceptés."""
+    _validate_download_url("https://objects.githubusercontent.com/github-production-release-asset/AnkiForge.dmg")
+    _validate_download_url("https://github.com/Skyl9/AnkiForge/releases/download/v1.1.0/AnkiForge.dmg")
+    _validate_download_url("https://codeload.github.com/Skyl9/AnkiForge/archive/refs/tags/v1.1.0.zip")
+
+
+def test_validate_download_url_rejects_non_https() -> None:
+    """ISSUE 6 : Vérifie que les URLs non-HTTPS sont rejetées."""
+    with pytest.raises(ValueError, match="schéma"):
+        _validate_download_url("http://objects.githubusercontent.com/AnkiForge.dmg")
+    with pytest.raises(ValueError, match="schéma"):
+        _validate_download_url("file:///etc/passwd")
+    with pytest.raises(ValueError, match="schéma"):
+        _validate_download_url("ftp://ftp.example.com/AnkiForge.dmg")
+
+
+def test_validate_download_url_rejects_untrusted_domain() -> None:
+    """ISSUE 6 : Vérifie que les domaines hors liste de confiance sont rejetés."""
+    with pytest.raises(ValueError, match="domaine"):
+        _validate_download_url("https://evil.example.com/AnkiForge.dmg")
+    with pytest.raises(ValueError, match="domaine"):
+        _validate_download_url("https://github.com.evil.com/AnkiForge.dmg")
+
+
+# ── Tests ISSUE 7 : Limite de taille du téléchargement ────────────────────────
+
+
+def test_downloader_rejects_oversized_content_length(tmp_path: Path) -> None:
+    """ISSUE 7 : Vérifie que le downloader refuse les téléchargements dépassant le plafond (Content-Length)."""
+    worker = UpdateDownloaderWorker("https://objects.githubusercontent.com/AnkiForge.dmg", "test.dmg")
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.headers = {"content-length": str(MAX_DOWNLOAD_SIZE_BYTES + 1)}
+    fake_response.__enter__.return_value = fake_response
+    fake_response.__exit__.return_value = None
+
+    error_msgs: list[str] = []
+    worker.signals.download_error.connect(lambda msg: error_msgs.append(msg))
+
+    with (
+        patch("requests.get", return_value=fake_response),
+        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+    ):
+        worker.run()
+
+    assert len(error_msgs) == 1
+    assert "plafond" in error_msgs[0]
 
 
 def test_downloader_worker_streams_and_computes_sha256(tmp_path: Path) -> None:
@@ -83,7 +142,8 @@ def test_downloader_worker_streams_and_computes_sha256(tmp_path: Path) -> None:
     fake_content = b"AnkiForge Binary Update Content 1234567890"
     expected_sha256 = hashlib.sha256(fake_content).hexdigest()
 
-    worker = UpdateDownloaderWorker("https://fake.url/binary", "test_update.bin")
+    # ISSUE 6 : URL avec domaine GitHub de confiance
+    worker = UpdateDownloaderWorker("https://objects.githubusercontent.com/AnkiForge.bin", "test_update.bin")
 
     fake_response = MagicMock()
     fake_response.status_code = 200

@@ -34,14 +34,18 @@ def test_update_checker_detects_newer_version() -> None:
 
     fake_response = MagicMock()
     fake_response.status_code = 200
-    fake_response.json.return_value = {
-        "tag_name": "v1.1.0",
-        "name": "AnkiForge 1.1.0",
-        "body": "## Nouveautés\n- Système d'auto-update\n- Nouvelles icônes",
-        "html_url": "https://github.com/Skyl9/AnkiForge/releases/tag/v1.1.0",
-        "published_at": "2026-09-02T08:00:00Z",
-        "prerelease": False,
-    }
+    # BUG 2 : L'endpoint /releases retourne TOUJOURS une liste JSON — le mock doit être une list.
+    fake_response.json.return_value = [
+        {
+            "tag_name": "v1.1.0",
+            "name": "AnkiForge 1.1.0",
+            "body": "## Nouveautés\n- Système d'auto-update\n- Nouvelles icônes",
+            "html_url": "https://github.com/Skyl9/AnkiForge/releases/tag/v1.1.0",
+            "published_at": "2026-09-02T08:00:00Z",
+            "prerelease": False,
+            "draft": False,
+        }
+    ]
 
     received_updates: list[UpdateInfo] = []
     worker.signals.update_available.connect(lambda info: received_updates.append(info))
@@ -63,12 +67,16 @@ def test_update_checker_no_update_when_same_or_older_version() -> None:
 
     fake_response = MagicMock()
     fake_response.status_code = 200
-    fake_response.json.return_value = {
-        "tag_name": "v1.0.5",
-        "name": "AnkiForge 1.0.5",
-        "body": "Release actuelle",
-        "html_url": "https://github.com/Skyl9/AnkiForge/releases/tag/v1.0.5",
-    }
+    fake_response.json.return_value = [
+        {
+            "tag_name": "v1.0.5",
+            "name": "AnkiForge 1.0.5",
+            "body": "Release actuelle",
+            "html_url": "https://github.com/Skyl9/AnkiForge/releases/tag/v1.0.5",
+            "prerelease": False,
+            "draft": False,
+        }
+    ]
 
     no_update_called = False
 
@@ -83,6 +91,29 @@ def test_update_checker_no_update_when_same_or_older_version() -> None:
         worker.run()
 
     assert no_update_called is True
+
+
+def test_update_checker_api_returns_non_list_emits_check_failed() -> None:
+    """BUG 1 : Vérifie que si l'API GitHub retourne un objet JSON (erreur) au lieu d'une liste,
+    check_failed est émis plutôt qu'une absence silencieuse de mise à jour."""
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=True)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    # L'API GitHub peut retourner un objet JSON d'erreur avec un HTTP 200 dans certains cas limites
+    fake_response.json.return_value = {"message": "API rate limit exceeded for ..."}
+
+    failed_messages: list[str] = []
+    no_update_called: list[bool] = []
+    worker.signals.check_failed.connect(lambda msg: failed_messages.append(msg))
+    worker.signals.no_update.connect(lambda _: no_update_called.append(True))
+
+    with patch("requests.get", return_value=fake_response):
+        worker.run()
+
+    assert len(failed_messages) == 1, "check_failed doit être émis pour une réponse non-liste"
+    assert "API rate limit exceeded" in failed_messages[0]
+    assert len(no_update_called) == 0, "no_update ne doit pas être émis pour une erreur d'API"
 
 
 def test_update_checker_nightly_channel() -> None:
@@ -109,6 +140,49 @@ def test_update_checker_nightly_channel() -> None:
 
     assert len(received_updates) == 1
     assert received_updates[0].channel == "nightly"
+
+
+def test_update_checker_nightly_no_false_alarm_when_build_date_missing() -> None:
+    """BUG 3 : Vérifie que l'absence de build_date dans _version.py ne génère pas
+    de fausse alerte de mise à jour nightly à chaque démarrage."""
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="nightly", force=True)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = {
+        "tag_name": "nightly",
+        "name": "AnkiForge Nightly",
+        "body": "Nightly build",
+        "html_url": "https://github.com/Skyl9/AnkiForge/releases/tag/nightly",
+        "published_at": "2026-09-01T00:00:00Z",
+        "prerelease": True,
+    }
+
+    received_updates: list[UpdateInfo] = []
+    no_update_called: list[bool] = []
+    worker.signals.update_available.connect(lambda info: received_updates.append(info))
+    worker.signals.no_update.connect(lambda _: no_update_called.append(True))
+
+    # Simulation d'un build avec build_date vide (build incomplet / _version.py manquant)
+    from ankiforge.version import AppVersionInfo
+
+    dummy_info = AppVersionInfo(
+        version="1.0.5",
+        commit_hash="abc123",
+        build_date="",  # build_date absent
+        build_channel="nightly",
+        platform_str="macOS arm64",
+        is_standalone=True,
+    )
+
+    with (
+        patch("requests.get", return_value=fake_response),
+        patch("ankiforge.services.update_checker.VERSION_INFO", dummy_info),
+    ):
+        worker.run()
+
+    assert len(received_updates) == 0, "Aucune alerte ne doit être émise si build_date est vide"
+    assert len(no_update_called) == 1, "no_update doit être émis de façon conservatrice"
 
 
 def test_update_checker_handles_network_error_gracefully() -> None:
@@ -208,3 +282,80 @@ def test_update_checker_handles_rate_limit_403() -> None:
 
     assert len(failed_messages) == 1
     assert "HTTP 403" in failed_messages[0]
+
+
+# ── Tests get_cached_update_info ───────────────────────────────────────────────
+
+
+def test_get_cached_update_info_returns_none_when_no_cache() -> None:
+    """Vérifie que get_cached_update_info retourne None quand le cache QSettings est vide."""
+    from ankiforge.services.update_checker import get_cached_update_info
+
+    # get_app_qsettings est importée localement dans get_cached_update_info — on la patche à sa source
+    with patch("ankiforge.utils.environment.get_app_qsettings") as mock_settings:
+        mock_s = MagicMock()
+        mock_s.value.side_effect = lambda key, default="": default
+        mock_settings.return_value = mock_s
+
+        result = get_cached_update_info()
+        assert result is None
+
+
+def test_get_cached_update_info_returns_none_when_cache_equals_current() -> None:
+    """Vérifie que get_cached_update_info retourne None si la version cachée = version installée."""
+    from ankiforge.services.update_checker import get_cached_update_info
+    from ankiforge.version import AppVersionInfo
+
+    dummy_version = AppVersionInfo(
+        version="1.0.5",
+        commit_hash="abc",
+        build_date="",
+        build_channel="stable",
+        platform_str="macOS arm64",
+        is_standalone=False,
+    )
+
+    with (
+        patch("ankiforge.utils.environment.get_app_qsettings") as mock_settings,
+        patch("ankiforge.services.update_checker.VERSION_INFO", dummy_version),
+    ):
+        mock_s = MagicMock()
+        mock_s.value.side_effect = lambda key, default="": {"updates/cached_latest_version": "1.0.5"}.get(key, default)
+        mock_settings.return_value = mock_s
+
+        result = get_cached_update_info()
+        assert result is None
+
+
+def test_get_cached_update_info_returns_update_info_when_newer_cached() -> None:
+    """Vérifie que get_cached_update_info retourne un UpdateInfo valide si version cachée > version installée."""
+    from ankiforge.services.update_checker import get_cached_update_info
+    from ankiforge.version import AppVersionInfo
+
+    dummy_version = AppVersionInfo(
+        version="1.0.5",
+        commit_hash="abc",
+        build_date="",
+        build_channel="stable",
+        platform_str="macOS arm64",
+        is_standalone=False,
+    )
+
+    with (
+        patch("ankiforge.utils.environment.get_app_qsettings") as mock_settings,
+        patch("ankiforge.services.update_checker.VERSION_INFO", dummy_version),
+    ):
+        cache = {
+            "updates/cached_latest_version": "1.1.0",
+            "updates/cached_latest_channel": "stable",
+        }
+        mock_s = MagicMock()
+        mock_s.value.side_effect = lambda key, default="": cache.get(key, default)
+        mock_settings.return_value = mock_s
+
+        result = get_cached_update_info()
+        assert result is not None
+        assert result.version == "1.1.0"
+        assert result.channel == "stable"
+        assert result.assets == []  # Vides — assets récupérés par le worker HTTP
+        assert "github.com" in result.html_url

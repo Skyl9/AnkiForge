@@ -137,7 +137,9 @@ class MainWindow(QMainWindow):
         self._setup_global_shortcuts()
         event_bus.subscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
 
-        # 4. Vérification asynchrone des mises à jour en arrière-plan (non-bloquante)
+        # Restauration instantanée du badge depuis le cache QSettings (sans HTTP, dès que la topbar est rendue)
+        QTimer.singleShot(300, self._restore_cached_update_badge)
+        # Vérification HTTP forcée à chaque lancement pour actualiser le cache et les assets
         QTimer.singleShot(2000, self._check_for_updates)
 
     def _on_open_consultant_requested(self, event: OpenConsultantRequestedEvent) -> None:
@@ -147,20 +149,59 @@ class MainWindow(QMainWindow):
         if consultant_widget and hasattr(consultant_widget, "attach_and_prompt"):
             consultant_widget.attach_and_prompt(event.context_item, event.initial_prompt)
 
+    def _restore_cached_update_badge(self) -> None:
+        """Restaure immédiatement le badge de mise à jour depuis le cache QSettings (sans appel HTTP).
+
+        Appelé 300ms après le démarrage pour afficher le badge dès que la topbar est construite,
+        même si la vérification HTTP n'a pas encore eu lieu. Les assets du cache sont vides ;
+        ils seront remplacés par les assets réels dès que le worker HTTP aura terminé (2s).
+        """
+        from ankiforge.services.update_checker import get_cached_update_info
+
+        cached_info = get_cached_update_info()
+        if cached_info is not None:
+            logger.info(
+                "Badge restauré depuis le cache : v%s [%s]",
+                cached_info.version,
+                cached_info.channel,
+            )
+            self._on_update_available(cached_info)
+
     def _check_for_updates(self) -> None:
-        """Lance la vérification asynchrone des mises à jour dans QThreadPool."""
+        """Lance la vérification HTTP de mise à jour à chaque démarrage (force=True).
+
+        force=True bypasse le cache de 24h — la vérification HTTP s'effectue systématiquement
+        à chaque lancement pour actualiser le cache et récupérer les assets de téléchargement.
+        """
         from PySide6.QtCore import QThreadPool
 
         from ankiforge.services.update_checker import UpdateCheckerWorker
 
-        worker = UpdateCheckerWorker()
+        worker = UpdateCheckerWorker(force=True)
         worker.signals.update_available.connect(self._on_update_available)
         QThreadPool.globalInstance().start(worker)
 
     def _on_update_available(self, info: Any) -> None:
-        """Transmet l'information de mise à jour à la TopBar si présente."""
-        if self.topbar and hasattr(self.topbar, "set_update_available"):
-            self.topbar.set_update_available(info)
+        """Transmet l'information de mise à jour à la TopBar si présente.
+
+        Appelé deux fois en séquence au démarrage :
+        1. Depuis le cache QSettings (300ms) — badge immédiat, assets vides.
+        2. Depuis le worker HTTP (≈2s+) — badge mis à jour avec les assets réels.
+
+        La garde sip.isdeleted() évite tout accès à une topbar détruite entre
+        le démarrage du worker et l'émission du signal.
+        """
+        try:
+            import sip  # type: ignore[import-untyped]
+
+            topbar = self.topbar
+            if topbar is not None and not sip.isdeleted(topbar) and hasattr(topbar, "set_update_available"):
+                topbar.set_update_available(info)
+        except ImportError:
+            # sip non disponible (environnement de test ou build alternatif)
+            topbar = self.topbar
+            if topbar is not None and hasattr(topbar, "set_update_available"):
+                topbar.set_update_available(info)
 
     @property
     def sidebar(self) -> Any | None:

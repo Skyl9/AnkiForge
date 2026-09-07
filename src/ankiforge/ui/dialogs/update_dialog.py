@@ -183,6 +183,8 @@ class UpdateDialog(QDialog):
 
     def _on_start_download(self) -> None:
         """Démarre le téléchargement asynchrone du binaire de mise à jour."""
+        from ankiforge.services.auto_updater import _validate_download_url  # noqa: PLC0415
+
         asset = find_asset_for_current_platform(self.update_info.assets)
 
         if not asset or "browser_download_url" not in asset:
@@ -193,6 +195,16 @@ class UpdateDialog(QDialog):
 
         download_url = str(asset["browser_download_url"])
         filename = str(asset.get("name", f"AnkiForge-v{self.update_info.version}"))
+
+        # ISSUE 8 : Validation HTTPS + domaine de confiance avant tout démarrage de téléchargement
+        try:
+            _validate_download_url(download_url)
+        except ValueError as err:
+            logger.error("URL de téléchargement rejetée : %s", err)
+            self.progress_container.setVisible(True)
+            self.progress_status_lbl.setText(f"❌ URL invalide ou non sécurisée : {err}\nCliquez sur 'Lien web GitHub' pour télécharger manuellement.")
+            self.progress_status_lbl.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.COLOR_RED};")
+            return
 
         # Transition visuelle vers l'état DOWNLOADING
         self.progress_container.setVisible(True)

@@ -23,6 +23,7 @@ GITHUB_NIGHTLY_URL = f"{GITHUB_API_BASE}/tags/nightly"
 
 SETTINGS_KEY_LAST_CHECK = "updates/last_check_timestamp"
 SETTINGS_KEY_CACHED_VERSION = "updates/cached_latest_version"
+SETTINGS_KEY_CACHED_CHANNEL = "updates/cached_latest_channel"
 SETTINGS_KEY_CHANNEL = "updates/channel"
 CHECK_INTERVAL_SECONDS = 86400  # 24 heures
 
@@ -64,6 +65,46 @@ class UpdateInfo:
     channel: str = "stable"
     is_prerelease: bool = False
     assets: list[dict[str, Any]] = field(default_factory=list)
+
+
+def get_cached_update_info() -> UpdateInfo | None:
+    """Lit instantanément le cache QSettings pour restituer la dernière mise à jour connue.
+
+    Aucun appel réseau — appelé au démarrage pour afficher immédiatement le badge
+    si une mise à jour avait déjà été détectée lors d'une session précédente.
+
+    Returns:
+        UpdateInfo si la version en cache est strictement supérieure à la version installée,
+        None sinon (application à jour ou cache vide).
+    """
+    from ankiforge.utils.environment import get_app_qsettings
+
+    settings = get_app_qsettings()
+    cached_version = str(settings.value(SETTINGS_KEY_CACHED_VERSION, "")).strip().lstrip("vV")
+    current_version = VERSION_INFO.version.strip().lstrip("vV")
+
+    if not cached_version or not is_version_strictly_greater(cached_version, current_version):
+        return None
+
+    cached_channel = str(settings.value(SETTINGS_KEY_CACHED_CHANNEL, "stable"))
+    html_url = f"https://github.com/Skyl9/AnkiForge/releases/tag/v{cached_version}"
+
+    logger.debug(
+        "Cache de mise à jour restauré : v%s [%s] (Actuelle : v%s)",
+        cached_version,
+        cached_channel,
+        current_version,
+    )
+    return UpdateInfo(
+        version=cached_version,
+        title=f"AnkiForge v{cached_version}",
+        release_notes=("_Cliquez sur '📥 Télécharger et Installer' pour récupérer les notes de version complètes._\n\nUne nouvelle version d'AnkiForge est disponible."),
+        html_url=html_url,
+        published_at="",
+        channel=cached_channel,
+        is_prerelease=cached_channel == "nightly",
+        assets=[],  # Vides — remplacés par les assets réels lors du check HTTP (2s après démarrage)
+    )
 
 
 class UpdateCheckerSignals(QObject):
@@ -146,7 +187,16 @@ class UpdateCheckerWorker(QRunnable):
             return
 
         data = resp.json()
-        releases_list: list[dict[str, Any]] = data if isinstance(data, list) else [data]
+
+        # Validation stricte : l'endpoint /releases?per_page=N retourne TOUJOURS une liste JSON.
+        # Si l'API retourne un objet (ex: {"message": "Not Found"}), c'est une erreur d'API
+        # à signaler explicitement plutôt que de l'absorber silencieusement.
+        if not isinstance(data, list):
+            api_msg = str(data.get("message", "Réponse d'API GitHub inattendue (objet JSON non-liste).")) if isinstance(data, dict) else "Réponse d'API GitHub invalide."
+            logger.warning("Réponse GitHub inattendue (non-liste) : %s", api_msg)
+            self.signals.check_failed.emit(f"Erreur API GitHub : {api_msg}")
+            return
+        releases_list: list[dict[str, Any]] = data
 
         candidates: list[tuple[tuple[int, int, int], str, dict[str, Any]]] = []
         for r in releases_list:
@@ -171,6 +221,7 @@ class UpdateCheckerWorker(QRunnable):
         candidates.sort(key=lambda x: x[0], reverse=True)
         _, highest_tag, highest_release = candidates[0]
         settings.setValue(SETTINGS_KEY_CACHED_VERSION, highest_tag)
+        settings.setValue(SETTINGS_KEY_CACHED_CHANNEL, active_channel)
 
         if is_version_strictly_greater(highest_tag, self.current_version):
             logger.info("Nouvelle version disponible : v%s [%s] (Actuelle : v%s)", highest_tag, active_channel, self.current_version)
@@ -207,6 +258,7 @@ class UpdateCheckerWorker(QRunnable):
         now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
         settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts)
         settings.setValue(SETTINGS_KEY_CACHED_VERSION, remote_tag)
+        settings.setValue(SETTINGS_KEY_CACHED_CHANNEL, "nightly")
 
         is_available = False
         if published_at and VERSION_INFO.build_date:
@@ -216,9 +268,13 @@ class UpdateCheckerWorker(QRunnable):
                 if remote_dt > local_dt:
                     is_available = True
             except Exception:
-                is_available = True
+                # Dates mal formées : conservateur — on n'émet pas de fausse alerte
+                logger.warning("Impossible de comparer les dates de build nightly (format inattendu). Mise à jour ignorée.")
+                is_available = False
         else:
-            is_available = True
+            # build_date absent (build incomplet ou _version.py manquant) :
+            # comportement conservateur — ne pas spammer l'utilisateur à chaque démarrage.
+            logger.debug("Nightly : build_date local absent. Comparaison de dates impossible, mise à jour non signalée.")
 
         if is_available:
             info = UpdateInfo(

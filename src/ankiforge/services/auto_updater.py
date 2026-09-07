@@ -27,6 +27,51 @@ from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
 
+MAX_DOWNLOAD_SIZE_BYTES = 2 * 1024 * 1024 * 1024  # 2 Go — plafond de sécurité pour les binaires applicatifs
+
+_TRUSTED_DOWNLOAD_DOMAINS = frozenset(
+    {
+        "github.com",
+        "objects.githubusercontent.com",
+        "codeload.github.com",
+    }
+)
+
+
+def _validate_download_url(url: str) -> None:
+    """Valide que l'URL de téléchargement est HTTPS et pointe vers un domaine GitHub de confiance.
+
+    Lève ValueError si l'URL est suspecte.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(f"URL de téléchargement invalide : le schéma '{parsed.scheme}' n'est pas autorisé (HTTPS requis).")
+    if parsed.netloc not in _TRUSTED_DOWNLOAD_DOMAINS:
+        raise ValueError(f"URL de téléchargement invalide : le domaine '{parsed.netloc}' n'est pas dans la liste de confiance.")
+
+
+def _find_current_macos_app_bundle() -> Path:
+    """Résout dynamiquement le chemin du bundle .app courant sur macOS.
+
+    Remonte depuis Contents/MacOS/<binary> vers le .app parent.
+    Retourne /Applications/AnkiForge.app comme fallback si non détectable.
+    """
+    fallback = Path("/Applications/AnkiForge.app")
+    exe = Path(sys.executable).resolve()
+    try:
+        parts = exe.parts
+        for i, part in enumerate(parts):
+            if part.endswith(".app"):
+                return Path(*parts[: i + 1])
+        if "Contents" in parts:
+            idx = list(parts).index("Contents")
+            return Path(*parts[:idx])
+    except (ValueError, TypeError):
+        pass
+    return fallback
+
 
 def is_standalone_app() -> bool:
     """Détecte de manière fiable si l'application s'exécute en binaire autonome gelé
@@ -142,14 +187,24 @@ class UpdateDownloaderWorker(QRunnable):
         dest_path = (target_dir / safe_filename).resolve()
 
         try:
+            # ISSUE 6 : Validation HTTPS + domaine de confiance avant tout appel réseau
+            _validate_download_url(self.download_url)
+
             logger.info("Début du téléchargement de la mise à jour depuis %s vers %s", self.download_url, dest_path)
             headers = {"User-Agent": "AnkiForge-AutoUpdater"}
-            with requests.get(self.download_url, headers=headers, stream=True, timeout=10.0) as response:
+            # ISSUE 9 : timeout en tuple (connexion, lecture) — évite les blocages sur connexions très lentes
+            with requests.get(self.download_url, headers=headers, stream=True, timeout=(10.0, 120.0)) as response:
                 if response.status_code != 200:
                     self.signals.download_error.emit(f"Erreur HTTP {response.status_code} lors du téléchargement.")
                     return
 
                 total_size = int(response.headers.get("content-length", 0))
+
+                # ISSUE 7 : Refus préventif si Content-Length dépasse le plafond de sécurité
+                if total_size > MAX_DOWNLOAD_SIZE_BYTES:
+                    self.signals.download_error.emit(f"Taille annoncée ({total_size / (1024**3):.1f} Go) dépasse le plafond autorisé de 2 Go.")
+                    return
+
                 downloaded_size = 0
                 hasher = hashlib.sha256()
 
@@ -164,13 +219,23 @@ class UpdateDownloaderWorker(QRunnable):
                             hasher.update(chunk)
                             downloaded_size += len(chunk)
 
+                            # ISSUE 7 : Vérification en continu de la taille réelle reçue
+                            if downloaded_size > MAX_DOWNLOAD_SIZE_BYTES:
+                                logger.error("Taille réelle téléchargée dépasse le plafond de 2 Go. Abandon.")
+                                self.signals.download_error.emit("Taille reçue dépasse le plafond de sécurité de 2 Go. Téléchargement abandonné.")
+                                return
+
                             pct = int((downloaded_size / total_size) * 100) if total_size > 0 else 0
                             self.signals.progress.emit(pct, downloaded_size, total_size)
 
-                computed_hash = hasher.hexdigest()
-                logger.info("Téléchargement achevé avec succès. SHA-256: %s", computed_hash)
-                self.signals.download_complete.emit(dest_path, computed_hash)
+            computed_hash = hasher.hexdigest()
+            logger.info("Téléchargement achevé avec succès. SHA-256: %s", computed_hash)
+            self.signals.download_complete.emit(dest_path, computed_hash)
 
+        except ValueError as err:
+            # Erreur de validation URL (ISSUE 6) — non critique, pas de stack trace complète
+            logger.error("URL de téléchargement rejetée pour raison de sécurité : %s", err)
+            self.signals.download_error.emit(str(err))
         except Exception as err:
             logger.exception("Erreur lors du téléchargement de la mise à jour : %s", err)
             self.signals.download_error.emit(str(err))
@@ -231,11 +296,16 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
             )
 
             source_app = Path(mount_dir) / "AnkiForge.app"
-            dest_app = Path("/Applications/AnkiForge.app")
 
-            if source_app.is_dir():
-                logger.info("Copie sécurisée de l'application vers %s via ditto", dest_app)
-                subprocess.run(["/usr/bin/ditto", str(source_app), str(dest_app)], check=True)  # nosec: B603
+            # BUG 4 : Résolution dynamique du chemin d'installation réel (au lieu de /Applications/ codé en dur)
+            dest_app = _find_current_macos_app_bundle()
+            logger.info("Destination d'installation résolue dynamiquement : %s", dest_app)
+
+            if not source_app.is_dir():
+                raise FileNotFoundError(f"AnkiForge.app introuvable dans le DMG monté ({mount_dir}).")
+
+            logger.info("Copie sécurisée de l'application vers %s via ditto", dest_app)
+            subprocess.run(["/usr/bin/ditto", str(source_app), str(dest_app)], check=True)  # nosec: B603
 
             # Démontage propre
             subprocess.run(["/usr/bin/hdiutil", "detach", mount_dir, "-quiet"], check=False)  # nosec: B603
@@ -262,11 +332,21 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
     # 4. Linux (AppImage) : Remplacement atomique de fichier sans script shell
     if system == "linux":
         try:
-            current_appimage = os.environ.get("APPIMAGE")
+            current_appimage_str = os.environ.get("APPIMAGE", "")
             validated_file.chmod(0o755)
 
-            if current_appimage:
-                target_path = Path(current_appimage).resolve()
+            if current_appimage_str:
+                # ISSUE 13 : Validation stricte du chemin $APPIMAGE avant remplacement
+                target_path = Path(current_appimage_str).resolve()
+                if target_path.is_symlink():
+                    raise ValueError(f"$APPIMAGE '{target_path}' est un lien symbolique non autorisé.")
+                if not target_path.exists():
+                    raise FileNotFoundError(f"$APPIMAGE '{target_path}' introuvable.")
+                # Vérification basique que la cible est dans un répertoire utilisateur (pas /etc, /usr, /bin...)
+                dangerous_prefixes = ("/etc", "/usr", "/bin", "/sbin", "/lib", "/proc", "/sys")
+                if any(str(target_path).startswith(prefix) for prefix in dangerous_prefixes):
+                    raise ValueError(f"$APPIMAGE '{target_path}' pointe vers un répertoire système protégé.")
+
                 logger.info("Remplacement atomique de l'AppImage : %s -> %s", validated_file, target_path)
                 os.replace(validated_file, target_path)
                 subprocess.Popen([str(target_path)], start_new_session=True)  # nosec: B603
