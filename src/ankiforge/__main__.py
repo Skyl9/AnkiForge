@@ -135,6 +135,11 @@ def main() -> None:
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
+    # ── Application du thème global AVANT toute fenêtre ou dialog ──────────────
+    # Garantit que le ProfileSelectorDialog au démarrage reçoit le même style
+    # Fusion + QPalette + QSS que lorsqu'il est ouvert depuis MainWindow.
+    setup_dynamic_theme(app)
+
     pm = ProfileManager()
     profiles = pm.list_profiles()
 
