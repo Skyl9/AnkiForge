@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.main_window import MainWindow
@@ -90,6 +91,52 @@ def test_open_consultant_event_switches_main_window_tab(qtbot, mock_db):
 
         event_bus.publish(OpenConsultantRequestedEvent(context_item="card_42", initial_prompt="Analyse"))
         assert window._current_view_id == "consultant"
+
+
+def test_main_window_injects_addon_custom_view(qtbot, mock_db):
+    class AddonAPI:
+        class UI:
+            @staticmethod
+            def get_registered_custom_views():
+                return [
+                    {
+                        "view_id": "demo_addon:overview",
+                        "title": "Vue démo",
+                        "icon_name": "sparkle",
+                        "widget_factory": lambda: QLabel("Addon content"),
+                    }
+                ]
+
+        ui = UI()
+
+    class AddonInfo:
+        id = "demo_addon"
+
+    class PluginManagerStub:
+        @staticmethod
+        def get_all_addons():
+            return [AddonInfo()]
+
+        @staticmethod
+        def get_addon_api(addon_id):
+            assert addon_id == "demo_addon"
+            return AddonAPI()
+
+    with (
+        patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"),
+        patch(
+            "ankiforge.services.plugins.plugin_manager.get_plugin_manager",
+            return_value=PluginManagerStub(),
+        ),
+    ):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        assert "demo_addon:overview" in window._view_registry
+        window._on_view_selected("demo_addon:overview")
+
+        assert window._current_view_id == "demo_addon:overview"
+        assert isinstance(window._view_widgets["demo_addon:overview"], QLabel)
 
 
 def test_open_export_dialog_instantiates_and_shows_dialog(qtbot, mock_db):

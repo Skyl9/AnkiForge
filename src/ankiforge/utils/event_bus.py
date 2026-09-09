@@ -6,6 +6,7 @@ Provides decoupled, publish-subscribe messaging across the application lifecycle
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -213,6 +214,43 @@ class OpenConsultantRequestedEvent(AppEvent):
 E = TypeVar("E", bound=AppEvent)
 EventHandler = Callable[..., Any]
 
+_EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
+    "deck_created": DeckCreatedEvent,
+    "deck_renamed": DeckRenamedEvent,
+    "deck_deleted": DeckDeletedEvent,
+    "note_created": NoteCreatedEvent,
+    "note_updated": NoteUpdatedEvent,
+    "note_deleted": NoteDeletedEvent,
+    "card_created": CardCreatedEvent,
+    "card_updated": CardUpdatedEvent,
+    "card_deleted": CardDeletedEvent,
+    "profile_switched": ProfileSwitchedEvent,
+    "theme_changed": ThemeChangedEvent,
+    "pipeline_created": PipelineCreatedEvent,
+    "pipeline_updated": PipelineUpdatedEvent,
+    "pipeline_deleted": PipelineDeletedEvent,
+    "pipeline_run_started": PipelineRunStartedEvent,
+    "pipeline_run_finished": PipelineRunFinishedEvent,
+    "document_added": DocumentAddedEvent,
+    "document_updated": DocumentUpdatedEvent,
+    "document_deleted": DocumentDeletedEvent,
+    "document_indexed": DocumentIndexedEvent,
+    "audit_started": AuditStartedEvent,
+    "audit_completed": AuditCompletedEvent,
+    "linter_rule_toggled": LinterRuleToggledEvent,
+    "persona_created": PersonaCreatedEvent,
+    "persona_updated": PersonaUpdatedEvent,
+    "persona_deleted": PersonaDeletedEvent,
+    "setting_changed": SettingChangedEvent,
+    "open_consultant_requested": OpenConsultantRequestedEvent,
+}
+
+
+def _event_name(event_type: type[AppEvent]) -> str:
+    """Return the stable snake_case name used by legacy addon APIs."""
+    name = event_type.__name__.removesuffix("Event")
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
 
 class AppEventBus:
     """
@@ -285,6 +323,10 @@ class AppEventBus:
             if isinstance(event, str):
                 str_key = event.lower().strip()
                 matching_handlers.extend(self._listeners.get(str_key, []))
+                typed_event = args[0] if args and isinstance(args[0], AppEvent) else None
+                mapped_type = _EVENT_NAME_ALIASES.get(str_key)
+                if typed_event is not None and mapped_type is type(typed_event):
+                    matching_handlers.extend(self._listeners.get(mapped_type, []))
             elif isinstance(event, AppEvent):
                 # Specific event class handlers
                 event_cls = type(event)
@@ -292,6 +334,7 @@ class AppEventBus:
                 # Also generic AppEvent handlers
                 if event_cls is not AppEvent:
                     matching_handlers.extend(self._listeners.get(AppEvent, []))
+                matching_handlers.extend(self._listeners.get(_event_name(event_cls), []))
 
         for handler in matching_handlers:
             try:

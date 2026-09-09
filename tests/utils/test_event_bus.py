@@ -107,6 +107,30 @@ def test_legacy_string_event_compatibility() -> None:
     assert bus.listener_count("custom_hook") == 0
 
 
+def test_typed_events_reach_legacy_string_listeners() -> None:
+    bus = AppEventBus()
+    received: list[NoteCreatedEvent] = []
+
+    bus.on("note_created", received.append)
+    event = NoteCreatedEvent(note_id=7, deck_name="Biology")
+
+    bus.publish(event)
+
+    assert received == [event]
+
+
+def test_legacy_string_events_reach_typed_listeners_when_payload_is_typed() -> None:
+    bus = AppEventBus()
+    received: list[NoteCreatedEvent] = []
+
+    bus.subscribe(NoteCreatedEvent, received.append)
+    event = NoteCreatedEvent(note_id=8, deck_name="Math")
+
+    bus.emit("note_created", event)
+
+    assert received == [event]
+
+
 def test_handler_exception_isolation() -> None:
     bus = AppEventBus()
     executed: list[str] = []

@@ -107,6 +107,8 @@ class MainWindow(QMainWindow):
         from ankiforge.ui.layouts.layout_manager import LayoutManager
 
         self._view_widgets: dict[str, QWidget] = {}
+        self._view_registry = dict(self.VIEW_REGISTRY)
+        self._register_addon_views()
         self._current_view_id: str | None = None
         self._settings_window: QWidget | None = None
         self._import_dialog: QWidget | None = None
@@ -117,7 +119,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
 
         # Enregistrement initial des placeholders légers (Lazy Loading)
-        for view_id, (_cat, _icon, title, _cls) in self.VIEW_REGISTRY.items():
+        for view_id, (_cat, _icon, title, _cls) in self._view_registry.items():
             placeholder = DummyView(title)
             self.stacked_widget.addWidget(placeholder)
             self._view_widgets[view_id] = placeholder
@@ -141,6 +143,27 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(300, self._restore_cached_update_badge)
         # Vérification HTTP forcée à chaque lancement pour actualiser le cache et les assets
         QTimer.singleShot(2000, self._check_for_updates)
+
+    def _register_addon_views(self) -> None:
+        """Expose active addon views without changing the native view registry."""
+        from ankiforge.services.plugins.plugin_manager import get_plugin_manager
+
+        plugin_manager = get_plugin_manager()
+        for addon_info in plugin_manager.get_all_addons():
+            api = plugin_manager.get_addon_api(addon_info.id)
+            if api is None:
+                continue
+            for view in api.ui.get_registered_custom_views():
+                view_id = str(view["view_id"])
+                if view_id in self._view_registry:
+                    logger.warning("Vue addon ignorée car l'identifiant existe déjà : %s", view_id)
+                    continue
+                self._view_registry[view_id] = (
+                    "Addons",
+                    str(view["icon_name"]),
+                    str(view["title"]),
+                    cast(Any, view["widget_factory"]),
+                )
 
     def _on_open_consultant_requested(self, event: OpenConsultantRequestedEvent) -> None:
         """Bascule immédiatement sur l'onglet Consultant IA et pré-attache le contexte."""
@@ -245,7 +268,7 @@ class MainWindow(QMainWindow):
         new_layout.notif_requested.connect(self._show_notif_popup)
         new_layout.profile_switch_requested.connect(self._on_switch_profile_requested)
 
-        new_layout.populate_navigation(self.VIEW_REGISTRY)
+        new_layout.populate_navigation(self._view_registry)
         new_layout.set_stacked_widget(self.stacked_widget)
         self.setCentralWidget(new_layout)
         LayoutManager.save_layout_id(self.profile_name, layout_id)
@@ -405,8 +428,8 @@ class MainWindow(QMainWindow):
             return
 
         # Lazy Instantiation de la vue réelle si c'est encore un DummyView
-        if view_id in self.VIEW_REGISTRY:
-            cat, icon, title, cls = self.VIEW_REGISTRY[view_id]
+        if view_id in self._view_registry:
+            cat, icon, title, cls = self._view_registry[view_id]
             current_widget = self._view_widgets.get(view_id)
             if isinstance(current_widget, DummyView) and cls != DummyView:
                 try:
@@ -508,7 +531,7 @@ class MainWindow(QMainWindow):
         """Ouvre la palette de commandes (Omnibox globale)."""
         from ankiforge.ui.widgets.command_palette import CommandPaletteModal
 
-        palette = CommandPaletteModal(self.VIEW_REGISTRY, parent=self)
+        palette = CommandPaletteModal(self._view_registry, parent=self)
         palette.view_requested.connect(self._on_view_selected)
         palette.command_selected.connect(self._on_command_selected)
         palette.exec()
@@ -606,7 +629,7 @@ class MainWindow(QMainWindow):
         self._reset_view_widgets()
 
         # 6. Re-charger la vue courante (ou le dashboard)
-        target_view = self._current_view_id if (self._current_view_id and self._current_view_id in self.VIEW_REGISTRY) else "dashboard"
+        target_view = self._current_view_id if (self._current_view_id and self._current_view_id in self._view_registry) else "dashboard"
         self._current_view_id = None
         self._on_view_selected(target_view)
 
@@ -615,7 +638,7 @@ class MainWindow(QMainWindow):
 
     def _reset_view_widgets(self) -> None:
         """Réinitialise les instances de vues pour nettoyer tout cache BDD lié au précédent profil."""
-        for view_id, (_cat, _icon, title, _cls) in self.VIEW_REGISTRY.items():
+        for view_id, (_cat, _icon, title, _cls) in self._view_registry.items():
             old_widget = self._view_widgets.get(view_id)
             if old_widget is not None:
                 idx = self.stacked_widget.indexOf(old_widget)

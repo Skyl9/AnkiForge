@@ -132,6 +132,19 @@ def test_ai_engines_tab_key_validation_and_crud(qtbot):
     assert SettingsService.get("keys/openai") == "sk-proj-1234567890abcdef1234567890"
 
 
+def test_ai_engines_tab_key_test_surfaces_save_failure_without_crashing(qtbot):
+    """Le bouton de test ne doit pas faire tomber l'onglet si la persistance échoue."""
+    tab = AIEnginesTab()
+    qtbot.addWidget(tab)
+    tab.key_edits["openai"].setText("sk-proj-1234567890abcdef1234567890")
+
+    with patch.object(SettingsService, "set", side_effect=RuntimeError("database unavailable")), patch("ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab.show_toast") as toast:
+        tab._test_cloud_key("openai", "OpenAI")
+
+    toast.assert_called_once()
+    assert "Impossible d'enregistrer" in toast.call_args.args[1]
+
+
 def test_ai_engines_tab_ollama_scan_mocked(qtbot):
     """Teste le scan d'Ollama avec réponse simulée."""
     tab = AIEnginesTab()

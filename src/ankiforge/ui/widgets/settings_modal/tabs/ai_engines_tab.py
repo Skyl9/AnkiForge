@@ -412,11 +412,13 @@ class AIEnginesTab(QWidget):
             badge.show()
 
             # Persistance immédiate de la clé testée
-            SettingsService.set(f"keys/{provider_id}", key_val, category="api_keys")
             try:
+                SettingsService.set(f"keys/{provider_id}", key_val, category="api_keys")
                 LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == provider_id).execute()
             except Exception as e:
-                logger.warning("Erreur mise à jour LLMConfigModel pour %s: %s", provider_id, e)
+                logger.error("Échec de sauvegarde de la clé %s : %s", provider_id, e)
+                show_toast(self, f"Impossible d'enregistrer la clé {provider_name}.", is_error=True)
+                return
 
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 try:
