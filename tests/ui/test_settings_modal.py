@@ -59,6 +59,9 @@ def test_settings_modal_creation_and_tabs(qtbot):
     modal = SettingsModal()
     qtbot.addWidget(modal)
     assert modal is not None
+    assert modal.minimumWidth() == 960
+    assert modal.sidebar.width() == 240
+    assert all(button.sizeHint().width() <= modal.sidebar.width() - 16 for button in modal.nav_btns)
 
     assert isinstance(modal.general_tab, GeneralTab)
     assert isinstance(modal.ai_tab, AIEnginesTab)

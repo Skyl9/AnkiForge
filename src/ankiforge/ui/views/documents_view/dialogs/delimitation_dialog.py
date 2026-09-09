@@ -35,7 +35,7 @@ class DocumentDelimitationDialog(QDialog):
     def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
-        self.setWindowTitle(f"Délimitation du Document — {doc.title}")
+        self.setWindowTitle(f"Délimiter les pages et sections — {doc.title}")
         self.resize(640, 540)
         self.setStyleSheet(f"""
             QDialog {{
@@ -65,13 +65,13 @@ class DocumentDelimitationDialog(QDialog):
         header_top = QHBoxLayout()
         icon_lbl = QLabel()
         icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        title_lbl = QLabel(f"Délimitation : <b>{doc.title}</b>")
+        title_lbl = QLabel(f"Délimiter les pages et sections : <b>{doc.title}</b>")
         title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY};")
         header_top.addWidget(icon_lbl)
         header_top.addWidget(title_lbl, 1)
         h_layout.addLayout(header_top)
 
-        desc_lbl = QLabel("Sélectionnez les chapitres et plages de pages pertinents pour exclure le bruit documentaire avant la forge et le RAG.")
+        desc_lbl = QLabel("Sélectionnez une plage de pages et les sections pertinentes pour exclure le bruit documentaire avant la forge et le RAG.")
         desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         desc_lbl.setWordWrap(True)
         h_layout.addWidget(desc_lbl)
@@ -95,7 +95,7 @@ class DocumentDelimitationDialog(QDialog):
         pages_card_layout.addWidget(lbl_sec1)
 
         pages_inputs = QHBoxLayout()
-        lbl_p_start = QLabel("Page Début :")
+        lbl_p_start = QLabel("Page de début :")
         lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         self.spin_p_start = QSpinBox()
         self.spin_p_start.setRange(1, 9999)
@@ -110,7 +110,7 @@ class DocumentDelimitationDialog(QDialog):
             }}
         """)
 
-        lbl_p_end = QLabel("Page Fin :")
+        lbl_p_end = QLabel("Page de fin :")
         lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         self.spin_p_end = QSpinBox()
         self.spin_p_end.setRange(1, 9999)
@@ -211,7 +211,7 @@ class DocumentDelimitationDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         footer.addWidget(btn_cancel)
 
-        btn_apply = PrimaryButton("Appliquer la délimitation")
+        btn_apply = PrimaryButton("Appliquer la sélection")
         btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
         btn_apply.clicked.connect(self._on_apply)
         footer.addWidget(btn_apply)
@@ -260,6 +260,12 @@ class DocumentDelimitationDialog(QDialog):
             show_toast(self, "Filtre intelligent appliqué : bruit documentaire exclu.")
 
     def _on_apply(self) -> None:
+        page_start = self.spin_p_start.value()
+        page_end = self.spin_p_end.value()
+        if page_start > page_end:
+            show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
+            return
+
         selected_headings = []
         for i in range(self.sections_list.count()):
             item = self.sections_list.item(i)
@@ -271,12 +277,16 @@ class DocumentDelimitationDialog(QDialog):
 
         retained_chunks = []
         for chunk in all_chunks:
+            page_number = chunk.get("page_number")
+            if page_number is not None and not page_start <= page_number <= page_end:
+                continue
             h_path = chunk.get("heading_path", "")
             if not selected_headings or any(sh in h_path for sh in selected_headings) or not h_path:
                 retained_chunks.append(chunk)
 
         if not retained_chunks:
-            retained_chunks = all_chunks
+            show_toast(self, "Aucun contenu ne correspond à cette sélection.", is_error=True)
+            return
 
         with DocumentChunkModel._meta.database.atomic():
             DocumentChunkModel.delete().where(DocumentChunkModel.document == self.doc).execute()

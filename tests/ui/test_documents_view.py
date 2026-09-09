@@ -165,6 +165,35 @@ def test_document_delimitation_dialog(qtbot):
     assert "Cellule" in chunks[0].heading_path
 
 
+def test_document_delimitation_applies_pdf_page_range(qtbot):
+    """La sélection de pages PDF filtre réellement les chunks avant le RAG."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Pages PDF {uid}",
+        file_type="pdf",
+        content=(
+            "<!-- PAGE: 1 -->\n"
+            "Introduction générale suffisamment longue pour créer un chunk.\n"
+            "<!-- PAGE: 2 -->\n"
+            "Contenu du chapitre principal suffisamment long pour créer un chunk.\n"
+            "<!-- PAGE: 3 -->\n"
+            "Annexe documentaire suffisamment longue pour créer un chunk."
+        ),
+    )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+    dlg.spin_p_start.setValue(2)
+    dlg.spin_p_end.setValue(2)
+    dlg.chk_revectorize.setChecked(False)
+    dlg._on_apply()
+
+    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))
+    assert len(chunks) == 1
+    assert chunks[0].page_number == 2
+    assert "Contenu du chapitre" in chunks[0].content
+
+
 def test_rag_test_dialog(qtbot):
     """Vérifie le dialogue de recherche sémantique interactive RAG."""
     uid = uuid.uuid4().hex[:6]

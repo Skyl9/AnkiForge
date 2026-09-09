@@ -318,9 +318,9 @@ class DocumentsView(QWidget):
         row2.addWidget(self.view_toggle_frame)
         row2.addStretch()
 
-        self.btn_delimit = SecondaryButton("Délimiter")
+        self.btn_delimit = SecondaryButton("Délimiter les pages")
         self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color="#38bdf8"))
-        self.btn_delimit.setToolTip("Délimiter les plages de pages et chapitres utiles")
+        self.btn_delimit.setToolTip("Sélectionner les pages et chapitres utiles avant la forge et le RAG")
         self.btn_delimit.setFixedHeight(26)
         self.btn_delimit.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_delimit.clicked.connect(self._on_open_delimitation_dialog)
