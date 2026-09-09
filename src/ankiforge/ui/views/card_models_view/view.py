@@ -181,6 +181,7 @@ class CardModelsView(QWidget):
         self.snippet_drawer = SnippetLibraryDrawer()
         self.snippet_drawer.snippet_selected.connect(self._on_insert_snippet)
         self.left_panel.add_tab("Snippets", self.snippet_drawer, "ph.sparkle", closable=False)
+        self.left_panel.set_active_tab(0)
 
         self.main_splitter.addWidget(self.left_panel)
 

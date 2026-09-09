@@ -42,6 +42,8 @@ def test_card_models_view_creation(qtbot, mock_db):
     assert view.css_editor_wrapper.toPlainText() == ".card { color: #000; }"
     assert view.front_html_wrapper.toPlainText() == "{{Front}}"
     assert view.back_html_wrapper.toPlainText() == "{{Back}}"
+    assert view.left_panel.content_stack.currentIndex() == 0
+    assert view.left_panel.tabs_bar.tabs[0].isChecked()
 
 
 def test_card_models_view_template_management(qtbot, mock_db):
