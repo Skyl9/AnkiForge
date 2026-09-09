@@ -2005,6 +2005,7 @@ class CreationView(QWidget):
         import os
 
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen" or not self.isVisible() or getattr(self, "_skip_close_dialog", False):
+            self._cleanup_web_views()
             event.accept()
             return
 
@@ -2020,7 +2021,15 @@ class CreationView(QWidget):
             if reply == QMessageBox.StandardButton.No:
                 event.ignore()
                 return
+        self._cleanup_web_views()
         event.accept()
+
+    def _cleanup_web_views(self) -> None:
+        """Arrête les WebViews avant la fermeture ou le remplacement de la vue."""
+        preview = getattr(self, "preview_widget", None)
+        card_preview = getattr(preview, "card_preview_widget", None)
+        if card_preview is not None and hasattr(card_preview, "cleanup"):
+            card_preview.cleanup()
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "card_preview_widget"):

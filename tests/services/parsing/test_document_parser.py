@@ -1,3 +1,4 @@
+import stat
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -5,6 +6,7 @@ import docx
 import pytest
 from pptx import Presentation
 
+import ankiforge.services.parsing.document_parser as document_parser
 from ankiforge.services.parsing.document_parser import DocumentParser
 
 
@@ -150,6 +152,23 @@ def test_parse_pdf_with_marker_success(mock_popen, mock_get_marker, MockMediaMan
 
     assert result == "Markdown final traité avec images"
     mock_callback.assert_any_call("Loading AI...")
+
+
+def test_marker_executable_is_found_in_bundle_resources(tmp_path, monkeypatch):
+    """Le build autonome peut embarquer marker_single dans Contents/Resources/tools."""
+    executable = tmp_path / "Contents" / "MacOS" / "AnkiForge"
+    marker = tmp_path / "Contents" / "Resources" / "tools" / "marker_single"
+    executable.parent.mkdir(parents=True)
+    marker.parent.mkdir(parents=True)
+    executable.write_text("", encoding="utf-8")
+    marker.write_text("#!/bin/sh", encoding="utf-8")
+    marker.chmod(marker.stat().st_mode | stat.S_IXUSR)
+
+    monkeypatch.setattr(document_parser.sys, "executable", str(executable))
+    monkeypatch.setattr(document_parser.shutil, "which", lambda _: None)
+    monkeypatch.setattr("ankiforge.utils.paths.get_tools_search_dirs", lambda: [])
+
+    assert DocumentParser.get_marker_executable() == str(marker)
 
 
 @patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")

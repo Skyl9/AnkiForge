@@ -168,6 +168,14 @@ class CardPreviewWidget(QWidget):
     def _connect_signals(self) -> None:
         self.card_selector.currentIndexChanged.connect(self._on_card_selected)
 
+    def cleanup(self) -> None:
+        """Arrête les chargements Chromium avant le démontage de la vue."""
+        web_view = self.web_view
+        if hasattr(web_view, "cleanup"):
+            web_view.cleanup()
+        elif hasattr(web_view, "stop"):
+            web_view.stop()
+
     @Slot(int)
     def _on_card_selected(self, index: int) -> None:
         self._render()

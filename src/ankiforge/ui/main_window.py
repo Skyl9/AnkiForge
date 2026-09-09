@@ -620,6 +620,8 @@ class MainWindow(QMainWindow):
             if old_widget is not None:
                 idx = self.stacked_widget.indexOf(old_widget)
                 if idx != -1:
+                    if hasattr(old_widget, "cleanup"):
+                        cast(Any, old_widget).cleanup()
                     self.stacked_widget.removeWidget(old_widget)
                     old_widget.deleteLater()
             placeholder = DummyView(title)

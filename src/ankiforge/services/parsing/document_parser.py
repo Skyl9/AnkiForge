@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess  # nosec B404
+import sys
 import tempfile
 import urllib.error
 import urllib.parse
@@ -218,10 +219,17 @@ class DocumentParser:
         exe = shutil.which("marker_single")
         if exe:
             return exe
-        # 2. Recherche dans les dossiers d'outils AnkiForge (environnement actif + repli prod)
+        # 2. Recherche dans les ressources du bundle macOS/Nuitka
+        executable_dir = Path(sys.executable).resolve().parent
+        bundle_dirs = [
+            executable_dir,
+            executable_dir.parent / "Resources",
+            executable_dir.parent / "Resources" / "tools",
+        ]
+        # 3. Recherche dans les dossiers d'outils AnkiForge (environnement actif + repli prod)
         from ankiforge.utils.paths import get_tools_search_dirs
 
-        for tools_dir in get_tools_search_dirs():
+        for tools_dir in [*bundle_dirs, *get_tools_search_dirs()]:
             candidates = [
                 tools_dir / "bin" / "marker_single",
                 tools_dir / "Scripts" / "marker_single.exe",
@@ -231,6 +239,7 @@ class DocumentParser:
             for c in candidates:
                 if c.exists() and os.access(c, os.X_OK):
                     return str(c)
+        logger.warning("Marker indisponible : aucun exécutable marker_single trouvé dans le PATH, le bundle ou les dossiers d'outils.")
         return None
 
     @classmethod
