@@ -85,6 +85,18 @@ def test_render_anki_card_integration():
     assert "<b>Q?</b><br>R!" in result
 
 
+def test_render_anki_card_theme_defaults_keep_preview_readable():
+    """Le rendu applique un contraste de base dans les deux thèmes."""
+    light = render_anki_card(raw_html="{{Recto}}", css="", fields_dict={"Recto": "Question"}, is_dark_mode=False)
+    dark = render_anki_card(raw_html="{{Recto}}", css="", fields_dict={"Recto": "Question"}, is_dark_mode=True)
+
+    assert "body { background-color: #f8fafc; color: #1e293b;" in light
+    assert "body.nightMode { background-color: #0f172a; color: #e2e8f0;" in light
+    assert '<body class="">' in light
+    assert '<body class="nightMode">' in dark
+    assert ".nightMode .card { background-color: #1e293b; color: #e2e8f0; }" in dark
+
+
 def test_process_media_references_images_and_sounds(tmp_path, monkeypatch):
     """Vérifie la réécriture des balises d'images et de son [sound:...] dans le HTML."""
     from ankiforge.utils.anki_renderer import _process_media_references

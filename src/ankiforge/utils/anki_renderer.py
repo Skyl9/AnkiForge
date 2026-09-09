@@ -313,7 +313,10 @@ def render_anki_card(
             <head>
                 <meta charset="utf-8">
                 <style>
-                    body {{ background-color: transparent; margin: 0; padding: 15px; }}
+                    body {{ background-color: #f8fafc; color: #1e293b; margin: 0; padding: 15px; }}
+                    body.nightMode {{ background-color: #0f172a; color: #e2e8f0; }}
+                    .card {{ background-color: #ffffff; color: #1e293b; }}
+                    .nightMode .card {{ background-color: #1e293b; color: #e2e8f0; }}
                     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
                     ::-webkit-scrollbar-track {{ background: transparent; }}
                     ::-webkit-scrollbar-thumb {{ background: #555; border-radius: 5px; }}
