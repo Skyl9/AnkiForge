@@ -109,7 +109,10 @@ def test_import_modern_apkg_collection_anki21_uncompressed(tmp_path: Path) -> No
     cursor.execute("INSERT INTO fields VALUES (2002, 1, 'Caracteristique', X'')")
 
     cursor.execute("CREATE TABLE templates (ntid integer, ord integer, name text, mtime_secs integer, usn integer, config blob, primary key(ntid, ord))")
-    cursor.execute("INSERT INTO templates VALUES (2002, 0, 'Carte Organisme', 0, 0, X'')")
+    cursor.execute(
+        "INSERT INTO templates VALUES (2002, 0, 'Carte Organisme', 0, 0, ?)",
+        (json.dumps({"qfmt": "{{Organisme}}", "afmt": "{{FrontSide}}<hr>{{Caracteristique}}"}),),
+    )
 
     cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text)")
     cursor.execute("INSERT INTO notes VALUES (10, 'guid_bio_1', 2002, 0, 0, 'bio cell', 'Mitochondrie\x1fCentrale energetique', 'Mitochondrie', 0, 0, '')")
@@ -163,6 +166,11 @@ def test_import_modern_apkg_collection_anki21b_zstd_compressed(tmp_path: Path) -
     cursor.execute("CREATE TABLE fields (ntid integer, ord integer, name text, config blob)")
     cursor.execute("INSERT INTO fields VALUES (3003, 0, 'Evenement', X'')")
     cursor.execute("INSERT INTO fields VALUES (3003, 1, 'Date', X'')")
+    cursor.execute("CREATE TABLE templates (ntid integer, ord integer, name text, config blob)")
+    cursor.execute(
+        "INSERT INTO templates VALUES (3003, 0, 'Carte Histoire', ?)",
+        (json.dumps({"qfmt": "{{Evenement}}", "afmt": "{{FrontSide}}<hr>{{Date}}"}),),
+    )
     cursor.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
     cursor.execute("INSERT INTO notes VALUES (20, 'guid_hist_1', 3003, 'rev', 'Prise de la Bastille\x1f14 Juillet 1789')")
     cursor.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer)")
@@ -214,6 +222,11 @@ def test_import_database_priority_anki21b_over_anki2(tmp_path: Path) -> None:
     conn_mod.execute("CREATE TABLE fields (ntid integer, ord integer, name text, config blob)")
     conn_mod.execute("INSERT INTO fields VALUES (2, 0, 'Front', X'')")
     conn_mod.execute("INSERT INTO fields VALUES (2, 1, 'Back', X'')")
+    conn_mod.execute("CREATE TABLE templates (ntid integer, ord integer, name text, config blob)")
+    conn_mod.execute(
+        "INSERT INTO templates VALUES (2, 0, 'Carte Moderne', ?)",
+        (json.dumps({"qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}),),
+    )
     conn_mod.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
     conn_mod.execute("INSERT INTO notes VALUES (2, 'guid_mod_real', 2, '', 'Modern Question\x1fModern Answer')")
     conn_mod.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer)")
@@ -258,3 +271,26 @@ def test_import_zip_without_collection_db_raises_file_not_found(tmp_path: Path) 
     manager = ImportManager()
     with pytest.raises(FileNotFoundError, match="Aucune base SQLite Anki"):
         manager.analyze_archive(empty_zip)
+
+
+def test_import_incomplete_model_fails_before_commit(tmp_path: Path) -> None:
+    """Un modèle sans template HTML est rejeté au lieu d'être complété automatiquement."""
+    db_file = tmp_path / "incomplete.db"
+    conn = sqlite3.connect(str(db_file))
+    conn.execute("CREATE TABLE col (id integer, models text, decks text)")
+    conn.execute(
+        "INSERT INTO col VALUES (1, ?, ?)",
+        ('{"1": {"name": "Incomplete", "flds": [{"name": "Front"}, {"name": "Back"}]}}', '{"1": {"id": 1, "name": "Default"}}'),
+    )
+    conn.execute("CREATE TABLE notes (id integer, guid text, mid integer, tags text, flds text)")
+    conn.execute("INSERT INTO notes VALUES (1, 'invalid_model', 1, '', 'Q\x1fA')")
+    conn.commit()
+    conn.close()
+
+    apkg_path = tmp_path / "incomplete.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+
+    with pytest.raises(ValueError, match="aucun template valide"):
+        ImportManager().analyze_archive(apkg_path)

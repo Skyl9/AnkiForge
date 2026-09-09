@@ -91,6 +91,24 @@ class ImportManager:
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _validate_model_structure(model_id: int, model: dict[str, Any]) -> None:
+        """Refuse un modèle Anki incomplet au lieu de fabriquer des métadonnées."""
+        name = str(model.get("name", "")).strip()
+        fields = model.get("fields")
+        templates = model.get("templates")
+        if not name or not isinstance(fields, list) or not fields:
+            raise ValueError(f"Modèle Anki {model_id} incomplet : nom ou champs absents.")
+        if len(set(fields)) != len(fields) or any(not isinstance(field, str) or not field.strip() for field in fields):
+            raise ValueError(f"Modèle Anki '{name}' invalide : noms de champs dupliqués ou vides.")
+        if not isinstance(templates, list) or not templates:
+            raise ValueError(f"Modèle Anki '{name}' incomplet : aucun template valide.")
+        for index, template in enumerate(templates, start=1):
+            if not isinstance(template, dict):
+                raise ValueError(f"Modèle Anki '{name}' invalide : template {index} mal formé.")
+            if not all(str(template.get(key, "")).strip() for key in ("name", "qfmt", "afmt")):
+                raise ValueError(f"Modèle Anki '{name}' incomplet : template {index} sans nom ou HTML.")
+
+    @staticmethod
     def parse_media_pb(data: bytes) -> dict[str, str]:
         """Décode un flux binaire Protobuf MediaEntries (Anki modern) en dictionnaire file_key -> filename."""
         media_map: dict[str, str] = {}
@@ -652,6 +670,11 @@ class ImportManager:
                     except Exception as e:
                         logger.warning("Erreur extraction table notetypes: %s", e)
 
+                if not raw_models:
+                    raise ValueError("Import APKG invalide : aucun modèle de carte complet trouvé.")
+                for model_id, model in raw_models.items():
+                    self._validate_model_structure(model_id, model)
+
                 # 3. Cards table pour le mapping multi-cartes et statistiques
                 note_cards_map: dict[int, list[dict[str, Any]]] = {}
                 if "cards" in tables:
@@ -689,15 +712,14 @@ class ImportManager:
                         int_mid = int(mid)
                     except (ValueError, TypeError):
                         int_mid = 0
-                    fallback_model: dict[str, Any] = {"name": "Basic", "fields": ["Front", "Back"], "templates": [], "css": ""}
-                    model_info = raw_models.get(int_mid, fallback_model)
+                    model_info = raw_models.get(int_mid)
+                    if model_info is None:
+                        raise ValueError(f"Import APKG invalide : la note {nid} référence le modèle absent {int_mid}.")
                     field_names = model_info.get("fields", [])
                     field_values = flds_raw.split("\x1f")
 
-                    if not field_names:
-                        field_names = [f"Field_{i + 1}" for i in range(len(field_values))]
-                    elif len(field_values) > len(field_names):
-                        field_names = list(field_names) + [f"Field_{i + 1}" for i in range(len(field_names), len(field_values))]
+                    if len(field_values) != len(field_names):
+                        raise ValueError(f"Import APKG invalide : la note {nid} contient {len(field_values)} champs, mais le modèle '{model_info['name']}' en définit {len(field_names)}.")
 
                     content_dict = dict(zip(field_names, field_values, strict=False))
                     tags = tags_raw.strip().split(" ") if tags_raw and tags_raw.strip() else []
@@ -863,6 +885,7 @@ class ImportManager:
             # 2. Enregistrement des NoteTypes
             model_cache: dict[str, NoteTypeModel] = {}
             for _mid, m_info in analysis.raw_models.items():
+                self._validate_model_structure(_mid, m_info)
                 m_name = m_info.get("name", "Basic")
                 fields_data = m_info.get("fields") or ["Front", "Back"]
                 fields_schema = json.dumps(fields_data)

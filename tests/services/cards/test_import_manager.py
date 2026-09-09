@@ -1,6 +1,8 @@
 import csv
 import json
 
+import pytest
+
 from ankiforge.database.models import (
     DeckModel,
     NoteModel,
@@ -17,6 +19,11 @@ def test_compute_field_diffs():
     diffs = ImportManager.compute_field_diffs(local, incoming)
     assert diffs["Front"]["is_different"] is True
     assert diffs["Back"]["is_different"] is False
+
+
+def test_validate_model_structure_rejects_missing_anki_metadata():
+    with pytest.raises(ValueError, match="aucun template valide"):
+        ImportManager._validate_model_structure(1, {"name": "Basic", "fields": ["Front", "Back"], "templates": []})
 
 
 def test_txt_import_and_conflict_detection(tmp_path):

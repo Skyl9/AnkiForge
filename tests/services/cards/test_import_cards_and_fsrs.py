@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import zipfile
 from pathlib import Path
@@ -17,7 +18,18 @@ def test_import_multi_cards_per_note(tmp_path: Path) -> None:
     cursor = conn.cursor()
 
     cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
-    models_raw = '{"1": {"name": "Basic (and reversed)", "flds": [{"name": "Front"}, {"name": "Back"}]}}'
+    models_raw = json.dumps(
+        {
+            "1": {
+                "name": "Basic (and reversed)",
+                "flds": [{"name": "Front"}, {"name": "Back"}],
+                "tmpls": [
+                    {"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"},
+                    {"name": "Card 2", "qfmt": "{{Back}}", "afmt": "{{FrontSide}}<hr>{{Front}}"},
+                ],
+            }
+        }
+    )
     decks_raw = '{"1": {"id": 1, "name": "Default"}}'
     cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (models_raw, decks_raw))
 
@@ -73,7 +85,7 @@ def test_import_cloze_cards_multi_decks(tmp_path: Path) -> None:
     cursor = conn.cursor()
 
     cursor.execute("CREATE TABLE col (id integer, models text, decks text)")
-    models_raw = '{"1": {"name": "Cloze", "flds": [{"name": "Text"}, {"name": "Extra"}]}}'
+    models_raw = '{"1": {"name": "Cloze", "flds": [{"name": "Text"}, {"name": "Extra"}], "tmpls": [{"name": "Cloze", "qfmt": "{{cloze:Text}}", "afmt": "{{FrontSide}}<hr>{{Extra}}"}]}}'
     decks_raw = '{"10": {"id": 10, "name": "Sciences"}, "20": {"id": 20, "name": "Histoire"}}'
     cursor.execute("INSERT INTO col VALUES (1, ?, ?)", (models_raw, decks_raw))
 
@@ -115,7 +127,8 @@ def test_silent_update_updates_existing_card_stats(tmp_path: Path) -> None:
     db_file1 = tmp_path / "run1.db"
     conn = sqlite3.connect(str(db_file1))
     conn.execute("CREATE TABLE col (id integer, models text, decks text)")
-    conn.execute('INSERT INTO col VALUES (1, \'{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}]}}\', \'{"1": {"id": 1, "name": "Default"}}\')')
+    models_raw = json.dumps({"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}], "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]}})
+    conn.execute("INSERT INTO col VALUES (1, ?, ?)", (models_raw, '{"1": {"id": 1, "name": "Default"}}'))
     conn.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
     conn.execute("INSERT INTO notes VALUES (30, 'guid_srs_sync', 1, '', 'Q1\x1fR1')")
     conn.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")
@@ -142,7 +155,7 @@ def test_silent_update_updates_existing_card_stats(tmp_path: Path) -> None:
     db_file2 = tmp_path / "run2.db"
     conn2 = sqlite3.connect(str(db_file2))
     conn2.execute("CREATE TABLE col (id integer, models text, decks text)")
-    conn2.execute('INSERT INTO col VALUES (1, \'{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}]}}\', \'{"1": {"id": 1, "name": "Default"}}\')')
+    conn2.execute("INSERT INTO col VALUES (1, ?, ?)", (models_raw, '{"1": {"id": 1, "name": "Default"}}'))
     conn2.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
     conn2.execute("INSERT INTO notes VALUES (30, 'guid_srs_sync', 1, '', 'Q1\x1fR1')")
     conn2.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer, ivl integer, reps integer, lapses integer)")

@@ -17,7 +17,7 @@ def _build_apkg(tmp_path: Path, filename: str, guid: str, front: str, back: str,
     db_file = tmp_path / f"{filename}.db"
     conn = sqlite3.connect(str(db_file))
     conn.execute("CREATE TABLE col (id integer, models text, decks text)")
-    models_str = '{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}]}}'
+    models_str = '{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}], "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]}}'
     decks_str = json.dumps({"1": {"id": 1, "name": deck_name}})
     conn.execute("INSERT INTO col VALUES (1, ?, ?)", (models_str, decks_str))
     conn.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
