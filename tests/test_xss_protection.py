@@ -72,3 +72,10 @@ def test_safe_web_engine_view_uses_safe_page(qtbot: Any) -> None:
     qtbot.addWidget(view)
 
     assert isinstance(view.page(), SafeWebEnginePage)
+
+    # WebEngine démarre des threads Chromium natifs : arrêter explicitement le
+    # chargement avant que pytest-qt ne détruise le widget.
+    view.cleanup()
+    view.close()
+    view.deleteLater()
+    qtbot.wait(0)
