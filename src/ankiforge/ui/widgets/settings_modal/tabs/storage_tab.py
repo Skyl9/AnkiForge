@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
@@ -64,7 +64,7 @@ class StorageMaintenanceTab(QWidget):
         super().__init__(parent)
         self._maintenance_worker: _DatabaseMaintenanceWorker | None = None
         self._setup_ui()
-        self.refresh_metrics()
+        QTimer.singleShot(0, self.refresh_metrics)
 
     def _setup_ui(self) -> None:
         from PySide6.QtWidgets import QFrame, QScrollArea

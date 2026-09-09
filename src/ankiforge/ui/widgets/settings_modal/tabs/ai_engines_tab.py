@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -96,7 +96,7 @@ class AIEnginesTab(QWidget):
         self.lbl_provider_labels: list[QLabel] = []
         self.vision_cards: list[SettingsCard] = []
         self._setup_ui()
-        self.refresh_data()
+        QTimer.singleShot(0, self.refresh_data)
 
     def _setup_ui(self) -> None:
         root_layout = QVBoxLayout(self)

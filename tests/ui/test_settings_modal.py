@@ -9,7 +9,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtWidgets import QLineEdit, QMessageBox
+from PySide6.QtWidgets import QApplication, QLineEdit, QMessageBox
 
 from ankiforge.database.models import (
     CardModel,
@@ -143,6 +143,7 @@ def test_ai_catalogue_inline_editor_has_opaque_background(qtbot):
     """L'éditeur inline du catalogue masque le texte de la cellule sous-jacente."""
     tab = AIEnginesTab()
     qtbot.addWidget(tab)
+    QApplication.processEvents()
     assert tab.table_engines.verticalHeader().defaultSectionSize() == 34
     assert "height: 28px" in tab.table_engines.styleSheet()
 
@@ -155,7 +156,7 @@ def test_ai_catalogue_inline_editor_has_opaque_background(qtbot):
         tab.table_engines.setItem(0, 0, item)
 
     tab.table_engines.editItem(item)
-    qtbot.wait(20)
+    QApplication.processEvents()
     editor = tab.table_engines.findChild(QLineEdit)
 
     assert editor is not None
