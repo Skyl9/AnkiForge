@@ -93,8 +93,8 @@ class DocumentsView(QWidget):
 
         # ── 1. Panneau Gauche : Explorateur de Documents ──────────────────────
         self.explorer_panel = IdePanel(detachable=True)
-        self.explorer_panel.setMinimumWidth(220)
-        self.explorer_panel.setMaximumWidth(280)
+        self.explorer_panel.setMinimumWidth(300)
+        self.explorer_panel.setMaximumWidth(360)
 
         explorer_content = QWidget()
         explorer_layout = QVBoxLayout(explorer_content)
@@ -107,6 +107,9 @@ class DocumentsView(QWidget):
 
         self.btn_import = SecondaryButton("Importer", tooltip="Importer un fichier local (PDF, Markdown, Texte, .apkg)")
         self.btn_import.setIcon(load_phosphor_icon("ph.upload-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import.setMinimumWidth(96)
+        self.btn_import.setFixedHeight(30)
+        self.btn_import.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
         self.btn_import.clicked.connect(self._on_import_file)
 
         self.btn_import_url = IconButton("ph.link", tooltip="Importer depuis le Web / YouTube", size=24)

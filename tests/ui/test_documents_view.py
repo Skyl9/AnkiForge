@@ -1,6 +1,7 @@
 import uuid
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QSizePolicy
 
 from ankiforge.database.models import (
     DeckModel,
@@ -89,6 +90,18 @@ def test_documents_view_selection_and_coverage(qtbot):
     target, payload = emitted_nav[0]
     assert target == "creation"
     assert "poumons" in payload["text_source"].lower()
+
+
+def test_documents_view_import_button_has_stable_initial_size(qtbot):
+    """Le bouton Importer reste lisible dès l'ouverture de My Documents."""
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    assert view.explorer_panel.minimumWidth() == 300
+    assert view.explorer_panel.maximumWidth() == 360
+    assert view.btn_import.minimumWidth() == 96
+    assert view.btn_import.height() == 30
+    assert view.btn_import.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.MinimumExpanding
 
 
 def test_document_delimitation_dialog(qtbot):
