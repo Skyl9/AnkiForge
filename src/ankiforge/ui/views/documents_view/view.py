@@ -332,6 +332,7 @@ class DocumentsView(QWidget):
         self.btn_marker.setFixedHeight(26)
         self.btn_marker.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_marker.clicked.connect(self._on_run_marker_analysis)
+        self.btn_marker.hide()
         row2.addWidget(self.btn_marker)
 
         self.btn_rag = SecondaryButton("Vectoriser")
@@ -724,6 +725,7 @@ class DocumentsView(QWidget):
                 self.doc_title_lbl.setText(title_to_display)
 
                 if getattr(doc, "file_type", "") == "album":
+                    self.btn_marker.hide()
                     self.album_viewer.load_album(doc)
                     self.editor_stack.setCurrentIndex(2)
                     self._update_rag_status_pill()
@@ -752,6 +754,11 @@ class DocumentsView(QWidget):
                         self.audio_player.stop()
                         self.audio_player.hide()
 
+                if doc.file_type == "pdf":
+                    self.btn_marker.show()
+                else:
+                    self.btn_marker.hide()
+
                 if doc.file_type == "pdf" and doc.original_media:
                     from ankiforge.utils.paths import resolve_media_path
 
@@ -770,6 +777,7 @@ class DocumentsView(QWidget):
                 self.editor_stack.setCurrentIndex(1)
                 self._refresh_chapters_list()
         else:
+            self.btn_marker.hide()
             if hasattr(self, "audio_player"):
                 self.audio_player.stop()
                 self.audio_player.hide()
@@ -1113,6 +1121,10 @@ class DocumentsView(QWidget):
             return
 
         doc = DocumentModel.get_by_id(self._current_doc_id)
+        if doc.file_type != "pdf":
+            show_toast(self, "L'analyse Marker OCR est disponible uniquement pour les fichiers PDF.", is_error=True)
+            self.btn_marker.hide()
+            return
 
         marker_exec = shutil.which("marker_single")
         if not marker_exec:

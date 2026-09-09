@@ -1,7 +1,7 @@
 import uuid
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSizePolicy
+from PySide6.QtWidgets import QSizePolicy, QTreeWidgetItem
 
 from ankiforge.database.models import (
     DeckModel,
@@ -102,6 +102,37 @@ def test_documents_view_import_button_has_stable_initial_size(qtbot):
     assert view.btn_import.minimumWidth() == 96
     assert view.btn_import.height() == 30
     assert view.btn_import.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.MinimumExpanding
+    assert view.btn_marker.isHidden()
+
+
+def test_documents_view_shows_marker_ocr_only_for_pdf(qtbot):
+    """Le bouton Marker OCR est réservé aux documents PDF."""
+    uid = uuid.uuid4().hex[:6]
+    markdown_doc = DocumentModel.create(
+        title=f"Notes {uid}",
+        content="# Notes",
+        file_type="md",
+    )
+    pdf_doc = DocumentModel.create(
+        title=f"Document PDF {uid}",
+        content="Texte extrait",
+        file_type="pdf",
+    )
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    markdown_item = QTreeWidgetItem(view.tree_explorer)
+    markdown_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": markdown_doc.id})
+    view.tree_explorer.setCurrentItem(markdown_item)
+    view._on_document_selected()
+    assert view.btn_marker.isHidden()
+
+    pdf_item = QTreeWidgetItem(view.tree_explorer)
+    pdf_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": pdf_doc.id})
+    view.tree_explorer.setCurrentItem(pdf_item)
+    view._on_document_selected()
+    assert not view.btn_marker.isHidden()
 
 
 def test_document_delimitation_dialog(qtbot):
