@@ -245,3 +245,66 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
 
     tab._on_installer_failed("Réseau indisponible")
     assert "Échec du téléchargement" in tab.lbl_install_progress.text()
+
+
+def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):
+    """Vérifie que la sauvegarde met à jour les LLMConfigModel en BDD et recharge l'AIManager."""
+    mock_ai_manager = MagicMock()
+    tab = AIEnginesTab(ai_manager=mock_ai_manager)
+    qtbot.addWidget(tab)
+
+    # Création préalable d'un modèle OpenAI en base sans clé
+    cfg = LLMConfigModel.create(
+        display_name="GPT-4o Test",
+        provider="openai",
+        model_id="gpt-4o",
+        context_limit=128000,
+        api_key="",
+        is_free=False,
+    )
+
+    new_key = "sk-proj-updated-test-key-1234567890"
+    tab.key_edits["openai"].setText(new_key)
+    tab.save_tab()
+
+    # Vérification BDD SettingModel et LLMConfigModel
+    assert SettingsService.get("keys/openai") == new_key
+    updated_cfg = LLMConfigModel.get_by_id(cfg.id)
+    assert updated_cfg.api_key == new_key
+
+    # Vérification notification reload_provider
+    mock_ai_manager.reload_provider.assert_called()
+
+
+def test_flexible_service_empty_credentials_fallback():
+    """Vérifie que create_provider replie gracieusement sur MockProvider quand aucune clé n'est configurée."""
+    from ankiforge.services.ai.base import MockProvider
+    from ankiforge.services.ai.flexible_service import AIManager
+
+    with patch("ankiforge.services.settings_service.SettingsService.get", return_value=""), patch.dict("os.environ", {}, clear=False):
+        # Clé vide pour OpenAI -> MockProvider au lieu d'exception
+        p_openai = AIManager.create_provider("openai", "gpt-4o", api_key="")
+        assert isinstance(p_openai, MockProvider)
+
+        # Clé vide pour Gemini -> MockProvider au lieu d'exception
+        p_gemini = AIManager.create_provider("gemini", "gemini-2.5-flash", api_key="")
+        assert isinstance(p_gemini, MockProvider)
+
+
+def test_katex_editor_text_under_cursor_multiline(qtbot):
+    """Vérifie que textUnderCursor ne lève pas IndexError sur un document multiligne."""
+    from ankiforge.ui.widgets.katex_editor import KaTeXTextEdit
+
+    editor = KaTeXTextEdit()
+    qtbot.addWidget(editor)
+
+    # Texte sur plusieurs lignes
+    editor.setPlainText("Première ligne très longue de texte\nDeuxième ligne courte\n\\frac")
+
+    # Placer le curseur à la fin du document (sur '\\frac')
+    cursor = editor.textCursor()
+    cursor.movePosition(cursor.MoveOperation.End)
+    editor.setTextCursor(cursor)
+
+    # Doit renvoyer '\\frac' sans IndexError
+    assert editor.textUnderCursor() == "\\frac"

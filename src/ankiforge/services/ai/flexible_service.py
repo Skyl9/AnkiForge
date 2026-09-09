@@ -298,20 +298,34 @@ class AIManager:
             except Exception:
                 pass  # nosec B110
 
-        if p_name == "ollama":
-            return OllamaProvider(model_name=model_id)
-        elif p_name == "gemini":
-            return GeminiService(api_key=key, model_name=model_id)
-        elif p_name == "groq":
-            return GroqProvider(api_key=key, model_name=model_id)
-        elif p_name == "openai":
-            return OpenAICompatibleProvider(
-                base_url="https://api.openai.com/v1",
-                model_name=model_id,
-                api_key=key,
-            )
-        elif p_name == "anthropic":
-            return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget)
+        try:
+            if p_name == "ollama":
+                return OllamaProvider(model_name=model_id)
+            elif p_name == "gemini":
+                if not key:
+                    logger.warning("Clé API Gemini absente pour le modèle %s, repli sur MockProvider.", model_id)
+                    return MockProvider()
+                return GeminiService(api_key=key, model_name=model_id)
+            elif p_name == "groq":
+                if not key and not os.environ.get("GROQ_API_KEY"):
+                    logger.warning("Clé API Groq absente pour le modèle %s, repli sur MockProvider.", model_id)
+                    return MockProvider()
+                return GroqProvider(api_key=key, model_name=model_id)
+            elif p_name == "openai":
+                if not key and not os.environ.get("OPENAI_API_KEY"):
+                    logger.warning("Clé API OpenAI absente pour le modèle %s, repli sur MockProvider.", model_id)
+                    return MockProvider()
+                return OpenAICompatibleProvider(
+                    base_url="https://api.openai.com/v1",
+                    model_name=model_id,
+                    api_key=key,
+                )
+            elif p_name == "anthropic":
+                return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget)
+        except Exception as err:
+            logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)
+            return MockProvider()
+
         return MockProvider()
 
     def reload_provider(self) -> None:

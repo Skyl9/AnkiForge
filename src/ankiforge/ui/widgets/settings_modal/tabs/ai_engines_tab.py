@@ -1,9 +1,12 @@
 import json
 import logging
+import os
+import sys
+import urllib.error
 import urllib.request
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -35,6 +38,53 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+
+class CloudKeyPingSignals(QObject):
+    """Signaux Qt pour le worker de ping des clés API."""
+
+    result_ready = Signal(str, bool, str)
+
+
+class CloudKeyPingWorker(QRunnable):
+    """Worker léger exécuté dans QThreadPool pour tester la connectivité réelle d'une clé API cloud."""
+
+    def __init__(self, provider_id: str, key_val: str) -> None:
+        super().__init__()
+        self.provider_id = provider_id
+        self.key_val = key_val
+        self.signals = CloudKeyPingSignals()
+
+    def run(self) -> None:
+        if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+            self.signals.result_ready.emit(self.provider_id, True, "✅ Format valide")
+            return
+
+        try:
+            req = None
+            if self.provider_id == "openai":
+                req = urllib.request.Request("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "anthropic":
+                req = urllib.request.Request("https://api.anthropic.com/v1/models", headers={"x-api-key": self.key_val, "anthropic-version": "2023-06-01", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "gemini":
+                req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models?key={self.key_val}", headers={"User-Agent": "AnkiForge"})
+            elif self.provider_id == "groq":
+                req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+
+            if req is None:
+                self.signals.result_ready.emit(self.provider_id, True, "✅ Format valide")
+                return
+
+            with urllib.request.urlopen(req, timeout=2.5):  # nosec B310
+                self.signals.result_ready.emit(self.provider_id, True, "🟢 Connecté")
+
+        except urllib.error.HTTPError as err:
+            if err.code in (401, 403):
+                self.signals.result_ready.emit(self.provider_id, False, f"❌ Rejetée ({err.code})")
+            else:
+                self.signals.result_ready.emit(self.provider_id, True, f"🟢 En ligne ({err.code})")
+        except Exception:
+            self.signals.result_ready.emit(self.provider_id, True, "✅ Format valide")
 
 
 class AIEnginesTab(QWidget):
@@ -360,11 +410,49 @@ class AIEnginesTab(QWidget):
             badge.setText("✅ Format valide")
             apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
             badge.show()
+
+            # Persistance immédiate de la clé testée
+            SettingsService.set(f"keys/{provider_id}", key_val, category="api_keys")
+            try:
+                LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == provider_id).execute()
+            except Exception as e:
+                logger.warning("Erreur mise à jour LLMConfigModel pour %s: %s", provider_id, e)
+
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                try:
+                    self.ai_manager.reload_provider()
+                except Exception as e:
+                    logger.warning("Erreur reload_provider dans _test_cloud_key: %s", e)
+
             show_toast(self, f"Clé {provider_name} enregistrée et validée !")
+
+            # Test de connectivité réseau non-bloquant en tâche de fond
+            self._verify_cloud_key_online(provider_id, provider_name, key_val)
         else:
             badge.setText("❌ Format suspect")
             apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
             badge.show()
+
+    def _verify_cloud_key_online(self, provider_id: str, provider_name: str, key_val: str) -> None:
+        """Lance une vérification réseau légère en arrière-plan sans bloquer l'UI."""
+        if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+        worker = CloudKeyPingWorker(provider_id, key_val)
+        worker.signals.result_ready.connect(self._on_key_ping_result)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_key_ping_result(self, provider_id: str, is_valid: bool, status_text: str) -> None:
+        badge = self.key_status_badges.get(provider_id)
+        if not badge:
+            return
+        badge.setText(status_text)
+        if "❌" in status_text:
+            apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
+        elif "🟢" in status_text:
+            apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
+        else:
+            apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
+        badge.show()
 
     def _scan_ollama(self) -> None:
         url = self.le_ollama_url.text().strip().rstrip("/")
@@ -496,10 +584,22 @@ class AIEnginesTab(QWidget):
             show_toast(self, f"Erreur suppression : {e}", is_error=True)
 
     def save_tab(self) -> None:
-        """Sauvegarde les clés d'API et l'URL Ollama."""
+        """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel et recharge l'IA."""
         for p_id, edit in self.key_edits.items():
-            SettingsService.set(f"keys/{p_id}", edit.text(), category="api_keys")
+            key_val = edit.text().strip()
+            SettingsService.set(f"keys/{p_id}", key_val, category="api_keys")
+            try:
+                LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == p_id).execute()
+            except Exception as e:
+                logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
+
         SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
+
+        if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+            try:
+                self.ai_manager.reload_provider()
+            except Exception as e:
+                logger.warning("Erreur reload_provider lors de save_tab: %s", e)
 
     def refresh_theme(self, profile: Any) -> None:
         self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")

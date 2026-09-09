@@ -14,10 +14,12 @@
       "sniffio",
       "urllib",
       "edge_tts",
-      "aiohttp"
+      "aiohttp",
+      "certifi"
     ],
     "include_package_data": [
-      "zoneinfo"
+      "zoneinfo",
+      "certifi"
     ],
     "nofollow_imports": [
       "google",

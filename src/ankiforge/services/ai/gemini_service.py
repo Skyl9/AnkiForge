@@ -7,6 +7,7 @@ from google.genai import types
 
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
+from ankiforge.utils.ssl_certificates import setup_ssl_certificates
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ class GeminiService(LLMProvider):
 
         if not self.api_key:
             raise ValueError("Clé API Gemini manquante. Veuillez la configurer dans les paramètres.")
+
+        # Garantir un environnement de certificats SSL valide avant d'instancier genai.Client
+        setup_ssl_certificates()
 
         # Connexion directe à l'API Google AI Studio
         self.client = genai.Client(api_key=self.api_key)

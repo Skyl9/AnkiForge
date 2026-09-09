@@ -34,7 +34,19 @@ class AnkiSyncTab(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        from PySide6.QtWidgets import QFrame, QScrollArea
+
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setStyleSheet("background: transparent; border: none;")
+
+        self.content_widget = QWidget()
+        layout = QVBoxLayout(self.content_widget)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)
 
@@ -188,6 +200,9 @@ class AnkiSyncTab(QWidget):
 
         layout.addWidget(self.card_dir)
         layout.addStretch()
+
+        self.scroll.setWidget(self.content_widget)
+        root_layout.addWidget(self.scroll)
 
     def _browse_anki_dir(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Choisir le dossier Anki2", self.le_anki_dir.text())

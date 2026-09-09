@@ -43,7 +43,19 @@ class StorageMaintenanceTab(QWidget):
         self.refresh_metrics()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        from PySide6.QtWidgets import QFrame, QScrollArea
+
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setStyleSheet("background: transparent; border: none;")
+
+        self.content_widget = QWidget()
+        layout = QVBoxLayout(self.content_widget)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)
 
@@ -140,6 +152,9 @@ class StorageMaintenanceTab(QWidget):
 
         layout.addWidget(self.card_bku)
         layout.addStretch()
+
+        self.scroll.setWidget(self.content_widget)
+        root_layout.addWidget(self.scroll)
 
     def refresh_metrics(self) -> None:
         """Calcule les vraies valeurs sur le disque et en base SQLite."""

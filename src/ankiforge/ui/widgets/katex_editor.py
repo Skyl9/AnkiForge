@@ -154,11 +154,11 @@ class KaTeXTextEdit(QPlainTextEdit):
     def textUnderCursor(self) -> str:
         tc = self.textCursor()
         tc.select(QTextCursor.SelectionType.WordUnderCursor)
-        pos = tc.position()
+        pos = tc.positionInBlock()
         block_text = tc.block().text()
         start = pos
         # On remonte jusqu'au début du mot ou jusqu'au caractère déclencheur
-        while start > 0 and block_text[start - 1] not in [" ", "\t", "\n"]:
+        while start > 0 and (start - 1) < len(block_text) and block_text[start - 1] not in [" ", "\t", "\n"]:
             start -= 1
         return block_text[start:pos]
 

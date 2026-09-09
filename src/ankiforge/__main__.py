@@ -21,6 +21,11 @@ if sys.platform == "darwin":
     except (OSError, ValueError):
         pass
 
+from ankiforge.utils.ssl_certificates import setup_ssl_certificates
+
+# Initialisation précoce des certificats racines SSL (évite FileNotFoundError sous Nuitka/macOS)
+setup_ssl_certificates()
+
 from dotenv import load_dotenv
 from PySide6.QtCore import QCoreApplication, QTranslator
 

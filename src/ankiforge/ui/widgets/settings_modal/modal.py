@@ -248,7 +248,10 @@ class SettingsModal(QDialog):
                 engine.save_theme_preference(profile_name, selected_theme_id)
                 engine.apply_theme(selected_theme_id)
 
-            show_toast(self, "Tous les paramètres ont été enregistrés avec succès !")
+            from shiboken6 import isValid
+
+            toast_parent = self if isValid(self) else (main_w if main_w and isValid(main_w) else None)
+            show_toast(toast_parent, "Tous les paramètres ont été enregistrés avec succès !")
 
         target_parent = self.general_tab._get_main_window() or self
         show_theme_transition(
