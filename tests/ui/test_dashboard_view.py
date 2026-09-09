@@ -15,6 +15,8 @@ def test_dashboard_view_creation(qtbot):
         assert view is not None
         assert view.hero_banner is not None
         assert view.stat_wozniak is not None
+        assert view.stat_wozniak.val_label.text() == "0%"
+        assert view.stat_coverage.val_label.text() == "0%"
 
 
 def test_dashboard_macro_activity_navigation(qtbot):

@@ -21,9 +21,15 @@ from ankiforge.services.audit.metrics_service import MetricsService
 
 def test_wozniak_health_score_empty_db():
     res = MetricsService.get_wozniak_health_score()
-    assert res["score"] == 100
+    assert res["score"] == 0
     assert res["total_notes"] == 0
     assert res["issues_count"] == 0
+
+
+def test_smart_coverage_rate_empty_db():
+    res = MetricsService.get_smart_coverage_rate()
+    assert res["coverage"] == 0
+    assert res["total_chunks"] == 0
 
 
 def test_wozniak_health_score_with_issues():

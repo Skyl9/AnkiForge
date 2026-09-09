@@ -34,7 +34,7 @@ class MetricsService:
             total_notes = NoteModel.select().count()
             if total_notes == 0:
                 return {
-                    "score": 100,
+                    "score": 0,
                     "compliant_count": 0,
                     "total_notes": 0,
                     "issues_count": 0,
@@ -67,7 +67,7 @@ class MetricsService:
             total_chunks = DocumentChunkModel.select().count()
             if total_chunks == 0:
                 return {
-                    "coverage": 100,
+                    "coverage": 0,
                     "linked_chunks": 0,
                     "total_chunks": 0,
                     "unlinked_chunks": 0,

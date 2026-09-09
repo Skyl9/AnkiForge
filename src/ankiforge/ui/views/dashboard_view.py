@@ -728,8 +728,8 @@ class DashboardView(QWidget):
         stats_grid.setContentsMargins(0, 0, 0, 0)
         stats_grid.setSpacing(8)
 
-        self.stat_wozniak = StatItem("100%", "Santé Wozniak", DesignTokens.COLOR_GREEN, tooltip="Score global de conformité de votre collection aux 20 règles de formulation de Piotr Wozniak")
-        self.stat_coverage = StatItem("100%", "Couverture RAG", DesignTokens.COLOR_BLUE, tooltip="Pourcentage de cours et documents délimités ayant au moins une flashcard associée")
+        self.stat_wozniak = StatItem("0%", "Santé Wozniak", DesignTokens.COLOR_GREEN, tooltip="Score global de conformité de votre collection aux 20 règles de formulation de Piotr Wozniak")
+        self.stat_coverage = StatItem("0%", "Couverture RAG", DesignTokens.COLOR_BLUE, tooltip="Pourcentage de cours et documents délimités ayant au moins une flashcard associée")
         self.stat_cost = StatItem("$ 0.00", "Dépenses IA", DesignTokens.ACCENT_PRIMARY, tooltip="Coût total estimé des requêtes LLM (OpenAI, Anthropic, Gemini, Ollama)")
         self.stat_duplicates = StatItem("0", "Doublons", DesignTokens.COLOR_GREEN, tooltip="Paires de cartes suspectées de redondance sémantique ou lexicale (FAISS / Levenshtein)")
 
