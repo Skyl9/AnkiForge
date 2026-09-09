@@ -45,7 +45,7 @@ def read_pyproject_version() -> str:
         match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
         if match:
             return match.group(1)
-    return "1.0.5"
+    return "1.1.5"
 
 
 def generate_version_file(

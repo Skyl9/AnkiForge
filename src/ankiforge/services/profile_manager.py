@@ -72,7 +72,7 @@ class ProfileManager(metaclass=_ProfileManagerMeta):
         """Retourne la liste des noms de profils existants."""
         if not self.profiles_dir.exists():
             return []
-        return [p.name for p in self.profiles_dir.iterdir() if p.is_dir()]
+        return sorted(p.name for p in self.profiles_dir.iterdir() if p.is_dir())
 
     def create_profile(self, name: str) -> Path:
         """Crée ~/.ankiforge[-dev]/profiles/<name>/ankiforge.db + media/"""

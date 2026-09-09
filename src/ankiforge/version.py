@@ -12,31 +12,22 @@ from __future__ import annotations
 
 import datetime
 import logging
-import os
 import platform
 import subprocess  # nosec: B404
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 # Version par défaut du projet
-DEFAULT_VERSION = "1.0.5"
+DEFAULT_VERSION = "1.1.5"
 
 
 def _is_standalone() -> bool:
     """Détecte si l'application s'exécute en binaire autonome gelé."""
-    if "__compiled__" in globals() or "__compiled__" in sys.modules:
-        return True
-    if getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"):
-        return True
-    if "APPIMAGE" in os.environ:
-        return True
-    exe_path = Path(sys.executable).resolve()
-    if sys.platform == "darwin" and "Contents/MacOS" in str(exe_path):
-        return True
-    return False
+    from ankiforge.utils.environment import is_standalone_runtime
+
+    return is_standalone_runtime()
 
 
 def _get_platform_string() -> str:

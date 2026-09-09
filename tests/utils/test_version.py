@@ -13,8 +13,8 @@ def test_version_info_structure() -> None:
     """Vérifie la cohérence et les propriétés de la dataclass AppVersionInfo."""
     info = get_version_info()
     assert isinstance(info, AppVersionInfo)
-    assert info.version == "1.0.5"
-    assert __version__ == "1.0.5"
+    assert info.version == "1.1.5"
+    assert __version__ == "1.1.5"
     assert len(info.commit_hash) > 0
     assert len(info.platform_str) > 0
     assert info.build_channel in ("stable", "nightly", "dev")

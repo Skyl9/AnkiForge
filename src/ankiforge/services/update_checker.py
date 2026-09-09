@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -17,13 +18,17 @@ from ankiforge.version import VERSION_INFO
 logger = logging.getLogger(__name__)
 
 GITHUB_API_BASE = "https://api.github.com/repos/Skyl9/AnkiForge/releases"
-GITHUB_RELEASES_LIST_URL = f"{GITHUB_API_BASE}?per_page=30"
+GITHUB_RELEASES_LIST_URL = f"{GITHUB_API_BASE}?per_page=100"
 GITHUB_LATEST_URL = f"{GITHUB_API_BASE}/latest"
 GITHUB_NIGHTLY_URL = f"{GITHUB_API_BASE}/tags/nightly"
+GITHUB_TAGS_URL = "https://api.github.com/repos/Skyl9/AnkiForge/tags?per_page=30"
 
 SETTINGS_KEY_LAST_CHECK = "updates/last_check_timestamp"
 SETTINGS_KEY_CACHED_VERSION = "updates/cached_latest_version"
 SETTINGS_KEY_CACHED_CHANNEL = "updates/cached_latest_channel"
+SETTINGS_KEY_CACHED_METADATA = "updates/cached_latest_metadata"
+SETTINGS_KEY_ETAG_STABLE = "updates/etag/stable"
+SETTINGS_KEY_ETAG_NIGHTLY = "updates/etag/nightly"
 SETTINGS_KEY_CHANNEL = "updates/channel"
 CHECK_INTERVAL_SECONDS = 86400  # 24 heures
 
@@ -31,7 +36,7 @@ CHECK_INTERVAL_SECONDS = 86400  # 24 heures
 def parse_semver_tuple(version_str: str) -> tuple[int, int, int] | None:
     """Extrait (majeure, mineure, patch) selon la spécification vx.x.x ou x.x.x."""
     cleaned = version_str.strip().lstrip("vV").strip()
-    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", cleaned)
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:$|[-+])", cleaned)
     if match:
         return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
     return None
@@ -39,18 +44,21 @@ def parse_semver_tuple(version_str: str) -> tuple[int, int, int] | None:
 
 def is_version_strictly_greater(remote: str, current: str) -> bool:
     """Vérifie si la version distante est strictement supérieure à la version locale selon SemVer vx.x.x."""
-    rem_tuple = parse_semver_tuple(remote)
-    cur_tuple = parse_semver_tuple(current)
-    if rem_tuple is not None and cur_tuple is not None:
-        return rem_tuple > cur_tuple
-
-    # Repli sur packaging.version pour les formats avec suffixe (ex: alpha/beta/rc)
     try:
         r = remote.strip().lstrip("vV").strip()
         c = current.strip().lstrip("vV").strip()
-        return version.parse(r) > version.parse(c)
-    except Exception:
+        return version.Version(r) > version.Version(c)
+    except version.InvalidVersion:
         return False
+
+
+def _parse_stable_version(raw_tag: str) -> version.Version | None:
+    """Parse une version stable et rejette explicitement les pré-releases."""
+    try:
+        parsed = version.Version(raw_tag.strip().lstrip("vV"))
+    except version.InvalidVersion:
+        return None
+    return None if parsed.is_prerelease else parsed
 
 
 @dataclass
@@ -83,11 +91,24 @@ def get_cached_update_info() -> UpdateInfo | None:
     cached_version = str(settings.value(SETTINGS_KEY_CACHED_VERSION, "")).strip().lstrip("vV")
     current_version = VERSION_INFO.version.strip().lstrip("vV")
 
-    if not cached_version or not is_version_strictly_greater(cached_version, current_version):
-        return None
-
     cached_channel = str(settings.value(SETTINGS_KEY_CACHED_CHANNEL, "stable"))
-    html_url = f"https://github.com/Skyl9/AnkiForge/releases/tag/v{cached_version}"
+    metadata_raw = str(settings.value(SETTINGS_KEY_CACHED_METADATA, ""))
+    try:
+        metadata = json.loads(metadata_raw) if metadata_raw else {}
+    except json.JSONDecodeError:
+        metadata = {}
+    if cached_channel == "nightly":
+        published_at = str(metadata.get("published_at", ""))
+        if not published_at or not VERSION_INFO.build_date:
+            return None
+        try:
+            if datetime.datetime.fromisoformat(published_at.replace("Z", "+00:00")) <= datetime.datetime.fromisoformat(VERSION_INFO.build_date.replace("Z", "+00:00")):
+                return None
+        except ValueError:
+            return None
+    elif not cached_version or not is_version_strictly_greater(cached_version, current_version):
+        return None
+    html_url = str(metadata.get("html_url", f"https://github.com/Skyl9/AnkiForge/releases/tag/v{cached_version}"))
 
     logger.debug(
         "Cache de mise à jour restauré : v%s [%s] (Actuelle : v%s)",
@@ -97,13 +118,13 @@ def get_cached_update_info() -> UpdateInfo | None:
     )
     return UpdateInfo(
         version=cached_version,
-        title=f"AnkiForge v{cached_version}",
-        release_notes=("_Cliquez sur '📥 Télécharger et Installer' pour récupérer les notes de version complètes._\n\nUne nouvelle version d'AnkiForge est disponible."),
+        title=str(metadata.get("title", f"AnkiForge v{cached_version}")),
+        release_notes=str(metadata.get("release_notes", "Une nouvelle version d'AnkiForge est disponible.")),
         html_url=html_url,
-        published_at="",
+        published_at=str(metadata.get("published_at", "")),
         channel=cached_channel,
-        is_prerelease=cached_channel == "nightly",
-        assets=[],  # Vides — remplacés par les assets réels lors du check HTTP (2s après démarrage)
+        is_prerelease=bool(metadata.get("is_prerelease", cached_channel == "nightly")),
+        assets=list(metadata.get("assets", [])),
     )
 
 
@@ -167,46 +188,63 @@ class UpdateCheckerWorker(QRunnable):
                 self._check_nightly_update(headers, active_channel, settings)
             else:
                 self._check_stable_update(headers, active_channel, settings)
+        except requests.RequestException as err:
+            logger.warning("Vérification de mise à jour indisponible hors ligne : %s", err)
+            self.signals.no_update.emit(self.current_version)
         except Exception as err:
             logger.debug("Erreur lors de la vérification de mise à jour : %s", err)
             self.signals.check_failed.emit(str(err))
 
     def _check_stable_update(self, headers: dict[str, str], active_channel: str, settings: Any) -> None:
         """Interroge la liste des releases pour identifier la version maximale selon SemVer vx.x.x."""
-        logger.info("Interrogation des releases stables AnkiForge : %s", GITHUB_RELEASES_LIST_URL)
-        resp = requests.get(GITHUB_RELEASES_LIST_URL, headers=headers, timeout=10.0)
+        logger.info("Interrogation de la release stable courante AnkiForge : %s", GITHUB_LATEST_URL)
+        etag = "" if self.force else str(settings.value(SETTINGS_KEY_ETAG_STABLE, "")).strip()
+        if etag:
+            headers = {**headers, "If-None-Match": etag}
+        resp = requests.get(GITHUB_LATEST_URL, headers=headers, timeout=10.0)
 
-        if resp.status_code == 403:
-            logger.warning("Échec de vérification : Quota d'API GitHub dépassé (HTTP 403).")
-            self.signals.check_failed.emit("Limite de requêtes GitHub atteinte (HTTP 403). Veuillez réessayer plus tard.")
+        if resp.status_code == 304:
+            self._emit_cached_result(settings)
+            return
+
+        if resp.status_code in (403, 429):
+            logger.warning("API Releases limitée (HTTP %s), repli sur les tags publics.", resp.status_code)
+            self._check_stable_tags(headers, active_channel, settings)
             return
 
         if resp.status_code != 200:
             logger.warning("Échec de vérification des mises à jour : HTTP %s", resp.status_code)
-            self.signals.check_failed.emit(f"HTTP {resp.status_code}")
+            self._check_stable_tags(headers, active_channel, settings)
             return
+
+        response_etag = resp.headers.get("ETag")
+        if isinstance(response_etag, str) and response_etag:
+            settings.setValue(SETTINGS_KEY_ETAG_STABLE, response_etag)
 
         data = resp.json()
 
-        # Validation stricte : l'endpoint /releases?per_page=N retourne TOUJOURS une liste JSON.
-        # Si l'API retourne un objet (ex: {"message": "Not Found"}), c'est une erreur d'API
-        # à signaler explicitement plutôt que de l'absorber silencieusement.
-        if not isinstance(data, list):
+        # /latest retourne un objet. Une liste reste acceptée pour compatibilité
+        # avec les miroirs/API historiques et les intégrations existantes.
+        if isinstance(data, dict) and data.get("tag_name"):
+            releases_list = [data]
+        elif isinstance(data, list):
+            releases_list = data
+        else:
             api_msg = str(data.get("message", "Réponse d'API GitHub inattendue (objet JSON non-liste).")) if isinstance(data, dict) else "Réponse d'API GitHub invalide."
             logger.warning("Réponse GitHub inattendue (non-liste) : %s", api_msg)
-            self.signals.check_failed.emit(f"Erreur API GitHub : {api_msg}")
+            logger.warning("Réponse Releases inexploitable, repli sur les tags : %s", api_msg)
+            self._check_stable_tags(headers, active_channel, settings)
             return
-        releases_list: list[dict[str, Any]] = data
 
-        candidates: list[tuple[tuple[int, int, int], str, dict[str, Any]]] = []
+        candidates: list[tuple[version.Version, str, dict[str, Any]]] = []
         for r in releases_list:
             if r.get("draft") or r.get("prerelease"):
                 continue
             raw_tag = str(r.get("tag_name", ""))
             clean_tag = raw_tag.strip().lstrip("vV").strip()
-            parsed_tuple = parse_semver_tuple(clean_tag)
-            if parsed_tuple is not None:
-                candidates.append((parsed_tuple, clean_tag, r))
+            parsed_version = _parse_stable_version(clean_tag)
+            if parsed_version is not None:
+                candidates.append((parsed_version, clean_tag, r))
 
         # Enregistrement du timestamp de vérification
         now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
@@ -222,6 +260,7 @@ class UpdateCheckerWorker(QRunnable):
         _, highest_tag, highest_release = candidates[0]
         settings.setValue(SETTINGS_KEY_CACHED_VERSION, highest_tag)
         settings.setValue(SETTINGS_KEY_CACHED_CHANNEL, active_channel)
+        self._cache_metadata(settings, highest_release, active_channel)
 
         if is_version_strictly_greater(highest_tag, self.current_version):
             logger.info("Nouvelle version disponible : v%s [%s] (Actuelle : v%s)", highest_tag, active_channel, self.current_version)
@@ -240,15 +279,100 @@ class UpdateCheckerWorker(QRunnable):
             logger.debug("Application à jour (Actuelle : v%s, Distante : v%s)", self.current_version, highest_tag)
             self.signals.no_update.emit(self.current_version)
 
+    def _cache_metadata(self, settings: Any, release: dict[str, Any], channel: str) -> None:
+        """Conserve les métadonnées utiles au dialogue affiché depuis le cache."""
+        metadata = {
+            "title": str(release.get("name", "")),
+            "release_notes": str(release.get("body", "Une nouvelle version d'AnkiForge est disponible.")),
+            "html_url": str(release.get("html_url", GITHUB_LATEST_URL)),
+            "published_at": str(release.get("published_at", "")),
+            "is_prerelease": bool(release.get("prerelease", channel == "nightly")),
+            "assets": release.get("assets", []),
+        }
+        settings.setValue(SETTINGS_KEY_CACHED_METADATA, json.dumps(metadata))
+
+    def _emit_cached_result(self, settings: Any) -> None:
+        """Traite une réponse HTTP 304 à partir des métadonnées locales."""
+        cached_version = str(settings.value(SETTINGS_KEY_CACHED_VERSION, "")).strip().lstrip("vV")
+        metadata_raw = str(settings.value(SETTINGS_KEY_CACHED_METADATA, ""))
+        try:
+            metadata = json.loads(metadata_raw) if metadata_raw else {}
+        except json.JSONDecodeError:
+            metadata = {}
+        if cached_version and is_version_strictly_greater(cached_version, self.current_version):
+            self.signals.update_available.emit(
+                UpdateInfo(
+                    version=cached_version,
+                    title=str(metadata.get("title", f"AnkiForge v{cached_version}")),
+                    release_notes=str(metadata.get("release_notes", "Une nouvelle version d'AnkiForge est disponible.")),
+                    html_url=str(metadata.get("html_url", GITHUB_LATEST_URL)),
+                    published_at=str(metadata.get("published_at", "")),
+                    channel="stable",
+                    is_prerelease=bool(metadata.get("is_prerelease", False)),
+                    assets=list(metadata.get("assets", [])),
+                )
+            )
+        else:
+            self.signals.no_update.emit(self.current_version)
+
+    def _check_stable_tags(self, headers: dict[str, str], active_channel: str, settings: Any) -> None:
+        """Utilise les tags publics, non soumis à l'endpoint Releases, en secours."""
+        resp = requests.get(GITHUB_TAGS_URL, headers=headers, timeout=10.0)
+        if resp.status_code != 200:
+            logger.warning("Fallback tags indisponible : HTTP %s", resp.status_code)
+            self.signals.no_update.emit(self.current_version)
+            return
+        data = resp.json()
+        if not isinstance(data, list):
+            self.signals.no_update.emit(self.current_version)
+            return
+        candidates: list[tuple[version.Version, str]] = []
+        for tag in data:
+            raw_tag = str(tag.get("name", "")) if isinstance(tag, dict) else ""
+            parsed = _parse_stable_version(raw_tag)
+            if parsed is not None:
+                candidates.append((parsed, raw_tag.strip().lstrip("vV")))
+        now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+        settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts)
+        if not candidates:
+            self.signals.no_update.emit(self.current_version)
+            return
+        _, highest_tag = max(candidates, key=lambda item: item[0])
+        settings.setValue(SETTINGS_KEY_CACHED_VERSION, highest_tag)
+        settings.setValue(SETTINGS_KEY_CACHED_CHANNEL, active_channel)
+        info = UpdateInfo(
+            version=highest_tag,
+            title=f"AnkiForge v{highest_tag}",
+            release_notes="Une nouvelle version d'AnkiForge est disponible. Consultez GitHub pour les notes et les téléchargements.",
+            html_url=f"https://github.com/Skyl9/AnkiForge/releases/tag/v{highest_tag}",
+            published_at="",
+            channel=active_channel,
+            assets=[],
+        )
+        self._cache_metadata(settings, {"name": info.title, "body": info.release_notes, "html_url": info.html_url}, active_channel)
+        if is_version_strictly_greater(highest_tag, self.current_version):
+            self.signals.update_available.emit(info)
+        else:
+            self.signals.no_update.emit(self.current_version)
+
     def _check_nightly_update(self, headers: dict[str, str], active_channel: str, settings: Any) -> None:
         """Interroge l'endpoint Nightly."""
         logger.info("Interrogation des mises à jour Nightly : %s", GITHUB_NIGHTLY_URL)
+        etag = "" if self.force else str(settings.value(SETTINGS_KEY_ETAG_NIGHTLY, "")).strip()
+        if etag:
+            headers = {**headers, "If-None-Match": etag}
         resp = requests.get(GITHUB_NIGHTLY_URL, headers=headers, timeout=10.0)
 
+        if resp.status_code == 304:
+            self.signals.no_update.emit(self.current_version)
+            return
         if resp.status_code != 200:
             logger.warning("Échec de vérification Nightly : HTTP %s", resp.status_code)
             self.signals.check_failed.emit(f"HTTP {resp.status_code}")
             return
+        response_etag = resp.headers.get("ETag")
+        if isinstance(response_etag, str) and response_etag:
+            settings.setValue(SETTINGS_KEY_ETAG_NIGHTLY, response_etag)
 
         data: dict[str, Any] = resp.json()
         raw_tag = str(data.get("tag_name", "nightly"))
@@ -259,6 +383,7 @@ class UpdateCheckerWorker(QRunnable):
         settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts)
         settings.setValue(SETTINGS_KEY_CACHED_VERSION, remote_tag)
         settings.setValue(SETTINGS_KEY_CACHED_CHANNEL, "nightly")
+        self._cache_metadata(settings, data, "nightly")
 
         is_available = False
         if published_at and VERSION_INFO.build_date:

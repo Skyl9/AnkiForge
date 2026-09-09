@@ -191,16 +191,12 @@ class MainWindow(QMainWindow):
             self._on_update_available(cached_info)
 
     def _check_for_updates(self) -> None:
-        """Lance la vérification HTTP de mise à jour à chaque démarrage (force=True).
-
-        force=True bypasse le cache de 24h — la vérification HTTP s'effectue systématiquement
-        à chaque lancement pour actualiser le cache et récupérer les assets de téléchargement.
-        """
+        """Lance une vérification respectant le cache de 24h au démarrage."""
         from PySide6.QtCore import QThreadPool
 
         from ankiforge.services.update_checker import UpdateCheckerWorker
 
-        worker = UpdateCheckerWorker(force=True)
+        worker = UpdateCheckerWorker(force=False)
         worker.signals.update_available.connect(self._on_update_available)
         QThreadPool.globalInstance().start(worker)
 

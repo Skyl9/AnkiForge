@@ -25,6 +25,14 @@ def test_create_and_list_profile(mock_profiles_dir):
     assert (mock_profiles_dir / "test_prof" / "media").exists()
 
 
+def test_list_profiles_is_stable_and_sorted(mock_profiles_dir):
+    pm = ProfileManager()
+    pm.create_profile("zeta")
+    pm.create_profile("alpha")
+
+    assert pm.list_profiles() == ["alpha", "zeta"]
+
+
 def test_delete_profile(mock_profiles_dir):
     pm = ProfileManager()
     pm.create_profile("to_delete")
@@ -45,13 +53,22 @@ def test_profile_selector_dialog_init(qtbot, mock_profiles_dir):
     assert not dialog.delete_btn.isEnabled()
 
 
+def test_profile_selector_dialog_normalizes_current_profile(qtbot):
+    dialog = ProfileSelectorDialog(["zeta", "alpha", "alpha"], current_profile="missing")
+    qtbot.addWidget(dialog)
+
+    assert dialog.profiles == ["alpha", "zeta"]
+    assert dialog.get_selected_profile() == "alpha"
+    assert dialog.list_widget.currentRow() == 0
+
+
 def test_profile_selector_dialog_filter(qtbot, mock_profiles_dir):
     dialog = ProfileSelectorDialog(["medecine", "droit", "histoire"], current_profile="medecine")
     qtbot.addWidget(dialog)
 
     dialog.search_input.setText("droit")
-    assert not dialog.list_widget.item(1).isHidden()
-    assert dialog.list_widget.item(0).isHidden()
+    assert not dialog.list_widget.item(0).isHidden()
+    assert dialog.list_widget.item(1).isHidden()
     assert dialog.list_widget.item(2).isHidden()
 
 

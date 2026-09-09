@@ -36,6 +36,18 @@ class AppEnvironment(enum.StrEnum):
 _current_env: AppEnvironment | None = None
 
 
+def is_standalone_runtime() -> bool:
+    """Détecte un exécutable compilé ou un bundle distribué."""
+    if "__compiled__" in globals() or "__compiled__" in sys.modules:
+        return True
+    if getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"):
+        return True
+    if "APPIMAGE" in os.environ:
+        return True
+    executable = Path(sys.executable).resolve()
+    return sys.platform == "darwin" and "Contents/MacOS" in str(executable)
+
+
 def set_environment(env: AppEnvironment | str) -> None:
     """Force l'environnement d'exécution actif."""
     global _current_env
@@ -99,16 +111,7 @@ def get_current_environment() -> AppEnvironment:
         return _current_env
 
     # 4. Exécutable binaire compilé ou bundle gelé -> Production
-    if getattr(sys, "frozen", False) or "__compiled__" in globals() or "__compiled__" in sys.modules:
-        _current_env = AppEnvironment.PRODUCTION
-        return _current_env
-
-    if "APPIMAGE" in os.environ:
-        _current_env = AppEnvironment.PRODUCTION
-        return _current_env
-
-    exe_path = Path(sys.executable).resolve()
-    if sys.platform == "darwin" and "Contents/MacOS" in str(exe_path):
+    if is_standalone_runtime():
         _current_env = AppEnvironment.PRODUCTION
         return _current_env
 

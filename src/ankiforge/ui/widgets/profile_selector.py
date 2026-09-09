@@ -155,9 +155,9 @@ class ProfileSelectorDialog(QDialog):
         """)
 
         self.pm = ProfileManager()
-        self.current_profile = current_profile
-        self.profiles: list[str] = profiles if profiles else [current_profile or "default"]
-        self.selected_profile: str = current_profile or (self.profiles[0] if self.profiles else "default")
+        self.profiles: list[str] = sorted(set(profiles)) if profiles else [current_profile or "default"]
+        self.current_profile = current_profile if current_profile in self.profiles else self.profiles[0]
+        self.selected_profile: str = self.current_profile
         self._card_widgets: list[ProfileItemWidget] = []
 
         self._setup_ui()

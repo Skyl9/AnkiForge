@@ -7,8 +7,11 @@ import pytest
 from PySide6.QtCore import QSettings
 
 from ankiforge.services.update_checker import (
+    SETTINGS_KEY_CACHED_METADATA,
     SETTINGS_KEY_CACHED_VERSION,
     SETTINGS_KEY_CHANNEL,
+    SETTINGS_KEY_ETAG_NIGHTLY,
+    SETTINGS_KEY_ETAG_STABLE,
     SETTINGS_KEY_LAST_CHECK,
     UpdateCheckerWorker,
     UpdateInfo,
@@ -22,10 +25,16 @@ def clean_settings() -> Any:
     settings.remove(SETTINGS_KEY_LAST_CHECK)
     settings.remove(SETTINGS_KEY_CACHED_VERSION)
     settings.remove(SETTINGS_KEY_CHANNEL)
+    settings.remove(SETTINGS_KEY_CACHED_METADATA)
+    settings.remove(SETTINGS_KEY_ETAG_STABLE)
+    settings.remove(SETTINGS_KEY_ETAG_NIGHTLY)
     yield
     settings.remove(SETTINGS_KEY_LAST_CHECK)
     settings.remove(SETTINGS_KEY_CACHED_VERSION)
     settings.remove(SETTINGS_KEY_CHANNEL)
+    settings.remove(SETTINGS_KEY_CACHED_METADATA)
+    settings.remove(SETTINGS_KEY_ETAG_STABLE)
+    settings.remove(SETTINGS_KEY_ETAG_NIGHTLY)
 
 
 def test_update_checker_detects_newer_version() -> None:
@@ -93,9 +102,59 @@ def test_update_checker_no_update_when_same_or_older_version() -> None:
     assert no_update_called is True
 
 
-def test_update_checker_api_returns_non_list_emits_check_failed() -> None:
-    """BUG 1 : Vérifie que si l'API GitHub retourne un objet JSON (erreur) au lieu d'une liste,
-    check_failed est émis plutôt qu'une absence silencieuse de mise à jour."""
+def test_update_checker_ignores_release_older_than_current_1_1_5() -> None:
+    """Une release v1.1.0 ne doit pas être proposée depuis une application v1.1.5."""
+    worker = UpdateCheckerWorker(current_version="1.1.5", channel="stable", force=True)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = [
+        {
+            "tag_name": "v1.1.0",
+            "name": "AnkiForge 1.1.0",
+            "prerelease": False,
+            "draft": False,
+        }
+    ]
+
+    received_updates: list[UpdateInfo] = []
+    no_update_called: list[bool] = []
+    worker.signals.update_available.connect(lambda info: received_updates.append(info))
+    worker.signals.no_update.connect(lambda _: no_update_called.append(True))
+
+    with patch("requests.get", return_value=fake_response):
+        worker.run()
+
+    assert received_updates == []
+    assert no_update_called == [True]
+
+
+def test_update_checker_uses_latest_stable_release() -> None:
+    """La release stable proposée doit provenir de la version GitHub la plus récente."""
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=True)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = {
+        "tag_name": "v1.1.5",
+        "name": "AnkiForge 1.1.5",
+        "body": "Correctifs de production",
+        "prerelease": False,
+        "draft": False,
+    }
+
+    received_updates: list[UpdateInfo] = []
+    worker.signals.update_available.connect(lambda info: received_updates.append(info))
+
+    with patch("requests.get", return_value=fake_response) as mock_get:
+        worker.run()
+
+    assert mock_get.call_args.args[0].endswith("/releases/latest")
+    assert [info.version for info in received_updates] == ["1.1.5"]
+
+
+def test_update_checker_api_returns_non_list_uses_tags_fallback() -> None:
+    """Vérifie qu'une réponse Releases invalide déclenche le fallback public des tags."""
     worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=True)
 
     fake_response = MagicMock()
@@ -103,17 +162,13 @@ def test_update_checker_api_returns_non_list_emits_check_failed() -> None:
     # L'API GitHub peut retourner un objet JSON d'erreur avec un HTTP 200 dans certains cas limites
     fake_response.json.return_value = {"message": "API rate limit exceeded for ..."}
 
-    failed_messages: list[str] = []
     no_update_called: list[bool] = []
-    worker.signals.check_failed.connect(lambda msg: failed_messages.append(msg))
     worker.signals.no_update.connect(lambda _: no_update_called.append(True))
 
     with patch("requests.get", return_value=fake_response):
         worker.run()
 
-    assert len(failed_messages) == 1, "check_failed doit être émis pour une réponse non-liste"
-    assert "API rate limit exceeded" in failed_messages[0]
-    assert len(no_update_called) == 0, "no_update ne doit pas être émis pour une erreur d'API"
+    assert len(no_update_called) == 1
 
 
 def test_update_checker_nightly_channel() -> None:
@@ -267,21 +322,21 @@ def test_update_checker_selects_highest_semver_from_releases_list() -> None:
     assert received_updates[0].title == "AnkiForge 1.1.0 (Version supérieure)"
 
 
-def test_update_checker_handles_rate_limit_403() -> None:
-    """Vérifie le message d'erreur clair en cas de quota d'API GitHub dépassé (HTTP 403)."""
+def test_update_checker_handles_rate_limit_403_with_tags_fallback() -> None:
+    """Vérifie le fallback tags lorsqu'un quota d'API GitHub est dépassé."""
     worker = UpdateCheckerWorker(current_version="v1.0.5", channel="stable", force=True)
 
-    fake_response = MagicMock()
-    fake_response.status_code = 403
+    rate_limited = MagicMock(status_code=403)
+    tags_response = MagicMock(status_code=200)
+    tags_response.json.return_value = [{"name": "v1.1.0"}]
+    received_updates: list[UpdateInfo] = []
+    worker.signals.update_available.connect(lambda info: received_updates.append(info))
 
-    failed_messages: list[str] = []
-    worker.signals.check_failed.connect(lambda msg: failed_messages.append(msg))
-
-    with patch("requests.get", return_value=fake_response):
+    with patch("requests.get", side_effect=[rate_limited, tags_response]):
         worker.run()
 
-    assert len(failed_messages) == 1
-    assert "HTTP 403" in failed_messages[0]
+    assert len(received_updates) == 1
+    assert received_updates[0].version == "1.1.0"
 
 
 # ── Tests get_cached_update_info ───────────────────────────────────────────────

@@ -84,20 +84,9 @@ def is_standalone_app() -> bool:
     if is_development():
         return False
 
-    if "__compiled__" in globals() or "__compiled__" in sys.modules:
-        return True
+    from ankiforge.utils.environment import is_standalone_runtime
 
-    if getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"):
-        return True
-
-    if "APPIMAGE" in os.environ:
-        return True
-
-    exe_path = Path(sys.executable).resolve()
-    if sys.platform == "darwin" and "Contents/MacOS" in str(exe_path):
-        return True
-
-    return False
+    return is_standalone_runtime()
 
 
 def get_updates_storage_dir() -> Path:
@@ -155,7 +144,7 @@ def find_asset_for_current_platform(assets: list[dict[str, Any]]) -> dict[str, A
             name = str(asset.get("name", "")).lower()
             if kw.lower() in name:
                 return asset
-    return assets[0] if assets else None
+    return None
 
 
 class DownloaderSignals(QObject):
