@@ -273,12 +273,16 @@ jobs:
           QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
           ANKIFORGE_MOCK_WEBENGINE: "1"
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render -noreset" uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term --cov-fail-under=70
+          # Qt/WebEngine et coverage ne sont pas sûrs avec plusieurs workers
+          # xdist : les tests restent parallèles hors coverage, mais la collecte
+          # de couverture doit être sérielle pour éviter les crashes natifs.
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render -noreset" uv run pytest -n 0 --cov=ankiforge --cov-report=xml --cov-report=term --cov-fail-under=70
 
       - name: Run Tests with Coverage (macOS & Windows)
         if: runner.os != 'Linux'
         run: |
-          uv run pytest -n auto --cov=ankiforge --cov-report=xml --cov-report=term
+          # Même contrainte Qt/WebEngine que sous Linux : coverage sériel.
+          uv run pytest -n 0 --cov=ankiforge --cov-report=xml --cov-report=term
 
       - name: Generate GitHub Step Summary Report
         if: matrix.os == 'ubuntu-latest' && always()

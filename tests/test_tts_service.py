@@ -137,6 +137,7 @@ def test_piper_executable_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyP
     from ankiforge.services.cards.tts_service import PiperSidecarProvider
 
     monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
 
     # Avant installation
     assert PiperSidecarProvider.get_piper_executable() is None

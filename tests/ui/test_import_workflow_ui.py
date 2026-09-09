@@ -16,7 +16,8 @@ def _create_simple_apkg(file_path: Path) -> None:
     db_file = file_path.parent / "temp.db"
     conn = sqlite3.connect(str(db_file))
     conn.execute("CREATE TABLE col (id integer, models text, decks text)")
-    conn.execute('INSERT INTO col VALUES (1, \'{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}]}}\', \'{"1": {"id": 1, "name": "Default"}}\')')
+    models_json = '{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}], "tmpls": [{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]}}'
+    conn.execute("INSERT INTO col VALUES (?, ?, ?)", (1, models_json, '{"1": {"id": 1, "name": "Default"}}'))
     conn.execute("CREATE TABLE notes (id integer primary key, guid text, mid integer, tags text, flds text)")
     conn.execute("INSERT INTO notes VALUES (1, 'guid_ui_1', 1, '', 'Q_UI\x1fA_UI')")
     conn.execute("CREATE TABLE cards (id integer primary key, nid integer, did integer, ord integer)")

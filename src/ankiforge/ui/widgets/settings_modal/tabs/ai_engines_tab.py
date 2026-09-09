@@ -96,6 +96,9 @@ class AIEnginesTab(QWidget):
         self.lbl_provider_labels: list[QLabel] = []
         self.vision_cards: list[SettingsCard] = []
         self._setup_ui()
+        # Les catégories sont locales et nécessaires immédiatement pour que
+        # l'onglet expose un état complet avant le premier tour de boucle Qt.
+        self._render_vision_categories()
         QTimer.singleShot(0, self.refresh_data)
 
     def _setup_ui(self) -> None:
