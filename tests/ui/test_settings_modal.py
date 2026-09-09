@@ -9,7 +9,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QLineEdit, QMessageBox
 
 from ankiforge.database.models import (
     CardModel,
@@ -106,6 +106,40 @@ def test_password_line_edit_toggle(qtbot):
     # Clic toggle -> masqué
     pwd_edit.btn_toggle.click()
     assert pwd_edit.edit.echoMode() == QLineEdit.EchoMode.Password
+
+
+def test_password_line_edit_replaces_previous_value_cleanly(qtbot):
+    """Le remplacement d'une clé ne doit pas laisser de rendu résiduel dans le champ."""
+    pwd_edit = PasswordLineEdit(initial_text="ancienne_cle")
+    qtbot.addWidget(pwd_edit)
+
+    pwd_edit.setText("nouvelle_cle")
+
+    assert pwd_edit.text() == "nouvelle_cle"
+    assert pwd_edit.edit.cursorPosition() == len("nouvelle_cle")
+
+
+def test_ai_catalogue_inline_editor_has_opaque_background(qtbot):
+    """L'éditeur inline du catalogue masque le texte de la cellule sous-jacente."""
+    tab = AIEnginesTab()
+    qtbot.addWidget(tab)
+    assert tab.table_engines.verticalHeader().defaultSectionSize() == 34
+    assert "height: 28px" in tab.table_engines.styleSheet()
+
+    tab.table_engines.setRowCount(1)
+    item = tab.table_engines.item(0, 0)
+    if item is None:
+        from PySide6.QtWidgets import QTableWidgetItem
+
+        item = QTableWidgetItem("Ancien modèle")
+        tab.table_engines.setItem(0, 0, item)
+
+    tab.table_engines.editItem(item)
+    qtbot.wait(20)
+    editor = tab.table_engines.findChild(QLineEdit)
+
+    assert editor is not None
+    assert "QTableWidget QLineEdit" in tab.table_engines.styleSheet()
 
 
 def test_ai_engines_tab_key_validation_and_crud(qtbot):

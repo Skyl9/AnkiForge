@@ -213,6 +213,7 @@ class AIEnginesTab(QWidget):
         self.table_engines.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.verticalHeader().setDefaultSectionSize(34)
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
         self.table_engines.setMinimumHeight(140)
         layout.addWidget(self.table_engines)

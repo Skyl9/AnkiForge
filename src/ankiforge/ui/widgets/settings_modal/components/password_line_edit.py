@@ -29,6 +29,7 @@ class PasswordLineEdit(QWidget):
         layout.addWidget(self.btn_toggle)
 
     def _toggle_visibility(self) -> None:
+        cursor_position = self.edit.cursorPosition()
         self._is_visible = not self._is_visible
         if self._is_visible:
             self.edit.setEchoMode(StyledLineEdit.EchoMode.Normal)
@@ -36,12 +37,18 @@ class PasswordLineEdit(QWidget):
         else:
             self.edit.setEchoMode(StyledLineEdit.EchoMode.Password)
             self.btn_toggle.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_MUTED))
+        self.edit.setCursorPosition(min(cursor_position, len(self.edit.text())))
+        self.edit.update()
+        self.edit.repaint()
 
     def text(self) -> str:
         return self.edit.text().strip()
 
     def setText(self, text: str) -> None:
+        self.edit.clear()
         self.edit.setText(text)
+        self.edit.setCursorPosition(len(text))
+        self.edit.update()
 
     def refresh_theme(self, profile: Any) -> None:
         icon_name = "ph.eye-slash" if self._is_visible else "ph.eye"

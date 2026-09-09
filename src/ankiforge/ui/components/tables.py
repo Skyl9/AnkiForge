@@ -162,6 +162,19 @@ class StyledTableWidget(QTableWidget):
             QTableWidget::item:hover {{
                 background-color: {bg_hover};
             }}
+            QTableWidget QLineEdit {{
+                background-color: {bg_panel};
+                color: {text_primary};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+                height: 28px;
+                padding: 2px 8px;
+            }}
+            QTableWidget QLineEdit:focus {{
+                background-color: {bg_panel};
+                color: {text_primary};
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
         """)
 
     def refresh_theme(self, profile: Any) -> None:
