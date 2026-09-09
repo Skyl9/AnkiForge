@@ -178,9 +178,12 @@ class TopBar(QWidget):
         content_layout.addWidget(self.export_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Notifications (28px)
-        self.notif_btn = IconButton("bell", tooltip="Notifications", size=28)
+        self.notif_container = QWidget()
+        self.notif_container.setFixedSize(34, 34)
+        self.notif_btn = IconButton("bell", tooltip="Notifications", size=28, parent=self.notif_container)
         self.notif_btn.clicked.connect(self.notif_clicked.emit)
-        content_layout.addWidget(self.notif_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.notif_btn.move(0, 3)
+        content_layout.addWidget(self.notif_container, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Badge compteur de notifications (invisible par défaut)
         self.notif_badge = QLabel("0")
@@ -188,8 +191,8 @@ class TopBar(QWidget):
         self.notif_badge.setFixedSize(18, 18)
         self.notif_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.notif_badge.setVisible(False)
-        self.notif_badge.setParent(self.notif_btn)
-        self.notif_badge.move(14, -3)
+        self.notif_badge.setParent(self.notif_container)
+        self.notif_badge.move(15, 0)
 
         root_layout.addWidget(self.content_container, 1)
 

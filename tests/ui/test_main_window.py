@@ -4,6 +4,7 @@ import pytest
 from PySide6.QtWidgets import QLabel
 
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.ui.components.topbar import TopBar
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.views.batch_view import BatchView
 from ankiforge.ui.views.edition_view import EditionView
@@ -19,6 +20,20 @@ def test_main_window_creation(qtbot, mock_db):
         assert window.topbar is not None
         assert hasattr(window.topbar, "breadcrumb_lbl")
         assert window.topbar.breadcrumb_lbl.text() == "Tableau de bord"
+
+
+def test_topbar_notification_badge_is_not_clipped(qtbot):
+    """La pastille de notification est contenue dans un wrapper plus large."""
+    topbar = TopBar()
+    qtbot.addWidget(topbar)
+
+    topbar.update_notif_badge(4)
+
+    assert topbar.notif_container.size().width() == 34
+    assert topbar.notif_container.size().height() == 34
+    assert topbar.notif_badge.parentWidget() is topbar.notif_container
+    assert topbar.notif_badge.geometry().right() < topbar.notif_container.width()
+    assert topbar.notif_badge.geometry().top() >= 0
 
 
 @pytest.mark.slow
