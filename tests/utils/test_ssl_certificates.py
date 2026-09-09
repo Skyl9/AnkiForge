@@ -37,7 +37,10 @@ def test_find_valid_ca_bundle_fallback_when_none(tmp_path):
 
 def test_setup_ssl_certificates_no_crash_on_empty():
     """Vérifie que setup_ssl_certificates ne plante pas même si aucun bundle n'est localisé."""
-    with patch("ankiforge.utils.ssl_certificates.find_valid_ca_bundle", return_value=None), patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("SSL_CERT_FILE", None)
+    with (
+        patch("ankiforge.utils.ssl_certificates.find_valid_ca_bundle", return_value=None),
+        patch.dict(os.environ, {"SSL_CERT_FILE": "/missing/cacert.pem"}, clear=False),
+    ):
         res = setup_ssl_certificates()
         assert res is None
+        assert "SSL_CERT_FILE" not in os.environ

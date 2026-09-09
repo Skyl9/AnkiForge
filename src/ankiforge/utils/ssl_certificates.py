@@ -92,6 +92,12 @@ def setup_ssl_certificates() -> str | None:
         logger.debug("Certificats SSL initialisés avec succès : %s", str_path)
         return str_path
 
+    # Ne jamais laisser une variable héritée pointer vers un fichier disparu :
+    # httpx lève alors FileNotFoundError au démarrage du client.
+    invalid_env = os.environ.pop("SSL_CERT_FILE", None)
+    if invalid_env:
+        logger.warning("Bundle SSL introuvable (%s), utilisation du magasin système.", invalid_env)
+
     # Repli : si aucun bundle fichier n'est trouvé, créer un contexte par défaut sans cafile forcé
     try:
         ssl.create_default_context()
