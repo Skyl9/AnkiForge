@@ -1,7 +1,9 @@
 import datetime
 import logging
+from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
@@ -12,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 import ankiforge.ui.widgets.settings_modal as settings_pkg
-from ankiforge.database.base import db
+from ankiforge.database.maintenance import optimize_database
 from ankiforge.database.models import (
     CardModel,
     NoteModel,
@@ -34,11 +36,33 @@ from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_medi
 logger = logging.getLogger(__name__)
 
 
+class _MaintenanceSignals(QObject):
+    finished = Signal()
+    failed = Signal(str)
+
+
+class _DatabaseMaintenanceWorker(QRunnable):
+    def __init__(self, db_path: str) -> None:
+        super().__init__()
+        self.db_path = db_path
+        self.signals = _MaintenanceSignals()
+
+    def run(self) -> None:
+        try:
+            optimize_database(Path(self.db_path))
+        except Exception as error:
+            logger.error("Échec de la maintenance SQLite : %s", error, exc_info=True)
+            self.signals.failed.emit(str(error))
+            return
+        self.signals.finished.emit()
+
+
 class StorageMaintenanceTab(QWidget):
     """Onglet Métrologie Réelle, Optimisation SQLite, Nettoyage Médias et Backups."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._maintenance_worker: _DatabaseMaintenanceWorker | None = None
         self._setup_ui()
         self.refresh_metrics()
 
@@ -204,13 +228,27 @@ class StorageMaintenanceTab(QWidget):
             logger.warning("Erreur refresh_metrics StorageMaintenanceTab: %s", e)
 
     def _run_vacuum(self) -> None:
-        try:
-            db.execute_sql("VACUUM;")
-            db.execute_sql("PRAGMA optimize;")
-            self.refresh_metrics()
-            show_toast(self, "Optimisation SQLite (VACUUM & PRAGMA) terminée avec succès !")
-        except Exception as e:
-            show_toast(self, f"Erreur lors de l'optimisation : {e}", is_error=True)
+        if self._maintenance_worker is not None:
+            return
+
+        profile_name = get_active_profile()
+        db_path = ProfileManager().get_db_path(profile_name)
+        self.btn_vacuum.setEnabled(False)
+        self._maintenance_worker = _DatabaseMaintenanceWorker(str(db_path))
+        self._maintenance_worker.signals.finished.connect(self._on_vacuum_finished)
+        self._maintenance_worker.signals.failed.connect(self._on_vacuum_failed)
+        QThreadPool.globalInstance().start(self._maintenance_worker)
+
+    def _on_vacuum_finished(self) -> None:
+        self._maintenance_worker = None
+        self.btn_vacuum.setEnabled(True)
+        self.refresh_metrics()
+        show_toast(self, "Optimisation SQLite (VACUUM & PRAGMA) terminée avec succès !")
+
+    def _on_vacuum_failed(self, error: str) -> None:
+        self._maintenance_worker = None
+        self.btn_vacuum.setEnabled(True)
+        show_toast(self, f"Erreur lors de l'optimisation : {error}", is_error=True)
 
     def _clean_orphan_media(self) -> None:
         try:

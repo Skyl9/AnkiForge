@@ -26,6 +26,7 @@ db = SqliteDatabase(
     timeout=30,
     pragmas={
         "journal_mode": "wal",  # Permet la lecture et l'écriture simultanées
+        "busy_timeout": 30000,  # Attend les écritures concurrentes plutôt que d'échouer immédiatement
         "cache_size": -1024 * 64,  # Alloue 64MB de RAM pour accélérer les requêtes
         "foreign_keys": 1,  # Force le respect des clés étrangères (sécurité des suppressions en cascade)
         "synchronous": 1,  # Équilibre parfait entre sécurité en cas de crash et vitesse d'écriture

@@ -189,6 +189,8 @@ def test_storage_maintenance_tab_actions(qtbot):
 
     # 2. VACUUM
     tab._run_vacuum()
+    qtbot.waitUntil(lambda: tab._maintenance_worker is None, timeout=5000)
+    assert tab.btn_vacuum.isEnabled()
 
     # 3. Nettoyage médias orphelins
     m = MediaModel.create(filename="orphan_test.png", original_name="test.png", checksum="abc123456", mime_type="image/png")

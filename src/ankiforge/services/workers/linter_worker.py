@@ -161,12 +161,7 @@ Retourne UNIQUEMENT le tableau JSON valide, sans texte d'introduction ni de conc
                     system_prompt = self._build_dynamic_prompt()
                     user_prompt = f"Voici les cartes à auditer :\n{json.dumps(chunk, ensure_ascii=False, indent=2)}"
 
-                    if not db.is_closed():
-                        db.close()
-
                     raw_response = llm_provider.generate(system_prompt=system_prompt, user_prompt=user_prompt, response_format="json")
-
-                    db.connect(reuse_if_open=True)
 
                     try:
                         llm_results = AIReponseParser.parse(raw_response)
@@ -214,6 +209,4 @@ Retourne UNIQUEMENT le tableau JSON valide, sans texte d'introduction ni de conc
 
         except Exception as e:
             logger.error("Erreur d'audit Linter : %s", e, exc_info=True)
-            if db.is_closed():
-                db.connect(reuse_if_open=True)
             self.error_occurred.emit(str(e))
