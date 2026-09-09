@@ -171,6 +171,11 @@ class SettingsModal(QDialog):
         self.lbl_shortcut.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
         footer_layout.addWidget(self.lbl_shortcut)
 
+        self.lbl_save_status = QLabel("")
+        self.lbl_save_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: 600;")
+        self.lbl_save_status.hide()
+        footer_layout.addWidget(self.lbl_save_status)
+
         footer_layout.addStretch()
 
         self.btn_cancel = SecondaryButton("Annuler")
@@ -251,6 +256,8 @@ class SettingsModal(QDialog):
             from shiboken6 import isValid
 
             toast_parent = self if isValid(self) else (main_w if main_w and isValid(main_w) else None)
+            self.lbl_save_status.setText("✓ Paramètres sauvegardés")
+            self.lbl_save_status.show()
             show_toast(toast_parent, "Tous les paramètres ont été enregistrés avec succès !")
 
         target_parent = self.general_tab._get_main_window() or self

@@ -73,6 +73,26 @@ def test_settings_modal_creation_and_tabs(qtbot):
         assert modal.stacked_widget.currentIndex() == i
 
 
+def test_settings_modal_shows_saved_status_after_save(qtbot):
+    """Le footer confirme visuellement la sauvegarde complète des paramètres."""
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+
+    with patch("ankiforge.ui.widgets.theme_transition_overlay.show_theme_transition") as transition:
+        transition.side_effect = lambda **kwargs: kwargs["on_applied"]()
+        with (
+            patch.object(modal.general_tab, "save_tab", return_value=(False, None, None)),
+            patch.object(modal.ai_tab, "save_tab"),
+            patch.object(modal.anki_tab, "save_tab"),
+            patch.object(modal.tts_tab, "save_tab"),
+            patch.object(modal.maint_tab, "save_tab"),
+        ):
+            modal._save_all()
+
+    assert not modal.lbl_save_status.isHidden()
+    assert modal.lbl_save_status.text() == "✓ Paramètres sauvegardés"
+
+
 def test_general_tab_save_and_mode_change(qtbot):
     """Teste la modification et la sauvegarde des paramètres généraux."""
     tab = GeneralTab()
