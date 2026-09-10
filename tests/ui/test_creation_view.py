@@ -47,6 +47,22 @@ def test_creation_view_creation(qtbot: Any, mock_db: Any) -> None:
     assert view is not None
 
 
+@pytest.mark.ui
+def test_free_input_remains_editable_for_generation(qtbot: Any, mock_db: Any) -> None:
+    """Une saisie libre doit rester éditable et transmettre le texte modifié."""
+    editor = DocumentEditorWidget("Texte initial", source_title="Nouvelle Saisie")
+    qtbot.addWidget(editor)
+
+    assert editor.editor_stack.currentWidget() is editor.raw_editor
+    editor.raw_editor.setPlainText("Texte modifié avant génération")
+
+    emitted: list[tuple[str, str]] = []
+    editor.generate_requested.connect(lambda text, title: emitted.append((text, title)))
+    editor._on_generate_clicked()
+
+    assert emitted == [("Texte modifié avant génération", "Nouvelle Saisie")]
+
+
 @pytest.mark.slow
 @pytest.mark.ui
 def test_creation_view_dag_generation_flow(qtbot: Any, mock_db: Any) -> None:

@@ -639,7 +639,7 @@ class DocumentEditorWidget(QWidget):
         html = markdown.markdown(content, extensions=["fenced_code", "tables"])
         self.markdown_viewer.setHtml(html)
 
-        if self.source_title == "Saisie Libre":
+        if self.doc_model is None:
             self.editor_stack.setCurrentWidget(self.raw_editor)
         else:
             if hasattr(self, "btn_view_pdf") and self.btn_view_pdf.isChecked():
