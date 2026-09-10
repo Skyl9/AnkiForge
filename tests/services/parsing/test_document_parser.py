@@ -8,6 +8,7 @@ from pptx import Presentation
 
 import ankiforge.services.parsing.document_parser as document_parser
 from ankiforge.services.parsing.document_parser import DocumentParser
+from ankiforge.services.parsing.marker_service import MarkerService
 
 
 def test_parse_document_file_not_found():
@@ -169,6 +170,47 @@ def test_marker_executable_is_found_in_bundle_resources(tmp_path, monkeypatch):
     monkeypatch.setattr("ankiforge.utils.paths.get_tools_search_dirs", lambda: [])
 
     assert DocumentParser.get_marker_executable() == str(marker)
+
+
+def test_marker_executable_is_found_in_persistent_venv(tmp_path, monkeypatch):
+    """Le Marker installé depuis une application packagée est résolu dans ~/.ankiforge/tools."""
+    marker = tmp_path / "tools" / "marker" / "venv" / "bin" / "marker_single"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("#!/bin/sh", encoding="utf-8")
+    marker.chmod(marker.stat().st_mode | stat.S_IXUSR)
+
+    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tmp_path / "tools"])
+    monkeypatch.setattr(document_parser.shutil, "which", lambda _: None)
+    monkeypatch.setattr(document_parser.sys, "executable", str(tmp_path / "app"))
+
+    assert MarkerService.get_executable() == marker
+
+
+def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, monkeypatch):
+    commands: list[list[str]] = []
+    tools_dir = tmp_path / "tools"
+    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3")
+
+    class FakeProcess:
+        stdout = ()
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(
+        "ankiforge.services.parsing.marker_service.subprocess.Popen",
+        lambda command, **_: commands.append(command) or FakeProcess(),
+    )
+    executable = tools_dir / "marker" / "venv" / "bin" / "marker_single"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("#!/bin/sh", encoding="utf-8")
+    executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setattr(MarkerService, "_venv_executable", lambda _: executable)
+
+    assert MarkerService.install() == executable
+    assert commands[0][:3] == ["/usr/local/bin/python3", "-m", "venv"]
+    assert commands[1][1:4] == ["-m", "pip", "install"]
 
 
 @patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")

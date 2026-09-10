@@ -227,7 +227,12 @@ class DocumentParser:
             executable_dir.parent / "Resources" / "tools",
         ]
         # 3. Recherche dans les dossiers d'outils AnkiForge (environnement actif + repli prod)
+        from ankiforge.services.parsing.marker_service import MarkerService
         from ankiforge.utils.paths import get_tools_search_dirs
+
+        installed_executable = MarkerService.get_executable()
+        if installed_executable:
+            return str(installed_executable)
 
         for tools_dir in [*bundle_dirs, *get_tools_search_dirs()]:
             candidates = [

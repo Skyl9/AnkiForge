@@ -1,9 +1,8 @@
 import logging
 import pathlib
-import shutil
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
@@ -34,6 +33,8 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankiforge.services.parsing.document_parser import DocumentParser
+from ankiforge.services.parsing.marker_service import MarkerService
 from ankiforge.services.workers.coverage_worker import CoverageWorker
 from ankiforge.services.workers.document_worker import DocumentWorker
 from ankiforge.ui.components import (
@@ -61,6 +62,22 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
+
+
+class MarkerInstallerWorker(QThread):
+    """Installe Marker OCR dans le répertoire persistant de l'utilisateur."""
+
+    progress = Signal(str)
+    installed = Signal(str)
+    failed = Signal(str)
+
+    def run(self) -> None:
+        try:
+            executable = MarkerService.install(progress_callback=self.progress.emit)
+            self.installed.emit(str(executable))
+        except Exception as error:
+            logger.exception("Installation de Marker OCR échouée : %s", error)
+            self.failed.emit(str(error))
 
 
 class DocumentsView(QWidget):
@@ -1126,28 +1143,57 @@ class DocumentsView(QWidget):
             self.btn_marker.hide()
             return
 
-        marker_exec = shutil.which("marker_single")
-        if not marker_exec:
-            reply = QMessageBox.information(
-                self,
-                "Marker OCR (Lazy Loading)",
-                "Le moteur Marker OCR (Deep Learning) n'est pas encore installé sur votre environnement local.\n\n"
-                "Souhaitez-vous continuer avec l'extraction standard immédiate (PyPDF/Texte) ?\n"
-                "(Pour installer Marker à la volée : 'uv pip install marker-pdf')",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-
-        if doc.file_type == "pdf" and doc.original_media:
+        pdf_path = None
+        if doc.original_media:
             from ankiforge.utils.paths import resolve_media_path
 
-            pdf_path = resolve_media_path(doc.original_media.filename)
-            if pdf_path.exists():
-                self._start_document_worker(str(pdf_path), doc_id=doc.id)
+            candidate = resolve_media_path(doc.original_media.filename)
+            if candidate.exists():
+                pdf_path = candidate
+
+        marker_exec = DocumentParser.get_marker_executable()
+        if not marker_exec:
+            dialog = QMessageBox(self)
+            dialog.setWindowTitle("Installer Marker OCR")
+            dialog.setText("Marker OCR n'est pas installé dans cette application packagée.")
+            dialog.setInformativeText("AnkiForge va créer un environnement Python séparé dans ~/.ankiforge/tools/marker et y installer marker-pdf.")
+            install_button = dialog.addButton("Installer Marker OCR", QMessageBox.ButtonRole.AcceptRole)
+            fallback_button = dialog.addButton("Extraction standard", QMessageBox.ButtonRole.DestructiveRole)
+            dialog.addButton(QMessageBox.StandardButton.Cancel)
+            dialog.exec()
+            clicked = dialog.clickedButton()
+            if clicked is install_button:
+                self._install_marker_and_start(str(pdf_path) if pdf_path else "")
+                return
+            if clicked is not fallback_button:
                 return
 
+        if pdf_path:
+            self._start_document_worker(str(pdf_path), doc_id=doc.id)
+            return
+
         show_toast(self, "Analyse Marker : Document déjà textuel.")
+
+    def _install_marker_and_start(self, pdf_path: str) -> None:
+        if not pdf_path:
+            show_toast(self, "Le fichier PDF source est introuvable.", is_error=True)
+            return
+        self.btn_marker.setEnabled(False)
+        show_toast(self, "Installation de Marker OCR en cours. Cela peut prendre plusieurs minutes...")
+        self._marker_installer = MarkerInstallerWorker()
+        self._marker_installer.progress.connect(self._on_worker_log)
+        self._marker_installer.installed.connect(lambda _: self._on_marker_installed(pdf_path))
+        self._marker_installer.failed.connect(self._on_marker_install_failed)
+        self._marker_installer.start()
+
+    def _on_marker_installed(self, pdf_path: str) -> None:
+        self.btn_marker.setEnabled(True)
+        show_toast(self, "Marker OCR installé avec succès.")
+        self._start_document_worker(pdf_path, doc_id=self._current_doc_id)
+
+    def _on_marker_install_failed(self, error: str) -> None:
+        self.btn_marker.setEnabled(True)
+        show_toast(self, f"Installation de Marker OCR échouée : {error}", is_error=True)
 
     @Slot()
     def _on_save_document(self) -> None:
