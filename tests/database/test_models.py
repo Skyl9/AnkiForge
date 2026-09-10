@@ -69,10 +69,11 @@ def test_deck_cascade_deletion():
 
 def test_seed_initial_data_is_idempotent():
     """Vérifie que l'appel multiple à seed_initial_data ne duplique pas les données."""
-    from ankiforge.database.models import LLMConfigModel, seed_initial_data
+    from ankiforge.database.models import LLMConfigModel, PipelineStepModel, seed_initial_data
 
     # Vidons les tables pour le test
     PersonaModel.delete().execute()
+    PipelineStepModel.delete().execute()
     PipelineModel.delete().execute()
     LLMConfigModel.delete().execute()
 
@@ -409,3 +410,49 @@ def test_document_page_model_and_multimodal_chunk():
     media1.delete_instance()
     chunk_reloaded = DocumentChunkModel.get_by_id(chunk.id)
     assert chunk_reloaded.media is None
+
+
+def test_seed_initial_data_creates_all_personas_with_prompts():
+    """Vérifie que seed_initial_data crée les 6 personas attendus avec leurs prompts."""
+    from ankiforge.database.models import LLMConfigModel, PipelineStepModel
+    from ankiforge.database.seeds.initial_seed import seed_initial_data
+
+    # Nettoyer les tables
+    PersonaModel.delete().execute()
+    PipelineModel.delete().execute()
+    PipelineStepModel.delete().execute()
+    LLMConfigModel.delete().execute()
+
+    # Premier appel
+    seed_initial_data()
+
+    # Vérifier les 6 personas attendus
+    expected_personas = {
+        "Juge Fact-Checker",
+        "Archiviste Pédagogue",
+        "Linter & Contrôleur Qualité",
+        "Générateur Auto-Cloze",
+        "Consultant Généraliste",
+        "Auditeur Wozniak",
+    }
+
+    personas = PersonaModel.select().where(PersonaModel.name.in_(expected_personas))
+    found_names = {p.name for p in personas}
+
+    assert found_names == expected_personas, f"Personas manquants: {expected_personas - found_names}"
+
+    # Vérifier que chaque persona a un prompt non-vide
+    for p in personas:
+        assert p.system_prompt, f"Persona '{p.name}' a un prompt vide"
+        assert len(p.system_prompt) > 50, f"Persona '{p.name}' a un prompt trop court ({len(p.system_prompt)} chars)"
+
+    # Deuxième appel (idempotence)
+    seed_initial_data()
+
+    # Vérifier que le compte n'a pas changé
+    assert PersonaModel.select().where(PersonaModel.name.in_(expected_personas)).count() == 6
+
+    # Vérifier que les prompts sont inchangés
+    for p in PersonaModel.select().where(PersonaModel.name.in_(expected_personas)):
+        assert p.system_prompt, f"Persona '{p.name}' a un prompt vide après 2ème appel"
+        assert len(p.system_prompt) > 50

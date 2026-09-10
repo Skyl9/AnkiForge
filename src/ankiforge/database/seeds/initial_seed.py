@@ -34,9 +34,6 @@ def seed_initial_data() -> None:
         },
     )
 
-    if PersonaModel.select().where(PersonaModel.name == "Archiviste Pédagogue").count() > 0:
-        return
-
     # Chemin vers les ressources de prompts (dossier src/ressources/prompts ou src/ankiforge/ressources/prompts)
     prompts_dir = Path(__file__).parent.parent.parent / "ressources" / "prompts"
     if not prompts_dir.exists():
@@ -162,19 +159,23 @@ def seed_initial_data() -> None:
     # ==========================================
     # PERSONA 1 : L'ARCHIVISTE PÉDAGOGUE (Extracteur)
     # ==========================================
-    extracteur = PersonaModel.create(
+    extracteur, _ = PersonaModel.get_or_create(
         name="Archiviste Pédagogue",
-        description="Extrait le cours en respectant l'atomicité, la dissimulation des hypothèses et le tout-LaTeX.",
-        system_prompt=extracteur_prompt,
+        defaults={
+            "description": "Extrait le cours en respectant l'atomicité, la dissimulation des hypothèses et le tout-LaTeX.",
+            "system_prompt": extracteur_prompt,
+        },
     )
 
     # ==========================================
     # PERSONA 2 : LE CONTRÔLEUR QUALITÉ (Linter)
     # ==========================================
-    controleur = PersonaModel.create(
+    controleur, _ = PersonaModel.get_or_create(
         name="Linter & Contrôleur Qualité",
-        description="Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
-        system_prompt=controleur_prompt,
+        defaults={
+            "description": "Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
+            "system_prompt": controleur_prompt,
+        },
     )
 
     cloze_agent, _ = PersonaModel.get_or_create(
@@ -234,18 +235,25 @@ def seed_initial_data() -> None:
     # ==========================================
     # CRÉATION DES PIPELINES
     # ==========================================
-    pipeline_complet = PipelineModel.create(
+    pipeline_complet, _ = PipelineModel.get_or_create(
         name="Excellence Math/Info (Archiviste + Linter)",
-        description="Pipeline haute-fidélité pour les cours scientifiques. Extrait intelligemment puis formate le LaTeX, les balises CSS et le code.",
+        defaults={
+            "description": "Pipeline haute-fidélité pour les cours scientifiques. Extrait intelligemment puis formate le LaTeX, les balises CSS et le code.",
+        },
     )
-    PipelineStepModel.create(pipeline=pipeline_complet, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
-    PipelineStepModel.create(pipeline=pipeline_complet, persona=controleur, step_type="LLM_PROMPT", step_order=2)
+    if not PipelineStepModel.select().where((PipelineStepModel.pipeline == pipeline_complet) & (PipelineStepModel.step_order == 1)).exists():
+        PipelineStepModel.create(pipeline=pipeline_complet, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
+    if not PipelineStepModel.select().where((PipelineStepModel.pipeline == pipeline_complet) & (PipelineStepModel.step_order == 2)).exists():
+        PipelineStepModel.create(pipeline=pipeline_complet, persona=controleur, step_type="LLM_PROMPT", step_order=2)
 
-    pipeline_rapide = PipelineModel.create(
+    pipeline_rapide, _ = PipelineModel.get_or_create(
         name="Extraction Simple (Brouillon)",
-        description="Utilise uniquement l'Archiviste. Rapide et économe, mais sans vérification du formatage HTML/LaTeX.",
+        defaults={
+            "description": "Utilise uniquement l'Archiviste. Rapide et économe, mais sans vérification du formatage HTML/LaTeX.",
+        },
     )
-    PipelineStepModel.create(pipeline=pipeline_rapide, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
+    if not PipelineStepModel.select().where((PipelineStepModel.pipeline == pipeline_rapide) & (PipelineStepModel.step_order == 1)).exists():
+        PipelineStepModel.create(pipeline=pipeline_rapide, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
 
     # ==========================================
     # CRÉATION DES MOTEURS IA
