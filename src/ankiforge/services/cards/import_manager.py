@@ -91,6 +91,17 @@ class ImportManager:
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _register_anki_collations(connection: sqlite3.Connection) -> None:
+        """Enregistre les collations utilisées par les collections Anki récentes."""
+
+        def unicase(left: str, right: str) -> int:
+            left_folded = left.casefold()
+            right_folded = right.casefold()
+            return (left_folded > right_folded) - (left_folded < right_folded)
+
+        connection.create_collation("unicase", unicase)
+
+    @staticmethod
     def _validate_model_structure(model_id: int, model: dict[str, Any]) -> None:
         """Refuse un modèle Anki incomplet au lieu de fabriquer des métadonnées."""
         name = str(model.get("name", "")).strip()
@@ -548,6 +559,7 @@ class ImportManager:
                 raise FileNotFoundError("Aucune base SQLite Anki (collection.anki21b, collection.anki21 ou collection.anki2) trouvée dans l'archive.")
 
             conn = sqlite3.connect(str(sqlite_db_path))
+            self._register_anki_collations(conn)
             cursor = conn.cursor()
 
             try:

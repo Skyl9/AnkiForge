@@ -52,6 +52,20 @@ Approfondissement des théorèmes fondamentaux.
     assert "théorèmes fondamentaux" in chunks[1]["content"]
 
 
+def test_chunking_zero_based_page_markers_are_normalized():
+    """Les transcriptions PDF 0-based sont exposées avec des pages 1-based."""
+    content = """{0}------------------------------------------------
+Première page transcrite avec suffisamment de contenu.
+
+{1}------------------------------------------------
+Deuxième page transcrite avec suffisamment de contenu.
+"""
+
+    chunks = ChunkingService.extract_chunks(content, file_type="pdf")
+
+    assert [chunk["page_number"] for chunk in chunks] == [1, 2]
+
+
 def test_chunking_markdown_semantic_sections_no_isolated_headings():
     """Vérifie qu'aucun titre isolé seul (ex: '# Titre') ne devient un chunk orphelin."""
     content = """# Estimation statistique

@@ -194,6 +194,28 @@ def test_document_delimitation_applies_pdf_page_range(qtbot):
     assert "Contenu du chapitre" in chunks[0].content
 
 
+def test_document_delimitation_rejects_page_range_outside_markdown(qtbot):
+    """Une borne dépassant les pages Markdown détectées est refusée."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Pages Markdown {uid}",
+        file_type="md",
+        content=("<!-- PAGE: 1 -->\nPremière page Markdown suffisamment longue pour créer un chunk.\n<!-- PAGE: 2 -->\nDeuxième page Markdown suffisamment longue pour créer un chunk."),
+    )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+    dlg.spin_p_end.setValue(2)
+    dlg.spin_p_start.setValue(1)
+    dlg.spin_p_end.setRange(1, 99)
+    dlg.chk_revectorize.setChecked(False)
+    dlg.spin_p_end.setValue(99)
+    dlg._on_apply()
+
+    assert dlg.result() == 0
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == 0
+
+
 def test_rag_test_dialog(qtbot):
     """Vérifie le dialogue de recherche sémantique interactive RAG."""
     uid = uuid.uuid4().hex[:6]

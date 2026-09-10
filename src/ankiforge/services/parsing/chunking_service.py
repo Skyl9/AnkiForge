@@ -75,18 +75,21 @@ class ChunkingService:
         """Découpe un document page par page à partir des marqueurs détectés."""
         chunks: list[dict[str, Any]] = []
         pages: list[tuple[int, str]] = []
+        explicit_page_numbers = [int(match.group(1) or match.group(2)) for match in markers if match.group(1) or match.group(2)]
+        page_number_offset = 1 if explicit_page_numbers and min(explicit_page_numbers) == 0 else 0
 
         # Si du texte précède le premier marqueur
         if markers[0].start() > 0:
             prefix = content[: markers[0].start()].strip()
             if prefix:
-                pages.append((1, prefix))
+                first_page = explicit_page_numbers[0] + page_number_offset if explicit_page_numbers else 1
+                pages.append((max(1, first_page - 1), prefix))
 
         for i, m in enumerate(markers):
             start = m.end()
             end = markers[i + 1].start() if i + 1 < len(markers) else len(content)
             page_text = content[start:end].strip()
-            page_num = int(m.group(1) or m.group(2)) if (m.group(1) or m.group(2)) else (i + 1)
+            page_num = int(m.group(1) or m.group(2)) + page_number_offset if (m.group(1) or m.group(2)) else (i + 1)
             pages.append((page_num, page_text))
 
         current_heading_stack: list[str] = []

@@ -35,6 +35,9 @@ class DocumentDelimitationDialog(QDialog):
     def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
+        self._all_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md")
+        page_numbers = [chunk["page_number"] for chunk in self._all_chunks if chunk.get("page_number") is not None]
+        self._max_page = max(page_numbers, default=1)
         self.setWindowTitle(f"Délimiter les pages et sections — {doc.title}")
         self.resize(640, 540)
         self.setStyleSheet(f"""
@@ -98,7 +101,7 @@ class DocumentDelimitationDialog(QDialog):
         lbl_p_start = QLabel("Page de début :")
         lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         self.spin_p_start = QSpinBox()
-        self.spin_p_start.setRange(1, 9999)
+        self.spin_p_start.setRange(1, self._max_page)
         self.spin_p_start.setValue(1)
         self.spin_p_start.setStyleSheet(f"""
             QSpinBox {{
@@ -113,8 +116,8 @@ class DocumentDelimitationDialog(QDialog):
         lbl_p_end = QLabel("Page de fin :")
         lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
         self.spin_p_end = QSpinBox()
-        self.spin_p_end.setRange(1, 9999)
-        self.spin_p_end.setValue(100)
+        self.spin_p_end.setRange(1, self._max_page)
+        self.spin_p_end.setValue(self._max_page)
         self.spin_p_end.setStyleSheet(f"""
             QSpinBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -231,9 +234,7 @@ class DocumentDelimitationDialog(QDialog):
                 item.setData(Qt.ItemDataRole.UserRole, title_str)
                 self.sections_list.addItem(item)
         else:
-            raw_content = self.doc.content or ""
-            extracted = ChunkingService.extract_chunks(raw_content, file_type=self.doc.file_type or "md")
-            for c_data in extracted:
+            for c_data in self._all_chunks:
                 title_str = c_data.get("heading_path") or (f"Page {c_data.get('page_number')}" if c_data.get("page_number") else f"Section #{c_data.get('index', 0) + 1}")
                 item = QListWidgetItem(title_str)
                 item.setIcon(load_phosphor_icon("ph.article", color=DesignTokens.TEXT_SECONDARY))
@@ -265,6 +266,9 @@ class DocumentDelimitationDialog(QDialog):
         if page_start > page_end:
             show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
             return
+        if page_end > self._max_page:
+            show_toast(self, f"La page de fin ne peut pas dépasser la dernière page détectée ({self._max_page}).", is_error=True)
+            return
 
         selected_headings = []
         for i in range(self.sections_list.count()):
@@ -272,11 +276,8 @@ class DocumentDelimitationDialog(QDialog):
             if item.checkState() == Qt.CheckState.Checked:
                 selected_headings.append(item.data(Qt.ItemDataRole.UserRole))
 
-        raw_content = self.doc.content or ""
-        all_chunks = ChunkingService.extract_chunks(raw_content, file_type=self.doc.file_type or "md")
-
         retained_chunks = []
-        for chunk in all_chunks:
+        for chunk in self._all_chunks:
             page_number = chunk.get("page_number")
             if page_number is not None and not page_start <= page_number <= page_end:
                 continue

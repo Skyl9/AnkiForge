@@ -13,6 +13,10 @@ from ankiforge.database.models import (
 from ankiforge.services.cards.import_manager import ImportManager
 
 
+def _register_unicase(conn: sqlite3.Connection) -> None:
+    conn.create_collation("unicase", lambda left, right: (left.casefold() > right.casefold()) - (left.casefold() < right.casefold()))
+
+
 def test_import_legacy_apkg_collection_anki2(tmp_path: Path) -> None:
     """Vérifie l'importation d'une archive legacy Anki 2.0 (collection.anki2 avec JSON dans col)."""
     db_file = tmp_path / "legacy.db"
@@ -92,6 +96,7 @@ def test_import_modern_apkg_collection_anki21_uncompressed(tmp_path: Path) -> No
     """Vérifie l'importation d'une base moderne Anki 2.1 uncompressed (collection.anki21 avec tables normalisées)."""
     db_file = tmp_path / "modern21.db"
     conn = sqlite3.connect(str(db_file))
+    _register_unicase(conn)
     cursor = conn.cursor()
 
     cursor.execute("CREATE TABLE col (id integer, crt integer, mod integer, scm integer, ver integer, dcount integer, dsz integer, mtime_v integer, a integer, c integer, ctime integer, conf text)")
@@ -104,11 +109,11 @@ def test_import_modern_apkg_collection_anki21_uncompressed(tmp_path: Path) -> No
     cursor.execute("CREATE TABLE notetypes (id integer primary key, name text, mtime_secs integer, usn integer, config blob)")
     cursor.execute("INSERT INTO notetypes VALUES (2002, 'BioModel', 0, 0, X'1a00')")
 
-    cursor.execute("CREATE TABLE fields (ntid integer, ord integer, name text, config blob, primary key(ntid, ord))")
+    cursor.execute("CREATE TABLE fields (ntid integer, ord integer, name text COLLATE unicase, config blob, primary key(ntid, ord))")
     cursor.execute("INSERT INTO fields VALUES (2002, 0, 'Organisme', X'')")
     cursor.execute("INSERT INTO fields VALUES (2002, 1, 'Caracteristique', X'')")
 
-    cursor.execute("CREATE TABLE templates (ntid integer, ord integer, name text, mtime_secs integer, usn integer, config blob, primary key(ntid, ord))")
+    cursor.execute("CREATE TABLE templates (ntid integer, ord integer, name text COLLATE unicase, mtime_secs integer, usn integer, config blob, primary key(ntid, ord))")
     cursor.execute(
         "INSERT INTO templates VALUES (2002, 0, 'Carte Organisme', 0, 0, ?)",
         (json.dumps({"qfmt": "{{Organisme}}", "afmt": "{{FrontSide}}<hr>{{Caracteristique}}"}),),
@@ -154,6 +159,7 @@ def test_import_modern_apkg_collection_anki21b_zstd_compressed(tmp_path: Path) -
     """Vérifie l'importation d'une base Anki 2.1.50+ compressée en Zstandard (collection.anki21b)."""
     db_file = tmp_path / "modern21b_raw.db"
     conn = sqlite3.connect(str(db_file))
+    _register_unicase(conn)
     cursor = conn.cursor()
 
     cursor.execute("CREATE TABLE col (id integer, conf text)")
@@ -163,10 +169,10 @@ def test_import_modern_apkg_collection_anki21b_zstd_compressed(tmp_path: Path) -
     cursor.execute("INSERT INTO decks VALUES (99, 'Histoire\x1fFrance')")
     cursor.execute("CREATE TABLE notetypes (id integer primary key, name text, config blob)")
     cursor.execute("INSERT INTO notetypes VALUES (3003, 'HistoireModel', X'')")
-    cursor.execute("CREATE TABLE fields (ntid integer, ord integer, name text, config blob)")
+    cursor.execute("CREATE TABLE fields (ntid integer, ord integer, name text COLLATE unicase, config blob)")
     cursor.execute("INSERT INTO fields VALUES (3003, 0, 'Evenement', X'')")
     cursor.execute("INSERT INTO fields VALUES (3003, 1, 'Date', X'')")
-    cursor.execute("CREATE TABLE templates (ntid integer, ord integer, name text, config blob)")
+    cursor.execute("CREATE TABLE templates (ntid integer, ord integer, name text COLLATE unicase, config blob)")
     cursor.execute(
         "INSERT INTO templates VALUES (3003, 0, 'Carte Histoire', ?)",
         (json.dumps({"qfmt": "{{Evenement}}", "afmt": "{{FrontSide}}<hr>{{Date}}"}),),
@@ -213,16 +219,17 @@ def test_import_database_priority_anki21b_over_anki2(tmp_path: Path) -> None:
 
     db_modern = tmp_path / "modern.db"
     conn_mod = sqlite3.connect(str(db_modern))
+    _register_unicase(conn_mod)
     conn_mod.execute("CREATE TABLE col (id integer)")
     conn_mod.execute("INSERT INTO col VALUES (1)")
     conn_mod.execute("CREATE TABLE decks (id integer primary key, name text)")
     conn_mod.execute("INSERT INTO decks VALUES (2, 'ModernDeck')")
     conn_mod.execute("CREATE TABLE notetypes (id integer primary key, name text, config blob)")
     conn_mod.execute("INSERT INTO notetypes VALUES (2, 'ModernModel', X'')")
-    conn_mod.execute("CREATE TABLE fields (ntid integer, ord integer, name text, config blob)")
+    conn_mod.execute("CREATE TABLE fields (ntid integer, ord integer, name text COLLATE unicase, config blob)")
     conn_mod.execute("INSERT INTO fields VALUES (2, 0, 'Front', X'')")
     conn_mod.execute("INSERT INTO fields VALUES (2, 1, 'Back', X'')")
-    conn_mod.execute("CREATE TABLE templates (ntid integer, ord integer, name text, config blob)")
+    conn_mod.execute("CREATE TABLE templates (ntid integer, ord integer, name text COLLATE unicase, config blob)")
     conn_mod.execute(
         "INSERT INTO templates VALUES (2, 0, 'Carte Moderne', ?)",
         (json.dumps({"qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}),),
