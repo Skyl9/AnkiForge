@@ -62,6 +62,12 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.btn_test.setFixedHeight(30)
         self.btn_test.setToolTip("Tester unitairement cet agent avec un extrait de texte")
 
+        self.btn_import = SecondaryButton("Importer")
+        self.btn_import.setIcon(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_import.setIconSize(QSize(14, 14))
+        self.btn_import.setFixedHeight(30)
+        self.btn_import.setToolTip("Importer un agent depuis un autre profil")
+
         self.btn_save = PrimaryButton("Sauvegarder")
         self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
         self.btn_save.setIconSize(QSize(14, 14))
@@ -71,4 +77,5 @@ class ResponsiveAgentTopActionBar(QFrame):
 
         layout.addWidget(self.btn_history)
         layout.addWidget(self.btn_test)
+        layout.addWidget(self.btn_import)
         layout.addWidget(self.btn_save)

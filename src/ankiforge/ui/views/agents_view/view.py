@@ -27,6 +27,8 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.services.ai.persona_version_service import PersonaVersionService
+from ankiforge.services.profile_content_transfer import ProfileContentTransfer
+from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import (
     Badge,
@@ -255,10 +257,12 @@ class AgentsView(QWidget):
         self.format_badge = self.top_action_bar.format_badge
         self.btn_history = self.top_action_bar.btn_history
         self.btn_test = self.top_action_bar.btn_test
+        self.btn_import = self.top_action_bar.btn_import
         self.btn_save = self.top_action_bar.btn_save
 
         self.btn_history.clicked.connect(self._on_open_history)
         self.btn_test.clicked.connect(self._on_test_agent)
+        self.btn_import.clicked.connect(self._on_import_agent_from_profile)
 
         editor_layout.addWidget(self.top_action_bar)
 
@@ -992,6 +996,31 @@ class AgentsView(QWidget):
             show_toast(self, f"Agent dupliqué sous le nom '{clone_name}' !")
         except Exception as e:
             log_and_notify_error(e, context="Duplication d'agent", parent=self, title="Erreur")
+
+    @Slot()
+    def _on_import_agent_from_profile(self) -> None:
+        profiles = [name for name in ProfileManager().list_profiles() if name != self.profile_name]
+        if not profiles:
+            show_toast(self, "Aucun autre profil n'est disponible.", is_error=True)
+            return
+        source_profile, accepted = QInputDialog.getItem(self, "Importer un agent", "Profil source :", profiles, 0, False)
+        if not accepted:
+            return
+        try:
+            names = ProfileContentTransfer.list_personas(source_profile)
+            if not names:
+                show_toast(self, f"Le profil '{source_profile}' ne contient aucun agent.", is_error=True)
+                return
+            persona_name, accepted = QInputDialog.getItem(self, "Importer un agent", "Agent à importer :", names, 0, False)
+            if not accepted:
+                return
+            imported = ProfileContentTransfer.import_persona(source_profile, persona_name)
+            self.refresh_data()
+            self._current_agent = imported
+            self._load_persona_into_editor(imported)
+            show_toast(self, f"Agent '{imported.name}' importé depuis '{source_profile}'.")
+        except Exception as e:
+            log_and_notify_error(e, context="Import d'agent depuis un profil", parent=self, title="Erreur d'importation")
 
     @Slot()
     def _on_delete_selected(self) -> None:

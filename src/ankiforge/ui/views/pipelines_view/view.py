@@ -27,6 +27,8 @@ from ankiforge.database.models import (
     PipelineStepModel,
 )
 from ankiforge.repositories import PersonaRepository, PipelineRepository
+from ankiforge.services.profile_content_transfer import ProfileContentTransfer
+from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.components import (
     Badge,
     IconButton,
@@ -228,6 +230,7 @@ class PipelinesView(QWidget):
 
         act_export = menu.addAction(load_phosphor_icon("ph.export", color=DesignTokens.TEXT_PRIMARY), "Exporter en JSON...")
         act_import = menu.addAction(load_phosphor_icon("ph.download-simple", color=DesignTokens.TEXT_PRIMARY), "Importer un JSON...")
+        act_import_profile = menu.addAction(load_phosphor_icon("ph.users-three", color=DesignTokens.TEXT_PRIMARY), "Importer depuis un profil...")
 
         menu.addSeparator()
 
@@ -244,6 +247,8 @@ class PipelinesView(QWidget):
             self._on_export_json()
         elif action == act_import:
             self._on_import_json()
+        elif action == act_import_profile:
+            self._on_import_pipeline_from_profile()
         elif action == act_del:
             self._on_delete_pipeline()
 
@@ -700,3 +705,29 @@ class PipelinesView(QWidget):
                     break
         except Exception as e:
             log_and_notify_error(e, context="Import JSON", parent=self, title="Erreur d'importation")
+
+    def _on_import_pipeline_from_profile(self) -> None:
+        profiles = [name for name in ProfileManager().list_profiles() if name != self.profile_name]
+        if not profiles:
+            show_toast(self, "Aucun autre profil n'est disponible.", is_error=True)
+            return
+        source_profile, accepted = QInputDialog.getItem(self, "Importer un pipeline", "Profil source :", profiles, 0, False)
+        if not accepted:
+            return
+        try:
+            names = ProfileContentTransfer.list_pipelines(source_profile)
+            if not names:
+                show_toast(self, f"Le profil '{source_profile}' ne contient aucun pipeline.", is_error=True)
+                return
+            pipeline_name, accepted = QInputDialog.getItem(self, "Importer un pipeline", "Pipeline à importer :", names, 0, False)
+            if not accepted:
+                return
+            imported = ProfileContentTransfer.import_pipeline(source_profile, pipeline_name)
+            self.refresh_data()
+            for index in range(self.pipeline_combo.count()):
+                if self.pipeline_combo.itemText(index) == imported.name:
+                    self.pipeline_combo.setCurrentIndex(index)
+                    break
+            show_toast(self, f"Pipeline '{imported.name}' importé depuis '{source_profile}'.")
+        except Exception as e:
+            log_and_notify_error(e, context="Import de pipeline depuis un profil", parent=self, title="Erreur d'importation")
