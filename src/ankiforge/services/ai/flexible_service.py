@@ -23,7 +23,7 @@ class OpenAICompatibleProvider(LLMProvider):
     exposant un endpoint compatible ChatCompletion.
     """
 
-    def __init__(self, base_url: str, model_name: str, api_key: str | None = "dummy_key"):
+    def __init__(self, base_url: str, model_name: str, api_key: str | None = "dummy_key", max_tokens: int = 16384):
         """
         Initialise le client OpenAI avec l'URL de base et le modèle cible.
 
@@ -31,11 +31,19 @@ class OpenAICompatibleProvider(LLMProvider):
             base_url (str): URL de l'endpoint API.
             model_name (str): Nom du modèle à invoquer (ex: 'llama3').
             api_key (str | None): Clé API nécessaire. Par défaut "dummy_key".
+            max_tokens (int): Nombre maximal de tokens de réponse.
         """
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model_name = model_name
+        self.max_tokens = max_tokens
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+    ) -> str:
         """
         Envoie une requête de génération à l'API.
 
@@ -43,6 +51,7 @@ class OpenAICompatibleProvider(LLMProvider):
             system_prompt (str): Instructions système définissant le comportement de l'IA.
             user_prompt (str | list[dict[str, Any]]): Contenu de l'utilisateur (texte ou multimodal).
             response_format (str): Format de réponse attendu ("json" ou "text").
+            max_tokens (int | None): Plafond optionnel de tokens à générer.
 
         Returns:
             str: Le texte généré par l'IA.
@@ -55,11 +64,17 @@ class OpenAICompatibleProvider(LLMProvider):
             ChatCompletionUserMessageParam(role="user", content=cast(Any, user_prompt)),
         ]
         try:
+            effective_max = max_tokens or self.max_tokens
             kwargs: dict[str, Any] = {
                 "model": self.model_name,
                 "messages": messages,
                 "temperature": 0.2,
             }
+
+            if any(k in self.model_name.lower() for k in ("o1", "o3", "gpt-5")):
+                kwargs["max_completion_tokens"] = effective_max
+            else:
+                kwargs["max_tokens"] = effective_max
 
             # 👇 C'est ici que l'on connecte votre interface au backend !
             if response_format == "json":
@@ -95,14 +110,15 @@ class OllamaProvider(OpenAICompatibleProvider):
     Fournisseur d'IA locale 100% gratuit utilisant Ollama.
     """
 
-    def __init__(self, model_name: str = "llama3"):
+    def __init__(self, model_name: str = "llama3", max_tokens: int = 16384):
         """
         Initialise le service Ollama sur l'URL locale par défaut.
 
         Args:
             model_name (str): Nom du modèle local à utiliser.
+            max_tokens (int): Nombre maximal de tokens de réponse.
         """
-        super().__init__(base_url="http://localhost:11434/v1", model_name=model_name, api_key="ollama")
+        super().__init__(base_url="http://localhost:11434/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens)
 
     @staticmethod
     def get_available_models() -> list[str]:
@@ -128,13 +144,14 @@ class GroqProvider(OpenAICompatibleProvider):
     Fournisseur Cloud haute performance utilisant l'infrastructure Groq.
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "llama3-8b-8192"):
+    def __init__(self, api_key: str | None = None, model_name: str = "llama3-8b-8192", max_tokens: int = 16384):
         """
         Initialise le client Groq.
 
         Args:
             api_key (str | None): Clé API Groq. Cherchée dans l'environnement par défaut.
             model_name (str): Modèle à utiliser sur Groq.
+            max_tokens (int): Nombre maximal de tokens de réponse.
 
         Raises:
             ValueError: Si aucune clé API n'est fournie ou trouvée.
@@ -142,7 +159,7 @@ class GroqProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("GROQ_API_KEY")
         if not key:
             raise ValueError("Clé API GROQ_API_KEY manquante.")
-        super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key)
+        super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key, max_tokens=max_tokens)
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
@@ -150,13 +167,14 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     Fournisseur d'accès multi-IA via la plateforme OpenRouter.
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "google/gemini-2.5-flash:free"):
+    def __init__(self, api_key: str | None = None, model_name: str = "google/gemini-2.5-flash:free", max_tokens: int = 16384):
         """
         Initialise le client OpenRouter.
 
         Args:
             api_key (str | None): Clé API OpenRouter.
             model_name (str): Modèle cible disponible sur OpenRouter.
+            max_tokens (int): Nombre maximal de tokens de réponse.
 
         Raises:
             ValueError: Si la clé API est absente.
@@ -164,7 +182,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ValueError("Clé API OPENROUTER_API_KEY manquante.")
-        super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key)
+        super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key, max_tokens=max_tokens)
 
 
 class AnthropicProvider(LLMProvider):
@@ -177,12 +195,20 @@ class AnthropicProvider(LLMProvider):
         api_key: str | None = None,
         model_name: str = "claude-3-7-sonnet-20250219",
         thinking_budget: int = 0,
+        max_tokens: int = 16384,
     ):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy_key")
         self.model_name = model_name
         self.thinking_budget = thinking_budget
+        self.max_tokens = max_tokens
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+    ) -> str:
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
@@ -218,7 +244,7 @@ class AnthropicProvider(LLMProvider):
                         }
                     )
 
-        max_tokens = 4096
+        effective_max = max_tokens or self.max_tokens
         payload: dict[str, Any] = {
             "model": self.model_name,
             "system": system_prompt,
@@ -228,9 +254,9 @@ class AnthropicProvider(LLMProvider):
         # Support du Thinking Mode pour Claude 3.7
         if self.thinking_budget > 0:
             payload["thinking"] = {"type": "enabled", "budget_tokens": self.thinking_budget}
-            max_tokens = max(max_tokens, self.thinking_budget + 2048)
+            effective_max = max(effective_max, self.thinking_budget + 4096)
 
-        payload["max_tokens"] = max_tokens
+        payload["max_tokens"] = effective_max
 
         try:
             response = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=60)
@@ -274,9 +300,14 @@ class AIManager:
     def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
         """
         Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
-        Injecte l'api_key stockée en BDD.
+        Injecte l'api_key et max_tokens stockés en BDD.
         """
-        return AIManager.create_provider(provider_name=str(config.provider), model_id=str(config.model_id), api_key=str(config.api_key) if config.api_key else None)
+        return AIManager.create_provider(
+            provider_name=str(config.provider),
+            model_id=str(config.model_id),
+            api_key=str(config.api_key) if config.api_key else None,
+            max_tokens=int(getattr(config, "max_tokens", 16384) or 16384),
+        )
 
     @staticmethod
     def create_provider(
@@ -284,6 +315,7 @@ class AIManager:
         model_id: str,
         api_key: str | None = None,
         thinking_budget: int = 0,
+        max_tokens: int = 16384,
     ) -> LLMProvider:
         """
         Instancie un fournisseur d'IA à partir de données brutes (Thread-safe).
@@ -300,17 +332,17 @@ class AIManager:
 
         try:
             if p_name == "ollama":
-                return OllamaProvider(model_name=model_id)
+                return OllamaProvider(model_name=model_id, max_tokens=max_tokens)
             elif p_name == "gemini":
                 if not key:
                     logger.warning("Clé API Gemini absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return GeminiService(api_key=key, model_name=model_id)
+                return GeminiService(api_key=key, model_name=model_id, max_tokens=max_tokens)
             elif p_name == "groq":
                 if not key and not os.environ.get("GROQ_API_KEY"):
                     logger.warning("Clé API Groq absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return GroqProvider(api_key=key, model_name=model_id)
+                return GroqProvider(api_key=key, model_name=model_id, max_tokens=max_tokens)
             elif p_name == "openai":
                 if not key and not os.environ.get("OPENAI_API_KEY"):
                     logger.warning("Clé API OpenAI absente pour le modèle %s, repli sur MockProvider.", model_id)
@@ -319,9 +351,10 @@ class AIManager:
                     base_url="https://api.openai.com/v1",
                     model_name=model_id,
                     api_key=key,
+                    max_tokens=max_tokens,
                 )
             elif p_name == "anthropic":
-                return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget)
+                return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget, max_tokens=max_tokens)
         except Exception as err:
             logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)
             return MockProvider()
@@ -330,15 +363,15 @@ class AIManager:
 
     def reload_provider(self) -> None:
         """
-        Recharge l'IA active depuis la base de données.
+        Recharge l'IA active depuis la base de données (sélectionne le premier modèle ordonné par sort_order).
         """
         try:
             from ankiforge.database.models import LLMConfigModel
 
-            config = LLMConfigModel.select().first()
+            config = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
             if config:
                 self.provider = self.create_provider_from_config(config)
-                logger.info("Fournisseur d'IA rechargé : %s (%s)", config.provider, config.model_id)
+                logger.info("Fournisseur d'IA rechargé : %s (%s, max_tokens=%d)", config.provider, config.model_id, getattr(config, "max_tokens", 16384))
             else:
                 self.provider = MockProvider()
                 logger.warning("Aucune configuration d'IA trouvée, utilisation du MockProvider.")

@@ -770,7 +770,7 @@ class ABTestsView(QWidget):
             self.engine_b_combo.clear()
             self.global_engine_combo.clear()
 
-            engines = list(LLMConfigModel.select())
+            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             for eg in engines:
                 name = eg.display_name or eg.provider
                 self.engine_a_combo.addItem(name, userData=eg)

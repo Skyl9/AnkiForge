@@ -26,3 +26,40 @@ def test_ai_manager_invalid_provider_fallback(mock_db):
 
     provider = AIManager.create_provider_from_config(config)
     assert isinstance(provider, MockProvider)
+
+
+def test_ai_manager_passes_max_tokens_from_config(mock_db):
+    """Vérifie que l'AIManager transmet le max_tokens configuré en base."""
+    config = LLMConfigModel.create(
+        display_name="Claude Max",
+        provider="anthropic",
+        model_id="claude-3-7-sonnet-20250219",
+        api_key="sk-ant-test",
+        context_limit=200000,
+        max_tokens=64000,
+        sort_order=5,
+    )
+    provider = AIManager.create_provider_from_config(config)
+    assert getattr(provider, "max_tokens", None) == 64000
+
+
+def test_ai_manager_reload_provider_selects_top_model_by_sort_order(mock_db):
+    """Vérifie que l'AIManager sélectionne le modèle ayant le plus petit sort_order (en tête de liste)."""
+    LLMConfigModel.create(
+        display_name="GPT-4o Low Priority",
+        provider="openai",
+        model_id="gpt-4o",
+        api_key="sk-test",
+        sort_order=50,
+    )
+    LLMConfigModel.create(
+        display_name="Gemini Top Priority",
+        provider="gemini",
+        model_id="gemini-3.5-flash-lite",
+        api_key="fake-gemini",
+        sort_order=0,
+    )
+    manager = AIManager()
+    manager.reload_provider()
+    # Le provider rechargé doit être celui avec sort_order=0
+    assert getattr(manager.provider, "model_name", None) == "gemini-3.5-flash-lite"

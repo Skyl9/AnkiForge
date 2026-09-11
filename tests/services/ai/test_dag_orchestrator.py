@@ -14,8 +14,15 @@ class DummyProvider(LLMProvider):
         self.responses = responses or {}
         self.calls: list[dict[str, Any]] = []
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
-        self.calls.append({"system": system_prompt, "user": user_prompt, "format": response_format})
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> str:
+        self.calls.append({"system": system_prompt, "user": user_prompt, "format": response_format, "max_tokens": max_tokens})
         for key, resp in self.responses.items():
             if key in system_prompt or key in str(user_prompt):
                 return resp

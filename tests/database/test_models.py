@@ -217,7 +217,9 @@ def test_llmconfig_unique_name_and_defaults():
 
     config1 = LLMConfigModel.create(display_name="GPT-4", provider="openai", model_id="gpt-4")
 
-    assert config1.context_limit == 8192
+    assert config1.context_limit == 128000
+    assert config1.max_tokens == 16384
+    assert config1.sort_order == 100
     assert config1.temperature == 0.7
 
     with pytest.raises(IntegrityError):

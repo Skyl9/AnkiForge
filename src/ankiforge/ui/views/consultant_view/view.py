@@ -537,7 +537,7 @@ class ConsultantView(QWidget):
         try:
             self.model_selector.blockSignals(True)
             self.model_selector.clear()
-            engines = list(LLMConfigModel.select())
+            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             for eg in engines:
                 display_name = getattr(eg, "display_name", getattr(eg, "provider", str(eg)))
                 self.model_selector.addItem(f"⚡ {display_name}", userData=eg)

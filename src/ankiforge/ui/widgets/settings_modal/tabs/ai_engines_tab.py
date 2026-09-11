@@ -8,6 +8,9 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QFormLayout,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -23,7 +26,9 @@ from ankiforge.services.ai.vision_category_service import VisionCategory, Vision
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     DangerButton,
+    PrimaryButton,
     SecondaryButton,
+    StyledComboBox,
     StyledLineEdit,
     StyledTableWidget,
 )
@@ -211,11 +216,12 @@ class AIEnginesTab(QWidget):
         self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_cat)
 
-        self.table_engines = StyledTableWidget(["Nom du Moteur", "Fournisseur", "Identifiant Modèle", "Gratuit / Local"])
+        self.table_engines = StyledTableWidget(["Nom du Moteur", "Fournisseur", "Identifiant Modèle", "Tokens Génération", "Gratuit / Local"])
         self.table_engines.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_engines.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.verticalHeader().setDefaultSectionSize(34)
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
         self.table_engines.setMinimumHeight(140)
@@ -225,20 +231,30 @@ class AIEnginesTab(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
 
-        self.btn_add_ollama = SecondaryButton("+ Ollama Local")
-        self.btn_add_ollama.setIcon(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN))
-        self.btn_add_ollama.clicked.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True))
-        toolbar.addWidget(self.btn_add_ollama)
+        self.btn_add_gemini_lite = SecondaryButton("+ Gemini 3.5 Flash Lite")
+        self.btn_add_gemini_lite.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE))
+        self.btn_add_gemini_lite.clicked.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
+        toolbar.addWidget(self.btn_add_gemini_lite)
 
         self.btn_add_openai = SecondaryButton("+ GPT-4o")
         self.btn_add_openai.setIcon(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_add_openai.clicked.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False))
+        self.btn_add_openai.clicked.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
         toolbar.addWidget(self.btn_add_openai)
 
-        self.btn_add_gemini = SecondaryButton("+ Gemini Flash")
-        self.btn_add_gemini.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE))
-        self.btn_add_gemini.clicked.connect(lambda: self._quick_add_engine("Google Gemini 2.5 Flash", "gemini", "gemini-2.5-flash", True))
-        toolbar.addWidget(self.btn_add_gemini)
+        self.btn_add_claude = SecondaryButton("+ Claude 3.7")
+        self.btn_add_claude.setIcon(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW))
+        self.btn_add_claude.clicked.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
+        toolbar.addWidget(self.btn_add_claude)
+
+        self.btn_add_ollama = SecondaryButton("+ Ollama Local")
+        self.btn_add_ollama.setIcon(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN))
+        self.btn_add_ollama.clicked.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
+        toolbar.addWidget(self.btn_add_ollama)
+
+        self.btn_add_custom = SecondaryButton("+ Modèle Personnalisé...")
+        self.btn_add_custom.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_add_custom.clicked.connect(self._add_custom_engine)
+        toolbar.addWidget(self.btn_add_custom)
 
         toolbar.addStretch()
 
@@ -502,7 +518,7 @@ class AIEnginesTab(QWidget):
         """Recharge les moteurs IA et les catégories de vision."""
         try:
             self.table_engines.blockSignals(True)
-            engines = list(LLMConfigModel.select())
+            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             self.table_engines.setRowCount(len(engines))
 
             for i, eg in enumerate(engines):
@@ -516,10 +532,14 @@ class AIEnginesTab(QWidget):
                 item_model = QTableWidgetItem(getattr(eg, "model_id", "default"))
                 self.table_engines.setItem(i, 2, item_model)
 
+                item_tokens = QTableWidgetItem(str(getattr(eg, "max_tokens", 16384)))
+                item_tokens.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table_engines.setItem(i, 3, item_tokens)
+
                 item_free = QTableWidgetItem()
                 item_free.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
                 item_free.setCheckState(Qt.CheckState.Checked if getattr(eg, "is_free", False) else Qt.CheckState.Unchecked)
-                self.table_engines.setItem(i, 3, item_free)
+                self.table_engines.setItem(i, 4, item_free)
 
             self.table_engines.blockSignals(False)
         except Exception as e:
@@ -531,7 +551,16 @@ class AIEnginesTab(QWidget):
         except Exception as e:
             logger.warning("Erreur refresh_data vision_categories: %s", e)
 
-    def _quick_add_engine(self, name: str, provider: str, model_id: str, is_free: bool) -> None:
+    def _quick_add_engine(
+        self,
+        name: str,
+        provider: str,
+        model_id: str,
+        is_free: bool,
+        max_tokens: int = 16384,
+        sort_order: int = 100,
+        context_limit: int | None = None,
+    ) -> None:
         try:
             existing = LLMConfigModel.select().where((LLMConfigModel.provider == provider) & (LLMConfigModel.model_id == model_id)).first()
             if existing:
@@ -539,13 +568,103 @@ class AIEnginesTab(QWidget):
                 return
 
             api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
-            LLMConfigModel.create(display_name=name, provider=provider, model_id=model_id, context_limit=128000, api_key=api_key, is_free=is_free)
+            effective_context_limit = context_limit if context_limit is not None else (1048576 if provider == "gemini" else 128000)
+            LLMConfigModel.create(
+                display_name=name,
+                provider=provider,
+                model_id=model_id,
+                context_limit=effective_context_limit,
+                max_tokens=max_tokens,
+                sort_order=sort_order,
+                api_key=api_key,
+                is_free=is_free,
+            )
             self.refresh_data()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()
             show_toast(self, f"Moteur '{name}' ajouté au catalogue !")
         except Exception as e:
             show_toast(self, f"Erreur lors de l'ajout : {e}", is_error=True)
+
+    def _add_custom_engine(self) -> None:
+        """Boîte de dialogue pour ajouter un moteur IA personnalisé avec son plafond de max_tokens."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Ajouter un Moteur IA Personnalisé")
+        dialog.setMinimumWidth(380)
+        dialog.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_PRIMARY};")
+
+        d_layout = QVBoxLayout(dialog)
+        d_layout.setContentsMargins(16, 16, 16, 16)
+        d_layout.setSpacing(12)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        le_name = StyledLineEdit()
+        le_name.setPlaceholderText("ex: DeepSeek-R1 (Local)")
+
+        cb_prov = StyledComboBox()
+        cb_prov.addItems(["gemini", "openai", "anthropic", "ollama", "groq", "openrouter"])
+
+        le_model = StyledLineEdit()
+        le_model.setPlaceholderText("ex: deepseek-r1:32b")
+
+        le_tokens = StyledLineEdit()
+        le_tokens.setText("16384")
+
+        le_ctx = StyledLineEdit()
+        le_ctx.setText("128000")
+
+        chk_free = QCheckBox("Modèle Gratuit / Local")
+        chk_free.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+
+        form.addRow("Nom affiché :", le_name)
+        form.addRow("Fournisseur :", cb_prov)
+        form.addRow("ID Modèle :", le_model)
+        form.addRow("Tokens Génération :", le_tokens)
+        form.addRow("Limite Contexte :", le_ctx)
+        form.addRow("", chk_free)
+        d_layout.addLayout(form)
+
+        btn_box = QHBoxLayout()
+        btn_box.addStretch()
+        btn_cancel = SecondaryButton("Annuler")
+        btn_cancel.clicked.connect(dialog.reject)
+        btn_ok = PrimaryButton("Ajouter le Moteur")
+
+        def _on_accept() -> None:
+            name_val = le_name.text().strip()
+            model_val = le_model.text().strip()
+            if not name_val or not model_val:
+                show_toast(self, "Nom et ID de modèle requis.", is_error=True)
+                return
+            try:
+                tokens_val = int(le_tokens.text().strip())
+            except ValueError:
+                tokens_val = 16384
+            try:
+                ctx_val = int(le_ctx.text().strip())
+            except ValueError:
+                ctx_val = 128000
+
+            provider_val = cb_prov.currentText().strip().lower()
+            self._quick_add_engine(
+                name=name_val,
+                provider=provider_val,
+                model_id=model_val,
+                is_free=chk_free.isChecked(),
+                max_tokens=tokens_val,
+                sort_order=50,
+                context_limit=ctx_val,
+            )
+            dialog.accept()
+
+        btn_ok.clicked.connect(_on_accept)
+        btn_box.addWidget(btn_cancel)
+        btn_box.addWidget(btn_ok)
+        d_layout.addLayout(btn_box)
+
+        dialog.exec()
 
     def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
         first_item = self.table_engines.item(item.row(), 0)
@@ -563,6 +682,12 @@ class AIEnginesTab(QWidget):
             elif item.column() == 2:
                 config.model_id = item.text().strip()
             elif item.column() == 3:
+                try:
+                    val = int(item.text().strip().replace(" ", "").replace("tks", ""))
+                    config.max_tokens = max(512, min(131072, val))
+                except ValueError:
+                    pass
+            elif item.column() == 4:
                 config.is_free = item.checkState() == Qt.CheckState.Checked
             config.save()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):

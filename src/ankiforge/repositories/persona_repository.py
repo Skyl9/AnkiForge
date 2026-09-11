@@ -145,7 +145,7 @@ class PersonaRepository(BaseRepository):
 
     def get_all_llm_configs(self) -> list[LLMConfigModel]:
         """Retrieve all LLM engine configurations."""
-        return list(LLMConfigModel.select().order_by(LLMConfigModel.display_name.asc()))
+        return list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.display_name.asc()))
 
     def get_llm_config_by_id(self, config_id: int) -> LLMConfigModel | None:
         """Retrieve an LLM configuration by ID."""
@@ -168,7 +168,9 @@ class PersonaRepository(BaseRepository):
         display_name: str,
         provider: str,
         model_id: str,
-        context_limit: int = 8192,
+        context_limit: int = 128000,
+        max_tokens: int = 16384,
+        sort_order: int = 100,
         temperature: float = 0.7,
         api_key: str | None = None,
         prompt_pricing: float = 0.0,
@@ -182,6 +184,8 @@ class PersonaRepository(BaseRepository):
                 provider=provider,
                 model_id=model_id,
                 context_limit=context_limit,
+                max_tokens=max_tokens,
+                sort_order=sort_order,
                 temperature=temperature,
                 api_key=api_key,
                 prompt_pricing=prompt_pricing,

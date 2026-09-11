@@ -113,21 +113,27 @@ class BatchWorker(QThread):
                 media_dir = get_media_dir()
 
                 llm_cfg = task.llm_config
-                max_tokens = llm_cfg["context_limit"]
+                context_limit = llm_cfg.get("context_limit", 128000)
+                gen_max_tokens = llm_cfg.get("max_tokens", 16384)
 
                 # Instanciation thread-safe du provider
-                active_provider = AIManager.create_provider(provider_name=llm_cfg["provider"], model_id=llm_cfg["model_id"], api_key=llm_cfg["api_key"])
+                active_provider = AIManager.create_provider(
+                    provider_name=llm_cfg["provider"],
+                    model_id=llm_cfg["model_id"],
+                    api_key=llm_cfg["api_key"],
+                    max_tokens=gen_max_tokens,
+                )
 
                 fields = task.note_type_fields
                 fields_str = '", "'.join(fields)
                 first_field = fields[0] if len(fields) > 0 else "Field1"
                 second_field = fields[1] if len(fields) > 1 else "Field2"
 
-                optimal_max_chars = min(4000, int((max_tokens * 0.5) * 4))
+                optimal_max_chars = max(4000, min(100000, int((context_limit * 0.5) * 4)))
 
                 logger.info("Traitement du document '%s' (%d/%d).", doc_title, task_idx + 1, total_tasks)
                 self.progress_text.emit(f"Traitement : {doc_title} ({task_idx + 1}/{total_tasks})...")
-                self.log.emit(f"\n{'=' * 40}\n DEBUT : {doc_title}\n⚙ Moteur : {llm_cfg['display_name']} ({max_tokens} tks)\n{'=' * 40}")
+                self.log.emit(f"\n{'=' * 40}\n DEBUT : {doc_title}\n⚙ Moteur : {llm_cfg['display_name']} (Contexte: {context_limit} tks, Gen: {gen_max_tokens} tks)\n{'=' * 40}")
 
                 # PARTITIONNEMENT DU DOCUMENT
                 chunks = smart_chunk_text(doc_content, strategy=chunk_strategy, max_chars=optimal_max_chars)
@@ -168,10 +174,20 @@ class BatchWorker(QThread):
                         try:
                             if use_vision:
                                 payload = prepare_multimodal_payload(current_input, media_dir)
-                                raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=payload, response_format=output_format)
+                                raw_response = active_provider.generate(
+                                    system_prompt=system_prompt,
+                                    user_prompt=payload,
+                                    response_format=output_format,
+                                    max_tokens=gen_max_tokens,
+                                )
                             else:
                                 clean_input = strip_image_tags(current_input)
-                                raw_response = active_provider.generate(system_prompt=system_prompt, user_prompt=clean_input, response_format=output_format)
+                                raw_response = active_provider.generate(
+                                    system_prompt=system_prompt,
+                                    user_prompt=clean_input,
+                                    response_format=output_format,
+                                    max_tokens=gen_max_tokens,
+                                )
 
                             cleaned_output = self._clean_json(raw_response)
                             current_input = f"Voici les données à traiter :\n{cleaned_output}"

@@ -579,7 +579,7 @@ class AgentsView(QWidget):
             self.engine_combo.clear()
             self.engine_combo.addItem("⚙️ Hériter du réglage global de l'application", userData=None)
 
-            llm_configs = list(LLMConfigModel.select())
+            llm_configs = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             for cfg in llm_configs:
                 display = cfg.display_name or f"{cfg.provider} ({cfg.model_id})"
                 self.engine_combo.addItem(f"🤖 {display}", userData=cfg)

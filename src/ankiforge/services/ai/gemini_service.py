@@ -20,19 +20,21 @@ class GeminiService(LLMProvider):
     de Google. Supporte les fonctionnalités multimodales (vision).
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash-lite", max_tokens: int = 65536):
         """
         Initialise le client Gemini.
 
         Args:
             api_key (str): Clé API Google AI Studio.
             model_name (str): Nom du modèle Gemini à utiliser.
+            max_tokens (int): Nombre maximal de tokens de sortie.
 
         Raises:
             ValueError: Si aucune clé API n'est disponible.
         """
         self.api_key = api_key
         self.model_name = model_name
+        self.max_tokens = max_tokens
 
         if not self.api_key:
             raise ValueError("Clé API Gemini manquante. Veuillez la configurer dans les paramètres.")
@@ -43,7 +45,13 @@ class GeminiService(LLMProvider):
         # Connexion directe à l'API Google AI Studio
         self.client = genai.Client(api_key=self.api_key)
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+    ) -> str:
         """
         Génère une réponse textuelle ou JSON structurée via Gemini.
 
@@ -51,6 +59,7 @@ class GeminiService(LLMProvider):
             system_prompt (str): Instructions système (system_instruction).
             user_prompt (str | list[dict[str, Any]]): Prompt utilisateur ou contenu multimodal.
             response_format (str): Format de réponse ("json" ou "text").
+            max_tokens (int | None): Plafond optionnel de tokens à générer.
 
         Returns:
             str: Le contenu textuel de la réponse générée.
@@ -58,10 +67,11 @@ class GeminiService(LLMProvider):
         Raises:
             RuntimeError: En cas d'erreur lors de l'appel à l'API Gemini.
         """
-
+        effective_max = max_tokens or self.max_tokens
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
             temperature=0.2,
+            max_output_tokens=effective_max,
         )
 
         if response_format == "json":

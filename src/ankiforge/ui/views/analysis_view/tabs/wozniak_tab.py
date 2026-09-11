@@ -109,15 +109,18 @@ class AIWozniakLinterTab(QWidget):
             }}
         """)
 
-        configs = list(LLMConfigModel.select())
+        configs = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
         if not configs:
             LLMConfigModel.create(
-                display_name="Ollama (Local)",
-                provider="ollama",
-                model_id="qwen2.5:7b",
-                context_limit=32000,
+                display_name="Google Gemini 3.5 Flash Lite",
+                provider="gemini",
+                model_id="gemini-3.5-flash-lite",
+                context_limit=1048576,
+                max_tokens=65536,
+                sort_order=0,
+                is_free=True,
             )
-            configs = list(LLMConfigModel.select())
+            configs = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
 
         for c in configs:
             display_name = getattr(c, "display_name", getattr(c, "name", str(c)))

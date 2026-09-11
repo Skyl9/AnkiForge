@@ -12,7 +12,13 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+    ) -> str:
         """
         Génère une réponse à partir d'un prompt système et d'un prompt utilisateur.
 
@@ -20,6 +26,7 @@ class LLMProvider(ABC):
             system_prompt (str): Instructions de base pour l'IA (le "rôle").
             user_prompt (str | list[dict[str, Any]]): Le message de l'utilisateur ou un payload multimodal.
             response_format (str): Le format attendu ("json" ou "text"). Par défaut "json".
+            max_tokens (int | None): Plafond maximal de tokens à générer (optionnel).
 
         Returns:
             str: La réponse brute générée par l'IA.
@@ -38,7 +45,13 @@ class MockProvider(LLMProvider):
     en cas de panne des services cloud.
     """
 
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+    ) -> str:
         """
         Simule une réponse JSON ou textuelle immédiate.
 

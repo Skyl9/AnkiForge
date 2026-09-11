@@ -249,6 +249,7 @@ class BatchView(QWidget):
         self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setMinimumContentsLength(8)
         self.engine_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
         ai_layout.addWidget(self.engine_combo)
 
         self.btn_no_engine_help = SecondaryButton("Configurer les Moteurs IA")
@@ -367,7 +368,7 @@ class BatchView(QWidget):
         tokens_header = QHBoxLayout()
         self.tokens_lbl = QLabel("Max Tokens")
         self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-        self.val_tokens_lbl = QLabel("4096")
+        self.val_tokens_lbl = QLabel("65 536 tks")
         self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         tokens_header.addWidget(self.tokens_lbl)
         tokens_header.addStretch()
@@ -375,10 +376,10 @@ class BatchView(QWidget):
 
         self.slider_tokens = QSlider(Qt.Orientation.Horizontal)
         self.slider_tokens.setMinimum(1)
-        self.slider_tokens.setMaximum(32)
-        self.slider_tokens.setValue(16)
+        self.slider_tokens.setMaximum(64)
+        self.slider_tokens.setValue(64)
         self.slider_tokens.setStyleSheet(slider_style)
-        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 256}"))
+        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 1024:,} tks".replace(",", " ")))
 
         tokens_layout.addLayout(tokens_header)
         tokens_layout.addWidget(self.slider_tokens)
@@ -584,11 +585,34 @@ class BatchView(QWidget):
 
             self.engine_combo.blockSignals(True)
             self.engine_combo.clear()
-            engines = list(LLMConfigModel.select())
+            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             if not engines:
-                LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet-20240620", context_limit=200000)
-                LLMConfigModel.create(display_name="GPT-4o", provider="openai", model_id="gpt-4o", context_limit=128000)
-                engines = list(LLMConfigModel.select())
+                LLMConfigModel.create(
+                    display_name="Google Gemini 3.5 Flash Lite",
+                    provider="gemini",
+                    model_id="gemini-3.5-flash-lite",
+                    context_limit=1048576,
+                    max_tokens=65536,
+                    sort_order=0,
+                    is_free=True,
+                )
+                LLMConfigModel.create(
+                    display_name="GPT-4o",
+                    provider="openai",
+                    model_id="gpt-4o",
+                    context_limit=128000,
+                    max_tokens=16384,
+                    sort_order=10,
+                )
+                LLMConfigModel.create(
+                    display_name="Claude 3.5 Sonnet",
+                    provider="anthropic",
+                    model_id="claude-3-5-sonnet-20240620",
+                    context_limit=200000,
+                    max_tokens=8192,
+                    sort_order=20,
+                )
+                engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             if engines:
                 for eg in engines:
                     display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
@@ -597,6 +621,7 @@ class BatchView(QWidget):
             else:
                 self.btn_no_engine_help.show()
             self.engine_combo.blockSignals(False)
+            self._on_engine_changed()
 
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
@@ -614,6 +639,17 @@ class BatchView(QWidget):
 
         except Exception as e:
             logger.warning("Erreur refresh_data batch_view: %s", e)
+
+    @Slot()
+    def _on_engine_changed(self) -> None:
+        eg = self.engine_combo.currentData()
+        if eg and hasattr(self, "slider_tokens"):
+            max_t = int(getattr(eg, "max_tokens", 16384) or 16384)
+            step_val = max(1, min(64, round(max_t / 1024)))
+            self.slider_tokens.blockSignals(True)
+            self.slider_tokens.setValue(step_val)
+            self.slider_tokens.blockSignals(False)
+            self.val_tokens_lbl.setText(f"{step_val * 1024:,} tks".replace(",", " "))
 
     def is_dirty(self) -> bool:
         return len(self.queue_tasks_data) > 0
@@ -733,7 +769,7 @@ class BatchView(QWidget):
             "use_vision": self.cb_vision.isChecked(),
             "auto_val": self.cb_autoval.isChecked(),
             "temperature": self.slider_temp.value() / 10.0,
-            "max_tokens": self.slider_tokens.value() * 256,
+            "max_tokens": self.slider_tokens.value() * 1024,
             "status": "En attente",
             "tokens_est": tokens_est,
             "progress_pct": 0,
@@ -877,9 +913,10 @@ class BatchView(QWidget):
             llm_config = {
                 "display_name": eng_display,
                 "model_id": getattr(selected_engine, "model_id", "default"),
-                "context_limit": 128000,
+                "context_limit": int(getattr(selected_engine, "context_limit", 128000) or 128000),
+                "max_tokens": int(task.get("max_tokens") or getattr(selected_engine, "max_tokens", 16384) or 16384),
                 "api_key": getattr(selected_engine, "api_key", ""),
-                "provider": getattr(selected_engine, "provider_type", "openai"),
+                "provider": getattr(selected_engine, "provider", getattr(selected_engine, "provider_type", "openai")),
             }
 
             fields_schema = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]

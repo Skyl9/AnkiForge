@@ -267,6 +267,7 @@ class CreationView(QWidget):
         self.engine_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.engine_combo.setMinimumContentsLength(8)
         self.engine_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
         ai_layout.addWidget(self.engine_combo)
 
         self.btn_no_engine_help = SecondaryButton("Configurer les Moteurs IA")
@@ -543,7 +544,7 @@ class CreationView(QWidget):
         tokens_header = QHBoxLayout()
         tokens_lbl = QLabel("Max Tokens")
         tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-        self.val_tokens_lbl = QLabel("4096")
+        self.val_tokens_lbl = QLabel("65 536 tks")
         self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         tokens_header.addWidget(tokens_lbl)
         tokens_header.addStretch()
@@ -551,10 +552,10 @@ class CreationView(QWidget):
 
         self.slider_tokens = QSlider(Qt.Orientation.Horizontal)
         self.slider_tokens.setMinimum(1)
-        self.slider_tokens.setMaximum(32)
-        self.slider_tokens.setValue(16)
+        self.slider_tokens.setMaximum(64)
+        self.slider_tokens.setValue(64)
         self.slider_tokens.setStyleSheet(slider_style)
-        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 256}"))
+        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 1024:,} tks".replace(",", " ")))
 
         tokens_layout.addLayout(tokens_header)
         tokens_layout.addWidget(self.slider_tokens)
@@ -915,16 +916,29 @@ class CreationView(QWidget):
             engines = self.persona_repo.get_all_llm_configs()
             if not engines:
                 self.persona_repo.create_llm_config(
+                    display_name="Google Gemini 3.5 Flash Lite",
+                    provider="gemini",
+                    model_id="gemini-3.5-flash-lite",
+                    context_limit=1048576,
+                    max_tokens=65536,
+                    sort_order=0,
+                    is_free=True,
+                )
+                self.persona_repo.create_llm_config(
                     display_name="GPT-4o (OpenAI)",
                     provider="openai",
                     model_id="gpt-4o",
                     context_limit=128000,
+                    max_tokens=16384,
+                    sort_order=10,
                 )
                 self.persona_repo.create_llm_config(
                     display_name="Claude 3.5 Sonnet (Anthropic)",
                     provider="anthropic",
                     model_id="claude-3-5-sonnet-20240620",
                     context_limit=200000,
+                    max_tokens=8192,
+                    sort_order=20,
                 )
                 engines = self.persona_repo.get_all_llm_configs()
 
@@ -933,6 +947,7 @@ class CreationView(QWidget):
                 self.engine_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), display_name, userData=eg)
             self.btn_no_engine_help.hide()
             self.engine_combo.blockSignals(False)
+            self._on_engine_changed()
 
             self.pipeline_combo.blockSignals(True)
             self.pipeline_combo.clear()
@@ -1389,6 +1404,17 @@ class CreationView(QWidget):
         self._on_model_changed()
 
     @Slot()
+    def _on_engine_changed(self) -> None:
+        eg = self.engine_combo.currentData()
+        if eg and hasattr(self, "slider_tokens"):
+            max_t = int(getattr(eg, "max_tokens", 16384) or 16384)
+            step_val = max(1, min(64, round(max_t / 1024)))
+            self.slider_tokens.blockSignals(True)
+            self.slider_tokens.setValue(step_val)
+            self.slider_tokens.blockSignals(False)
+            self.val_tokens_lbl.setText(f"{step_val * 1024:,} tks".replace(",", " "))
+
+    @Slot()
     def _on_model_changed(self) -> None:
         headers = ["Modèle", "Recto / Texte", "Verso / Détails", "Statut"]
         self.results_table.blockSignals(True)
@@ -1447,6 +1473,8 @@ class CreationView(QWidget):
 
         use_vision = self.vision_cb.isChecked() if hasattr(self, "vision_cb") else False
         initial_state.set_variable("use_vision", use_vision)
+        gen_tokens = self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384
+        initial_state.set_variable("max_tokens", gen_tokens)
 
         if hasattr(self, "input_page_scope"):
             scope_pages = parse_page_ranges(self.input_page_scope.text())

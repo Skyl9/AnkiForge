@@ -145,6 +145,8 @@ class ProfileContentTransfer:
                     "provider": str(llm.provider),
                     "model_id": str(llm.model_id),
                     "context_limit": int(llm.context_limit),
+                    "max_tokens": int(getattr(llm, "max_tokens", 16384)),
+                    "sort_order": int(getattr(llm, "sort_order", 100)),
                     "temperature": float(llm.temperature),
                     "prompt_pricing": float(llm.prompt_pricing),
                     "completion_pricing": float(llm.completion_pricing),

@@ -43,9 +43,14 @@ def test_run_migrations_idempotency(mock_db):
     assert "022_consultant_sessions" in router.done, "La migration 022 devrait être marquée comme terminée."
     assert "024_document_multimedia_and_albums" in router.done, "La migration 024 devrait être marquée comme terminée."
     assert "025_document_chunk_pages_and_headings" in router.done, "La migration 025 devrait être marquée comme terminée."
+    assert "028_llm_max_tokens" in router.done, "La migration 028 devrait être marquée comme terminée."
     assert db.table_exists("settings"), "La table settings devrait exister."
     assert db.table_exists("consultant_sessions"), "La table consultant_sessions devrait exister."
     assert db.table_exists("consultant_messages"), "La table consultant_messages devrait exister."
+
+    llm_cols = [c.name for c in db.get_columns("llm_configs")]
+    assert "max_tokens" in llm_cols, "La colonne max_tokens est manquante sur llm_configs."
+    assert "sort_order" in llm_cols, "La colonne sort_order est manquante sur llm_configs."
 
     chunk_cols = [c.name for c in db.get_columns("document_chunks")]
     assert "page_number" in chunk_cols, "La colonne page_number est manquante sur document_chunks."
@@ -65,3 +70,4 @@ def test_run_migrations_idempotency(mock_db):
     assert "022_consultant_sessions" in router.done
     assert "024_document_multimedia_and_albums" in router.done
     assert "025_document_chunk_pages_and_headings" in router.done
+    assert "028_llm_max_tokens" in router.done

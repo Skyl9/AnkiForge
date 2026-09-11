@@ -260,10 +260,23 @@ def seed_initial_data() -> None:
     # ==========================================
     if LLMConfigModel.select().count() == 0:
         LLMConfigModel.create(
+            display_name="Google Gemini 3.5 Flash Lite",
+            provider="gemini",
+            model_id="gemini-3.5-flash-lite",
+            context_limit=1048576,
+            max_tokens=65536,
+            sort_order=0,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
+            is_free=True,
+        )
+        LLMConfigModel.create(
             display_name="GPT-4o (OpenAI)",
             provider="openai",
             model_id="gpt-4o",
             context_limit=128000,
+            max_tokens=16384,
+            sort_order=10,
             prompt_pricing=5.0,
             completion_pricing=15.0,
         )
@@ -272,6 +285,8 @@ def seed_initial_data() -> None:
             provider="anthropic",
             model_id="claude-3-5-sonnet-20240620",
             context_limit=200000,
+            max_tokens=8192,
+            sort_order=20,
             prompt_pricing=3.0,
             completion_pricing=15.0,
         )
@@ -280,8 +295,11 @@ def seed_initial_data() -> None:
             provider="ollama",
             model_id="mistral",
             context_limit=32768,
+            max_tokens=16384,
+            sort_order=30,
             prompt_pricing=0.0,
             completion_pricing=0.0,
+            is_free=True,
         )
 
     # ==========================================

@@ -73,7 +73,7 @@ class PipelineOrchestrator(QRunnable):
         """Fournisseur LLM actif avec fallback paresseux."""
         if self._ai_provider is None:
             try:
-                config = LLMConfigModel.select().first()
+                config = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
                 if config:
                     self._ai_provider = AIManager.create_provider_from_config(config)
                 else:
@@ -287,6 +287,30 @@ class PipelineOrchestrator(QRunnable):
     # MÉTHODES DE TRAITEMENT SPÉCIFIQUES
     # ==========================================
 
+    @staticmethod
+    def _call_provider_generate(
+        provider: LLMProvider,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+    ) -> str:
+        if max_tokens is not None:
+            try:
+                return provider.generate(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_format=response_format,
+                    max_tokens=max_tokens,
+                )
+            except TypeError:
+                pass
+        return provider.generate(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+        )
+
     def _execute_llm_prompt(self, step: PipelineStepModel) -> None:
         """Exécute un prompt LLM standard en interpolant les templates Jinja2."""
         cfg: dict[str, Any] = {}
@@ -321,6 +345,9 @@ class PipelineOrchestrator(QRunnable):
                 except Exception as e:
                     logger.warning("Impossible d'instancier le provider dédié: %s", e)
 
+        max_tokens_val = cfg.get("max_tokens") or self.state.get_variable("max_tokens")
+        step_max_tokens = int(max_tokens_val) if max_tokens_val else None
+
         use_vision = bool(self.state.get_variable("use_vision", False))
         if use_vision:
             from ankiforge.utils.paths import get_media_dir
@@ -328,19 +355,23 @@ class PipelineOrchestrator(QRunnable):
 
             media_dir = get_media_dir()
             multimodal_input = prepare_multimodal_payload(user_input, media_dir)
-            response_text = provider.generate(
+            response_text = self._call_provider_generate(
+                provider=provider,
                 system_prompt=rendered_sys,
                 user_prompt=multimodal_input,
                 response_format=output_format,
+                max_tokens=step_max_tokens,
             )
         else:
             from ankiforge.utils.vision_utils import strip_image_tags
 
             clean_input = strip_image_tags(user_input) if isinstance(user_input, str) else user_input
-            response_text = provider.generate(
+            response_text = self._call_provider_generate(
+                provider=provider,
                 system_prompt=rendered_sys,
                 user_prompt=clean_input,
                 response_format=output_format,
+                max_tokens=step_max_tokens,
             )
 
         parsed_output: Any = response_text
@@ -392,7 +423,7 @@ class PipelineOrchestrator(QRunnable):
         rag_results: list[dict[str, Any]] = []
 
         try:
-            llm_config = LLMConfigModel.select().first()
+            llm_config = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
             rag = RAGService(llm_config)
             rag_results = rag.search(
                 doc_id=doc_id,
@@ -452,10 +483,15 @@ class PipelineOrchestrator(QRunnable):
 
             rendered_sys = self._render_prompt_template(raw_system_prompt, extra_context={"item": item_content, "index": index})
 
-            response = self.ai_provider.generate(
+            max_tokens_val = self.state.get_variable("max_tokens")
+            step_max_tokens = int(max_tokens_val) if max_tokens_val else None
+
+            response = self._call_provider_generate(
+                provider=self.ai_provider,
                 system_prompt=rendered_sys,
                 user_prompt=item_str,
                 response_format=output_format,
+                max_tokens=step_max_tokens,
             )
 
             parsed = response
