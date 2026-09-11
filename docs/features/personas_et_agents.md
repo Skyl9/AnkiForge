@@ -67,11 +67,39 @@ L'interface de gestion des agents (`AgentsView`) propose un sélecteur de preset
 
 ---
 
-## 🧪 5. Simulateur Unitaire (`AgentTestDialog`)
+---
 
-Avant de déployer un nouveau persona dans un pipeline de production traitant des centaines de pages :
+## ✨ 5. Galerie de Modèles & Assistant de Création Rapide (*Wizard*)
+
+Pour éviter le syndrome de la page blanche et permettre aux utilisateurs de démarrer instantanément, AnkiForge intègre un **Assistant de Création Visuel** (`PersonaCreationWizardDialog`) proposant 8 profils d'usine hautement calibrés :
+
+| Modèle Prêt à l'Emploi | Icône | Catégorie | Format | Spécialité Pédagogique |
+| :--- | :---: | :--- | :---: | :--- |
+| **Générateur Atomique Wozniak** | 🧠 | Pédagogie & SRS | JSON | Questions univoques et concises (règle des 2-3 secondes). |
+| **Professeur de Langues & Vocabulaire** | 🌍 | Langues & Traduction | JSON | Lexique contextuel, phonétique IPA et phrase d'exemple bilingue. |
+| **Spécialiste Médical & Anatomie** | 🩺 | Sciences & Médical | JSON | Rigueur sémiologique, chaînes physiopathologiques et diagnostics. |
+| **Formules Scientifiques & KaTeX** | 📐 | Sciences & Médical | JSON | Rendu mathématique parfait `$ ... $`, unités SI et hypothèses. |
+| **Générateur de Cloze (Textes à trous)** | 🧩 | Format Spécialisé | Cloze | Occlusions contextuelles syntaxe Anki `{{c1::terme::indice}}`. |
+| **Droit, Normes & Jurisprudence** | ⚖️ | Sciences Humaines | JSON | Visas légaux, conditions cumulatives et effets juridiques. |
+| **Consultant Audit & Optimisation MCP** | 🤝 | Audit & MCP | MD | Détection de doublons Levenshtein et refonte interactive. |
+| **Architecte Modèles & CSS Anki** | 🎨 | Design & Modèles | MD | Templates Jinja2 propres, responsive et compatible Dark Mode. |
+
+Les utilisateurs avancés peuvent basculer à tout moment sur l'onglet **Agent Vierge Personnalisé** pour créer un persona à partir d'une feuille blanche.
+
+---
+
+## 📋 6. Canevas de Prompts & Antisèche des Variables Jinja2
+
+L'éditeur de persona intègre deux assistants de productivité directement dans l'onglet *Instructions & Prompt* :
+- **📋 Insérer un Canevas de Prompt** : Déploie un menu d'architectures de prompts pré-structurés (Formulation Atomique, Cloze Anki, Vocabulaire bilingue, Sciences KaTeX, Diagnostic ReAct).
+- **ℹ️ Guide des Variables (`VariableHelperDialog`)** : Une modale interactive récapitulant les balises disponibles (`{{ text_source }}`, `{{ fields }}`, `{{ retrieved_chunks }}`, `{{ last_output }}`, `{{ item }}`, `{{ initial_prompt }}`), leur contexte d'injection et un exemple de valeur avec bouton d'insertion en 1-clic.
+
+---
+
+## 🧪 7. Simulateur Unitaire & Échantillons en 1-Clic (`AgentTestDialog`)
+
+Avant de déployer un persona dans un pipeline de production traitant des centaines de pages :
 1. Ouvrez l'**Éditeur de Personas**.
 2. Cliquez sur **Tester l'Agent** pour ouvrir la boîte de dialogue de simulation (`AgentTestDialog`).
-3. Injectez un échantillon de texte source ou une consigne de test.
-4. Observez la réponse générée en temps réel, le temps de réponse et le respect du schéma JSON.
-5. Ajustez vos consignes système et réitérez jusqu'à obtenir un comportement parfait.
+3. Choisissez un extrait réaliste dans le menu déroulant **Échantillons de cours** (Biologie / Photosynthèse, Histoire / Révolution, Anglais des Affaires, Thermodynamique, Responsabilité Civile).
+4. Cliquez sur **Exécuter le Test** : observez l'interpolation Jinja2 en direct et la réponse générée par le modèle sans avoir à saisir manuellement de texte.

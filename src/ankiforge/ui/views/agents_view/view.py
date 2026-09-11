@@ -5,6 +5,7 @@ from typing import Any
 from PySide6.QtCore import QPoint, QSize, Qt, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
@@ -25,6 +26,10 @@ from ankiforge.database.models import (
     PersonaFolderModel,
     PersonaModel,
     db,
+)
+from ankiforge.services.ai.persona_templates import (
+    PROMPT_STARTER_FRAMEWORKS,
+    PromptStarter,
 )
 from ankiforge.services.ai.persona_version_service import PersonaVersionService
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer
@@ -52,9 +57,12 @@ from ankiforge.ui.views.agents_view.constants import (
 from ankiforge.ui.views.agents_view.dialogs import (
     AgentPromptPreviewDialog,
     AgentTestDialog,
+    PersonaCreationWizardDialog,
+    VariableHelperDialog,
 )
 from ankiforge.ui.views.agents_view.widgets import (
     FolderHeaderWidget,
+    PersonaEmptyStateWidget,
     PersonaItemWidget,
     ResponsiveAgentTopActionBar,
     SubTabButton,
@@ -413,6 +421,17 @@ class AgentsView(QWidget):
         snippets_header.addWidget(lbl_prompt_title)
         snippets_header.addStretch()
 
+        self.btn_prompt_framework = SecondaryButton("📋 Insérer un Canevas...")
+        self.btn_prompt_framework.setFixedHeight(28)
+        self.btn_prompt_framework.clicked.connect(self._on_open_prompt_frameworks_menu)
+        snippets_header.addWidget(self.btn_prompt_framework)
+
+        self.btn_var_help = SecondaryButton("ℹ️ Guide des Variables")
+        self.btn_var_help.setIcon(load_phosphor_icon("ph.question", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_var_help.setFixedHeight(28)
+        self.btn_var_help.clicked.connect(self._on_open_variable_helper)
+        snippets_header.addWidget(self.btn_var_help)
+
         self.btn_preview_prompt = SecondaryButton("Aperçu Interpolé (Jinja2)")
         self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_preview_prompt.setFixedHeight(28)
@@ -517,7 +536,16 @@ class AgentsView(QWidget):
 
         self._switch_subtab(0)
 
-        self.editor_panel.add_tab("Éditeur de Persona", editor_content, "ph.sparkle", closable=False)
+        # Master Stack du Panneau Droit (Empty State vs Éditeur)
+        self.editor_master_stack = QStackedWidget()
+
+        self.empty_state_widget = PersonaEmptyStateWidget()
+        self.empty_state_widget.create_from_template_requested.connect(self._on_new_agent)
+        self.empty_state_widget.create_custom_requested.connect(self._on_new_agent_custom)
+        self.editor_master_stack.addWidget(self.empty_state_widget)
+        self.editor_master_stack.addWidget(editor_content)
+
+        self.editor_panel.add_tab("Éditeur de Persona", self.editor_master_stack, "ph.sparkle", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
         self.main_splitter.setSizes([340, 660])
 
@@ -625,6 +653,10 @@ class AgentsView(QWidget):
 
             if self._cached_personas and not self._current_agent:
                 self._select_first_persona_in_tree()
+            elif not self._cached_personas:
+                self._current_agent = None
+                if hasattr(self, "editor_master_stack"):
+                    self.editor_master_stack.setCurrentIndex(0)
 
         except Exception as e:
             logger.warning("Erreur refresh_data agents_view: %s", e)
@@ -777,6 +809,24 @@ class AgentsView(QWidget):
                 self.persona_tree.setCurrentItem(found)
                 return
 
+    def _select_persona_in_tree(self, persona_id: int) -> None:
+        def _find_item(item: QTreeWidgetItem) -> QTreeWidgetItem | None:
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data[0] == "persona" and getattr(data[1], "id", None) == persona_id:
+                return item
+            for i in range(item.childCount()):
+                res = _find_item(item.child(i))
+                if res:
+                    return res
+            return None
+
+        for i in range(self.persona_tree.topLevelItemCount()):
+            top_item = self.persona_tree.topLevelItem(i)
+            found = _find_item(top_item)
+            if found:
+                self.persona_tree.setCurrentItem(found)
+                return
+
     def is_dirty(self) -> bool:
         return False
 
@@ -846,6 +896,9 @@ class AgentsView(QWidget):
             self._load_persona_into_editor(obj)
 
     def _load_persona_into_editor(self, ag: PersonaModel) -> None:
+        if hasattr(self, "editor_master_stack"):
+            self.editor_master_stack.setCurrentIndex(1)
+
         self.name_edit.setText(str(ag.name) if ag.name else "")
         self.desc_edit.setText(str(ag.description) if ag.description else "")
         self.prompt_edit.setPlainText(str(ag.system_prompt) if ag.system_prompt else "")
@@ -976,28 +1029,70 @@ class AgentsView(QWidget):
 
     @Slot()
     def _on_new_agent(self) -> None:
-        name, ok = QInputDialog.getText(self, "Nouvel Agent IA", "Nom de l'agent :")
-        if ok and name.strip():
-            try:
-                ag_name = name.strip()
-                default_prompt = "Tu es un assistant expert pour Anki."
-                folder_id = self._current_folder.id if self._current_folder else None
+        wizard = PersonaCreationWizardDialog(
+            cached_folders=self._cached_folders,
+            current_folder=self._current_folder,
+            parent=self,
+        )
+        if wizard.exec() == QDialog.DialogCode.Accepted and wizard.created_persona:
+            self.refresh_data()
+            self._current_agent = wizard.created_persona
+            self._load_persona_into_editor(wizard.created_persona)
+            self._select_persona_in_tree(wizard.created_persona.id)
 
-                new_p = PersonaModel.create(
-                    name=ag_name,
-                    description="Nouvel agent IA configuré par l'utilisateur.",
-                    system_prompt=default_prompt,
-                    output_format="json",
-                    persona_type=self._current_scope_filter if self._current_scope_filter in ("pipeline", "mcp", "universal") else "pipeline",
-                    folder=folder_id,
-                    allowed_tools="[]",
-                )
-                self.refresh_data()
-                self._current_agent = new_p
-                self._load_persona_into_editor(new_p)
-                show_toast(self, f"Agent '{ag_name}' créé avec succès !")
-            except Exception as e:
-                log_and_notify_error(e, context="Création d'agent", parent=self, title="Erreur")
+    @Slot()
+    def _on_new_agent_custom(self) -> None:
+        wizard = PersonaCreationWizardDialog(
+            cached_folders=self._cached_folders,
+            current_folder=self._current_folder,
+            parent=self,
+        )
+        wizard._switch_mode(1)
+        if wizard.exec() == QDialog.DialogCode.Accepted and wizard.created_persona:
+            self.refresh_data()
+            self._current_agent = wizard.created_persona
+            self._load_persona_into_editor(wizard.created_persona)
+            self._select_persona_in_tree(wizard.created_persona.id)
+
+    @Slot()
+    def _on_open_prompt_frameworks_menu(self) -> None:
+        menu = StyledMenu(self)
+        for framework in PROMPT_STARTER_FRAMEWORKS:
+            action = menu.addAction(framework.label)
+            action.triggered.connect(lambda _, f=framework: self._apply_prompt_framework(f))
+
+        pos = self.btn_prompt_framework.mapToGlobal(QPoint(0, self.btn_prompt_framework.height()))
+        menu.exec(pos)
+
+    def _apply_prompt_framework(self, framework: PromptStarter) -> None:
+        current_text = self.prompt_edit.toPlainText().strip()
+        if current_text and current_text != "Tu es un assistant expert pour Anki.":
+            confirm = QMessageBox.question(
+                self,
+                "Remplacer le prompt",
+                f"Souhaitez-vous remplacer le prompt actuel par le canevas '{framework.label}' ?\n(Cliquez sur 'Non' pour l'ajouter à la suite de votre texte)",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            )
+            if confirm == QMessageBox.StandardButton.Cancel:
+                return
+            if confirm == QMessageBox.StandardButton.Yes:
+                self.prompt_edit.setPlainText(framework.template_content)
+            else:
+                self.prompt_edit.appendPlainText("\n\n" + framework.template_content)
+        else:
+            self.prompt_edit.setPlainText(framework.template_content)
+
+        idx = self.format_combo.findText(framework.recommended_format, Qt.MatchFlag.MatchFixedString)
+        if idx != -1:
+            self.format_combo.setCurrentIndex(idx)
+
+        show_toast(self, f"Canevas '{framework.label}' inséré !")
+
+    @Slot()
+    def _on_open_variable_helper(self) -> None:
+        dlg = VariableHelperDialog(parent=self)
+        dlg.variable_inserted.connect(self._insert_jinja_snippet)
+        dlg.exec()
 
     @Slot()
     def _on_clone_agent(self) -> None:

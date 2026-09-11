@@ -1,3 +1,6 @@
+from ankiforge.ui.views.agents_view.widgets.empty_state_widget import (
+    PersonaEmptyStateWidget,
+)
 from ankiforge.ui.views.agents_view.widgets.folder_header import (
     FolderHeaderWidget,
 )
@@ -18,10 +21,11 @@ from ankiforge.ui.views.agents_view.widgets.top_action_bar import (
 )
 
 __all__ = [
-    "TagPillButton",
-    "SubTabButton",
     "FolderHeaderWidget",
+    "PersonaEmptyStateWidget",
     "PersonaItemWidget",
-    "ToolPermissionCard",
     "ResponsiveAgentTopActionBar",
+    "SubTabButton",
+    "TagPillButton",
+    "ToolPermissionCard",
 ]

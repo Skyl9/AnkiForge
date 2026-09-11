@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import PersonaModel
 from ankiforge.services.ai.base import MockProvider
-from ankiforge.ui.components import PrimaryButton, SecondaryButton
+from ankiforge.services.ai.persona_templates import SAMPLE_TEST_INPUTS
+from ankiforge.ui.components import PrimaryButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -43,9 +44,20 @@ class AgentTestDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
+        input_header = QHBoxLayout()
         lbl_input = QLabel("Texte source d'entrée (User Prompt) :")
         lbl_input.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
-        layout.addWidget(lbl_input)
+        input_header.addWidget(lbl_input)
+        input_header.addStretch()
+
+        self.sample_combo = StyledComboBox()
+        self.sample_combo.setFixedHeight(26)
+        self.sample_combo.addItem("Charger un échantillon de cours...", userData="")
+        for title, sample_text in SAMPLE_TEST_INPUTS:
+            self.sample_combo.addItem(f"📄 {title}", userData=sample_text)
+        self.sample_combo.currentIndexChanged.connect(self._on_sample_selected)
+        input_header.addWidget(self.sample_combo)
+        layout.addLayout(input_header)
 
         self.edit_user_input = QTextEdit()
         self.edit_user_input.setPlaceholderText("Saisissez un extrait de cours pour tester la génération de cet agent...")
@@ -73,6 +85,11 @@ class AgentTestDialog(QDialog):
         h_btn.addStretch()
         h_btn.addWidget(btn_close)
         layout.addLayout(h_btn)
+
+    def _on_sample_selected(self, idx: int) -> None:
+        text = self.sample_combo.currentData()
+        if text:
+            self.edit_user_input.setText(str(text))
 
     def _run_test(self) -> None:
         self.output_text.clear()

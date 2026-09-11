@@ -12,10 +12,13 @@ from ankiforge.ui.views.agents_view.constants import (
 from ankiforge.ui.views.agents_view.dialogs import (
     AgentPromptPreviewDialog,
     AgentTestDialog,
+    PersonaCreationWizardDialog,
+    VariableHelperDialog,
 )
 from ankiforge.ui.views.agents_view.view import AgentsTab, AgentsView
 from ankiforge.ui.views.agents_view.widgets import (
     FolderHeaderWidget,
+    PersonaEmptyStateWidget,
     PersonaItemWidget,
     ResponsiveAgentTopActionBar,
     SubTabButton,
@@ -24,18 +27,21 @@ from ankiforge.ui.views.agents_view.widgets import (
 )
 
 __all__ = [
-    "AgentsView",
-    "AgentsTab",
     "AgentPromptPreviewDialog",
     "AgentTestDialog",
+    "AgentsTab",
+    "AgentsView",
     "FolderHeaderWidget",
+    "JINJA2_SNIPPETS",
+    "MCP_BASE_TOOLS_SPEC",
+    "PERSONA_TYPE_SPECS",
+    "PersonaCreationWizardDialog",
+    "PersonaEmptyStateWidget",
     "PersonaItemWidget",
     "ResponsiveAgentTopActionBar",
     "SubTabButton",
     "TagPillButton",
     "ToolPermissionCard",
+    "VariableHelperDialog",
     "apply_pill_style",
-    "PERSONA_TYPE_SPECS",
-    "MCP_BASE_TOOLS_SPEC",
-    "JINJA2_SNIPPETS",
 ]
