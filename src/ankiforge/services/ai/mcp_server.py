@@ -216,6 +216,90 @@ def prompt_audit_architecture(target_code_or_rule: str) -> str:
     )
 
 
+# =====================================================================
+# GESTION DES AGENTS DÉDIÉS AU SERVEUR MCP
+# =====================================================================
+
+
+@mcp.tool()
+def list_mcp_agents(scope: str = "mcp") -> str:
+    """Liste tous les agents dédiés enregistrés (Auditeur Wozniak, Architecte CSS, Analyste SRS...) avec leurs outils."""
+    return ConsultantToolRegistry.list_mcp_agents(scope)
+
+
+@mcp.tool()
+def get_mcp_agent_details(agent_name: str) -> str:
+    """Consulte la configuration détaillée d'un agent dédié (prompt système Jinja2, modèle assigné, liste des outils)."""
+    return ConsultantToolRegistry.get_mcp_agent_details(agent_name)
+
+
+@mcp.tool()
+def invoke_mcp_agent(agent_name: str, message: str, conversation_history_json: str = "[]") -> str:
+    """Délègue une tâche ou une question à un agent dédié spécifique selon ses autorisations d'outils et son prompt."""
+    return ConsultantToolRegistry.invoke_mcp_agent(agent_name, message, conversation_history_json)
+
+
+@mcp.tool()
+def create_or_update_mcp_agent(
+    name: str,
+    description: str,
+    system_prompt: str,
+    allowed_tools_json: str = "[]",
+    persona_type: str = "mcp",
+) -> str:
+    """Crée ou met à jour la configuration d'un agent dédié dans la collection."""
+    from ankiforge.database.models import PersonaModel
+
+    try:
+        agent, created = PersonaModel.get_or_create(
+            name=name.strip(),
+            defaults={
+                "description": description.strip(),
+                "system_prompt": system_prompt.strip(),
+                "allowed_tools": allowed_tools_json.strip() or "[]",
+                "persona_type": persona_type.strip(),
+            },
+        )
+        if not created:
+            agent.description = description.strip()
+            agent.system_prompt = system_prompt.strip()
+            agent.allowed_tools = allowed_tools_json.strip() or "[]"
+            agent.persona_type = persona_type.strip()
+            agent.save()
+            action_str = "mis à jour"
+        else:
+            action_str = "créé"
+
+        return f"Succès : L'agent dédié '{agent.name}' a été {action_str} avec succès (portée: {agent.persona_type})."
+    except Exception as e:
+        logger.error("Erreur create_or_update_mcp_agent : %s", e)
+        return f"Erreur lors de l'enregistrement de l'agent : {e}"
+
+
+@mcp.resource("agents://list")
+def get_agents_list_resource() -> str:
+    """Retourne la liste hiérarchique de tous les agents dédiés au format texte/JSON."""
+    return ConsultantToolRegistry.list_mcp_agents(scope="all")
+
+
+@mcp.resource("agents://{agent_name}")
+def get_agent_profile_resource(agent_name: str) -> str:
+    """Fournit le profil et la consigne système d'un agent dédié spécifique."""
+    return ConsultantToolRegistry.get_mcp_agent_details(agent_name)
+
+
+@mcp.prompt("run_with_agent")
+def prompt_run_with_agent(agent_name: str, task: str) -> str:
+    """Prompt guidé pour exécuter une tâche en adoptant la posture et les outils d'un agent dédié."""
+    agent_info = ConsultantToolRegistry.get_mcp_agent_details(agent_name)
+    return (
+        f"Tu incarnes l'agent spécialisé '{agent_name}'. Voici ton profil et tes consignes strictes :\n\n"
+        f"{agent_info}\n\n"
+        f"### Mission à accomplir :\n{task}\n\n"
+        "Respecte strictement tes compétences et ton périmètre d'action."
+    )
+
+
 def run_server() -> None:
     """Démarre le serveur FastMCP en mode asynchrone sécurisé."""
     logger.info("Démarrage du serveur MCP AnkiForge...")

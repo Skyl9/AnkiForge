@@ -309,6 +309,10 @@ class ContextHubWidget(QWidget):
         self.persona_badge = Badge("MCP", variant="neutral")
         self.persona_badge.setMinimumWidth(44)
         persona_top_row.addWidget(self.persona_badge)
+
+        self.tools_count_badge = Badge("Tous outils", variant="success")
+        self.tools_count_badge.setMinimumWidth(55)
+        persona_top_row.addWidget(self.tools_count_badge)
         persona_layout.addLayout(persona_top_row)
 
         # Encadré de citation pour la directive
@@ -797,6 +801,22 @@ class ContextHubWidget(QWidget):
             else:
                 self.persona_badge.setText("Global")
                 self.persona_badge.set_variant("success")
+
+            raw_tools = getattr(p, "allowed_tools", "[]") or "[]"
+            try:
+                tools = json.loads(raw_tools) if isinstance(raw_tools, str) else raw_tools
+            except Exception:
+                tools = []
+
+            if not tools or "*" in tools or "all" in tools:
+                self.tools_count_badge.setText("Tous outils")
+                self.tools_count_badge.set_variant("success")
+                self.tools_count_badge.setToolTip("Cet agent dispose d'un accès intégral à tous les outils de la collection.")
+            else:
+                self.tools_count_badge.setText(f"{len(tools)} outils")
+                self.tools_count_badge.set_variant("primary")
+                tools_list_tt = "\n".join(f"• {t}" for t in tools)
+                self.tools_count_badge.setToolTip(f"Outils autorisés pour cet agent :\n{tools_list_tt}")
         self.update_token_breakdown()
 
     def _show_raw_dialog(self) -> None:

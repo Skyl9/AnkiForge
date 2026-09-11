@@ -202,34 +202,79 @@ def seed_initial_data() -> None:
         defaults={
             "description": "Assistant polyvalent pour gérer l'application, suggérer des tags et optimiser la structure de la collection.",
             "system_prompt": generaliste_prompt,
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(["*"]),
         },
     )
 
     # ==========================================
-    # PERSONA 5 : L'AUDITEUR WOZNIAK
+    # PERSONAS DÉDIÉS AU SERVEUR MCP
     # ==========================================
-    wozniak_prompt = (
-        "You are an expert Anki flashcard auditor following Piotr Wozniak's '20 rules of formulating knowledge'.\n"
-        "Your goal is to review the provided flashcards and point out major violations of the rules (e.g., lack of atomicity, complex lists, redundancy, poorly formulated questions, lack of context).\n\n"
-        "For each note, output whether it passes or fails, the rule broken, and a suggested improvement. \n"
-        "Return a JSON array of objects.\n\n"
-        "JSON Structure:\n"
-        "[\n"
-        "  {\n"
-        '    "note_id": 123,\n'
-        '    "pass": false,\n'
-        '    "rule_broken": "Atomicity",\n'
-        '    "reason": "The card asks for 3 different concepts at once.",\n'
-        '    "suggestion": {"Front": "Question 1?", "Back": "Answer 1"} \n'
-        "  }\n"
-        "]\n"
-        "Always wrap your response in standard JSON. Only provide suggestions if it fails."
-    )
+    from ankiforge.services.ai.tools_catalog import AGENT_PRESETS
+
     PersonaModel.get_or_create(
         name="Auditeur Wozniak",
         defaults={
-            "description": "Auditeur expert basé sur les 20 règles de formulation de Piotr Wozniak.",
-            "system_prompt": wozniak_prompt,
+            "description": "Auditeur expert basé sur les 20 règles de formulation de Piotr Wozniak (atomicité, clarté).",
+            "system_prompt": (
+                "Tu es l'Auditeur Qualité Wozniak d'AnkiForge. Ton rôle exclusif est d'analyser la clarté et la rétention des cartes "
+                "au regard des 20 règles fondamentales de Piotr Wozniak. Tu traques le manque d'atomicité, les listes complexes "
+                "et les interférences. Tu proposes des reformulations précises sous forme de Staged Diffs."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["wozniak_auditor"]["tools"]),
+        },
+    )
+
+    PersonaModel.get_or_create(
+        name="Architecte Modèles & CSS",
+        defaults={
+            "description": "Spécialiste de la structure des types de cartes, gabarits HTML/KaTeX et personnalisation visuelle CSS.",
+            "system_prompt": (
+                "Tu es l'Architecte Modèles & CSS d'AnkiForge. Ton rôle est de concevoir, auditer et améliorer les types de notes, "
+                "les schémas de champs, les templates Jinja2/KaTeX et les styles CSS. Tu t'assures de l'ergonomie visuelle sur mobile et desktop."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["css_architect"]["tools"]),
+        },
+    )
+
+    PersonaModel.get_or_create(
+        name="Analyste SRS & Sangsues",
+        defaults={
+            "description": "Spécialiste de la dynamique d'apprentissage, analyse des taux d'oubli, cartes sangsues et prédictions FSRS.",
+            "system_prompt": (
+                "Tu es l'Analyste SRS d'AnkiForge. Ton rôle est d'examiner en profondeur les métriques d'apprentissage de la collection : "
+                "distribution des intervalles, cartes provoquant des échecs répétés (sangsues), et charge de révision future."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["srs_analyst"]["tools"]),
+        },
+    )
+
+    PersonaModel.get_or_create(
+        name="Chercheur RAG & Documents",
+        defaults={
+            "description": "Spécialiste de l'interrogation des sources documentaires importées, index sémantiques et analyse de couverture.",
+            "system_prompt": (
+                "Tu es le Chercheur RAG d'AnkiForge. Ton rôle est d'explorer les documents sources importés (PDF, web, transcriptions) "
+                "et la documentation officielle pour vérifier que toutes les notions clés ont été convenablement transformées en flashcards."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["rag_researcher"]["tools"]),
+        },
+    )
+
+    PersonaModel.get_or_create(
+        name="Administrateur BDD Peewee",
+        defaults={
+            "description": "Expert technique habilité à effectuer des diagnostics SQL directs et à exécuter des scripts Python.",
+            "system_prompt": (
+                "Tu es l'Administrateur BDD Peewee d'AnkiForge. Tu disposes des autorisations pour exécuter des requêtes SQL SELECT "
+                "en lecture seule et lancer des outils d'ingénierie Python afin d'extraire des rapports statistiques avancés."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["database_admin"]["tools"]),
         },
     )
     # ==========================================

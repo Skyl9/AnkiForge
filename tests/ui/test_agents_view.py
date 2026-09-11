@@ -21,7 +21,7 @@ def test_agents_view_load_and_selection(qtbot):
         output_format="json",
         persona_type="pipeline",
         folder=folder,
-        allowed_tools=json.dumps(["query_vector_db", "generate_css"]),
+        allowed_tools=json.dumps(["audit_deck_wozniak", "propose_css_tune"]),
         llm_config=cfg,
     )
 
@@ -36,9 +36,9 @@ def test_agents_view_load_and_selection(qtbot):
     assert view.folder_combo.currentData() == folder.id
 
     # Vérification des checkboxes d'outils
-    assert view._tool_checkboxes["query_vector_db"].isChecked() is True
-    assert view._tool_checkboxes["generate_css"].isChecked() is True
-    assert view._tool_checkboxes["read_anki_stats"].isChecked() is False
+    assert view._tool_checkboxes["audit_deck_wozniak"].isChecked() is True
+    assert view._tool_checkboxes["propose_css_tune"].isChecked() is True
+    assert view._tool_checkboxes["get_deck_stats"].isChecked() is False
 
     # Vérification du moteur sélectionné
     assert view.engine_combo.currentData() is not None
@@ -77,7 +77,7 @@ def test_agents_view_save_modifications(qtbot):
         view.folder_combo.setCurrentIndex(idx_f)
 
     # Cocher un outil
-    view._tool_checkboxes["read_anki_stats"].setChecked(True)
+    view._tool_checkboxes["get_deck_stats"].setChecked(True)
 
     # Sauvegarder
     view.btn_save.click()
@@ -88,7 +88,7 @@ def test_agents_view_save_modifications(qtbot):
     assert updated_p.persona_type == "mcp"
     assert updated_p.folder.id == folder.id
     tools = json.loads(updated_p.allowed_tools)
-    assert "read_anki_stats" in tools
+    assert "get_deck_stats" in tools
 
 
 def test_agents_view_clone_and_filter(qtbot):
@@ -173,3 +173,28 @@ def test_agents_view_dialogs(qtbot):
     qtbot.addWidget(dlg_test)
     dlg_test._run_test()
     assert "Réponse du Modèle :" in dlg_test.output_text.toPlainText() or "Prompt Système Interpolé" in dlg_test.output_text.toPlainText()
+
+
+def test_agents_view_tool_presets(qtbot):
+    """Vérifie le fonctionnement de l'application des presets d'outils dans AgentsView."""
+    view = AgentsView()
+    qtbot.addWidget(view)
+
+    # Appliquer le preset wozniak_auditor
+    view._apply_tool_preset("wozniak_auditor")
+    assert view._tool_cards["audit_deck_wozniak"].isChecked()
+    assert view._tool_cards["find_duplicate_cards"].isChecked()
+    assert not view._tool_cards["query_peewee"].isChecked()
+    assert not view._tool_cards["get_deck_stats"].isChecked()
+
+    # Appliquer le preset css_architect
+    view._apply_tool_preset("css_architect")
+    assert view._tool_cards["list_note_types"].isChecked()
+    assert view._tool_cards["get_note_type_details"].isChecked()
+    assert not view._tool_cards["audit_deck_wozniak"].isChecked()
+
+    # Appliquer le preset universal (tous les outils)
+    view._apply_tool_preset("universal")
+    assert view._tool_cards["query_peewee"].isChecked()
+    assert view._tool_cards["audit_deck_wozniak"].isChecked()
+    assert view._tool_cards["get_deck_stats"].isChecked()

@@ -47,7 +47,6 @@ from ankiforge.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
 from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.views.agents_view.constants import (
     JINJA2_SNIPPETS,
-    MCP_BASE_TOOLS_SPEC,
     PERSONA_TYPE_SPECS,
 )
 from ankiforge.ui.views.agents_view.dialogs import (
@@ -477,6 +476,18 @@ class AgentsView(QWidget):
         tools_header.addWidget(lbl_tools_title)
         tools_header.addStretch()
 
+        self.preset_combo = StyledComboBox()
+        self.preset_combo.setFixedHeight(26)
+        self.preset_combo.addItem("Presets d'outils...", userData="")
+        self.preset_combo.addItem("🛡️ Auditeur Wozniak", userData="wozniak_auditor")
+        self.preset_combo.addItem("🎨 Architecte Modèles & CSS", userData="css_architect")
+        self.preset_combo.addItem("📊 Analyste SRS & Sangsues", userData="srs_analyst")
+        self.preset_combo.addItem("📚 Chercheur RAG & Documents", userData="rag_researcher")
+        self.preset_combo.addItem("⚡ Administrateur BDD & Scripts", userData="database_admin")
+        self.preset_combo.addItem("🌐 Consultant Universel (Tout)", userData="universal")
+        self.preset_combo.currentIndexChanged.connect(self._on_preset_combo_changed)
+        tools_header.addWidget(self.preset_combo)
+
         btn_select_all = SecondaryButton("Tout Cocher")
         btn_select_all.setFixedHeight(26)
         btn_select_all.clicked.connect(lambda: self._set_all_tools(True))
@@ -516,6 +527,24 @@ class AgentsView(QWidget):
         self.btn_subtab_prompt.set_active(index == 1)
         self.btn_subtab_tools.set_active(index == 2)
 
+    def _on_preset_combo_changed(self) -> None:
+        preset_key = self.preset_combo.currentData()
+        if preset_key:
+            self._apply_tool_preset(str(preset_key))
+
+    def _apply_tool_preset(self, preset_key: str) -> None:
+        from ankiforge.services.ai.tools_catalog import AGENT_PRESETS
+
+        spec = AGENT_PRESETS.get(preset_key)
+        if not spec:
+            return
+        tools = spec["tools"]
+        if "*" in tools or "all" in tools:
+            self._set_all_tools(True)
+        else:
+            for key, card in self._tool_cards.items():
+                card.setChecked(key in tools)
+
     def _build_tools_cards(self) -> None:
         while self.tools_layout.count() > 0:
             item = self.tools_layout.takeAt(0)
@@ -525,24 +554,28 @@ class AgentsView(QWidget):
         self._tool_cards.clear()
         self._tool_checkboxes.clear()
 
-        lbl_mcp = QLabel("OUTILS MCP CONSULTANT & SYSTÈME :")
-        lbl_mcp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 4px;")
-        self.tools_layout.addWidget(lbl_mcp)
+        from ankiforge.services.ai.tools_catalog import get_tools_by_category
 
-        for key, spec in MCP_BASE_TOOLS_SPEC.items():
-            card = ToolPermissionCard(
-                tool_key=key,
-                label=spec["label"],
-                description=spec["desc"],
-                category=spec["category"],
-                category_color=spec["color"],
-            )
-            self._tool_cards[key] = card
-            self._tool_checkboxes[key] = card.checkbox
-            self.tools_layout.addWidget(card)
+        tools_by_cat = get_tools_by_category()
+        for cat_name, cat_tools in tools_by_cat.items():
+            lbl_cat = QLabel(f"{cat_name.upper()} :")
+            lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+            self.tools_layout.addWidget(lbl_cat)
+
+            for t_spec in cat_tools:
+                card = ToolPermissionCard(
+                    tool_key=t_spec.key,
+                    label=t_spec.label,
+                    description=t_spec.description,
+                    category=t_spec.category,
+                    category_color=t_spec.color,
+                )
+                self._tool_cards[t_spec.key] = card
+                self._tool_checkboxes[t_spec.key] = card.checkbox
+                self.tools_layout.addWidget(card)
 
         lbl_py = QLabel("OUTILS PYTHON DÉTERMINISTES (MOTEUR DAG) :")
-        lbl_py.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 8px;")
+        lbl_py.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 10px;")
         self.tools_layout.addWidget(lbl_py)
 
         try:
@@ -855,12 +888,16 @@ class AgentsView(QWidget):
         allowed_list = []
         try:
             raw_tools = getattr(ag, "allowed_tools", "[]") or "[]"
-            allowed_list = json.loads(raw_tools)
+            allowed_list = json.loads(raw_tools) if isinstance(raw_tools, str) else raw_tools
         except Exception:
             allowed_list = []
 
-        for tool_key, card in self._tool_cards.items():
-            card.setChecked(tool_key in allowed_list)
+        if "*" in allowed_list or "all" in allowed_list or (getattr(ag, "persona_type", "") == "universal" and not allowed_list):
+            for card in self._tool_cards.values():
+                card.setChecked(True)
+        else:
+            for tool_key, card in self._tool_cards.items():
+                card.setChecked(tool_key in allowed_list)
 
     @Slot(QPoint)
     def _on_tree_context_menu(self, pos: QPoint) -> None:

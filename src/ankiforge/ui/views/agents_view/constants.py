@@ -1,5 +1,9 @@
 from PySide6.QtWidgets import QLabel
 
+from ankiforge.services.ai.tools_catalog import (
+    TOOLS_CATALOG,
+)
+
 
 def apply_pill_style(badge: QLabel, color_hex: str) -> None:
     """Applique un style de capsule/pill parfaitement arrondie avec fond translucide et bordure assortie."""
@@ -44,26 +48,15 @@ PERSONA_TYPE_SPECS: dict[str, dict[str, str]] = {
     },
 }
 
-# Registre des outils de base MCP du Consultant
+# Registre exhaustif des outils MCP du Consultant & de la Forge
 MCP_BASE_TOOLS_SPEC: dict[str, dict[str, str]] = {
-    "query_vector_db": {
-        "label": "Recherche Vectorielle (RAG)",
-        "desc": "Permet d'interroger l'index sémantique FAISS des documents importés.",
-        "category": "MCP",
-        "color": "#06b6d4",
-    },
-    "read_anki_stats": {
-        "label": "Statistiques Anki & Rétention",
-        "desc": "Permet de lire les métriques SRS (Sangsues, taux d'oubli, distributions de notes).",
-        "category": "MCP",
-        "color": "#10b981",
-    },
-    "generate_css": {
-        "label": "Stylisation CSS d'Atelier",
-        "desc": "Permet de générer et d'injecter des règles CSS directement dans les modèles Anki.",
-        "category": "MCP",
-        "color": "#8b5cf6",
-    },
+    t.key: {
+        "label": t.label,
+        "desc": t.description,
+        "category": t.category,
+        "color": t.color,
+    }
+    for t in TOOLS_CATALOG
 }
 
 # Snippets Jinja2 usuels pour les Prompts

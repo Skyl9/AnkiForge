@@ -911,6 +911,103 @@ class ConsultantToolRegistry:
 
         return _quick_help(feature_name=feature_name)
 
+    @staticmethod
+    def list_mcp_agents(scope: str = "mcp") -> str:
+        """Liste tous les agents dédiés enregistrés avec leurs outils autorisés et leur description."""
+        try:
+            query = PersonaModel.select()
+            if scope != "all":
+                query = query.where(PersonaModel.persona_type.in_([scope, "universal"]))
+            agents = list(query.order_by(PersonaModel.name.asc()))
+            if not agents:
+                return "Aucun agent dédié trouvé dans la collection."
+
+            lines = [f"🤖 **Agents Dédiés AnkiForge Disponibles ({len(agents)}) :**\n"]
+            for ag in agents:
+                raw_tools = ag.allowed_tools or "[]"
+                try:
+                    tools = json.loads(raw_tools) if isinstance(raw_tools, str) else raw_tools
+                except Exception:
+                    tools = []
+                tools_str = "Accès Universel (Tous les outils)" if not tools or "*" in tools else f"{len(tools)} outils autorisés ({', '.join(tools[:3])}...)"
+                model_name = ag.llm_config.display_name if ag.llm_config else "Moteur par défaut"
+                lines.append(f"- **{ag.name}** `[{ag.persona_type.upper()}]` (Modèle: *{model_name}*)\n  - Description : {ag.description or 'Aucune description'}\n  - Outils autorisés : {tools_str}")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.error("Erreur list_mcp_agents : %s", e)
+            return f"Erreur lors de la consultation des agents : {e}"
+
+    @staticmethod
+    def get_mcp_agent_details(agent_name: str) -> str:
+        """Consulte la configuration détaillée d'un agent dédié (prompt système, outils autorisés)."""
+        try:
+            agent = PersonaModel.get_or_none(PersonaModel.name == agent_name.strip())
+            if not agent:
+                return f"Erreur : L'agent '{agent_name}' n'existe pas."
+
+            raw_tools = agent.allowed_tools or "[]"
+            try:
+                tools = json.loads(raw_tools) if isinstance(raw_tools, str) else raw_tools
+            except Exception:
+                tools = []
+
+            tools_list = "Tous les outils (Universel)" if not tools or "*" in tools else "\n".join(f"  • {t}" for t in tools)
+            model_str = agent.llm_config.display_name if agent.llm_config else "Moteur global par défaut"
+
+            return (
+                f"🤖 **Fiche Profil Agent : {agent.name}**\n"
+                f"- **Portée :** {agent.persona_type}\n"
+                f"- **Modèle Assigné :** {model_str}\n"
+                f"- **Description :** {agent.description or 'N/A'}\n"
+                f"- **Outils Autorisés :**\n{tools_list}\n\n"
+                f"### 📜 Consigne Système (System Prompt) :\n```jinja2\n{agent.system_prompt}\n```"
+            )
+        except Exception as e:
+            logger.error("Erreur get_mcp_agent_details : %s", e)
+            return f"Erreur lors de la récupération des détails de l'agent : {e}"
+
+    @staticmethod
+    def invoke_mcp_agent(agent_name: str, message: str, conversation_history_json: str = "[]") -> str:
+        """Exécute une requête via un agent dédié avec son prompt et ses outils restreints."""
+        import asyncio
+        import concurrent.futures
+
+        agent = PersonaModel.get_or_none(PersonaModel.name == agent_name.strip())
+        if not agent:
+            return f"Erreur : L'agent dédié '{agent_name}' n'existe pas."
+
+        try:
+            history = json.loads(conversation_history_json) if isinstance(conversation_history_json, str) else conversation_history_json
+        except Exception:
+            history = []
+
+        llm_cfg = agent.llm_config or LLMConfigModel.select().first()
+        engine = ConsultantEngine(llm_config=llm_cfg, persona=agent)
+
+        async def _run() -> str:
+            full_response = ""
+            async for chunk in engine.chat_stream(user_query=message, history=history):
+                if chunk.get("type") == "token":
+                    full_response += str(chunk.get("content", ""))
+                elif chunk.get("type") == "full_response":
+                    full_response = str(chunk.get("content", ""))
+            return full_response
+
+        try:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    return pool.submit(asyncio.run, _run()).result(timeout=60)
+            else:
+                return asyncio.run(_run())
+        except Exception as e:
+            logger.error("Erreur invoke_mcp_agent : %s", e)
+            return f"Erreur lors de l'exécution de l'agent '{agent_name}' : {e}"
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -1296,8 +1393,46 @@ class ConsultantEngine:
             except Exception as e:
                 logger.warning("Erreur lors de la création du provider IA : %s", e)
 
+    def _get_allowed_tool_names(self) -> set[str] | None:
+        """
+        Détermine l'ensemble des outils autorisés pour l'agent actif.
+        Renvoie None si l'agent a un accès universel (* ou vide).
+        """
+        if not self.persona:
+            return None
+
+        raw = getattr(self.persona, "allowed_tools", None)
+        if not raw:
+            return None
+
+        try:
+            tools_list = json.loads(raw) if isinstance(raw, str) else raw
+            if not isinstance(tools_list, list) or not tools_list:
+                return None
+            if "*" in tools_list or "all" in tools_list:
+                return None
+            return set(tools_list)
+        except Exception as e:
+            logger.debug("Erreur lors de l'extraction des allowed_tools du persona : %s", e)
+            return None
+
+    def _is_tool_allowed(self, tool_name: str) -> bool:
+        """Vérifie si un outil spécifique est autorisé pour le persona actif."""
+        allowed = self._get_allowed_tool_names()
+        if allowed is None:
+            return True
+        return tool_name in allowed
+
     def _execute_tool_call(self, tool_name: str, tool_args: dict[str, Any]) -> tuple[str, bool]:
         """Exécute l'outil demandé in-process et renvoie (observation, is_error)."""
+        if not self._is_tool_allowed(tool_name):
+            agent_name = getattr(self.persona, "name", "Consultant") if self.persona else "Consultant"
+            logger.warning("Tentative d'exécution de l'outil interdit '%s' par l'agent '%s'", tool_name, agent_name)
+            return (
+                f"⛔ Accès refusé : L'outil '{tool_name}' n'est pas autorisé pour l'agent '{agent_name}'. Veuillez vous limiter aux outils autorisés dans vos consignes système.",
+                True,
+            )
+
         try:
             if tool_name == "audit_deck_wozniak":
                 deck = tool_args.get("deck_name", "")
@@ -1411,42 +1546,31 @@ class ConsultantEngine:
         """
         Générateur asynchrone exécutant l'agent avec streaming fluide token-by-token et mémoire multi-tours.
         """
+        # Filtrage des outils autorisés pour l'agent
+        active_tools: list[dict[str, Any]] = [t for t in DEFAULT_CONSULTANT_TOOLS if self._is_tool_allowed(t["function"]["name"])]
+
+        # Construction dynamique de la liste des outils pour le prompt système
+        tools_desc_lines = []
+        for t in active_tools:
+            fn_spec = t["function"]
+            tools_desc_lines.append(f"- `{fn_spec['name']}`: {fn_spec.get('description', '')}")
+
+        tools_list_text = "\n".join(tools_desc_lines) if tools_desc_lines else "  (Aucun outil externe autorisé pour cet agent)"
+
         persona_prompt = "Tu es un Consultant IA expert en analyse de rétention Anki, diagnostic de collection et formulation de cartes ergonomiques (20 règles de Piotr Wozniak)."
         if self.persona and hasattr(self.persona, "system_prompt") and self.persona.system_prompt:
             persona_prompt = f"Tu es l'agent '{self.persona.name}'. Instructions système :\n{self.persona.system_prompt}\n"
 
         system_prompt = f"""{persona_prompt}
-Tu es connecté en direct aux outils de la base de données AnkiForge :
+Tu es connecté aux outils de la base de données AnkiForge selon tes permissions d'agent :
 
-### OUTILS DISPONIBLES :
-- `get_collection_panorama_360()`: Vue panoramique 360° de la collection (paquets, cartes, sangsues, documents).
-- `get_deck_stats(deck_name: str)`: Statistiques SRS d'un paquet.
-- `inspect_deck_deep_scan(deck_name: str)`: Analyse des intervalles et du top des cartes sangsues.
-- `audit_deck_wozniak(deck_name: str)`: Audit ergonomique Wozniak complet d'un paquet (20 règles, atomicité).
-- `audit_card_wozniak(note_id: int)`: Audit chirurgical d'une note selon les 20 règles de Piotr Wozniak.
-- `find_duplicate_cards(deck_name: str, threshold: float)`: Détection de doublons via distance Levenshtein.
-- `find_cards_by_content(query: str, deck_name: str, limit: int)`: Retrouve facilement le `note_id` et le contenu exact d'une carte par mot-clé dans sa question/réponse.
-- `get_cards_by_deck_or_tag(deck_name: str, tag: str, limit: int)`: Récupération des cartes d'un paquet ou d'un tag avec leurs IDs et modèles.
-- `get_note_full_profile_360(note_id: int)`: Profil complet 360° d'une note (modèle, champs requis, cartes physiques, historique Time Machine, CSS, stats SRS).
-- `list_note_types()`: Liste tous les modèles de cartes (Note Types) enregistrés avec leurs champs et statistiques.
-- `get_note_type_details(note_type_name: str)`: Structure complète d'un modèle (champs requis, templates HTML, CSS, exemple).
-- `propose_note_type_refactor(...)`: Propose une évolution de modèle de cartes (champs, CSS, templates) avec Garde-Fou.
-- `propose_css_tune(note_type_name: str, css_snippet: str)`: Propose un ajustement CSS avec aperçu live.
-- `propose_card_refactor(note_id: int, new_fields_json: str, explanation: str)`: Propose une reformulation de carte avec Diff.
-- `propose_card_split(note_id: int, new_cards_json: str, explanation: str)`: Propose de scinder une note en cartes atomiques.
-- `search_attached_documents(query: str, document_title: str, top_k: int)`: Recherche sémantique RAG (FAISS).
-- `analyze_coverage_gaps(deck_name: str, document_title: str)`: Détection des lacunes (Smart Coverage).
-- `query_peewee(sql_query: str)`: Requête SQL SELECT (lecture seule) directe sur SQLite.
-- `execute_python_tool(tool_name: str, args_json: str)`: Exécute un outil Python déterministe.
-- `search_app_documentation(query: str, category: str, limit: int)`: Recherche plein-texte FTS5 BM25 dans la documentation officielle d'AnkiForge (guides, architecture, fonctionnalités).
-- `read_app_doc_page(doc_path: str, section_anchor: str)`: Lecture intégrale ou par section de la documentation officielle.
-- `list_app_doc_topics(category: str)`: Sommaire exhaustif de la documentation officielle.
-- `get_feature_quick_help(feature_name: str)`: Fiche d'aide synthétique immédiate sur une fonctionnalité clé.
+### OUTILS DISPONIBLES & AUTORISÉS :
+{tools_list_text}
 
 ### RÈGLES D'OR SUR L'ASSISTANCE & LA DOCUMENTATION INTERNE :
-1. Tu as un accès direct à toute la documentation officielle d'AnkiForge via `search_app_documentation`, `read_app_doc_page` et `get_feature_quick_help`.
+1. Tu as un accès direct à toute la documentation officielle d'AnkiForge via `search_app_documentation`, `read_app_doc_page` et `get_feature_quick_help` si autorisés.
 2. Si l'utilisateur pose une question sur le fonctionnement d'AnkiForge, son architecture ou ses configurations (LLM, DAG, KaTeX, Smart Merge) :
-   utilise TOUJOURS ces outils de documentation pour vérifier les faits avant de répondre et cite les pages de référence.
+   utilise ces outils de documentation pour vérifier les faits avant de répondre et cite les pages de référence.
 
 ### RÈGLES D'OR SUR LES MODÈLES DE CARTES :
 1. Les champs des cartes dépendent du modèle (`fields_schema`). Consulte `get_note_full_profile_360` ou `get_note_type_details`.
@@ -1455,12 +1579,13 @@ Tu es connecté en direct aux outils de la base de données AnkiForge :
 
 ### MODE D'APPEL DES OUTILS :
 1. Utilise les appels d'outils natifs (tool_calling) si ton API le supporte.
-2. Sinon, écris un bloc JSON explicite :
+2. N'invoque STRICTEMENT QUE les outils listés ci-dessus comme disponibles et autorisés.
+3. Sinon, écris un bloc JSON explicite :
 ```json
 {{"tool": "nom_outil", "args": {{"arg1": "valeur1"}}}}
 ```
-3. N'hésite pas à appeler `find_cards_by_content` ou `get_cards_by_deck_or_tag` pour retrouver l'ID exact des cartes avant de les refactoriser.
-4. Les formules et commandes LaTeX (`\\Sigma`, `\\delta`, `\\frac{...}{...}`, `\\[ ... \\]`, etc.) sont parfaitement supportées dans les champs.
+4. N'hésite pas à appeler `find_cards_by_content` ou `get_cards_by_deck_or_tag` pour retrouver l'ID exact des cartes avant de les refactoriser.
+5. Les formules et commandes LaTeX (`\\Sigma`, `\\delta`, `\\frac{...}{...}`, `\\[ ... \\]`, etc.) sont parfaitement supportées dans les champs.
 """
 
         # Construction de l'historique conversationnel multi-tours
@@ -1490,12 +1615,15 @@ Tu es connecté en direct aux outils de la base de données AnkiForge :
             # 1. Appel via OpenAICompatibleProvider (avec support des tool calls natifs)
             if isinstance(self.ai_provider, OpenAICompatibleProvider) and hasattr(self.ai_provider, "client"):
                 try:
-                    response = self.ai_provider.client.chat.completions.create(
-                        model=self.ai_provider.model_name,
-                        messages=messages,  # type: ignore[arg-type]
-                        tools=DEFAULT_CONSULTANT_TOOLS,  # type: ignore[arg-type]
-                        temperature=0.1,
-                    )
+                    create_kwargs: dict[str, Any] = {
+                        "model": self.ai_provider.model_name,
+                        "messages": messages,
+                        "temperature": 0.1,
+                    }
+                    if active_tools:
+                        create_kwargs["tools"] = active_tools
+
+                    response = self.ai_provider.client.chat.completions.create(**create_kwargs)
                     resp_msg = response.choices[0].message
                     content_text = resp_msg.content or ""
 

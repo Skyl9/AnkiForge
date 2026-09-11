@@ -46,6 +46,7 @@ def test_run_migrations_idempotency(mock_db):
     assert "028_llm_max_tokens" in router.done, "La migration 028 devrait être marquée comme terminée."
     assert "029_llm_capabilities" in router.done, "La migration 029 devrait être marquée comme terminée."
     assert "030_fts5_and_perf_indexes" in router.done, "La migration 030 devrait être marquée comme terminée."
+    assert "031_seed_dedicated_mcp_agents" in router.done, "La migration 031 devrait être marquée comme terminée."
     assert db.table_exists("settings"), "La table settings devrait exister."
     assert db.table_exists("consultant_sessions"), "La table consultant_sessions devrait exister."
     assert db.table_exists("consultant_messages"), "La table consultant_messages devrait exister."
@@ -75,3 +76,4 @@ def test_run_migrations_idempotency(mock_db):
     assert "028_llm_max_tokens" in router.done
     assert "029_llm_capabilities" in router.done
     assert "030_fts5_and_perf_indexes" in router.done
+    assert "031_seed_dedicated_mcp_agents" in router.done

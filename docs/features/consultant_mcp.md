@@ -69,8 +69,30 @@ Pour éviter les hallucinations et permettre au Consultant de guider l'utilisate
 
 ---
 
-## 🎯 4. Compaction de Contexte & Personas
+## 🤖 4. Gestion des Agents Dédiés via le Protocole MCP
+
+AnkiForge permet désormais de gérer, d'explorer et d'invoquer des agents spécialisés directement depuis des clients MCP externes (Cursor, Claude Desktop) ou depuis le Consultant interne :
+
+### Outils de Gestion d'Agents
+- **`list_mcp_agents(include_all_scopes)`** : Retourne la liste complète des agents configurés avec leur type, modèle, description et nombre d'outils autorisés.
+- **`get_mcp_agent_details(agent_name)`** : Inspecte le prompt système complet, les hyperparamètres et la liste exhaustive des permissions d'un agent.
+- **`invoke_mcp_agent(agent_name, prompt, max_iterations)`** : Exécute une mission en déléguant l'inférence à l'agent spécifié, sous son persona et dans la limite stricte de ses outils autorisés.
+- **`create_or_update_mcp_agent(name, system_prompt, ...)`** : Crée ou met à jour programmatiquement un persona dédié depuis un client MCP.
+
+### Ressources & Prompts MCP Dédiés
+- **Ressources** :
+  - `agents://list` : Catalogue JSON de tous les agents disponibles.
+  - `agents://{agent_name}` : Spécification détaillée et prompt d'un agent particulier.
+- **Prompts** :
+  - `run_with_agent` : Prépare une session de travail sous l'identité d'un agent sélectionné.
+
+---
+
+## 🎯 5. Compaction de Contexte, Badges UI & Personas
 
 Pour éviter la saturation de la fenêtre de contexte du LLM lors de longues sessions de travail :
 - **Compaction Automatique** : Le gestionnaire résume les observations passées des outils MCP tout en conservant les conclusions critiques.
-- **Personas Dédiés** : Vous pouvez affecter un **Persona** spécialisé au consultant (ex. *Spécialiste Médical*, *Linguiste Japonais*, *Architecte CSS Anki*) doté d'instructions système et de règles métiers spécifiques.
+- **Affichage Visuel dans `ContextHubWidget`** :
+  - **Badge Persona** : Indique l'agent actif (ex: `🛡️ Auditeur Wozniak`, `🎨 Architecte CSS`).
+  - **Badge Outils Autorisés** : Affiche le quota d'outils disponibles (ex: `8 outils` ou `Tous outils`) avec infobulle détaillée des permissions actives.
+  - **Basculement Dynamique** : L'utilisateur ou le client MCP peut basculer d'agent à tout moment, adaptant instantanément les capacités et le prompt système du consultant.
