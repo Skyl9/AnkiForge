@@ -367,50 +367,22 @@ class IdePanel(QFrame):
         if self._static_title_label is not None:
             self._static_title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; padding-left: 16px;")
 
-    def _toggle_placeholder(self):
+    def _toggle_placeholder(self) -> None:
         if len(self.tabs_bar.tabs) == 0:
-            # Hide header when empty to remove tab effect at the top
+            # Masquer l'en-tête quand le panneau est vide
             self.header.setVisible(False)
             self.menu_btn.setVisible(False)
             if hasattr(self, "detach_btn"):
                 self.detach_btn.setVisible(False)
             self._extra_widgets_zone.setVisible(False)
 
-            # Check for other non-empty panels in the same window/workspace hierarchy
-            window = self.window()
-            other_non_empty_panels = []
-            if window:
-                all_panels = window.findChildren(IdePanel)
-                for p in all_panels:
-                    if p != self and len(p.tabs_bar.tabs) > 0:
-                        other_non_empty_panels.append(p)
-
-            # If there are other panels with tabs, close this split and let them reclaim the space
-            if other_non_empty_panels:
-                parent_splitter = self.parentWidget()
-                if isinstance(parent_splitter, QSplitter):
-                    self.setParent(None)
-                    self.deleteLater()
-
-                    # Simplify the parent splitter hierarchy if needed
-                    if parent_splitter.count() <= 1:
-                        simplify_splitter_hierarchy(parent_splitter)
-                    else:
-                        redistribute_splitter_space(parent_splitter)
-                else:
-                    # Static panel: keep visible and show placeholder
-                    self.placeholder_widget.setVisible(True)
-                    self.content_stack.setVisible(False)
-                    if self._static_title_label is not None:
-                        self._static_title_label.setVisible(True)
-            else:
-                # If this is the last panel remaining in the workspace, show placeholder
-                self.placeholder_widget.setVisible(True)
-                self.content_stack.setVisible(False)
-                if self._static_title_label is not None:
-                    self._static_title_label.setVisible(True)
+            # Conserver le panneau en place dans le splitter avec son placeholder interactif
+            self.placeholder_widget.setVisible(True)
+            self.content_stack.setVisible(False)
+            if self._static_title_label is not None:
+                self._static_title_label.setVisible(True)
         else:
-            # Show header when populated
+            # Afficher l'en-tête quand le panneau contient des onglets
             self.header.setVisible(True)
             self.menu_btn.setVisible(getattr(self, "_show_menu_btn", True))
             if hasattr(self, "detach_btn"):
@@ -435,13 +407,17 @@ class IdePanel(QFrame):
             self.open_tab(title)
 
     def set_tab_text(self, index: int, text: str) -> None:
-        if hasattr(self, "tabs_bar"):
+        if hasattr(self, "tabs_bar") and 0 <= index < len(self.tabs_bar.tabs):
+            old_title = self.tabs_bar.tabs[index].text().strip()
             self.tabs_bar.set_tab_text(index, text)
+            new_title = text.strip()
+            if old_title in self._registered_tabs and old_title != new_title:
+                self._registered_tabs[new_title] = self._registered_tabs.pop(old_title)
 
     def set_tab_title(self, index: int, title: str) -> None:
         self.set_tab_text(index, title)
 
-    def open_tab(self, title: str):
+    def open_tab(self, title: str) -> None:
         title = title.strip()
         if title in self._registered_tabs:
             info = self._registered_tabs[title]
@@ -475,7 +451,38 @@ class IdePanel(QFrame):
                 self.set_active_tab(idx)
             else:
                 widget, tab_title, closable = owner.remove_tab_widget(idx)
-                self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, closable=closable)
+                icon_name = getattr(widget, "original_icon_name", "") or getattr(owner, "_registered_tabs", {}).get(tab_title, {}).get("icon_name", "")
+                self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, icon_name=icon_name, closable=closable)
+                self.set_active_tab(len(self.tabs_bar.tabs) - 1)
+            return
+
+        # S'il est enregistré dans un panneau frère de la même vue mais fermé
+        top_view: QWidget | None = self
+        while top_view and top_view.parentWidget() and top_view.parentWidget() != top_view.window():
+            if top_view.parentWidget().__class__.__name__ == "QStackedWidget":
+                break
+            top_view = top_view.parentWidget()
+        if not top_view:
+            top_view = self.window()
+
+        if top_view:
+            for panel in top_view.findChildren(IdePanel):
+                if title in panel._registered_tabs:
+                    info = panel._registered_tabs[title]
+                    try:
+                        _ = info["widget"].parent()
+                    except RuntimeError:
+                        panel._registered_tabs.pop(title, None)
+                        continue
+
+                    widget = info["widget"]
+                    icon_name = info.get("icon_name", "")
+                    closable = info.get("closable", True)
+                    info["active"] = True
+
+                    self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, icon_name=icon_name, closable=closable)
+                    self.set_active_tab(len(self.tabs_bar.tabs) - 1)
+                    return
 
     def close_tab(self, title: str):
         title = title.strip()
@@ -506,13 +513,13 @@ class IdePanel(QFrame):
 
     def _show_tabs_menu_at_button(self, button: QPushButton) -> None:
         from PySide6.QtCore import QPoint
+        from PySide6.QtGui import QIcon
 
         from ankiforge.ui.theme import StyledMenu
 
         menu = StyledMenu(self)
 
-        # 1. Find top-level view widget
-        top_view = self
+        top_view: QWidget | None = self
         while top_view and top_view.parentWidget() and top_view.parentWidget() != top_view.window():
             if top_view.parentWidget().__class__.__name__ == "QStackedWidget":
                 break
@@ -521,45 +528,68 @@ class IdePanel(QFrame):
         if not top_view:
             top_view = self.window()
 
-        # 2. Collect catalog from all panels in the same view
-        all_view_panels = top_view.findChildren(IdePanel)
-        catalog = {}
+        all_view_panels = top_view.findChildren(IdePanel) if top_view else [self]
+        catalog: dict[str, tuple[IdePanel, dict]] = {}
         for panel in all_view_panels:
             for title, info in panel._registered_tabs.items():
                 catalog[title] = (panel, info)
 
-        if not catalog:
+        closed_tabs: list[tuple[str, dict]] = []
+        open_here_tabs: list[str] = []
+        open_elsewhere_tabs: list[str] = []
+
+        for title, (_p, info) in catalog.items():
+            clean_title = title.strip()
+            is_open_here = any(btn.text().strip() == clean_title for btn in self.tabs_bar.tabs)
+            if is_open_here:
+                open_here_tabs.append(clean_title)
+            else:
+                owner, _ = find_tab_owner(clean_title)
+                if owner is not None:
+                    open_elsewhere_tabs.append(clean_title)
+                else:
+                    closed_tabs.append((clean_title, info))
+
+        if not closed_tabs and not open_elsewhere_tabs and not open_here_tabs:
             action = QAction("Aucun onglet disponible", self)
             action.setEnabled(False)
             menu.addAction(action)
         else:
-            for title in catalog:
-                is_here = False
-                for btn in self.tabs_bar.tabs:
-                    if btn.text().strip() == title.strip():
-                        is_here = True
-                        break
+            # 1. Onglets fermés à réouvrir (Priorité)
+            if closed_tabs:
+                lbl = menu.addAction("Rouvrir un onglet :")
+                lbl.setEnabled(False)
+                for clean_title, info in closed_tabs:
+                    icon_name = info.get("icon_name", "")
+                    icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY) if icon_name else QIcon()
+                    act = menu.addAction(icon, clean_title)
+                    act.triggered.connect(lambda checked=False, t=clean_title: self.open_tab(t))
 
-                action = QAction(title, self)
-                action.setCheckable(True)
-                action.setChecked(is_here)
+            # 2. Onglets ouverts ailleurs (déplaçables ici)
+            if open_elsewhere_tabs:
+                if closed_tabs:
+                    menu.addSeparator()
+                lbl_other = menu.addAction("Déplacer vers ce panneau :")
+                lbl_other.setEnabled(False)
+                for clean_title in open_elsewhere_tabs:
+                    owner, idx = find_tab_owner(clean_title)
+                    icon = owner.tabs_bar.tabs[idx].icon() if owner and 0 <= idx < len(owner.tabs_bar.tabs) else QIcon()
+                    act = menu.addAction(icon, clean_title)
+                    act.triggered.connect(lambda checked=False, t=clean_title: self.open_tab(t))
 
-                # Use a custom property to store action title
-                action.setProperty("tab_title", title)
-                action.setProperty("tab_is_here", is_here)
-
-                if is_here:
-                    action.setEnabled(False)
-                else:
-                    action.triggered.connect(self._on_menu_action_triggered)
-
-                menu.addAction(action)
+            # 3. Onglets déjà ouverts dans ce panneau
+            if open_here_tabs:
+                if closed_tabs or open_elsewhere_tabs:
+                    menu.addSeparator()
+                lbl_here = menu.addAction("Onglets actifs dans ce panneau :")
+                lbl_here.setEnabled(False)
+                for clean_title in open_here_tabs:
+                    act = menu.addAction(f"✓ {clean_title}")
+                    act.setEnabled(False)
 
         menu.exec(button.mapToGlobal(QPoint(0, button.height())))
 
     def _on_menu_action_triggered(self) -> None:
-        from PySide6.QtGui import QAction
-
         action = self.sender()
         if not isinstance(action, QAction):
             return
@@ -569,14 +599,33 @@ class IdePanel(QFrame):
         else:
             self.close_tab(title)
 
-    def detach_panel(self):
-        active_tabs = list(self.tabs_bar.tabs)
-        if not active_tabs:
-            return
-
+    def detach_panel(self, index: int | None = None) -> Any:
         from PySide6.QtGui import QCursor
 
         from ankiforge.ui.components.tabs import FloatingDockWindow
+
+        if index is not None:
+            if 0 <= index < len(self.tabs_bar.tabs):
+                btn = self.tabs_bar.tabs[index]
+                icon_name = btn.property("icon_name") or ""
+                widget, title, closable = self.remove_tab_widget(index)
+                widget.original_panel = self
+                widget.original_index = index
+                widget.original_title = title
+                widget.original_icon_name = icon_name
+                widget.original_closable = closable
+
+                fw = FloatingDockWindow()
+                fw.insert_tab_widget(0, title, widget, icon_name, closable)
+                fw.move(QCursor.pos())
+                tabs_mod._floating_windows.append(fw)
+                fw.show()
+                return fw
+            return None
+
+        active_tabs = list(self.tabs_bar.tabs)
+        if not active_tabs:
+            return None
 
         fw = FloatingDockWindow()
         # Remove backwards to avoid index shifting issues
@@ -584,11 +633,19 @@ class IdePanel(QFrame):
             idx = self.tabs_bar.tabs.index(btn)
             icon_name = btn.property("icon_name") or ""
             widget, title, closable = self.remove_tab_widget(idx)
+
+            widget.original_panel = self
+            widget.original_index = idx
+            widget.original_title = title
+            widget.original_icon_name = icon_name
+            widget.original_closable = closable
+
             fw.insert_tab_widget(0, title, widget, icon_name, closable)
 
         fw.move(QCursor.pos())
         tabs_mod._floating_windows.append(fw)
         fw.show()
+        return fw
 
     def add_tab(self, title: str, widget: QWidget, icon_name: str = "", closable: bool = False, icon_color: str = "") -> int:
         """Ajoute un onglet avec titre, contenu et icône optionnelle."""

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ankiforge.ui.components.tabs import SubTabButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.pipelines_view.constants import (
     STEP_TYPES_META,
@@ -77,51 +78,6 @@ class TagPillButton(QPushButton):
                 background-color: {DesignTokens.BG_ACTIVE};
             }}
         """)
-
-
-class SubTabButton(QPushButton):
-    """Bouton d'onglet style IDE avec relief et affordance tactile."""
-
-    def __init__(self, text: str, icon_name: str, is_active: bool = False, parent: QWidget | None = None) -> None:
-        super().__init__(text, parent)
-        self.icon_name = icon_name
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(32)
-        self.setIconSize(QSize(15, 15))
-        self.set_active(is_active)
-
-    def set_active(self, active: bool) -> None:
-        if active:
-            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.ACCENT_PRIMARY))
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignTokens.BG_PANEL};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                    border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 2px 14px;
-                    font-size: 11.5px;
-                    font-weight: bold;
-                }}
-            """)
-        else:
-            self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_MUTED))
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    color: {DesignTokens.TEXT_SECONDARY};
-                    border: 1px solid transparent;
-                    border-radius: {DesignTokens.RADIUS_SM}px;
-                    padding: 2px 14px;
-                    font-size: 11.5px;
-                    font-weight: normal;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignTokens.BG_HOVER};
-                    color: {DesignTokens.TEXT_PRIMARY};
-                }}
-            """)
 
 
 class StatusPillBadge(QFrame):
@@ -316,3 +272,11 @@ class DagFlowOverviewWidget(QFrame):
         lbl_end.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(15, 15))
         lbl_end.setToolTip("Sortie finale : cartes forgées et prêtes")
         self.nodes_layout.addWidget(lbl_end)
+
+
+__all__ = [
+    "DagFlowOverviewWidget",
+    "StatusPillBadge",
+    "SubTabButton",
+    "TagPillButton",
+]

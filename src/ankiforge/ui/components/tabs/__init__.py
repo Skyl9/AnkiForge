@@ -10,6 +10,11 @@ from ankiforge.ui.components.tabs.bars import (
     SettingsTabBar,
 )
 from ankiforge.ui.components.tabs.floating_dock import FloatingDockWindow, _floating_windows
+from ankiforge.ui.components.tabs.segmented_tab_bar import (
+    SegmentedTabBar,
+    SegmentedTabButton,
+    SubTabButton,
+)
 from ankiforge.ui.components.tabs.tab_button import TabButton
 from ankiforge.ui.components.tabs.tab_container import TabContainer
 
@@ -21,5 +26,8 @@ __all__ = [
     "TabContainer",
     "ScrollableTabBarWidget",
     "FloatingDockWindow",
+    "SegmentedTabBar",
+    "SegmentedTabButton",
+    "SubTabButton",
     "_floating_windows",
 ]

@@ -476,6 +476,9 @@ class MainWindow(QMainWindow):
             if view_id == "analysis" and isinstance(data, dict) and "tab" in data and hasattr(widget, "set_active_tab_by_name"):
                 cast(Any, widget).set_active_tab_by_name(data["tab"])
 
+            if view_id == "documents" and isinstance(data, dict) and "doc_id" in data and hasattr(widget, "_select_doc_id_in_tree"):
+                cast(Any, widget)._select_doc_id_in_tree(data["doc_id"])
+
     def _can_switch_view(self) -> bool:
         """Vérifie is_dirty() sur la vue courante. Dialogue de confirmation si sale."""
         if not self._current_view_id:

@@ -1,5 +1,5 @@
 from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, Qt, QTimer
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -111,13 +111,19 @@ class FloatingDockWindow(QWidget):
         if not getattr(self, "_animated", False):
             self._animated = True
             self.setWindowOpacity(0.7)
-            self._fade_anim.start()
-            QTimer.singleShot(150, lambda: self.setWindowOpacity(1.0))
+
+            def _restore_opacity() -> None:
+                try:
+                    self.setWindowOpacity(1.0)
+                except RuntimeError:
+                    pass
+
+            QTimer.singleShot(150, _restore_opacity)
 
     def set_active_tab(self, index: int):
         self.tabs_bar.set_active_tab(index)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         while self.content_stack.count() > 0:
             w = self.content_stack.widget(0)
             if w:
@@ -131,13 +137,32 @@ class FloatingDockWindow(QWidget):
                 orig_icon_name = getattr(w, "original_icon_name", "")
                 orig_closable = getattr(w, "original_closable", True)
 
-                if orig_panel and orig_idx is not None and orig_title:
+                reinserted = False
+                if orig_panel:
                     try:
-                        _ = orig_panel.parent()
-                        target_idx = min(orig_idx, len(orig_panel.tabs_bar.tabs))
-                        orig_panel.insert_tab_widget(target_idx, orig_title, w, orig_icon_name, orig_closable)
-                    except RuntimeError:
-                        pass
+                        # Vérifier que le panneau hôte d'origine est toujours accessible
+                        target_idx = min(orig_idx, len(orig_panel.tabs_bar.tabs)) if orig_idx is not None else len(orig_panel.tabs_bar.tabs)
+                        orig_panel.insert_tab_widget(target_idx, orig_title or "Onglet", w, orig_icon_name, orig_closable)
+                        orig_panel.set_active_tab(target_idx)
+                        reinserted = True
+                    except (RuntimeError, AttributeError):
+                        reinserted = False
+
+                # Repli de sécurité : si le panneau d'origine n'est plus accessible, rattacher au premier IdePanel disponible
+                if not reinserted:
+                    from PySide6.QtWidgets import QApplication
+
+                    from ankiforge.ui.components.panels import IdePanel
+
+                    for win in QApplication.topLevelWidgets():
+                        if win.isVisible() and win != self and win not in _floating_windows:
+                            panels = win.findChildren(IdePanel)
+                            if panels:
+                                target_panel = panels[0]
+                                target_panel.insert_tab_widget(len(target_panel.tabs_bar.tabs), orig_title or "Onglet", w, orig_icon_name, orig_closable)
+                                target_panel.set_active_tab(len(target_panel.tabs_bar.tabs) - 1)
+                                reinserted = True
+                                break
 
         if self in _floating_windows:
             _floating_windows.remove(self)

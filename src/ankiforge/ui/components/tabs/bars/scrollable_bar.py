@@ -105,6 +105,18 @@ class ScrollableTabBarWidget(QWidget):
 
         return index
 
+    def count(self) -> int:
+        """Retourne le nombre d'onglets présents."""
+        return len(self.tabs)
+
+    @property
+    def current_index(self) -> int:
+        """Retourne l'index de l'onglet actuellement actif."""
+        for i, btn in enumerate(self.tabs):
+            if btn.isChecked():
+                return i
+        return -1
+
     def remove_tab(self, index: int):
         if 0 <= index < len(self.tabs):
             btn = self.tabs.pop(index)
