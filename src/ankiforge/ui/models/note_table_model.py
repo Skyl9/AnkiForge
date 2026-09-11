@@ -773,6 +773,25 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 bottom_right = self.index(idx, self.columnCount() - 1)
                 self.dataChanged.emit(top_left, bottom_right, [IS_SUSPENDED_ROLE, Qt.ItemDataRole.BackgroundRole, Qt.ItemDataRole.DisplayRole])
 
+    def update_card_deck(self, card_id: int, deck_name: str) -> None:
+        """Met à jour instantanément le paquet d'une carte dans le modèle virtuel."""
+        row_idx = self.find_row_by_card_id(card_id)
+        if row_idx < 0:
+            return
+        self._loaded_rows[row_idx].deck_name = deck_name
+        top_left = self.index(row_idx, 0)
+        bottom_right = self.index(row_idx, self.columnCount() - 1)
+        self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole])
+
+    def update_note_deck(self, note_id: int, deck_name: str) -> None:
+        """Met à jour instantanément le paquet d'une note (ou de ses cartes) dans le modèle virtuel."""
+        for idx, row in enumerate(self._loaded_rows):
+            if row.note_id == note_id:
+                row.deck_name = deck_name
+                top_left = self.index(idx, 0)
+                bottom_right = self.index(idx, self.columnCount() - 1)
+                self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole])
+
     def update_note_content(self, note_id: int, new_content: dict[str, str]) -> None:
         """Met à jour instantanément les champs d'une note ou de ses cartes dans le modèle virtuel."""
         cleaned_content = {str(k): strip_html(v) for k, v in new_content.items()}

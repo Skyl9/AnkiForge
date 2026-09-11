@@ -42,6 +42,30 @@ class DeckRepository(BaseRepository):
             return existing
         return self.create_deck(name=name, description=description)
 
+    def get_or_create_deck_hierarchical(self, name: str, description: str = "") -> DeckModel:
+        """
+        Retrieve or create a deck, ensuring all parent decks in the 'Parent::Child'
+        hierarchy are created and properly linked via parent_deck.
+        """
+        parts = [p.strip() for p in name.split("::") if p.strip()]
+        if not parts:
+            parts = ["Par défaut"]
+
+        current_deck: DeckModel | None = None
+        accumulated_name = ""
+
+        with self.atomic():
+            for i, part in enumerate(parts):
+                accumulated_name = part if i == 0 else f"{accumulated_name}::{part}"
+                existing = self.get_deck_by_name(accumulated_name)
+                current_deck = existing or DeckModel.create(
+                    name=accumulated_name,
+                    description=description if i == len(parts) - 1 else "",
+                    parent_deck=current_deck,
+                )
+        assert current_deck is not None
+        return current_deck
+
     def create_deck(
         self,
         name: str,

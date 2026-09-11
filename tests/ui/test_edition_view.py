@@ -11,7 +11,7 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.views.edition_view import EditionView, format_tags_display, strip_html_tags
 from ankiforge.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
 from ankiforge.ui.widgets.note_editor_widget import (
@@ -370,3 +370,65 @@ def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any) -> None:
     assert "Notes" in view.dynamic_field_widgets
     assert view.dynamic_field_widgets["Question"].get_text() == "Contenu Question"
     assert view.dynamic_field_widgets["Answer"].get_text() == "Contenu Reponse"
+
+
+@pytest.mark.ui
+def test_edition_view_move_card_to_deck(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le déplacement d'une note vers un autre paquet via la modale."""
+    uid = uuid.uuid4().hex[:6]
+    deck_old = DeckModel.create(name=f"Deck_Old_{uid}")
+    deck_new = DeckModel.create(name=f"Deck_New_{uid}")
+
+    nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
+    note = NoteModel.create(guid=f"g_{uid}", note_type=nt)
+    card = CardModel.create(note=note, deck=deck_old, template_index=0)
+    NoteVersionModel.create(note=note, version_number=1, content='{"Front": "Q", "Back": "A"}', is_active=True)
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.select_note_by_id(note.id)
+
+    # Déclencher le déplacement
+    view._open_move_to_deck_modal(fallback_note_id=note.id)
+    assert view._move_deck_modal is not None
+    assert view._move_deck_modal.allow_all is False
+
+    # Appliquer le déplacement
+    view._on_cards_moved_to_deck(deck_new.id, deck_new.name)
+
+    # Vérifier que CardModel a été mis à jour
+    refreshed_card = CardModel.get_by_id(card.id)
+    assert refreshed_card.deck.id == deck_new.id
+    assert refreshed_card.deck.name == deck_new.name
+
+
+@pytest.mark.ui
+def test_edition_view_batch_move_cards_to_deck(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le déplacement par lot de plusieurs notes cochées vers un paquet."""
+    uid = uuid.uuid4().hex[:6]
+    deck_old = DeckModel.create(name=f"Batch_Old_{uid}")
+    deck_new = DeckModel.create(name=f"Batch_New_{uid}")
+
+    nt = NoteTypeModel.create(name=f"NT_Batch_{uid}", fields_schema='["Front", "Back"]')
+    note1 = NoteModel.create(guid=f"g1_{uid}", note_type=nt)
+    note2 = NoteModel.create(guid=f"g2_{uid}", note_type=nt)
+    card1 = CardModel.create(note=note1, deck=deck_old, template_index=0)
+    card2 = CardModel.create(note=note2, deck=deck_old, template_index=0)
+    NoteVersionModel.create(note=note1, version_number=1, content='{"Front": "Q1", "Back": "A1"}', is_active=True)
+    NoteVersionModel.create(note=note2, version_number=1, content='{"Front": "Q2", "Back": "A2"}', is_active=True)
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    # Cocher les deux notes
+    view.note_table_model._checked_note_ids.add(note1.id)
+    view.note_table_model._checked_note_ids.add(note2.id)
+
+    view._open_move_to_deck_modal()
+    assert set(view._move_target_note_ids) == {note1.id, note2.id}
+
+    view._on_cards_moved_to_deck(deck_new.id, deck_new.name)
+
+    assert CardModel.get_by_id(card1.id).deck.id == deck_new.id
+    assert CardModel.get_by_id(card2.id).deck.id == deck_new.id

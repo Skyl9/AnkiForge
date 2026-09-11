@@ -119,6 +119,9 @@ class EditionView(QWidget):
         self._display_mode: Literal["notes", "cards"] = "notes"
 
         self._deck_modal: DeckSelectWindow | None = None
+        self._move_deck_modal: DeckSelectWindow | None = None
+        self._move_target_card_ids: list[int] = []
+        self._move_target_note_ids: list[int] = []
         self._tag_modal: TagSelectWindow | None = None
         self._model_modal: ModelSelectWindow | None = None
         self._change_model_modal: ModelSelectWindow | None = None
@@ -1236,6 +1239,102 @@ class EditionView(QWidget):
         self.refresh_data()
         show_toast(self, f"Modèle de la note #{note.id} changé pour '{new_model_name}'.")
 
+    def _open_move_to_deck_modal(self, fallback_note_id: int | None = None) -> None:
+        """Ouvre la modale pour déplacer les cartes ou notes sélectionnées vers un autre paquet."""
+        self._move_target_card_ids = []
+        self._move_target_note_ids = []
+
+        if self._display_mode == "cards":
+            target_card_ids: list[int] = list(self.note_table_model.get_checked_card_ids())
+            if not target_card_ids:
+                selected_rows = self.card_table.get_selected_rows()
+                if selected_rows:
+                    for r in selected_rows:
+                        c_data = self.note_table_model.get_card_data_at(r)
+                        if c_data:
+                            target_card_ids.append(c_data.card_id)
+                else:
+                    c_row = self.card_table.currentIndex().row()
+                    c_data = self.note_table_model.get_card_data_at(c_row)
+                    if c_data:
+                        target_card_ids.append(c_data.card_id)
+            if not target_card_ids:
+                return
+            self._move_target_card_ids = target_card_ids
+        else:
+            target_note_ids: list[int] = list(self.note_table_model.get_checked_note_ids())
+            if not target_note_ids:
+                selected_rows = self.card_table.get_selected_rows()
+                if selected_rows:
+                    for r in selected_rows:
+                        n = self.note_table_model.get_note_at(r)
+                        if n:
+                            target_note_ids.append(n.id)
+                elif fallback_note_id:
+                    target_note_ids = [fallback_note_id]
+                elif self._current_note:
+                    target_note_ids = [self._current_note.id]
+            if not target_note_ids:
+                return
+            self._move_target_note_ids = target_note_ids
+
+        try:
+            if self._move_deck_modal and self._move_deck_modal.isVisible():
+                self._move_deck_modal.raise_()
+                self._move_deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._move_deck_modal = None
+
+        self._move_deck_modal = DeckSelectWindow(
+            title="Déplacer vers un paquet...",
+            allow_all=False,
+            parent=self,
+        )
+        self._move_deck_modal.deck_selected.connect(self._on_cards_moved_to_deck)
+        self._move_deck_modal.show()
+
+    @Slot(int, str)
+    def _on_cards_moved_to_deck(self, deck_id: int, deck_name: str) -> None:
+        """Déplace les cartes ou notes ciblées vers le paquet choisi et met à jour l'affichage."""
+        if deck_id <= 0:
+            return
+
+        deck = DeckModel.get_or_none(DeckModel.id == deck_id)
+        if not deck:
+            return
+
+        if self._display_mode == "cards" and self._move_target_card_ids:
+            with db.atomic():
+                CardModel.update(deck=deck).where(CardModel.id.in_(self._move_target_card_ids)).execute()
+
+            for cid in self._move_target_card_ids:
+                self.note_table_model.update_card_deck(cid, deck_name)
+
+            count = len(self._move_target_card_ids)
+            show_toast(self, f"{count} carte{'s' if count > 1 else ''} déplacée{'s' if count > 1 else ''} vers le paquet '{deck_name}'.")
+
+        elif self._move_target_note_ids:
+            with db.atomic():
+                CardModel.update(deck=deck).where(CardModel.note.in_(self._move_target_note_ids)).execute()
+
+            for nid in self._move_target_note_ids:
+                self.note_table_model.update_note_deck(nid, deck_name)
+
+            count = len(self._move_target_note_ids)
+            show_toast(self, f"{count} note{'s' if count > 1 else ''} déplacée{'s' if count > 1 else ''} vers le paquet '{deck_name}'.")
+
+        if self._active_folder_id is not None and self._active_folder_id != deck_id:
+            self.refresh_data()
+
+    def _open_create_deck_dialog(self) -> None:
+        """Ouvre directement le dialogue de création d'un paquet."""
+        from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+
+        dlg = CreateDeckDialog(parent=self)
+        dlg.deck_created.connect(lambda did, dname: show_toast(self, f"Paquet '{dname}' créé avec succès."))
+        dlg.exec()
+
     @Slot()
     def _show_model_menu(self) -> None:
         menu = StyledMenu(self)
@@ -1382,6 +1481,12 @@ class EditionView(QWidget):
 
         action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), "Changer le modèle de carte...")
         action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
+
+        action_move_deck = menu.addAction(load_phosphor_icon("folder-notch-plus", color=DesignTokens.TEXT_PRIMARY), "Déplacer vers un paquet...")
+        action_move_deck.triggered.connect(lambda: self._open_move_to_deck_modal(fallback_note_id=note.id))
+
+        action_new_deck = menu.addAction(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY), "Nouveau paquet...")
+        action_new_deck.triggered.connect(self._open_create_deck_dialog)
 
         menu.addSeparator()
 

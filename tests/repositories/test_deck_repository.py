@@ -43,3 +43,27 @@ def test_deck_repository_crud() -> None:
     deleted = repo.delete_deck(parent.id)
     assert deleted is True
     assert repo.get_deck_by_id(parent.id) is None
+
+
+def test_deck_repository_get_or_create_hierarchical() -> None:
+    repo = DeckRepository()
+
+    # Création d'une hiérarchie à 3 niveaux
+    leaf = repo.get_or_create_deck_hierarchical("Langues::Japonais::Grammaire", description="Grammaire JLPT")
+    assert leaf is not None
+    assert leaf.name == "Langues::Japonais::Grammaire"
+    assert leaf.description == "Grammaire JLPT"
+
+    # Vérification des paquets parents automatiques
+    japonais = repo.get_deck_by_name("Langues::Japonais")
+    assert japonais is not None
+    assert leaf.parent_deck.id == japonais.id
+
+    langues = repo.get_deck_by_name("Langues")
+    assert langues is not None
+    assert japonais.parent_deck.id == langues.id
+    assert langues.parent_deck is None
+
+    # Idempotence : appel récurrent ne recrée rien
+    same_leaf = repo.get_or_create_deck_hierarchical("Langues::Japonais::Grammaire")
+    assert same_leaf.id == leaf.id

@@ -20,12 +20,20 @@ class DeckSelectWindow(QWidget):
 
     deck_selected = Signal(int, str)  # (deck_id, deck_name)
 
-    def __init__(self, title: str = "Sélectionner un Dossier / Deck (Collection)", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        title: str = "Sélectionner un Dossier / Deck (Collection)",
+        allow_all: bool = True,
+        selected_deck_id: int | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
+        self.allow_all = allow_all
+        self.selected_deck_id = selected_deck_id
 
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setFixedSize(450, 500)
+        self.setFixedSize(480, 520)
 
         self.setStyleSheet(f"""
             QWidget {{
@@ -113,6 +121,10 @@ class DeckSelectWindow(QWidget):
         footer_layout.setContentsMargins(0, 0, 0, 0)
         footer_layout.setSpacing(8)
 
+        btn_new_deck = SecondaryButton("Nouveau paquet")
+        btn_new_deck.setIcon(load_phosphor_icon("folder-plus", color=DesignTokens.TEXT_PRIMARY))
+        btn_new_deck.clicked.connect(self._open_create_deck_dialog)
+
         btn_cancel = SecondaryButton("Annuler")
         btn_cancel.clicked.connect(self.close)
 
@@ -120,6 +132,7 @@ class DeckSelectWindow(QWidget):
         self.btn_confirm.clicked.connect(self._on_confirm)
         self.btn_confirm.setEnabled(False)
 
+        footer_layout.addWidget(btn_new_deck)
         footer_layout.addStretch()
         footer_layout.addWidget(btn_cancel)
         footer_layout.addWidget(self.btn_confirm)
@@ -133,24 +146,22 @@ class DeckSelectWindow(QWidget):
     def _load_decks(self) -> None:
         """Charge l'arborescence des paquets depuis DeckModel."""
         self.tree.clear()
-
-        # 0. Item root global
-        global_item = QTreeWidgetItem(["Tous les paquets"])
-        global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
-        global_item.setIcon(0, load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE))
-        self.tree.addTopLevelItem(global_item)
-
-        decks = list(DeckModel.select())
-
-        # Dictionnaire pour retrouver les items par ID
         self._items_by_id: dict[int, QTreeWidgetItem] = {}
+
+        global_item: QTreeWidgetItem | None = None
+        if self.allow_all:
+            global_item = QTreeWidgetItem(["Tous les paquets"])
+            global_item.setData(0, Qt.ItemDataRole.UserRole, -1)
+            global_item.setIcon(0, load_phosphor_icon("folders", color=DesignTokens.COLOR_BLUE))
+            self.tree.addTopLevelItem(global_item)
+
+        decks = list(DeckModel.select().order_by(DeckModel.name.asc()))
 
         # 1. Créer tous les items
         for deck in decks:
             item = QTreeWidgetItem([deck.name])
             item.setData(0, Qt.ItemDataRole.UserRole, deck.id)
 
-            # Icon
             icon = load_phosphor_icon("folder", color=DesignTokens.COLOR_BLUE)
             item.setIcon(0, icon)
 
@@ -162,11 +173,17 @@ class DeckSelectWindow(QWidget):
             if deck.parent_deck_id and deck.parent_deck_id in self._items_by_id:
                 parent_item = self._items_by_id[deck.parent_deck_id]
                 parent_item.addChild(item)
-            else:
+            elif global_item:
                 global_item.addChild(item)
+            else:
+                self.tree.addTopLevelItem(item)
 
-        # 3. Étendre tout par défaut (pour que ce soit facile à voir)
         self.tree.expandAll()
+
+        if self.selected_deck_id is not None and self.selected_deck_id in self._items_by_id:
+            item = self._items_by_id[self.selected_deck_id]
+            self.tree.setCurrentItem(item)
+            self.btn_confirm.setEnabled(True)
 
     def _on_search_changed(self, text: str) -> None:
         """Filtre l'arborescence : affiche les noeuds correspondants ET leurs parents."""
@@ -205,13 +222,39 @@ class DeckSelectWindow(QWidget):
 
     def _on_selection_changed(self) -> None:
         selected = self.tree.selectedItems()
-        self.btn_confirm.setEnabled(len(selected) > 0)
+        if not selected:
+            self.btn_confirm.setEnabled(False)
+            return
+
+        item = selected[0]
+        deck_id = item.data(0, Qt.ItemDataRole.UserRole)
+        if not self.allow_all and deck_id == -1:
+            self.btn_confirm.setEnabled(False)
+        else:
+            self.btn_confirm.setEnabled(True)
 
     def _on_confirm(self) -> None:
         selected = self.tree.selectedItems()
         if selected:
             item = selected[0]
             deck_id = item.data(0, Qt.ItemDataRole.UserRole)
+            if not self.allow_all and deck_id == -1:
+                return
             deck_name = item.text(0)
             self.deck_selected.emit(deck_id, deck_name)
             self.close()
+
+    def _open_create_deck_dialog(self) -> None:
+        from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+
+        dlg = CreateDeckDialog(parent=self)
+        dlg.deck_created.connect(self._on_deck_created)
+        dlg.exec()
+
+    def _on_deck_created(self, deck_id: int, deck_name: str) -> None:
+        self.selected_deck_id = deck_id
+        self._load_decks()
+        if deck_id in self._items_by_id:
+            item = self._items_by_id[deck_id]
+            self.tree.setCurrentItem(item)
+            self.btn_confirm.setEnabled(True)
