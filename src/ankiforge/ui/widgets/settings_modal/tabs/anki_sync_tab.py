@@ -192,11 +192,15 @@ class AnkiSyncTab(QWidget):
         btn_open_anki.clicked.connect(self._open_anki_dir)
         row_dir.addWidget(btn_open_anki)
 
-        dir_layout.addLayout(row_dir)
-
-        lbl_hint = QLabel("💡 Permet de repérer facilement vos profils et fichiers .anki2 / .colpkg sans dépendance réseau.")
+        row_hint = QHBoxLayout()
+        row_hint.setSpacing(6)
+        hint_icon = QLabel()
+        hint_icon.setPixmap(load_phosphor_icon("ph.lightbulb", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        row_hint.addWidget(hint_icon)
+        lbl_hint = QLabel("Permet de repérer facilement vos profils et fichiers .anki2 / .colpkg sans dépendance réseau.")
         lbl_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-style: italic;")
-        dir_layout.addWidget(lbl_hint)
+        row_hint.addWidget(lbl_hint, 1)
+        dir_layout.addLayout(row_hint)
 
         layout.addWidget(self.card_dir)
         layout.addStretch()

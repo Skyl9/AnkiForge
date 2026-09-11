@@ -7,6 +7,7 @@ import urllib.request
 from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QScrollArea,
     QTableWidgetItem,
     QVBoxLayout,
@@ -22,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import LLMConfigModel
+from ankiforge.services.ai.model_catalog import ModelCatalog
 from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
@@ -32,6 +35,8 @@ from ankiforge.ui.components import (
     StyledLineEdit,
     StyledTableWidget,
 )
+from ankiforge.ui.components.model_selector.badges import ModelCapabilityBadgesWidget
+from ankiforge.ui.components.model_selector.dialog import ModelDiscoveryDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
 from ankiforge.ui.widgets.settings_modal.components.settings_card import (
@@ -62,7 +67,7 @@ class CloudKeyPingWorker(QRunnable):
 
     def run(self) -> None:
         if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
-            self.signals.result_ready.emit(self.provider_id, True, "✅ Format valide")
+            self.signals.result_ready.emit(self.provider_id, True, "Format valide")
             return
 
         try:
@@ -77,19 +82,19 @@ class CloudKeyPingWorker(QRunnable):
                 req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
 
             if req is None:
-                self.signals.result_ready.emit(self.provider_id, True, "✅ Format valide")
+                self.signals.result_ready.emit(self.provider_id, True, "Format valide")
                 return
 
             with urllib.request.urlopen(req, timeout=2.5):  # nosec B310
-                self.signals.result_ready.emit(self.provider_id, True, "🟢 Connecté")
+                self.signals.result_ready.emit(self.provider_id, True, "Connecté")
 
         except urllib.error.HTTPError as err:
             if err.code in (401, 403):
-                self.signals.result_ready.emit(self.provider_id, False, f"❌ Rejetée ({err.code})")
+                self.signals.result_ready.emit(self.provider_id, False, f"Rejetée ({err.code})")
             else:
-                self.signals.result_ready.emit(self.provider_id, True, f"🟢 En ligne ({err.code})")
+                self.signals.result_ready.emit(self.provider_id, True, f"En ligne ({err.code})")
         except Exception:
-            self.signals.result_ready.emit(self.provider_id, True, "✅ Format valide")
+            self.signals.result_ready.emit(self.provider_id, True, "Format valide")
 
 
 class AIEnginesTab(QWidget):
@@ -115,6 +120,7 @@ class AIEnginesTab(QWidget):
         self.scroll = QScrollArea(self)
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setStyleSheet("background: transparent; border: none;")
 
         self.content_widget = QWidget()
@@ -216,45 +222,54 @@ class AIEnginesTab(QWidget):
         self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_cat)
 
-        self.table_engines = StyledTableWidget(["Nom du Moteur", "Fournisseur", "Identifiant Modèle", "Tokens Génération", "Gratuit / Local"])
+        self.table_engines = StyledTableWidget(["Nom du Moteur", "Fournisseur", "Identifiant Modèle", "Capacités & Atouts"])
         self.table_engines.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_engines.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_engines.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.table_engines.verticalHeader().setDefaultSectionSize(34)
         self.table_engines.itemChanged.connect(self._on_table_item_changed)
-        self.table_engines.setMinimumHeight(140)
+        self.table_engines.setMinimumHeight(160)
         layout.addWidget(self.table_engines)
 
-        # Barre d'outils Catalogue
+        # Barre d'outils Catalogue compacte et unifiée
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
 
-        self.btn_add_gemini_lite = SecondaryButton("+ Gemini 3.5 Flash Lite")
-        self.btn_add_gemini_lite.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE))
-        self.btn_add_gemini_lite.clicked.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
-        toolbar.addWidget(self.btn_add_gemini_lite)
+        self.btn_browse_catalog = PrimaryButton("Explorer le catalogue & comparateur...")
+        self.btn_browse_catalog.setIcon(load_phosphor_icon("ph.sparkle", color="#ffffff"))
+        self.btn_browse_catalog.clicked.connect(self._open_catalog_dialog)
+        toolbar.addWidget(self.btn_browse_catalog)
 
-        self.btn_add_openai = SecondaryButton("+ GPT-4o")
-        self.btn_add_openai.setIcon(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_add_openai.clicked.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
-        toolbar.addWidget(self.btn_add_openai)
+        self.btn_add_menu = SecondaryButton("Ajouter un modèle ▾")
+        self.btn_add_menu.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.TEXT_PRIMARY))
 
-        self.btn_add_claude = SecondaryButton("+ Claude 3.7")
-        self.btn_add_claude.setIcon(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW))
-        self.btn_add_claude.clicked.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
-        toolbar.addWidget(self.btn_add_claude)
+        self.menu_add = QMenu(self)
 
-        self.btn_add_ollama = SecondaryButton("+ Ollama Local")
-        self.btn_add_ollama.setIcon(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN))
-        self.btn_add_ollama.clicked.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
-        toolbar.addWidget(self.btn_add_ollama)
+        act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), "Google Gemini 3.5 Flash Lite", self)
+        act_gemini.triggered.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
+        self.menu_add.addAction(act_gemini)
 
-        self.btn_add_custom = SecondaryButton("+ Modèle Personnalisé...")
-        self.btn_add_custom.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY))
-        self.btn_add_custom.clicked.connect(self._add_custom_engine)
-        toolbar.addWidget(self.btn_add_custom)
+        act_openai = QAction(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY), "GPT-4o (OpenAI)", self)
+        act_openai.triggered.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
+        self.menu_add.addAction(act_openai)
+
+        act_claude = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), "Claude 3.7 Sonnet", self)
+        act_claude.triggered.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
+        self.menu_add.addAction(act_claude)
+
+        act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), "Ollama Local (llama3)", self)
+        act_ollama.triggered.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
+        self.menu_add.addAction(act_ollama)
+
+        self.menu_add.addSeparator()
+
+        act_custom = QAction(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY), "Modèle Personnalisé...", self)
+        act_custom.triggered.connect(self._add_custom_engine)
+        self.menu_add.addAction(act_custom)
+
+        self.btn_add_menu.setMenu(self.menu_add)
+        toolbar.addWidget(self.btn_add_menu)
 
         toolbar.addStretch()
 
@@ -307,7 +322,7 @@ class AIEnginesTab(QWidget):
         categories = VisionCategoryService.get_categories()
 
         for cat in categories:
-            card = SettingsCard()
+            card = SettingsCard(self.content_widget)
             card_layout = QHBoxLayout(card)
             card_layout.setContentsMargins(12, 10, 12, 10)
             card_layout.setSpacing(10)
@@ -341,7 +356,7 @@ class AIEnginesTab(QWidget):
 
             # Badge Thinking si actif
             if cat.thinking_budget > 0:
-                thinking_badge = QLabel(f"🧠 {cat.thinking_budget}t")
+                thinking_badge = QLabel(f"CoT {cat.thinking_budget}t")
                 apply_pill_badge_style(thinking_badge, DesignTokens.ACCENT_PRIMARY)
                 title_row.addWidget(thinking_badge)
 
@@ -409,7 +424,7 @@ class AIEnginesTab(QWidget):
 
         key_val = key_edit.text()
         if not key_val:
-            badge.setText("⚠️ Clé vide")
+            badge.setText("Clé vide")
             apply_pill_badge_style(badge, DesignTokens.COLOR_YELLOW)
             badge.show()
             show_toast(self, f"Veuillez saisir une clé {provider_name}.", is_error=True)
@@ -427,7 +442,7 @@ class AIEnginesTab(QWidget):
             valid_format = len(key_val) >= 16
 
         if valid_format:
-            badge.setText("✅ Format valide")
+            badge.setText("Format valide")
             apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
             badge.show()
 
@@ -451,7 +466,7 @@ class AIEnginesTab(QWidget):
             # Test de connectivité réseau non-bloquant en tâche de fond
             self._verify_cloud_key_online(provider_id, provider_name, key_val)
         else:
-            badge.setText("❌ Format suspect")
+            badge.setText("Format suspect")
             apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
             badge.show()
 
@@ -468,13 +483,14 @@ class AIEnginesTab(QWidget):
         if not badge:
             return
         badge.setText(status_text)
-        if "❌" in status_text:
-            apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
-        elif "🟢" in status_text:
-            apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
-        else:
-            apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
+        apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN if is_valid else DesignTokens.COLOR_RED)
         badge.show()
+
+    def _open_catalog_dialog(self) -> None:
+        """Ouvre l'explorateur et comparateur de modèles IA pour enrichir le catalogue."""
+        dlg = ModelDiscoveryDialog(picker_mode=False, parent=self)
+        dlg.exec()
+        self.refresh_data()
 
     def _scan_ollama(self) -> None:
         url = self.le_ollama_url.text().strip().rstrip("/")
@@ -486,30 +502,38 @@ class AIEnginesTab(QWidget):
                 data = json.loads(resp.read().decode())
                 models = [m.get("name") for m in data.get("models", [])]
                 if models:
-                    self.badge_ollama_status.setText(f"🟢 {len(models)} modèle(s) détecté(s)")
+                    self.badge_ollama_status.setText(f"{len(models)} modèle(s) détecté(s)")
                     apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
                     self.badge_ollama_status.show()
 
                     added_count = 0
                     for m_name in models:
                         if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
+                            caps = ModelCatalog.detect_ollama_model_capabilities(url, m_name)
                             LLMConfigModel.create(
                                 display_name=f"Ollama {m_name}",
                                 provider="ollama",
                                 model_id=m_name,
-                                context_limit=8192,
+                                context_limit=caps.context_window,
                                 api_key="",
                                 is_free=True,
+                                supports_vision=caps.supports_vision,
+                                supports_thinking=caps.supports_thinking,
+                                supports_json=caps.supports_json,
+                                speed_rating=caps.speed_rating,
+                                quality_tier=caps.quality_tier,
+                                recommended_tasks=",".join(caps.recommended_tasks),
+                                description=f"Modèle local Ollama {m_name}",
                             )
                             added_count += 1
                     self.refresh_data()
                     show_toast(self, f"Ollama en ligne : {len(models)} modèles scannés (+{added_count} importés) !")
                 else:
-                    self.badge_ollama_status.setText("🟡 En ligne (0 modèle)")
+                    self.badge_ollama_status.setText("En ligne (0 modèle)")
                     apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_YELLOW)
                     self.badge_ollama_status.show()
         except Exception:
-            self.badge_ollama_status.setText("🔴 Hors ligne")
+            self.badge_ollama_status.setText("Hors ligne")
             apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
             self.badge_ollama_status.show()
             show_toast(self, "Serveur Ollama inaccessible sur cette adresse.", is_error=True)
@@ -518,28 +542,30 @@ class AIEnginesTab(QWidget):
         """Recharge les moteurs IA et les catégories de vision."""
         try:
             self.table_engines.blockSignals(True)
+            self.table_engines.clearContents()
             engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             self.table_engines.setRowCount(len(engines))
 
             for i, eg in enumerate(engines):
+                # Col 0: Nom
                 item_name = QTableWidgetItem(getattr(eg, "display_name", "Inconnu"))
                 item_name.setData(Qt.ItemDataRole.UserRole, eg.id)
                 self.table_engines.setItem(i, 0, item_name)
 
+                # Col 1: Fournisseur
                 p_text = getattr(eg, "provider", "inconnu").upper()
                 self.table_engines.setItem(i, 1, QTableWidgetItem(p_text))
 
+                # Col 2: Identifiant Modèle
                 item_model = QTableWidgetItem(getattr(eg, "model_id", "default"))
                 self.table_engines.setItem(i, 2, item_model)
 
-                item_tokens = QTableWidgetItem(str(getattr(eg, "max_tokens", 16384)))
-                item_tokens.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table_engines.setItem(i, 3, item_tokens)
-
-                item_free = QTableWidgetItem()
-                item_free.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-                item_free.setCheckState(Qt.CheckState.Checked if getattr(eg, "is_free", False) else Qt.CheckState.Unchecked)
-                self.table_engines.setItem(i, 4, item_free)
+                # Col 3: Capacités & Atouts (Badges compacts)
+                spec = eg.to_model_spec()
+                badges_widget = ModelCapabilityBadgesWidget(compact=True)
+                badges_widget.update_for_spec(spec)
+                badges_widget.setStyleSheet("background: transparent;")
+                self.table_engines.setCellWidget(i, 3, badges_widget)
 
             self.table_engines.blockSignals(False)
         except Exception as e:
@@ -567,8 +593,10 @@ class AIEnginesTab(QWidget):
                 show_toast(self, f"Le modèle '{model_id}' est déjà configuré.", is_error=True)
                 return
 
+            spec = ModelCatalog.get_model_spec(provider, model_id)
             api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
-            effective_context_limit = context_limit if context_limit is not None else (1048576 if provider == "gemini" else 128000)
+            effective_context_limit = context_limit if context_limit is not None else (spec.context_window if spec else (1048576 if provider == "gemini" else 128000))
+
             LLMConfigModel.create(
                 display_name=name,
                 provider=provider,
@@ -578,6 +606,13 @@ class AIEnginesTab(QWidget):
                 sort_order=sort_order,
                 api_key=api_key,
                 is_free=is_free,
+                supports_vision=spec.supports_vision if spec else False,
+                supports_thinking=spec.supports_thinking if spec else False,
+                supports_json=spec.supports_json if spec else True,
+                speed_rating=spec.speed_rating if spec else "Moyen",
+                quality_tier=spec.quality_tier if spec else "Standard",
+                recommended_tasks=",".join(spec.recommended_tasks) if spec else "",
+                description=spec.description if spec else "",
             )
             self.refresh_data()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
@@ -681,14 +716,6 @@ class AIEnginesTab(QWidget):
                 config.provider = item.text().strip().lower()
             elif item.column() == 2:
                 config.model_id = item.text().strip()
-            elif item.column() == 3:
-                try:
-                    val = int(item.text().strip().replace(" ", "").replace("tks", ""))
-                    config.max_tokens = max(512, min(131072, val))
-                except ValueError:
-                    pass
-            elif item.column() == 4:
-                config.is_free = item.checkState() == Qt.CheckState.Checked
             config.save()
             if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
                 self.ai_manager.reload_provider()

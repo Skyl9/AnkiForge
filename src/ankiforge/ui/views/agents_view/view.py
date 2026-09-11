@@ -36,6 +36,7 @@ from ankiforge.ui.components import (
     GlowLineEdit,
     IconButton,
     IdePanel,
+    ModelSelectorWidget,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
@@ -375,7 +376,7 @@ class AgentsView(QWidget):
         lbl_engine = QLabel("MOTEUR IA DÉDIÉ (OPTIONNEL) :")
         lbl_engine.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         layout_identity.addWidget(lbl_engine)
-        self.engine_combo = StyledComboBox()
+        self.engine_combo = ModelSelectorWidget(allow_inherit=True, parent=self)
         layout_identity.addWidget(self.engine_combo)
 
         self.engine_info_card = QFrame()
@@ -389,9 +390,13 @@ class AgentsView(QWidget):
         """)
         layout_engine_info = QHBoxLayout(self.engine_info_card)
         layout_engine_info.setContentsMargins(10, 8, 10, 8)
-        self.lbl_engine_info = QLabel("⚙️ Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
+        layout_engine_info.setSpacing(6)
+        self.lbl_engine_icon = QLabel()
+        self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        layout_engine_info.addWidget(self.lbl_engine_icon)
+        self.lbl_engine_info = QLabel("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
         self.lbl_engine_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
-        layout_engine_info.addWidget(self.lbl_engine_info)
+        layout_engine_info.addWidget(self.lbl_engine_info, 1)
         layout_identity.addWidget(self.engine_info_card)
 
         layout_identity.addStretch()
@@ -571,19 +576,11 @@ class AgentsView(QWidget):
         self.btn_clone.clicked.connect(self._on_clone_agent)
         self.btn_del.clicked.connect(self._on_delete_selected)
         self.btn_save.clicked.connect(self._on_save_agent)
-        self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
+        self.engine_combo.model_changed.connect(self._on_engine_changed)
 
     def refresh_data(self) -> None:
         try:
-            self.engine_combo.blockSignals(True)
-            self.engine_combo.clear()
-            self.engine_combo.addItem("⚙️ Hériter du réglage global de l'application", userData=None)
-
-            llm_configs = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
-            for cfg in llm_configs:
-                display = cfg.display_name or f"{cfg.provider} ({cfg.model_id})"
-                self.engine_combo.addItem(f"🤖 {display}", userData=cfg)
-            self.engine_combo.blockSignals(False)
+            self.engine_combo.refresh_models()
 
             self._cached_folders = list(PersonaFolderModel.select().order_by(PersonaFolderModel.name.asc()))
             self._populate_folder_combo()
@@ -772,12 +769,16 @@ class AgentsView(QWidget):
             self.lbl_agent_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=spec["badge_color"]).pixmap(18, 18))
 
     @Slot()
-    def _on_engine_changed(self) -> None:
-        cfg = self.engine_combo.currentData()
+    def _on_engine_changed(self, model: Any = None) -> None:
+        cfg = self.engine_combo.get_current_model()
         if cfg:
-            self.lbl_engine_info.setText(f"🤖 Moteur dédié : {cfg.provider.upper()} ({cfg.model_id}) avec configuration dédiée.")
+            if hasattr(self, "lbl_engine_icon"):
+                self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+            self.lbl_engine_info.setText(f"Moteur dédié : {cfg.provider.upper()} ({cfg.model_id}) avec configuration dédiée.")
         else:
-            self.lbl_engine_info.setText("⚙️ Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
+            if hasattr(self, "lbl_engine_icon"):
+                self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+            self.lbl_engine_info.setText("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres.")
 
     @Slot()
     def _on_preview_prompt(self) -> None:
@@ -847,19 +848,8 @@ class AgentsView(QWidget):
         if hasattr(self, "format_badge"):
             self.format_badge.setText(fmt.upper())
 
-        self.engine_combo.blockSignals(True)
-        if getattr(ag, "llm_config", None):
-            cfg_id = ag.llm_config.id
-            idx_e = -1
-            for i in range(self.engine_combo.count()):
-                cfg_item = self.engine_combo.itemData(i)
-                if cfg_item and getattr(cfg_item, "id", None) == cfg_id:
-                    idx_e = i
-                    break
-            self.engine_combo.setCurrentIndex(idx_e if idx_e != -1 else 0)
-        else:
-            self.engine_combo.setCurrentIndex(0)
-        self.engine_combo.blockSignals(False)
+        cfg_id = ag.llm_config.id if getattr(ag, "llm_config", None) else None
+        self.engine_combo.set_current_model_id(cfg_id)
         self._on_engine_changed()
 
         allowed_list = []
@@ -1079,7 +1069,7 @@ class AgentsView(QWidget):
                 return
 
             selected_tools = [key for key, card in self._tool_cards.items() if card.isChecked()]
-            selected_engine: LLMConfigModel | None = self.engine_combo.currentData()
+            selected_engine: LLMConfigModel | None = self.engine_combo.get_current_model()
             selected_scope: str = self.scope_combo.currentData() or "pipeline"
             selected_folder_id: int | None = self.folder_combo.currentData()
             if selected_folder_id in ("__NEW_ROOT__", "__NEW_SUB__"):

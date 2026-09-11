@@ -18,8 +18,8 @@ def apply_pill_badge_style(badge: QLabel, color_hex: str) -> None:
             background-color: rgba({r}, {g}, {b}, 0.14) !important;
             color: {color_hex};
             border: 1px solid rgba({r}, {g}, {b}, 0.40);
-            border-radius: 9999px;
-            padding: 2px 10px;
+            border-radius: 10px;
+            padding: 2px 8px;
             font-size: 11px;
             font-weight: bold;
         }}
@@ -42,10 +42,6 @@ class SettingsCard(QFrame):
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
-            QFrame#SettingsCard QLabel {{
-                background: transparent;
-                border: none;
-            }}
         """)
 
     def refresh_theme(self, profile: Any) -> None:
@@ -54,9 +50,5 @@ class SettingsCard(QFrame):
                 background-color: {profile.bg_panel};
                 border: 1px solid {profile.border_color};
                 border-radius: {profile.radius_md}px;
-            }}
-            QFrame#SettingsCard QLabel {{
-                background: transparent;
-                border: none;
             }}
         """)

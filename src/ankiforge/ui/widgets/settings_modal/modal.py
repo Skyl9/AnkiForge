@@ -53,7 +53,7 @@ class SettingsModal(QDialog):
 
         self.setWindowTitle("Paramètres AnkiForge")
         self.setMinimumSize(960, 620)
-        self.resize(1024, 680)
+        self.resize(1060, 700)
         self.setModal(False)
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint)
 
@@ -111,7 +111,7 @@ class SettingsModal(QDialog):
         # Sidebar navigation latérale
         self.sidebar = QWidget()
         self.sidebar.setObjectName("SettingsSidebar")
-        self.sidebar.setFixedWidth(240)
+        self.sidebar.setFixedWidth(215)
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(8, 12, 8, 12)
         sidebar_layout.setSpacing(4)

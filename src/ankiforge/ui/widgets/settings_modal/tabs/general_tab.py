@@ -94,8 +94,8 @@ class GeneralTab(QWidget):
         self.cb_mode = StyledComboBox()
         self.cb_mode.setMinimumWidth(260)
         self.cb_mode.setFixedHeight(30)
-        self.cb_mode.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.ACCENT_PRIMARY), "🌙 Mode Sombre (Dark)", "dark")
-        self.cb_mode.addItem(load_phosphor_icon("ph.sun", color=DesignTokens.COLOR_YELLOW), "☀️ Mode Clair (Light)", "light")
+        self.cb_mode.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.ACCENT_PRIMARY), "Mode Sombre (Dark)", "dark")
+        self.cb_mode.addItem(load_phosphor_icon("ph.sun", color=DesignTokens.COLOR_YELLOW), "Mode Clair (Light)", "light")
 
         saved_theme_id = engine.get_saved_theme_id(profile_name)
         current_theme_obj = engine.get_theme(saved_theme_id)
@@ -275,8 +275,8 @@ class GeneralTab(QWidget):
         self.cb_update_channel = StyledComboBox()
         self.cb_update_channel.setMinimumWidth(260)
         self.cb_update_channel.setFixedHeight(30)
-        self.cb_update_channel.addItem(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN), "🟢 Canal Stable (Recommandé)", "stable")
-        self.cb_update_channel.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.COLOR_YELLOW), "🌙 Canal Nightly (Bêta / Edge)", "nightly")
+        self.cb_update_channel.addItem(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN), "Canal Stable (Recommandé)", "stable")
+        self.cb_update_channel.addItem(load_phosphor_icon("ph.moon", color=DesignTokens.COLOR_YELLOW), "Canal Nightly (Bêta / Edge)", "nightly")
 
         saved_channel = str(q_settings.value(SETTINGS_KEY_CHANNEL, "stable"))
         ch_idx = self.cb_update_channel.findData(saved_channel)
@@ -321,14 +321,14 @@ class GeneralTab(QWidget):
 
         selected_channel = str(self.cb_update_channel.currentData() or "stable")
         self.btn_check_updates.setEnabled(False)
-        self.lbl_update_status.setText("🔍 Recherche en cours...")
+        self.lbl_update_status.setText("Recherche en cours...")
         self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11.5px;")
 
         worker = UpdateCheckerWorker(channel=selected_channel, force=True)
 
         def on_avail(info: Any) -> None:
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"🎉 Version v{info.version} disponible !")
+            self.lbl_update_status.setText(f"Version v{info.version} disponible !")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px; font-weight: bold;")
             if isinstance(info, UpdateInfo):
                 dialog = UpdateDialog(info, parent=self.window())
@@ -336,12 +336,12 @@ class GeneralTab(QWidget):
 
         def on_none(_cur: str) -> None:
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"✨ Vous disposez de la version la plus récente ({VERSION_INFO.short_display_version})")
+            self.lbl_update_status.setText(f"Vous disposez de la version la plus récente ({VERSION_INFO.short_display_version})")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px;")
 
         def on_err(msg: str) -> None:
             self.btn_check_updates.setEnabled(True)
-            self.lbl_update_status.setText(f"⚠️ Échec : {msg}")
+            self.lbl_update_status.setText(f"Échec : {msg}")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11.5px;")
 
         worker.signals.update_available.connect(on_avail)

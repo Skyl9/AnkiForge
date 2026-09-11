@@ -235,7 +235,7 @@ class TTSSettingsTab(QWidget):
                 self.lbl_piper_status.setText("● Installé et opérationnel")
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; font-weight: bold;")
             else:
-                self.lbl_piper_status.setText(f"⚠️ Dépendance manquante ({msg})")
+                self.lbl_piper_status.setText(f"Dépendance manquante ({msg})")
                 self.lbl_piper_status.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
                 self.lbl_piper_status.setToolTip(msg)
         else:

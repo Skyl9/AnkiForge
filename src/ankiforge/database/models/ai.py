@@ -1,6 +1,9 @@
 # ruff: noqa: E501
+from __future__ import annotations
+
 import datetime
 import logging
+from typing import Any
 
 from peewee import (
     SQL,
@@ -41,9 +44,68 @@ class LLMConfigModel(BaseModel):
     prompt_pricing = FloatField(default=0.0)
     completion_pricing = FloatField(default=0.0)
     is_free = BooleanField(default=False)
+    supports_vision = BooleanField(default=False)
+    supports_thinking = BooleanField(default=False)
+    supports_json = BooleanField(default=True)
+    speed_rating = CharField(default="fast")
+    quality_tier = CharField(default="balanced")
+    recommended_tasks = CharField(default="[]")
+    description = TextField(default="")
 
     class Meta:
         table_name = "llm_configs"
+
+    @property
+    def recommended_tasks_list(self) -> list[str]:
+        """Retourne la liste des tâches recommandées sous forme de liste Python."""
+        try:
+            import json
+
+            return list(json.loads(self.recommended_tasks or "[]"))
+        except Exception:
+            return []
+
+    @property
+    def formatted_context_window(self) -> str:
+        """Retourne la taille de contexte lisible (ex: '128k', '1M', '2M')."""
+        ctx = int(self.context_limit or 128000)
+        if ctx >= 1_000_000:
+            val = ctx / 1_000_000
+            return f"{val:.1f}M" if val % 1 else f"{int(val)}M"
+        if ctx >= 1_000:
+            return f"{ctx // 1_000}k"
+        return str(ctx)
+
+    @property
+    def formatted_pricing(self) -> str:
+        """Retourne l'étiquette de prix formatée."""
+        if self.is_free or self.provider == "ollama":
+            return "100% Gratuit"
+        if self.prompt_pricing == 0.0 and self.completion_pricing == 0.0:
+            return "Tier Gratuit"
+        return f"${self.prompt_pricing:.2f} / ${self.completion_pricing:.2f} (1M)"
+
+    def to_model_spec(self) -> Any:
+        """Convertit l'enregistrement SQLite en ModelSpec du catalogue."""
+        from ankiforge.services.ai.model_catalog import ModelSpec
+
+        return ModelSpec(
+            provider=str(self.provider),
+            model_id=str(self.model_id),
+            display_name=str(self.display_name or self.model_id),
+            context_window=int(self.context_limit or 128000),
+            max_tokens=int(self.max_tokens or 16384),
+            supports_vision=bool(self.supports_vision),
+            supports_thinking=bool(self.supports_thinking),
+            supports_json=bool(self.supports_json),
+            speed_rating=str(self.speed_rating or "fast"),
+            quality_tier=str(self.quality_tier or "balanced"),
+            is_free=bool(self.is_free or self.provider == "ollama"),
+            prompt_pricing=float(self.prompt_pricing or 0.0),
+            completion_pricing=float(self.completion_pricing or 0.0),
+            recommended_tasks=self.recommended_tasks_list,
+            description=str(self.description or ""),
+        )
 
 
 class TokenUsageModel(BaseModel):

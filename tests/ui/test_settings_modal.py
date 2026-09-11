@@ -60,7 +60,7 @@ def test_settings_modal_creation_and_tabs(qtbot):
     qtbot.addWidget(modal)
     assert modal is not None
     assert modal.minimumWidth() == 960
-    assert modal.sidebar.width() == 240
+    assert modal.sidebar.width() == 215
     assert all(button.sizeHint().width() <= modal.sidebar.width() - 16 for button in modal.nav_btns)
 
     assert isinstance(modal.general_tab, GeneralTab)
@@ -174,11 +174,11 @@ def test_ai_engines_tab_key_validation_and_crud(qtbot):
     # 1. Validation de clé vide vs valide
     tab.key_edits["openai"].setText("")
     tab._test_cloud_key("openai", "OpenAI")
-    assert tab.key_status_badges["openai"].text() == "⚠️ Clé vide"
+    assert tab.key_status_badges["openai"].text() == "Clé vide"
 
     tab.key_edits["openai"].setText("sk-proj-1234567890abcdef1234567890")
     tab._test_cloud_key("openai", "OpenAI")
-    assert tab.key_status_badges["openai"].text() == "✅ Format valide"
+    assert tab.key_status_badges["openai"].text() == "Format valide"
 
     # 2. Ajout rapide d'un moteur
     initial_count = LLMConfigModel.select().count()

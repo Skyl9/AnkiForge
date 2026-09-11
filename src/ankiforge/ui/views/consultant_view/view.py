@@ -30,7 +30,6 @@ from ankiforge.database.models import (
     ConsultantSessionModel,
     DeckModel,
     DocumentModel,
-    LLMConfigModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
@@ -47,6 +46,7 @@ from ankiforge.ui.components import (
     DocumentSelectWindow,
     IconButton,
     IdePanel,
+    ModelSelectorWidget,
     PrimaryButton,
     StyledComboBox,
 )
@@ -276,8 +276,8 @@ class ConsultantView(QWidget):
         self.chat_panel.add_header_widget(self.btn_toggle_sidebar)
         self.chat_panel.add_header_separator()
 
-        self.model_selector = StyledComboBox()
-        self.model_selector.setMinimumWidth(160)
+        self.model_selector = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
+        self.model_selector.setMinimumWidth(220)
         self.chat_panel.add_header_widget(self.model_selector)
         self.chat_panel.add_header_separator()
 
@@ -535,13 +535,7 @@ class ConsultantView(QWidget):
 
     def refresh_data(self) -> None:
         try:
-            self.model_selector.blockSignals(True)
-            self.model_selector.clear()
-            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
-            for eg in engines:
-                display_name = getattr(eg, "display_name", getattr(eg, "provider", str(eg)))
-                self.model_selector.addItem(f"⚡ {display_name}", userData=eg)
-            self.model_selector.blockSignals(False)
+            self.model_selector.refresh_models()
 
             self.persona_combo.blockSignals(True)
             self.persona_combo.clear()

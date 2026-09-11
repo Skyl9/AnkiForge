@@ -21,6 +21,7 @@ from .inputs import DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, S
 from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
 from .misc import StyledToolbar, UserAvatar
 from .model_select_window import ModelSelectWindow
+from .model_selector import ModelCapabilityBadgesWidget, ModelDiscoveryDialog, ModelSelectorWidget
 from .panels import EmptyStateWidget, GlassPanel, IdePanel, MetricCard, StatCard
 from .sidebar import ClickableLabel, Sidebar, SidebarItem
 from .tables import CicdTable, StyledTableWidget, VirtualTableView
@@ -89,5 +90,8 @@ __all__ = [
     "DeckSelectWindow",
     "DocumentSelectWindow",
     "ModelSelectWindow",
+    "ModelSelectorWidget",
+    "ModelCapabilityBadgesWidget",
+    "ModelDiscoveryDialog",
     "TagSelectWindow",
 ]

@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
-    LLMConfigModel,
     NoteModel,
     NoteTypeModel,
     PersonaModel,
@@ -38,6 +37,7 @@ from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.ui.components import (
     IconButton,
     IdePanel,
+    ModelSelectorWidget,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
@@ -214,9 +214,8 @@ class ABTestsView(QWidget):
         ge_layout.setSpacing(6)
         lbl_ge = QLabel("Moteur Commun :")
         lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.global_engine_combo = StyledComboBox()
-        self.global_engine_combo.setMinimumWidth(170)
-        self.global_engine_combo.setFixedHeight(30)
+        self.global_engine_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
+        self.global_engine_combo.setMinimumWidth(200)
         ge_layout.addWidget(lbl_ge)
         ge_layout.addWidget(self.global_engine_combo)
         row1.addWidget(self.global_engine_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
@@ -407,8 +406,7 @@ class ABTestsView(QWidget):
 
         self.lbl_a = QLabel("Moteur A :")
         self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.engine_a_combo = StyledComboBox()
-        self.engine_a_combo.setFixedHeight(30)
+        self.engine_a_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
         self.persona_a_combo = StyledComboBox()
         self.persona_a_combo.setFixedHeight(30)
         self.persona_a_combo.hide()
@@ -466,8 +464,7 @@ class ABTestsView(QWidget):
 
         self.lbl_b = QLabel("Moteur B :")
         self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.engine_b_combo = StyledComboBox()
-        self.engine_b_combo.setFixedHeight(30)
+        self.engine_b_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
         self.persona_b_combo = StyledComboBox()
         self.persona_b_combo.setFixedHeight(30)
         self.persona_b_combo.hide()
@@ -763,25 +760,11 @@ class ABTestsView(QWidget):
 
     def refresh_data(self) -> None:
         try:
-            self.engine_a_combo.blockSignals(True)
-            self.engine_b_combo.blockSignals(True)
-            self.global_engine_combo.blockSignals(True)
-            self.engine_a_combo.clear()
-            self.engine_b_combo.clear()
-            self.global_engine_combo.clear()
-
-            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
-            for eg in engines:
-                name = eg.display_name or eg.provider
-                self.engine_a_combo.addItem(name, userData=eg)
-                self.engine_b_combo.addItem(name, userData=eg)
-                self.global_engine_combo.addItem(name, userData=eg)
-            if len(engines) > 1:
+            self.engine_a_combo.refresh_models()
+            self.engine_b_combo.refresh_models()
+            self.global_engine_combo.refresh_models()
+            if self.engine_b_combo.count() > 1:
                 self.engine_b_combo.setCurrentIndex(1)
-
-            self.engine_a_combo.blockSignals(False)
-            self.engine_b_combo.blockSignals(False)
-            self.global_engine_combo.blockSignals(False)
 
             self.persona_combo.blockSignals(True)
             self.persona_a_combo.blockSignals(True)

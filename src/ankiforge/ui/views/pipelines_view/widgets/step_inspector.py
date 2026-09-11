@@ -24,6 +24,7 @@ from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import (
     Badge,
     FlowWidget,
+    ModelSelectorWidget,
     SecondaryButton,
     StyledComboBox,
     StyledLineEdit,
@@ -548,23 +549,17 @@ class StepInspectorPanel(QFrame):
             layout_params.addWidget(p_card)
 
             # Surcharge LLM
-            row_llm = QHBoxLayout()
+            row_llm = QVBoxLayout()
+            row_llm.setSpacing(4)
             lbl_m = QLabel("Modèle LLM dédié :")
             lbl_m.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-            combo_llm = StyledComboBox()
-            combo_llm.addItem("Modèle par défaut du profil", userData=None)
-            sel_llm_idx = 0
+            selector_llm = ModelSelectorWidget(allow_inherit=True, inherit_label="Modèle par défaut du profil")
             cur_llm_id = cfg.get("llm_config_id")
-            for i, m in enumerate(self.available_llms, start=1):
-                name = getattr(m, "display_name", None) or getattr(m, "model_id", "Modèle")
-                pricing_tag = "Gratuit" if getattr(m, "is_free", False) else f"{getattr(m, 'prompt_pricing', 0):.1f}$/1M"
-                combo_llm.addItem(f"{name} ({m.provider} · {pricing_tag})", userData=m.id)
-                if cur_llm_id == m.id:
-                    sel_llm_idx = i
-            combo_llm.setCurrentIndex(sel_llm_idx)
-            combo_llm.currentIndexChanged.connect(lambda: self._on_config_changed("llm_config_id", combo_llm.currentData()))
+            if cur_llm_id:
+                selector_llm.set_current_model_id(cur_llm_id)
+            selector_llm.model_changed.connect(lambda m: self._on_config_changed("llm_config_id", m.id if m else None))
             row_llm.addWidget(lbl_m)
-            row_llm.addWidget(combo_llm, 1)
+            row_llm.addWidget(selector_llm)
             layout_params.addLayout(row_llm)
 
             if step_type == "MAP_REDUCE":
