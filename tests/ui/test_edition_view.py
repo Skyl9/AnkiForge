@@ -5,6 +5,7 @@ navigation compacte par ruban, IntelliSense et nettoyage des balises HTML.
 
 import json
 import uuid
+from typing import Any
 
 import pytest
 from PySide6.QtCore import Qt
@@ -289,3 +290,83 @@ def test_edition_view_consult_ai_button(qtbot):
     assert len(received_events) == 1
     assert received_events[0].context_item == f"card_{note.id}"
     assert f"#{note.id}" in received_events[0].initial_prompt
+
+
+@pytest.mark.ui
+def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie l'ouverture de ModelSelectWindow depuis la barre de filtres et l'application du filtre."""
+    from ankiforge.ui.components.model_select_window import ModelSelectWindow
+
+    uid = uuid.uuid4().hex[:6]
+    nt1 = NoteTypeModel.create(name=f"ModelA {uid}", fields_schema='["Front", "Back"]')
+    nt2 = NoteTypeModel.create(name=f"ModelB {uid}", fields_schema='["Text", "Extra"]')
+
+    NoteModel.create(guid=f"na_{uid}", note_type=nt1)
+    NoteModel.create(guid=f"nb_{uid}", note_type=nt2)
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    # Clic sur le bouton pour ouvrir la modale
+    view.btn_open_model.click()
+    assert view._model_modal is not None
+    assert isinstance(view._model_modal, ModelSelectWindow)
+    assert view._model_modal.allow_all is True
+
+    # Sélectionner le filtre ModelA
+    view._on_model_selected_from_modal(nt1.id, nt1.name)
+    assert view._active_model_id == nt1.id
+    assert nt1.name in view.btn_open_model.text()
+
+    # Réinitialiser vers "Tous les modèles"
+    view._on_model_selected_from_modal(-1, "Tous les modèles")
+    assert view._active_model_id is None
+    assert "Tous" in view.btn_open_model.text()
+
+
+@pytest.mark.ui
+def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le changement de modèle d'une note via la modale dans l'éditeur."""
+    from ankiforge.ui.components.model_select_window import ModelSelectWindow
+
+    uid = uuid.uuid4().hex[:6]
+    nt_old = NoteTypeModel.create(name=f"OldModel {uid}", fields_schema='["Front", "Back"]')
+    nt_new = NoteTypeModel.create(name=f"NewModel {uid}", fields_schema='["Question", "Answer", "Notes"]')
+
+    note = NoteModel.create(guid=f"chg_{uid}", note_type=nt_old)
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps({"Front": "Contenu Question", "Back": "Contenu Reponse"}),
+        is_active=True,
+    )
+
+    view = EditionView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.select_note_by_id(note.id)
+
+    # Vérifier que les éditeurs initiaux correspondent à l'ancien modèle
+    assert "Front" in view.dynamic_field_widgets
+    assert "Back" in view.dynamic_field_widgets
+
+    # Déclencher l'ouverture de la modale de changement de modèle
+    view._open_change_model_modal(note)
+    assert view._change_model_modal is not None
+    assert isinstance(view._change_model_modal, ModelSelectWindow)
+    assert view._change_model_modal.allow_all is False
+
+    # Appliquer le nouveau modèle
+    view._on_note_model_changed(note, nt_new.id, nt_new.name)
+
+    # Vérifier que le modèle a été mis à jour en BDD
+    refreshed_note = NoteModel.get_by_id(note.id)
+    assert refreshed_note.note_type.id == nt_new.id
+    assert refreshed_note.note_type.name == nt_new.name
+
+    # Vérifier le remappage des champs dans les widgets de l'éditeur
+    assert "Question" in view.dynamic_field_widgets
+    assert "Answer" in view.dynamic_field_widgets
+    assert "Notes" in view.dynamic_field_widgets
+    assert view.dynamic_field_widgets["Question"].get_text() == "Contenu Question"
+    assert view.dynamic_field_widgets["Answer"].get_text() == "Contenu Reponse"

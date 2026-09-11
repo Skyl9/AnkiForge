@@ -20,10 +20,12 @@ from .flow_layout import FlowLayout, FlowWidget
 from .inputs import DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
 from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
 from .misc import StyledToolbar, UserAvatar
+from .model_select_window import ModelSelectWindow
 from .panels import EmptyStateWidget, GlassPanel, IdePanel, MetricCard, StatCard
 from .sidebar import ClickableLabel, Sidebar, SidebarItem
 from .tables import CicdTable, StyledTableWidget, VirtualTableView
 from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
+from .tag_select_window import TagSelectWindow
 from .title_bar import GlobalTitleBar
 from .topbar import TopBar
 
@@ -86,4 +88,6 @@ __all__ = [
     "extract_colors_from_text",
     "DeckSelectWindow",
     "DocumentSelectWindow",
+    "ModelSelectWindow",
+    "TagSelectWindow",
 ]

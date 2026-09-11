@@ -40,6 +40,7 @@ from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 from ankiforge.ui.components.buttons import IconButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
+from ankiforge.ui.components.model_select_window import ModelSelectWindow
 from ankiforge.ui.components.panels import IdePanel
 from ankiforge.ui.components.tables import VirtualTableView
 from ankiforge.ui.components.tag_select_window import TagSelectWindow
@@ -119,6 +120,8 @@ class EditionView(QWidget):
 
         self._deck_modal: DeckSelectWindow | None = None
         self._tag_modal: TagSelectWindow | None = None
+        self._model_modal: ModelSelectWindow | None = None
+        self._change_model_modal: ModelSelectWindow | None = None
         self._import_dialog: QWidget | None = None
         self._export_dialog: QWidget | None = None
 
@@ -282,7 +285,7 @@ class EditionView(QWidget):
                 background-color: {DesignTokens.BG_HOVER};
             }}
         """)
-        self.btn_open_model.clicked.connect(self._show_model_menu)
+        self.btn_open_model.clicked.connect(self._show_model_modal)
         filter_layout.addWidget(self.btn_open_model)
 
         self.btn_filter_flag = QPushButton("Drapeau : Tous ▾")
@@ -708,6 +711,7 @@ class EditionView(QWidget):
             if item is not None:
                 widget = item.widget()
                 if widget:
+                    widget.setParent(None)
                     widget.deleteLater()
 
         self.dynamic_field_widgets.clear()
@@ -778,6 +782,62 @@ class EditionView(QWidget):
             sb_layout.addWidget(btn_go_doc)
 
             self.fields_layout.addWidget(source_badge)
+
+        # Barre de Métadonnées et Choix du Modèle de Carte
+        model_bar = QFrame()
+        model_bar.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px 8px;
+                margin-bottom: 6px;
+            }}
+        """)
+        mb_layout = QHBoxLayout(model_bar)
+        mb_layout.setContentsMargins(4, 2, 4, 2)
+        mb_layout.setSpacing(8)
+
+        ico_model = QLabel()
+        ico_model.setPixmap(load_phosphor_icon("cards", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        ico_model.setStyleSheet("border: none; background: transparent;")
+        mb_layout.addWidget(ico_model)
+
+        nt_name = note.note_type.name if note.note_type else "Inconnu"
+        lbl_model_info = QLabel(f"Modèle : {nt_name}")
+        lbl_model_info.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+        lbl_model_info.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        mb_layout.addWidget(lbl_model_info)
+
+        fields_count = len(fields)
+        lbl_fields_hint = QLabel(f"({fields_count} champ{'s' if fields_count > 1 else ''})")
+        lbl_fields_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+        mb_layout.addWidget(lbl_fields_hint)
+
+        mb_layout.addStretch()
+
+        btn_change_model = QPushButton("Changer de modèle...")
+        btn_change_model.setIcon(load_phosphor_icon("arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        btn_change_model.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: 600;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        btn_change_model.clicked.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
+        mb_layout.addWidget(btn_change_model)
+
+        self.fields_layout.addWidget(model_bar)
 
         for i, field_name in enumerate(fields):
             val = data.get(field_name, data.get(field_name.lower(), ""))
@@ -1075,6 +1135,108 @@ class EditionView(QWidget):
             self.refresh_data()
 
     @Slot()
+    def _show_model_modal(self) -> None:
+        try:
+            if self._model_modal and self._model_modal.isVisible():
+                self._model_modal.raise_()
+                self._model_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._model_modal = None
+
+        self._model_modal = ModelSelectWindow(
+            title="Filtrer par Modèle de Carte",
+            allow_all=True,
+            current_model_id=self._active_model_id,
+            parent=self,
+        )
+        self._model_modal.model_selected.connect(self._on_model_selected_from_modal)
+        self._model_modal.show()
+
+    @Slot(int, str)
+    def _on_model_selected_from_modal(self, model_id: int, model_name: str) -> None:
+        if model_id == -1:
+            self._on_model_selected(None, "Tous les modèles")
+        else:
+            self._on_model_selected(model_id, model_name)
+
+    @Slot(object)
+    def _open_change_model_modal(self, note: NoteModel) -> None:
+        try:
+            if self._change_model_modal and self._change_model_modal.isVisible():
+                self._change_model_modal.raise_()
+                self._change_model_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._change_model_modal = None
+
+        curr_id = getattr(note, "note_type_id", None) or (note.note_type.id if note.note_type else None)
+        self._change_model_modal = ModelSelectWindow(
+            title=f"Changer le modèle de la note #{note.id}",
+            allow_all=False,
+            current_model_id=curr_id,
+            parent=self,
+        )
+        self._change_model_modal.model_selected.connect(lambda mid, mname, n=note: self._on_note_model_changed(n, mid, mname))
+        self._change_model_modal.show()
+
+    def _on_note_model_changed(self, note: NoteModel, new_model_id: int, new_model_name: str) -> None:
+        curr_id = getattr(note, "note_type_id", None) or (note.note_type.id if note.note_type else None)
+        if curr_id == new_model_id:
+            return
+
+        new_model = NoteTypeModel.get_or_none(NoteTypeModel.id == new_model_id)
+        if not new_model:
+            return
+
+        # Récupérer les données textuelles actuelles
+        current_data: dict[str, str] = {}
+        if self._current_note and self._current_note.id == note.id and self.dynamic_field_widgets:
+            for k, w in self.dynamic_field_widgets.items():
+                current_data[k] = w.get_text()
+        if not current_data:
+            current_data = self._get_note_content_dynamic(note)
+
+        # Analyser les champs cibles du nouveau modèle
+        new_fields: list[str] = ["Front", "Back"]
+        if new_model.fields_schema:
+            try:
+                loaded = json.loads(str(new_model.fields_schema))
+                if isinstance(loaded, list):
+                    new_fields = [str(f) for f in loaded]
+            except Exception:
+                new_fields = ["Front", "Back"]
+
+        # Remappage intelligent des champs
+        mapped_data: dict[str, str] = {}
+        old_keys = list(current_data.keys())
+        for i, nf in enumerate(new_fields):
+            matched_val = None
+            for ok, ov in current_data.items():
+                if ok.lower().strip() == nf.lower().strip():
+                    matched_val = ov
+                    break
+            if matched_val is not None:
+                mapped_data[nf] = matched_val
+            elif i < len(old_keys):
+                mapped_data[nf] = current_data[old_keys[i]]
+            else:
+                mapped_data[nf] = ""
+
+        with db.atomic():
+            note.note_type = new_model
+            note.save()
+            note.add_version(mapped_data, source="manual_model_change")
+
+        if self._current_note and self._current_note.id == note.id:
+            self._current_note = note
+            self._build_dynamic_editors(note, mapped_data)
+            self._update_preview()
+
+        self.refresh_data()
+        show_toast(self, f"Modèle de la note #{note.id} changé pour '{new_model_name}'.")
+
+    @Slot()
     def _show_model_menu(self) -> None:
         menu = StyledMenu(self)
 
@@ -1217,6 +1379,9 @@ class EditionView(QWidget):
 
         action_history = menu.addAction(load_phosphor_icon("clock-counter-clockwise", color=DesignTokens.TEXT_PRIMARY), "Historique des versions")
         action_history.triggered.connect(lambda: self.show_version_history(note.id))
+
+        action_change_model = menu.addAction(load_phosphor_icon("cards", color=DesignTokens.TEXT_PRIMARY), "Changer le modèle de carte...")
+        action_change_model.triggered.connect(lambda checked=False, n=note: self._open_change_model_modal(n))
 
         menu.addSeparator()
 
