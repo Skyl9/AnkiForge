@@ -6,6 +6,7 @@ sur le champ actif et de rajouter dynamiquement de nouvelles actions.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -13,8 +14,10 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.utils.icon_loader import load_phosphor_icon
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -40,14 +43,17 @@ class EditorToolbarWidget(QWidget):
     consult_ai_requested = Signal()
     toggle_preview_requested = Signal()
     toggle_table_requested = Signal()
+    customization_changed = Signal(list)  # list[str] of hidden_action_ids
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._actions: dict[str, ToolbarAction] = {}
         self._action_buttons: dict[str, QWidget] = {}
+        self._hidden_action_ids: set[str] = set()
 
         self._setup_ui()
         self._register_default_actions()
+        self.load_customization_preferences()
 
     def _setup_ui(self) -> None:
         self.main_layout = QHBoxLayout(self)
@@ -73,6 +79,11 @@ class EditorToolbarWidget(QWidget):
         self.tools_layout.setContentsMargins(0, 0, 0, 0)
         self.tools_layout.setSpacing(4)
         self.main_layout.addLayout(self.tools_layout)
+
+        # Bouton Menu Trois Points (Personnalisation & Overflow)
+        self.btn_customize = IconButton("dots-three-vertical", tooltip="Personnaliser la barre d'outils...", size=24, parent=self)
+        self.btn_customize.clicked.connect(self._open_customize_menu)
+        self.main_layout.addWidget(self.btn_customize)
 
         self.main_layout.addStretch()
 
@@ -218,8 +229,10 @@ class EditorToolbarWidget(QWidget):
 
         btn = IconButton(icon_name, tooltip=tooltip, size=24, parent=self)
         btn.clicked.connect(callback)
+        btn.setVisible(action_id not in self._hidden_action_ids)
         self._action_buttons[action_id] = btn
         self.tools_layout.addWidget(btn)
+        self._update_separators_visibility()
 
     def remove_action(self, action_id: str) -> None:
         """Supprime une action enregistrée."""
@@ -229,6 +242,8 @@ class EditorToolbarWidget(QWidget):
             btn.deleteLater()
         if action_id in self._actions:
             del self._actions[action_id]
+        self._hidden_action_ids.discard(action_id)
+        self._update_separators_visibility()
 
     def set_action_enabled(self, action_id: str, enabled: bool) -> None:
         """Active ou désactive un bouton d'action."""
@@ -238,3 +253,181 @@ class EditorToolbarWidget(QWidget):
     def get_registered_actions(self) -> list[ToolbarAction]:
         """Retourne la liste ordonnée des actions enregistrées."""
         return list(self._actions.values())
+
+    def _update_separators_visibility(self) -> None:
+        """Cache les séparateurs superflus ou consécutifs dans la barre d'outils."""
+        visible_button_seen = False
+        last_sep: QFrame | None = None
+
+        for i in range(self.tools_layout.count()):
+            item = self.tools_layout.itemAt(i)
+            if not item:
+                continue
+            w = item.widget()
+            if not w:
+                continue
+
+            if isinstance(w, QFrame) and w.frameShape() == QFrame.Shape.VLine:
+                if not visible_button_seen:
+                    w.hide()
+                else:
+                    w.show()
+                    last_sep = w
+                    visible_button_seen = False
+            else:
+                if w.isVisible():
+                    visible_button_seen = True
+
+        if not visible_button_seen and last_sep is not None:
+            last_sep.hide()
+
+    def _apply_visibility(self) -> None:
+        """Applique la visibilité sur tous les boutons et met à jour les séparateurs."""
+        for aid, btn in self._action_buttons.items():
+            btn.setVisible(aid not in self._hidden_action_ids)
+        self._update_separators_visibility()
+        self.customization_changed.emit(list(self._hidden_action_ids))
+
+    def set_action_visible(self, action_id: str, visible: bool, persist: bool = True) -> None:
+        """Affiche ou masque un bouton d'action individuel."""
+        if visible:
+            self._hidden_action_ids.discard(action_id)
+        else:
+            self._hidden_action_ids.add(action_id)
+
+        if action_id in self._action_buttons:
+            self._action_buttons[action_id].setVisible(visible)
+
+        self._update_separators_visibility()
+        self.customization_changed.emit(list(self._hidden_action_ids))
+
+        if persist:
+            self.save_customization_preferences()
+
+    def is_action_visible(self, action_id: str) -> bool:
+        """Retourne True si l'action est actuellement affichée sur la toolbar."""
+        return action_id not in self._hidden_action_ids
+
+    def get_hidden_action_ids(self) -> list[str]:
+        """Retourne la liste des identifiants d'actions masquées."""
+        return list(self._hidden_action_ids)
+
+    def set_hidden_action_ids(self, hidden_ids: list[str] | set[str], persist: bool = True) -> None:
+        """Définit en bloc les actions masquées."""
+        self._hidden_action_ids = set(hidden_ids)
+        self._apply_visibility()
+        if persist:
+            self.save_customization_preferences()
+
+    def show_all_actions(self) -> None:
+        """Réaffiche l'ensemble des boutons de la barre d'outils."""
+        self.set_hidden_action_ids(set(), persist=True)
+
+    def reset_customization(self) -> None:
+        """Rétablit la configuration par défaut (toutes les actions visibles)."""
+        self.show_all_actions()
+
+    def load_customization_preferences(self) -> None:
+        """Charge les préférences de masquage depuis SettingsService."""
+        try:
+            from ankiforge.services.settings_service import SettingsService
+
+            saved = SettingsService.get("editor/toolbar_hidden_actions", default=[])
+            if isinstance(saved, list):
+                self._hidden_action_ids = {str(x) for x in saved}
+            else:
+                self._hidden_action_ids = set()
+        except Exception as e:
+            logger.debug("Échec chargement préférences toolbar : %s", e)
+            self._hidden_action_ids = set()
+
+        self._apply_visibility()
+
+    def save_customization_preferences(self) -> None:
+        """Sauvegarde les préférences de masquage dans SettingsService."""
+        try:
+            from ankiforge.services.settings_service import SettingsService
+
+            SettingsService.set(
+                "editor/toolbar_hidden_actions",
+                list(self._hidden_action_ids),
+                category="ui",
+            )
+        except Exception as e:
+            logger.warning("Échec sauvegarde préférences toolbar : %s", e)
+
+    def _open_customize_menu(self, exec_menu: bool = True) -> StyledMenu:
+        """Ouvre le menu contextuel trois points avec accès rapide, sous-menu et réglages."""
+        menu = StyledMenu(self)
+
+        # 1. Actions actuellement masquées (accès direct en un clic)
+        hidden_actions = [self._actions[aid] for aid in self._hidden_action_ids if aid in self._actions]
+        if hidden_actions:
+            lbl_hidden = menu.addAction("Actions masquées :")
+            lbl_hidden.setEnabled(False)
+            for act in hidden_actions:
+                shortcut_txt = f"\t{act.shortcut}" if act.shortcut else ""
+                item = menu.addAction(
+                    load_phosphor_icon(act.icon_name, color=DesignTokens.TEXT_PRIMARY),
+                    f"{act.label}{shortcut_txt}",
+                )
+                item.triggered.connect(act.callback)
+            menu.addSeparator()
+
+        # 2. Sous-menu "Boutons visibles"
+        submenu_visible = menu.addMenu("Boutons visibles")
+        submenu_visible.setIcon(load_phosphor_icon("eye", color=DesignTokens.TEXT_PRIMARY))
+
+        last_grp: str | None = None
+        for aid, act in self._actions.items():
+            if last_grp is not None and act.group != last_grp:
+                submenu_visible.addSeparator()
+            last_grp = act.group
+
+            chk_act = submenu_visible.addAction(
+                load_phosphor_icon(act.icon_name, color=DesignTokens.TEXT_PRIMARY),
+                act.label,
+            )
+            chk_act.setCheckable(True)
+            chk_act.setChecked(aid not in self._hidden_action_ids)
+            chk_act.toggled.connect(lambda checked, action_id=aid: self.set_action_visible(action_id, checked))
+
+        menu.addSeparator()
+
+        # 3. Action pour ouvrir ToolbarCustomizeDialog
+        action_dialog = menu.addAction(
+            load_phosphor_icon("sliders", color=DesignTokens.TEXT_PRIMARY),
+            "Personnaliser la barre...",
+        )
+        action_dialog.triggered.connect(self._open_customize_dialog)
+
+        # 4. Action "Tout afficher"
+        action_all = menu.addAction(
+            load_phosphor_icon("check-circle", color=DesignTokens.TEXT_PRIMARY),
+            "Tout afficher",
+        )
+        action_all.triggered.connect(self.show_all_actions)
+
+        # 5. Action "Rétablir par défaut"
+        action_reset = menu.addAction(
+            load_phosphor_icon("arrow-counter-clockwise", color=DesignTokens.TEXT_PRIMARY),
+            "Rétablir par défaut",
+        )
+        action_reset.triggered.connect(self.reset_customization)
+
+        if exec_menu:
+            menu.exec(self.btn_customize.mapToGlobal(self.btn_customize.rect().bottomLeft()))
+
+        return menu
+
+    def _open_customize_dialog(self) -> None:
+        """Ouvre le dialogue complet de personnalisation ToolbarCustomizeDialog."""
+        from ankiforge.ui.dialogs.toolbar_customize_dialog import ToolbarCustomizeDialog
+
+        dlg = ToolbarCustomizeDialog(
+            actions=self._actions,
+            hidden_action_ids=self._hidden_action_ids,
+            parent=self,
+        )
+        dlg.customization_applied.connect(lambda hids: self.set_hidden_action_ids(hids, persist=True))
+        dlg.exec()
