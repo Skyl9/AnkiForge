@@ -1,11 +1,13 @@
+import datetime
 import json
 import logging
 from typing import Any, cast
 
 from peewee import fn
 from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QKeyEvent
+from PySide6.QtGui import QCloseEvent, QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -15,6 +17,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -90,6 +93,10 @@ class CreationView(QWidget):
     """
 
     request_navigation = Signal(str, object)
+
+    TAB_INDEX_CARDS: int = 0
+    TAB_INDEX_LOGS: int = 1
+    TAB_INDEX_ERRORS: int = 2
 
     def __init__(self, ai_manager: Any = None, profile_name: str = "default", parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -648,17 +655,83 @@ class CreationView(QWidget):
 
         cartes_layout.addLayout(main_bot_toolbar)
 
+        # Onglet Logs / Journal d'Exécution
+        logs_content = QWidget()
+        logs_layout = QVBoxLayout(logs_content)
+        logs_layout.setContentsMargins(12, 12, 12, 12)
+        logs_layout.setSpacing(8)
+
+        logs_toolbar = QHBoxLayout()
+        logs_toolbar.setContentsMargins(0, 0, 0, 0)
+        logs_toolbar.setSpacing(8)
+
+        logs_title_lbl = QLabel("Journal d'exécution en direct")
+        logs_title_lbl.setStyleSheet(f"font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        logs_toolbar.addWidget(logs_title_lbl)
+
+        logs_toolbar.addStretch()
+
+        self.cb_autoscroll = QCheckBox("Défilement auto")
+        self.cb_autoscroll.setChecked(True)
+        self.cb_autoscroll.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        logs_toolbar.addWidget(self.cb_autoscroll)
+
+        self.btn_copy_logs = IconButton("ph.copy", "Copier les logs dans le presse-papiers", 16)
+        self.btn_copy_logs.clicked.connect(self._on_copy_logs)
+        logs_toolbar.addWidget(self.btn_copy_logs)
+
+        self.btn_clear_logs = IconButton("ph.trash", "Effacer le journal d'exécution", 16)
+        self.btn_clear_logs.clicked.connect(self._on_clear_logs)
+        logs_toolbar.addWidget(self.btn_clear_logs)
+
+        logs_layout.addLayout(logs_toolbar)
+
+        self.generation_logs_console = QPlainTextEdit()
+        self.generation_logs_console.setReadOnly(True)
+        self.generation_logs_console.setPlaceholderText("Les étapes et messages de progression de la génération apparaîtront ici...")
+        self.generation_logs_console.setStyleSheet(
+            f"background: {DesignTokens.BG_INPUT}; "
+            f"border: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-radius: {DesignTokens.RADIUS_MD}px; "
+            f"color: {DesignTokens.TEXT_PRIMARY}; "
+            f"font-family: '{DesignTokens.FONT_CODE}'; "
+            f"font-size: 12px; "
+            f"padding: 8px;"
+        )
+        logs_layout.addWidget(self.generation_logs_console, 1)
+
+        # Onglet Journal des Erreurs
         erreurs_content = QWidget()
         erreurs_layout = QVBoxLayout(erreurs_content)
         erreurs_layout.setContentsMargins(12, 12, 12, 12)
+        erreurs_layout.setSpacing(8)
+
+        err_toolbar = QHBoxLayout()
+        err_toolbar.setContentsMargins(0, 0, 0, 0)
+        err_toolbar.setSpacing(8)
+
+        err_title_lbl = QLabel("Rapport d'erreurs")
+        err_title_lbl.setStyleSheet(f"font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
+        err_toolbar.addWidget(err_title_lbl)
+
+        err_toolbar.addStretch()
+
+        self.btn_copy_errors = IconButton("ph.copy", "Copier l'erreur dans le presse-papiers", 16)
+        self.btn_copy_errors.clicked.connect(self._on_copy_errors)
+        err_toolbar.addWidget(self.btn_copy_errors)
+
+        erreurs_layout.addLayout(err_toolbar)
+
         self.err_lbl = QLabel("Aucune erreur lors du processus de génération.")
+        self.err_lbl.setWordWrap(True)
         self.err_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
         erreurs_layout.addWidget(self.err_lbl)
         erreurs_layout.addStretch()
 
         self.results_panel.add_tab("Cartes Générées (0)", cartes_content, "ph.list-numbers", closable=False)
+        self.results_panel.add_tab("Journal d'Exécution", logs_content, "ph.terminal-window", closable=False)
         self.results_panel.add_tab("Journal des Erreurs", erreurs_content, "ph.warning-circle", closable=False)
-        self.results_panel.set_active_tab(0)
+        self.results_panel.set_active_tab(self.TAB_INDEX_CARDS)
 
         self.center_splitter.addWidget(self.results_panel)
         self.results_panel.hide()
@@ -1481,7 +1554,27 @@ class CreationView(QWidget):
             initial_state.set_variable("scope_pages", scope_pages)
 
         self._set_all_generation_states(True)
+        self.generation_logs_console.clear()
+        pipe_name = selected_pipeline.name if selected_pipeline else "Standard"
+        engine_name = selected_engine.display_name if selected_engine else "Défaut"
+        self._append_generation_log(
+            f"Démarrage du pipeline '{pipe_name}' (Moteur: {engine_name}, Tokens max: {gen_tokens})...",
+            level="START",
+        )
+        if getattr(self, "_current_selected_doc", None):
+            doc_title = getattr(self._current_selected_doc, "title", "Document")
+            self._append_generation_log(f"Source active : {doc_title} (ID: {initial_state.document_id})", level="INFO")
+        elif text_source:
+            preview = text_source[:60].replace("\n", " ") + ("..." if len(text_source) > 60 else "")
+            self._append_generation_log(f'Source active : Saisie libre ({len(text_source)} car. : "{preview}")', level="INFO")
+
+        # Réinitialiser l'état d'erreur
+        self.err_lbl.setText("Aucune erreur lors du processus de génération.")
+        self.err_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 12px;")
+        self.results_panel.set_tab_title(self.TAB_INDEX_ERRORS, "Journal des Erreurs")
+
         self.results_panel.show()
+        self.results_panel.set_active_tab(self.TAB_INDEX_LOGS)
         self.center_splitter.setSizes([450, 350])
 
         self.orchestrator = PipelineOrchestrator(
@@ -1500,9 +1593,48 @@ class CreationView(QWidget):
 
         self.thread_pool.start(self.orchestrator)
 
+    def _on_copy_logs(self) -> None:
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(self.generation_logs_console.toPlainText())
+            show_toast(self, "Journal copié dans le presse-papiers.")
+
+    def _on_clear_logs(self) -> None:
+        self.generation_logs_console.clear()
+        show_toast(self, "Journal d'exécution effacé.")
+
+    def _on_copy_errors(self) -> None:
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(self.err_lbl.text())
+            show_toast(self, "Erreur copiée dans le presse-papiers.")
+
+    def _append_generation_log(self, message: str, level: str = "INFO") -> None:
+        """Ajoute une ligne horodatée et préfixée dans la console de logs d'exécution."""
+        now_str = datetime.datetime.now().strftime("%H:%M:%S")
+        prefix = {
+            "START": "🚀",
+            "STEP": "▶",
+            "PROGRESS": "⏳",
+            "SUCCESS": "✅",
+            "PAUSE": "⏸",
+            "FINISH": "✨",
+            "ERROR": "❌",
+            "CANCEL": "⏹",
+            "WARNING": "⚠️",
+            "INFO": "ℹ️",
+        }.get(level.upper(), "ℹ️")
+
+        formatted_line = f"[{now_str}] {prefix} {message}"
+        self.generation_logs_console.appendPlainText(formatted_line)
+
+        if hasattr(self, "cb_autoscroll") and self.cb_autoscroll.isChecked():
+            self.generation_logs_console.moveCursor(QTextCursor.MoveOperation.End)
+
     @Slot(int, str)
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
         logger.info("[Orchestrateur] Démarrage étape %d : %s", step_order, desc)
+        self._append_generation_log(f"Étape {step_order} : {desc}", level="STEP")
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
             active_editor.raw_editor.setPlaceholderText(f"⏳ Étape {step_order}: {desc}...")
@@ -1510,6 +1642,7 @@ class CreationView(QWidget):
     @Slot(int, int, str)
     def _on_orchestrator_step_progress(self, current: int, total: int, detail: str) -> None:
         logger.info("[Orchestrateur] Progression (%d/%d) : %s", current, total, detail)
+        self._append_generation_log(f"Progression ({current}/{total}) : {detail}", level="PROGRESS")
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
             active_editor.raw_editor.setPlaceholderText(f"⏳ {detail} ({current}/{total})...")
@@ -1517,18 +1650,28 @@ class CreationView(QWidget):
     @Slot(int, object)
     def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
         logger.info("[Orchestrateur] Étape %d terminée avec succès.", step_order)
+        dur_msg = ""
+        if state and hasattr(state, "execution_history") and state.execution_history:
+            last_hist = state.execution_history[-1]
+            if last_hist.get("step_order") == step_order:
+                dur = last_hist.get("duration_sec", 0.0)
+                dur_msg = f" ({dur:.2f}s)"
+        self._append_generation_log(f"Étape {step_order} terminée avec succès{dur_msg}.", level="SUCCESS")
 
     @Slot(object)
     def _on_human_validation(self, state: PipelineRunState) -> None:
         logger.info("[Orchestrateur] PAUSE INTERACTIVE : Validation Humaine Requise.")
+        self._append_generation_log("Pause interactive : Validation humaine requise...", level="PAUSE")
         dialog = HumanValidationDialog(state, self)
         res = dialog.exec()
         if res == QDialog.DialogCode.Accepted:
             show_toast(self, "Plan validé ! Poursuite du pipeline...", is_error=False)
+            self._append_generation_log("Plan validé par l'utilisateur. Reprise du pipeline...", level="INFO")
             if self.orchestrator:
                 self.orchestrator.resume(state)
         else:
             show_toast(self, "Génération interrompue par l'utilisateur.", is_error=False)
+            self._append_generation_log("Génération interrompue lors de la validation humaine.", level="CANCEL")
             if self.orchestrator:
                 self.orchestrator.cancel()
 
@@ -1591,8 +1734,10 @@ class CreationView(QWidget):
                     cleaned_notes.append(note_dict)
 
         if cleaned_notes:
+            self._append_generation_log(f"Pipeline terminé avec succès : {len(cleaned_notes)} carte(s) obtenue(s).", level="FINISH")
             self._on_generation_finished(cleaned_notes)
         else:
+            self._append_generation_log("Pipeline terminé (aucune carte générée).", level="WARNING")
             show_toast(self, "Pipeline terminé (aucune carte générée).", is_error=False)
         logger.info("[Orchestrateur] Fin du Pipeline. %d cartes obtenues.", len(cleaned_notes))
 
@@ -1605,20 +1750,25 @@ class CreationView(QWidget):
         self._populate_results_table()
         self._update_card_preview()
         self._refresh_save_button()
+        if len(cards) > 0:
+            self.results_panel.set_active_tab(self.TAB_INDEX_CARDS)
         show_toast(self, f"{len(cards)} cartes générées avec succès !")
 
     @Slot(str)
     def _on_generation_error(self, err_msg: str) -> None:
         self._set_all_generation_states(False)
         self.results_panel.show()
+        self._append_generation_log(f"Erreur de génération : {err_msg}", level="ERROR")
         self.err_lbl.setText(f"Erreur de génération : {err_msg}")
-        self.results_panel.set_tab_title(1, "Journal des Erreurs (1)")
-        self.results_panel.set_active_tab(1)
+        self.err_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 12px;")
+        self.results_panel.set_tab_title(self.TAB_INDEX_ERRORS, "Journal des Erreurs (1)")
+        self.results_panel.set_active_tab(self.TAB_INDEX_ERRORS)
         show_toast(self, f"Erreur : {err_msg}", is_error=True)
 
     @Slot()
     def _on_generation_cancelled(self) -> None:
         self._set_all_generation_states(False)
+        self._append_generation_log("Génération annulée.", level="CANCEL")
         show_toast(self, "Génération annulée.", is_error=False)
 
     def eventFilter(self, obj: Any, event: Any) -> bool:
@@ -1641,6 +1791,7 @@ class CreationView(QWidget):
         if self.orchestrator:
             self.orchestrator.cancel()
             self._set_all_generation_states(False)
+            self._append_generation_log("Annulation demandée par l'utilisateur...", level="CANCEL")
             show_toast(self, "Pipeline annulé.", is_error=False)
 
     def _populate_results_table(self) -> None:
@@ -1648,11 +1799,11 @@ class CreationView(QWidget):
 
         if len(self.generated_cards) > 0:
             self.results_panel.show()
-            self.results_panel.set_active_tab(0)
+            self.results_panel.set_active_tab(self.TAB_INDEX_CARDS)
 
         self.results_table.blockSignals(True)
         self.results_table.setRowCount(len(self.generated_cards))
-        self.results_panel.set_tab_title(0, f"Cartes Générées ({len(self.generated_cards)})")
+        self.results_panel.set_tab_title(self.TAB_INDEX_CARDS, f"Cartes Générées ({len(self.generated_cards)})")
 
         headers = ["Modèle", "Recto / Texte Principal", "Verso / Détails", "Statut"]
         self.results_table.setColumnCount(len(headers))

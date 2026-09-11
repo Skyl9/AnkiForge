@@ -329,3 +329,93 @@ def test_creation_view_multimodal_variables_in_generation(qtbot: Any, mock_db: A
     assert state.get_variable("scope_pages") == [1]
 
     view.thread_pool.waitForDone(2000)
+
+
+@pytest.mark.ui
+def test_creation_view_generation_logs_tab(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la présence et le bon fonctionnement de l'onglet de logs d'exécution."""
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # 1. Vérifier la présence des 3 onglets dans le results_panel
+    assert len(view.results_panel.tabs_bar.tabs) == 3
+    assert "Cartes Générées" in view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_CARDS].text()
+    assert "Journal d'Exécution" in view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_LOGS].text()
+    assert "Journal des Erreurs" in view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_ERRORS].text()
+
+    # 2. Vérifier les composants de la console de logs
+    assert hasattr(view, "generation_logs_console")
+    assert hasattr(view, "cb_autoscroll")
+    assert hasattr(view, "btn_copy_logs")
+    assert hasattr(view, "btn_clear_logs")
+    assert hasattr(view, "btn_copy_errors")
+    assert view.cb_autoscroll.isChecked()
+
+    # 3. Tester l'ajout de logs via _append_generation_log
+    view._append_generation_log("Test log step", level="STEP")
+    assert "▶" in view.generation_logs_console.toPlainText()
+    assert "Test log step" in view.generation_logs_console.toPlainText()
+
+    # 4. Tester l'effacement du journal
+    view._on_clear_logs()
+    assert view.generation_logs_console.toPlainText() == ""
+
+    # 5. Tester l'enregistrement d'erreur
+    view._on_generation_error("Erreur critique d'API")
+    assert "❌" in view.generation_logs_console.toPlainText()
+    assert "Erreur critique d'API" in view.err_lbl.text()
+    assert "Journal des Erreurs (1)" in view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_ERRORS].text()
+
+
+@pytest.mark.ui
+def test_creation_view_generation_logs_flow(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le cycle de vie complet des logs lors d'une génération asynchrone."""
+    uid = uuid.uuid4().hex[:6]
+    deck = DeckModel.create(name=f"Deck Logs {uid}")
+    nt = NoteTypeModel.create(
+        name=f"Modèle Logs {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style=".card {}",
+    )
+    pipe = PipelineModel.create(name=f"Pipeline Logs {uid}")
+    persona = PersonaModel.create(name=f"Créateur {uid}", system_prompt="Créer cartes", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=persona, step_type="LLM_PROMPT", step_order=1)
+    LLMConfigModel.create(provider="mock", model_id=f"dummy_{uid}", display_name=f"Mock IA {uid}")
+
+    ai_mgr = DummyCreationAIManager()
+    view = CreationView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+
+    view.current_deck = deck
+    view.current_model = nt
+    view.refresh_data()
+
+    for i in range(view.pipeline_combo.count()):
+        if view.pipeline_combo.itemData(i) and getattr(view.pipeline_combo.itemData(i), "id", None) == pipe.id:
+            view.pipeline_combo.setCurrentIndex(i)
+            break
+
+    for i in range(view.engine_combo.count()):
+        data = view.engine_combo.itemData(i)
+        if data and getattr(data, "model_id", "") == f"dummy_{uid}":
+            view.engine_combo.setCurrentIndex(i)
+            break
+
+    # Lancer la génération
+    view._on_generate(text_source="Texte pour test logs", source_title="Doc Logs")
+
+    # Immédiatement après lancement, l'onglet actif doit être le Journal d'Exécution
+    assert view.results_panel.content_stack.currentIndex() == CreationView.TAB_INDEX_LOGS
+    assert view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_LOGS].isChecked()
+    assert "Démarrage du pipeline" in view.generation_logs_console.toPlainText()
+
+    # Attendre la fin de génération
+    qtbot.waitUntil(lambda: view.results_table.rowCount() == 2, timeout=6000)
+
+    # Après complétion réussie avec cartes, l'onglet actif doit être Cartes Générées
+    assert view.results_panel.content_stack.currentIndex() == CreationView.TAB_INDEX_CARDS
+    assert view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_CARDS].isChecked()
+    assert "Pipeline terminé avec succès" in view.generation_logs_console.toPlainText()
+
+    view.thread_pool.waitForDone(2000)
