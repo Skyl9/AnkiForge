@@ -36,6 +36,7 @@ from ankiforge.database.models import (
     PipelineModel,
     db,
 )
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.components import (
     Badge,
@@ -262,6 +263,7 @@ class BatchView(QWidget):
         self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.pipeline_combo.setMinimumContentsLength(8)
         self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
         ai_layout.addWidget(self.pipeline_combo)
 
         self.btn_no_pipeline_help = SecondaryButton("Créer un Pipeline d'Agents")
@@ -274,8 +276,13 @@ class BatchView(QWidget):
         opt_layout.setContentsMargins(0, 4, 0, 0)
         opt_layout.setSpacing(6)
 
-        self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=True)
-        self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=True)
+        saved_vision = SettingsService.get("batch/use_vision", True)
+        self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=bool(saved_vision))
+        self.cb_vision.toggled.connect(lambda s: SettingsService.set("batch/use_vision", s, category="batch"))
+
+        saved_autoval = SettingsService.get("batch/auto_validation", True)
+        self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=bool(saved_autoval))
+        self.cb_autoval.toggled.connect(lambda s: SettingsService.set("batch/auto_validation", s, category="batch"))
 
         opt_layout.addWidget(self.cb_vision, 1)
         opt_layout.addWidget(self.cb_autoval, 1)
@@ -347,7 +354,8 @@ class BatchView(QWidget):
         temp_header = QHBoxLayout()
         self.temp_lbl = QLabel("Température")
         self.temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-        self.val_temp_lbl = QLabel("0.7")
+        saved_temp = float(SettingsService.get("batch/temperature", 0.7))
+        self.val_temp_lbl = QLabel(f"{saved_temp:.1f}")
         self.val_temp_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         temp_header.addWidget(self.temp_lbl)
         temp_header.addStretch()
@@ -356,9 +364,9 @@ class BatchView(QWidget):
         self.slider_temp = QSlider(Qt.Orientation.Horizontal)
         self.slider_temp.setMinimum(0)
         self.slider_temp.setMaximum(10)
-        self.slider_temp.setValue(7)
+        self.slider_temp.setValue(int(round(saved_temp * 10)))
         self.slider_temp.setStyleSheet(slider_style)
-        self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v / 10:.1f}"))
+        self.slider_temp.valueChanged.connect(self._on_temp_slider_changed)
 
         temp_layout.addLayout(temp_header)
         temp_layout.addWidget(self.slider_temp)
@@ -368,7 +376,9 @@ class BatchView(QWidget):
         tokens_header = QHBoxLayout()
         self.tokens_lbl = QLabel("Max Tokens")
         self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; border: none; background: transparent;")
-        self.val_tokens_lbl = QLabel("65 536 tks")
+        saved_tokens = int(SettingsService.get("batch/max_tokens", 65536))
+        tokens_step = max(1, min(64, round(saved_tokens / 1024)))
+        self.val_tokens_lbl = QLabel(f"{tokens_step * 1024:,} tks".replace(",", " "))
         self.val_tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; border: none; background: transparent;")
         tokens_header.addWidget(self.tokens_lbl)
         tokens_header.addStretch()
@@ -377,9 +387,9 @@ class BatchView(QWidget):
         self.slider_tokens = QSlider(Qt.Orientation.Horizontal)
         self.slider_tokens.setMinimum(1)
         self.slider_tokens.setMaximum(64)
-        self.slider_tokens.setValue(64)
+        self.slider_tokens.setValue(tokens_step)
         self.slider_tokens.setStyleSheet(slider_style)
-        self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 1024:,} tks".replace(",", " ")))
+        self.slider_tokens.valueChanged.connect(self._on_tokens_slider_changed)
 
         tokens_layout.addLayout(tokens_header)
         tokens_layout.addWidget(self.slider_tokens)
@@ -616,8 +626,15 @@ class BatchView(QWidget):
             if engines:
                 for eg in engines:
                     display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
-                    self.engine_combo.addItem(f"⚡ {display_name}", userData=eg)
+                    self.engine_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), display_name, userData=eg)
                 self.btn_no_engine_help.hide()
+                saved_engine_id = SettingsService.get("batch/engine_id")
+                if saved_engine_id is not None:
+                    for idx in range(self.engine_combo.count()):
+                        item_eg = self.engine_combo.itemData(idx)
+                        if item_eg and getattr(item_eg, "id", None) == saved_engine_id:
+                            self.engine_combo.setCurrentIndex(idx)
+                            break
             else:
                 self.btn_no_engine_help.show()
             self.engine_combo.blockSignals(False)
@@ -631,8 +648,15 @@ class BatchView(QWidget):
                 pipelines = list(PipelineModel.select())
             if pipelines:
                 for pipe in pipelines:
-                    self.pipeline_combo.addItem(f"🔀 {pipe.name}", userData=pipe)
+                    self.pipeline_combo.addItem(load_phosphor_icon("ph.tree-structure", color=DesignTokens.COLOR_BLUE), pipe.name, userData=pipe)
                 self.btn_no_pipeline_help.hide()
+                saved_pipe_id = SettingsService.get("batch/pipeline_id")
+                if saved_pipe_id is not None:
+                    for idx in range(self.pipeline_combo.count()):
+                        item_pipe = self.pipeline_combo.itemData(idx)
+                        if item_pipe and getattr(item_pipe, "id", None) == saved_pipe_id:
+                            self.pipeline_combo.setCurrentIndex(idx)
+                            break
             else:
                 self.btn_no_pipeline_help.show()
             self.pipeline_combo.blockSignals(False)
@@ -640,12 +664,30 @@ class BatchView(QWidget):
         except Exception as e:
             logger.warning("Erreur refresh_data batch_view: %s", e)
 
+    def _on_temp_slider_changed(self, v: int) -> None:
+        self.val_temp_lbl.setText(f"{v / 10:.1f}")
+        SettingsService.set("batch/temperature", round(v / 10.0, 1), category="batch")
+
+    def _on_tokens_slider_changed(self, v: int) -> None:
+        tokens_val = v * 1024
+        self.val_tokens_lbl.setText(f"{tokens_val:,} tks".replace(",", " "))
+        SettingsService.set("batch/max_tokens", tokens_val, category="batch")
+
+    @Slot()
+    def _on_pipeline_changed(self) -> None:
+        pipe = self.pipeline_combo.currentData()
+        if pipe and hasattr(pipe, "id"):
+            SettingsService.set("batch/pipeline_id", pipe.id, category="batch")
+
     @Slot()
     def _on_engine_changed(self) -> None:
         eg = self.engine_combo.currentData()
+        if eg and hasattr(eg, "id"):
+            SettingsService.set("batch/engine_id", eg.id, category="batch")
         if eg and hasattr(self, "slider_tokens"):
             max_t = int(getattr(eg, "max_tokens", 16384) or 16384)
-            step_val = max(1, min(64, round(max_t / 1024)))
+            saved_tokens = SettingsService.get("batch/max_tokens")
+            step_val = max(1, min(64, round(int(saved_tokens) / 1024))) if saved_tokens is not None else max(1, min(64, round(max_t / 1024)))
             self.slider_tokens.blockSignals(True)
             self.slider_tokens.setValue(step_val)
             self.slider_tokens.blockSignals(False)

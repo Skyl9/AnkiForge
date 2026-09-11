@@ -49,6 +49,7 @@ from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.services.cards.note_manager import NoteManager
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
@@ -287,6 +288,7 @@ class CreationView(QWidget):
         self.pipeline_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.pipeline_combo.setMinimumContentsLength(8)
         self.pipeline_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.pipeline_combo.currentIndexChanged.connect(self._on_pipeline_changed)
         ai_layout.addWidget(self.pipeline_combo)
 
         self.btn_no_pipeline_help = SecondaryButton("Créer un Pipeline d'Agents")
@@ -333,6 +335,7 @@ class CreationView(QWidget):
 
         self.vision_cb = QCheckBox()
         self.vision_cb.hide()
+        self.vision_cb.setChecked(bool(SettingsService.get("creation/use_vision", False)))
         vision_layout.addWidget(self.vision_cb)
 
         self.vision_card.hide()
@@ -933,6 +936,7 @@ class CreationView(QWidget):
 
     @Slot(bool)
     def _update_vision_ui(self, checked: bool) -> None:
+        SettingsService.set("creation/use_vision", checked, category="creation")
         if checked:
             self.lbl_vision_icon.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.COLOR_YELLOW).pixmap(16, 16))
             self.vision_badge.setText("ON")
@@ -1019,6 +1023,13 @@ class CreationView(QWidget):
                 display_name = getattr(eg, "display_name", getattr(eg, "name", str(eg)))
                 self.engine_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), display_name, userData=eg)
             self.btn_no_engine_help.hide()
+            saved_engine_id = SettingsService.get("creation/engine_id")
+            if saved_engine_id is not None:
+                for idx in range(self.engine_combo.count()):
+                    item_eg = self.engine_combo.itemData(idx)
+                    if item_eg and getattr(item_eg, "id", None) == saved_engine_id:
+                        self.engine_combo.setCurrentIndex(idx)
+                        break
             self.engine_combo.blockSignals(False)
             self._on_engine_changed()
 
@@ -1035,6 +1046,13 @@ class CreationView(QWidget):
             for pipe in pipelines:
                 self.pipeline_combo.addItem(load_phosphor_icon("ph.tree-structure", color=DesignTokens.COLOR_BLUE), pipe.name, userData=pipe)
             self.btn_no_pipeline_help.hide()
+            saved_pipeline_id = SettingsService.get("creation/pipeline_id")
+            if saved_pipeline_id is not None:
+                for idx in range(self.pipeline_combo.count()):
+                    item_pipe = self.pipeline_combo.itemData(idx)
+                    if item_pipe and getattr(item_pipe, "id", None) == saved_pipeline_id:
+                        self.pipeline_combo.setCurrentIndex(idx)
+                        break
             self.pipeline_combo.blockSignals(False)
 
             self.file_tree.clear()
@@ -1479,6 +1497,8 @@ class CreationView(QWidget):
     @Slot()
     def _on_engine_changed(self) -> None:
         eg = self.engine_combo.currentData()
+        if eg and hasattr(eg, "id"):
+            SettingsService.set("creation/engine_id", eg.id, category="creation")
         if eg and hasattr(self, "slider_tokens"):
             max_t = int(getattr(eg, "max_tokens", 16384) or 16384)
             step_val = max(1, min(64, round(max_t / 1024)))
@@ -1486,6 +1506,12 @@ class CreationView(QWidget):
             self.slider_tokens.setValue(step_val)
             self.slider_tokens.blockSignals(False)
             self.val_tokens_lbl.setText(f"{step_val * 1024:,} tks".replace(",", " "))
+
+    @Slot()
+    def _on_pipeline_changed(self) -> None:
+        pipe = self.pipeline_combo.currentData()
+        if pipe and hasattr(pipe, "id"):
+            SettingsService.set("creation/pipeline_id", pipe.id, category="creation")
 
     @Slot()
     def _on_model_changed(self) -> None:

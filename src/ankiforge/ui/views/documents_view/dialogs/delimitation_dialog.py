@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import DocumentChunkModel, DocumentModel
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
@@ -204,9 +205,11 @@ class DocumentDelimitationDialog(QDialog):
 
         # 4. Pied de page & validation
         footer = QHBoxLayout()
+        saved_revec = bool(SettingsService.get("documents/revectorize_after_delimitation", True))
         self.chk_revectorize = QCheckBox("Re-vectoriser automatiquement dans FAISS après délimitation")
-        self.chk_revectorize.setChecked(True)
+        self.chk_revectorize.setChecked(saved_revec)
         self.chk_revectorize.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;")
+        self.chk_revectorize.stateChanged.connect(lambda s: SettingsService.set("documents/revectorize_after_delimitation", s == Qt.CheckState.Checked.value, category="documents"))
         footer.addWidget(self.chk_revectorize)
         footer.addStretch()
 

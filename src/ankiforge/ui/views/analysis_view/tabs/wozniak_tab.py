@@ -26,6 +26,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.repositories import AuditRepository, NoteRepository, PersonaRepository
 from ankiforge.services.ai.linter import normalize_linter_suggestion
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
@@ -195,8 +196,9 @@ class AIWozniakLinterTab(QWidget):
         lbl_cb.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         lbl_cb.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
-        self.toggle_cloze = QCheckBox("Audit Cloze : Activé (Recommandé)")
-        self.toggle_cloze.setChecked(True)
+        saved_cloze = bool(SettingsService.get("analysis/toggle_cloze", True))
+        self.toggle_cloze = QCheckBox("Audit Cloze : Activé (Recommandé)" if saved_cloze else "Audit Cloze : Désactivé (Conserver Cloze)")
+        self.toggle_cloze.setChecked(saved_cloze)
         self.toggle_cloze.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-weight: bold;")
         self.toggle_cloze.stateChanged.connect(self.on_cloze_toggle_changed)
 
@@ -343,6 +345,7 @@ class AIWozniakLinterTab(QWidget):
 
     def on_cloze_toggle_changed(self, state: int) -> None:
         is_enabled = state == Qt.CheckState.Checked.value
+        SettingsService.set("analysis/toggle_cloze", is_enabled, category="analysis")
         self.toggle_cloze.setText("Audit Cloze : Activé (Recommandé)" if is_enabled else "Audit Cloze : Désactivé (Conserver Cloze)")
         if self.selected_deck_id is not None:
             self.refresh_audit(force=False)

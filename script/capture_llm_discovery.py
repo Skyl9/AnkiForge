@@ -84,6 +84,17 @@ def main() -> None:
     settings_modal.render(pix_modal)
     out_modal = ARTIFACT_DIR / "settings_modal_ai_tab.png"
     pix_modal.save(str(out_modal))
+
+    # Scroll vers le bas pour capturer la section Options et Préférences IA Globales
+    v_bar = settings_modal.ai_tab.scroll.verticalScrollBar()
+    v_bar.setValue(v_bar.maximum())
+    app.processEvents()
+
+    pix_modal_scrolled = QPixmap(settings_modal.size())
+    settings_modal.render(pix_modal_scrolled)
+    out_modal_scrolled = ARTIFACT_DIR / "settings_modal_ai_tab_scrolled.png"
+    pix_modal_scrolled.save(str(out_modal_scrolled))
+
     settings_modal.close()
     settings_modal.deleteLater()
     app.processEvents()

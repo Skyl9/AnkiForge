@@ -44,7 +44,7 @@ class RAGService:
         self,
         doc_id: int | str,
         query: str,
-        top_k: int = 5,
+        top_k: int | None = None,
         mode: str = "hybrid",
         w_dense: float = DEFAULT_WEIGHT_DENSE,
         w_sparse: float = DEFAULT_WEIGHT_SPARSE,
@@ -62,11 +62,20 @@ class RAGService:
             logger.warning("ID de document non numérique fourni à RAGService.search : %s", doc_id)
             return []
 
+        effective_top_k = top_k
+        if effective_top_k is None:
+            try:
+                from ankiforge.services.settings_service import SettingsService
+
+                effective_top_k = int(SettingsService.get("ai/rag_top_k", 5) or 5)
+            except Exception:
+                effective_top_k = 5
+
         try:
             return self.vector_manager.search(
                 document_id=doc_id_int,
                 query=query,
-                top_k=top_k,
+                top_k=effective_top_k,
                 mode=mode,
                 w_dense=w_dense,
                 w_sparse=w_sparse,

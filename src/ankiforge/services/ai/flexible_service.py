@@ -294,6 +294,8 @@ class AIManager:
         Initialise le gestionnaire.
         """
         self.provider: LLMProvider = MockProvider()  # Fallback de sécurité
+        self.current_config: LLMConfigModel | None = None
+        self.current_model: str = ""
         self.reload_provider()
 
     @staticmethod
@@ -363,18 +365,35 @@ class AIManager:
 
     def reload_provider(self) -> None:
         """
-        Recharge l'IA active depuis la base de données (sélectionne le premier modèle ordonné par sort_order).
+        Recharge l'IA active depuis la base de données (sélectionne le modèle par défaut ou le premier par sort_order).
         """
         try:
             from ankiforge.database.models import LLMConfigModel
+            from ankiforge.services.settings_service import SettingsService
 
-            config = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
+            default_id = SettingsService.get("ai/default_model_id")
+            config = None
+            if default_id:
+                try:
+                    config = LLMConfigModel.get_or_none(LLMConfigModel.id == int(default_id))
+                except (ValueError, TypeError):
+                    config = LLMConfigModel.get_or_none(LLMConfigModel.model_id == str(default_id))
+
+            if not config:
+                config = LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
+
             if config:
+                self.current_config = config
+                self.current_model = str(config.model_id)
                 self.provider = self.create_provider_from_config(config)
                 logger.info("Fournisseur d'IA rechargé : %s (%s, max_tokens=%d)", config.provider, config.model_id, getattr(config, "max_tokens", 16384))
             else:
+                self.current_config = None
+                self.current_model = ""
                 self.provider = MockProvider()
                 logger.warning("Aucune configuration d'IA trouvée, utilisation du MockProvider.")
         except Exception as e:
+            self.current_config = None
+            self.current_model = ""
             self.provider = MockProvider()
             logger.error("Erreur lors du rechargement de l'IA, utilisation du MockProvider: %s", e)

@@ -13,11 +13,14 @@ from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMenu,
     QScrollArea,
+    QSizePolicy,
+    QSlider,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -29,6 +32,7 @@ from ankiforge.services.ai.vision_category_service import VisionCategory, Vision
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     DangerButton,
+    OptionToggleRow,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
@@ -280,7 +284,199 @@ class AIEnginesTab(QWidget):
 
         layout.addLayout(toolbar)
 
-        # ── SECTION 4 : CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (VISION) ───
+        # ── SECTION 4 : OPTIONS ET PRÉFÉRENCES IA GLOBALES ───────────────────
+        self.lbl_sec_global_prefs = QLabel("OPTIONS ET PRÉFÉRENCES IA GLOBALES")
+        self.lbl_sec_global_prefs.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        layout.addWidget(self.lbl_sec_global_prefs)
+
+        self.card_global_prefs = SettingsCard()
+        prefs_layout = QVBoxLayout(self.card_global_prefs)
+        prefs_layout.setContentsMargins(14, 12, 14, 12)
+        prefs_layout.setSpacing(12)
+
+        # Modèle par défaut global
+        model_row = QHBoxLayout()
+        model_row.setSpacing(8)
+
+        icon_def_model = QLabel()
+        icon_def_model.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
+        model_row.addWidget(icon_def_model)
+
+        self.lbl_default_model = QLabel("Modèle IA par défaut global :")
+        self.lbl_default_model.setMinimumWidth(180)
+        self.lbl_default_model.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        model_row.addWidget(self.lbl_default_model)
+
+        self.cb_default_model = StyledComboBox()
+        self.cb_default_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        model_row.addWidget(self.cb_default_model)
+        prefs_layout.addLayout(model_row)
+
+        slider_style = f"""
+            QSlider::groove:horizontal {{
+                border-radius: 2px;
+                height: 4px;
+                margin: 0px;
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+            QSlider::sub-page:horizontal {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background-color: #ffffff;
+                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                height: 14px;
+                width: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background-color: {DesignTokens.ACCENT_HOVER};
+            }}
+        """
+
+        # Paramètres de génération (Température, Max tokens, CoT budget)
+        gen_grid = QGridLayout()
+        gen_grid.setHorizontalSpacing(16)
+        gen_grid.setVerticalSpacing(8)
+
+        # Température
+        temp_col = QVBoxLayout()
+        temp_col.setSpacing(4)
+        temp_hdr = QHBoxLayout()
+        self.lbl_temp_title = QLabel("Température :")
+        self.lbl_temp_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.lbl_temp_val = QLabel("0.70")
+        self.lbl_temp_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        temp_hdr.addWidget(self.lbl_temp_title)
+        temp_hdr.addStretch()
+        temp_hdr.addWidget(self.lbl_temp_val)
+        temp_col.addLayout(temp_hdr)
+
+        self.slider_temp = QSlider(Qt.Orientation.Horizontal)
+        self.slider_temp.setMinimum(0)
+        self.slider_temp.setMaximum(100)
+        self.slider_temp.setValue(70)
+        self.slider_temp.setStyleSheet(slider_style)
+        self.slider_temp.valueChanged.connect(lambda v: self.lbl_temp_val.setText(f"{v / 100:.2f}"))
+        temp_col.addWidget(self.slider_temp)
+        gen_grid.addLayout(temp_col, 0, 0)
+
+        # Max tokens
+        tokens_col = QVBoxLayout()
+        tokens_col.setSpacing(4)
+        self.lbl_tokens_title = QLabel("Plafond Max Tokens :")
+        self.lbl_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        tokens_col.addWidget(self.lbl_tokens_title)
+
+        self.cb_max_tokens = StyledComboBox()
+        self.cb_max_tokens.addItem("4 096 tokens", 4096)
+        self.cb_max_tokens.addItem("8 192 tokens", 8192)
+        self.cb_max_tokens.addItem("16 384 tokens (Standard)", 16384)
+        self.cb_max_tokens.addItem("32 768 tokens", 32768)
+        self.cb_max_tokens.addItem("65 536 tokens", 65536)
+        self.cb_max_tokens.addItem("128 000 tokens (Large)", 128000)
+        self.cb_max_tokens.setCurrentIndex(2)
+        tokens_col.addWidget(self.cb_max_tokens)
+        gen_grid.addLayout(tokens_col, 0, 1)
+
+        # Thinking CoT Budget
+        thinking_col = QVBoxLayout()
+        thinking_col.setSpacing(4)
+        self.lbl_thinking_title = QLabel("Budget Réflexion (CoT) :")
+        self.lbl_thinking_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        thinking_col.addWidget(self.lbl_thinking_title)
+
+        self.cb_thinking = StyledComboBox()
+        self.cb_thinking.addItem("Désactivé (0)", 0)
+        self.cb_thinking.addItem("1 024 tokens", 1024)
+        self.cb_thinking.addItem("2 048 tokens", 2048)
+        self.cb_thinking.addItem("4 096 tokens", 4096)
+        self.cb_thinking.addItem("8 192 tokens", 8192)
+        self.cb_thinking.addItem("16 384 tokens", 16384)
+        self.cb_thinking.addItem("32 768 tokens (Max)", 32768)
+        self.cb_thinking.setCurrentIndex(0)
+        thinking_col.addWidget(self.cb_thinking)
+        gen_grid.addLayout(thinking_col, 0, 2)
+
+        prefs_layout.addLayout(gen_grid)
+
+        # Toggles globaux (2x2 grid)
+        toggles_grid = QGridLayout()
+        toggles_grid.setHorizontalSpacing(12)
+        toggles_grid.setVerticalSpacing(8)
+
+        self.toggle_streaming = OptionToggleRow("Streaming des réponses", icon_name="ph.waveform", checked=True)
+        self.toggle_vision = OptionToggleRow("Capacités Vision activées", icon_name="ph.eye", checked=True)
+        self.toggle_autoval = OptionToggleRow("Validation automatique des cartes", icon_name="ph.shield-check", checked=False)
+        self.toggle_linter = OptionToggleRow("Audit Linter automatique", icon_name="ph.check-circle", checked=True)
+
+        toggles_grid.addWidget(self.toggle_streaming, 0, 0)
+        toggles_grid.addWidget(self.toggle_vision, 0, 1)
+        toggles_grid.addWidget(self.toggle_autoval, 1, 0)
+        toggles_grid.addWidget(self.toggle_linter, 1, 1)
+        toggles_grid.setColumnStretch(0, 1)
+        toggles_grid.setColumnStretch(1, 1)
+        prefs_layout.addLayout(toggles_grid)
+
+        # Paramètres RAG / Recherche Sémantique
+        rag_grid = QGridLayout()
+        rag_grid.setHorizontalSpacing(16)
+        rag_grid.setVerticalSpacing(8)
+
+        # Top-K RAG
+        rag_topk_col = QVBoxLayout()
+        rag_topk_col.setSpacing(4)
+        rag_topk_hdr = QHBoxLayout()
+        self.lbl_rag_topk_title = QLabel("Chunks RAG (Top-K) :")
+        self.lbl_rag_topk_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.lbl_rag_topk_val = QLabel("5")
+        self.lbl_rag_topk_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        rag_topk_hdr.addWidget(self.lbl_rag_topk_title)
+        rag_topk_hdr.addStretch()
+        rag_topk_hdr.addWidget(self.lbl_rag_topk_val)
+        rag_topk_col.addLayout(rag_topk_hdr)
+
+        self.slider_rag_topk = QSlider(Qt.Orientation.Horizontal)
+        self.slider_rag_topk.setMinimum(1)
+        self.slider_rag_topk.setMaximum(20)
+        self.slider_rag_topk.setValue(5)
+        self.slider_rag_topk.setStyleSheet(slider_style)
+        self.slider_rag_topk.valueChanged.connect(lambda v: self.lbl_rag_topk_val.setText(str(v)))
+        rag_topk_col.addWidget(self.slider_rag_topk)
+        rag_grid.addLayout(rag_topk_col, 0, 0)
+
+        # Seuil de similarité RAG
+        rag_sim_col = QVBoxLayout()
+        rag_sim_col.setSpacing(4)
+        rag_sim_hdr = QHBoxLayout()
+        self.lbl_rag_sim_title = QLabel("Seuil similarité min :")
+        self.lbl_rag_sim_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.lbl_rag_sim_val = QLabel("70%")
+        self.lbl_rag_sim_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        rag_sim_hdr.addWidget(self.lbl_rag_sim_title)
+        rag_sim_hdr.addStretch()
+        rag_sim_hdr.addWidget(self.lbl_rag_sim_val)
+        rag_sim_col.addLayout(rag_sim_hdr)
+
+        self.slider_rag_sim = QSlider(Qt.Orientation.Horizontal)
+        self.slider_rag_sim.setMinimum(40)
+        self.slider_rag_sim.setMaximum(95)
+        self.slider_rag_sim.setValue(70)
+        self.slider_rag_sim.setStyleSheet(slider_style)
+        self.slider_rag_sim.valueChanged.connect(lambda v: self.lbl_rag_sim_val.setText(f"{v}%"))
+        rag_sim_col.addWidget(self.slider_rag_sim)
+        rag_grid.addLayout(rag_sim_col, 0, 1)
+
+        rag_grid.setColumnStretch(0, 1)
+        rag_grid.setColumnStretch(1, 1)
+        prefs_layout.addLayout(rag_grid)
+
+        layout.addWidget(self.card_global_prefs)
+
+        # ── SECTION 5 : CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (VISION) ───
         self.lbl_sec_vision = QLabel("CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (STANDARDS 2025-2026)")
         self.lbl_sec_vision.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
         layout.addWidget(self.lbl_sec_vision)
@@ -571,6 +767,60 @@ class AIEnginesTab(QWidget):
         except Exception as e:
             logger.warning("Erreur refresh_data table_engines: %s", e)
 
+        # Rafraîchissement et restauration des préférences globales IA
+        try:
+            default_model_id = SettingsService.get("ai/default_model_id", "")
+            self.cb_default_model.blockSignals(True)
+            self.cb_default_model.clear()
+            self.cb_default_model.addItem("Automatique (Premier modèle disponible)", "")
+            sel_idx = 0
+            for idx, eg in enumerate(engines):
+                m_id = getattr(eg, "model_id", "")
+                d_name = getattr(eg, "display_name", m_id)
+                p_name = getattr(eg, "provider", "").upper()
+                self.cb_default_model.addItem(f"{d_name} ({p_name})", m_id)
+                if default_model_id and m_id == default_model_id:
+                    sel_idx = idx + 1
+            self.cb_default_model.setCurrentIndex(sel_idx)
+            self.cb_default_model.blockSignals(False)
+
+            # Température
+            saved_temp = float(SettingsService.get("ai/temperature", 0.7))
+            self.slider_temp.setValue(int(round(saved_temp * 100)))
+            self.lbl_temp_val.setText(f"{saved_temp:.2f}")
+
+            # Max tokens
+            saved_max_tokens = int(SettingsService.get("ai/max_tokens", 16384))
+            for i in range(self.cb_max_tokens.count()):
+                if self.cb_max_tokens.itemData(i) == saved_max_tokens:
+                    self.cb_max_tokens.setCurrentIndex(i)
+                    break
+
+            # Thinking / CoT budget
+            saved_thinking = int(SettingsService.get("ai/thinking_budget", 0))
+            for i in range(self.cb_thinking.count()):
+                if self.cb_thinking.itemData(i) == saved_thinking:
+                    self.cb_thinking.setCurrentIndex(i)
+                    break
+
+            # Toggles
+            self.toggle_streaming.set_checked(bool(SettingsService.get("ai/streaming", True)))
+            self.toggle_vision.set_checked(bool(SettingsService.get("ai/vision_enabled", True)))
+            self.toggle_autoval.set_checked(bool(SettingsService.get("ai/auto_validation", False)))
+            self.toggle_linter.set_checked(bool(SettingsService.get("ai/auto_linter", True)))
+
+            # Paramètres RAG
+            saved_top_k = int(SettingsService.get("ai/rag_top_k", 5))
+            self.slider_rag_topk.setValue(saved_top_k)
+            self.lbl_rag_topk_val.setText(str(saved_top_k))
+
+            saved_sim = float(SettingsService.get("ai/rag_similarity_threshold", 0.70))
+            sim_pct = int(round(saved_sim * 100))
+            self.slider_rag_sim.setValue(sim_pct)
+            self.lbl_rag_sim_val.setText(f"{sim_pct}%")
+        except Exception as e:
+            logger.warning("Erreur refresh_data global_prefs: %s", e)
+
         # Rafraîchissement des catégories de vision
         try:
             self._render_vision_categories()
@@ -742,7 +992,7 @@ class AIEnginesTab(QWidget):
             show_toast(self, f"Erreur suppression : {e}", is_error=True)
 
     def save_tab(self) -> None:
-        """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel et recharge l'IA."""
+        """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel, sauvegarde les options globales et recharge l'IA."""
         for p_id, edit in self.key_edits.items():
             key_val = edit.text().strip()
             SettingsService.set(f"keys/{p_id}", key_val, category="api_keys")
@@ -752,6 +1002,29 @@ class AIEnginesTab(QWidget):
                 logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
 
         SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
+
+        # Sauvegarde des préférences globales IA
+        def_model = self.cb_default_model.currentData()
+        SettingsService.set("ai/default_model_id", str(def_model) if def_model else "", category="ai")
+
+        temp_val = round(self.slider_temp.value() / 100.0, 2)
+        SettingsService.set("ai/temperature", temp_val, category="ai")
+
+        max_tokens_val = self.cb_max_tokens.currentData()
+        if max_tokens_val is not None:
+            SettingsService.set("ai/max_tokens", int(max_tokens_val), category="ai")
+
+        thinking_val = self.cb_thinking.currentData()
+        if thinking_val is not None:
+            SettingsService.set("ai/thinking_budget", int(thinking_val), category="ai")
+
+        SettingsService.set("ai/streaming", self.toggle_streaming.is_checked(), category="ai")
+        SettingsService.set("ai/vision_enabled", self.toggle_vision.is_checked(), category="ai")
+        SettingsService.set("ai/auto_validation", self.toggle_autoval.is_checked(), category="ai")
+        SettingsService.set("ai/auto_linter", self.toggle_linter.is_checked(), category="ai")
+
+        SettingsService.set("ai/rag_top_k", self.slider_rag_topk.value(), category="ai")
+        SettingsService.set("ai/rag_similarity_threshold", round(self.slider_rag_sim.value() / 100.0, 2), category="ai")
 
         if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
             try:
@@ -763,17 +1036,40 @@ class AIEnginesTab(QWidget):
         self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         self.lbl_sec_ollama.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        if hasattr(self, "lbl_sec_global_prefs"):
+            self.lbl_sec_global_prefs.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
         if hasattr(self, "lbl_sec_vision"):
             self.lbl_sec_vision.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
 
         self.card_keys.refresh_theme(profile)
         self.card_ollama.refresh_theme(profile)
+        if hasattr(self, "card_global_prefs"):
+            self.card_global_prefs.refresh_theme(profile)
 
         for card in self.vision_cards:
             card.refresh_theme(profile)
 
         if hasattr(self, "lbl_ol_url"):
             self.lbl_ol_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_default_model"):
+            self.lbl_default_model.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_temp_title"):
+            self.lbl_temp_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_temp_val"):
+            self.lbl_temp_val.setStyleSheet(f"color: {profile.text_primary}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        if hasattr(self, "lbl_tokens_title"):
+            self.lbl_tokens_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_thinking_title"):
+            self.lbl_thinking_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_rag_topk_title"):
+            self.lbl_rag_topk_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_rag_topk_val"):
+            self.lbl_rag_topk_val.setStyleSheet(f"color: {profile.text_primary}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        if hasattr(self, "lbl_rag_sim_title"):
+            self.lbl_rag_sim_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_rag_sim_val"):
+            self.lbl_rag_sim_val.setStyleSheet(f"color: {profile.text_primary}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+
         for lbl in self.lbl_provider_labels:
             lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         for edit in self.key_edits.values():

@@ -34,6 +34,7 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     IconButton,
     IdePanel,
@@ -252,10 +253,12 @@ class ABTestsView(QWidget):
         self.btn_adv_toggle.clicked.connect(self._toggle_advanced_drawer)
         row2.addWidget(self.btn_adv_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        saved_sync = bool(SettingsService.get("ab_test/sync_nav", True))
         self.chk_sync_nav = QCheckBox("Synchronisation Navigation A ↔ B")
-        self.chk_sync_nav.setChecked(True)
+        self.chk_sync_nav.setChecked(saved_sync)
         self.chk_sync_nav.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
+        self.chk_sync_nav.stateChanged.connect(lambda s: SettingsService.set("ab_test/sync_nav", s == Qt.CheckState.Checked.value, category="ab_test"))
         row2.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         row2.addStretch()
