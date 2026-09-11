@@ -143,6 +143,79 @@ def search_document(query: str, document_id: int) -> str:
         return f"Erreur lors de la recherche vectorielle : {e}"
 
 
+# =====================================================================
+# OUTILS DE DOCUMENTATION & BASE DE CONNAISSANCES INTERNE (ZENSICAL)
+# =====================================================================
+
+
+@mcp.tool()
+def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
+    """Recherche des explications, guides et références d'architecture dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25."""
+    return ConsultantToolRegistry.search_app_documentation(query, category, limit)
+
+
+@mcp.tool()
+def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
+    """Consulte le contenu intégral ou une section d'une page de documentation officielle d'AnkiForge (ex: 'features/consultant_mcp.md')."""
+    return ConsultantToolRegistry.read_app_doc_page(doc_path, section_anchor)
+
+
+@mcp.tool()
+def list_app_doc_topics(category: str = "") -> str:
+    """Consulte le sommaire exhaustif de la documentation officielle d'AnkiForge classé par thématiques."""
+    return ConsultantToolRegistry.list_app_doc_topics(category)
+
+
+@mcp.tool()
+def get_feature_quick_help(feature_name: str) -> str:
+    """Obtient une synthèse immédiate d'une fonctionnalité clé (Ollama, KaTeX, DAG, RAG, Wozniak, Nuitka, Smart Merge, MCP)."""
+    return ConsultantToolRegistry.get_feature_quick_help(feature_name)
+
+
+# =====================================================================
+# RESSOURCES MCP (EXPLORATION DIRECTE DE LA DOCUMENTATION)
+# =====================================================================
+
+
+@mcp.resource("docs://topics")
+def get_docs_topics_resource() -> str:
+    """Retourne la liste hiérarchique complète des chapitres et pages de la documentation officielle."""
+    return ConsultantToolRegistry.list_app_doc_topics()
+
+
+@mcp.resource("docs://page/{doc_path}")
+def get_doc_page_resource(doc_path: str) -> str:
+    """Fournit le contenu brut Markdown d'une page de documentation officielle."""
+    return ConsultantToolRegistry.read_app_doc_page(doc_path)
+
+
+# =====================================================================
+# PROMPTS MCP (MODÈLES DE GUIDAGE IA)
+# =====================================================================
+
+
+@mcp.prompt("explain_ankiforge_feature")
+def prompt_explain_feature(feature_name: str) -> str:
+    """Prompt guidé pour expliquer pas à pas une fonctionnalité d'AnkiForge avec extraits officiels."""
+    doc_summary = ConsultantToolRegistry.get_feature_quick_help(feature_name)
+    return (
+        f"Tu es un expert d'AnkiForge. Explique la fonctionnalité '{feature_name}' en t'appuyant sur la documentation officielle ci-dessous :\n\n"
+        f"{doc_summary}\n\n"
+        "Donne des exemples concrets d'utilisation et les bonnes pratiques recommandées."
+    )
+
+
+@mcp.prompt("audit_architecture_compliance")
+def prompt_audit_architecture(target_code_or_rule: str) -> str:
+    """Prompt guidé pour vérifier la conformité d'un code ou d'une conception avec les 9 dossiers d'architecture AnkiForge."""
+    arch_doc = ConsultantToolRegistry.read_app_doc_page("Dossier_architecture/02_architecture_technique.md")
+    return (
+        "Tu es l'architecte en chef d'AnkiForge. Vérifie que le code ou la proposition suivante respecte les principes architecturaux "
+        f"décrits dans la documentation :\n\n{arch_doc[:2500]}...\n\n"
+        f"Élément à auditer :\n{target_code_or_rule}"
+    )
+
+
 def run_server() -> None:
     """Démarre le serveur FastMCP en mode asynchrone sécurisé."""
     logger.info("Démarrage du serveur MCP AnkiForge...")

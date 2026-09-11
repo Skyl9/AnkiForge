@@ -53,10 +53,23 @@ AnkiForge intègre un serveur MCP local (`ankiforge.services.ai.mcp_server`) exp
 | `query_peewee` | Exécute des requêtes de consultation ou de modification de la base SQLite. | Transactionnelle avec rollback automatique en cas d'erreur. |
 | `update_card_model_css` | Modifie le style CSS d'un modèle de carte en direct. | Validation syntaxique du CSS avant enregistrement. |
 | `execute_python_tool` | Lance des calculs ou des transformations Python sur mesure. | Environnement isolé. |
+| `search_app_documentation` | Recherche plein-texte BM25 avec extraits dans toute la doc Zensical. | SQLite FTS5 en mémoire, zéro dépendance réseau. |
+| `read_app_doc_page` | Lit l'intégralité d'une page de documentation ou une section ciblée par ancre. | Lecture seule des sources `docs/`. |
+| `list_app_doc_topics` | Retourne le sommaire structuré classé par thèmes et chapitres Zensical. | Arborescence déduite de `zensical.toml`. |
+| `get_feature_quick_help` | Fiche synthétique d'une fonctionnalité clé (Ollama, KaTeX, DAG, Wozniak, etc.). | Extraction déterministe avec citation de source. |
 
 ---
 
-## 🎯 3. Compaction de Contexte & Personas
+## 📚 3. Base de Connaissances Interne (Zensical & SQLite FTS5)
+
+Pour éviter les hallucinations et permettre au Consultant de guider l'utilisateur sur l'usage d'AnkiForge, le serveur MCP intègre une base de connaissances alimentée par la documentation Zensical :
+- **Indexation FTS5 Instantanée** : Ingestion des 30+ pages Markdown de `docs/` avec découpage sémantique par sections H1/H2/H3 et génération d'ancres en moins de 15 ms.
+- **Ressources MCP Directes** : Exposition des URI de ressources standard `docs://topics` (sommaire complet) et `docs://page/{doc_path}` (contenu brut Markdown) pour les clients externes comme Claude Desktop ou Cursor.
+- **Prompts MCP Contextuels** : Modèles d'assistance prédéfinis `explain_ankiforge_feature` et `audit_architecture_compliance`.
+
+---
+
+## 🎯 4. Compaction de Contexte & Personas
 
 Pour éviter la saturation de la fenêtre de contexte du LLM lors de longues sessions de travail :
 - **Compaction Automatique** : Le gestionnaire résume les observations passées des outils MCP tout en conservant les conclusions critiques.

@@ -268,3 +268,37 @@ def resolve_media_path(filename: str, profile_name: str | None = None) -> Path:
         logger.debug("Recherche de média inter-profils échouée: %s", err)
 
     return candidates[0]
+
+
+def get_docs_path() -> Path:
+    """
+    Localise le répertoire de documentation de l'application (`docs/`).
+    Compatible mode développement, tests et packaging standalone Nuitka/PyInstaller.
+    """
+    root = get_project_root()
+    dev_docs = root / "docs"
+    if dev_docs.is_dir():
+        return dev_docs
+
+    res_docs = get_resource_path("docs")
+    if res_docs.is_dir():
+        return res_docs
+
+    return dev_docs
+
+
+def get_zensical_config_path() -> Path:
+    """
+    Localise le fichier de configuration de documentation `zensical.toml`.
+    Compatible mode développement, tests et packaging standalone.
+    """
+    root = get_project_root()
+    dev_cfg = root / "zensical.toml"
+    if dev_cfg.is_file():
+        return dev_cfg
+
+    res_cfg = get_resource_path("zensical.toml")
+    if res_cfg.is_file():
+        return res_cfg
+
+    return dev_cfg

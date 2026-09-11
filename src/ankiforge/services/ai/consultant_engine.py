@@ -883,6 +883,34 @@ class ConsultantToolRegistry:
         except Exception as e:
             return f"Erreur lors de l'exécution de l'outil Python '{tool_name}' : {e}"
 
+    @staticmethod
+    def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
+        """Recherche des extraits pertinents dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25."""
+        from ankiforge.services.documentation.doc_service import search_app_documentation as _search_doc
+
+        return _search_doc(query=query, category=category, limit=limit)
+
+    @staticmethod
+    def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
+        """Lit le contenu complet d'une page ou d'une section ciblée de la documentation officielle."""
+        from ankiforge.services.documentation.doc_service import read_app_doc_page as _read_doc
+
+        return _read_doc(doc_path=doc_path, section_anchor=section_anchor)
+
+    @staticmethod
+    def list_app_doc_topics(category: str = "") -> str:
+        """Liste la table des matières et les chapitres disponibles dans la documentation Zensical."""
+        from ankiforge.services.documentation.doc_service import list_app_doc_topics as _list_topics
+
+        return _list_topics(category=category)
+
+    @staticmethod
+    def get_feature_quick_help(feature_name: str) -> str:
+        """Retourne une fiche synthétique d'aide sur une fonctionnalité d'AnkiForge."""
+        from ankiforge.services.documentation.doc_service import get_feature_quick_help as _quick_help
+
+        return _quick_help(feature_name=feature_name)
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -1132,6 +1160,64 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_app_documentation",
+            "description": "Recherche des explications, guides et références d'architecture dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Mots-clés ou question sur le fonctionnement d'AnkiForge"},
+                    "category": {"type": "string", "description": "Filtre optionnel par catégorie (ex: 'Fonctionnalités', 'Architecture', 'Guides & Prompts', 'Développement')"},
+                    "limit": {"type": "integer", "description": "Nombre maximum de résultats (défaut: 5)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_app_doc_page",
+            "description": "Consulte le contenu intégral ou une section d'une page de documentation officielle d'AnkiForge (ex: 'features/consultant_mcp.md').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "doc_path": {"type": "string", "description": "Chemin relatif de la page (ex: 'features/dag_et_rag.md')"},
+                    "section_anchor": {"type": "string", "description": "Ancre optionnelle de section (ex: '#1-la-boucle-react')"},
+                },
+                "required": ["doc_path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_app_doc_topics",
+            "description": "Consulte le sommaire exhaustif de la documentation officielle d'AnkiForge classé par thématiques.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "description": "Filtre optionnel par catégorie"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_feature_quick_help",
+            "description": "Obtient une synthèse immédiate d'une fonctionnalité clé (Ollama, KaTeX, DAG, RAG, Wozniak, Nuitka, Smart Merge, MCP).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "feature_name": {"type": "string", "description": "Nom de la fonctionnalité ou du concept recherché"},
+                },
+                "required": ["feature_name"],
+            },
+        },
+    },
 ]
 
 
@@ -1288,6 +1374,21 @@ class ConsultantEngine:
                 t_name = tool_args.get("tool_name", "")
                 args_json = tool_args.get("args_json", "{}")
                 return ConsultantToolRegistry.execute_python_tool(t_name, args_json), False
+            elif tool_name == "search_app_documentation":
+                query = tool_args.get("query", "")
+                cat = tool_args.get("category", "")
+                limit = int(tool_args.get("limit", 5))
+                return ConsultantToolRegistry.search_app_documentation(query, cat, limit), False
+            elif tool_name == "read_app_doc_page":
+                d_path = tool_args.get("doc_path") or tool_args.get("path") or ""
+                anchor = tool_args.get("section_anchor") or tool_args.get("anchor") or ""
+                return ConsultantToolRegistry.read_app_doc_page(d_path, anchor), False
+            elif tool_name == "list_app_doc_topics":
+                cat = tool_args.get("category", "")
+                return ConsultantToolRegistry.list_app_doc_topics(cat), False
+            elif tool_name == "get_feature_quick_help":
+                f_name = tool_args.get("feature_name") or tool_args.get("name") or ""
+                return ConsultantToolRegistry.get_feature_quick_help(f_name), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]
@@ -1337,6 +1438,15 @@ Tu es connecté en direct aux outils de la base de données AnkiForge :
 - `analyze_coverage_gaps(deck_name: str, document_title: str)`: Détection des lacunes (Smart Coverage).
 - `query_peewee(sql_query: str)`: Requête SQL SELECT (lecture seule) directe sur SQLite.
 - `execute_python_tool(tool_name: str, args_json: str)`: Exécute un outil Python déterministe.
+- `search_app_documentation(query: str, category: str, limit: int)`: Recherche plein-texte FTS5 BM25 dans la documentation officielle d'AnkiForge (guides, architecture, fonctionnalités).
+- `read_app_doc_page(doc_path: str, section_anchor: str)`: Lecture intégrale ou par section de la documentation officielle.
+- `list_app_doc_topics(category: str)`: Sommaire exhaustif de la documentation officielle.
+- `get_feature_quick_help(feature_name: str)`: Fiche d'aide synthétique immédiate sur une fonctionnalité clé.
+
+### RÈGLES D'OR SUR L'ASSISTANCE & LA DOCUMENTATION INTERNE :
+1. Tu as un accès direct à toute la documentation officielle d'AnkiForge via `search_app_documentation`, `read_app_doc_page` et `get_feature_quick_help`.
+2. Si l'utilisateur pose une question sur le fonctionnement d'AnkiForge, son architecture ou ses configurations (LLM, DAG, KaTeX, Smart Merge) :
+   utilise TOUJOURS ces outils de documentation pour vérifier les faits avant de répondre et cite les pages de référence.
 
 ### RÈGLES D'OR SUR LES MODÈLES DE CARTES :
 1. Les champs des cartes dépendent du modèle (`fields_schema`). Consulte `get_note_full_profile_360` ou `get_note_type_details`.
