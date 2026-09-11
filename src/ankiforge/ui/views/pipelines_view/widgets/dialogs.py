@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import PipelineModel, PipelineStepModel
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+from ankiforge.services.ai.prompt_interpolator import PipelinePromptInterpolator
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
@@ -79,14 +80,14 @@ class StepTestDialog(QDialog):
         state.set_variable("text_source", "La complexité temporelle du tri fusion est O(n log n).")
         state.set_variable("generated_cards", [{"Front": "Complexité du tri fusion ?", "Back": "O(n log n)"}])
 
-        if stype == "LLM_PROMPT":
-            persona = self.step_data.get("persona")
-            prompt_override = cfg.get("prompt_override")
-            raw_prompt = prompt_override or (persona.prompt_template if persona else "Extrais 3 flashcards du texte.")
-            self.output_text.append(f"Prompt appliqué :\n{raw_prompt}\n")
+        if stype in ("LLM_PROMPT", "MAP_REDUCE"):
+            res_interp = PipelinePromptInterpolator.interpolate_step(self.step_data)
+            self.output_text.append(f"Prompt Système ({res_interp.source_type}) :\n{res_interp.system_prompt}\n")
+            self.output_text.append(f"Entrée Utilisateur ({res_interp.input_variable}) :\n{res_interp.user_prompt}\n")
             mock = MockProvider()
-            res = mock.generate("Système", raw_prompt)
-            self.output_text.append(f"Réponse simulée de l'IA :\n{res.content}")
+            res = mock.generate(system_prompt=res_interp.system_prompt, user_prompt=res_interp.user_prompt)
+            content_str = res.content if hasattr(res, "content") else str(res)
+            self.output_text.append(f"Réponse simulée de l'IA :\n{content_str}")
 
         elif stype == "RAG_RETRIEVAL":
             self.output_text.append("Recherche RAG vectorielle (Top-K = {})".format(cfg.get("top_k", 5)))

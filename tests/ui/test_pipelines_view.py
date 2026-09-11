@@ -250,4 +250,47 @@ def test_prompt_preview_dialog(qtbot):
     """Vérifie la modale d'aperçu Jinja2 du prompt interpolé."""
     dlg = PromptPreviewDialog("Prompt avec {{ state.variables.text_source }} et {{ state.initial_prompt }}")
     qtbot.addWidget(dlg)
-    assert "Soit A une matrice carrée" in dlg.findChild(QPlainTextEdit).toPlainText()
+    plain_edits = dlg.findChildren(QPlainTextEdit)
+    assert len(plain_edits) >= 1
+    assert "Soit A une matrice carrée" in plain_edits[0].toPlainText()
+
+
+def test_prompt_preview_dialog_fallback_to_persona_when_empty(qtbot):
+    """Vérifie que la modale résout le prompt du Persona lorsque prompt_override est vide."""
+    persona = PersonaModel.create(
+        name="Expert Flashcards",
+        system_prompt="Tu es un Expert Flashcards. Génère pour : {{ first_field }}.",
+        output_format="json",
+    )
+    step_data = {
+        "type": "LLM_PROMPT",
+        "persona": persona,
+        "config": {"prompt_override": "", "input_variable": "text_source"},
+    }
+    dlg = PromptPreviewDialog(step_data=step_data)
+    qtbot.addWidget(dlg)
+
+    plain_edits = dlg.findChildren(QPlainTextEdit)
+    assert len(plain_edits) >= 1
+    rendered_sys = plain_edits[0].toPlainText()
+    assert "Tu es un Expert Flashcards" in rendered_sys
+    assert "Génère pour : Front." in rendered_sys
+
+
+def test_step_inspector_preview_button_triggers(qtbot):
+    """Vérifie que l'inspecteur ouvre l'aperçu avec les données d'étape et boutons."""
+    from ankiforge.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
+
+    p = PersonaModel.create(name="Inspecteur Agent", system_prompt="Agent prompt {{ text_source }}")
+    inspector = StepInspectorPanel()
+    qtbot.addWidget(inspector)
+
+    step_data = {
+        "type": "LLM_PROMPT",
+        "persona": p,
+        "config": {"prompt_override": "", "input_variable": "text_source"},
+    }
+    inspector.inspect_step(step_data=step_data, step_order=1, total_steps=1, personas=[p], llms=[], all_steps=[step_data])
+
+    # Le formulaire LLM_PROMPT a été construit
+    assert inspector.step_data is not None

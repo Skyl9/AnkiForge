@@ -363,6 +363,7 @@ class PipelinesView(QWidget):
                 total_steps=total,
                 personas=self._cached_personas,
                 llms=self._cached_llms,
+                all_steps=self.current_steps,
             )
         else:
             self.inspector.inspect_step(
@@ -371,6 +372,7 @@ class PipelinesView(QWidget):
                 total_steps=0,
                 personas=self._cached_personas,
                 llms=self._cached_llms,
+                all_steps=[],
             )
 
         self.flow_overview.render_flow(self.current_steps, active_index=self._selected_step_index)

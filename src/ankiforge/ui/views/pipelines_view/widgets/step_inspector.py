@@ -1,8 +1,8 @@
 from typing import Any
 
-from jinja2 import BaseLoader, Environment
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -16,6 +16,10 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
+from ankiforge.services.ai.prompt_interpolator import (
+    InterpolationResult,
+    PipelinePromptInterpolator,
+)
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import (
     Badge,
@@ -36,6 +40,7 @@ from ankiforge.ui.views.pipelines_view.widgets.common import (
     TagPillButton,
 )
 from ankiforge.ui.views.pipelines_view.widgets.step_picker import PersonaSelectorDialog
+from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -116,10 +121,20 @@ class PersonaIdentityCard(QFrame):
 class PromptPreviewDialog(QDialog):
     """Affiche la résolution dynamique du template Jinja2 avec des données échantillons réalistes."""
 
-    def __init__(self, template_str: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        template_str: str = "",
+        parent: QWidget | None = None,
+        step_data: dict[str, Any] | None = None,
+        all_steps: list[dict[str, Any]] | None = None,
+    ) -> None:
         super().__init__(parent)
+        self.template_str = template_str
+        self.step_data = step_data or {}
+        self.all_steps = all_steps or []
+
         self.setWindowTitle("Aperçu du Prompt Interpolé (Jinja2)")
-        self.resize(700, 500)
+        self.resize(750, 560)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {DesignTokens.BG_MAIN};
@@ -134,40 +149,102 @@ class PromptPreviewDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
+        # Résolution via PipelinePromptInterpolator
+        effective_step = dict(self.step_data)
+        if self.template_str:
+            cfg = dict(effective_step.get("config", {}))
+            stype = effective_step.get("type", "LLM_PROMPT")
+            if stype == "RAG_RETRIEVAL":
+                cfg["rag_query_template"] = self.template_str
+            else:
+                cfg["prompt_override"] = self.template_str
+            effective_step["config"] = cfg
+
+        result: InterpolationResult = PipelinePromptInterpolator.interpolate_step(
+            step_data=effective_step,
+            all_steps=self.all_steps,
+        )
+
+        # En-tête avec métadonnées et badges
         row_header = QHBoxLayout()
         row_header.setSpacing(8)
+
         icon_eye = QLabel()
-        icon_eye.setFixedSize(18, 18)
+        icon_eye.setFixedSize(20, 20)
         icon_eye.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_eye.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        icon_eye.setPixmap(load_phosphor_icon("ph.eye", color=DesignTokens.ACCENT_PRIMARY).pixmap(18, 18))
         row_header.addWidget(icon_eye)
 
         lbl_header = QLabel("Ce que recevra l'Agent IA (variables résolues) :")
         lbl_header.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
         row_header.addWidget(lbl_header)
         row_header.addStretch()
+
+        # Badges de source
+        if result.source_type == "persona":
+            badge_src = Badge(f"Agent : {result.persona_name or 'Défaut'}", variant="status")
+            apply_pill_style(badge_src, "#8b5cf6")
+            row_header.addWidget(badge_src)
+        elif result.source_type == "override":
+            badge_src = Badge("Surcharge d'étape", variant="warning")
+            apply_pill_style(badge_src, "#f59e0b")
+            row_header.addWidget(badge_src)
+        elif result.source_type == "query":
+            badge_src = Badge("Requête Sémantique RAG", variant="info")
+            apply_pill_style(badge_src, "#06b6d4")
+            row_header.addWidget(badge_src)
+
+        # Badge d'estimation des tokens
+        tot_tokens = result.estimated_system_tokens + result.estimated_user_tokens
+        badge_tokens = Badge(f"~{tot_tokens} tokens", variant="neutral")
+        apply_pill_style(badge_tokens, "#64748b")
+        badge_tokens.setToolTip(f"Estimation : ~{result.estimated_system_tokens} tokens (Système) + ~{result.estimated_user_tokens} tokens (Entrée)")
+        row_header.addWidget(badge_tokens)
+
+        # Bouton Copier
+        btn_copy = SecondaryButton("Copier")
+        btn_copy.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
+        btn_copy.setIconSize(QSize(14, 14))
+        btn_copy.setFixedHeight(28)
+        btn_copy.setStyleSheet("padding: 2px 12px; font-size: 11px;")
+
+        def _copy_prompt() -> None:
+            clipboard = QApplication.clipboard()
+            if clipboard:
+                clipboard.setText(result.system_prompt)
+                show_toast(self, "Prompt copié dans le presse-papiers !")
+
+        btn_copy.clicked.connect(_copy_prompt)
+        row_header.addWidget(btn_copy)
+
         layout.addLayout(row_header)
 
-        rendered_text = ""
-        try:
-            env = Environment(loader=BaseLoader(), autoescape=False)  # nosec B701
-            tpl = env.from_string(template_str)
-            mock_state = {
-                "initial_prompt": "Créer 5 flashcards sur la diagonalisation matricielle.",
-                "variables": {
-                    "text_source": "Soit A une matrice carrée n x n. A est diagonalisable s'il existe une base de vecteurs propres.",
-                    "generated_cards": [{"Front": "Définition diagonalisation", "Back": "Existe base de vecteurs propres"}],
-                    "last_output": "Cartes générées avec succès.",
-                    "plan_cours": "1. Définition\n2. Valeurs propres\n3. Sous-espaces propres",
-                },
-            }
-            rendered_text = tpl.render(state=mock_state)
-        except Exception as e:
-            rendered_text = f"❌ Erreur de syntaxe Jinja2 dans le template :\n{e}"
+        # Message d'erreur Jinja2 éventuel
+        if not result.is_valid and result.error_message:
+            error_frame = QFrame()
+            error_frame.setStyleSheet("""
+                QFrame {
+                    background-color: rgba(239, 68, 68, 0.15);
+                    border: 1px solid #ef4444;
+                    border-radius: 6px;
+                }
+            """)
+            err_layout = QHBoxLayout(error_frame)
+            err_layout.setContentsMargins(10, 8, 10, 8)
+            err_lbl = QLabel(f"⚠️ <b>Erreur de syntaxe Jinja2 :</b> {result.error_message}")
+            err_lbl.setStyleSheet("color: #fca5a5; font-size: 11px;")
+            err_lbl.setWordWrap(True)
+            err_layout.addWidget(err_lbl)
+            layout.addWidget(error_frame)
+
+        # Zone 1 : Prompt Système Interpolé
+        lbl_sys_title = QLabel("PROMPT SYSTÈME INTERPOLÉ :")
+        lbl_sys_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        layout.addWidget(lbl_sys_title)
 
         edit_rendered = QPlainTextEdit()
         edit_rendered.setReadOnly(True)
-        edit_rendered.setPlainText(rendered_text)
+        edit_rendered.setPlainText(result.system_prompt)
         edit_rendered.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -180,8 +257,33 @@ class PromptPreviewDialog(QDialog):
                 border-radius: 6px;
             }}
         """)
-        layout.addWidget(edit_rendered, 1)
+        layout.addWidget(edit_rendered, 3)
 
+        # Zone 2 : Entrée Utilisateur (Payload) pour les étapes LLM / Map-Reduce
+        if result.source_type != "query" and result.user_prompt:
+            lbl_user_title = QLabel(f"ENTRÉE UTILISATEUR / PAYLOAD (Variable : {result.input_variable}) :")
+            lbl_user_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+            layout.addWidget(lbl_user_title)
+
+            edit_user = QPlainTextEdit()
+            edit_user.setReadOnly(True)
+            edit_user.setPlainText(result.user_prompt)
+            edit_user.setMaximumHeight(110)
+            edit_user.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                color: #a7f3d0;
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 11px;
+                line-height: 1.3;
+                padding: 8px;
+                border-radius: 6px;
+            }}
+        """)
+            layout.addWidget(edit_user, 1)
+
+        # Bouton Fermer
         btn_close = SecondaryButton("Fermer l'aperçu")
         btn_close.setIcon(load_phosphor_icon("ph.check-circle", color=DesignTokens.TEXT_PRIMARY))
         btn_close.clicked.connect(self.accept)
@@ -197,6 +299,7 @@ class StepInspectorPanel(QFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.step_data: dict[str, Any] | None = None
+        self.all_steps: list[dict[str, Any]] = []
         self.step_order: int = 1
         self.total_steps: int = 1
         self.available_personas: list[PersonaModel] = []
@@ -385,9 +488,11 @@ class StepInspectorPanel(QFrame):
         total_steps: int,
         personas: list[PersonaModel],
         llms: list[LLMConfigModel],
+        all_steps: list[dict[str, Any]] | None = None,
     ) -> None:
         """Charge et affiche les données de l'étape sélectionnée."""
         self.step_data = step_data
+        self.all_steps = all_steps or []
         self.step_order = step_order
         self.total_steps = total_steps
         self.available_personas = personas
@@ -563,7 +668,20 @@ class StepInspectorPanel(QFrame):
             """)
             edit_prompt.textChanged.connect(lambda: self._on_config_changed("prompt_override", edit_prompt.toPlainText()))
 
-            btn_preview_prompt.clicked.connect(lambda: PromptPreviewDialog(edit_prompt.toPlainText(), parent=self).exec())
+            def _open_prompt_preview() -> None:
+                step_copy = dict(self.step_data) if self.step_data else {}
+                cfg_copy = dict(step_copy.get("config", {}))
+                cfg_copy["prompt_override"] = edit_prompt.toPlainText().strip()
+                step_copy["config"] = cfg_copy
+                dlg = PromptPreviewDialog(
+                    template_str=edit_prompt.toPlainText().strip(),
+                    parent=self,
+                    step_data=step_copy,
+                    all_steps=self.all_steps,
+                )
+                dlg.exec()
+
+            btn_preview_prompt.clicked.connect(_open_prompt_preview)
 
             chips_flow = FlowWidget(margin=0, h_spacing=6, v_spacing=6)
             jinja_chips = [
@@ -601,9 +719,18 @@ class StepInspectorPanel(QFrame):
             row_rag.addStretch()
             layout_params.addLayout(row_rag)
 
+            row_rag_header = QHBoxLayout()
             lbl_query = QLabel("Template de Requête Sémantique (Jinja2) :")
             lbl_query.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; margin-top: 4px;")
-            layout_params.addWidget(lbl_query)
+            row_rag_header.addWidget(lbl_query)
+            row_rag_header.addStretch()
+
+            btn_preview_rag = SecondaryButton("Aperçu Requête")
+            btn_preview_rag.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+            btn_preview_rag.setIconSize(QSize(14, 14))
+            btn_preview_rag.setFixedHeight(26)
+            row_rag_header.addWidget(btn_preview_rag)
+            layout_params.addLayout(row_rag_header)
 
             edit_query = StyledLineEdit(icon_name="ph.magnifying-glass", placeholder="{{ state.initial_prompt }}")
             edit_query.setText(cfg.get("rag_query_template", "{{ state.initial_prompt }}"))
@@ -611,6 +738,21 @@ class StepInspectorPanel(QFrame):
             edit_query.setStyleSheet(f"font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")
             edit_query.textChanged.connect(lambda t: self._on_config_changed("rag_query_template", t))
             layout_params.addWidget(edit_query)
+
+            def _open_rag_preview() -> None:
+                step_copy = dict(self.step_data) if self.step_data else {}
+                cfg_copy = dict(step_copy.get("config", {}))
+                cfg_copy["rag_query_template"] = edit_query.text().strip()
+                step_copy["config"] = cfg_copy
+                dlg = PromptPreviewDialog(
+                    template_str=edit_query.text().strip(),
+                    parent=self,
+                    step_data=step_copy,
+                    all_steps=self.all_steps,
+                )
+                dlg.exec()
+
+            btn_preview_rag.clicked.connect(_open_rag_preview)
             layout_params.addStretch()
 
         elif step_type == "HUMAN_VALIDATION":
