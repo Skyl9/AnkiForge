@@ -63,7 +63,8 @@ class DeckRepository(BaseRepository):
                     description=description if i == len(parts) - 1 else "",
                     parent_deck=current_deck,
                 )
-        assert current_deck is not None
+        if current_deck is None:
+            raise ValueError(f"Impossible de créer ou récupérer le paquet : {name}")
         return current_deck
 
     def create_deck(

@@ -17,6 +17,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.services.search.fts_service import FTSService
 from ankiforge.ui.theme import DesignTokens
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,7 @@ class NoteRepository(BaseRepository):
                 deck=deck,
                 template_index=0,
             )
+            FTSService.sync_note(note.id)
             return note
 
     def update_note_content(
@@ -146,6 +148,7 @@ class NoteRepository(BaseRepository):
                 note.save()
 
             note.add_version(fields_data, source=source)
+            FTSService.sync_note(note.id)
             return note
 
     def update_note_tags(self, note_id: int, tags: list[str]) -> bool:
@@ -153,8 +156,10 @@ class NoteRepository(BaseRepository):
         note = self.get_note_by_id(note_id)
         if not note:
             return False
-        note.tags = " ".join(tags)
-        note.save()
+        with self.atomic():
+            note.tags = " ".join(tags)
+            note.save()
+            FTSService.sync_note(note.id)
         return True
 
     def delete_note(self, note_id: int) -> bool:
@@ -163,6 +168,7 @@ class NoteRepository(BaseRepository):
         if not note:
             return False
         with self.atomic():
+            FTSService.delete_note(note_id)
             note.delete_instance(recursive=True)
             return True
 
@@ -315,9 +321,26 @@ class NoteRepository(BaseRepository):
 
         # Filtrage textuel résiduel sur le contenu ou les tags
         if raw_query:
-            db_query = db_query.join(NoteVersionModel).where(
-                NoteVersionModel.is_active & (NoteVersionModel.content.contains(raw_query) | (NoteModel.tags.is_null(False) & NoteModel.tags.contains(raw_query)))
-            )
+            if FTSService.is_available():
+                try:
+                    fts_results = FTSService.search(raw_query, limit=max(limit * 4, 150), as_prefix=True)
+                    if not fts_results:
+                        return []
+                    fts_ids = [res.note_id for res in fts_results]
+                    db_query = db_query.where(NoteModel.id.in_(fts_ids))
+                    notes = list(db_query)
+                    notes_map = {n.id: n for n in notes}
+                    ordered = [notes_map[nid] for nid in fts_ids if nid in notes_map]
+                    return ordered[:limit]
+                except Exception as e:
+                    logger.warning("Recherche FTS5 échouée, repli vers LIKE: %s", e)
+                    db_query = db_query.join(NoteVersionModel).where(
+                        NoteVersionModel.is_active & (NoteVersionModel.content.contains(raw_query) | (NoteModel.tags.is_null(False) & NoteModel.tags.contains(raw_query)))
+                    )
+            else:
+                db_query = db_query.join(NoteVersionModel).where(
+                    NoteVersionModel.is_active & (NoteVersionModel.content.contains(raw_query) | (NoteModel.tags.is_null(False) & NoteModel.tags.contains(raw_query)))
+                )
 
         return list(db_query.order_by(NoteModel.id.asc()).limit(limit))
 

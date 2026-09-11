@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -75,7 +75,7 @@ class MarkerService:
 
     @staticmethod
     def _run(command: list[str], progress_callback: Callable[[str], None] | None) -> None:
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # nosec B603
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

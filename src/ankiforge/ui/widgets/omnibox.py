@@ -5,7 +5,8 @@ from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import QDialog, QGraphicsDropShadowEffect, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
-from ankiforge.database.models import DocumentModel, NoteModel, NoteVersionModel
+from ankiforge.database.models import CardModel, DocumentModel, NoteModel, NoteVersionModel
+from ankiforge.services.search.fts_service import FTSService
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -116,24 +117,41 @@ class Omnibox(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "deck_id": None})
             self.results_list.addItem(item)
 
-        # B. Chercher dans les Flashcards (Contenu JSON)
-        notes = NoteModel.select().join(NoteVersionModel).where(NoteVersionModel.is_active & NoteVersionModel.content.contains(query)).limit(10)
-        for note in notes:
-            active_v = note.versions.where(NoteVersionModel.is_active).first()
-            content = json.loads(active_v.content) if active_v else {}
+        # B. Chercher dans les Flashcards (Plein-texte FTS5 ou repli optimisé)
+        if FTSService.is_available():
+            fts_results = FTSService.search(query, limit=10, as_prefix=True)
+            for res in fts_results:
+                clean_snippet = re.sub(r"[\r\n\t]+", " ", res.snippet).strip()
+                clean_preview = re.sub(r"<[^>]+>", "", clean_snippet)[:75]
+                if not clean_preview:
+                    clean_preview = "..."
 
-            # Créer un mini-aperçu propre (sans HTML)
-            preview = " | ".join(str(v) for v in content.values() if isinstance(v, str))
+                icon = load_phosphor_icon("cards", color=DesignTokens.COLOR_GREEN)
+                item = QListWidgetItem(icon, f" [Carte] {clean_preview}")
+                item.setData(Qt.ItemDataRole.UserRole, {"type": "note", "id": res.note_id, "deck_id": res.deck_id or None})
+                self.results_list.addItem(item)
+        else:
+            notes = (
+                NoteModel.select(NoteModel.id, NoteVersionModel.content, CardModel.deck)
+                .join(NoteVersionModel, on=(NoteVersionModel.note == NoteModel.id))
+                .join(CardModel, on=((CardModel.note == NoteModel.id) & (CardModel.template_index == 0)), join_type="LEFT OUTER")
+                .where(NoteVersionModel.is_active & NoteVersionModel.content.contains(query))
+                .limit(10)
+            )
+            for note in notes:
+                try:
+                    content = json.loads(note.noteversionmodel.content) if hasattr(note, "noteversionmodel") else {}
+                except Exception:
+                    content = {}
 
-            preview = re.sub(r"<[^>]+>", "", preview).replace("\n", " ")[:70] + "..."
+                preview = " | ".join(str(v) for v in content.values() if isinstance(v, str))
+                preview = re.sub(r"<[^>]+>", "", preview).replace("\n", " ")[:70] + "..."
+                deck_id = getattr(note.cardmodel, "deck_id", None) if hasattr(note, "cardmodel") else None
 
-            first_card = note.cards.first()
-            deck_id = first_card.deck.id if first_card and first_card.deck else None
-
-            icon = load_phosphor_icon("cards", color=DesignTokens.COLOR_GREEN)
-            item = QListWidgetItem(icon, f" [Carte] {preview}")
-            item.setData(Qt.ItemDataRole.UserRole, {"type": "note", "id": note.id, "deck_id": deck_id})
-            self.results_list.addItem(item)
+                icon = load_phosphor_icon("cards", color=DesignTokens.COLOR_GREEN)
+                item = QListWidgetItem(icon, f" [Carte] {preview}")
+                item.setData(Qt.ItemDataRole.UserRole, {"type": "note", "id": note.id, "deck_id": deck_id})
+                self.results_list.addItem(item)
 
     @Slot(QListWidgetItem)
     def _on_item_activated(self, item: QListWidgetItem):

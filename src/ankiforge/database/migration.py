@@ -276,6 +276,19 @@ def run_migrations() -> None:
                 except Exception as e:
                     logger.debug("Remarque sur l'ajout de is_suspended sur cardmodel : %s", e)
 
+        # Vérification post-migration : auto-initialisation de note_fts si vide
+        try:
+            from ankiforge.services.search.fts_service import FTSService
+
+            if FTSService.is_available():
+                count_fts = db.execute_sql("SELECT count(*) FROM note_fts;").fetchone()
+                if count_fts and count_fts[0] == 0 and db.table_exists("notemodel"):
+                    count_notes = db.execute_sql("SELECT count(*) FROM notemodel;").fetchone()
+                    if count_notes and count_notes[0] > 0:
+                        FTSService.rebuild_fts()
+        except Exception as e:
+            logger.debug("Remarque post-migration sur l'index FTS5 : %s", e)
+
         try:
             db.execute_sql("PRAGMA foreign_keys = ON;")
         except Exception as fk_err:

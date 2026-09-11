@@ -95,9 +95,21 @@ def mock_db():
     test_db.connect()
     test_db.execute_sql("PRAGMA foreign_keys = ON;")  # <-- INDISPENSABLE POUR TESTER LES CASCADES
     test_db.create_tables(models)
+    with contextlib.suppress(Exception):
+        test_db.execute_sql("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS note_fts USING fts5(
+                note_id UNINDEXED,
+                deck_id UNINDEXED,
+                fields_text,
+                tags,
+                tokenize = 'unicode61 remove_diacritics 2'
+            );
+        """)
 
     yield test_db  # Le test s'exécute ici
 
+    with contextlib.suppress(Exception):
+        test_db.execute_sql("DROP TABLE IF EXISTS note_fts;")
     with contextlib.suppress(Exception):
         test_db.execute_sql("DROP TABLE IF EXISTS migratehistory;")
     test_db.drop_tables(models)

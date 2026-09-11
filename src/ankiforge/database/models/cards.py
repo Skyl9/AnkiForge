@@ -77,7 +77,22 @@ class NoteModel(BaseModel):
             source=source,
             is_active=True,
         )
+        try:
+            from ankiforge.services.search.fts_service import FTSService
+
+            FTSService.sync_note(self.id)
+        except Exception as e:
+            logger.debug("Remarque sync FTS5 dans add_version: %s", e)
         return new_version
+
+    def delete_instance(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            from ankiforge.services.search.fts_service import FTSService
+
+            FTSService.delete_note(self.id)
+        except Exception as e:
+            logger.debug("Remarque suppression FTS5 dans delete_instance: %s", e)
+        return super().delete_instance(*args, **kwargs)
 
     @classmethod
     def purge_old_versions(cls, keep_last: int = 15) -> int:
@@ -166,6 +181,7 @@ class CardModel(BaseModel):
         table_name = "cardmodel"
         indexes = (
             (("deck", "note"), False),
+            (("deck", "is_suspended"), False),
             (("note", "template_index"), False),
             (("flags",), False),
             (("is_suspended",), False),

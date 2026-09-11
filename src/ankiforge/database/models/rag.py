@@ -96,7 +96,10 @@ class NoteChunkLinkModel(BaseModel):
 
     class Meta:
         table_name = "note_chunk_links"
-        indexes = ((("note", "chunk"), True),)
+        indexes = (
+            (("note", "chunk"), True),
+            (("chunk",), False),
+        )
 
 
 class EmbeddingCacheModel(BaseModel):

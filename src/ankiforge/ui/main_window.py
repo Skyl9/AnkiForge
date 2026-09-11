@@ -115,6 +115,7 @@ class MainWindow(QMainWindow):
         self._export_dialog: QWidget | None = None
         self._notif_popup: QWidget | None = None
         self._tour_bubble: Any | None = None
+        self._web_engine_prewarmer: QWidget | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
@@ -135,6 +136,8 @@ class MainWindow(QMainWindow):
         saved_layout_id = LayoutManager.get_saved_layout_id(self.profile_name)
         self.apply_layout(saved_layout_id)
 
+        self._prewarm_web_engine()
+
         self._setup_debug_shortcuts()
         self._setup_global_shortcuts()
         event_bus.subscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
@@ -143,6 +146,22 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(300, self._restore_cached_update_badge)
         # Vérification HTTP forcée à chaque lancement pour actualiser le cache et les assets
         QTimer.singleShot(2000, self._check_for_updates)
+
+    def _prewarm_web_engine(self) -> None:
+        """Préchauffe silencieusement Chromium au démarrage pour éviter tout rechargement visuel lors de la première navigation vers un composant WebEngine."""
+        import os
+
+        if os.environ.get("ANKIFORGE_MOCK_WEBENGINE") == "1":
+            return
+        try:
+            from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
+
+            self._web_engine_prewarmer = SafeWebEngineView(self)
+            self._web_engine_prewarmer.setFixedSize(1, 1)
+            self._web_engine_prewarmer.move(-100, -100)
+            self._web_engine_prewarmer.show()
+        except Exception as e:
+            logger.debug("Remarque préchauffage WebEngine: %s", e)
 
     def _register_addon_views(self) -> None:
         """Expose active addon views without changing the native view registry."""

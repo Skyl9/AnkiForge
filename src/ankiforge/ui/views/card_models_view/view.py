@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -73,9 +73,17 @@ class CardModelsView(QWidget):
         self._templates_list: list[dict[str, Any]] = []
         self._current_template_idx: int = 0
         self._is_syncing_template: bool = False
+        self._is_refreshing: bool = False
+        self._splitters_initialized: bool = False
         self._current_helper_cat: str = "Tous"
         self.helper_category_buttons: dict[str, QPushButton] = {}
         self._last_active_editor: str = "front"
+        self._snippet_drawer_instance: SnippetLibraryDrawer | None = None
+
+        self._preview_debounce_timer = QTimer(self)
+        self._preview_debounce_timer.setSingleShot(True)
+        self._preview_debounce_timer.setInterval(50)
+        self._preview_debounce_timer.timeout.connect(self._do_update_preview)
 
         self._setup_ui()
         self._connect_signals()
@@ -177,11 +185,14 @@ class CardModelsView(QWidget):
 
         self.left_panel.add_tab("Modèles", list_content, "ph.swatches", closable=False)
 
-        # --- Tab 2 : Bibliothèque de Snippets ---
-        self.snippet_drawer = SnippetLibraryDrawer()
-        self.snippet_drawer.snippet_selected.connect(self._on_insert_snippet)
-        self.left_panel.add_tab("Snippets", self.snippet_drawer, "ph.sparkle", closable=False)
+        # --- Tab 2 : Bibliothèque de Snippets (chargement différé / lazy loading) ---
+        self._snippet_placeholder = QWidget()
+        self._snippet_layout = QVBoxLayout(self._snippet_placeholder)
+        self._snippet_layout.setContentsMargins(0, 0, 0, 0)
+        self._snippet_layout.setSpacing(0)
+        self.left_panel.add_tab("Snippets", self._snippet_placeholder, "ph.sparkle", closable=False)
         self.left_panel.set_active_tab(0)
+        self.left_panel.tab_changed.connect(self._on_left_panel_tab_changed)
 
         self.main_splitter.addWidget(self.left_panel)
 
@@ -399,7 +410,7 @@ class CardModelsView(QWidget):
         bottom_res_layout.addWidget(self.editor_stack, 1)
         self.editor_vertical_splitter.addWidget(bottom_resizable_container)
 
-        self.editor_vertical_splitter.setSizes([90, 480])
+        self.editor_vertical_splitter.setSizes([160, 564])
         self.editor_vertical_splitter.setStretchFactor(0, 0)
         self.editor_vertical_splitter.setStretchFactor(1, 1)
 
@@ -454,20 +465,59 @@ class CardModelsView(QWidget):
         preview_layout.addWidget(self.card_preview_widget, 1)
 
         self.editor_horizontal_splitter.addWidget(self.preview_container)
-        self.editor_horizontal_splitter.setSizes([500, 420])
+        self.editor_horizontal_splitter.setSizes([439, 391])
         self.editor_horizontal_splitter.setStretchFactor(0, 1)
         self.editor_horizontal_splitter.setStretchFactor(1, 1)
 
         editor_layout.addWidget(self.editor_horizontal_splitter, 1)
 
+        # Style actif par défaut sur btn_toggle_preview car preview_container est visible
+        self.top_action_bar.btn_toggle_preview.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_HOVER};
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-weight: 600;
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+
         self.left_panel.setMinimumWidth(280)
         self.editor_panel.add_tab("Éditeur de Modèle", editor_content, "ph.pencil-simple", closable=False)
         self.main_splitter.addWidget(self.editor_panel)
 
-        self.main_splitter.setSizes([290, 810])
+        self.main_splitter.setSizes([280, 854])
         self.main_splitter.setStretchFactor(0, 0)
         self.main_splitter.setStretchFactor(1, 1)
         self._switch_subtab(0)
+
+    @property
+    def snippet_drawer(self) -> SnippetLibraryDrawer:
+        """Tiroir de snippets avec instanciation à la demande (lazy loading)."""
+        if self._snippet_drawer_instance is None:
+            self._snippet_drawer_instance = SnippetLibraryDrawer()
+            self._snippet_drawer_instance.snippet_selected.connect(self._on_insert_snippet)
+            self._snippet_layout.addWidget(self._snippet_drawer_instance)
+        return self._snippet_drawer_instance
+
+    def _on_left_panel_tab_changed(self, index: int) -> None:
+        """Charge le tiroir de snippets à l'activation de l'onglet."""
+        if index == 1:
+            _ = self.snippet_drawer
+
+    def showEvent(self, event: Any) -> None:
+        """Calcule les proportions optimales des splitters à la première apparition réelle."""
+        super().showEvent(event)
+        if not self._splitters_initialized:
+            self._splitters_initialized = True
+            total_w = self.width()
+            if total_w > 500:
+                left_w = 280
+                editor_w = total_w - left_w
+                self.main_splitter.setSizes([left_w, editor_w])
+                self.editor_horizontal_splitter.setSizes([int(editor_w * 0.55), int(editor_w * 0.45)])
+                total_h = self.editor_vertical_splitter.height()
+                self.editor_vertical_splitter.setSizes([160, max(200, total_h - 160)])
 
     def _connect_signals(self) -> None:
         self.list_widget.currentItemChanged.connect(self._on_item_selected)
@@ -552,6 +602,8 @@ class CardModelsView(QWidget):
         self._update_preview()
 
     def _on_css_code_changed(self) -> None:
+        if self._is_syncing_template:
+            return
         self._on_code_changed()
         self._update_tags_toolbar()
 
@@ -571,6 +623,9 @@ class CardModelsView(QWidget):
                 item.setHidden(True)
 
     def refresh_data(self) -> None:
+        if self._is_refreshing:
+            return
+        self._is_refreshing = True
         try:
             self.list_widget.blockSignals(True)
             self.list_widget.clear()
@@ -608,14 +663,24 @@ class CardModelsView(QWidget):
                 self.empty_models_widget.hide()
                 self.list_widget.show()
 
-            if models and not self._current_model:
+            if self._current_model:
+                found = False
+                for i in range(self.list_widget.count()):
+                    it = self.list_widget.item(i)
+                    m_data = it.data(Qt.ItemDataRole.UserRole)
+                    if m_data and m_data.id == self._current_model.id:
+                        self.list_widget.setCurrentItem(it)
+                        found = True
+                        break
+                if not found and models:
+                    self.list_widget.setCurrentRow(0)
+            elif models:
                 self.list_widget.setCurrentRow(0)
-                cur_item = self.list_widget.currentItem()
-                if cur_item:
-                    self._on_item_selected(cur_item, None)
 
         except Exception as e:
             logger.warning("Erreur refresh_data card_models_view: %s", e)
+        finally:
+            self._is_refreshing = False
 
     def is_dirty(self) -> bool:
         return False
@@ -638,7 +703,7 @@ class CardModelsView(QWidget):
             self.helpers_frame.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
             self.helpers_frame.setMaximumHeight(16777215)
             self.helpers_frame.setMinimumHeight(0)
-            self.editor_vertical_splitter.setSizes([140, 420])
+            self.editor_vertical_splitter.setSizes([160, 420])
         else:
             self.tags_scroll_area.hide()
             self.btn_collapse_helpers.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
@@ -660,42 +725,47 @@ class CardModelsView(QWidget):
 
         self._current_model = model
         self.lbl_editor_title.setText(model.name)
-        self.description_input.setText(getattr(model, "description", "") or "")
-        self.description_input.setCursorPosition(0)
 
-        if model.fields_schema:
-            try:
-                parsed_fields = json.loads(model.fields_schema)
-                if isinstance(parsed_fields, list):
-                    self.fields_input.setText(", ".join(parsed_fields))
-                else:
+        self._is_syncing_template = True
+        try:
+            self.description_input.setText(getattr(model, "description", "") or "")
+            self.description_input.setCursorPosition(0)
+
+            if model.fields_schema:
+                try:
+                    parsed_fields = json.loads(model.fields_schema)
+                    if isinstance(parsed_fields, list):
+                        self.fields_input.setText(", ".join(parsed_fields))
+                    else:
+                        self.fields_input.setText("Front, Back")
+                except Exception:
                     self.fields_input.setText("Front, Back")
-            except Exception:
+            else:
                 self.fields_input.setText("Front, Back")
-        else:
-            self.fields_input.setText("Front, Back")
-        self.fields_input.setCursorPosition(0)
+            self.fields_input.setCursorPosition(0)
 
-        default_css = (
-            ".card {\n  font-family: arial;\n  font-size: 20px;\n  text-align: center;\n  color: #1e293b;\n  background-color: #ffffff;\n}\n\n.cloze {\n  font-weight: bold;\n  color: #3b82f6;\n}"
-        )
-        self.css_editor_wrapper.setPlainText(model.css_style or default_css)
+            default_css = (
+                ".card {\n  font-family: arial;\n  font-size: 20px;\n  text-align: center;\n  color: #1e293b;\n  background-color: #ffffff;\n}\n\n.cloze {\n  font-weight: bold;\n  color: #3b82f6;\n}"
+            )
+            self.css_editor_wrapper.setPlainText(model.css_style or default_css)
 
-        self._templates_list = []
-        if model.templates:
-            try:
-                parsed_tmpl = json.loads(model.templates)
-                if isinstance(parsed_tmpl, list) and parsed_tmpl:
-                    self._templates_list = parsed_tmpl
-            except Exception:
-                pass  # nosec B110
+            self._templates_list = []
+            if model.templates:
+                try:
+                    parsed_tmpl = json.loads(model.templates)
+                    if isinstance(parsed_tmpl, list) and parsed_tmpl:
+                        self._templates_list = parsed_tmpl
+                except Exception:
+                    pass  # nosec B110
 
-        if not self._templates_list:
-            self._templates_list = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": '{{FrontSide}}<br><hr id="answer"><br>{{Back}}'}]
+            if not self._templates_list:
+                self._templates_list = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": '{{FrontSide}}<br><hr id="answer"><br>{{Back}}'}]
 
-        self._current_template_idx = 0
-        self._populate_template_selector()
-        self._load_current_template_to_editors()
+            self._current_template_idx = 0
+            self._populate_template_selector()
+            self._load_current_template_to_editors()
+        finally:
+            self._is_syncing_template = False
 
         is_cloze = self._is_cloze_active()
         self.model_type_badge.setText("Cloze" if is_cloze else "Standard")
@@ -818,19 +888,23 @@ class CardModelsView(QWidget):
         self.note_witness_combo.addItem("Données d'exemple automatiques", userData=None)
 
         if self._current_model:
-            notes = list(NoteModel.select().where(NoteModel.note_type == self._current_model).limit(15))
-            for note in notes:
-                version = NoteVersionModel.get_or_none(note=note, is_active=True)
-                summary = f"Note #{note.id}"
-                if version and version.content:
+            notes = (
+                NoteVersionModel.select(NoteVersionModel.note, NoteVersionModel.content)
+                .join(NoteModel)
+                .where((NoteModel.note_type == self._current_model) & (NoteVersionModel.is_active == True))  # noqa: E712
+                .limit(15)
+            )
+            for v in notes:
+                summary = f"Note #{v.note_id}"
+                if v.content:
                     try:
-                        content_dict = json.loads(version.content)
+                        content_dict = json.loads(v.content)
                         first_val = next(iter(content_dict.values()), "")
                         if first_val:
                             summary += f" : {first_val[:28]}..."
                     except Exception:
                         pass  # nosec B110
-                self.note_witness_combo.addItem(summary, userData=note.id)
+                self.note_witness_combo.addItem(summary, userData=v.note_id)
 
         self.note_witness_combo.blockSignals(False)
 
@@ -903,6 +977,8 @@ class CardModelsView(QWidget):
 
     @Slot()
     def _on_fields_changed(self) -> None:
+        if self._is_syncing_template:
+            return
         self._update_tags_toolbar()
 
     def _update_tags_toolbar(self) -> None:
@@ -993,7 +1069,14 @@ class CardModelsView(QWidget):
             self.css_editor_wrapper.insertPlainText(rule)
 
     @Slot()
-    def _update_preview(self) -> None:
+    def _update_preview(self, immediate: bool = False) -> None:
+        if immediate:
+            self._preview_debounce_timer.stop()
+            self._do_update_preview()
+        else:
+            self._preview_debounce_timer.start()
+
+    def _do_update_preview(self) -> None:
         raw_fields = [f.strip() for f in self.fields_input.text().split(",") if f.strip()]
         if not raw_fields:
             raw_fields = ["Front", "Back"]

@@ -59,7 +59,10 @@ class AuditRecordModel(BaseModel):
 
     class Meta:
         table_name = "audit_records"
-        indexes = ((("note", "note_version"), True),)
+        indexes = (
+            (("note", "note_version"), True),
+            (("note", "rule_broken"), False),
+        )
 
 
 class IgnoredDuplicateModel(BaseModel):
