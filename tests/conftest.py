@@ -39,11 +39,13 @@ from ankiforge.database.models import (
     db,
 )
 
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
-os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
-os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu --offscreen --disable-dev-shm-usage"
-os.environ["ANKIFORGE_MOCK_WEBENGINE"] = "1"
-os.environ["ANKIFORGE_ENV"] = "testing"
+# Keep CI's Xvfb/xcb backend when it is explicitly configured. Local headless
+# runs still default to offscreen when no display backend was provided.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
+os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu --offscreen --disable-dev-shm-usage")
+os.environ.setdefault("ANKIFORGE_MOCK_WEBENGINE", "1")
+os.environ.setdefault("ANKIFORGE_ENV", "testing")
 
 
 @pytest.fixture(autouse=True)

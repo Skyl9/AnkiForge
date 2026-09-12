@@ -268,9 +268,11 @@ jobs:
       - name: Run Tests with Coverage (Linux with Xvfb)
         if: runner.os == 'Linux'
         env:
-          QT_QPA_PLATFORM: "offscreen"
+          # QtWebEngine requires the X11 backend on Linux; xvfb-run provides
+          # the display while the test fixture preserves this value.
+          QT_QPA_PLATFORM: "xcb"
           QTWEBENGINE_DISABLE_SANDBOX: "1"
-          QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --offscreen --disable-dev-shm-usage"
+          QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --disable-dev-shm-usage"
           ANKIFORGE_MOCK_WEBENGINE: "1"
         run: |
           # Qt/WebEngine et coverage ne sont pas sûrs avec plusieurs workers
