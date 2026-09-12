@@ -30,7 +30,7 @@ SETTINGS_KEY_CACHED_METADATA = "updates/cached_latest_metadata"
 SETTINGS_KEY_ETAG_STABLE = "updates/etag/stable"
 SETTINGS_KEY_ETAG_NIGHTLY = "updates/etag/nightly"
 SETTINGS_KEY_CHANNEL = "updates/channel"
-CHECK_INTERVAL_SECONDS = 86400  # 24 heures
+CHECK_INTERVAL_SECONDS = 14400  # 4 heures
 
 
 def parse_semver_tuple(version_str: str) -> tuple[int, int, int] | None:
@@ -192,7 +192,7 @@ class UpdateCheckerWorker(QRunnable):
             logger.warning("Vérification de mise à jour indisponible hors ligne : %s", err)
             self.signals.no_update.emit(self.current_version)
         except Exception as err:
-            logger.debug("Erreur lors de la vérification de mise à jour : %s", err)
+            logger.warning("Erreur inattendue lors de la vérification de mise à jour : %s", err, exc_info=True)
             self.signals.check_failed.emit(str(err))
 
     def _check_stable_update(self, headers: dict[str, str], active_channel: str, settings: Any) -> None:
@@ -204,6 +204,9 @@ class UpdateCheckerWorker(QRunnable):
         resp = requests.get(GITHUB_LATEST_URL, headers=headers, timeout=10.0)
 
         if resp.status_code == 304:
+            now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+            settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts)
+            logger.info("Recherche GitHub : version distante inchangée (HTTP 304 Not Modified).")
             self._emit_cached_result(settings)
             return
 
@@ -300,6 +303,7 @@ class UpdateCheckerWorker(QRunnable):
         except json.JSONDecodeError:
             metadata = {}
         if cached_version and is_version_strictly_greater(cached_version, self.current_version):
+            logger.info("Mise à jour confirmée depuis le cache (HTTP 304) : v%s (Actuelle : v%s)", cached_version, self.current_version)
             self.signals.update_available.emit(
                 UpdateInfo(
                     version=cached_version,
@@ -313,6 +317,7 @@ class UpdateCheckerWorker(QRunnable):
                 )
             )
         else:
+            logger.debug("Application à jour (Actuelle : v%s, Cache 304 : v%s)", self.current_version, cached_version)
             self.signals.no_update.emit(self.current_version)
 
     def _check_stable_tags(self, headers: dict[str, str], active_channel: str, settings: Any) -> None:
@@ -364,6 +369,9 @@ class UpdateCheckerWorker(QRunnable):
         resp = requests.get(GITHUB_NIGHTLY_URL, headers=headers, timeout=10.0)
 
         if resp.status_code == 304:
+            now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+            settings.setValue(SETTINGS_KEY_LAST_CHECK, now_ts)
+            logger.info("Recherche Nightly : version distante inchangée (HTTP 304 Not Modified).")
             self.signals.no_update.emit(self.current_version)
             return
         if resp.status_code != 200:

@@ -28,6 +28,7 @@ class GeneralTab(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._update_worker: Any | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -341,8 +342,10 @@ class GeneralTab(QWidget):
         self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11.5px;")
 
         worker = UpdateCheckerWorker(channel=selected_channel, force=True)
+        self._update_worker = worker
 
         def on_avail(info: Any) -> None:
+            self._update_worker = None
             self.btn_check_updates.setEnabled(True)
             self.lbl_update_status.setText(f"Version v{info.version} disponible !")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px; font-weight: bold;")
@@ -351,11 +354,13 @@ class GeneralTab(QWidget):
                 dialog.exec()
 
         def on_none(_cur: str) -> None:
+            self._update_worker = None
             self.btn_check_updates.setEnabled(True)
             self.lbl_update_status.setText(f"Vous disposez de la version la plus récente ({VERSION_INFO.short_display_version})")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11.5px;")
 
         def on_err(msg: str) -> None:
+            self._update_worker = None
             self.btn_check_updates.setEnabled(True)
             self.lbl_update_status.setText(f"Échec : {msg}")
             self.lbl_update_status.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 11.5px;")

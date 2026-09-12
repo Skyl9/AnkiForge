@@ -4,7 +4,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtCore import QSettings
 
 from ankiforge.services.update_checker import (
     SETTINGS_KEY_CACHED_METADATA,
@@ -16,12 +15,13 @@ from ankiforge.services.update_checker import (
     UpdateCheckerWorker,
     UpdateInfo,
 )
+from ankiforge.utils.environment import get_app_qsettings
 
 
 @pytest.fixture(autouse=True)
 def clean_settings() -> Any:
     """Nettoie les paramètres QSettings de test."""
-    settings = QSettings("AnkiForgeOrg", "AnkiForge")
+    settings = get_app_qsettings()
     settings.remove(SETTINGS_KEY_LAST_CHECK)
     settings.remove(SETTINGS_KEY_CACHED_VERSION)
     settings.remove(SETTINGS_KEY_CHANNEL)
@@ -414,3 +414,40 @@ def test_get_cached_update_info_returns_update_info_when_newer_cached() -> None:
         assert result.channel == "stable"
         assert result.assets == []  # Vides — assets récupérés par le worker HTTP
         assert "github.com" in result.html_url
+
+
+def test_update_checker_304_updates_last_check_timestamp() -> None:
+    """Vérifie qu'une réponse HTTP 304 met bien à jour le timestamp de dernière vérification."""
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=False)
+
+    fake_response = MagicMock()
+    fake_response.status_code = 304
+
+    settings = get_app_qsettings()
+    settings.setValue(SETTINGS_KEY_ETAG_STABLE, 'W/"test-etag"')
+    settings.remove(SETTINGS_KEY_LAST_CHECK)
+
+    with patch("requests.get", return_value=fake_response):
+        worker.run()
+
+    last_check = settings.value(SETTINGS_KEY_LAST_CHECK)
+    assert last_check is not None
+    assert int(str(last_check)) > 0
+
+
+def test_update_checker_unexpected_exception_emits_check_failed() -> None:
+    """Vérifie qu'une exception inattendue émet check_failed."""
+    worker = UpdateCheckerWorker(current_version="1.0.5", channel="stable", force=True)
+
+    failed_msg = ""
+
+    def on_failed(msg: str) -> None:
+        nonlocal failed_msg
+        failed_msg = msg
+
+    worker.signals.check_failed.connect(on_failed)
+
+    with patch("requests.get", side_effect=RuntimeError("Erreur réseau critique inattendue")):
+        worker.run()
+
+    assert "Erreur réseau critique inattendue" in failed_msg

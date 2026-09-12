@@ -381,3 +381,45 @@ def test_katex_editor_text_under_cursor_multiline(qtbot):
 
     # Doit renvoyer '\\frac' sans IndexError
     assert editor.textUnderCursor() == "\\frac"
+
+
+def test_general_tab_check_updates_retains_worker(qtbot):
+    """Vérifie que GeneralTab retient bien le worker et le libère une fois terminé."""
+    from ankiforge.services.update_checker import UpdateInfo
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert tab._update_worker is None
+
+    with patch("PySide6.QtCore.QThreadPool.globalInstance"):
+        tab._on_check_updates_clicked()
+        assert tab._update_worker is not None
+        assert tab.btn_check_updates.isEnabled() is False
+        assert "Recherche en cours..." in tab.lbl_update_status.text()
+
+        # Simuler l'émission de update_available
+        info = UpdateInfo(
+            version="1.1.0",
+            title="Version 1.1.0",
+            release_notes="Notes",
+            html_url="https://github.com/...",
+            published_at="2026-09-12T00:00:00Z",
+            channel="stable",
+        )
+        with patch("ankiforge.ui.dialogs.update_dialog.UpdateDialog.exec"):
+            tab._update_worker.signals.update_available.emit(info)
+
+        assert tab._update_worker is None
+        assert tab.btn_check_updates.isEnabled() is True
+
+    # Deuxième tentative : simuler check_failed
+    with patch("PySide6.QtCore.QThreadPool.globalInstance"):
+        tab._on_check_updates_clicked()
+        assert tab._update_worker is not None
+        assert tab.btn_check_updates.isEnabled() is False
+
+        tab._update_worker.signals.check_failed.emit("Erreur réseau")
+        assert tab._update_worker is None
+        assert tab.btn_check_updates.isEnabled() is True
+        assert "Échec : Erreur réseau" in tab.lbl_update_status.text()

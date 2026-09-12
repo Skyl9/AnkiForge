@@ -184,3 +184,50 @@ def test_open_feedback_dialog_via_event_bus(qtbot, mock_db):
         with patch.object(FeedbackDialog, "exec") as mock_exec:
             event_bus.publish(OpenFeedbackRequestedEvent(tab="feature", initial_title="Nouvelle idée"))
             mock_exec.assert_called_once()
+
+
+def test_main_window_update_check_lifecycle_and_badge(qtbot, mock_db):
+    """Vérifie que MainWindow retient le worker et réapplique le badge de mise à jour après changement de layout."""
+    from ankiforge.services.update_checker import UpdateInfo
+
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        assert window._update_worker is None
+        assert window._latest_update_info is None
+
+        # 1. Vérification avec mise à jour disponible
+        with patch("PySide6.QtCore.QThreadPool.globalInstance"):
+            window._check_for_updates()
+            assert window._update_worker is not None
+
+            info = UpdateInfo(
+                version="2.0.0",
+                title="Version 2.0.0",
+                release_notes="Notes",
+                html_url="https://github.com/...",
+                published_at="2026-09-12T00:00:00Z",
+                channel="stable",
+            )
+            # Émettre update_available
+            window._update_worker.signals.update_available.emit(info)
+
+            # Le worker doit être libéré et _latest_update_info mémorisé
+            assert window._update_worker is None
+            assert window._latest_update_info is info
+
+            # Recharger le layout doit réappliquer le badge
+            topbar = window.topbar
+            if hasattr(topbar, "show_update_badge"):
+                with patch.object(topbar, "show_update_badge") as mock_badge:
+                    window.apply_layout("classic")
+                    mock_badge.assert_called_once_with(info)
+
+        # 2. Vérification avec échec de la recherche
+        with patch("PySide6.QtCore.QThreadPool.globalInstance"):
+            window._check_for_updates()
+            assert window._update_worker is not None
+
+            window._update_worker.signals.check_failed.emit("Erreur réseau")
+            assert window._update_worker is None

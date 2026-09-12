@@ -117,6 +117,8 @@ class MainWindow(QMainWindow):
         self._notif_popup: QWidget | None = None
         self._tour_bubble: Any | None = None
         self._web_engine_prewarmer: QWidget | None = None
+        self._update_worker: Any | None = None
+        self._latest_update_info: Any | None = None
         self.current_layout: BaseLayout | None = None
         self.stacked_widget = QStackedWidget()
 
@@ -212,14 +214,26 @@ class MainWindow(QMainWindow):
             self._on_update_available(cached_info)
 
     def _check_for_updates(self) -> None:
-        """Lance une vérification respectant le cache de 24h au démarrage."""
+        """Lance une vérification respectant le cache au démarrage."""
         from PySide6.QtCore import QThreadPool
 
         from ankiforge.services.update_checker import UpdateCheckerWorker
 
         worker = UpdateCheckerWorker(force=False)
+        self._update_worker = worker
         worker.signals.update_available.connect(self._on_update_available)
+        worker.signals.no_update.connect(self._on_no_update)
+        worker.signals.check_failed.connect(self._on_update_check_failed)
         QThreadPool.globalInstance().start(worker)
+
+    def _on_no_update(self, _cur: str) -> None:
+        """Nettoie la référence du worker lorsqu'aucune mise à jour n'est disponible."""
+        self._update_worker = None
+
+    def _on_update_check_failed(self, error_msg: str) -> None:
+        """Trace l'échec de vérification au démarrage."""
+        self._update_worker = None
+        logger.warning("Échec de la vérification de mise à jour au démarrage : %s", error_msg)
 
     def _on_update_available(self, info: Any) -> None:
         """Transmet l'information de mise à jour à la TopBar si présente.
@@ -231,6 +245,8 @@ class MainWindow(QMainWindow):
         La garde sip.isdeleted() évite tout accès à une topbar détruite entre
         le démarrage du worker et l'émission du signal.
         """
+        self._latest_update_info = info
+        self._update_worker = None
         try:
             import sip  # type: ignore[import-untyped]
 
@@ -298,6 +314,9 @@ class MainWindow(QMainWindow):
             new_layout.set_active_view(self._current_view_id)
         else:
             self._on_view_selected("dashboard")
+
+        if self._latest_update_info is not None:
+            self._on_update_available(self._latest_update_info)
 
     def _setup_debug_shortcuts(self) -> None:
         """Configure les raccourcis de debug (ex: Capture d'écran)."""
