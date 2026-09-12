@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QUrl
+from PySide6.QtWidgets import QWidget
 
 from ankiforge.ui.widgets.katex_editor import sanitize_user_markdown_html
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEnginePage, SafeWebEngineView
@@ -51,7 +52,9 @@ def test_sanitize_user_markdown_html_javascript_protocol() -> None:
 
 def test_safe_web_engine_page_dialog_interception(qtbot: Any) -> None:
     """Vérifie que SafeWebEnginePage bloque silencieusement alert(), confirm() et prompt()."""
-    page = SafeWebEnginePage()
+    dummy = QWidget()
+    qtbot.addWidget(dummy)
+    page = SafeWebEnginePage(parent=dummy)
     origin = QUrl("https://localhost")
 
     # 1. alert() ne doit pas bloquer ni lever d'exception
@@ -72,10 +75,4 @@ def test_safe_web_engine_view_uses_safe_page(qtbot: Any) -> None:
     qtbot.addWidget(view)
 
     assert isinstance(view.page(), SafeWebEnginePage)
-
-    # WebEngine démarre des threads Chromium natifs : arrêter explicitement le
-    # chargement avant que pytest-qt ne détruise le widget.
     view.cleanup()
-    view.close()
-    view.deleteLater()
-    qtbot.wait(0)

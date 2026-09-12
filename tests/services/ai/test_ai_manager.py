@@ -45,6 +45,9 @@ def test_ai_manager_passes_max_tokens_from_config(mock_db):
 
 def test_ai_manager_reload_provider_selects_top_model_by_sort_order(mock_db):
     """Vérifie que l'AIManager sélectionne le modèle ayant le plus petit sort_order (en tête de liste)."""
+    from ankiforge.services.settings_service import SettingsService
+
+    SettingsService.set("ai/default_model_id", "", category="ai")
     LLMConfigModel.create(
         display_name="GPT-4o Low Priority",
         provider="openai",

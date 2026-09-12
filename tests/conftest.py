@@ -106,8 +106,17 @@ def mock_db():
             );
         """)
 
+    with contextlib.suppress(Exception):
+        from ankiforge.utils.environment import get_app_qsettings
+
+        get_app_qsettings().clear()
+
     yield test_db  # Le test s'exécute ici
 
+    with contextlib.suppress(Exception):
+        from ankiforge.utils.environment import get_app_qsettings
+
+        get_app_qsettings().clear()
     with contextlib.suppress(Exception):
         test_db.execute_sql("DROP TABLE IF EXISTS note_fts;")
     with contextlib.suppress(Exception):

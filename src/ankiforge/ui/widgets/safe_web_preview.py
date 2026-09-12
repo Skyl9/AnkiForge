@@ -34,8 +34,14 @@ class AnkiForgeWebProfile:
 
     @classmethod
     def get_shared_profile(cls) -> QWebEngineProfile:
-        if cls._profile is None:
-            # On utilise defaultProfile() configuré pour l'application
+        try:
+            import shiboken6
+
+            is_valid = cls._profile is not None and shiboken6.isValid(cls._profile)
+        except Exception:
+            is_valid = cls._profile is not None
+
+        if not is_valid:
             cls._profile = QWebEngineProfile.defaultProfile()
             cls._configure_profile(cls._profile)
         return cls._profile
@@ -175,11 +181,10 @@ class SafeWebEngineView(QWebEngineView):
         self.setHtml(html, base_url)
 
     def cleanup(self) -> None:
-        """Arrête proprement les chargements WebEngine et libère le DOM lors du démontage."""
+        """Arrête proprement les chargements WebEngine et libère l'historique lors du démontage."""
         try:
             self.stop()
             self.history().clear()
-            self.load(QUrl("about:blank"))
         except Exception:
             pass  # nosec B110
 

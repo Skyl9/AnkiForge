@@ -2,6 +2,7 @@
 
 from PySide6.QtCore import QUrl
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
+from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
 from ankiforge.ui.widgets.safe_web_preview import (
@@ -23,7 +24,9 @@ def test_ankiforge_web_profile_configuration(qtbot: QtBot) -> None:
 
 
 def test_safe_web_engine_page_security_and_actions(qtbot: QtBot) -> None:
-    page = SafeWebEnginePage()
+    dummy = QWidget()
+    qtbot.addWidget(dummy)
+    page = SafeWebEnginePage(parent=dummy)
 
     # 1. Sécurité anti-XSS : alert, confirm, prompt ne doivent pas bloquer
     page.javaScriptAlert(QUrl("https://example.com"), "Test alert")
