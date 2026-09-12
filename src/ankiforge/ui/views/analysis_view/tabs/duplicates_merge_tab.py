@@ -97,17 +97,20 @@ class AIDuplicatesMergeTab(QWidget):
     def on_table_selection_changed(self) -> None:
         selected = self.matrix_table.table.selectedItems()
         if not selected:
+            self.merge_inspector.reset_inspector()
             self.merge_inspector.hide()
             return
 
         row = selected[0].row()
         item = self.matrix_table.table.item(row, 2)
         if not item:
+            self.merge_inspector.reset_inspector()
             self.merge_inspector.hide()
             return
 
         row_data = item.data(Qt.ItemDataRole.UserRole)
         if not row_data:
+            self.merge_inspector.reset_inspector()
             self.merge_inspector.hide()
             return
 
@@ -143,18 +146,20 @@ class AIDuplicatesMergeTab(QWidget):
         except Exception as e:
             logger.error("Erreur lors de l'ignorance du doublon : %s", e, exc_info=True)
 
-    def remove_current_conflict(self):
+    def remove_current_conflict(self) -> None:
         selected = self.matrix_table.table.selectedItems()
         if selected:
             row = selected[0].row()
             self.matrix_table.table.removeRow(row)
-            self.merge_inspector.current_conflict = None
-            self.merge_inspector.lbl_title_a.setText("CARTE #1")
-            self.merge_inspector.lbl_title_b.setText("CARTE #2")
-            self.merge_inspector.lbl_content_a.setText("...")
-            self.merge_inspector.lbl_content_b.setText("...")
-            self.merge_inspector.lbl_merged.setText("...")
+            self.merge_inspector.reset_inspector()
+            self.merge_inspector.hide()
 
             for child in self.matrix_table.findChildren(QLabel):
                 if "paires à examiner" in child.text() or "0" in child.text():
                     child.setText(f"{self.matrix_table.table.rowCount()} paires à examiner")
+
+    def hideEvent(self, event: object) -> None:
+        """Décharge les ressources WebEngine lorsque l'onglet est masqué."""
+        if hasattr(self, "merge_inspector"):
+            self.merge_inspector.cleanup()
+        super().hideEvent(event)  # type: ignore[arg-type]

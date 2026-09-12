@@ -1,8 +1,24 @@
 import logging
+import urllib.parse
+from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtWidgets import QAbstractItemView, QCheckBox, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QScrollArea,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.models import SimilarityBadgeDelegate, SrsMasteryDelegate
@@ -285,6 +301,9 @@ class DuplicateMergeInspector(QFrame):
 
         self.current_conflict: dict[str, Any] | None = None
         self.view_modes = {"A": "source", "B": "source", "Fusion": "source"}
+        self.web_a: SafeWebEngineView | None = None
+        self.web_b: SafeWebEngineView | None = None
+        self.web_fusion: SafeWebEngineView | None = None
         self.setObjectName("DuplicateMergeInspector")
         self.setStyleSheet(f"QFrame#DuplicateMergeInspector {{ background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 8px; }}")
 
@@ -346,7 +365,9 @@ class DuplicateMergeInspector(QFrame):
         h_cols.setSpacing(10)
 
         # Col 1: Card A
-        self.col_a, self.lbl_title_a, self.layout_a, self.btn_keep_a, self.srs_a = self._create_card_col("CARTE #1", DesignTokens.COLOR_BLUE, "➔ Injecter", "Conserver Carte #1 (Originale)")
+        self.col_a, self.lbl_title_a, self.layout_a, self.stack_a, self.btn_keep_a, self.srs_a = self._create_card_col(
+            "CARTE #1", DesignTokens.COLOR_BLUE, "➔ Injecter", "Conserver Carte #1 (Originale)", "A"
+        )
         h_cols.addWidget(self.col_a, 1)
 
         # Col 2: Fusion
@@ -377,10 +398,22 @@ class DuplicateMergeInspector(QFrame):
         self.f_body = QFrame()
         self.f_body.setObjectName("FusionBodyFrame")
         self.f_body.setStyleSheet(f"QFrame#FusionBodyFrame {{ background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}")
-        f_layout.addWidget(self.f_body, 1)
+        f_body_layout = QVBoxLayout(self.f_body)
+        f_body_layout.setContentsMargins(6, 6, 6, 6)
 
-        self.merged_content_layout = QVBoxLayout(self.f_body)
-        self.merged_content_layout.setContentsMargins(10, 10, 10, 10)
+        self.stack_fusion = QStackedWidget()
+        scroll_fusion = QScrollArea()
+        scroll_fusion.setWidgetResizable(True)
+        scroll_fusion.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        fusion_container = QWidget()
+        fusion_container.setStyleSheet("background: transparent;")
+        self.merged_content_layout = QVBoxLayout(fusion_container)
+        self.merged_content_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_fusion.setWidget(fusion_container)
+
+        self.stack_fusion.addWidget(scroll_fusion)
+        f_body_layout.addWidget(self.stack_fusion)
+        f_layout.addWidget(self.f_body, 1)
 
         # Actions
         f_actions = QHBoxLayout()
@@ -404,7 +437,7 @@ class DuplicateMergeInspector(QFrame):
         h_cols.addWidget(self.col_fusion, 1)
 
         # Col 3: Card B
-        self.col_b, self.lbl_title_b, self.layout_b, self.btn_keep_b, self.srs_b = self._create_card_col("CARTE #2", "#c084fc", "⬅ Injecter", "Conserver Carte #2 (Duplicata)")
+        self.col_b, self.lbl_title_b, self.layout_b, self.stack_b, self.btn_keep_b, self.srs_b = self._create_card_col("CARTE #2", "#c084fc", "⬅ Injecter", "Conserver Carte #2 (Duplicata)", "B")
         h_cols.addWidget(self.col_b, 1)
 
         layout.addLayout(h_cols, 1)
@@ -415,7 +448,7 @@ class DuplicateMergeInspector(QFrame):
         self.btn_ignore.clicked.connect(self.on_ignore)
         self.btn_false.clicked.connect(self.on_ignore)
 
-    def _create_card_col(self, title: str, color: str, btn_text: str, action_text: str):
+    def _create_card_col(self, title: str, color: str, btn_text: str, action_text: str, source_key: str) -> tuple:
         col = QFrame()
         col.setObjectName("CardCol" + title.replace(" ", "").replace("#", "").replace("(", "").replace(")", ""))
         col.setStyleSheet(f"QFrame#{col.objectName()} {{ background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
@@ -436,7 +469,6 @@ class DuplicateMergeInspector(QFrame):
         title_layout.addWidget(lbl_title)
         title_layout.addStretch()
 
-        source_key = "A" if "CARTE #1" in title else "B"
         b_src, b_ktx = self._create_view_toggles(source_key, color)
         title_layout.addWidget(b_src)
         title_layout.addWidget(b_ktx)
@@ -474,7 +506,20 @@ class DuplicateMergeInspector(QFrame):
         body.setObjectName("CardColBody")
         body.setStyleSheet(f"QFrame#CardColBody {{ background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}")
         b_layout = QVBoxLayout(body)
-        b_layout.setContentsMargins(8, 8, 8, 8)
+        b_layout.setContentsMargins(6, 6, 6, 6)
+
+        stack = QStackedWidget()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        source_container = QWidget()
+        source_container.setStyleSheet("background: transparent;")
+        source_layout = QVBoxLayout(source_container)
+        source_layout.setContentsMargins(0, 0, 0, 0)
+        scroll.setWidget(source_container)
+
+        stack.addWidget(scroll)
+        b_layout.addWidget(stack)
 
         btn_action = SecondaryButton(action_text)
         btn_action.setFixedHeight(28)
@@ -482,27 +527,7 @@ class DuplicateMergeInspector(QFrame):
 
         layout_col.addWidget(body, 1)
         layout_col.addWidget(btn_action)
-        return col, lbl_title, b_layout, btn_action, {"state": lbl_srs_state, "ivl": lbl_srs_ivl, "ease": lbl_srs_ease}
-        lbl_srs_ease.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px;")
-
-        srs_layout.addWidget(lbl_srs_state)
-        srs_layout.addWidget(lbl_srs_ivl)
-        srs_layout.addWidget(lbl_srs_ease)
-        srs_layout.addStretch()
-
-        layout_col.addLayout(srs_layout)
-
-        body = QFrame()
-        body.setObjectName("CardColBody")
-        body.setStyleSheet(f"QFrame#CardColBody {{ background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}")
-        b_layout = QVBoxLayout(body)
-
-        btn_action = SecondaryButton(action_text)
-        btn_action.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        layout_col.addWidget(body, 1)
-        layout_col.addWidget(btn_action)
-        return col, lbl_title, b_layout, btn_action, {"state": lbl_srs_state, "ivl": lbl_srs_ivl, "ease": lbl_srs_ease}
+        return col, lbl_title, source_layout, stack, btn_action, {"state": lbl_srs_state, "ivl": lbl_srs_ivl, "ease": lbl_srs_ease}
 
     def _create_view_toggles(self, source: str, active_color: str):
         btn_source = SecondaryButton("Source")
@@ -543,31 +568,135 @@ class DuplicateMergeInspector(QFrame):
 
         return btn_source, btn_katex
 
-    def _refresh_col(self, source: str) -> None:
-        if not self.current_conflict:
-            return
+    def _get_or_create_web_view(self, source: str) -> SafeWebEngineView:
+        """Instancie ou réutilise la vue WebEngine unique de la colonne spécifiée."""
         if source == "A":
-            self._populate_fields(self.layout_a, self.current_conflict["content_a"], DesignTokens.COLOR_BLUE, "➔ Injecter", "A")
+            if self.web_a is None:
+                self.web_a = SafeWebEngineView()
+                self.web_a.action_requested.connect(self._on_web_action)
+                self.stack_a.addWidget(self.web_a)
+            return self.web_a
         elif source == "B":
-            self._populate_fields(self.layout_b, self.current_conflict["content_b"], DesignTokens.ACCENT_PRIMARY, "⬅ Injecter", "B")
-        elif source == "Fusion":
-            self._populate_fields(self.merged_content_layout, self.current_conflict.get("merged_content", {}), DesignTokens.ACCENT_PRIMARY, "", "Fusion")
+            if self.web_b is None:
+                self.web_b = SafeWebEngineView()
+                self.web_b.action_requested.connect(self._on_web_action)
+                self.stack_b.addWidget(self.web_b)
+            return self.web_b
+        else:
+            if self.web_fusion is None:
+                self.web_fusion = SafeWebEngineView()
+                self.web_fusion.action_requested.connect(self._on_web_action)
+                self.stack_fusion.addWidget(self.web_fusion)
+            return self.web_fusion
 
-    def _clear_layout(self, layout) -> None:
-        if layout is not None:
-            while layout.count():
-                item = layout.takeAt(0)
-                widget = item.widget()
-                if widget is not None:
-                    widget.deleteLater()
-                elif item.layout() is not None:
-                    self._clear_layout(item.layout())
+    def _on_web_action(self, action: str, params: dict[str, str]) -> None:
+        """Gère les actions déclenchées depuis le rendu HTML KaTeX."""
+        if action == "inject":
+            source = params.get("source", "")
+            field_name = params.get("field_name", "")
+            if source and field_name:
+                self._inject_field(field_name, source)
 
-    def _populate_fields(self, layout: QVBoxLayout, content_dict: dict, color: str, btn_text: str, source: str) -> None:
+    def _build_unified_katex_html(self, content_dict: dict[str, Any], color: str, btn_text: str, source: str) -> str:
+        """Génère un document HTML complet unique encapsulant tous les champs d'une carte avec KaTeX."""
+        fields_html_parts: list[str] = []
+        idx = 1
+        for field_name, field_val in content_dict.items():
+            inject_btn_html = ""
+            if btn_text:
+                url = f"ankiforge://inject/{source}/{urllib.parse.quote(str(field_name))}"
+                inject_btn_html = f'<a href="{url}" class="inject-btn">{btn_text}</a>'
+
+            val_str = str(field_val) if field_val is not None else ""
+            fields_html_parts.append(
+                f"""<div class="field-card">
+                    <div class="field-header">
+                        <span class="field-title" style="color: {color};">{idx}. {field_name.upper()} :</span>
+                        {inject_btn_html}
+                    </div>
+                    <div class="field-val">{val_str}</div>
+                </div>"""
+            )
+            idx += 1
+
+        fields_html = "\n".join(fields_html_parts)
+        mathjax_script = get_mathjax_script()
+
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{
+            background-color: transparent;
+            margin: 0;
+            padding: 8px;
+            font-family: {DesignTokens.FONT_MAIN}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            color: {DesignTokens.TEXT_PRIMARY};
+            line-height: 1.5;
+            word-wrap: break-word;
+        }}
+        ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+        ::-webkit-scrollbar-track {{ background: transparent; }}
+        ::-webkit-scrollbar-thumb {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; }}
+        ::-webkit-scrollbar-thumb:hover {{ background: {DesignTokens.TEXT_MUTED}; }}
+        .field-card {{
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed {DesignTokens.BORDER_COLOR};
+        }}
+        .field-card:last-child {{
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }}
+        .field-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }}
+        .field-title {{
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }}
+        .inject-btn {{
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 8px;
+            background: {DesignTokens.BG_MAIN};
+            border: 1px solid {DesignTokens.BORDER_COLOR};
+            border-radius: 4px;
+            color: {DesignTokens.TEXT_PRIMARY};
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }}
+        .inject-btn:hover {{
+            background: {color}25;
+            border-color: {color};
+            color: {color};
+        }}
+        .field-val {{
+            font-size: 13px;
+            color: {DesignTokens.TEXT_PRIMARY};
+            line-height: 1.5;
+        }}
+    </style>
+</head>
+<body>
+    {fields_html}
+    {mathjax_script}
+</body>
+</html>"""
+
+    def _populate_source_fields(self, layout: QVBoxLayout, content_dict: dict, color: str, btn_text: str, source: str) -> None:
+        """Affiche les champs au format texte brut ultra-léger avec labels natifs Qt."""
         self._clear_layout(layout)
         idx = 1
         for field_name, field_val in content_dict.items():
-            # Skip empty or internal fields if needed. For now, display everything.
             field_header = QHBoxLayout()
             field_lbl = QLabel(f"{idx}. {field_name.upper()} :")
             field_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
@@ -587,50 +716,13 @@ class DuplicateMergeInspector(QFrame):
 
             layout.addLayout(field_header)
 
-            mode = self.view_modes.get(source, "source")
-            if mode == "katex":
-                web_val = SafeWebEngineView()
-                web_val.setMinimumHeight(100)
-
-                text_color = DesignTokens.TEXT_PRIMARY
-                html_text = str(field_val)
-                final_html = f"""<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <style>
-                        body {{
-                            background-color: transparent;
-                            margin: 0;
-                            padding: 2px;
-                            font-family: {DesignTokens.FONT_MAIN}, -apple-system, sans-serif;
-                            font-size: 14px;
-                            color: {text_color};
-                            line-height: 1.5;
-                            word-wrap: break-word;
-                        }}
-                        ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-                        ::-webkit-scrollbar-track {{ background: transparent; }}
-                        ::-webkit-scrollbar-thumb {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; }}
-                        ::-webkit-scrollbar-thumb:hover {{ background: {DesignTokens.TEXT_MUTED}; }}
-                    </style>
-                </head>
-                <body>
-                    {html_text}
-                    {get_mathjax_script()}
-                </body>
-                </html>
-                """
-                web_val.setHtmlSafe(final_html)
-                layout.addWidget(web_val)
-            else:
-                lbl_val = QLabel()
-                lbl_val.setWordWrap(True)
-                lbl_val.setAlignment(Qt.AlignmentFlag.AlignTop)
-                lbl_val.setFont(QFont(DesignTokens.FONT_CODE, 10))
-                lbl_val.setText(str(field_val))
-                lbl_val.setTextFormat(Qt.TextFormat.PlainText)
-                layout.addWidget(lbl_val)
+            lbl_val = QLabel()
+            lbl_val.setWordWrap(True)
+            lbl_val.setAlignment(Qt.AlignmentFlag.AlignTop)
+            lbl_val.setFont(QFont(DesignTokens.FONT_CODE, 10))
+            lbl_val.setText(str(field_val) if field_val is not None else "")
+            lbl_val.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(lbl_val)
 
             if idx < len(content_dict):
                 sep = QFrame()
@@ -640,6 +732,48 @@ class DuplicateMergeInspector(QFrame):
 
             idx += 1
         layout.addStretch()
+
+    def _refresh_col(self, source: str) -> None:
+        if not self.current_conflict:
+            return
+        if source == "A":
+            content = self.current_conflict["content_a"]
+            color = DesignTokens.COLOR_BLUE
+            btn_text = "➔ Injecter"
+            stack = self.stack_a
+            layout = self.layout_a
+        elif source == "B":
+            content = self.current_conflict["content_b"]
+            color = "#c084fc"
+            btn_text = "⬅ Injecter"
+            stack = self.stack_b
+            layout = self.layout_b
+        else:
+            content = self.current_conflict.get("merged_content", {})
+            color = DesignTokens.ACCENT_PRIMARY
+            btn_text = ""
+            stack = self.stack_fusion
+            layout = self.merged_content_layout
+
+        mode = self.view_modes.get(source, "source")
+        if mode == "katex":
+            web_view = self._get_or_create_web_view(source)
+            html = self._build_unified_katex_html(content, color, btn_text, source)
+            web_view.setHtmlSafe(html)
+            stack.setCurrentIndex(1)
+        else:
+            self._populate_source_fields(layout, content, color, btn_text, source)
+            stack.setCurrentIndex(0)
+
+    def _clear_layout(self, layout) -> None:
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                elif item.layout() is not None:
+                    self._clear_layout(item.layout())
 
     def _inject_field(self, field_name: str, source: str) -> None:
         if not self.current_conflict:
@@ -651,7 +785,31 @@ class DuplicateMergeInspector(QFrame):
         self.current_conflict["merged_content"][field_name] = src_dict.get(field_name, "")
 
         # Refresh the merged column
-        self._populate_fields(self.merged_content_layout, self.current_conflict["merged_content"], DesignTokens.ACCENT_PRIMARY, "", "Fusion")
+        self._refresh_col("Fusion")
+
+    def _update_srs(self, note: Any, srs_dict: dict[str, QLabel]) -> None:
+        has_srs = hasattr(note, "srs_ivl") or (hasattr(note, "cards") and len(note.cards) > 0 and hasattr(note.cards[0], "srs_ivl"))
+        if has_srs:
+            reps = getattr(note, "srs_reps", 0)
+            if reps > 21:
+                srs_dict["state"].setText("🟢 Maîtrisée")
+                srs_dict["state"].setStyleSheet(f"background: rgba(16,185,129,0.2); color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
+            elif reps > 5:
+                srs_dict["state"].setText("🟡 Apprentissage")
+                srs_dict["state"].setStyleSheet(f"background: rgba(245,158,11,0.2); color: {DesignTokens.COLOR_YELLOW}; padding: 2px 6px; border-radius: 4px;")
+            else:
+                srs_dict["state"].setText("🔴 Nouvelle")
+                srs_dict["state"].setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; padding: 2px 6px; border-radius: 4px;")
+
+            srs_dict["ivl"].setText(f"{getattr(note, 'srs_ivl', 0)} j")
+            srs_dict["ease"].setText(f"{getattr(note, 'srs_ease', 250)}%")
+        else:
+            srs_dict["state"].setText("⚪ Non synchronisé")
+            srs_dict["state"].setStyleSheet(
+                f"background: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px; border: 1px dashed {DesignTokens.BORDER_COLOR};"
+            )
+            srs_dict["ivl"].setText("Non étudiée")
+            srs_dict["ease"].setText("N/A")
 
     def load_conflict(self, row_data: dict) -> None:
         self.current_conflict = row_data
@@ -659,51 +817,27 @@ class DuplicateMergeInspector(QFrame):
         self.lbl_sim.setText(f"Similitude : {sim * 100:.1f}%")
 
         note_a = row_data["note_a"]
-        content_a = row_data["content_a"]
         note_b = row_data["note_b"]
-        content_b = row_data["content_b"]
 
         self.lbl_title_a.setText("CARTE #1")
-        self._populate_fields(self.layout_a, content_a, DesignTokens.COLOR_BLUE, "➔ Injecter", "A")
-
         self.lbl_title_b.setText("CARTE #2")
-        self._populate_fields(self.layout_b, content_b, "#c084fc", "⬅ Injecter", "B")
 
-        def _update_srs(note, srs_dict):
-            has_srs = hasattr(note, "srs_ivl") or (hasattr(note, "cards") and len(note.cards) > 0 and hasattr(note.cards[0], "srs_ivl"))
-            if has_srs:
-                reps = getattr(note, "srs_reps", 0)
-                if reps > 21:
-                    srs_dict["state"].setText("🟢 Maîtrisée")
-                    srs_dict["state"].setStyleSheet(f"background: rgba(16,185,129,0.2); color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
-                elif reps > 5:
-                    srs_dict["state"].setText("🟡 Apprentissage")
-                    srs_dict["state"].setStyleSheet(f"background: rgba(245,158,11,0.2); color: {DesignTokens.COLOR_YELLOW}; padding: 2px 6px; border-radius: 4px;")
-                else:
-                    srs_dict["state"].setText("🔴 Nouvelle")
-                    srs_dict["state"].setStyleSheet(f"background: rgba(239,68,68,0.2); color: {DesignTokens.COLOR_RED}; padding: 2px 6px; border-radius: 4px;")
+        self._update_srs(note_a, self.srs_a)
+        self._update_srs(note_b, self.srs_b)
 
-                srs_dict["ivl"].setText(f"{getattr(note, 'srs_ivl', 0)} j")
-                srs_dict["ease"].setText(f"{getattr(note, 'srs_ease', 250)}%")
-            else:
-                srs_dict["state"].setText("⚪ Non synchronisé")
-                srs_dict["state"].setStyleSheet(
-                    f"background: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px; border: 1px dashed {DesignTokens.BORDER_COLOR};"
-                )
-                srs_dict["ivl"].setText("Non étudiée")
-                srs_dict["ease"].setText("N/A")
+        if "merged_content" not in self.current_conflict:
+            self.current_conflict["merged_content"] = self.current_conflict["content_a"].copy()
 
-        _update_srs(note_a, self.srs_a)
-        _update_srs(note_b, self.srs_b)
-
-        self.set_merged_content("A")
+        self._refresh_col("A")
+        self._refresh_col("B")
+        self._refresh_col("Fusion")
 
     def set_merged_content(self, source: str) -> None:
         if not self.current_conflict:
             return
         content = self.current_conflict["content_a"].copy() if source == "A" else self.current_conflict["content_b"].copy()
         self.current_conflict["merged_content"] = content
-        self._populate_fields(self.merged_content_layout, content, DesignTokens.ACCENT_PRIMARY, "", "Fusion")
+        self._refresh_col("Fusion")
 
     def on_validate(self) -> None:
         if not self.current_conflict:
@@ -732,3 +866,23 @@ class DuplicateMergeInspector(QFrame):
         if not self.current_conflict:
             return
         self.ignore_requested.emit(self.current_conflict["note_a"], self.current_conflict["note_b"])
+
+    def reset_inspector(self) -> None:
+        """Réinitialise l'inspecteur lorsqu'aucun conflit n'est sélectionné."""
+        self.current_conflict = None
+        self.lbl_title_a.setText("CARTE #1")
+        self.lbl_title_b.setText("CARTE #2")
+        self.lbl_sim.setText("Similitude : --%")
+        self._clear_layout(self.layout_a)
+        self._clear_layout(self.layout_b)
+        self._clear_layout(self.merged_content_layout)
+        self.stack_a.setCurrentIndex(0)
+        self.stack_b.setCurrentIndex(0)
+        self.stack_fusion.setCurrentIndex(0)
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Décharge les vues WebEngine et libère la mémoire lors du démontage ou masquage."""
+        for web_view in (self.web_a, self.web_b, self.web_fusion):
+            if web_view is not None:
+                web_view.cleanup()
