@@ -144,13 +144,6 @@ class SafeWebEngineView(QWebEngineView):
         self._load_count = 0
         self._refresh_threshold = 20
 
-        # Détacher l'ancienne page par défaut créée par super().__init__ avant d'affecter
-        # initial_page afin d'éviter sa destruction synchrone abrupte pendant l'init Chromium.
-        old_page = self.page()
-        if old_page is not None:
-            old_page.setParent(None)
-            old_page.deleteLater()
-
         # Utilisation systématique de la page durcie avec profil partagé
         initial_page = SafeWebEnginePage(parent=self)
         self._configure_page(initial_page)
