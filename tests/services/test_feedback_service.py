@@ -61,27 +61,27 @@ class TestFeedbackService:
 
     def test_build_bug_report_markdown_with_secret_redaction(self) -> None:
         """Vérifie que les clés API et tokens sont strictement masqués dans le rapport de bug."""
-        secret_key = "sk-proj-secret1234567890abcdef12345"
+        mock_token = "sk-" + "testmock1234567890abcdef12345"  # gitleaks:allow
         diag = SystemDiagnosticInfo(
             ankiforge_version="v1.1.5",
-            recent_logs=[f"[DEBUG] API Key used: {secret_key}"],
+            recent_logs=[f"[DEBUG] API Key used: {mock_token}"],
         )
 
         data = BugReportData(
             title="Crash lors de la génération",
             severity="Élevé / Bloquant",
             steps="1. Ingestion de doc",
-            observed=f"Erreur avec bearer: Bearer {secret_key}",
+            observed=f"Erreur avec bearer: Bearer {mock_token}",
             expected="Cartes générées",
             include_diagnostics=True,
             diagnostic_info=diag,
-            custom_traceback=f"Exception raised with key={secret_key}",
+            custom_traceback=f"Exception raised with key={mock_token}",
         )
 
         md = FeedbackService.build_bug_report_markdown(data)
 
         # Vérification qu'aucun secret en clair n'apparaît
-        assert secret_key not in md
+        assert mock_token not in md
         assert "[REDACTED" in md
         assert "Crash lors de la génération" in md
         assert "Élevé / Bloquant" in md

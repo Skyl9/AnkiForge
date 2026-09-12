@@ -1,0 +1,3 @@
+# Gitleaks ignore list
+# Format: fingerprint (commit:file:rule:line)
+8dd0e1b7c69d1cfd704baa0387b62afcd2fd55b6:tests/services/test_feedback_service.py:generic-api-key:64

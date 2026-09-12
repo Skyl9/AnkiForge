@@ -1,0 +1,8 @@
+# Configuration Gitleaks pour AnkiForge
+title = "AnkiForge Gitleaks Configuration"
+
+[allowlist]
+description = "Autoriser les chaînes synthétiques de test pour la vérification du masquage de secrets"
+paths = [
+    '''tests/.*''',
+]
