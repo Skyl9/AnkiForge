@@ -270,7 +270,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: "offscreen"
           QTWEBENGINE_DISABLE_SANDBOX: "1"
-          QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage"
+          QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --offscreen --disable-dev-shm-usage"
           ANKIFORGE_MOCK_WEBENGINE: "1"
         run: |
           # Qt/WebEngine et coverage ne sont pas sûrs avec plusieurs workers

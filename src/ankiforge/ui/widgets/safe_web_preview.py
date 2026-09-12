@@ -29,39 +29,36 @@ class AnkiForgeWebProfile:
     - La purge programmée ou manuelle des caches mémoire.
     """
 
-    _profile: QWebEngineProfile | None = None
     CACHE_MAX_BYTES: int = 50 * 1024 * 1024  # 50 Mo
+    _configured: bool = False
+
+    @classmethod
+    def configure_profile(cls, profile: QWebEngineProfile | None = None) -> QWebEngineProfile:
+        prof = profile or QWebEngineProfile.defaultProfile()
+        if not cls._configured or profile is not None:
+            prof.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
+            prof.setHttpCacheMaximumSize(cls.CACHE_MAX_BYTES)
+            prof.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
+            if profile is None:
+                cls._configured = True
+            logger.debug(
+                "AnkiForgeWebProfile configuré : MemoryHttpCache borné à %d Mo, NoPersistentCookies",
+                cls.CACHE_MAX_BYTES // (1024 * 1024),
+            )
+        return prof
 
     @classmethod
     def get_shared_profile(cls) -> QWebEngineProfile:
-        try:
-            import shiboken6
-
-            is_valid = cls._profile is not None and shiboken6.isValid(cls._profile)
-        except Exception:
-            is_valid = cls._profile is not None
-
-        if not is_valid:
-            cls._profile = QWebEngineProfile.defaultProfile()
-            cls._configure_profile(cls._profile)
-        return cls._profile
-
-    @classmethod
-    def _configure_profile(cls, profile: QWebEngineProfile) -> None:
-        profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
-        profile.setHttpCacheMaximumSize(cls.CACHE_MAX_BYTES)
-        profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
-        logger.debug(
-            "AnkiForgeWebProfile initialisé : MemoryHttpCache borné à %d Mo, NoPersistentCookies",
-            cls.CACHE_MAX_BYTES // (1024 * 1024),
-        )
+        return cls.configure_profile()
 
     @classmethod
     def clear_memory_cache(cls) -> None:
         """Vide le cache mémoire HTTP Chromium."""
-        if cls._profile is not None:
-            cls._profile.clearHttpCache()
+        try:
+            QWebEngineProfile.defaultProfile().clearHttpCache()
             logger.debug("Cache mémoire AnkiForgeWebProfile vidé")
+        except Exception:
+            pass
 
 
 class SafeWebEnginePage(QWebEnginePage):
@@ -74,8 +71,15 @@ class SafeWebEnginePage(QWebEnginePage):
     action_requested = Signal(str, dict)  # action_name, params_dict
 
     def __init__(self, profile: QWebEngineProfile | None = None, parent: QWidget | None = None) -> None:
-        shared_profile = profile or AnkiForgeWebProfile.get_shared_profile()
-        super().__init__(shared_profile, parent)
+        AnkiForgeWebProfile.configure_profile(profile)
+        if profile is not None:
+            super().__init__(profile, parent)
+        else:
+            # Ne jamais passer defaultProfile() explicitement à super().__init__ :
+            # Qt C++ utilise defaultProfile() par défaut. Passer l'objet Python amène Shiboken
+            # à s'approprier le cycle de vie du profil global et à le détruire avec la page,
+            # provoquant des SIGSEGV natifs dans les threads workers Chromium.
+            super().__init__(parent)
 
     def acceptNavigationRequest(self, url: QUrl | str, _type: QWebEnginePage.NavigationType, isMainFrame: bool) -> bool:
         """Intercepte les protocoles applicatifs ankiforge:// sans recharger la page."""
@@ -139,6 +143,13 @@ class SafeWebEngineView(QWebEngineView):
         super().__init__(parent)
         self._load_count = 0
         self._refresh_threshold = 20
+
+        # Détacher l'ancienne page par défaut créée par super().__init__ avant d'affecter
+        # initial_page afin d'éviter sa destruction synchrone abrupte pendant l'init Chromium.
+        old_page = self.page()
+        if old_page is not None:
+            old_page.setParent(None)
+            old_page.deleteLater()
 
         # Utilisation systématique de la page durcie avec profil partagé
         initial_page = SafeWebEnginePage(parent=self)
