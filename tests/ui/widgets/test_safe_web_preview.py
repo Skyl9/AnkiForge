@@ -1,5 +1,8 @@
 """Tests unitaires pour SafeWebEngineView, SafeWebEnginePage et AnkiForgeWebProfile."""
 
+import sys
+
+import pytest
 from PySide6.QtCore import QUrl
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWidgets import QWidget
@@ -11,7 +14,13 @@ from ankiforge.ui.widgets.safe_web_preview import (
     SafeWebEngineView,
 )
 
+LINUX_QTWEBENGINE_UNSTABLE = pytest.mark.skipif(
+    sys.platform.startswith("linux"),
+    reason="QtWebEngine 6.11 segfaults during pytest-qt teardown on Linux CI",
+)
 
+
+@LINUX_QTWEBENGINE_UNSTABLE
 def test_ankiforge_web_profile_configuration(qtbot: QtBot) -> None:
     profile = AnkiForgeWebProfile.get_shared_profile()
     assert profile is not None
@@ -23,6 +32,7 @@ def test_ankiforge_web_profile_configuration(qtbot: QtBot) -> None:
     AnkiForgeWebProfile.clear_memory_cache()
 
 
+@LINUX_QTWEBENGINE_UNSTABLE
 def test_safe_web_engine_page_security_and_actions(qtbot: QtBot) -> None:
     dummy = QWidget()
     qtbot.addWidget(dummy)
@@ -48,6 +58,7 @@ def test_safe_web_engine_page_security_and_actions(qtbot: QtBot) -> None:
     assert params["field_name"] == "Recto"
 
 
+@LINUX_QTWEBENGINE_UNSTABLE
 def test_safe_web_engine_view_lifecycle_and_dom_recycling(qtbot: QtBot) -> None:
     view = SafeWebEngineView()
     qtbot.addWidget(view)

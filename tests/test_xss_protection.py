@@ -6,13 +6,20 @@ et l'interception silencieuse des boîtes alert(), confirm() et prompt().
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 
+import pytest
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QWidget
 
 from ankiforge.ui.widgets.katex_editor import sanitize_user_markdown_html
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEnginePage, SafeWebEngineView
+
+LINUX_QTWEBENGINE_UNSTABLE = pytest.mark.skipif(
+    sys.platform.startswith("linux"),
+    reason="QtWebEngine 6.11 segfaults during pytest-qt teardown on Linux CI",
+)
 
 
 def test_sanitize_user_markdown_html_script_tags() -> None:
@@ -50,6 +57,7 @@ def test_sanitize_user_markdown_html_javascript_protocol() -> None:
     assert 'href="#"' in sanitized
 
 
+@LINUX_QTWEBENGINE_UNSTABLE
 def test_safe_web_engine_page_dialog_interception(qtbot: Any) -> None:
     """Vérifie que SafeWebEnginePage bloque silencieusement alert(), confirm() et prompt()."""
     dummy = QWidget()
@@ -69,6 +77,7 @@ def test_safe_web_engine_page_dialog_interception(qtbot: Any) -> None:
     assert res_prompt == (False, "")
 
 
+@LINUX_QTWEBENGINE_UNSTABLE
 def test_safe_web_engine_view_uses_safe_page(qtbot: Any) -> None:
     """Vérifie que SafeWebEngineView instancie bien une SafeWebEnginePage."""
     view = SafeWebEngineView()
