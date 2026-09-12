@@ -2,7 +2,7 @@ import logging
 import pathlib
 from typing import Any
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -32,6 +33,7 @@ from ankiforge.database.models import (
     NoteChunkLinkModel,
 )
 from ankiforge.services.ai.rag_service import RAGService
+from ankiforge.services.markdown import FormatOptions, MarkdownFormatter, MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
 from ankiforge.services.parsing.marker_service import MarkerService
@@ -47,6 +49,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.documents_view.dialogs import (
+    AIDocumentStructureDialog,
     AlbumImportDialog,
     DocumentDelimitationDialog,
     RAGTestDialog,
@@ -56,6 +59,7 @@ from ankiforge.ui.views.documents_view.widgets import (
     AlbumViewerWidget,
     DocumentTreeWidget,
 )
+from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
@@ -95,6 +99,10 @@ class DocumentsView(QWidget):
         self._dirty = False
         self.worker: DocumentWorker | None = None
         self._coverage_worker: CoverageWorker | None = None
+        self._outline_debounce_timer = QTimer(self)
+        self._outline_debounce_timer.setSingleShot(True)
+        self._outline_debounce_timer.setInterval(400)
+        self._outline_debounce_timer.timeout.connect(self._update_outline)
 
         self._setup_ui()
         self._connect_signals()
@@ -335,6 +343,22 @@ class DocumentsView(QWidget):
         row2.addWidget(self.view_toggle_frame)
         row2.addStretch()
 
+        self.btn_format_md = SecondaryButton("🪄 Formater")
+        self.btn_format_md.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_format_md.setToolTip("Nettoyer, normaliser et formater le Markdown (césures OCR, KaTeX, tables GFM)")
+        self.btn_format_md.setFixedHeight(26)
+        self.btn_format_md.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self._setup_format_menu()
+        row2.addWidget(self.btn_format_md)
+
+        self.btn_ai_structure = SecondaryButton("🤖 Structurer IA")
+        self.btn_ai_structure.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_PURPLE))
+        self.btn_ai_structure.setToolTip("Transformer cette retranscription ou ce texte brut en cours structuré par IA")
+        self.btn_ai_structure.setFixedHeight(26)
+        self.btn_ai_structure.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
+        self.btn_ai_structure.clicked.connect(self._on_open_ai_structure_dialog)
+        row2.addWidget(self.btn_ai_structure)
+
         self.btn_delimit = SecondaryButton("Délimiter les pages")
         self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color="#38bdf8"))
         self.btn_delimit.setToolTip("Sélectionner les pages et chapitres utiles avant la forge et le RAG")
@@ -566,6 +590,10 @@ class DocumentsView(QWidget):
 
         self.coverage_panel.add_tab("RAG", rag_sandbox_content, "ph.database", closable=False)
 
+        # --- TAB 3: Plan & Arborescence (Outline) ---
+        self.outline_widget = DocumentOutlineWidget()
+        self.coverage_panel.add_tab("Plan", self.outline_widget, "ph.tree-structure", closable=False)
+
         self.main_splitter.addWidget(self.coverage_panel)
 
         self.main_splitter.setCollapsible(0, False)
@@ -581,6 +609,9 @@ class DocumentsView(QWidget):
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
         self.tree_explorer.itemMoved.connect(self._on_item_moved)
         self.text_editor.content_changed.connect(self._on_document_text_changed)
+        self.outline_widget.heading_selected.connect(self._on_outline_heading_selected)
+        self.outline_widget.repair_requested.connect(self._on_repair_document_headings)
+        self.outline_widget.toc_requested.connect(self._on_insert_document_toc)
 
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)
@@ -750,7 +781,9 @@ class DocumentsView(QWidget):
                     return
 
                 self.text_editor.blockSignals(True)
-                self.text_editor.set_content(doc.content if hasattr(doc, "content") else "")
+                doc_content = doc.content if hasattr(doc, "content") else ""
+                self.text_editor.set_content(doc_content)
+                self.outline_widget.set_document_content(doc_content)
                 self.text_editor.blockSignals(False)
                 self._dirty = False
                 self._update_word_count()
@@ -799,6 +832,7 @@ class DocumentsView(QWidget):
                 self.audio_player.stop()
                 self.audio_player.hide()
             self._current_doc_id = None
+            self.outline_widget.set_document_content("")
             self.editor_stack.setCurrentIndex(0)
             self._refresh_chapters_list()
 
@@ -821,6 +855,220 @@ class DocumentsView(QWidget):
         self._dirty = True
         self.btn_save.setEnabled(True)
         self._update_word_count()
+        self._outline_debounce_timer.start()
+
+    def _setup_format_menu(self) -> None:
+        """Configure le menu déroulant d'options de formatage Markdown."""
+        menu = QMenu(self.btn_format_md)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                padding: 6px 16px;
+                border-radius: 4px;
+            }}
+            QMenu::item:selected {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+        """)
+        act_all = menu.addAction("🪄 Tout formater (Auto)")
+        act_all.triggered.connect(lambda: self._format_current_document())
+
+        menu.addSeparator()
+
+        act_ocr = menu.addAction("✂️ Dé-césurer les coupures OCR")
+        act_ocr.triggered.connect(
+            lambda: self._format_current_document(
+                FormatOptions(
+                    dehyphenate_ocr=True,
+                    normalize_katex=False,
+                    align_tables=False,
+                    normalize_headings=False,
+                    clean_whitespace=False,
+                    normalize_code_fences=False,
+                )
+            )
+        )
+
+        act_katex = menu.addAction("🧮 Harmoniser KaTeX ($ / $$)")
+        act_katex.triggered.connect(
+            lambda: self._format_current_document(
+                FormatOptions(
+                    dehyphenate_ocr=False,
+                    normalize_katex=True,
+                    align_tables=False,
+                    normalize_headings=False,
+                    clean_whitespace=False,
+                    normalize_code_fences=False,
+                )
+            )
+        )
+
+        act_tables = menu.addAction("📊 Aligner les tableaux GFM")
+        act_tables.triggered.connect(
+            lambda: self._format_current_document(
+                FormatOptions(
+                    dehyphenate_ocr=False,
+                    normalize_katex=False,
+                    align_tables=True,
+                    normalize_headings=False,
+                    clean_whitespace=False,
+                    normalize_code_fences=False,
+                )
+            )
+        )
+
+        act_space = menu.addAction("🧹 Nettoyer les espaces superflus")
+        act_space.triggered.connect(
+            lambda: self._format_current_document(
+                FormatOptions(
+                    dehyphenate_ocr=False,
+                    normalize_katex=False,
+                    align_tables=False,
+                    normalize_headings=False,
+                    clean_whitespace=True,
+                    normalize_code_fences=False,
+                )
+            )
+        )
+
+        menu.addSeparator()
+        act_ai = menu.addAction("🤖 Structurer avec l'IA...")
+        act_ai.triggered.connect(self._on_open_ai_structure_dialog)
+
+        self.btn_format_md.setMenu(menu)
+
+    @Slot()
+    def _on_open_ai_structure_dialog(self) -> None:
+        """Ouvre la boîte de dialogue de structuration IA pour le document actif."""
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document à structurer", level="warning")
+            return
+
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        if not doc:
+            return
+
+        content = self.text_editor.get_content()
+        if not content.strip():
+            show_toast(self, "Le document actif est vide", level="warning")
+            return
+
+        dialog = AIDocumentStructureDialog(
+            doc_title=doc.title,
+            content=content,
+            ai_manager=self.ai_manager,
+            parent=self,
+        )
+        dialog.structure_applied.connect(self._on_structure_applied_to_editor)
+        dialog.structure_saved_as_copy.connect(self._on_structure_saved_as_copy)
+        dialog.exec()
+
+    @Slot(str)
+    def _on_structure_applied_to_editor(self, new_text: str) -> None:
+        """Remplace le contenu de l'éditeur par le résultat structuré par l'IA."""
+        self.text_editor.set_content(new_text)
+        self._dirty = True
+        self.btn_save.setEnabled(True)
+        self.outline_widget.set_document_content(new_text)
+        show_toast(self, "Document restructuré avec succès dans l'éditeur", level="success")
+
+    @Slot(str)
+    def _on_structure_saved_as_copy(self, new_text: str) -> None:
+        """Enregistre le document structuré sous forme d'une nouvelle copie."""
+        if not self._current_doc_id:
+            return
+
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        orig_title = doc.title if doc else "Document"
+        folder = doc.folder if doc else None
+
+        new_doc = DocumentModel.create(
+            title=f"{orig_title} (Structuré IA)",
+            content=new_text,
+            file_type="md",
+            folder=folder,
+        )
+        self.refresh_data()
+        self._select_doc_id_in_tree(new_doc.id)
+        show_toast(self, f"Copie structurée '{new_doc.title}' créée avec succès", level="success")
+
+    def _format_current_document(self, options: FormatOptions | None = None) -> None:
+        """Applique les règles de formatage au document actif et actualise l'éditeur."""
+        if not self._current_doc_id:
+            show_toast(self, "Veuillez sélectionner un document à formater", level="warning")
+            return
+        content = self.text_editor.get_content()
+        if not content.strip():
+            return
+        result = MarkdownFormatter.format(content, options)
+        if result.changed:
+            self.text_editor.set_content(result.formatted_text)
+            self._dirty = True
+            self.btn_save.setEnabled(True)
+            self.outline_widget.set_document_content(result.formatted_text)
+            summary = ", ".join(result.changes_summary) if result.changes_summary else "Formatage appliqué"
+            show_toast(self, f"Formatage réussi : {summary}", level="success")
+        else:
+            show_toast(self, "Le document est déjà parfaitement formaté", level="info")
+
+    @Slot(int)
+    def _on_outline_heading_selected(self, line_number: int) -> None:
+        """Déplace le curseur dans l'éditeur vers la ligne sélectionnée."""
+        if hasattr(self.text_editor, "editor") and self.text_editor.editor:
+            editor = self.text_editor.editor
+            doc = editor.document()
+            block = doc.findBlockByLineNumber(line_number - 1)
+            if block.isValid():
+                cursor = editor.textCursor()
+                cursor.setPosition(block.position())
+                editor.setTextCursor(cursor)
+                editor.centerCursor()
+                editor.setFocus()
+
+    @Slot()
+    def _on_repair_document_headings(self) -> None:
+        """Harmonise la hiérarchie des titres (corrige les sauts de niveau)."""
+        content = self.text_editor.get_content()
+        if not content.strip():
+            return
+        repaired, changes = MarkdownStructurer.repair_heading_hierarchy(content)
+        if changes:
+            self.text_editor.set_content(repaired)
+            self._dirty = True
+            self.btn_save.setEnabled(True)
+            self.outline_widget.set_document_content(repaired)
+            show_toast(self, f"Hiérarchie réparée : {len(changes)} titre(s) ajusté(s)", level="success")
+        else:
+            show_toast(self, "La hiérarchie des titres est déjà optimale", level="info")
+
+    @Slot()
+    def _on_insert_document_toc(self) -> None:
+        """Génère et insère une Table des Matières au début du document."""
+        content = self.text_editor.get_content()
+        if not content.strip():
+            return
+        toc = MarkdownStructurer.generate_toc(content)
+        if not toc:
+            show_toast(self, "Aucun titre trouvé pour générer le sommaire", level="warning")
+            return
+        new_content = f"{toc}\n\n{content}"
+        self.text_editor.set_content(new_content)
+        self._dirty = True
+        self.btn_save.setEnabled(True)
+        self.outline_widget.set_document_content(new_content)
+        show_toast(self, "Table des matières insérée avec succès", level="success")
+
+    def _update_outline(self) -> None:
+        """Met à jour l'arborescence suite à une modification du texte."""
+        if hasattr(self, "outline_widget") and self._current_doc_id:
+            content = self.text_editor.get_content()
+            self.outline_widget.set_document_content(content)
 
     def _update_word_count(self) -> None:
         text = self.text_editor.get_content()

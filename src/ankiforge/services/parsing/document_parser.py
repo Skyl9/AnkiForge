@@ -40,7 +40,13 @@ class DocumentParser:
         """
         self.media_manager = media_manager or MediaManager()
 
-    def parse_document(self, source_file_path: str | Path, progress_callback: Any = None, check_cancel: Any = None) -> str:
+    def parse_document(
+        self,
+        source_file_path: str | Path,
+        progress_callback: Any = None,
+        check_cancel: Any = None,
+        auto_format: bool = False,
+    ) -> str:
         """
         Détermine le type de document et invoque le parseur approprié.
 
@@ -48,6 +54,7 @@ class DocumentParser:
             source_file_path (str | Path): Chemin local ou URL du document.
             progress_callback (callable | None): Fonction de rappel pour la progression (msg: str).
             check_cancel (callable | None): Fonction pour vérifier si l'utilisateur a annulé.
+            auto_format (bool): Si True, nettoie et normalise le Markdown extrait.
 
         Returns:
             str: Le texte extrait au format Markdown.
@@ -64,6 +71,13 @@ class DocumentParser:
             if progress_callback:
                 progress_callback("Téléchargement et extraction de la page Web...")
             res = self._parse_web(source_str)
+            if auto_format and res:
+                from ankiforge.services.markdown.formatter import MarkdownFormatter
+
+                format_res = MarkdownFormatter.format(res)
+                if format_res.changed:
+                    logger.info("Auto-formatage Markdown appliqué sur la page Web : %s", ", ".join(format_res.changes_summary))
+                    res = format_res.formatted_text
             logger.info("Extraction Web terminée pour '%s' (%d caractères)", source_str, len(res))
             return res
 
@@ -99,6 +113,14 @@ class DocumentParser:
         else:
             logger.warning("Format de fichier non supporté : %s", ext)
             raise ValueError(f"Format de fichier non supporté : {ext}")
+
+        if auto_format and res:
+            from ankiforge.services.markdown.formatter import MarkdownFormatter
+
+            format_res = MarkdownFormatter.format(res)
+            if format_res.changed:
+                logger.info("Auto-formatage Markdown appliqué sur '%s' : %s", file_path.name, ", ".join(format_res.changes_summary))
+                res = format_res.formatted_text
 
         logger.info("Extraction locale terminée pour '%s' (%d caractères)", file_path.name, len(res))
         return res

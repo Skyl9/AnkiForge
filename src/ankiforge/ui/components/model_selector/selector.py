@@ -152,6 +152,14 @@ class ModelSelectorWidget(QWidget):
         """Retourne le nombre d'éléments dans le combobox."""
         return self.combo.count()
 
+    def findText(self, text: str) -> int:
+        """Trouve l'index correspondant au texte affiché."""
+        return self.combo.findText(text)
+
+    def findData(self, data: object) -> int:
+        """Trouve l'index correspondant à l'objet de données associé."""
+        return self.combo.findData(data)
+
     def set_current_model_id(self, model_id: int | str | None) -> None:
         """Définit le modèle actif par son ID SQLite ou son model_id chaîne."""
         if model_id is None:

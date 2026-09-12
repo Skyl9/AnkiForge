@@ -25,15 +25,24 @@ class ChunkingService:
     )
     HEADING_REGEX = re.compile(r"^(#{1,6})\s+(.*)", re.MULTILINE)
 
+    STRATEGY_DEFAULT = "default"
+    STRATEGY_MARKDOWN_AST = "markdown_ast"
+
     @classmethod
     def hash_content(cls, text: str) -> str:
         """Génère un hash MD5 du texte pour la déduplication et le suivi."""
         return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     @classmethod
-    def extract_chunks(cls, content: str, file_type: str | None = None) -> list[dict[str, Any]]:
+    def extract_chunks(
+        cls,
+        content: str,
+        file_type: str | None = None,
+        strategy: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Découpe un document en chunks cohérents et exploitables pour la Forge et le RAG.
 
+        Si strategy == 'markdown_ast', le découpage s'appuie sur l'analyseur AST MarkdownStructurer.
         Si le document est paginé (PDF, PPTX, ou marqueurs de page présents),
         le découpage s'effectue par page.
         Sinon (Markdown brut, Web, texte), le découpage s'effectue par section logique (Titre + Corps).
@@ -41,6 +50,7 @@ class ChunkingService:
         Args:
             content (str): Le contenu Markdown brut du document.
             file_type (str | None): Extension/type du fichier ('pdf', 'pptx', 'md', etc.).
+            strategy (str | None): Stratégie optionnelle ('markdown_ast', etc.).
 
         Returns:
             List[Dict[str, Any]]: Liste des fragments avec :
@@ -65,10 +75,43 @@ class ChunkingService:
             is_paginated,
         )
 
+        if strategy == cls.STRATEGY_MARKDOWN_AST:
+            result = cls.extract_chunks_markdown_ast(content)
+            logger.info("Extraction AST Markdown achevée : %d fragments créés", len(result))
+            return result
+
         result = cls._extract_by_page(content, markers) if is_paginated and markers else cls._extract_by_section(content)
 
         logger.info("Extraction de chunks achevée : %d fragments créés", len(result))
         return result
+
+    @classmethod
+    def extract_chunks_markdown_ast(cls, content: str, max_tokens: int | None = None) -> list[dict[str, Any]]:
+        """Découpe un document Markdown en utilisant l'analyseur structurel AST MarkdownStructurer.
+
+        Garantit la préservation rigoureuse du fil d'Ariane (heading_path) pour chaque section,
+        idéal pour le RAG vectoriel et la Forge documentaire.
+        """
+        from ankiforge.services.markdown.structurer import MarkdownStructurer
+
+        if not content or not content.strip():
+            return []
+
+        sections = MarkdownStructurer.extract_sections(content, max_tokens=max_tokens)
+        chunks: list[dict[str, Any]] = []
+        for idx, sec in enumerate(sections):
+            chunks.append(
+                {
+                    "index": idx,
+                    "content": sec.content,
+                    "page_number": None,
+                    "heading_path": sec.heading_path,
+                    "start_time": None,
+                    "end_time": None,
+                    "content_hash": cls.hash_content(sec.content),
+                }
+            )
+        return chunks
 
     @classmethod
     def _extract_by_page(cls, content: str, markers: list[re.Match]) -> list[dict[str, Any]]:

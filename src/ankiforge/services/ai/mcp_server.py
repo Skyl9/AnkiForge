@@ -144,6 +144,73 @@ def search_document(query: str, document_id: int) -> str:
 
 
 # =====================================================================
+# OUTILS DE FORMATAGE ET STRUCTURATION MARKDOWN
+# =====================================================================
+
+
+@mcp.tool()
+def format_markdown_document(
+    document_id: int = 0,
+    content: str = "",
+    dehyphenate_ocr: bool = True,
+    normalize_katex: bool = True,
+    align_tables: bool = True,
+    normalize_headings: bool = True,
+    clean_whitespace: bool = True,
+) -> str:
+    """Nettoie, normalise et formate un document Markdown (césures OCR, KaTeX, tables GFM, titres ATX)."""
+    return ConsultantToolRegistry.format_markdown_document(
+        document_id=document_id,
+        content=content,
+        dehyphenate_ocr=dehyphenate_ocr,
+        normalize_katex=normalize_katex,
+        align_tables=align_tables,
+        normalize_headings=normalize_headings,
+        clean_whitespace=clean_whitespace,
+    )
+
+
+@mcp.tool()
+def get_document_outline(document_id: int = 0, content: str = "") -> str:
+    """Extrait l'arborescence hiérarchique des titres (Outline) d'un document Markdown."""
+    return ConsultantToolRegistry.get_document_outline(document_id=document_id, content=content)
+
+
+@mcp.tool()
+def structure_document_sections(document_id: int = 0, content: str = "", max_tokens: int = 800) -> str:
+    """Découpe un document Markdown en sections sémantiques enrichies avec breadcrumbs et statistiques pour le RAG."""
+    return ConsultantToolRegistry.structure_document_sections(
+        document_id=document_id,
+        content=content,
+        max_tokens=max_tokens,
+    )
+
+
+@mcp.tool()
+def structure_transcript_for_ai(
+    document_id: int = 0,
+    content: str = "",
+    profile: str = "didactic",
+    target_language: str = "fr",
+    preserve_timestamps: bool = True,
+    normalize_latex: bool = True,
+    add_summary: bool = True,
+    add_key_takeaways: bool = True,
+) -> str:
+    """Restructure un texte brut ou une retranscription (YouTube, cours, audio) en Markdown pédagogique structuré."""
+    return ConsultantToolRegistry.structure_transcript_for_ai(
+        document_id=document_id,
+        content=content,
+        profile=profile,
+        target_language=target_language,
+        preserve_timestamps=preserve_timestamps,
+        normalize_latex=normalize_latex,
+        add_summary=add_summary,
+        add_key_takeaways=add_key_takeaways,
+    )
+
+
+# =====================================================================
 # OUTILS DE DOCUMENTATION & BASE DE CONNAISSANCES INTERNE (ZENSICAL)
 # =====================================================================
 

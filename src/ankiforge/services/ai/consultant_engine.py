@@ -1008,6 +1008,168 @@ class ConsultantToolRegistry:
             logger.error("Erreur invoke_mcp_agent : %s", e)
             return f"Erreur lors de l'exécution de l'agent '{agent_name}' : {e}"
 
+    @staticmethod
+    def format_markdown_document(
+        document_id: int = 0,
+        content: str = "",
+        dehyphenate_ocr: bool = True,
+        normalize_katex: bool = True,
+        align_tables: bool = True,
+        normalize_headings: bool = True,
+        clean_whitespace: bool = True,
+    ) -> str:
+        """Nettoie, normalise et formate un document Markdown ou une chaîne brute."""
+        from ankiforge.services.markdown.formatter import MarkdownFormatter
+        from ankiforge.services.markdown.models import FormatOptions
+
+        try:
+            target_text = content
+            doc_title = "Texte brut"
+            if document_id > 0:
+                doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+                if not doc:
+                    return f"Erreur : Aucun document trouvé avec l'identifiant #{document_id}."
+                target_text = target_text or (doc.content if hasattr(doc, "content") else "")
+                doc_title = getattr(doc, "title", f"Document #{document_id}")
+
+            if not target_text.strip():
+                return "Erreur : Le contenu à formater est vide."
+
+            options = FormatOptions(
+                dehyphenate_ocr=dehyphenate_ocr,
+                normalize_katex=normalize_katex,
+                align_tables=align_tables,
+                normalize_headings=normalize_headings,
+                clean_whitespace=clean_whitespace,
+            )
+            result = MarkdownFormatter.format(target_text, options)
+            changes = "\n".join(f"  • {c}" for c in result.changes_summary) if result.changes_summary else "  (Aucun changement nécessaire)"
+
+            return (
+                f"🪄 Formatage Markdown achevé pour '{doc_title}' :\n"
+                f"- Modifié : {'Oui' if result.changed else 'Non'}\n"
+                f"- Résumé des optimisations :\n{changes}\n\n"
+                f"--- Contenu Formaté ---\n{result.formatted_text}"
+            )
+        except Exception as e:
+            logger.error("Erreur format_markdown_document : %s", e)
+            return f"Erreur lors du formatage Markdown : {e}"
+
+    @staticmethod
+    def get_document_outline(document_id: int = 0, content: str = "") -> str:
+        """Extrait l'arborescence hiérarchique des titres (Outline) d'un document."""
+        from ankiforge.services.markdown.structurer import MarkdownStructurer
+
+        try:
+            target_text = content
+            doc_title = "Document"
+            if document_id > 0:
+                doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+                if not doc:
+                    return f"Erreur : Aucun document trouvé avec l'identifiant #{document_id}."
+                target_text = target_text or (doc.content if hasattr(doc, "content") else "")
+                doc_title = getattr(doc, "title", f"Document #{document_id}")
+
+            if not target_text.strip():
+                return "Erreur : Le document est vide."
+
+            outline = MarkdownStructurer.get_outline(target_text)
+            if not outline:
+                return f"Le document '{doc_title}' ne contient aucun titre Markdown structuré."
+
+            lines = [f"📑 Plan et Structure de '{doc_title}' ({len(outline)} titres) :"]
+            for item in outline:
+                indent = "  " * (item.level - 1)
+                lines.append(f"{indent}• [Ligne {item.line_number}] H{item.level}: {item.title} (ancre: #{item.slug})")
+
+            return "\n".join(lines)
+        except Exception as e:
+            logger.error("Erreur get_document_outline : %s", e)
+            return f"Erreur lors de l'extraction de la structure : {e}"
+
+    @staticmethod
+    def structure_document_sections(document_id: int = 0, content: str = "", max_tokens: int = 800) -> str:
+        """Découpe un document en sections sémantiques cohérentes avec leurs fils d'Ariane."""
+        import json
+
+        from ankiforge.services.markdown.structurer import MarkdownStructurer
+
+        try:
+            target_text = content
+            doc_title = "Document"
+            if document_id > 0:
+                doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+                if not doc:
+                    return f"Erreur : Aucun document trouvé avec l'identifiant #{document_id}."
+                target_text = target_text or (doc.content if hasattr(doc, "content") else "")
+                doc_title = getattr(doc, "title", f"Document #{document_id}")
+
+            if not target_text.strip():
+                return "Erreur : Le document est vide."
+
+            sections = MarkdownStructurer.extract_sections(target_text, max_tokens=max_tokens)
+            sections_data = [sec.to_dict() for sec in sections]
+
+            return f"📐 Découpage sémantique de '{doc_title}' ({len(sections)} sections générées) :\n{json.dumps(sections_data, ensure_ascii=False, indent=2)}"
+        except Exception as e:
+            logger.error("Erreur structure_document_sections : %s", e)
+            return f"Erreur lors du découpage du document : {e}"
+
+    @staticmethod
+    def structure_transcript_for_ai(
+        document_id: int = 0,
+        content: str = "",
+        profile: str = "didactic",
+        target_language: str = "fr",
+        preserve_timestamps: bool = True,
+        normalize_latex: bool = True,
+        add_summary: bool = True,
+        add_key_takeaways: bool = True,
+    ) -> str:
+        """Restructure et synthétise une retranscription (YouTube, cours) ou un texte brut en Markdown pédagogique structuré."""
+        from ankiforge.services.markdown.ai_structurer import (
+            AIDocumentStructurer,
+            StructuringOptions,
+            StructuringProfile,
+        )
+
+        try:
+            target_text = content
+            doc_title = "Document"
+            if document_id > 0:
+                doc = DocumentModel.get_or_none(DocumentModel.id == document_id)
+                if not doc:
+                    return f"Erreur : Aucun document trouvé avec l'identifiant #{document_id}."
+                target_text = target_text or (doc.content if hasattr(doc, "content") else "")
+                doc_title = getattr(doc, "title", f"Document #{document_id}")
+
+            if not target_text.strip():
+                return "Erreur : Le document ou texte à structurer est vide."
+
+            try:
+                prof_enum = StructuringProfile(profile.lower().strip())
+            except ValueError:
+                prof_enum = StructuringProfile.DIDACTIC
+
+            options = StructuringOptions(
+                profile=prof_enum,
+                preserve_timestamps=preserve_timestamps,
+                normalize_katex=normalize_latex,
+                include_executive_summary=add_summary,
+                include_key_takeaways=add_key_takeaways,
+                language=target_language,
+            )
+
+            structured_text = AIDocumentStructurer.structure_document(
+                content=target_text,
+                options=options,
+            )
+
+            return f"🤖 Document restructuré par IA avec succès pour '{doc_title}' (profil: {prof_enum.value}) :\n\n--- Contenu Structuré ---\n{structured_text}"
+        except Exception as e:
+            logger.error("Erreur structure_transcript_for_ai : %s", e)
+            return f"Erreur lors de la restructuration IA du document : {e}"
+
 
 # =====================================================================
 # SPÉCIFICATIONS DES OUTILS POUR L'API OPENAI / LLM
@@ -1315,6 +1477,81 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "format_markdown_document",
+            "description": "Nettoie, normalise et formate un document Markdown (correction des césures OCR, normalisation KaTeX, alignement des tables GFM, normalisation des titres et espaces).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "ID du document stocké en BDD (0 pour texte brut)"},
+                    "content": {"type": "string", "description": "Contenu Markdown brut à formater si document_id n'est pas spécifié"},
+                    "dehyphenate_ocr": {"type": "boolean", "description": "Réparer les césures OCR de fin de ligne (défaut: true)"},
+                    "normalize_katex": {"type": "boolean", "description": "Harmoniser les délimiteurs LaTeX vers $ et $$ (défaut: true)"},
+                    "align_tables": {"type": "boolean", "description": "Réaligner les tableaux Markdown GFM (défaut: true)"},
+                    "normalize_headings": {"type": "boolean", "description": "Normaliser les titres ATX (défaut: true)"},
+                    "clean_whitespace": {"type": "boolean", "description": "Nettoyer les espaces et sauts de ligne (défaut: true)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_document_outline",
+            "description": "Extrait l'arborescence hiérarchique des titres (Outline) d'un document Markdown avec numéros de lignes et ancres.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "ID du document stocké en BDD (0 pour texte brut)"},
+                    "content": {"type": "string", "description": "Contenu Markdown brut si document_id n'est pas spécifié"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "structure_document_sections",
+            "description": "Découpe un document Markdown en sections sémantiques enrichies avec breadcrumbs hiérarchiques et statistiques pour le RAG.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "ID du document stocké en BDD (0 pour texte brut)"},
+                    "content": {"type": "string", "description": "Contenu Markdown brut si document_id n'est pas spécifié"},
+                    "max_tokens": {"type": "integer", "description": "Nombre maximum de tokens approximatifs par section (défaut: 800)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "structure_transcript_for_ai",
+            "description": (
+                "Restructure et synthétise une retranscription (YouTube, cours, audio) ou un texte brut en "
+                "Markdown pédagogique structuré (chapitres, timestamps [MM:SS], KaTeX, définitions, synthèse)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "ID du document stocké en BDD (0 pour texte brut)"},
+                    "content": {"type": "string", "description": "Contenu brut ou retranscription à structurer si document_id n'est pas spécifié"},
+                    "profile": {
+                        "type": "string",
+                        "enum": ["didactic", "polished_verbatim", "executive_summary"],
+                        "description": "Profil de structuration souhaité (défaut: didactic)",
+                    },
+                    "target_language": {"type": "string", "description": "Langue cible du document (défaut: fr)"},
+                    "preserve_timestamps": {"type": "boolean", "description": "Conserver les repères temporels [MM:SS] (défaut: true)"},
+                    "normalize_latex": {"type": "boolean", "description": "Harmoniser les notations scientifiques en KaTeX (défaut: true)"},
+                    "add_summary": {"type": "boolean", "description": "Générer un résumé exécutif en tête de document (défaut: true)"},
+                    "add_key_takeaways": {"type": "boolean", "description": "Inclure les points clés à retenir (défaut: true)"},
+                },
+            },
+        },
+    },
 ]
 
 
@@ -1524,6 +1761,43 @@ class ConsultantEngine:
             elif tool_name == "get_feature_quick_help":
                 f_name = tool_args.get("feature_name") or tool_args.get("name") or ""
                 return ConsultantToolRegistry.get_feature_quick_help(f_name), False
+            elif tool_name == "format_markdown_document":
+                d_id = int(tool_args.get("document_id", 0))
+                cnt = tool_args.get("content", "")
+                dehyphen = bool(tool_args.get("dehyphenate_ocr", True))
+                katex = bool(tool_args.get("normalize_katex", True))
+                tbls = bool(tool_args.get("align_tables", True))
+                heads = bool(tool_args.get("normalize_headings", True))
+                ws = bool(tool_args.get("clean_whitespace", True))
+                return ConsultantToolRegistry.format_markdown_document(d_id, cnt, dehyphen, katex, tbls, heads, ws), False
+            elif tool_name == "get_document_outline":
+                d_id = int(tool_args.get("document_id", 0))
+                cnt = tool_args.get("content", "")
+                return ConsultantToolRegistry.get_document_outline(d_id, cnt), False
+            elif tool_name == "structure_document_sections":
+                d_id = int(tool_args.get("document_id", 0))
+                cnt = tool_args.get("content", "")
+                max_t = int(tool_args.get("max_tokens", 800))
+                return ConsultantToolRegistry.structure_document_sections(d_id, cnt, max_t), False
+            elif tool_name == "structure_transcript_for_ai":
+                d_id = int(tool_args.get("document_id", 0))
+                cnt = tool_args.get("content", "")
+                prof = tool_args.get("profile", "didactic")
+                lang = tool_args.get("target_language", "fr")
+                time_pts = bool(tool_args.get("preserve_timestamps", True))
+                norm_latex = bool(tool_args.get("normalize_latex", True))
+                summary = bool(tool_args.get("add_summary", True))
+                takeaways = bool(tool_args.get("add_key_takeaways", True))
+                return ConsultantToolRegistry.structure_transcript_for_ai(
+                    document_id=d_id,
+                    content=cnt,
+                    profile=prof,
+                    target_language=lang,
+                    preserve_timestamps=time_pts,
+                    normalize_latex=norm_latex,
+                    add_summary=summary,
+                    add_key_takeaways=takeaways,
+                ), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]
