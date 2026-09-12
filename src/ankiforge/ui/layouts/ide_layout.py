@@ -65,6 +65,7 @@ class IdeLayout(BaseLayout):
         self.sidebar.toggle_requested.connect(self._toggle_sidebar)
         self.sidebar.view_selected.connect(lambda vid: self.view_selected.emit(vid, None))
         self.sidebar.settings_requested.connect(self.settings_requested.emit)
+        self.sidebar.feedback_requested.connect(self.feedback_requested.emit)
         self.sidebar.profile_switch_requested.connect(self.profile_switch_requested.emit)
 
         # Raccorder les références pour compatibilité rétroactive

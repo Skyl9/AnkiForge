@@ -118,6 +118,7 @@ class Sidebar(QWidget):
 
     view_selected = Signal(str)
     settings_requested = Signal()
+    feedback_requested = Signal()
     toggle_requested = Signal()
     profile_switch_requested = Signal()
 
@@ -174,6 +175,10 @@ class Sidebar(QWidget):
         footer_layout.setContentsMargins(12, 12, 12, 12)
         footer_layout.setSpacing(4)
 
+        self.feedback_btn = SidebarItem("feedback", "chat-circle-dots", "Aide & Retours")
+        self.feedback_btn.clicked.connect(self.feedback_requested.emit)
+        footer_layout.addWidget(self.feedback_btn)
+
         self.settings_btn = SidebarItem("settings", "gear", "Paramètres")
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         footer_layout.addWidget(self.settings_btn)
@@ -203,6 +208,8 @@ class Sidebar(QWidget):
             self.toggle_btn.refresh_theme(profile)
         for item in self._items.values():
             item.refresh_theme(profile)
+        if hasattr(self, "feedback_btn"):
+            self.feedback_btn.refresh_theme(profile)
         if hasattr(self, "settings_btn"):
             self.settings_btn.refresh_theme(profile)
         if hasattr(self, "user_widget"):
@@ -269,6 +276,8 @@ class Sidebar(QWidget):
         for btn in self._items.values():
             btn.set_collapsed(collapsed)
 
+        if hasattr(self, "feedback_btn"):
+            self.feedback_btn.set_collapsed(collapsed)
         self.settings_btn.set_collapsed(collapsed)
         if hasattr(self, "user_widget"):
             self.user_widget.set_collapsed(collapsed)

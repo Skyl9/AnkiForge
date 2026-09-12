@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -184,7 +185,39 @@ class NotificationMenuPopup(QFrame):
         self.empty_label.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; padding: 24px 0; border: none; background: transparent;")
         self.items_layout.insertWidget(0, self.empty_label)
 
+        # Footer : Bouton de feedback / anomalie
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(0, 4, 0, 0)
+        footer_layout.setSpacing(6)
+
+        self.btn_report_bug = QPushButton("🐛 Signaler une anomalie...")
+        self.btn_report_bug.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_report_bug.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-size: 11px;
+                font-weight: 600;
+                text-align: left;
+                padding: 4px 0;
+            }}
+            QPushButton:hover {{
+                text-decoration: underline;
+            }}
+        """)
+        self.btn_report_bug.clicked.connect(self._on_report_bug_clicked)
+        footer_layout.addWidget(self.btn_report_bug)
+        footer_layout.addStretch(1)
+        layout.addLayout(footer_layout)
+
         apply_shadow(self, blur=24, offset_y=6, color="rgba(0, 0, 0, 0.4)")
+
+    def _on_report_bug_clicked(self) -> None:
+        self.hide()
+        from ankiforge.utils.event_bus import OpenFeedbackRequestedEvent, event_bus
+
+        event_bus.publish(OpenFeedbackRequestedEvent(tab="bug"))
 
     def paintEvent(self, event: Any) -> None:
         """Dessine un fond opaque avec coins arrondis et bordure thématique."""

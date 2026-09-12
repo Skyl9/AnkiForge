@@ -18,6 +18,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view import AgentsView
 from ankiforge.utils.event_bus import (
     OpenConsultantRequestedEvent,
+    OpenFeedbackRequestedEvent,
     ProfileSwitchedEvent,
     ThemeChangedEvent,
     event_bus,
@@ -141,6 +142,7 @@ class MainWindow(QMainWindow):
         self._setup_debug_shortcuts()
         self._setup_global_shortcuts()
         event_bus.subscribe(OpenConsultantRequestedEvent, self._on_open_consultant_requested)
+        event_bus.subscribe(OpenFeedbackRequestedEvent, self._on_open_feedback_requested)
 
         # Restauration instantanée du badge depuis le cache QSettings (sans HTTP, dès que la topbar est rendue)
         QTimer.singleShot(300, self._restore_cached_update_badge)
@@ -263,6 +265,7 @@ class MainWindow(QMainWindow):
             for sig, slot in [
                 (getattr(self.current_layout, "view_selected", None), self._on_view_selected),
                 (getattr(self.current_layout, "settings_requested", None), self._open_settings_modal),
+                (getattr(self.current_layout, "feedback_requested", None), self._open_feedback_dialog),
                 (getattr(self.current_layout, "search_clicked", None), self._open_command_palette),
                 (getattr(self.current_layout, "import_requested", None), self._open_import_dialog),
                 (getattr(self.current_layout, "export_requested", None), self._open_export_dialog),
@@ -277,6 +280,7 @@ class MainWindow(QMainWindow):
         self.current_layout = new_layout
         new_layout.view_selected.connect(self._on_view_selected)
         new_layout.settings_requested.connect(self._open_settings_modal)
+        new_layout.feedback_requested.connect(self._open_feedback_dialog)
         new_layout.search_clicked.connect(self._open_command_palette)
         new_layout.import_requested.connect(self._open_import_dialog)
         new_layout.export_requested.connect(self._open_export_dialog)
@@ -564,6 +568,22 @@ class MainWindow(QMainWindow):
             self._open_settings_modal()
         elif command_id == "action.tour":
             self.start_tour_guide()
+        elif command_id == "action.feedback":
+            self._open_feedback_dialog()
+
+    def _open_feedback_dialog(self, tab: str = "bug", initial_title: str = "", context_error: str = "") -> None:
+        """Ouvre la boîte de dialogue de retours utilisateurs et boîte à idées."""
+        from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
+
+        dialog = FeedbackDialog(tab=tab, initial_title=initial_title, context_error=context_error, parent=self)
+        dialog.exec()
+
+    def _on_open_feedback_requested(self, event: Any) -> None:
+        """Répond à l'événement de bus demandant l'ouverture de la boîte de feedback."""
+        tab = getattr(event, "tab", "bug")
+        initial_title = getattr(event, "initial_title", "")
+        context_error = getattr(event, "context_error", "")
+        self._open_feedback_dialog(tab=tab, initial_title=initial_title, context_error=context_error)
 
     def start_tour_guide(self) -> None:
         """Lance la visite guidée interactive d'AnkiForge."""

@@ -304,6 +304,22 @@ class GeneralTab(QWidget):
         check_row.addWidget(self.btn_check_updates)
 
         card_about_layout.addLayout(check_row)
+
+        # 4. Retours & Boîte à idées
+        feedback_row = QHBoxLayout()
+        lbl_feedback_title = QLabel("Retours & Suggestions :")
+        lbl_feedback_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        self.rows_labels.append(lbl_feedback_title)
+        feedback_row.addWidget(lbl_feedback_title)
+        feedback_row.addStretch()
+
+        self.btn_open_feedback = SecondaryButton("Signaler un bug ou proposer une idée...")
+        self.btn_open_feedback.setIcon(load_phosphor_icon("ph.chat-circle-dots", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_open_feedback.setFixedHeight(30)
+        self.btn_open_feedback.clicked.connect(self._on_open_feedback_clicked)
+        feedback_row.addWidget(self.btn_open_feedback)
+
+        card_about_layout.addLayout(feedback_row)
         layout.addWidget(self.card_about)
 
         layout.addStretch()
@@ -430,3 +446,11 @@ class GeneralTab(QWidget):
             self.lbl_exp_dir.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "btn_check_updates") and hasattr(self.btn_check_updates, "refresh_theme"):
             self.btn_check_updates.refresh_theme(profile)
+        if hasattr(self, "btn_open_feedback") and hasattr(self.btn_open_feedback, "refresh_theme"):
+            self.btn_open_feedback.refresh_theme(profile)
+
+    def _on_open_feedback_clicked(self) -> None:
+        """Déclenche l'événement d'ouverture de la boîte de dialogue de feedback."""
+        from ankiforge.utils.event_bus import OpenFeedbackRequestedEvent, event_bus
+
+        event_bus.publish(OpenFeedbackRequestedEvent(tab="bug"))

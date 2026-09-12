@@ -170,3 +170,17 @@ def test_open_export_dialog_instantiates_and_shows_dialog(qtbot, mock_db):
 
         assert hasattr(window, "_export_dialog")
         assert isinstance(window._export_dialog, ExportDialog)
+
+
+def test_open_feedback_dialog_via_event_bus(qtbot, mock_db):
+    """Vérifie que la publication de OpenFeedbackRequestedEvent ouvre FeedbackDialog."""
+    from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
+    from ankiforge.utils.event_bus import OpenFeedbackRequestedEvent, event_bus
+
+    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+        window = MainWindow(ai_manager=None)
+        qtbot.addWidget(window)
+
+        with patch.object(FeedbackDialog, "exec") as mock_exec:
+            event_bus.publish(OpenFeedbackRequestedEvent(tab="feature", initial_title="Nouvelle idée"))
+            mock_exec.assert_called_once()

@@ -178,6 +178,10 @@ class GlassmorphismLayout(BaseLayout):
         self.profile_btn.clicked.connect(self.profile_switch_requested.emit)
         header_layout.addWidget(self.profile_btn)
 
+        self.feedback_btn = IconButton("chat-circle-dots", tooltip="Aide & Retours", size=22)
+        self.feedback_btn.clicked.connect(self.feedback_requested.emit)
+        header_layout.addWidget(self.feedback_btn)
+
         self.settings_btn = IconButton("gear", tooltip="Paramètres", size=22)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         header_layout.addWidget(self.settings_btn)

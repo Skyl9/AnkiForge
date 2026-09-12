@@ -16,6 +16,7 @@ class BaseLayout(QWidget):
 
     view_selected = Signal(str, object)  # (view_id, optional_data_dict)
     settings_requested = Signal()
+    feedback_requested = Signal()
     toggle_sidebar_requested = Signal()
     search_clicked = Signal()
     import_requested = Signal()

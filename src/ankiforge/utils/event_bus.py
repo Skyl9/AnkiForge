@@ -207,6 +207,14 @@ class OpenConsultantRequestedEvent(AppEvent):
     initial_prompt: str = ""
 
 
+# Feedback & Support Events
+@dataclass(frozen=True)
+class OpenFeedbackRequestedEvent(AppEvent):
+    tab: str = "bug"  # "bug" ou "feature"
+    initial_title: str = ""
+    context_error: str = ""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AppEventBus Singleton & Dispatcher
 # ─────────────────────────────────────────────────────────────────────────────
@@ -243,6 +251,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "persona_deleted": PersonaDeletedEvent,
     "setting_changed": SettingChangedEvent,
     "open_consultant_requested": OpenConsultantRequestedEvent,
+    "open_feedback_requested": OpenFeedbackRequestedEvent,
 }
 
 
