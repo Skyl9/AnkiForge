@@ -272,6 +272,8 @@ class ToastManager:
 
     _instance: ToastManager | None = None
 
+    MAX_ACTIVE_TOASTS: int = 3
+
     def __init__(self) -> None:
         self._active_toasts: list[Toast] = []
         self._margin_bottom = 24
@@ -320,9 +322,18 @@ class ToastManager:
     ) -> Toast | None:
         """Affiche un toast flottant et repositionne la pile."""
         from PySide6.QtWidgets import QApplication
+        from shiboken6 import isValid
 
         if QApplication.instance() is None:
             return None
+
+        # Nettoyer les toasts déjà détruits et respecter la limite maximale
+        self._active_toasts = [t for t in self._active_toasts if isValid(t)]
+        while len(self._active_toasts) >= self.MAX_ACTIVE_TOASTS:
+            oldest = self._active_toasts.pop(0)
+            if isValid(oldest):
+                with contextlib.suppress(Exception):
+                    oldest.close_toast()
 
         host_window = self._resolve_host_window(parent)
 

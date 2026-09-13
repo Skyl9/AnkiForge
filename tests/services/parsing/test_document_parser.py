@@ -180,6 +180,7 @@ def test_marker_executable_is_found_in_persistent_venv(tmp_path, monkeypatch):
     marker.chmod(marker.stat().st_mode | stat.S_IXUSR)
 
     monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tmp_path / "tools"])
+    monkeypatch.setattr(MarkerService, "_is_venv_compatible", lambda _: True)
     monkeypatch.setattr(document_parser.shutil, "which", lambda _: None)
     monkeypatch.setattr(document_parser.sys, "executable", str(tmp_path / "app"))
 
@@ -191,6 +192,8 @@ def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, mon
     tools_dir = tmp_path / "tools"
     monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3")
+    monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
+    monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: True)
 
     class FakeProcess:
         stdout = ()
@@ -198,15 +201,18 @@ def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, mon
         def wait(self):
             return 0
 
-    monkeypatch.setattr(
-        "ankiforge.services.parsing.marker_service.subprocess.Popen",
-        lambda command, **_: commands.append(command) or FakeProcess(),
-    )
+    def fake_popen(command, **_):
+        commands.append(command)
+        bin_dir = tools_dir / "marker" / "venv" / "bin"
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        (bin_dir / "python").write_text("#!/bin/sh")
+        marker_file = bin_dir / "marker_single"
+        marker_file.write_text("#!/bin/sh")
+        marker_file.chmod(marker_file.stat().st_mode | stat.S_IXUSR)
+        return FakeProcess()
+
+    monkeypatch.setattr("ankiforge.services.parsing.marker_service.subprocess.Popen", fake_popen)
     executable = tools_dir / "marker" / "venv" / "bin" / "marker_single"
-    executable.parent.mkdir(parents=True)
-    executable.write_text("#!/bin/sh", encoding="utf-8")
-    executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
-    monkeypatch.setattr(MarkerService, "_venv_executable", lambda _: executable)
 
     assert MarkerService.install() == executable
     assert commands[0][:3] == ["/usr/local/bin/python3", "-m", "venv"]

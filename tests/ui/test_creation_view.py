@@ -419,3 +419,70 @@ def test_creation_view_generation_logs_flow(qtbot: Any, mock_db: Any) -> None:
     assert "Pipeline terminé avec succès" in view.generation_logs_console.toPlainText()
 
     view.thread_pool.waitForDone(2000)
+
+
+@pytest.mark.ui
+def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Vérifie que la validation et le rejet de cartes ne déclenchent pas de toast unitaire
+
+    et mettent à jour le badge d'état in-situ dans FlashcardPreview.
+    """
+    from ankiforge.ui.widgets.toast import ToastManager
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.generated_cards = [
+        {"Front": "Question 1", "Back": "Réponse 1", "status": "À valider"},
+        {"Front": "Question 2", "Back": "Réponse 2", "status": "À valider"},
+    ]
+    view.current_preview_index = 0
+    view._populate_results_table()
+    view._update_card_preview()
+
+    # Le badge initial est "À valider ⏳"
+    assert "À valider" in view.preview_widget.status_badge.text()
+
+    toasts_emitted: list[str] = []
+
+    def mock_show_toast(parent: Any, msg: str, *args: Any, **kwargs: Any) -> None:
+        toasts_emitted.append(msg)
+
+    monkeypatch.setattr("ankiforge.ui.views.creation_view.view.show_toast", mock_show_toast)
+
+    # 1. Validation de la 1ère carte
+    view._on_validate_card()
+
+    # Aucun toast unitaire "Carte acceptée !" ne doit être émis
+    assert not any("acceptée" in t for t in toasts_emitted)
+    assert view.generated_cards[0]["status"] == "Validée"
+    # L'index a avancé à 1
+    assert view.current_preview_index == 1
+    assert "À valider" in view.preview_widget.status_badge.text()
+
+    # Revenir sur la 1ère carte et vérifier son badge
+    view.current_preview_index = 0
+    view._update_card_preview()
+    assert "Validée" in view.preview_widget.status_badge.text()
+
+    # 2. Rejet de la 2ème carte (dernière carte)
+    view.current_preview_index = 1
+    view._update_card_preview()
+    view._on_reject_card()
+
+    # Aucun toast individuel "marquée Refusée"
+    assert not any("marquée Refusée" in t for t in toasts_emitted)
+    assert view.generated_cards[1]["status"] == "Refusée"
+    assert "Refusée" in view.preview_widget.status_badge.text()
+
+    # Mais le toast récapitulatif de fin de revue DOIT être émis
+    assert any("Toutes les cartes ont été passées en revue" in t for t in toasts_emitted)
+
+    # 3. Vérifier le plafonnement MAX_ACTIVE_TOASTS = 3 du ToastManager
+    tm = ToastManager.get_instance()
+    tm.clear()
+    assert len(tm._active_toasts) == 0
+    for i in range(5):
+        tm.show(parent=view, message=f"Toast {i}")
+    assert len(tm._active_toasts) <= 3
+    tm.clear()

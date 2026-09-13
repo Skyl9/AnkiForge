@@ -75,7 +75,7 @@ from ankiforge.ui.views.creation_view.widgets import (
     FlashcardPreview,
     VisionCard,
 )
-from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.ui.widgets.toast import ToastManager, show_toast
 from ankiforge.utils.event_bus import (
     CardCreatedEvent,
     NoteCreatedEvent,
@@ -1778,7 +1778,7 @@ class CreationView(QWidget):
         self._refresh_save_button()
         if len(cards) > 0:
             self.results_panel.set_active_tab(self.TAB_INDEX_CARDS)
-        show_toast(self, f"{len(cards)} cartes générées avec succès !")
+        show_toast(self, f"{len(cards)} cartes générées avec succès !", duration_ms=2500)
 
     @Slot(str)
     def _on_generation_error(self, err_msg: str) -> None:
@@ -1907,12 +1907,14 @@ class CreationView(QWidget):
         total = len(self.generated_cards)
         if total == 0:
             self.preview_widget.lbl_counter.setText("0 / 0")
+            self.preview_widget.set_status("À valider")
             return
 
         self.current_preview_index = max(0, min(self.current_preview_index, total - 1))
         self.preview_widget.lbl_counter.setText(f"{self.current_preview_index + 1} / {total}")
 
         card = self.generated_cards[self.current_preview_index]
+        self.preview_widget.set_status(card.get("status", "À valider"))
         card_model_name = card.get("model") or card.get("note_type")
         selected_nt = None
         if card_model_name and self.models_cache:
@@ -2006,10 +2008,10 @@ class CreationView(QWidget):
     def _on_validate_card(self) -> None:
         if not self.generated_cards or not (0 <= self.current_preview_index < len(self.generated_cards)):
             return
+        ToastManager.get_instance().clear()
         next_index = self.current_preview_index + 1
         self.generated_cards[self.current_preview_index]["status"] = "Validée"
         self._populate_results_table()
-        show_toast(self, "✅ Carte acceptée !")
 
         if next_index < len(self.generated_cards):
             self.current_preview_index = next_index
@@ -2045,11 +2047,11 @@ class CreationView(QWidget):
     @Slot()
     def _on_reject_card(self) -> None:
         if self.generated_cards and 0 <= self.current_preview_index < len(self.generated_cards):
+            ToastManager.get_instance().clear()
             next_index = self.current_preview_index + 1
             card = self.generated_cards[self.current_preview_index]
             card["status"] = "Refusée"
             self._populate_results_table()
-            show_toast(self, f"❌ Carte '{card.get('Front', '')[:20]}...' marquée Refusée.")
 
             if next_index < len(self.generated_cards):
                 self.current_preview_index = next_index
