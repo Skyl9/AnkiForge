@@ -13,6 +13,8 @@ import re
 import shutil
 from typing import Any
 
+from peewee import fn
+
 from ankiforge.database.models import (
     CardModel,
     DocumentChunkModel,
@@ -23,7 +25,9 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.utils.paths import get_profile_dir
+from ankiforge.utils.tags import clean_source_slug, extract_tag_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +136,117 @@ class CoverageAlignmentService:
         return {w for w in words if len(w) >= min_len and not w.isdigit() and w not in DEFAULT_STOPWORDS}
 
     @classmethod
+    def sync_coverage_from_tags(cls, doc_id: int | None = None) -> dict[str, Any]:
+        """
+        Synchronise déterministement les liaisons NoteModel <-> DocumentChunkModel à partir des tags des notes.
+
+        Recherche et exploite les tags :
+        - doc:<id> ou source:<slug>
+        - page:<num>
+        - section:<slug>
+
+        Args:
+            doc_id: Optionnel. Si spécifié, restreint la réconciliation à ce document.
+
+        Returns:
+            dict[str, Any]: Rapport statistique de réconciliation.
+        """
+        doc_repo = DocumentRepository()
+
+        if doc_id is not None:
+            target_doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+            if not target_doc:
+                return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+            docs_by_id = {target_doc.id: target_doc}
+            docs_by_slug = {clean_source_slug(target_doc.title): target_doc}
+        else:
+            all_docs = list(DocumentModel.select())
+            if not all_docs:
+                return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+            docs_by_id = {d.id: d for d in all_docs}
+            docs_by_slug = {clean_source_slug(d.title): d for d in all_docs}
+
+        all_notes = list(NoteModel.select())
+        newly_linked = 0
+        matched_notes = 0
+
+        with db.atomic():
+            for note in all_notes:
+                if not note.tags:
+                    continue
+                meta = extract_tag_metadata(note.tags)
+                matched_doc: DocumentModel | None = None
+                if meta["doc_id"] is not None and meta["doc_id"] in docs_by_id:
+                    matched_doc = docs_by_id[meta["doc_id"]]
+                elif meta["source_slug"] is not None and meta["source_slug"] in docs_by_slug:
+                    matched_doc = docs_by_slug[meta["source_slug"]]
+
+                if not matched_doc:
+                    continue
+
+                target_chunk: DocumentChunkModel | None = None
+                page_num = meta["page_number"]
+                section_slug = meta["section_slug"]
+
+                if page_num is not None and page_num > 0:
+                    target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc, DocumentChunkModel.page_number == page_num).first()
+                    if not target_chunk:
+                        max_idx = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.chunk_index)).where(DocumentChunkModel.document == matched_doc).scalar() or 0
+                        target_chunk = DocumentChunkModel.create(
+                            document=matched_doc,
+                            chunk_index=max_idx + 1,
+                            content=f"Page {page_num}",
+                            page_number=page_num,
+                            heading_path=f"Page {page_num}",
+                        )
+                elif section_slug:
+                    candidates = list(DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc))
+                    for c in candidates:
+                        if c.heading_path and clean_source_slug(c.heading_path) == section_slug:
+                            target_chunk = c
+                            break
+                    if not target_chunk and candidates:
+                        target_chunk = candidates[0]
+                else:
+                    target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
+                    if not target_chunk:
+                        target_chunk = DocumentChunkModel.create(
+                            document=matched_doc,
+                            chunk_index=0,
+                            content=f"Document {matched_doc.title}",
+                            heading_path="Section Principale",
+                        )
+
+                if target_chunk:
+                    matched_notes += 1
+                    _, created = NoteChunkLinkModel.get_or_create(
+                        note=note,
+                        chunk=target_chunk,
+                        defaults={"is_hallucinating": False},
+                    )
+                    if created:
+                        newly_linked += 1
+
+        if doc_id is not None:
+            stats = doc_repo.get_coverage_stats(doc_id)
+            return {
+                "matched_notes": matched_notes,
+                "newly_linked": newly_linked,
+                "covered_chunks": stats.get("covered_chunks", 0),
+                "total_chunks": stats.get("total_chunks", 0),
+                "coverage_pct": stats.get("coverage_pct", 0.0),
+                "unit_type": stats.get("unit_type", "pages"),
+                "total_units": stats.get("total_units", 0),
+                "covered_units": stats.get("covered_units", 0),
+            }
+
+        return {
+            "matched_notes": matched_notes,
+            "newly_linked": newly_linked,
+            "total_documents": len(docs_by_id),
+        }
+
+    @classmethod
     def align_document(
         cls,
         doc_id: int,
@@ -141,7 +256,7 @@ class CoverageAlignmentService:
     ) -> dict[str, Any]:
         """
         Aligne les fiches existantes de la base de données avec les fragments d'un document.
-        Crée les correspondances dans NoteChunkLinkModel de façon atomique.
+        Effectue d'abord une synchronisation déterministe par tags, puis un repli lexical.
         """
         doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
         if not doc:
@@ -157,7 +272,7 @@ class CoverageAlignmentService:
 
         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
         total_chunks = len(chunks)
-        if total_chunks == 0:
+        if total_chunks == 0 and not doc.total_pages:
             logger.info("CoverageAlignmentService : Aucun fragment pour le document '%s'.", doc.title)
             return {
                 "matched_notes": 0,
@@ -172,7 +287,14 @@ class CoverageAlignmentService:
                 chunk_ids = [c.id for c in chunks]
                 NoteChunkLinkModel.delete().where(NoteChunkLinkModel.chunk.in_(chunk_ids)).execute()
 
-        # Pré-indexation des mots-clés des chunks pour une comparaison ultra-rapide
+        # 1. Étape Déterministe : Synchronisation par tags
+        tag_res = cls.sync_coverage_from_tags(doc_id=doc_id)
+        matched_from_tags = tag_res.get("matched_notes", 0)
+
+        # 2. Étape Repli Lexical (uniquement pour les notes non encore liées à ce document)
+        linked_note_ids = {link.note_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.note_id).join(DocumentChunkModel).where(DocumentChunkModel.document == doc)}
+
+        # Pré-indexation des mots-clés des chunks pour comparaison
         chunk_data: list[tuple[DocumentChunkModel, set[str], str]] = []
         for chunk in chunks:
             raw_chunk_text = f"{chunk.heading_path or ''} {chunk.content}"
@@ -180,7 +302,6 @@ class CoverageAlignmentService:
             clean_full = cls.clean_text_for_matching(raw_chunk_text)
             chunk_data.append((chunk, kws, clean_full))
 
-        # Récupération des notes à évaluer
         query = (
             NoteModel.select(NoteModel, NoteVersionModel.content).join(NoteVersionModel).where(NoteVersionModel.is_active == True)  # noqa: E712
         )
@@ -189,71 +310,76 @@ class CoverageAlignmentService:
 
         notes_versions = list(query)
         total_notes = len(notes_versions)
-        links_to_create: list[tuple[NoteModel, DocumentChunkModel]] = []
+        lexical_links: list[tuple[NoteModel, DocumentChunkModel]] = []
 
-        for note in notes_versions:
-            content_json = getattr(note, "noteversionmodel", None)
-            raw_content = content_json.content if content_json else ""
-            try:
-                data = json.loads(raw_content)
-                text_combined = " ".join(str(v) for v in data.values() if v)
-            except Exception:
-                text_combined = raw_content
-
-            note_kws = cls.extract_keywords(text_combined)
-            if len(note_kws) < min_overlap:
-                continue
-
-            best_chunk: DocumentChunkModel | None = None
-            best_score = 0
-
-            for chunk_obj, c_kws, _c_clean in chunk_data:
-                overlap = len(note_kws & c_kws)
-                if overlap < min_overlap:
+        if chunk_data and min_overlap > 0:
+            for note in notes_versions:
+                if note.id in linked_note_ids:
                     continue
 
-                score = overlap
-                if chunk_obj.heading_path:
-                    heading_clean = chunk_obj.heading_path.lower()
-                    heading_matches = sum(1 for w in note_kws if w in heading_clean)
-                    score += heading_matches * 2
+                content_json = getattr(note, "noteversionmodel", None)
+                raw_content = content_json.content if content_json else ""
+                try:
+                    data = json.loads(raw_content)
+                    text_combined = " ".join(str(v) for v in data.values() if v)
+                except Exception:
+                    text_combined = raw_content
 
-                if score > best_score:
-                    best_score = score
-                    best_chunk = chunk_obj
+                note_kws = cls.extract_keywords(text_combined)
+                if len(note_kws) < min_overlap:
+                    continue
 
-            if best_chunk is not None and best_score >= min_overlap:
-                links_to_create.append((note, best_chunk))
+                best_chunk: DocumentChunkModel | None = None
+                best_score = 0
 
-        with db.atomic():
-            for note_obj, target_chunk in links_to_create:
-                NoteChunkLinkModel.get_or_create(
-                    note=note_obj,
-                    chunk=target_chunk,
-                    defaults={"is_hallucinating": False},
-                )
+                for chunk_obj, c_kws, _c_clean in chunk_data:
+                    overlap = len(note_kws & c_kws)
+                    if overlap < min_overlap:
+                        continue
 
-        linked_chunk_ids = {link.chunk.id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk).join(DocumentChunkModel).where(DocumentChunkModel.document == doc)}
-        covered_count = len(linked_chunk_ids)
-        coverage_pct = round((covered_count / total_chunks * 100.0), 1) if total_chunks > 0 else 0.0
-        total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document == doc).count()
+                    score = overlap
+                    if chunk_obj.heading_path:
+                        heading_clean = chunk_obj.heading_path.lower()
+                        heading_matches = sum(1 for w in note_kws if w in heading_clean)
+                        score += heading_matches * 2
+
+                    if score > best_score:
+                        best_score = score
+                        best_chunk = chunk_obj
+
+                if best_chunk is not None and best_score >= min_overlap:
+                    lexical_links.append((note, best_chunk))
+
+            if lexical_links:
+                with db.atomic():
+                    for note_obj, target_chunk in lexical_links:
+                        NoteChunkLinkModel.get_or_create(
+                            note=note_obj,
+                            chunk=target_chunk,
+                            defaults={"is_hallucinating": False},
+                        )
+
+        doc_repo = DocumentRepository()
+        stats = doc_repo.get_coverage_stats(doc_id)
 
         logger.info(
-            "CoverageAlignmentService : Alignement terminé pour '%s' : %d cartes liées, %d/%d sections couvertes (%.1f%%)",
+            "CoverageAlignmentService : Alignement terminé pour '%s' : %d cartes liées via tags, %d via lexique (Couverture : %.1f%%)",
             doc.title,
-            total_cards,
-            covered_count,
-            total_chunks,
-            coverage_pct,
+            matched_from_tags,
+            len(lexical_links),
+            stats.get("coverage_pct", 0.0),
         )
 
         return {
-            "matched_notes": len(links_to_create),
+            "matched_notes": matched_from_tags + len(lexical_links),
             "total_notes": total_notes,
-            "total_cards": total_cards,
-            "covered_chunks": covered_count,
-            "total_chunks": total_chunks,
-            "coverage_pct": coverage_pct,
+            "total_cards": stats.get("total_cards", 0),
+            "covered_chunks": stats.get("covered_chunks", 0),
+            "total_chunks": stats.get("total_chunks", 0),
+            "coverage_pct": stats.get("coverage_pct", 0.0),
+            "unit_type": stats.get("unit_type", "pages"),
+            "total_units": stats.get("total_units", 0),
+            "covered_units": stats.get("covered_units", 0),
         }
 
     @classmethod
@@ -283,6 +409,38 @@ class CoverageAlignmentService:
         existing_link = NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).first()
         if existing_link:
             return existing_link.chunk
+
+        # Recherche déterministe via les tags de la note
+        if note.tags:
+            meta = extract_tag_metadata(note.tags)
+            doc_target: DocumentModel | None = None
+            if meta["doc_id"] is not None:
+                doc_target = DocumentModel.get_or_none(DocumentModel.id == meta["doc_id"])
+            elif meta["source_slug"]:
+                for d in DocumentModel.select():
+                    if clean_source_slug(d.title) == meta["source_slug"]:
+                        doc_target = d
+                        break
+
+            if doc_target:
+                if meta["page_number"] is not None:
+                    chunk = (
+                        DocumentChunkModel.select()
+                        .where(
+                            DocumentChunkModel.document == doc_target,
+                            DocumentChunkModel.page_number == meta["page_number"],
+                        )
+                        .first()
+                    )
+                    if chunk:
+                        return chunk
+                if meta["section_slug"]:
+                    for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc_target):
+                        if c.heading_path and clean_source_slug(c.heading_path) == meta["section_slug"]:
+                            return c
+                first_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == doc_target).order_by(DocumentChunkModel.chunk_index.asc()).first()
+                if first_chunk:
+                    return first_chunk
 
         active_ver = NoteVersionModel.get_or_none(
             NoteVersionModel.note == note,

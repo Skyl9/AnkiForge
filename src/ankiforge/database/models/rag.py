@@ -36,6 +36,9 @@ class DocumentModel(BaseModel):
     file_type = CharField(default="md")  # pdf, md, png, youtube, web, album, epub, audio
     source_url = CharField(null=True)
     total_pages = IntegerField(default=1)
+    start_page = IntegerField(null=True)
+    end_page = IntegerField(null=True)
+    excluded_headings = TextField(null=True)
 
 
 class DocumentPageModel(BaseModel):
@@ -89,6 +92,9 @@ class NoteChunkLinkModel(BaseModel):
     Liaison de traçabilité entre une Note Anki (NoteModel) et son fragment source (DocumentChunkModel).
     Permet le calcul de complétion de cours et l'audit anti-hallucination.
     """
+
+    note_id: Any
+    chunk_id: Any
 
     note = ForeignKeyField(NoteModel, backref="chunk_links", on_delete="CASCADE")
     chunk = ForeignKeyField(DocumentChunkModel, backref="note_links", on_delete="CASCADE")

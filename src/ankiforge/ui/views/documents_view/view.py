@@ -29,9 +29,11 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
+    DocumentPageModel,
     FolderModel,
     NoteChunkLinkModel,
 )
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.markdown import FormatOptions, MarkdownFormatter, MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService
@@ -376,9 +378,9 @@ class DocumentsView(QWidget):
         self.btn_marker.hide()
         row2.addWidget(self.btn_marker)
 
-        self.btn_rag = SecondaryButton("Vectoriser")
+        self.btn_rag = SecondaryButton("Indexer (RAG)")
         self.btn_rag.setIcon(load_phosphor_icon("ph.database", color="#10b981"))
-        self.btn_rag.setToolTip("Indexer ce document dans la base vectorielle locale FAISS")
+        self.btn_rag.setToolTip("Indexer ce document pour la recherche sémantique IA (FAISS & BM25)")
         self.btn_rag.setFixedHeight(26)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_rag.clicked.connect(self._on_vectorize_rag)
@@ -842,13 +844,19 @@ class DocumentsView(QWidget):
             apply_pill_style(self.rag_status_pill, "#94a3b8")
             return
 
+        rag = RAGService()
+        is_rag_ready = rag.is_indexed(self._current_doc_id)
         chunk_count = DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).count()
-        if chunk_count > 0:
-            self.rag_status_pill.setText(f"Indexé ({chunk_count} chunks)")
+
+        if is_rag_ready:
+            self.rag_status_pill.setText(f"RAG Prêt ({chunk_count} chunks)")
             apply_pill_style(self.rag_status_pill, "#10b981")
-        else:
-            self.rag_status_pill.setText("Non indexé")
+        elif chunk_count > 0:
+            self.rag_status_pill.setText(f"Structuré ({chunk_count} chunks)")
             apply_pill_style(self.rag_status_pill, "#eab308")
+        else:
+            self.rag_status_pill.setText("Non structuré")
+            apply_pill_style(self.rag_status_pill, "#94a3b8")
 
     @Slot()
     def _on_document_text_changed(self) -> None:
@@ -1457,8 +1465,58 @@ class DocumentsView(QWidget):
                 doc.content = content
                 doc.word_count = len(content.split())
                 doc.save()
+
+                if getattr(doc, "file_type", "") != "album" and not DocumentPageModel.select().where(DocumentPageModel.document == doc).exists():
+                    extracted = ChunkingService.extract_chunks(content, file_type=doc.file_type)
+                    if extracted:
+                        start_p = getattr(doc, "start_page", None)
+                        end_p = getattr(doc, "end_page", None)
+                        raw_excl = getattr(doc, "excluded_headings", None)
+                        excl_headings: list[str] = []
+                        if raw_excl:
+                            try:
+                                import json
+
+                                parsed = json.loads(raw_excl)
+                                if isinstance(parsed, list):
+                                    excl_headings = [str(x).lower() for x in parsed]
+                            except Exception:
+                                pass
+
+                        retained = []
+                        for c in extracted:
+                            pn = c.get("page_number")
+                            if pn is not None:
+                                if start_p is not None and pn < start_p:
+                                    continue
+                                if end_p is not None and pn > end_p:
+                                    continue
+                            hp = (c.get("heading_path") or "").lower()
+                            if excl_headings and any(eh in hp for eh in excl_headings):
+                                continue
+                            retained.append(c)
+
+                        with DocumentChunkModel._meta.database.atomic():
+                            DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
+                            for idx, chunk_data in enumerate(retained):
+                                DocumentChunkModel.create(
+                                    document=doc,
+                                    chunk_index=idx,
+                                    content=chunk_data["content"],
+                                    page_number=chunk_data.get("page_number"),
+                                    heading_path=chunk_data.get("heading_path"),
+                                    start_time=chunk_data.get("start_time"),
+                                    end_time=chunk_data.get("end_time"),
+                                    content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
+                                )
+                        from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                        CoverageAlignmentService.sync_coverage_from_tags(doc.id)
+
                 self._dirty = False
                 self.btn_save.setStyleSheet("")
+                self._update_rag_status_pill()
+                self._refresh_chapters_list()
                 show_toast(self, f"Document '{doc.title}' enregistré avec succès !")
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde du document", parent=self, title="Erreur de sauvegarde")
@@ -1472,8 +1530,41 @@ class DocumentsView(QWidget):
             return
 
         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
+        if not chunks and self._current_doc_id:
+            doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+            if doc:
+                pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
+                if pages:
+                    with DocumentChunkModel._meta.database.atomic():
+                        for p in pages:
+                            DocumentChunkModel.create(
+                                document=doc,
+                                chunk_index=p.page_number - 1,
+                                content=p.ocr_text or f"Page {p.page_number}",
+                                page_number=p.page_number,
+                                heading_path=f"Page {p.page_number}",
+                                content_hash=ChunkingService.hash_content(p.ocr_text or f"Page {p.page_number}"),
+                            )
+                    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
+                elif doc.content and doc.content.strip():
+                    extracted = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type)
+                    if extracted:
+                        with DocumentChunkModel._meta.database.atomic():
+                            for chunk_data in extracted:
+                                DocumentChunkModel.create(
+                                    document=doc,
+                                    chunk_index=chunk_data["index"],
+                                    content=chunk_data["content"],
+                                    page_number=chunk_data.get("page_number"),
+                                    heading_path=chunk_data.get("heading_path"),
+                                    start_time=chunk_data.get("start_time"),
+                                    end_time=chunk_data.get("end_time"),
+                                    content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
+                                )
+                        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
+
         if not chunks:
-            item = QListWidgetItem("Aucun fragment indexé (cliquez sur 'Vectoriser')")
+            item = QListWidgetItem("Aucun fragment structuré (document vide)")
             item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.chapters_list.addItem(item)
             self.lbl_coverage_summary.setText("📊 Couverture : 0%")
@@ -1481,18 +1572,22 @@ class DocumentsView(QWidget):
             self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
             return
 
-        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == self._current_doc_id)}
+        doc_repo = DocumentRepository()
+        stats = doc_repo.get_coverage_stats(self._current_doc_id)
 
-        covered_count = 0
+        links = list(NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == self._current_doc_id))
+        chunk_card_counts: dict[int, int] = {}
+        for link in links:
+            chunk_card_counts[link.chunk_id] = chunk_card_counts.get(link.chunk_id, 0) + 1
+
         for chunk in chunks:
-            is_covered = chunk.id in linked_chunk_ids
-            if is_covered:
-                covered_count += 1
+            card_count = chunk_card_counts.get(chunk.id, 0)
+            if card_count > 0:
                 badge = "🟢"
-                status_text = "Couvert"
+                status_text = f"Couvert ({card_count} carte{'s' if card_count > 1 else ''})"
             else:
                 badge = "⚠️"
-                status_text = "Non couvert"
+                status_text = "Non couvert (0 carte)"
 
             title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
             item_text = f"{badge} {title_str} ({status_text})"
@@ -1500,11 +1595,18 @@ class DocumentsView(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, chunk.id)
             self.chapters_list.addItem(item)
 
-        total_chunks = len(chunks)
-        percent = int(covered_count / total_chunks * 100) if total_chunks > 0 else 0
-        self.lbl_coverage_summary.setText(f"📊 Couverture : {percent}% ({covered_count}/{total_chunks} sections)")
+        percent = int(stats.get("coverage_pct", 0))
+        unit_type = stats.get("unit_type", "sections")
+        unit_label = "pages" if unit_type == "pages" else "sections"
+        covered_units = stats.get("covered_units", 0)
+        total_units = stats.get("total_units", len(chunks))
+        total_cards = stats.get("total_cards", len(links))
+        excluded_units = stats.get("excluded_units", 0)
+
+        excl_suffix = f" • {excluded_units} exclu(e)s" if excluded_units > 0 else ""
+        self.lbl_coverage_summary.setText(f"📊 Couverture : {percent}% ({covered_units}/{total_units} {unit_label}{excl_suffix})")
         self.coverage_bar.setValue(percent)
-        self.lbl_coverage_details.setText(f"{total_chunks} sections • {covered_count} couvertes • {len(linked_chunk_ids)} liens")
+        self.lbl_coverage_details.setText(f"{total_units} {unit_label} utiles • {covered_units} couvertes • {total_cards} cartes liées")
 
     @Slot(QListWidgetItem)
     def _on_chapter_clicked(self, item: QListWidgetItem) -> None:
@@ -1537,9 +1639,11 @@ class DocumentsView(QWidget):
         self.request_navigation.emit(
             "creation",
             {
+                "doc_id": self._current_doc_id,
                 "text_source": chunk.content,
                 "source_title": f"{doc_title} - {section_name}",
                 "chunk_id": chunk.id,
+                "page_number": chunk.page_number,
             },
         )
 
@@ -1632,11 +1736,11 @@ class DocumentsView(QWidget):
     @Slot()
     def _on_vectorize_rag(self) -> None:
         if not self._current_doc_id:
-            show_toast(self, "Veuillez sélectionner un document à vectoriser.", is_error=True)
+            show_toast(self, "Veuillez sélectionner un document à indexer.", is_error=True)
             return
 
         self.btn_rag.setEnabled(False)
-        self.btn_rag.setText("Vectorisation FAISS...")
+        self.btn_rag.setText("Indexation RAG...")
 
         self._coverage_worker = CoverageWorker(document_id=self._current_doc_id, parent=self)
         self._coverage_worker.finished_processing.connect(self._on_vectorization_success)
@@ -1647,8 +1751,8 @@ class DocumentsView(QWidget):
     @Slot()
     def _on_vectorization_success(self) -> None:
         self.btn_rag.setEnabled(True)
-        self.btn_rag.setText("Vectoriser (RAG)")
-        show_toast(self, "Document indexé avec succès dans FAISS !")
+        self.btn_rag.setText("Indexer (RAG)")
+        show_toast(self, "Document indexé avec succès pour la recherche IA (RAG) !")
         self._refresh_chapters_list()
         self._update_rag_status_pill()
         if hasattr(self, "album_viewer"):
@@ -1657,8 +1761,8 @@ class DocumentsView(QWidget):
     @Slot(str)
     def _on_vectorization_error(self, err: str) -> None:
         self.btn_rag.setEnabled(True)
-        self.btn_rag.setText("Vectoriser (RAG)")
-        show_toast(self, f"Échec de la vectorisation : {err}", is_error=True)
+        self.btn_rag.setText("Indexer (RAG)")
+        show_toast(self, f"Échec de l'indexation RAG : {err}", is_error=True)
 
     @Slot()
     def _on_sandbox_search(self) -> None:

@@ -28,8 +28,10 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
+    DocumentChunkModel,
     DocumentModel,
     LLMConfigModel,
+    NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
@@ -62,6 +64,7 @@ from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
+from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
 
@@ -1017,13 +1020,31 @@ class BatchView(QWidget):
         if 0 in self.cell_widgets_map:
             self.cell_widgets_map[0].update_progress(val, f"Génération IA ({val}%)...", color="#3b82f6")
 
-    @Slot(list, int, int)
-    def _save_extracted_notes_to_db(self, notes_data: list[dict[str, Any]], deck_id: int, model_id: int) -> None:
+    @Slot(list, int, int, int)
+    def _save_extracted_notes_to_db(self, notes_data: list[dict[str, Any]], deck_id: int, model_id: int, doc_id: int = 0) -> None:
         try:
             deck = DeckModel.get_by_id(deck_id)
             note_type = NoteTypeModel.get_by_id(model_id)
+            doc = DocumentModel.get_or_none(DocumentModel.id == doc_id) if doc_id else None
             templates = json.loads(note_type.templates) if note_type.templates else []
             is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
+
+            target_chunk: DocumentChunkModel | None = None
+            if doc:
+                target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
+                if not target_chunk:
+                    target_chunk = DocumentChunkModel.create(
+                        document=doc,
+                        chunk_index=0,
+                        content=f"Document {doc.title}",
+                        heading_path="Batch",
+                    )
+
+            tags_list = build_document_tags(
+                doc_id=doc.id if doc else None,
+                doc_title=doc.title if doc else None,
+                extra_tags=["AnkiForge_Batch"],
+            )
 
             new_count = 0
             with db.atomic():
@@ -1031,7 +1052,7 @@ class BatchView(QWidget):
                     note = NoteModel.create(
                         guid=str(uuid.uuid4())[:10],
                         note_type=note_type,
-                        tags=json.dumps(["AnkiForge_Batch"], ensure_ascii=False),
+                        tags=json.dumps(tags_list, ensure_ascii=False),
                         status="pending",
                     )
                     NoteVersionModel.create(
@@ -1041,6 +1062,12 @@ class BatchView(QWidget):
                         source="ai_batch",
                         is_active=True,
                     )
+
+                    if target_chunk:
+                        try:
+                            NoteChunkLinkModel.get_or_create(note=note, chunk=target_chunk)
+                        except Exception as e:
+                            logger.warning("Erreur lien chunk batch : %s", e)
 
                     if is_cloze:
                         max_cloze = get_max_cloze_index(cleaned_fields)

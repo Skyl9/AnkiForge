@@ -51,8 +51,8 @@ class BatchWorker(QThread):
     finished = Signal(int, int)
     error = Signal(str)
     cancelled = Signal()
-    # Signal transmettant (liste_de_notes_nettoyées, deck_id, model_id)
-    batch_data_ready = Signal(list, int, int)
+    # Signal transmettant (liste_de_notes_nettoyées, deck_id, model_id, doc_id)
+    batch_data_ready = Signal(list, int, int, int)
 
     def __init__(self, ai_provider: Any, tasks: list[BatchTaskPayload]):
         """
@@ -228,7 +228,7 @@ class BatchWorker(QThread):
                                 prepared_chunk_data.append(cleaned_note_fields)
 
                             # On envoie les données au thread principal pour sauvegarde
-                            self.batch_data_ready.emit(prepared_chunk_data, task.deck_id, task.model_id)
+                            self.batch_data_ready.emit(prepared_chunk_data, task.deck_id, task.model_id, task.doc_id)
 
                             doc_success_notes += len(notes_to_process)
                             logger.info("%d notes préparées pour le morceau %d de '%s'.", len(notes_to_process), chunk_idx, doc_title)

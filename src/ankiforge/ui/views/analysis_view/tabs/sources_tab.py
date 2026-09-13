@@ -23,6 +23,7 @@ from ankiforge.database.models import (
     DocumentModel,
     NoteChunkLinkModel,
 )
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
 from ankiforge.ui.theme import DesignTokens
@@ -289,10 +290,17 @@ class DocumentInspectorPanel(QWidget):
                 item.setForeground(QColor(DesignTokens.COLOR_YELLOW))
             self.chapters_list.addItem(item)
 
-        total_chunks = len(chunks)
-        percent = (covered_count / total_chunks * 100) if total_chunks > 0 else 0
-        total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document == self.doc).count()
-        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_count}/{total_chunks} sections · {total_cards} cartes)")
+        doc_repo = DocumentRepository()
+        stats = doc_repo.get_coverage_stats(self.doc.id)
+        unit_type = stats.get("unit_type", "sections")
+        unit_label = "pages" if unit_type == "pages" else "sections"
+        covered_units = stats.get("covered_units", covered_count)
+        total_units = stats.get("total_units", len(chunks))
+        percent = stats.get("coverage_pct", 0.0)
+        total_cards = stats.get("total_cards", 0)
+        excluded_units = stats.get("excluded_units", 0)
+        excl_str = f" · {excluded_units} exclu(e)s" if excluded_units > 0 else ""
+        self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label}{excl_str} · {total_cards} cartes)")
         if percent >= 90:
             self.lbl_doc_summary.setStyleSheet(
                 f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 10px;"
@@ -717,20 +725,25 @@ class AISourcesDiagnosticTab(QWidget):
             title = doc.original_media.original_name if doc.original_media else doc.title
 
             chunks = list(doc.chunks)
-            total_chunks = len(chunks)
-            linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document == doc)}
-            covered_chunks = len(linked_chunk_ids)
-            orphan_chunks = max(0, total_chunks - covered_chunks)
-            total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document == doc).count()
-            coverage_pct = (covered_chunks / total_chunks * 100) if total_chunks > 0 else 0.0
-            density = (total_cards / total_chunks) if total_chunks > 0 else 0.0
-            is_indexed = total_chunks > 0
+            doc_repo = DocumentRepository()
+            stats = doc_repo.get_coverage_stats(doc.id)
+            total_units = stats.get("total_units", len(chunks))
+            covered_units = stats.get("covered_units", 0)
+            orphan_units_count = max(0, total_units - covered_units)
+            total_cards = stats.get("total_cards", 0)
+            coverage_pct = stats.get("coverage_pct", 0.0)
+            density = (total_cards / total_units) if total_units > 0 else 0.0
+            is_indexed = total_units > 0
             word_count = getattr(doc, "word_count", None) or (len(doc.content.split()) if doc.content else 0)
 
-            total_forge_chunks += total_chunks
-            total_forge_covered += covered_chunks
-            total_forge_orphans += orphan_chunks
+            total_forge_chunks += total_units
+            total_forge_covered += covered_units
+            total_forge_orphans += orphan_units_count
             total_forge_cards += total_cards
+
+            total_chunks = total_units
+            covered_chunks = covered_units
+            orphan_chunks = orphan_units_count
 
             if self.current_format_filter != "all":
                 if self.current_format_filter == "pdf" and ext != "pdf":
@@ -809,9 +822,11 @@ class AISourcesDiagnosticTab(QWidget):
             self.request_navigation.emit(
                 "creation",
                 {
+                    "doc_id": doc.id,
                     "text_source": orphan.content,
                     "source_title": f"{doc.title} - {section_name}",
                     "chunk_id": orphan.id,
+                    "page_number": orphan.page_number,
                 },
             )
         else:

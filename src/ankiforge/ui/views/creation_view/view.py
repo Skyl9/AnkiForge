@@ -83,6 +83,7 @@ from ankiforge.utils.event_bus import (
 )
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
+from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,8 @@ class CreationView(QWidget):
         self._current_selected_doc: Any | None = None
         self._current_doc_total_pages: int = 10
         self._current_doc_unit: str = "pages"
+        self.current_source_chunk_id: int | None = None
+        self.current_source_doc_id: int | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -805,10 +808,17 @@ class CreationView(QWidget):
 
     def load_context(self, data: dict[str, Any]) -> None:
         """Charge un document ou un extrait depuis un événement de navigation externe (ex: DocumentsView)."""
-        if "doc_id" in data:
+        if "chunk_id" in data and data["chunk_id"]:
             try:
+                self.current_source_chunk_id = int(data["chunk_id"])
+            except (ValueError, TypeError):
+                self.current_source_chunk_id = None
+        if "doc_id" in data and data["doc_id"]:
+            try:
+                self.current_source_doc_id = int(data["doc_id"])
                 doc = self.doc_repo.get_document_by_id(data["doc_id"])
                 if doc:
+                    self._current_selected_doc = doc
                     self._select_doc_in_tree(doc.id)
                     self._open_document_for_model(doc)
             except Exception as e:
@@ -818,6 +828,9 @@ class CreationView(QWidget):
             self._open_document_tab(title=title, content=data["text_source"])
         elif "prompt" in data:
             self._open_document_tab(title=data.get("title", "Forge IA"), content=data["prompt"])
+
+        if "page_number" in data and hasattr(self, "input_page_scope") and data["page_number"]:
+            self.input_page_scope.setText(str(data["page_number"]))
 
     def _select_doc_in_tree(self, doc_id: int) -> None:
         """Sélectionne visuellement le document correspondant dans l'arborescence."""
@@ -899,19 +912,36 @@ class CreationView(QWidget):
             scope_title = "PORTÉE DU CONTENU"
             vision_desc = "Extraction multimodale des visuels."
 
+        start_p = getattr(doc_model, "start_page", None)
+        end_p = getattr(doc_model, "end_page", None)
+        effective_start = start_p if (start_p is not None and start_p > 0) else 1
+        effective_end = end_p if (end_p is not None and end_p >= effective_start) else total_units
+        effective_end = min(effective_end, total_units)
+
         self._current_doc_total_pages = total_units
+        self._current_doc_start_page = effective_start
+        self._current_doc_end_page = effective_end
         self._current_doc_unit_singular = unit_singular
         self._current_doc_unit_plural = unit_plural
         self._current_doc_unit = unit_plural
 
         self.lbl_scope.setText(scope_title)
         self.scope_card.show()
-        self.btn_preset_all.setText(f"Tout ({total_units}{unit_abbrev})")
-        self.btn_preset_page.setText(f"{unit_singular.capitalize()} 1")
-        self.btn_preset_range.setText(f"1 – {min(10, total_units)}")
-        self.input_page_scope.blockSignals(True)
-        self.input_page_scope.setText(f"1-{min(10, total_units)}")
-        self.input_page_scope.blockSignals(False)
+        if start_p is not None or end_p is not None:
+            useful_count = effective_end - effective_start + 1
+            self.btn_preset_all.setText(f"Utile ({useful_count}{unit_abbrev})")
+            self.btn_preset_page.setText(f"{unit_singular.capitalize()} {effective_start}")
+            self.btn_preset_range.setText(f"{effective_start} – {min(effective_start + 9, effective_end)}")
+            self.input_page_scope.blockSignals(True)
+            self.input_page_scope.setText(f"{effective_start}-{min(effective_start + 9, effective_end)}")
+            self.input_page_scope.blockSignals(False)
+        else:
+            self.btn_preset_all.setText(f"Tout ({total_units}{unit_abbrev})")
+            self.btn_preset_page.setText(f"{unit_singular.capitalize()} 1")
+            self.btn_preset_range.setText(f"1 – {min(10, total_units)}")
+            self.input_page_scope.blockSignals(True)
+            self.input_page_scope.setText(f"1-{min(10, total_units)}")
+            self.input_page_scope.blockSignals(False)
 
         is_visual = is_pdf or is_album or is_pptx
         self.vision_card.setVisible(is_visual)
@@ -1256,11 +1286,14 @@ class CreationView(QWidget):
     @Slot()
     def _on_preset_all(self) -> None:
         doc_total = getattr(self, "_current_doc_total_pages", 10) or 10
-        self.input_page_scope.setText(f"1-{doc_total}")
+        start_p = getattr(self, "_current_doc_start_page", 1) or 1
+        end_p = getattr(self, "_current_doc_end_page", doc_total) or doc_total
+        self.input_page_scope.setText(f"{start_p}-{end_p}" if end_p > start_p else str(start_p))
 
     @Slot()
     def _on_preset_single_page(self) -> None:
-        self.input_page_scope.setText("1")
+        start_p = getattr(self, "_current_doc_start_page", 1) or 1
+        self.input_page_scope.setText(str(start_p))
 
     @Slot()
     def _on_scope_step_minus(self) -> None:
@@ -2229,6 +2262,17 @@ class CreationView(QWidget):
 
         saved_count = 0
         try:
+            scope_pages: list[int] = []
+            if hasattr(self, "input_page_scope"):
+                try:
+                    scope_pages = parse_page_ranges(self.input_page_scope.text())
+                except Exception:
+                    scope_pages = []
+
+            active_doc = getattr(self, "_current_selected_doc", None)
+            if not active_doc and getattr(self, "current_source_doc_id", None):
+                active_doc = self.doc_repo.get_document_by_id(self.current_source_doc_id)
+
             for card in validated_cards:
                 card_model_name = card.get("model") or card.get("note_type")
                 target_nt = None
@@ -2261,12 +2305,19 @@ class CreationView(QWidget):
                             val = ""
                     fields[f_name] = str(val) if val is not None else ""
 
-                tags = ["ankiforge_generated"]
-                if getattr(self, "current_source_title", None) and self.current_source_title != "Saisie Libre":
-                    clean_title = self.current_source_title.replace(" ", "_").replace("-", "_").lower()
-                    if clean_title.endswith((".pdf", ".md", ".txt")):
-                        clean_title = clean_title.rsplit(".", 1)[0]
-                    tags.append(f"source:{clean_title}")
+                card_page = card.get("page_number")
+                if card_page is None and len(scope_pages) == 1:
+                    card_page = scope_pages[0]
+
+                card_section = card.get("section") or card.get("heading_path")
+
+                # Construction déterministe des tags
+                tags = build_document_tags(
+                    doc_id=active_doc.id if active_doc else None,
+                    doc_title=active_doc.title if active_doc else getattr(self, "current_source_title", None),
+                    page_number=card_page if isinstance(card_page, int) else (int(card_page) if str(card_page).isdigit() else None),
+                    section_name=str(card_section) if card_section else None,
+                )
 
                 deck_obj = self.deck_repo.get_or_create_deck(name=deck_name)
                 note = NoteManager.create_note(
@@ -2282,10 +2333,47 @@ class CreationView(QWidget):
                     for c in self.note_repo.get_cards_by_note(note.id):
                         event_bus.publish(CardCreatedEvent(card_id=c.id, note_id=note.id, deck_name=deck_name))
 
+                    # Liaison déterministe au chunk / page du document
+                    target_chunk: DocumentChunkModel | None = None
                     target_chunk_id = card.get("chunk_id") or getattr(self, "current_source_chunk_id", None)
                     if target_chunk_id:
                         try:
-                            NoteChunkLinkModel.get_or_create(note=note, chunk_id=int(target_chunk_id))
+                            target_chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == int(target_chunk_id))
+                        except Exception:
+                            target_chunk = None
+
+                    if not target_chunk and active_doc:
+                        num_p = card_page if isinstance(card_page, int) else (int(card_page) if str(card_page).isdigit() else (scope_pages[0] if scope_pages else None))
+                        if num_p is not None and num_p > 0:
+                            target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == active_doc, DocumentChunkModel.page_number == num_p).first()
+                            if not target_chunk:
+                                max_idx = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.chunk_index)).where(DocumentChunkModel.document == active_doc).scalar() or 0
+                                target_chunk = DocumentChunkModel.create(
+                                    document=active_doc,
+                                    chunk_index=max_idx + 1,
+                                    content=f"Page {num_p}",
+                                    page_number=num_p,
+                                    heading_path=f"Page {num_p}",
+                                )
+                        elif card_section:
+                            candidates = list(DocumentChunkModel.select().where(DocumentChunkModel.document == active_doc))
+                            for c in candidates:
+                                if c.heading_path and str(card_section).lower() in c.heading_path.lower():
+                                    target_chunk = c
+                                    break
+                        if not target_chunk:
+                            target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == active_doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
+                            if not target_chunk:
+                                target_chunk = DocumentChunkModel.create(
+                                    document=active_doc,
+                                    chunk_index=0,
+                                    content=f"Document {active_doc.title}",
+                                    heading_path="Section Principale",
+                                )
+
+                    if target_chunk:
+                        try:
+                            NoteChunkLinkModel.get_or_create(note=note, chunk=target_chunk)
                         except Exception as e:
                             logger.warning("Erreur lors de la création du lien NoteChunkLink: %s", e)
 

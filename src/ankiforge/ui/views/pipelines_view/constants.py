@@ -103,7 +103,7 @@ PRESET_TEMPLATES: list[dict[str, Any]] = [
         "name": "Pipeline Haute Précision (Map-Reduce & RAG)",
         "description": "Découpage par lots parallèles pour les longs documents et cours denses.",
         "steps": [
-            {"type": "RAG_RETRIEVAL", "title": "Vectorisation & Contexte", "config": {"top_k": 6, "input_variable": "initial_prompt", "output_variable": "text_source"}},
+            {"type": "RAG_RETRIEVAL", "title": "Recherche RAG & Contexte", "config": {"top_k": 6, "input_variable": "initial_prompt", "output_variable": "text_source"}},
             {"type": "MAP_REDUCE", "title": "Forge Parallèle par Lots", "config": {"batch_size": 3, "split_mode": "page", "input_variable": "text_source", "output_variable": "generated_cards"}},
             {"type": "PYTHON_TOOL", "title": "Validation Schéma JSON", "config": {"tool_name": "validate_json_schema", "input_variable": "generated_cards", "output_variable": "generated_cards"}},
             {"type": "LLM_PROMPT", "title": "Synthèse et Audit", "config": {"input_variable": "generated_cards", "output_variable": "generated_cards", "output_format": "json"}},

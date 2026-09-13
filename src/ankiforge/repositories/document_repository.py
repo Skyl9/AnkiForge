@@ -172,22 +172,112 @@ class DocumentRepository(BaseRepository):
         return list(NoteModel.select().join(NoteChunkLinkModel).where(NoteChunkLinkModel.chunk == chunk_id))
 
     def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
-        """Calculate coverage and gap metrics for a document."""
+        """Calculate coarse-grained coverage and gap metrics for a document (by page or section)."""
+        doc = self.get_document_by_id(doc_id)
         chunks = self.get_chunks_for_document(doc_id)
         total_chunks = len(chunks)
-        if total_chunks == 0:
-            return {"total_chunks": 0, "covered_chunks": 0, "coverage_pct": 0.0, "total_cards": 0}
 
-        linked_chunk_ids = {
-            link.chunk.id if hasattr(link.chunk, "id") else link.chunk
-            for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk).join(DocumentChunkModel).where(DocumentChunkModel.document == doc_id)
-        }
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id)}
         covered_count = len(linked_chunk_ids)
-        total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document == doc_id).count()
+        total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id).count()
 
+        if total_chunks == 0 and (not doc or not doc.total_pages):
+            return {
+                "total_chunks": 0,
+                "covered_chunks": 0,
+                "coverage_pct": 0.0,
+                "total_cards": 0,
+                "unit_type": "sections",
+                "total_units": 0,
+                "covered_units": 0,
+                "orphan_units": [],
+            }
+
+        file_type = (doc.file_type or "").lower() if doc else ""
+        pages_in_chunks = {c.page_number for c in chunks if c.page_number is not None and c.page_number > 0}
+        is_paginated = file_type in ("pdf", "album", "pptx", "epub") or bool(pages_in_chunks)
+        if not is_paginated and file_type not in ("md", "markdown", "txt", "text", "web", "youtube", "yt", "audio", "mp3", "wav", "m4a"):
+            is_paginated = bool(doc and doc.total_pages and doc.total_pages > 1)
+
+        start_p = getattr(doc, "start_page", None)
+        end_p = getattr(doc, "end_page", None)
+
+        if is_paginated:
+            doc_total = doc.total_pages if doc and doc.total_pages else 0
+            total_raw_pages = max(doc_total, max(pages_in_chunks)) if pages_in_chunks else (doc_total or total_chunks or 1)
+
+            effective_start = start_p if (start_p is not None and start_p > 0) else 1
+            effective_end = end_p if (end_p is not None and end_p >= effective_start) else total_raw_pages
+            effective_end = min(effective_end, total_raw_pages)
+
+            active_pages_set = set(range(effective_start, effective_end + 1))
+            total_active_pages = len(active_pages_set)
+
+            covered_pages_set = {c.page_number for c in chunks if c.id in linked_chunk_ids and c.page_number is not None and c.page_number in active_pages_set}
+            covered_pages_count = len(covered_pages_set)
+            cov_pct = round((covered_pages_count / total_active_pages) * 100.0, 1) if total_active_pages > 0 else 0.0
+            orphan_pages = sorted(list(active_pages_set - covered_pages_set))
+            excluded_pages_count = max(0, total_raw_pages - total_active_pages)
+
+            return {
+                "total_chunks": total_chunks,
+                "covered_chunks": covered_count,
+                "coverage_pct": cov_pct,
+                "total_cards": total_cards,
+                "unit_type": "pages",
+                "total_units": total_active_pages,
+                "covered_units": covered_pages_count,
+                "orphan_units": orphan_pages,
+                "total_pages": total_active_pages,
+                "covered_pages": sorted(list(covered_pages_set)),
+                "excluded_units": excluded_pages_count,
+                "start_page": effective_start,
+                "end_page": effective_end,
+            }
+
+        # Document continu (Markdown, Web, texte, audio)
+        headings_in_chunks = [c.heading_path for c in chunks if c.heading_path]
+        if headings_in_chunks:
+            distinct_headings = list(dict.fromkeys(headings_in_chunks))
+            covered_headings = {c.heading_path for c in chunks if c.id in linked_chunk_ids and c.heading_path}
+            total_sections = len(distinct_headings)
+            covered_sections = len(covered_headings)
+            cov_pct = round((covered_sections / total_sections) * 100.0, 1) if total_sections > 0 else 0.0
+            orphan_headings = [h for h in distinct_headings if h not in covered_headings]
+
+            import json
+
+            raw_excl = getattr(doc, "excluded_headings", None)
+            excluded_count = 0
+            if raw_excl:
+                try:
+                    parsed_excl = json.loads(raw_excl)
+                    if isinstance(parsed_excl, list):
+                        excluded_count = len(parsed_excl)
+                except Exception:
+                    excluded_count = 0
+
+            return {
+                "total_chunks": total_chunks,
+                "covered_chunks": covered_count,
+                "coverage_pct": cov_pct,
+                "total_cards": total_cards,
+                "unit_type": "sections",
+                "total_units": total_sections,
+                "covered_units": covered_sections,
+                "orphan_units": orphan_headings,
+                "excluded_units": excluded_count,
+            }
+
+        cov_pct = round((covered_count / total_chunks) * 100.0, 1) if total_chunks > 0 else 0.0
+        orphan_chunks = [c.chunk_index + 1 for c in chunks if c.id not in linked_chunk_ids]
         return {
             "total_chunks": total_chunks,
             "covered_chunks": covered_count,
-            "coverage_pct": round((covered_count / total_chunks) * 100.0, 1),
+            "coverage_pct": cov_pct,
             "total_cards": total_cards,
+            "unit_type": "sections",
+            "total_units": total_chunks,
+            "covered_units": covered_count,
+            "orphan_units": orphan_chunks,
         }

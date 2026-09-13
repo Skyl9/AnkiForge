@@ -11,6 +11,8 @@ from ankiforge.database.models import (
     DocumentPageModel,
     LLMConfigModel,
     MediaModel,
+    NoteChunkLinkModel,
+    NoteModel,
     NoteTypeModel,
     PersonaModel,
     PipelineModel,
@@ -652,3 +654,93 @@ def test_creation_view_on_edit_card_flow(qtbot: Any, mock_db: Any, monkeypatch: 
     assert item_res_1 is not None and item_res_1.text() == "Python 3.12"
     assert item_res_2 is not None and item_res_2.text() == "Langage typé moderne"
     assert item_res_3 is not None and item_res_3.text() == "Docs officielles"
+
+
+@pytest.mark.ui
+def test_creation_view_save_anki_creates_note_chunk_link_and_tags(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la sauvegarde d'une note dans CreationView crée les tags déterministes et le lien NoteChunkLinkModel."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Bio {uid}",
+        content="Contenu",
+        file_type="pdf",
+        total_pages=3,
+    )
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=2,
+        content="Page 2",
+    )
+    deck = DeckModel.create(name=f"Deck {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name=f"Model {uid}",
+        fields_schema='["Front", "Back"]',
+        templates="[]",
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_selected_doc = doc
+    view.current_source_chunk_id = chunk.id
+    view.input_page_scope.setText("2")
+
+    view.generated_cards = [
+        {
+            "Front": "Quelle est la cellule de base ?",
+            "Back": "Le neurone",
+            "status": "Validée",
+            "model": nt.name,
+            "chunk_id": chunk.id,
+            "page_number": 2,
+        }
+    ]
+    view.current_deck = deck
+    view.current_model = nt
+    view.models_cache = [nt]
+
+    view._on_save_anki()
+
+    note = NoteModel.select().order_by(NoteModel.id.desc()).first()
+    assert note is not None
+    assert f"doc:{doc.id}" in note.tags
+    assert "page:2" in note.tags
+
+    link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
+    assert link is not None
+    assert link.chunk_id == chunk.id
+
+
+@pytest.mark.ui
+def test_creation_view_load_context_retains_chunk_and_page(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que load_context retient correctement chunk_id, doc_id et page_number."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Cardio {uid}",
+        content="Cardiologie",
+        file_type="pdf",
+        total_pages=10,
+    )
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=4,
+        content="Page 4",
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.load_context(
+        {
+            "doc_id": doc.id,
+            "chunk_id": chunk.id,
+            "page_number": 4,
+            "text_source": "Extrait page 4",
+            "source_title": f"{doc.title} - Page 4",
+        }
+    )
+
+    assert view.current_source_doc_id == doc.id
+    assert view.current_source_chunk_id == chunk.id
+    assert view.input_page_scope.text() == "4"
