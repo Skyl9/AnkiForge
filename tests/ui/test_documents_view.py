@@ -195,11 +195,11 @@ def test_document_delimitation_applies_pdf_page_range(qtbot):
 
 
 def test_document_delimitation_rejects_page_range_outside_markdown(qtbot):
-    """Une borne dépassant les pages Markdown détectées est refusée."""
+    """Une borne dépassant les pages détectées est refusée pour un document paginé."""
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
-        title=f"Pages Markdown {uid}",
-        file_type="md",
+        title=f"Pages PDF {uid}",
+        file_type="pdf",
         content=("<!-- PAGE: 1 -->\nPremière page Markdown suffisamment longue pour créer un chunk.\n<!-- PAGE: 2 -->\nDeuxième page Markdown suffisamment longue pour créer un chunk."),
     )
 
@@ -344,3 +344,44 @@ def test_documents_view_smart_align_button(qtbot):
     assert "Couvert" in view.chapters_list.item(0).text()
     assert "100%" in view.lbl_coverage_summary.text()
     assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 1
+
+
+def test_documents_view_marker_installation_switches_to_console(qtbot, monkeypatch):
+    """Vérifie que le lancement de l'installation de Marker bascule automatiquement sur la console de logs."""
+    from PySide6.QtCore import QObject, Signal
+
+    class DummyWorker:
+        def __init__(self) -> None:
+            class Emitter(QObject):
+                sig = Signal(str)
+
+            self._em1 = Emitter()
+            self._em2 = Emitter()
+            self._em3 = Emitter()
+            self.progress = self._em1.sig
+            self.installed = self._em2.sig
+            self.failed = self._em3.sig
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("ankiforge.ui.views.documents_view.view.MarkerInstallerWorker", DummyWorker)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Initialement sur le visualiseur PDF
+    view._on_view_toggled("pdf")
+    assert view.btn_view_term.isChecked() is False
+
+    view._install_marker_and_start("/dummy/test.pdf")
+
+    # La vue console doit être activée et les boutons mis à jour
+    assert view.btn_view_term.isChecked() is True
+    assert view.inner_editor_stack.currentIndex() == 2
+    assert "Installation de Marker OCR" in view.terminal_view.toPlainText()
+    assert view.btn_marker.isEnabled() is False
+
+    # Simuler des logs reçus en temps réel
+    view._on_worker_log("Downloading torch-2.1.0-cp312-none-any.whl (750 MB)")
+    assert "Downloading torch" in view.terminal_view.toPlainText()

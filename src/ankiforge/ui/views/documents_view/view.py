@@ -1215,6 +1215,9 @@ class DocumentsView(QWidget):
     def _on_worker_log(self, msg: str) -> None:
         if hasattr(self, "terminal_view"):
             self.terminal_view.append(msg)
+            scrollbar = self.terminal_view.verticalScrollBar()
+            if scrollbar is not None:
+                scrollbar.setValue(scrollbar.maximum())
 
     @Slot(str, str)
     def _on_worker_finished(self, title: str, content: str) -> None:
@@ -1435,7 +1438,19 @@ class DocumentsView(QWidget):
             show_toast(self, "Le fichier PDF source est introuvable.", is_error=True)
             return
         self.btn_marker.setEnabled(False)
-        show_toast(self, "Installation de Marker OCR en cours. Cela peut prendre plusieurs minutes...")
+        show_toast(self, "Installation de Marker OCR en cours. Suivez les étapes dans la console...")
+
+        # Basculer automatiquement sur la console de logs pour rassurer l'utilisateur
+        self.editor_stack.setCurrentIndex(1)
+        self.view_toggle_frame.show()
+        self._on_view_toggled("term")
+        self.terminal_view.clear()
+        self.terminal_view.append("==================================================")
+        self.terminal_view.append("🚀 Installation de Marker OCR & Dépendances")
+        self.terminal_view.append("==================================================")
+        self.terminal_view.append("Création de l'environnement virtuel dédié et téléchargement des paquets...")
+        self.terminal_view.append("Cette opération peut nécessiter quelques minutes selon votre connexion réseau.\n")
+
         self._marker_installer = MarkerInstallerWorker()
         self._marker_installer.progress.connect(self._on_worker_log)
         self._marker_installer.installed.connect(lambda _: self._on_marker_installed(pdf_path))
@@ -1444,11 +1459,16 @@ class DocumentsView(QWidget):
 
     def _on_marker_installed(self, pdf_path: str) -> None:
         self.btn_marker.setEnabled(True)
+        if hasattr(self, "terminal_view"):
+            self.terminal_view.append("\n✅ Marker OCR a été installé avec succès !")
+            self.terminal_view.append("--- Démarrage de l'analyse documentaire avec Marker OCR ---\n")
         show_toast(self, "Marker OCR installé avec succès.")
         self._start_document_worker(pdf_path, doc_id=self._current_doc_id)
 
     def _on_marker_install_failed(self, error: str) -> None:
         self.btn_marker.setEnabled(True)
+        if hasattr(self, "terminal_view"):
+            self.terminal_view.append(f"\n❌ Échec de l'installation de Marker OCR :\n{error}\n")
         show_toast(self, f"Installation de Marker OCR échouée : {error}", is_error=True)
 
     @Slot()
