@@ -19,11 +19,12 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
 from ankiforge.ui.views.creation_view import CreationView
+from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
 from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 
 
 class DummyCreationProvider(LLMProvider):
-    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json", max_tokens: int | None = None) -> str:
         return json.dumps(
             {
                 "cards": [
@@ -486,3 +487,168 @@ def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch
         tm.show(parent=view, message=f"Toast {i}")
     assert len(tm._active_toasts) <= 3
     tm.clear()
+
+
+@pytest.mark.ui
+def test_card_edit_dialog_dynamic_fields(qtbot: Any) -> None:
+    """Vérifie que CardEditDialog génère dynamiquement tous les champs et permet leur édition."""
+    card_data = {
+        "Mot": "Schadenfreude",
+        "Lecture": "ˈʃaːdn̩ˌfʁɔɪ̯də",
+        "Sens": "Joie éprouvée face au malheur d'autrui",
+        "Exemple": "Er empfand Schadenfreude.",
+        "model": "Vocabulaire Allemand",
+        "status": "À valider",
+    }
+    field_names = ["Mot", "Lecture", "Sens", "Exemple"]
+
+    dlg = CardEditDialog(card_data=card_data, field_names=field_names)
+    qtbot.addWidget(dlg)
+
+    # Vérifier que tous les champs sont présents
+    assert set(dlg.field_edits.keys()) == set(field_names)
+    assert dlg.field_edits["Mot"].toPlainText() == "Schadenfreude"
+    assert dlg.field_edits["Lecture"].toPlainText() == "ˈʃaːdn̩ˌfʁɔɪ̯də"
+    assert dlg.field_edits["Sens"].toPlainText() == "Joie éprouvée face au malheur d'autrui"
+    assert dlg.field_edits["Exemple"].toPlainText() == "Er empfand Schadenfreude."
+
+    # Modifier un champ
+    dlg.field_edits["Sens"].setPlainText("Plaisir malicieux")
+
+    # Vérifier get_fields()
+    updated = dlg.get_fields()
+    assert updated["Mot"] == "Schadenfreude"
+    assert updated["Sens"] == "Plaisir malicieux"
+
+    # Vérifier get_data() rétrocompatible
+    first, second = dlg.get_data()
+    assert first == "Schadenfreude"
+    assert second == "ˈʃaːdn̩ˌfʁɔɪ̯də"
+
+
+@pytest.mark.ui
+def test_creation_view_dynamic_table_columns_heterogeneous_cards(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que le tableau des résultats adapte ses colonnes à l'union des champs et grise les champs non applicables."""
+    from PySide6.QtCore import Qt
+
+    # Créer 2 modèles distincts
+    nt_basic = NoteTypeModel.create(
+        name="Basique Test",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style=".card {}",
+    )
+    nt_cloze = NoteTypeModel.create(
+        name="Cloze Test",
+        fields_schema='["Texte", "Remarques extra"]',
+        templates='[{"name": "C1", "qfmt": "{{cloze:Texte}}", "afmt": "{{cloze:Texte}}<br>{{Remarques extra}}"}]',
+        css_style=".card {}",
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.models_cache = [nt_basic, nt_cloze]
+    view.current_model = nt_basic
+
+    view.generated_cards = [
+        {"model": "Basique Test", "Front": "Question 1", "Back": "Réponse 1", "status": "À valider"},
+        {"model": "Cloze Test", "Texte": "La capitale est {{c1::Paris}}", "Remarques extra": "France", "status": "À valider"},
+    ]
+    view._populate_results_table()
+
+    # En-têtes attendus : Modèle + Union ordonnée [Front, Back, Texte, Remarques extra] + Statut
+    expected_headers = ["Modèle", "Front", "Back", "Texte", "Remarques extra", "Statut"]
+    actual_headers = []
+    for i in range(view.results_table.columnCount()):
+        header_item = view.results_table.horizontalHeaderItem(i)
+        assert header_item is not None
+        actual_headers.append(header_item.text())
+    assert actual_headers == expected_headers
+
+    # Ligne 0 (Basique Test) : Front et Back remplis, Texte et Remarques extra grisés ("—")
+    item_0_1 = view.results_table.item(0, 1)
+    item_0_2 = view.results_table.item(0, 2)
+    assert item_0_1 is not None and item_0_1.text() == "Question 1"
+    assert item_0_2 is not None and item_0_2.text() == "Réponse 1"
+
+    item_texte_row0 = view.results_table.item(0, 3)
+    assert item_texte_row0 is not None
+    assert item_texte_row0.text() == "—"
+    assert not (item_texte_row0.flags() & Qt.ItemFlag.ItemIsEditable)
+
+    item_extra_row0 = view.results_table.item(0, 4)
+    assert item_extra_row0 is not None
+    assert item_extra_row0.text() == "—"
+    assert not (item_extra_row0.flags() & Qt.ItemFlag.ItemIsEditable)
+
+    # Ligne 1 (Cloze Test) : Front et Back grisés ("—"), Texte et Remarques extra remplis
+    item_front_row1 = view.results_table.item(1, 1)
+    assert item_front_row1 is not None
+    assert item_front_row1.text() == "—"
+    assert not (item_front_row1.flags() & Qt.ItemFlag.ItemIsEditable)
+
+    item_1_3 = view.results_table.item(1, 3)
+    item_1_4 = view.results_table.item(1, 4)
+    assert item_1_3 is not None and item_1_3.text() == "La capitale est {{c1::Paris}}"
+    assert item_1_4 is not None and item_1_4.text() == "France"
+
+    # Tester l'édition directe en cellule
+    item_front_row0 = view.results_table.item(0, 1)
+    assert item_front_row0 is not None
+    item_front_row0.setText("Question Modifiée Directement")
+    # Déclencher _on_cell_edited
+    view._on_cell_edited(item_front_row0)
+    assert view.generated_cards[0]["Front"] == "Question Modifiée Directement"
+
+    # Tester l'édition directe d'un champ Cloze
+    item_texte_row1 = view.results_table.item(1, 3)
+    assert item_texte_row1 is not None
+    item_texte_row1.setText("Texte Modifié")
+    view._on_cell_edited(item_texte_row1)
+    assert view.generated_cards[1]["Texte"] == "Texte Modifié"
+
+
+@pytest.mark.ui
+def test_creation_view_on_edit_card_flow(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Vérifie l'ouverture et la prise en compte des modifications via _on_edit_card."""
+    from PySide6.QtWidgets import QDialog
+
+    nt_custom = NoteTypeModel.create(
+        name="Custom 3 Fields",
+        fields_schema='["Concept", "Explication", "Source"]',
+        templates='[{"name": "C1", "qfmt": "{{Concept}}", "afmt": "{{Explication}}"}]',
+        css_style=".card {}",
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.models_cache = [nt_custom]
+    view.current_model = nt_custom
+
+    view.generated_cards = [
+        {"model": "Custom 3 Fields", "Concept": "Python", "Explication": "Langage", "Source": "Livre", "status": "À valider"},
+    ]
+    view.current_preview_index = 0
+    view._populate_results_table()
+
+    # Mocker CardEditDialog pour simuler la modification des 3 champs
+    def mock_exec(self: Any) -> int:
+        self.field_edits["Concept"].setPlainText("Python 3.12")
+        self.field_edits["Explication"].setPlainText("Langage typé moderne")
+        self.field_edits["Source"].setPlainText("Docs officielles")
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(CardEditDialog, "exec", mock_exec)
+
+    view._on_edit_card()
+
+    # Vérifier que les 3 champs ont été mis à jour
+    assert view.generated_cards[0]["Concept"] == "Python 3.12"
+    assert view.generated_cards[0]["Explication"] == "Langage typé moderne"
+    assert view.generated_cards[0]["Source"] == "Docs officielles"
+    item_res_1 = view.results_table.item(0, 1)
+    item_res_2 = view.results_table.item(0, 2)
+    item_res_3 = view.results_table.item(0, 3)
+    assert item_res_1 is not None and item_res_1.text() == "Python 3.12"
+    assert item_res_2 is not None and item_res_2.text() == "Langage typé moderne"
+    assert item_res_3 is not None and item_res_3.text() == "Docs officielles"

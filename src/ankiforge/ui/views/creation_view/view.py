@@ -5,7 +5,7 @@ from typing import Any, cast
 
 from peewee import fn
 from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QKeyEvent, QTextCursor
+from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -611,12 +611,13 @@ class CreationView(QWidget):
         table_layout.setSpacing(8)
         table_container.setStyleSheet(f"border-right: 1px solid {DesignTokens.BORDER_COLOR};")
 
-        self.results_table = StyledTableWidget(["Recto", "Verso", "Statut"])
+        self.results_table = StyledTableWidget(["Modèle", "Front", "Back", "Statut"])
         self.results_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
-        self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.results_table.horizontalHeader().setMinimumSectionSize(125)
+        self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.results_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.results_table.horizontalHeader().setMinimumSectionSize(110)
         self.results_table.itemSelectionChanged.connect(self._on_table_selection_changed)
         self.results_table.itemChanged.connect(self._on_cell_edited)
         self.results_table.installEventFilter(self)
@@ -1515,13 +1516,7 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_model_changed(self) -> None:
-        headers = ["Modèle", "Recto / Texte", "Verso / Détails", "Statut"]
-        self.results_table.blockSignals(True)
-        self.results_table.clear()
-        self.results_table.setColumnCount(len(headers))
-        self.results_table.setHorizontalHeaderLabels(headers)
-        self.results_table.setRowCount(0)
-        self.results_table.blockSignals(False)
+        self._populate_results_table()
 
     @Slot(str, str)
     def _on_generate(self, text_source: str = "", source_title: str = "Saisie Libre") -> None:
@@ -1820,6 +1815,50 @@ class CreationView(QWidget):
             self._append_generation_log("Annulation demandée par l'utilisateur...", level="CANCEL")
             show_toast(self, "Pipeline annulé.", is_error=False)
 
+    def _get_table_field_columns(self) -> list[str]:
+        """Détermine la liste ordonnée et unique des champs à afficher en colonnes dans le tableau."""
+        ordered_fields: list[str] = []
+        excluded_keys = {"model", "note_type", "status", "chunk_id", "source_doc_id", "tags"}
+
+        if self.generated_cards:
+            for card in self.generated_cards:
+                card_model_name = card.get("model") or card.get("note_type")
+                target_nt = None
+                if card_model_name and self.models_cache:
+                    for m in self.models_cache:
+                        if m.name.lower().strip() == str(card_model_name).lower().strip():
+                            target_nt = m
+                            break
+                if not target_nt:
+                    target_nt = self.current_model
+
+                if target_nt and target_nt.fields_schema:
+                    try:
+                        m_fields = json.loads(str(target_nt.fields_schema))
+                        for f in m_fields:
+                            if f not in excluded_keys and f not in ordered_fields:
+                                ordered_fields.append(f)
+                    except Exception:
+                        pass
+
+                for k in card:
+                    if k not in excluded_keys and k not in ordered_fields:
+                        ordered_fields.append(k)
+        else:
+            if self.current_model and self.current_model.fields_schema:
+                try:
+                    m_fields = json.loads(str(self.current_model.fields_schema))
+                    for f in m_fields:
+                        if f not in excluded_keys and f not in ordered_fields:
+                            ordered_fields.append(f)
+                except Exception:
+                    pass
+
+        if not ordered_fields:
+            ordered_fields = ["Front", "Back"]
+
+        return ordered_fields
+
     def _populate_results_table(self) -> None:
         saved_index = self.current_preview_index
 
@@ -1828,12 +1867,21 @@ class CreationView(QWidget):
             self.results_panel.set_active_tab(self.TAB_INDEX_CARDS)
 
         self.results_table.blockSignals(True)
-        self.results_table.setRowCount(len(self.generated_cards))
         self.results_panel.set_tab_title(self.TAB_INDEX_CARDS, f"Cartes Générées ({len(self.generated_cards)})")
 
-        headers = ["Modèle", "Recto / Texte Principal", "Verso / Détails", "Statut"]
+        field_columns = self._get_table_field_columns()
+        headers = ["Modèle", *field_columns, "Statut"]
+        self.results_table.clear()
         self.results_table.setColumnCount(len(headers))
         self.results_table.setHorizontalHeaderLabels(headers)
+        self.results_table.setRowCount(len(self.generated_cards))
+
+        header = self.results_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setMinimumSectionSize(110)
+        for i in range(1, len(headers) - 1):
+            header.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(len(headers) - 1, QHeaderView.ResizeMode.ResizeToContents)
 
         _STATUS_META = {
             "Acceptée": ("Validée", "ph.check-circle", "success"),
@@ -1849,10 +1897,23 @@ class CreationView(QWidget):
             card_model_name = card.get("model") or (self.current_model.name if self.current_model else "Basique")
             card["model"] = card_model_name
 
-            front_text = card.get("Front") or card.get("Recto") or card.get("Texte") or card.get("Théorème") or ""
-            back_text = card.get("Back") or card.get("Verso") or card.get("Remarques extra") or card.get("Démonstration") or ""
-            status_text = card["status"]
+            target_nt = None
+            if card_model_name and self.models_cache:
+                for m in self.models_cache:
+                    if m.name.lower().strip() == str(card_model_name).lower().strip():
+                        target_nt = m
+                        break
+            if not target_nt:
+                target_nt = self.current_model
 
+            card_fields: list[str] = []
+            if target_nt and target_nt.fields_schema:
+                try:
+                    card_fields = json.loads(str(target_nt.fields_schema))
+                except Exception:
+                    card_fields = []
+
+            # 1. Modèle combo
             model_combo = StyledComboBox()
             model_combo.setFixedHeight(26)
             for m in self.models_cache:
@@ -1866,6 +1927,7 @@ class CreationView(QWidget):
                     new_model_name = combo.currentText()
                     if 0 <= r < len(self.generated_cards):
                         self.generated_cards[r]["model"] = new_model_name
+                        self._populate_results_table()
                         if self.current_preview_index == r:
                             self._update_card_preview()
 
@@ -1874,14 +1936,26 @@ class CreationView(QWidget):
             model_combo.currentIndexChanged.connect(make_combo_handler(row, model_combo))
             self.results_table.setCellWidget(row, 0, model_combo)
 
-            front_item = QTableWidgetItem(str(front_text))
-            front_item.setToolTip(str(front_text))
-            self.results_table.setItem(row, 1, front_item)
+            # 2. Cellules des champs
+            for col_idx, f_name in enumerate(field_columns, start=1):
+                is_field_in_card = f_name in card
+                is_field_in_model = (not card_fields) or (f_name in card_fields)
 
-            back_item = QTableWidgetItem(str(back_text))
-            back_item.setToolTip(str(back_text))
-            self.results_table.setItem(row, 2, back_item)
+                if is_field_in_card or is_field_in_model:
+                    val = card.get(f_name, "")
+                    item = QTableWidgetItem(str(val))
+                    item.setToolTip(str(val))
+                else:
+                    item = QTableWidgetItem("—")
+                    item.setToolTip(f"Le champ '{f_name}' ne fait pas partie du modèle '{card_model_name}'")
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable & ~Qt.ItemFlag.ItemIsSelectable)
+                    item.setForeground(QColor(DesignTokens.TEXT_MUTED))
+                    item.setBackground(QColor(DesignTokens.BG_INPUT))
 
+                self.results_table.setItem(row, col_idx, item)
+
+            # 3. Badge de statut
+            status_text = card["status"]
             label, icon_name, variant = _STATUS_META.get(status_text, (status_text, "ph.hourglass-simple", "warning"))
 
             badge_container = QWidget()
@@ -1891,8 +1965,9 @@ class CreationView(QWidget):
             badge = StatusBadge(label, icon_name=icon_name, variant=variant)
             badge_layout.addWidget(badge)
 
-            self.results_table.setItem(row, 3, QTableWidgetItem())
-            self.results_table.setCellWidget(row, 3, badge_container)
+            status_col = len(headers) - 1
+            self.results_table.setItem(row, status_col, QTableWidgetItem())
+            self.results_table.setCellWidget(row, status_col, badge_container)
             self.results_table.setRowHeight(row, 38)
 
         self.results_table.blockSignals(False)
@@ -1945,22 +2020,29 @@ class CreationView(QWidget):
         row = item.row()
         col = item.column()
         if 0 <= row < len(self.generated_cards):
-            text = item.text()
-            card = self.generated_cards[row]
-            card_model_name = card.get("model", "")
-            if "cloze" in card_model_name.lower():
-                if col == 1:
-                    card["Texte"] = text
-                elif col == 2:
-                    card["Remarques extra"] = text
-            else:
-                if col == 1:
-                    card["Front"] = text
-                    card["Recto"] = text
-                elif col == 2:
-                    card["Back"] = text
-                    card["Verso"] = text
-            self._update_card_preview()
+            col_count = self.results_table.columnCount()
+            if 1 <= col < col_count - 1:
+                header_item = self.results_table.horizontalHeaderItem(col)
+                if header_item:
+                    field_name = header_item.text()
+                    text = item.text()
+                    card = self.generated_cards[row]
+                    card[field_name] = text
+
+                    f_lower = field_name.lower().strip()
+                    if f_lower in ("front", "recto"):
+                        card["Front"] = text
+                        card["Recto"] = text
+                    elif f_lower in ("back", "verso"):
+                        card["Back"] = text
+                        card["Verso"] = text
+                    elif f_lower in ("texte",):
+                        card["Texte"] = text
+                    elif f_lower in ("remarques extra", "remarques", "extra"):
+                        card["Remarques extra"] = text
+
+                    if row == self.current_preview_index:
+                        self._update_card_preview()
 
     @Slot()
     def _on_prev_card(self) -> None:
@@ -2030,15 +2112,45 @@ class CreationView(QWidget):
         card = self.generated_cards[self.current_preview_index]
         previous_status = card.get("status", "À valider")
 
+        card_model_name = card.get("model") or card.get("note_type")
+        target_nt = None
+        if card_model_name and self.models_cache:
+            for m in self.models_cache:
+                if m.name.lower().strip() == str(card_model_name).lower().strip():
+                    target_nt = m
+                    break
+        if not target_nt:
+            target_nt = self.current_model
+
+        field_names: list[str] = []
+        if target_nt and target_nt.fields_schema:
+            try:
+                field_names = json.loads(str(target_nt.fields_schema))
+            except Exception:
+                field_names = []
+
         dlg = CardEditDialog(
-            front=card.get("Front", card.get("Recto", "")),
-            back=card.get("Back", card.get("Verso", "")),
+            card_data=card,
+            field_names=field_names,
             parent=self,
         )
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            new_front, new_back = dlg.get_data()
-            card["Front"] = new_front
-            card["Back"] = new_back
+            updated_fields = dlg.get_fields()
+            card.update(updated_fields)
+
+            for f_name, val in updated_fields.items():
+                f_lower = f_name.lower().strip()
+                if f_lower in ("front", "recto"):
+                    card["Front"] = val
+                    card["Recto"] = val
+                elif f_lower in ("back", "verso"):
+                    card["Back"] = val
+                    card["Verso"] = val
+                elif f_lower in ("texte",):
+                    card["Texte"] = val
+                elif f_lower in ("remarques extra", "remarques", "extra"):
+                    card["Remarques extra"] = val
+
             card["status"] = previous_status
             self._populate_results_table()
             self._update_card_preview()
