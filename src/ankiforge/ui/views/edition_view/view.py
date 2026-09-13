@@ -5,7 +5,7 @@ import logging
 from typing import Any, Literal
 
 import peewee
-from PySide6.QtCore import QModelIndex, Qt, Slot
+from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -76,6 +76,8 @@ class EditionView(QWidget):
     """
     Vue Principale d'Édition et de Navigation des Cartes avec Divulgation Progressive.
     """
+
+    request_navigation = Signal(str, object)
 
     BATCH_SIZE = 50
 

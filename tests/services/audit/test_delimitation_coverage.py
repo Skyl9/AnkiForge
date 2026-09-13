@@ -115,3 +115,44 @@ def test_delimitation_dialog_persists_settings_and_filters_chunks(qtbot):
     assert 3 in pages_active
     assert 1 not in pages_active
     assert 4 not in pages_active
+
+
+def test_delimitation_dialog_markdown_document_without_pages(qtbot):
+    """Vérifie que pour un document Markdown non paginé, la carte de pagination est masquée et la désélection individuelle fonctionne."""
+    uid = uuid.uuid4().hex[:6]
+    content = "# Chapitre 1\nContenu du chapitre 1.\n\n# Chapitre 2\nContenu du chapitre 2.\n\n# Annexes\nContenu des annexes.\n"
+    doc = DocumentModel.create(
+        title=f"Doc Markdown {uid}",
+        file_type="md",
+        content=content,
+        total_pages=1,
+    )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # 1. Vérification que la notion de page est désactivée
+    assert not dlg.is_paginated
+    assert dlg.pages_card is not None
+    assert dlg.pages_card.isHidden()
+
+    # 2. Désélection individuelle via SectionRowWidget
+    assert dlg.sections_list.count() == 3
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Checked
+
+    row_w = dlg.sections_list.itemWidget(dlg.sections_list.item(0))
+    assert row_w is not None
+    # On décoche individuellement la section
+    row_w.set_checked(False)
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked
+
+    # 3. Application de la délimitation
+    dlg.chk_revectorize.setChecked(False)
+    dlg._on_apply()
+
+    reloaded_doc = DocumentModel.get_by_id(doc.id)
+    assert reloaded_doc.start_page is None
+    assert reloaded_doc.end_page is None
+    assert reloaded_doc.excluded_headings is not None
+    excl = json.loads(reloaded_doc.excluded_headings)
+    assert any("Chapitre 1" in s for s in excl)
