@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSlider,
-    QSpinBox,
     QSplitter,
     QTableWidgetItem,
     QTreeWidget,
@@ -34,6 +33,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     DeckModel,
     DocumentChunkModel,
+    DocumentModel,
     DocumentPageModel,
     NoteChunkLinkModel,
     NoteTypeModel,
@@ -53,13 +53,13 @@ from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     Badge,
     DangerButton,
+    DocumentPickerButton,
     IconButton,
     IdePanel,
     PrimaryButton,
     SecondaryButton,
     StatusBadge,
     StyledComboBox,
-    StyledLineEdit,
     StyledTableWidget,
 )
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
@@ -75,6 +75,7 @@ from ankiforge.ui.views.creation_view.widgets import (
     FlashcardPreview,
     VisionCard,
 )
+from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 from ankiforge.ui.widgets.toast import ToastManager, show_toast
 from ankiforge.utils.event_bus import (
     CardCreatedEvent,
@@ -134,6 +135,7 @@ class CreationView(QWidget):
         self._current_doc_unit: str = "pages"
         self.current_source_chunk_id: int | None = None
         self.current_source_doc_id: int | None = None
+        self._is_syncing_document: bool = False
 
         self._setup_ui()
         self._connect_signals()
@@ -204,6 +206,60 @@ class CreationView(QWidget):
         config_layout = QVBoxLayout(config_content)
         config_layout.setContentsMargins(8, 8, 8, 8)
         config_layout.setSpacing(12)
+
+        # --- Section 0: Document Source ---
+        src_card = QFrame()
+        src_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        src_layout = QVBoxLayout(src_card)
+        src_layout.setContentsMargins(10, 10, 10, 10)
+        src_layout.setSpacing(8)
+
+        src_top = QHBoxLayout()
+        src_top.setContentsMargins(0, 0, 0, 0)
+        src_top.setSpacing(6)
+        src_ico = QLabel()
+        src_ico.setPixmap(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        src_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_src = QLabel("DOCUMENT SOURCE")
+        lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        src_top.addWidget(src_ico)
+        src_top.addWidget(lbl_src)
+        src_top.addStretch()
+        src_layout.addLayout(src_top)
+
+        self.doc_picker_btn = DocumentPickerButton(self)
+        self.doc_picker_btn.document_changed.connect(self._on_picker_document_changed)
+        src_layout.addWidget(self.doc_picker_btn)
+        config_layout.addWidget(src_card)
+
+        # --- Section 0.5: Portée & Découpage en Segments (Fusionné) ---
+        self.segment_inspector = SegmentInspectorWidget(self)
+        self.segment_inspector.segment_selected.connect(self._on_segment_selected_in_inspector)
+        self.segment_inspector.open_delimitation_requested.connect(self._on_open_delimitation_for_current_doc)
+        self.segment_inspector.open_scope_dialog_requested.connect(self._on_open_scope_dialog_for_current_doc)
+        self.segment_inspector.scope_changed.connect(self._on_page_scope_changed)
+        config_layout.addWidget(self.segment_inspector)
+
+        # Alias de rétro-compatibilité avec les propriétés de l'ancienne scope_card
+        self.scope_card = self.segment_inspector
+        self.lbl_scope = self.segment_inspector.lbl_scope
+        self.scope_badge = self.segment_inspector.scope_badge
+        self.btn_preset_all = self.segment_inspector.btn_preset_all
+        self.btn_preset_page = self.segment_inspector.btn_preset_page
+        self.btn_preset_range = self.segment_inspector.btn_preset_range
+        self.input_page_scope = self.segment_inspector.input_page_scope
+        self.btn_scope_minus = self.segment_inspector.btn_scope_minus
+        self.btn_scope_plus = self.segment_inspector.btn_scope_plus
+        self.lbl_scope_stats = self.segment_inspector.lbl_scope_stats
+        self.spin_page_start = self.segment_inspector.spin_page_start
+        self.spin_page_end = self.segment_inspector.spin_page_end
+        self.scope_card.hide()
 
         # --- Section 1: Cibles Anki ---
         target_card = QFrame()
@@ -344,132 +400,6 @@ class CreationView(QWidget):
         self.vision_card.hide()
         ai_layout.addWidget(self.vision_card)
         config_layout.addWidget(ai_card)
-
-        # --- Section 3: Portée du Document ---
-        self.scope_card = QFrame()
-        self.scope_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        scope_layout = QVBoxLayout(self.scope_card)
-        scope_layout.setContentsMargins(10, 10, 10, 10)
-        scope_layout.setSpacing(8)
-
-        scope_top = QHBoxLayout()
-        scope_top.setContentsMargins(0, 0, 0, 0)
-        scope_top.setSpacing(6)
-        scope_ico = QLabel()
-        scope_ico.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
-        scope_ico.setStyleSheet("border: none; background: transparent;")
-        self.lbl_scope = QLabel("PORTÉE DU DOCUMENT")
-        self.lbl_scope.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
-
-        self.scope_badge = Badge("10 pages", variant="neutral")
-
-        scope_top.addWidget(scope_ico)
-        scope_top.addWidget(self.lbl_scope)
-        scope_top.addStretch()
-        scope_top.addWidget(self.scope_badge)
-        scope_layout.addLayout(scope_top)
-
-        preset_row = QHBoxLayout()
-        preset_row.setSpacing(4)
-
-        preset_btn_style = f"""
-            QPushButton {{
-                background-color: {DesignTokens.BG_PANEL};
-                color: {DesignTokens.TEXT_SECONDARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 10px;
-                padding: 2px 7px;
-                font-size: 10px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignTokens.BG_HOVER};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """
-
-        self.btn_preset_all = QPushButton("Tout le doc")
-        self.btn_preset_all.setStyleSheet(preset_btn_style)
-        self.btn_preset_all.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_preset_all.setToolTip("Sélectionner tout le document source pour la génération")
-
-        self.btn_preset_page = QPushButton("Page 1")
-        self.btn_preset_page.setStyleSheet(preset_btn_style)
-        self.btn_preset_page.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_preset_page.setToolTip("Limiter la génération à la première page")
-
-        self.btn_preset_range = QPushButton("1 – 10")
-        self.btn_preset_range.setStyleSheet(preset_btn_style)
-        self.btn_preset_range.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_preset_range.setToolTip("Sélectionner une plage de 10 pages consécutives")
-
-        preset_row.addWidget(self.btn_preset_all, 1)
-        preset_row.addWidget(self.btn_preset_page, 1)
-        preset_row.addWidget(self.btn_preset_range, 1)
-        scope_layout.addLayout(preset_row)
-
-        input_container = QFrame()
-        input_container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-            }}
-            QFrame:focus-within {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
-        input_layout = QHBoxLayout(input_container)
-        input_layout.setContentsMargins(6, 2, 4, 2)
-        input_layout.setSpacing(4)
-
-        self.input_page_scope = StyledLineEdit()
-        self.input_page_scope.setText("1-10")
-        self.input_page_scope.setPlaceholderText("ex: 1-5, 8, 12-15")
-        self.input_page_scope.setStyleSheet("background: transparent; border: none; font-size: 11px; font-weight: 600;")
-        input_layout.addWidget(self.input_page_scope, 1)
-
-        btn_stepper_style = f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: 3px;
-                padding: 2px;
-            }}
-            QPushButton:hover {{
-                background: {DesignTokens.BG_HOVER};
-            }}
-        """
-
-        self.btn_scope_minus = IconButton("ph.minus", "Réduire l'étendue", 16)
-        self.btn_scope_minus.setStyleSheet(btn_stepper_style)
-        self.btn_scope_plus = IconButton("ph.plus", "Élargir l'étendue", 16)
-        self.btn_scope_plus.setStyleSheet(btn_stepper_style)
-
-        input_layout.addWidget(self.btn_scope_minus)
-        input_layout.addWidget(self.btn_scope_plus)
-        scope_layout.addWidget(input_container)
-
-        self.lbl_scope_stats = QLabel("~1 200 mots • ~6 cartes estimées")
-        self.lbl_scope_stats.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
-        scope_layout.addWidget(self.lbl_scope_stats)
-
-        self.spin_page_start = QSpinBox(self)
-        self.spin_page_start.hide()
-        self.spin_page_end = QSpinBox(self)
-        self.spin_page_end.hide()
-        self.spin_page_start.setValue(1)
-        self.spin_page_end.setValue(10)
-
-        self.scope_card.hide()
-        config_layout.addWidget(self.scope_card)
 
         # Paramètres Avancés
         self.btn_toggle_advanced = QPushButton()
@@ -781,21 +711,145 @@ class CreationView(QWidget):
         self.btn_editer.clicked.connect(self._on_edit_card)
         self.btn_rejeter.clicked.connect(self._on_reject_card)
 
+        self.source_panel.tab_changed.connect(self._on_source_tab_changed)
+        if hasattr(self.source_panel, "tabs_bar"):
+            self.source_panel.tabs_bar.tab_close_requested.connect(self._on_source_tab_close_requested)
+
+    @Slot(int)
+    def _on_source_tab_changed(self, index: int) -> None:
+        if getattr(self, "_is_syncing_document", False):
+            return
+        widget = self.source_panel.content_stack.widget(index)
+        if isinstance(widget, DocumentEditorWidget):
+            doc = widget.doc_model
+            self._is_syncing_document = True
+            try:
+                self._current_selected_doc = doc
+                if isinstance(doc, DocumentModel):
+                    self.current_source_doc_id = doc.id
+                    self.current_source_title = widget.source_title
+                    if hasattr(self, "doc_picker_btn"):
+                        self.doc_picker_btn.set_document(doc, emit_signal=False)
+                    if hasattr(self, "segment_inspector"):
+                        self.segment_inspector.set_document(doc)
+                    self._update_scope_and_vision_for_doc(doc)
+                    self._select_doc_in_tree(doc.id)
+                else:
+                    self.current_source_doc_id = None
+                    self.current_source_title = widget.source_title
+                    if hasattr(self, "doc_picker_btn"):
+                        self.doc_picker_btn.set_document(None, emit_signal=False)
+                    if hasattr(self, "segment_inspector"):
+                        self.segment_inspector.set_document(None, fallback_text=widget.get_text())
+                    self.scope_card.hide()
+                    self.vision_card.hide()
+                    self.file_tree.clearSelection()
+            finally:
+                self._is_syncing_document = False
+
+    @Slot(int)
+    def _on_source_tab_close_requested(self, index: int) -> None:
+        if hasattr(self.source_panel, "tabs_bar") and 0 <= index < len(self.source_panel.tabs_bar.tabs):
+            title = self.source_panel.tabs_bar.tabs[index].text().strip()
+            self.open_editors.pop(title, None)
+
     @Slot(QTreeWidgetItem, int)
     def _on_explorer_item_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         doc = item.data(0, Qt.ItemDataRole.UserRole)
-        if doc and hasattr(doc, "id"):
-            self._current_selected_doc = doc
-            self._update_scope_and_vision_for_doc(doc)
+        if isinstance(doc, DocumentModel):
+            self._on_explorer_selection_changed()
 
     @Slot()
     def _on_explorer_selection_changed(self) -> None:
+        if getattr(self, "_is_syncing_document", False):
+            return
         selected_items = self.file_tree.selectedItems()
         if selected_items:
             doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
-            if doc and hasattr(doc, "id"):
+            if isinstance(doc, DocumentModel):
+                self._is_syncing_document = True
+                try:
+                    self._current_selected_doc = doc
+                    self.current_source_doc_id = doc.id
+                    self.current_source_title = doc.title
+                    if hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document() != doc:
+                        self.doc_picker_btn.set_document(doc, emit_signal=False)
+                    if hasattr(self, "segment_inspector"):
+                        self.segment_inspector.set_document(doc)
+                    self._update_scope_and_vision_for_doc(doc)
+                    if doc.title in self.open_editors:
+                        self.source_panel.open_tab(doc.title)
+                finally:
+                    self._is_syncing_document = False
+
+    @Slot(object)
+    def _on_picker_document_changed(self, doc: Any) -> None:
+        if getattr(self, "_is_syncing_document", False):
+            return
+        self._is_syncing_document = True
+        try:
+            if hasattr(self, "segment_inspector"):
+                self.segment_inspector.set_document(doc)
+            if isinstance(doc, DocumentModel):
                 self._current_selected_doc = doc
+                self.current_source_doc_id = doc.id
+                self.current_source_title = doc.title
+                self._select_doc_in_tree(doc.id)
+                self._open_document_for_model(doc)
                 self._update_scope_and_vision_for_doc(doc)
+            else:
+                self._current_selected_doc = None
+                self.current_source_doc_id = None
+                self.current_source_title = "Saisie Libre"
+                self.file_tree.clearSelection()
+                self.scope_card.hide()
+                self.vision_card.hide()
+                self._open_document_tab("Saisie Libre")
+        finally:
+            self._is_syncing_document = False
+
+    @Slot(int, str)
+    def _on_segment_selected_in_inspector(self, idx: int, content: str) -> None:
+        active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
+        if active_editor and content:
+            editor_text = active_editor.get_text()
+            pos = editor_text.find(content[:60])
+            if pos != -1 and hasattr(active_editor, "editor") and hasattr(active_editor.editor, "set_cursor_position"):
+                active_editor.editor.set_cursor_position(pos)
+
+    @Slot()
+    def _on_open_delimitation_for_current_doc(self) -> None:
+        doc = self.doc_picker_btn.get_document() or getattr(self, "_current_selected_doc", None)
+        if not doc:
+            from ankiforge.ui.widgets.toast import show_toast
+
+            show_toast(self, "Veuillez sélectionner un document à délimiter.", is_error=True)
+            return
+        from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+        dlg = DocumentDelimitationDialog(doc, parent=self)
+        if dlg.exec():
+            sp = getattr(doc, "start_page", 1) or 1
+            ep = getattr(doc, "end_page", None)
+            if ep is not None:
+                self.segment_inspector.input_page_scope.setText(f"{sp}-{ep}")
+            self.segment_inspector.set_document(doc)
+
+    @Slot()
+    def _on_open_scope_dialog_for_current_doc(self) -> None:
+        doc = self.doc_picker_btn.get_document() or getattr(self, "_current_selected_doc", None)
+        if not doc:
+            from ankiforge.ui.widgets.toast import show_toast
+
+            show_toast(self, "Veuillez sélectionner un document pour définir sa portée.", is_error=True)
+            return
+        from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+        initial_scope = self.segment_inspector.input_page_scope.text().strip()
+        dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, parent=self)
+        if dlg.exec():
+            res = dlg.get_result()
+            self.segment_inspector.apply_scope_result(res)
 
     @Slot()
     def _on_preset_range(self) -> None:
@@ -819,8 +873,14 @@ class CreationView(QWidget):
                 doc = self.doc_repo.get_document_by_id(data["doc_id"])
                 if doc:
                     self._current_selected_doc = doc
+                    self.current_source_title = doc.title
+                    if hasattr(self, "doc_picker_btn"):
+                        self.doc_picker_btn.set_document(doc, emit_signal=False)
+                    if hasattr(self, "segment_inspector"):
+                        self.segment_inspector.set_document(doc)
                     self._select_doc_in_tree(doc.id)
                     self._open_document_for_model(doc)
+                    self._update_scope_and_vision_for_doc(doc)
             except Exception as e:
                 logger.warning("Impossible de charger le document id=%s: %s", data.get("doc_id"), e)
         elif "text_source" in data:
@@ -842,7 +902,7 @@ class CreationView(QWidget):
                 if not child:
                     continue
                 d = child.data(0, Qt.ItemDataRole.UserRole)
-                if d and getattr(d, "id", None) == doc_id:
+                if isinstance(d, DocumentModel) and getattr(d, "id", None) == doc_id:
                     return child
                 sub = search_item(child)
                 if sub:
@@ -851,8 +911,15 @@ class CreationView(QWidget):
 
         item = search_item(self.file_tree)
         if item:
+            parent = item.parent()
+            while parent:
+                parent.setExpanded(True)
+                parent = parent.parent()
+            self.file_tree.blockSignals(True)
             self.file_tree.setCurrentItem(item)
             item.setSelected(True)
+            self.file_tree.scrollToItem(item)
+            self.file_tree.blockSignals(False)
 
     def _update_scope_and_vision_for_doc(self, doc_model: Any) -> None:
         """Adapte la carte de portée et la vision en fonction du type de document sélectionné."""
@@ -925,23 +992,17 @@ class CreationView(QWidget):
         self._current_doc_unit_plural = unit_plural
         self._current_doc_unit = unit_plural
 
-        self.lbl_scope.setText(scope_title)
+        if hasattr(self, "segment_inspector"):
+            self.segment_inspector.configure_scope(
+                scope_title=scope_title,
+                total_units=total_units,
+                start_unit=effective_start,
+                end_unit=effective_end,
+                unit_singular=unit_singular,
+                unit_plural=unit_plural,
+                unit_abbrev=unit_abbrev,
+            )
         self.scope_card.show()
-        if start_p is not None or end_p is not None:
-            useful_count = effective_end - effective_start + 1
-            self.btn_preset_all.setText(f"Utile ({useful_count}{unit_abbrev})")
-            self.btn_preset_page.setText(f"{unit_singular.capitalize()} {effective_start}")
-            self.btn_preset_range.setText(f"{effective_start} – {min(effective_start + 9, effective_end)}")
-            self.input_page_scope.blockSignals(True)
-            self.input_page_scope.setText(f"{effective_start}-{min(effective_start + 9, effective_end)}")
-            self.input_page_scope.blockSignals(False)
-        else:
-            self.btn_preset_all.setText(f"Tout ({total_units}{unit_abbrev})")
-            self.btn_preset_page.setText(f"{unit_singular.capitalize()} 1")
-            self.btn_preset_range.setText(f"1 – {min(10, total_units)}")
-            self.input_page_scope.blockSignals(True)
-            self.input_page_scope.setText(f"1-{min(10, total_units)}")
-            self.input_page_scope.blockSignals(False)
 
         is_visual = is_pdf or is_album or is_pptx
         self.vision_card.setVisible(is_visual)
@@ -954,7 +1015,10 @@ class CreationView(QWidget):
     @Slot()
     def _on_hub_open_documents(self) -> None:
         self.config_panel.set_active_tab(0)
-        show_toast(self, "Sélectionnez ou double-cliquez sur un document à gauche.")
+        if hasattr(self, "doc_picker_btn"):
+            self.doc_picker_btn._open_selector_modal()
+        else:
+            show_toast(self, "Sélectionnez ou double-cliquez sur un document à gauche.")
 
     def _toggle_vision_card(self) -> None:
         self.vision_cb.setChecked(not self.vision_cb.isChecked())
@@ -1146,6 +1210,9 @@ class CreationView(QWidget):
 
                     item.setData(0, Qt.ItemDataRole.UserRole, doc)
 
+            if self._current_selected_doc and hasattr(self._current_selected_doc, "id"):
+                self._select_doc_in_tree(self._current_selected_doc.id)
+
             self._on_model_changed()
 
         except Exception as e:
@@ -1221,17 +1288,31 @@ class CreationView(QWidget):
 
         if doc_model is not None:
             self._current_selected_doc = doc_model
+            self.current_source_doc_id = doc_model.id
+            self.current_source_title = title
+            if hasattr(self, "doc_picker_btn"):
+                self.doc_picker_btn.set_document(doc_model, emit_signal=False)
+            if hasattr(self, "segment_inspector"):
+                self.segment_inspector.set_document(doc_model)
+            self._select_doc_in_tree(doc_model.id)
             self._update_scope_and_vision_for_doc(doc_model)
         else:
+            self.current_source_doc_id = None
+            self.current_source_title = title
+            if hasattr(self, "doc_picker_btn"):
+                self.doc_picker_btn.set_document(None, emit_signal=False)
+            if hasattr(self, "segment_inspector"):
+                self.segment_inspector.set_document(None, fallback_text=content)
             self.scope_card.hide()
             self.vision_card.hide()
+            self.file_tree.clearSelection()
 
         self.config_panel.set_active_tab(1)
 
     @Slot(QTreeWidgetItem, int)
     def _on_explorer_item_double_clicked(self, item: QTreeWidgetItem, column: int) -> None:
         doc = item.data(0, Qt.ItemDataRole.UserRole)
-        if doc and hasattr(doc, "content"):
+        if isinstance(doc, DocumentModel):
             self._open_document_for_model(doc)
 
     def _open_document_for_model(self, doc: Any) -> None:
@@ -1554,6 +1635,15 @@ class CreationView(QWidget):
     @Slot(str, str)
     def _on_generate(self, text_source: str = "", source_title: str = "Saisie Libre") -> None:
         self.current_source_title = source_title
+
+        # Prise en compte du filtrage par segments de l'inspecteur
+        has_doc = (hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document() is not None) or getattr(self, "_current_selected_doc", None) is not None
+        if hasattr(self, "segment_inspector") and has_doc and self.segment_inspector.segments_list.count() > 0:
+            active_segs = self.segment_inspector.get_active_segments()
+            if not active_segs:
+                show_toast(self, "Aucun fragment coché pour la génération. Cochez au moins un segment.", is_error=True)
+                return
+            text_source = "\n\n---\n\n".join(seg["content"] for seg in active_segs)
 
         if not text_source:
             show_toast(self, "Veuillez saisir un texte source ou sélectionner un document.", is_error=True)

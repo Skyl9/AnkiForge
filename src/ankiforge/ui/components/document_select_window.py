@@ -32,12 +32,18 @@ class DocumentSelectWindow(QWidget):
 
     document_selected = Signal(int, str)  # (doc_id, doc_title)
 
-    def __init__(self, title: str = "Sélectionner un Cours / Document (RAG)", parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        title: str = "Sélectionner un Cours / Document (RAG)",
+        parent: QWidget | None = None,
+        selected_doc_id: int | None = None,
+    ) -> None:
         super().__init__(parent)
 
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setFixedSize(480, 520)
+        self._selected_doc_id = selected_doc_id
 
         self.setStyleSheet(f"""
             QWidget {{
@@ -166,27 +172,51 @@ class DocumentSelectWindow(QWidget):
             return
 
         for doc in documents:
-            parent_item = folder_items.get(doc.folder_id, self.tree) if hasattr(doc, "folder_id") and doc.folder_id else self.tree
-            title_to_display = doc.original_media.original_name if getattr(doc, "original_media", None) else doc.title
+            folder_id = getattr(doc, "folder_id", None)
+            parent_item = folder_items.get(folder_id, self.tree) if folder_id else self.tree
+            title_to_display = doc.title
+            if not title_to_display:
+                try:
+                    if getattr(doc, "original_media", None):
+                        title_to_display = doc.original_media.original_name
+                except Exception:
+                    pass
+            title_to_display = title_to_display or "Document sans titre"
+
             item = QTreeWidgetItem(parent_item, [title_to_display])
             item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": title_to_display})
 
             # Icône selon le type de fichier
-            ft = getattr(doc, "file_type", "md") or "md"
+            ft = (getattr(doc, "file_type", "md") or "md").lower()
             if ft == "pdf":
                 item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
             elif ft in ("md", "markdown"):
                 item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW))
+            elif ft == "album":
+                item.setIcon(0, load_phosphor_icon("ph.images", color=DesignTokens.COLOR_PURPLE))
+            elif ft == "epub":
+                item.setIcon(0, load_phosphor_icon("ph.book-open", color=DesignTokens.COLOR_PURPLE))
+            elif ft == "pptx":
+                item.setIcon(0, load_phosphor_icon("ph.presentation", color=DesignTokens.COLOR_YELLOW))
+            elif ft in ("audio", "mp3", "m4a", "wav"):
+                item.setIcon(0, load_phosphor_icon("ph.headphones", color=DesignTokens.COLOR_GREEN))
+            elif ft in ("youtube", "video"):
+                item.setIcon(0, load_phosphor_icon("ph.youtube-logo", color=DesignTokens.COLOR_RED))
             elif ft == "web":
                 item.setIcon(0, load_phosphor_icon("ph.globe", color=DesignTokens.ACCENT_PRIMARY))
-            elif ft == "youtube":
-                item.setIcon(0, load_phosphor_icon("ph.youtube-logo", color=DesignTokens.COLOR_RED))
             else:
                 item.setIcon(0, load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
 
             self._doc_items_by_id[doc.id] = item
 
         self.tree.expandAll()
+
+        if self._selected_doc_id is not None and self._selected_doc_id in self._doc_items_by_id:
+            sel_item = self._doc_items_by_id[self._selected_doc_id]
+            self.tree.setCurrentItem(sel_item)
+            sel_item.setSelected(True)
+            self.tree.scrollToItem(sel_item)
+            self.btn_confirm.setEnabled(True)
 
     def _on_search_changed(self, text: str) -> None:
         """Filtre l'arborescence : affiche les correspondances et leurs dossiers parents."""

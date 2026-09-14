@@ -427,7 +427,7 @@ def test_update_checker_304_updates_last_check_timestamp() -> None:
     settings.setValue(SETTINGS_KEY_ETAG_STABLE, 'W/"test-etag"')
     settings.remove(SETTINGS_KEY_LAST_CHECK)
 
-    with patch("requests.get", return_value=fake_response):
+    with patch("requests.get", return_value=fake_response), patch("ankiforge.utils.environment.is_development", return_value=False):
         worker.run()
 
     last_check = settings.value(SETTINGS_KEY_LAST_CHECK)

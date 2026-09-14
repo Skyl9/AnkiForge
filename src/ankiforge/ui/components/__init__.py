@@ -15,6 +15,7 @@ from .code_editor import (
     extract_colors_from_text,
 )
 from .deck_select_window import DeckSelectWindow
+from .document_picker_button import DocumentPickerButton
 from .document_select_window import DocumentSelectWindow
 from .flow_layout import FlowLayout, FlowWidget
 from .inputs import DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
@@ -88,6 +89,7 @@ __all__ = [
     "HTMLFormatter",
     "extract_colors_from_text",
     "DeckSelectWindow",
+    "DocumentPickerButton",
     "DocumentSelectWindow",
     "ModelSelectWindow",
     "ModelSelectorWidget",

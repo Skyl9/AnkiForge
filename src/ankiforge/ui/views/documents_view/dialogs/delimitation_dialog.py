@@ -7,7 +7,7 @@ from typing import Any
 import markdown
 from peewee import fn
 from PySide6.QtCore import QPointF, QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QScrollArea,
+    QSlider,
     QSpinBox,
     QSplitter,
     QStackedWidget,
@@ -152,6 +153,57 @@ class SectionRowWidget(QWidget):
         super().mousePressEvent(event)
 
 
+class ScopeRangeBarWidget(QWidget):
+    """Barre visuelle interactive représentant l'étendue du document et la plage utile demandée."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(24)
+        self._start = 1
+        self._end = 1
+        self._total = 1
+
+    def set_range(self, start: int, end: int, total: int) -> None:
+        self._start = max(1, start)
+        self._end = max(self._start, min(end, total))
+        self._total = max(1, total)
+        self.update()
+
+    def paintEvent(self, event: Any) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w = self.width()
+        h = self.height()
+        r = 4
+
+        # Track fond (pages non sélectionnées)
+        painter.setBrush(QBrush(QColor(DesignTokens.BG_INPUT)))
+        painter.setPen(QPen(QColor(DesignTokens.BORDER_COLOR), 1))
+        painter.drawRoundedRect(0, 2, w, h - 4, r, r)
+
+        # Plage active
+        total = max(1, self._total)
+        start_ratio = (self._start - 1) / total
+        end_ratio = self._end / total
+        x_start = int(start_ratio * w)
+        x_end = int(end_ratio * w)
+        active_w = max(4, x_end - x_start)
+
+        painter.setBrush(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(x_start, 2, active_w, h - 4, r, r)
+
+        # Texte centré
+        painter.setPen(QPen(QColor("white")))
+        font = QFont(DesignTokens.FONT_MAIN, 9)
+        font.setBold(True)
+        painter.setFont(font)
+        text = f"Portée : Pages {self._start} à {self._end} ({self._end - self._start + 1} / {self._total} pages)"
+        painter.drawText(0, 0, w, h, Qt.AlignmentFlag.AlignCenter, text)
+        painter.end()
+
+
 class DocumentPreviewWidget(QWidget):
     """
     Visionneuse de document intégrée et synchronisée :
@@ -171,6 +223,8 @@ class DocumentPreviewWidget(QWidget):
         self._current_page = 1
         self._total_pages = int(doc.total_pages or 1)
         self._current_mode = "markdown"
+        self._scope_start: int = 1
+        self._scope_end: int = self._total_pages
 
         self._setup_ui()
         self._load_document()
@@ -271,6 +325,12 @@ class DocumentPreviewWidget(QWidget):
         header_layout.addWidget(self.btn_toggle_pdf)
         header_layout.addWidget(self.btn_toggle_md)
         header_layout.addStretch()
+
+        # Indicateur visuel d'inclusion dans la portée
+        self.lbl_scope_status = QLabel("")
+        self.lbl_scope_status.hide()
+        header_layout.addWidget(self.lbl_scope_status)
+        header_layout.addSpacing(8)
 
         # Contrôles de navigation de page
         self.btn_prev_page = QPushButton()
@@ -594,18 +654,45 @@ class DocumentPreviewWidget(QWidget):
         if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
             self.pdf_viewer.setZoomMode(QPdfView.ZoomMode.FitToWidth)
 
+    def set_scope_range(self, start_page: int, end_page: int) -> None:
+        """Définit les bornes de la portée demandée pour mettre à jour l'indicateur visuel."""
+        self._scope_start = max(1, start_page)
+        self._scope_end = max(self._scope_start, end_page)
+        self._update_scope_badge()
+
+    def _update_scope_badge(self) -> None:
+        if not hasattr(self, "lbl_scope_status"):
+            return
+        if not self._is_paginated:
+            self.lbl_scope_status.hide()
+            return
+        if self._scope_start <= self._current_page <= self._scope_end:
+            self.lbl_scope_status.setText(f"✅ Page {self._current_page} INCLUSE (portée {self._scope_start}–{self._scope_end})")
+            self.lbl_scope_status.setStyleSheet(
+                "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+            )
+        else:
+            self.lbl_scope_status.setText(f"🚫 Page {self._current_page} EXCLUE (portée {self._scope_start}–{self._scope_end})")
+            self.lbl_scope_status.setStyleSheet(
+                "background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+            )
+        self.lbl_scope_status.show()
+
     def _update_page_label(self) -> None:
-        if self._is_paginated and self._current_mode in ("pdf", "album"):
+        if self._is_paginated:
             self.lbl_page.show()
             self.btn_prev_page.show()
             self.btn_next_page.show()
             self.lbl_page.setText(f"Page {self._current_page} / {self._total_pages}")
             self.btn_prev_page.setEnabled(self._current_page > 1)
             self.btn_next_page.setEnabled(self._current_page < self._total_pages)
+            self._update_scope_badge()
         else:
             self.lbl_page.hide()
             self.btn_prev_page.hide()
             self.btn_next_page.hide()
+            if hasattr(self, "lbl_scope_status"):
+                self.lbl_scope_status.hide()
 
     def _load_album_page(self, page_num: int) -> None:
         page_rec = (
@@ -760,60 +847,167 @@ class DocumentDelimitationDialog(QDialog):
         lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
         pages_card_layout.addWidget(lbl_sec1)
 
-        pages_inputs = QHBoxLayout()
-        lbl_p_start = QLabel("Page de début :")
-        lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; border: none;")
+        # Barre visuelle de la portée sélectionnée
+        self.range_bar = ScopeRangeBarWidget(self)
+        pages_card_layout.addWidget(self.range_bar)
+
+        # Sélecteur de mode de portée : Tout le document vs Plage personnalisée
+        mode_row = QHBoxLayout()
+        mode_row.setContentsMargins(0, 0, 0, 0)
+        mode_row.setSpacing(6)
+        mode_btn_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                font-weight: bold;
+            }}
+            QPushButton:hover:!checked {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """
+        self.btn_scope_mode_all = QPushButton("Tout le document")
+        self.btn_scope_mode_all.setCheckable(True)
+        self.btn_scope_mode_all.setStyleSheet(mode_btn_style)
+
+        self.btn_scope_mode_range = QPushButton("Plage de pages")
+        self.btn_scope_mode_range.setCheckable(True)
+        self.btn_scope_mode_range.setStyleSheet(mode_btn_style)
+
+        self.scope_mode_group = QButtonGroup(self)
+        self.scope_mode_group.addButton(self.btn_scope_mode_all)
+        self.scope_mode_group.addButton(self.btn_scope_mode_range)
+        self.btn_scope_mode_all.clicked.connect(self._on_mode_all_clicked)
+        self.btn_scope_mode_range.clicked.connect(self._on_mode_range_clicked)
+
+        mode_row.addWidget(self.btn_scope_mode_all)
+        mode_row.addWidget(self.btn_scope_mode_range)
+        lbl_max_info = QLabel(f"(Total : {self._max_page} pages)")
+        lbl_max_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        mode_row.addWidget(lbl_max_info)
+        mode_row.addStretch()
+        pages_card_layout.addLayout(mode_row)
+
+        # Conteneur des curseurs (slider) et spinboxes — Visible UNIQUEMENT en mode Plage de pages
+        self.slider_scope_container = QWidget()
+        slider_scope_layout = QVBoxLayout(self.slider_scope_container)
+        slider_scope_layout.setContentsMargins(0, 4, 0, 0)
+        slider_scope_layout.setSpacing(6)
+
+        slider_style = f"""
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: {DesignTokens.BORDER_COLOR};
+                border-radius: 2px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {DesignTokens.ACCENT_PRIMARY};
+                width: 14px;
+                height: 14px;
+                margin-top: -5px;
+                margin-bottom: -5px;
+                border-radius: 7px;
+                border: 2px solid white;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: white;
+                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+
+        start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
+        end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
+
+        # Ligne début : SpinBox + Slider début
+        start_row = QHBoxLayout()
+        start_row.setContentsMargins(0, 0, 0, 0)
+        start_row.setSpacing(8)
+        lbl_p_start = QLabel("Début :")
+        lbl_p_start.setFixedWidth(44)
+        lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.spin_p_start = QSpinBox()
         self.spin_p_start.setRange(1, self._max_page)
-        start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
         self.spin_p_start.setValue(min(start_val, self._max_page))
         self.spin_p_start.setStyleSheet(f"""
             QSpinBox {{
                 background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 4px 6px 4px 8px;
-                min-width: 60px;
-            }}
-            QSpinBox:focus {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                padding: 2px 4px;
+                min-width: 50px;
+                font-size: 11px;
             }}
         """)
+        self.slider_p_start = QSlider(Qt.Orientation.Horizontal)
+        self.slider_p_start.setRange(1, self._max_page)
+        self.slider_p_start.setValue(self.spin_p_start.value())
+        self.slider_p_start.setStyleSheet(slider_style)
+        self.slider_p_start.valueChanged.connect(self._on_slider_start_changed)
 
-        lbl_p_end = QLabel("Page de fin :")
-        lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; border: none;")
+        start_row.addWidget(lbl_p_start)
+        start_row.addWidget(self.spin_p_start)
+        start_row.addWidget(self.slider_p_start, 1)
+        slider_scope_layout.addLayout(start_row)
+
+        # Ligne fin : SpinBox + Slider fin
+        end_row = QHBoxLayout()
+        end_row.setContentsMargins(0, 0, 0, 0)
+        end_row.setSpacing(8)
+        lbl_p_end = QLabel("Fin :")
+        lbl_p_end.setFixedWidth(44)
+        lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.spin_p_end = QSpinBox()
         self.spin_p_end.setRange(1, self._max_page)
-        end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
         self.spin_p_end.setValue(min(end_val, self._max_page))
         self.spin_p_end.setStyleSheet(f"""
             QSpinBox {{
                 background-color: {DesignTokens.BG_INPUT};
                 color: {DesignTokens.TEXT_PRIMARY};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-                padding: 4px 6px 4px 8px;
-                min-width: 60px;
-            }}
-            QSpinBox:focus {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                padding: 2px 4px;
+                min-width: 50px;
+                font-size: 11px;
             }}
         """)
+        self.slider_p_end = QSlider(Qt.Orientation.Horizontal)
+        self.slider_p_end.setRange(1, self._max_page)
+        self.slider_p_end.setValue(self.spin_p_end.value())
+        self.slider_p_end.setStyleSheet(slider_style)
+        self.slider_p_end.valueChanged.connect(self._on_slider_end_changed)
 
-        pages_inputs.addWidget(lbl_p_start)
-        pages_inputs.addWidget(self.spin_p_start)
-        pages_inputs.addSpacing(16)
-        pages_inputs.addWidget(lbl_p_end)
-        pages_inputs.addWidget(self.spin_p_end)
-        pages_inputs.addSpacing(16)
+        end_row.addWidget(lbl_p_end)
+        end_row.addWidget(self.spin_p_end)
+        end_row.addWidget(self.slider_p_end, 1)
+        slider_scope_layout.addLayout(end_row)
 
-        lbl_max_info = QLabel(f"(Total détecté : {self._max_page} pages)")
-        lbl_max_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
-        pages_inputs.addWidget(lbl_max_info)
-        pages_inputs.addStretch()
+        pages_card_layout.addWidget(self.slider_scope_container)
 
-        pages_card_layout.addLayout(pages_inputs)
+        # Détermination du mode initial et visibilité du curseur
+        has_custom_pages = bool(doc.start_page and doc.end_page and (doc.start_page > 1 or doc.end_page < self._max_page))
+        if has_custom_pages:
+            self.btn_scope_mode_range.setChecked(True)
+            self.slider_scope_container.show()
+        else:
+            self.btn_scope_mode_all.setChecked(True)
+            self.slider_scope_container.hide()
+
+        self.range_bar.set_range(self.spin_p_start.value(), self.spin_p_end.value(), self._max_page)
 
         self.lbl_page_impact = QLabel()
         self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
@@ -949,13 +1143,70 @@ class DocumentDelimitationDialog(QDialog):
         page = meta.get("page_number")
         self.preview_widget.jump_to_heading(title, page)
 
-    def _on_start_page_changed(self, val: int) -> None:
+    def _on_mode_all_clicked(self) -> None:
+        self.slider_scope_container.hide()
+        self.spin_p_start.blockSignals(True)
+        self.spin_p_end.blockSignals(True)
+        self.slider_p_start.blockSignals(True)
+        self.slider_p_end.blockSignals(True)
+
+        self.spin_p_start.setValue(1)
+        self.spin_p_end.setValue(self._max_page)
+        self.slider_p_start.setValue(1)
+        self.slider_p_end.setValue(self._max_page)
+
+        self.spin_p_start.blockSignals(False)
+        self.spin_p_end.blockSignals(False)
+        self.slider_p_start.blockSignals(False)
+        self.slider_p_end.blockSignals(False)
+
+        self.range_bar.set_range(1, self._max_page, self._max_page)
+        self.preview_widget.set_scope_range(1, self._max_page)
         self._update_kpi()
-        self.preview_widget.jump_to_page(val)
+
+    def _on_mode_range_clicked(self) -> None:
+        self.slider_scope_container.show()
+        self.range_bar.set_range(self.spin_p_start.value(), self.spin_p_end.value(), self._max_page)
+        self.preview_widget.set_scope_range(self.spin_p_start.value(), self.spin_p_end.value())
+        self._update_kpi()
+
+    def _on_slider_start_changed(self, val: int) -> None:
+        if val > self.spin_p_end.value():
+            self.spin_p_end.setValue(val)
+        self.spin_p_start.setValue(val)
+
+    def _on_slider_end_changed(self, val: int) -> None:
+        if val < self.spin_p_start.value():
+            self.spin_p_start.setValue(val)
+        self.spin_p_end.setValue(val)
+
+    def _on_start_page_changed(self, val: int) -> None:
+        if hasattr(self, "btn_scope_mode_range") and (val > 1 or self.spin_p_end.value() < self._max_page):
+            self.btn_scope_mode_range.setChecked(True)
+            self.slider_scope_container.show()
+        self.slider_p_start.blockSignals(True)
+        self.slider_p_start.setValue(val)
+        self.slider_p_start.blockSignals(False)
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_range(val, self.spin_p_end.value(), self._max_page)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(val, self.spin_p_end.value())
+            self.preview_widget.jump_to_page(val)
+        self._update_kpi()
 
     def _on_end_page_changed(self, val: int) -> None:
+        if hasattr(self, "btn_scope_mode_range") and (self.spin_p_start.value() > 1 or val < self._max_page):
+            self.btn_scope_mode_range.setChecked(True)
+            self.slider_scope_container.show()
+        self.slider_p_end.blockSignals(True)
+        self.slider_p_end.setValue(val)
+        self.slider_p_end.blockSignals(False)
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_range(self.spin_p_start.value(), val, self._max_page)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(self.spin_p_start.value(), val)
+            self.preview_widget.jump_to_page(val)
         self._update_kpi()
-        self.preview_widget.jump_to_page(val)
 
     def _load_document_stats(self) -> None:
         """Charge la distribution des cartes créées par fragment et par page."""
@@ -1203,6 +1454,9 @@ class DocumentDelimitationDialog(QDialog):
             if page_end > self._max_page:
                 show_toast(self, f"La page de fin ne peut pas dépasser la dernière page détectée ({self._max_page}).", is_error=True)
                 return
+            if hasattr(self, "btn_scope_mode_all") and self.btn_scope_mode_all.isChecked() and page_start == 1 and page_end == self._max_page:
+                page_start = None
+                page_end = None
         else:
             page_start = None
             page_end = None
