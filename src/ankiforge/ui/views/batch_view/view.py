@@ -1722,27 +1722,9 @@ class BatchView(QWidget):
             )
 
         if hasattr(self, "cb_vision"):
-            self.cb_vision.setStyleSheet(f"""
-                QWidget#optionToggleRow {{
-                    background-color: {profile.bg_panel};
-                    border: 1px solid {profile.border_color};
-                    border-radius: 6px;
-                }}
-                QWidget#optionToggleRow:hover {{
-                    border-color: {profile.accent_primary};
-                }}
-            """)
+            self.cb_vision.apply_theme_profile(profile)
         if hasattr(self, "cb_autoval"):
-            self.cb_autoval.setStyleSheet(f"""
-                QWidget#optionToggleRow {{
-                    background-color: {profile.bg_panel};
-                    border: 1px solid {profile.border_color};
-                    border-radius: 6px;
-                }}
-                QWidget#optionToggleRow:hover {{
-                    border-color: {profile.accent_primary};
-                }}
-            """)
+            self.cb_autoval.apply_theme_profile(profile)
 
         if hasattr(self, "adv_lbl"):
             self.adv_lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; background: transparent;")

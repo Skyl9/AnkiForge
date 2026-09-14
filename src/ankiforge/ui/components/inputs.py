@@ -1,9 +1,9 @@
 import typing
 from typing import Any
 
-from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPaintEvent
-from PySide6.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 
@@ -151,7 +151,7 @@ class GlowLineEdit(QLineEdit):
 
 
 class ToggleSwitch(QWidget):
-    """Toggle iOS-style (36x20px). Usage: Settings."""
+    """Toggle iOS-style (36x20px). Usage: Settings, Batch Factory, Options."""
 
     toggled = Signal(bool)
 
@@ -159,11 +159,11 @@ class ToggleSwitch(QWidget):
         super().__init__(parent)
         self.setFixedSize(36, 20)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._checked = False
-        self._thumb_pos = 2
+        self._checked: bool = False
+        self._thumb_pos: float = 2.0
+        self._profile: Any = None
 
         self.anim = QPropertyAnimation(self, b"thumb_pos")
-        self.anim.setDuration(150)
         self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
 
     def is_checked(self) -> bool:
@@ -172,44 +172,82 @@ class ToggleSwitch(QWidget):
     def isChecked(self) -> bool:
         return self._checked
 
-    def set_checked(self, checked: bool) -> None:
+    def toggle(self, animated: bool = True) -> None:
+        self.set_checked(not self._checked, animated=animated)
+
+    def set_checked(self, checked: bool, animated: bool = True) -> None:
         if self._checked == checked:
             return
         self._checked = checked
-        self.anim.setEndValue(18 if self._checked else 2)
-        self.anim.start()
+        target_pos = 18.0 if self._checked else 2.0
+
+        if animated and self.isVisible():
+            self.anim.stop()
+            self.anim.setStartValue(self._thumb_pos)
+            self.anim.setEndValue(target_pos)
+            remaining_dist = abs(target_pos - self._thumb_pos)
+            duration = max(40, int(150 * (remaining_dist / 16.0)))
+            self.anim.setDuration(duration)
+            self.anim.start()
+        else:
+            self.anim.stop()
+            self._thumb_pos = target_pos
+            self.update()
+
         self.toggled.emit(self._checked)
 
     def setChecked(self, checked: bool) -> None:
         self.set_checked(checked)
 
-    def get_thumb_pos(self) -> int:
+    def get_thumb_pos(self) -> float:
         return self._thumb_pos
 
-    def set_thumb_pos(self, pos: int) -> None:
+    def set_thumb_pos(self, pos: float) -> None:
         self._thumb_pos = pos
         self.update()
 
-    thumb_pos = Property(int, get_thumb_pos, set_thumb_pos)
+    thumb_pos = Property(float, get_thumb_pos, set_thumb_pos)
 
-    def mouseReleaseEvent(self, event) -> None:
-        from PySide6.QtGui import QMouseEvent
+    def apply_theme_profile(self, profile: Any = None) -> None:
+        self._profile = profile
+        self.update()
 
-        if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
-            self.set_checked(not self._checked)
-        super().mouseReleaseEvent(event)
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.toggle(animated=True)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        bg_color = QColor(DesignTokens.ACCENT_PRIMARY) if self._checked else QColor(DesignTokens.BG_INPUT)
+        # Interpolation fluide de la couleur d'arrière-plan
+        t = max(0.0, min(1.0, (self._thumb_pos - 2.0) / 16.0))
+        bg_input = self._profile.bg_input if self._profile else DesignTokens.BG_INPUT
+        accent_color = self._profile.accent_primary if self._profile else DesignTokens.ACCENT_PRIMARY
+
+        c_off = QColor(bg_input)
+        c_on = QColor(accent_color)
+        r = int(c_off.red() + (c_on.red() - c_off.red()) * t)
+        g = int(c_off.green() + (c_on.green() - c_off.green()) * t)
+        b = int(c_off.blue() + (c_on.blue() - c_off.blue()) * t)
+        bg_color = QColor(r, g, b)
+
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(bg_color)
         p.drawRoundedRect(0, 0, self.width(), self.height(), 10, 10)
 
+        # Curseur circulaire avec coordonnées sous-pixel
         p.setBrush(QColor("#ffffff"))
-        p.drawEllipse(self._thumb_pos, 2, 16, 16)
+        p.drawEllipse(QRectF(self._thumb_pos, 2.0, 16.0, 16.0))
 
 
 class OptionToggleRow(QWidget):
@@ -228,29 +266,16 @@ class OptionToggleRow(QWidget):
         self.setObjectName("optionToggleRow")
         self.setFixedHeight(32)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QWidget#optionToggleRow {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
-            }}
-            QWidget#optionToggleRow:hover {{
-                border-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
-
-        from PySide6.QtWidgets import QHBoxLayout, QLabel
+        self.icon_name = icon_name
+        self._checked: bool = checked
+        self._profile: Any = None
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 3, 8, 3)
         layout.setSpacing(6)
 
         if icon_name:
-            from ankiforge.utils.icon_loader import load_phosphor_icon
-
             self.icon_lbl = QLabel()
-            self.icon_name = icon_name
-            self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY).pixmap(14, 14))
             self.icon_lbl.setStyleSheet("border: none; background: transparent;")
             layout.addWidget(self.icon_lbl)
 
@@ -258,12 +283,54 @@ class OptionToggleRow(QWidget):
         self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
         layout.addWidget(self.title_lbl, 1)
 
-        self.switch = ToggleSwitch()
-        self.switch.set_checked(checked)
+        self.switch = ToggleSwitch(self)
+        # Rendre le switch transparent aux événements souris pour que la rangée entière réagisse de manière unifiée
+        self.switch.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.switch.set_checked(checked, animated=False)
         self.switch.toggled.connect(self._on_switch_toggled)
         layout.addWidget(self.switch)
 
+        self._update_style()
+
+    def _update_style(self) -> None:
+        if self._profile is not None:
+            accent = self._profile.accent_primary
+            border = accent if self._checked else self._profile.border_color
+            bg = self._profile.bg_panel
+            text_color = self._profile.text_primary
+            icon_color = accent if self._checked else self._profile.text_secondary
+        else:
+            accent = DesignTokens.ACCENT_PRIMARY
+            border = accent if self._checked else DesignTokens.BORDER_COLOR
+            bg = DesignTokens.BG_PANEL
+            text_color = DesignTokens.TEXT_PRIMARY
+            icon_color = accent if self._checked else DesignTokens.TEXT_SECONDARY
+
+        self.setStyleSheet(f"""
+            QWidget#optionToggleRow {{
+                background-color: {bg};
+                border: 1px solid {border};
+                border-radius: 6px;
+            }}
+            QWidget#optionToggleRow:hover {{
+                border-color: {accent};
+            }}
+        """)
+        if hasattr(self, "title_lbl"):
+            self.title_lbl.setStyleSheet(f"color: {text_color}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+        if hasattr(self, "icon_lbl") and self.icon_name:
+            from ankiforge.utils.icon_loader import load_phosphor_icon
+
+            self.icon_lbl.setPixmap(load_phosphor_icon(self.icon_name, color=icon_color).pixmap(14, 14))
+
+    def apply_theme_profile(self, profile: Any = None) -> None:
+        self._profile = profile
+        self.switch.apply_theme_profile(profile)
+        self._update_style()
+
     def _on_switch_toggled(self, state: bool) -> None:
+        self._checked = state
+        self._update_style()
         self.toggled.emit(state)
 
     def is_checked(self) -> bool:
@@ -272,18 +339,26 @@ class OptionToggleRow(QWidget):
     def isChecked(self) -> bool:
         return self.switch.is_checked()
 
-    def set_checked(self, checked: bool) -> None:
-        self.switch.set_checked(checked)
+    def set_checked(self, checked: bool, animated: bool = True) -> None:
+        self._checked = checked
+        self.switch.set_checked(checked, animated=animated)
+        self._update_style()
 
     def setChecked(self, checked: bool) -> None:
-        self.switch.set_checked(checked)
+        self.set_checked(checked)
 
-    def mouseReleaseEvent(self, event) -> None:
-        from PySide6.QtGui import QMouseEvent
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            event.accept()
+        else:
+            super().mousePressEvent(event)
 
-        if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
-            self.set_checked(not self.is_checked())
-        super().mouseReleaseEvent(event)
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.set_checked(not self.is_checked(), animated=True)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
 
 
 class StyledComboBox(QComboBox):
