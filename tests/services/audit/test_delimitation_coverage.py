@@ -85,16 +85,21 @@ def test_delimitation_dialog_persists_settings_and_filters_chunks(qtbot):
 
     # Bornes détectées
     assert dlg._max_page >= 4
-    # Sommaire et Bibliographie doivent être exclus automatiquement
+    # Toutes les sections sont incluses par défaut (le filtre anti-bruit défaillant a été supprimé)
     assert dlg.sections_list.count() == 4
-    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked  # Sommaire
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Checked  # Sommaire
     assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Intro
     assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Physio
-    assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Unchecked  # Biblio
+    assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Checked  # Biblio
 
-    # On restreint de page 2 à page 3
+    # On restreint de page 2 à page 3 via le slider -> synchronisation bidirectionnelle
     dlg.spin_p_start.setValue(2)
     dlg.spin_p_end.setValue(3)
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked  # Page 1 exclue
+    assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Page 2 incluse
+    assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Page 3 incluse
+    assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Unchecked  # Page 4 exclue
+
     dlg.chk_revectorize.setChecked(False)
     dlg._on_apply()
 

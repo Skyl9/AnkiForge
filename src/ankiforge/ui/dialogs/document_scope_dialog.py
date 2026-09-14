@@ -7,6 +7,7 @@ pour sélectionner la portée de génération (pages, sections, segments) sans a
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 from typing import Any
@@ -24,6 +25,8 @@ from PySide6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
+    QStackedWidget,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -72,6 +75,11 @@ class DocumentScopeDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        if getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception:
+                pass
         self.doc = doc
         self.initial_scope_str = initial_scope_str.strip()
 
@@ -81,9 +89,18 @@ class DocumentScopeDialog(QDialog):
         self.is_paginated = file_type in ("pdf", "album", "pptx")
 
         # 1. Calcul des bornes utiles globales issues de la délimitation
-        self._doc_total_pages = _safe_int(getattr(doc, "total_pages", None), default=1)
-        self._delimited_start_page = _safe_int(getattr(doc, "start_page", None), default=1)
-        self._delimited_end_page = _safe_int(getattr(doc, "end_page", None), default=self._doc_total_pages)
+        max_chunk_page = 1
+        if getattr(self.doc, "id", None):
+            chunk_pages = [c.page_number for c in DocumentChunkModel.select(DocumentChunkModel.page_number).where(DocumentChunkModel.document == self.doc) if c.page_number is not None]
+            if chunk_pages:
+                max_chunk_page = max(chunk_pages)
+            page_records = [p.page_number for p in DocumentPageModel.select(DocumentPageModel.page_number).where(DocumentPageModel.document == self.doc) if p.page_number is not None]
+            if page_records:
+                max_chunk_page = max(max_chunk_page, max(page_records))
+
+        self._doc_total_pages = max(_safe_int(getattr(self.doc, "total_pages", None), default=1), max_chunk_page)
+        self._delimited_start_page = _safe_int(getattr(self.doc, "start_page", None), default=1)
+        self._delimited_end_page = _safe_int(getattr(self.doc, "end_page", None), default=self._doc_total_pages)
         if self._delimited_end_page < self._delimited_start_page:
             self._delimited_end_page = max(self._delimited_start_page, self._doc_total_pages)
 
@@ -100,7 +117,20 @@ class DocumentScopeDialog(QDialog):
 
         # 3. Extraction des fragments utiles (filtrés par délimitation)
         self._useful_chunks: list[dict[str, Any]] = self._load_filtered_chunks()
+
+        # Si paginé, s'assurer que les bornes délimitées englobent bien les chunks chargés
+        if self.is_paginated and self._useful_chunks:
+            chunk_pages_useful = [u["page_number"] for u in self._useful_chunks if u.get("page_number") is not None]
+            if chunk_pages_useful:
+                if getattr(self.doc, "start_page", None) is None:
+                    self._delimited_start_page = min(chunk_pages_useful)
+                if getattr(self.doc, "end_page", None) is None:
+                    self._delimited_end_page = max(chunk_pages_useful)
+                self._doc_total_pages = max(self._doc_total_pages, max(chunk_pages_useful))
+
         self._section_meta: dict[int, dict[str, Any]] = {}
+        self._syncing_selection: bool = False
+        self._manually_deselected_indices: set[int] = set()
 
         # 4. Résultat sélectionné en sortie
         self._result: dict[str, Any] = {
@@ -177,16 +207,22 @@ class DocumentScopeDialog(QDialog):
         # Tenter de charger les chunks persistés en base de données (déjà filtrés par délimitation)
         db_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
 
+        has_start = getattr(self.doc, "start_page", None) is not None
+        has_end = getattr(self.doc, "end_page", None) is not None
+
         if db_chunks:
             for idx, c in enumerate(db_chunks):
                 p_num = c.page_number
-                # Filtrage strict de pagination
-                if self.is_paginated and p_num is not None and (p_num < self._delimited_start_page or p_num > self._delimited_end_page):
-                    continue
+                # Filtrage strict de pagination si des bornes explicites sont définies
+                if self.is_paginated and p_num is not None:
+                    if has_start and p_num < self._delimited_start_page:
+                        continue
+                    if has_end and p_num > self._delimited_end_page:
+                        continue
 
                 # Filtrage des titres exclus
-                h_path = (c.heading_path or "").lower()
-                if any(ex in h_path for ex in self._excluded_headings):
+                h_path = (c.heading_path or "").lower().strip()
+                if self._excluded_headings and any(ex in h_path or h_path == ex for ex in self._excluded_headings):
                     continue
 
                 content = str(c.content or "")
@@ -264,18 +300,28 @@ class DocumentScopeDialog(QDialog):
         header_top = QHBoxLayout()
         icon_lbl = QLabel()
         icon_lbl.setPixmap(load_phosphor_icon("ph.sliders", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        title_lbl = QLabel(f"Portée de génération : <b>{self.doc.title}</b>")
+        badge_html = (
+            '<span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; '
+            "border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 6px; "
+            'border-radius: 4px; font-size: 10px; font-weight: bold;">'
+            "PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)</span>"
+        )
+        title_lbl = QLabel(f"Portée de génération : <b>{self.doc.title}</b> &nbsp; {badge_html}")
+        title_lbl.setTextFormat(Qt.TextFormat.RichText)
         title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         header_top.addWidget(icon_lbl)
         header_top.addWidget(title_lbl, 1)
         h_layout.addLayout(header_top)
 
         scope_desc = (
-            f"Délimitation active : pages {self._delimited_start_page} à {self._delimited_end_page}. Sélectionnez les pages ou segments spécifiques à soumettre au prompt IA ou au lot batch."
+            f"Délimitation active : pages {self._delimited_start_page} à {self._delimited_end_page}. "
+            "Sélectionnez les pages ou segments spécifiques à soumettre au prompt IA ou au lot batch. "
+            "<i>(Sélection temporaire de session, ne modifie pas la structure du document)</i>"
             if self.is_paginated
-            else "Sélectionnez les sections utiles à soumettre au prompt IA ou au lot batch."
+            else "Sélectionnez les sections utiles à soumettre au prompt IA ou au lot batch. <i>(Sélection temporaire de session, ne modifie pas la structure du document)</i>"
         )
         desc_lbl = QLabel(scope_desc)
+        desc_lbl.setTextFormat(Qt.TextFormat.RichText)
         desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
         desc_lbl.setWordWrap(True)
         h_layout.addWidget(desc_lbl)
@@ -514,14 +560,88 @@ class DocumentScopeDialog(QDialog):
         self.sections_list.setMinimumHeight(220)
         self.sections_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
         self.sections_list.currentRowChanged.connect(self._on_section_selected)
+        self.sections_list.itemClicked.connect(lambda item: self._on_section_selected(self.sections_list.row(item)))
         sections_layout.addWidget(self.sections_list, 1)
         left_layout.addWidget(sections_card, 1)
 
-        # 4. Splitter horizontal (Gauche = Contrôles de portée, Droite = Visionneuse)
+        # 4. Splitter horizontal (Gauche = Contrôles de portée, Droite = Visionneuse & Vue finale assemblée)
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.addWidget(left_container)
+
+        right_container = QWidget()
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(6)
+
+        # Barre de sélection de vue (Document source vs Vue finale assemblée)
+        view_switch_bar = QHBoxLayout()
+        view_switch_bar.setContentsMargins(0, 0, 0, 0)
+        view_switch_bar.setSpacing(6)
+
+        self.btn_view_source = QPushButton("📄 Document Source")
+        self.btn_view_source.setCheckable(True)
+        self.btn_view_source.setChecked(True)
+        self.btn_view_source.setStyleSheet(mode_btn_style)
+
+        self.btn_view_final = QPushButton("👁️ Vue Finale Assemblée")
+        self.btn_view_final.setCheckable(True)
+        self.btn_view_final.setStyleSheet(mode_btn_style)
+
+        self.view_switch_group = QButtonGroup(self)
+        self.view_switch_group.addButton(self.btn_view_source)
+        self.view_switch_group.addButton(self.btn_view_final)
+        self.btn_view_source.clicked.connect(self._on_view_source_clicked)
+        self.btn_view_final.clicked.connect(self._on_view_final_clicked)
+
+        view_switch_bar.addWidget(self.btn_view_source)
+        view_switch_bar.addWidget(self.btn_view_final)
+        view_switch_bar.addStretch()
+
+        right_layout.addLayout(view_switch_bar)
+
+        # Stack de visualisation
+        self.preview_stack = QStackedWidget()
+
+        # Page 0 : Visionneuse native / paginée
         self.preview_widget = DocumentPreviewWidget(self.doc)
-        self.main_splitter.addWidget(self.preview_widget)
+        self.preview_stack.addWidget(self.preview_widget)
+
+        # Page 1 : Vue finale assemblée (ce qui sera réellement soumis au LLM)
+        self.final_preview_card = QFrame()
+        self.final_preview_card.setObjectName("finalPreviewCard")
+        self.final_preview_card.setStyleSheet(f"""
+            QFrame#finalPreviewCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        final_layout = QVBoxLayout(self.final_preview_card)
+        final_layout.setContentsMargins(12, 10, 12, 10)
+        final_layout.setSpacing(8)
+
+        self.lbl_final_preview_kpi = QLabel("")
+        self.lbl_final_preview_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+        final_layout.addWidget(self.lbl_final_preview_kpi)
+
+        self.final_preview_browser = QTextBrowser()
+        self.final_preview_browser.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+                padding: 12px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: {DesignTokens.FONT_MAIN};
+                font-size: 12px;
+            }}
+        """)
+        final_layout.addWidget(self.final_preview_browser, 1)
+
+        self.preview_stack.addWidget(self.final_preview_card)
+        right_layout.addWidget(self.preview_stack, 1)
+
+        self.main_splitter.addWidget(right_container)
         self.main_splitter.setCollapsible(0, False)
         self.main_splitter.setCollapsible(1, False)
         self.main_splitter.setSizes([480, 760])
@@ -543,7 +663,7 @@ class DocumentScopeDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         footer.addWidget(btn_cancel)
 
-        btn_apply = PrimaryButton("Valider la portée")
+        btn_apply = PrimaryButton("Valider la sélection pour la génération")
         btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
         btn_apply.clicked.connect(self._on_apply)
         footer.addWidget(btn_apply)
@@ -588,7 +708,7 @@ class DocumentScopeDialog(QDialog):
                 is_noise=False,
                 show_page=self.is_paginated,
             )
-            row_widget.checked_changed.connect(lambda _: self._update_kpi())
+            row_widget.checked_changed.connect(lambda chk, it=item: self._on_section_checked_changed(it, chk))
             item.setSizeHint(QSize(0, 36))
 
             preview = content[:200].replace("\n", " ").strip()
@@ -626,8 +746,14 @@ class DocumentScopeDialog(QDialog):
                 self.slider_p_start.setValue(start_p)
                 self.slider_p_end.setValue(end_p)
                 self.range_bar.set_range(start_p, end_p, self._doc_total_pages)
-                self.preview_widget.set_scope_range(start_p, end_p)
                 self._filter_sections_by_pages(start_p, end_p)
+                checked_pages = {
+                    self._section_meta[i]["page_number"]
+                    for i in range(self.sections_list.count())
+                    if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+                }
+                if hasattr(self, "preview_widget"):
+                    self.preview_widget.set_scope_range(start_p, end_p, included_pages=checked_pages)
 
     def _on_mode_all_clicked(self) -> None:
         self.slider_scope_container.hide()
@@ -647,8 +773,14 @@ class DocumentScopeDialog(QDialog):
         self.slider_p_end.blockSignals(False)
 
         self.range_bar.set_range(self._delimited_start_page, self._delimited_end_page, self._doc_total_pages)
-        self.preview_widget.set_scope_range(self._delimited_start_page, self._delimited_end_page)
         self._filter_sections_by_pages(self._delimited_start_page, self._delimited_end_page)
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(self._delimited_start_page, self._delimited_end_page, included_pages=checked_pages)
         self._update_kpi()
 
     def _on_mode_range_clicked(self) -> None:
@@ -656,8 +788,14 @@ class DocumentScopeDialog(QDialog):
         sp = self.spin_p_start.value()
         ep = self.spin_p_end.value()
         self.range_bar.set_range(sp, ep, self._doc_total_pages)
-        self.preview_widget.set_scope_range(sp, ep)
         self._filter_sections_by_pages(sp, ep)
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(sp, ep, included_pages=checked_pages)
         self._update_kpi()
 
     def _on_slider_start_changed(self, val: int) -> None:
@@ -671,6 +809,8 @@ class DocumentScopeDialog(QDialog):
         self.spin_p_end.setValue(val)
 
     def _on_start_page_changed(self, val: int) -> None:
+        if self._syncing_selection:
+            return
         if (val > self._delimited_start_page or self.spin_p_end.value() < self._delimited_end_page) and not self.btn_mode_range.isChecked():
             self.btn_mode_range.setChecked(True)
             self.slider_scope_container.show()
@@ -680,12 +820,21 @@ class DocumentScopeDialog(QDialog):
         self.slider_p_start.blockSignals(False)
 
         self.range_bar.set_range(val, self.spin_p_end.value(), self._doc_total_pages)
-        self.preview_widget.set_scope_range(val, self.spin_p_end.value())
-        self.preview_widget.jump_to_page(val)
         self._filter_sections_by_pages(val, self.spin_p_end.value())
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(val, self.spin_p_end.value(), included_pages=checked_pages)
+            self.preview_widget.jump_to_page(val)
         self._update_kpi()
+        self._refresh_final_preview()
 
     def _on_end_page_changed(self, val: int) -> None:
+        if self._syncing_selection:
+            return
         if (self.spin_p_start.value() > self._delimited_start_page or val < self._delimited_end_page) and not self.btn_mode_range.isChecked():
             self.btn_mode_range.setChecked(True)
             self.slider_scope_container.show()
@@ -695,28 +844,154 @@ class DocumentScopeDialog(QDialog):
         self.slider_p_end.blockSignals(False)
 
         self.range_bar.set_range(self.spin_p_start.value(), val, self._doc_total_pages)
-        self.preview_widget.set_scope_range(self.spin_p_start.value(), val)
-        self.preview_widget.jump_to_page(val)
         self._filter_sections_by_pages(self.spin_p_start.value(), val)
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(self.spin_p_start.value(), val, included_pages=checked_pages)
+            self.preview_widget.jump_to_page(val)
         self._update_kpi()
+        self._refresh_final_preview()
 
     def _filter_sections_by_pages(self, start_p: int, end_p: int) -> None:
-        """Coche ou décoche automatiquement les fragments selon leur appartenance à la plage de pages."""
-        if not self.is_paginated:
+        """Coche ou décoche automatiquement les fragments selon leur appartenance à la plage de pages sans écraser les désélections manuelles."""
+        if not self.is_paginated or self._syncing_selection:
             return
 
-        self.sections_list.blockSignals(True)
+        self._syncing_selection = True
+        try:
+            self.sections_list.blockSignals(True)
+            for i in range(self.sections_list.count()):
+                item = self.sections_list.item(i)
+                meta = self._section_meta.get(i, {})
+                p_num = meta.get("page_number")
+                if p_num is not None:
+                    in_range = start_p <= p_num <= end_p
+                    should_check = in_range and (i not in self._manually_deselected_indices)
+                    item.setCheckState(Qt.CheckState.Checked if should_check else Qt.CheckState.Unchecked)
+                    w = self.sections_list.itemWidget(item)
+                    if isinstance(w, SectionRowWidget):
+                        w.set_checked(should_check)
+            self.sections_list.blockSignals(False)
+        finally:
+            self._syncing_selection = False
+        self._refresh_final_preview()
+
+    def _on_section_checked_changed(self, item: QListWidgetItem, is_checked: bool) -> None:
+        """Synchronisation dynamique section -> slider lorsque l'utilisateur coche une section hors de portée avec saut direct aperçu."""
+        row = self.sections_list.row(item)
+        meta = self._section_meta.get(row, {})
+        title = str(meta.get("title") or "")
+        p_num = meta.get("page_number")
+
+        # 1. Navigation immédiate vers la section concernée dans l'aperçu
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.jump_to_heading(title, p_num)
+
+        # 2. Mémorisation des désélections manuelles
+        if not is_checked:
+            self._manually_deselected_indices.add(row)
+        else:
+            self._manually_deselected_indices.discard(row)
+
+        if not self.is_paginated or self._syncing_selection:
+            self._update_kpi()
+            self._refresh_final_preview()
+            return
+
+        # 3. Recalcul unifié des bornes réelles depuis l'ensemble des sections cochées
+        checked_pages = [
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        ]
+
+        if checked_pages:
+            min_p = min(checked_pages)
+            max_p = max(checked_pages)
+        else:
+            min_p = self.spin_p_start.value()
+            max_p = self.spin_p_end.value()
+
+        min_p = max(self._delimited_start_page, min(min_p, self._delimited_end_page))
+        max_p = max(min_p, min(max_p, self._delimited_end_page))
+
+        self._syncing_selection = True
+        try:
+            self.spin_p_start.setValue(min_p)
+            self.spin_p_end.setValue(max_p)
+            self.slider_p_start.setValue(min_p)
+            self.slider_p_end.setValue(max_p)
+            if hasattr(self, "range_bar"):
+                self.range_bar.set_range(min_p, max_p, self._doc_total_pages)
+        finally:
+            self._syncing_selection = False
+
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(min_p, max_p, included_pages=set(checked_pages))
+
+        self._update_kpi()
+        self._refresh_final_preview()
+
+    def _on_view_source_clicked(self) -> None:
+        self.preview_stack.setCurrentIndex(0)
+
+    def _on_view_final_clicked(self) -> None:
+        self._refresh_final_preview()
+        self.preview_stack.setCurrentIndex(1)
+
+    def _refresh_final_preview(self) -> None:
+        """Génère le texte assemblé des fragments actuellement cochés avec statistiques exactes."""
+        if not hasattr(self, "final_preview_browser"):
+            return
+
+        checked_items: list[tuple[dict[str, Any], dict[str, Any]]] = []
         for i in range(self.sections_list.count()):
             item = self.sections_list.item(i)
-            meta = self._section_meta.get(i, {})
+            if item.checkState() == Qt.CheckState.Checked:
+                meta = self._section_meta.get(i, {})
+                chunk = meta.get("chunk")
+                if isinstance(chunk, dict):
+                    checked_items.append((meta, chunk))
+
+        if not checked_items:
+            self.lbl_final_preview_kpi.setText("⚠️ Aucun fragment sélectionné pour la vue finale.")
+            self.final_preview_browser.setHtml(
+                f"<p style='color: {DesignTokens.TEXT_MUTED}; font-style: italic;'>Cochez au moins une section ou ajustez la plage de pages pour prévisualiser le contenu assemblé.</p>"
+            )
+            return
+
+        total_words = sum(len(str(c.get("content", "")).split()) for _, c in checked_items)
+        total_tokens = sum(int(m.get("tokens", 0)) for m, _ in checked_items)
+        approx_cards = max(1, total_words // 180) if total_words > 0 else 0
+
+        self.lbl_final_preview_kpi.setText(f"📦 {len(checked_items)} fragment(s) assemblé(s) • ~{total_tokens:,} tokens • ~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+
+        html_blocks: list[str] = []
+        for meta, chunk in checked_items:
+            title = html.escape(str(meta.get("title", "")))
             p_num = meta.get("page_number")
-            if p_num is not None:
-                in_range = start_p <= p_num <= end_p
-                item.setCheckState(Qt.CheckState.Checked if in_range else Qt.CheckState.Unchecked)
-                w = self.sections_list.itemWidget(item)
-                if isinstance(w, SectionRowWidget):
-                    w.set_checked(in_range)
-        self.sections_list.blockSignals(False)
+            p_info = f" <span style='color: #94a3b8; font-size: 11px;'>(Page {p_num})</span>" if p_num else ""
+            raw_content = str(chunk.get("content", ""))
+            escaped_content = html.escape(raw_content)
+
+            block = (
+                f'<div style="background-color: rgba(30, 41, 59, 0.6); border: 1px solid {DesignTokens.BORDER_COLOR}; '
+                f'border-radius: 6px; padding: 12px; margin-bottom: 12px;">'
+                f'<div style="color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; font-size: 13px; margin-bottom: 8px;">'
+                f"📌 {title}{p_info}"
+                f"</div>"
+                f'<div style="color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; line-height: 1.5; white-space: pre-wrap;">'
+                f"{escaped_content}"
+                f"</div>"
+                f"</div>"
+            )
+            html_blocks.append(block)
+
+        self.final_preview_browser.setHtml("".join(html_blocks))
 
     def _on_section_selected(self, row: int) -> None:
         if row < 0 or row not in self._section_meta:
@@ -735,8 +1010,44 @@ class DocumentScopeDialog(QDialog):
             w = self.sections_list.itemWidget(item)
             if isinstance(w, SectionRowWidget):
                 w.set_checked(checked)
+            if not checked:
+                self._manually_deselected_indices.add(i)
+            else:
+                self._manually_deselected_indices.discard(i)
         self.sections_list.blockSignals(False)
+
+        if self.is_paginated:
+            checked_pages = [
+                self._section_meta[i]["page_number"]
+                for i in range(self.sections_list.count())
+                if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+            ]
+            if checked:
+                min_p = self._delimited_start_page
+                max_p = self._delimited_end_page
+            elif checked_pages:
+                min_p = min(checked_pages)
+                max_p = max(checked_pages)
+            else:
+                min_p = self.spin_p_start.value()
+                max_p = self.spin_p_end.value()
+
+            self._syncing_selection = True
+            try:
+                self.spin_p_start.setValue(min_p)
+                self.spin_p_end.setValue(max_p)
+                self.slider_p_start.setValue(min_p)
+                self.slider_p_end.setValue(max_p)
+                if hasattr(self, "range_bar"):
+                    self.range_bar.set_range(min_p, max_p, self._doc_total_pages)
+            finally:
+                self._syncing_selection = False
+
+            if hasattr(self, "preview_widget"):
+                self.preview_widget.set_scope_range(min_p, max_p, included_pages=set(checked_pages))
+
         self._update_kpi()
+        self._refresh_final_preview()
 
     def _update_kpi(self) -> None:
         total = self.sections_list.count()

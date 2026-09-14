@@ -366,3 +366,402 @@ def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any,
     assert "Page 3" in res["scope_title"]
     assert len(res["chunks"]) == 1
     assert res["chunks"][0]["page_number"] == 3
+
+
+@pytest.mark.ui
+def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la mise à jour différentielle de délimitation préserve les NoteChunkLinkModel."""
+    from ankiforge.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"Basic_{uid}")
+    doc = DocumentModel.create(title=f"Cours Cardio {uid}", file_type="pdf", total_pages=3)
+    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Intro", content="Intro", content_hash="h_p1")
+    c2 = DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Ventricules", content="Détail ventricules", content_hash="h_p2")
+    _ = DocumentChunkModel.create(document=doc, chunk_index=2, page_number=3, heading_path="Annexes", content="Annexes", content_hash="h_p3")
+
+    note = NoteModel.create(guid=f"guid_{uid}", note_type=nt)
+    link = NoteChunkLinkModel.create(note=note, chunk=c2)
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Vérifier que le fragment c2 est bien reconnu avec sa carte
+    assert dlg._chunk_cards.get(1, 0) >= 1 or dlg._page_cards.get(2, 0) >= 1 or dlg._hash_cards.get("h_p2", 0) >= 1
+
+    # Appliquer une délimitation restreinte aux pages 2 et 3 (excluant la page 1)
+    dlg.spin_p_start.setValue(2)
+    dlg.spin_p_end.setValue(3)
+    dlg._on_apply()
+
+    # Vérifier que le chunk c2 a été conservé et que NoteChunkLinkModel existe toujours !
+    preserved_link = NoteChunkLinkModel.select().where(NoteChunkLinkModel.id == link.id).first()
+    assert preserved_link is not None
+    assert preserved_link.chunk.id == c2.id
+    assert preserved_link.chunk.heading_path == "Ventricules"
+
+    # Vérifier que le chunk c1 a été supprimé
+    assert DocumentChunkModel.select().where(DocumentChunkModel.id == c1.id).first() is None
+
+
+@pytest.mark.ui
+def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la synchronisation bidirectionnelle slider <-> sections dans DocumentDelimitationDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Sync Doc {uid}", file_type="pdf", total_pages=5)
+    for p in range(1, 6):
+        DocumentChunkModel.create(document=doc, chunk_index=p - 1, page_number=p, heading_path=f"Page {p}", content=f"Contenu {p}", content_hash=f"h_{p}")
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # 1. Slider -> Sections : restreindre aux pages 2..4 décoche p.1 et p.5
+    dlg.spin_p_start.setValue(2)
+    dlg.spin_p_end.setValue(4)
+
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked  # Page 1
+    assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Page 2
+    assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Page 3
+    assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Checked  # Page 4
+    assert dlg.sections_list.item(4).checkState() == Qt.CheckState.Unchecked  # Page 5
+
+    # 2. Section -> Slider : cocher la section de la page 5 élargit spin_p_end à 5
+    row_w5 = dlg.sections_list.itemWidget(dlg.sections_list.item(4))
+    assert isinstance(row_w5, SectionRowWidget)
+    row_w5.checkbox.setChecked(True)
+
+    assert dlg.spin_p_end.value() == 5
+
+
+@pytest.mark.ui
+def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la synchronisation bidirectionnelle et la Vue Finale Assemblée dans DocumentScopeDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Scope View Doc {uid}", file_type="pdf", total_pages=4, start_page=1, end_page=4)
+    for p in range(1, 5):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Chapitre {p}",
+            content=f"Texte du chapitre {p} avec plusieurs mots pour les tests.",
+            content_hash=f"hash_{p}",
+        )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # 1. Slider -> Sections
+    dlg.btn_mode_range.click()
+    dlg.spin_p_start.setValue(2)
+    dlg.spin_p_end.setValue(3)
+
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked  # Chap 1
+    assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Chap 2
+    assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Chap 3
+    assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Unchecked  # Chap 4
+
+    # 2. Section -> Slider : cocher Chapitre 4 élargit spin_p_end à 4
+    row_w4 = dlg.sections_list.itemWidget(dlg.sections_list.item(3))
+    assert isinstance(row_w4, SectionRowWidget)
+    row_w4.checkbox.setChecked(True)
+    assert dlg.spin_p_end.value() == 4
+
+    # 3. Vue Finale Assemblée
+    assert dlg.preview_stack.currentIndex() == 0  # Document Source par défaut
+    dlg.btn_view_final.click()
+    assert dlg.preview_stack.currentIndex() == 1
+
+    final_text = dlg.final_preview_browser.toPlainText()
+    assert "Texte du chapitre 2" in final_text
+    assert "Texte du chapitre 3" in final_text
+    assert "Texte du chapitre 4" in final_text
+    assert "Texte du chapitre 1" not in final_text
+
+    # Revenir sur Document Source
+    dlg.btn_view_source.click()
+    assert dlg.preview_stack.currentIndex() == 0
+
+
+@pytest.mark.ui
+def test_delimitation_modification_and_modal_refresh_sync(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la mise à jour réactive des modaux après modification de la délimitation d'un document."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    content_with_pages = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte long de la page numéro {p} avec du contenu pédagogique." for p in range(1, 6))
+    doc = DocumentModel.create(
+        title=f"Doc Sync Test {uid}",
+        file_type="pdf",
+        total_pages=5,
+        content=content_with_pages,
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Texte long de la page numéro {p} avec du contenu pédagogique.",
+            content_hash=f"hash_sync_{p}",
+        )
+
+    # 1. Première délimitation : restreindre aux pages 2 à 4
+    dlg1 = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg1)
+    dlg1.btn_scope_mode_range.click()
+    dlg1.spin_p_start.setValue(2)
+    dlg1.spin_p_end.setValue(4)
+    dlg1._on_apply()
+
+    # Recharger doc depuis la base et vérifier la persistance
+    doc_fresh = DocumentModel.get_by_id(doc.id)
+    assert doc_fresh.start_page == 2
+    assert doc_fresh.end_page == 4
+
+    # 2. Deuxième délimitation : élargir à "Tout le document" (pages 1 à 5)
+    dlg2 = DocumentDelimitationDialog(doc)  # Passe l'ancien objet doc en mémoire
+    qtbot.addWidget(dlg2)
+    assert dlg2.doc.start_page == 2  # Rechargé automatiquement depuis la DB
+    assert dlg2.doc.end_page == 4
+    dlg2.btn_scope_mode_all.click()
+    dlg2._on_apply()
+
+    doc_fresh2 = DocumentModel.get_by_id(doc.id)
+    assert doc_fresh2.start_page is None
+    assert doc_fresh2.end_page is None
+
+    # 3. Réouverture de DocumentDelimitationDialog : aucune page n'est considérée comme exclue
+    dlg3 = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg3)
+    assert dlg3.sections_list.count() == 5
+    for i in range(5):
+        assert dlg3.sections_list.item(i).checkState() == Qt.CheckState.Checked
+
+    # 4. Ouverture de DocumentScopeDialog : tous les 5 chunks sont bien visibles et inclus
+    scope_dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope_dlg)
+    assert scope_dlg.sections_list.count() == 5
+    assert len(scope_dlg._useful_chunks) == 5
+
+
+@pytest.mark.ui
+def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que les exclusions manuelles de sections restent fidèlement mémorisées et ne sont pas écrasées par le slider."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    content = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte de la page {p} avec du contenu explicatif suffisant." for p in range(1, 6))
+    doc = DocumentModel.create(
+        title=f"Memory Doc {uid}",
+        file_type="pdf",
+        total_pages=5,
+        content=content,
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Texte de la page {p} avec du contenu explicatif suffisant.",
+            content_hash=f"hash_mem_{p}",
+        )
+
+    # 1. Ouvrir délimitation et décocher manuellement la page 3
+    dlg1 = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg1)
+    w_row3 = dlg1.sections_list.itemWidget(dlg1.sections_list.item(2))
+    assert isinstance(w_row3, SectionRowWidget)
+    w_row3.checkbox.setChecked(False)
+    assert "page 3" in dlg1._manual_exclusions
+
+    # Appliquer
+    dlg1._on_apply()
+
+    # Vérifier que "page 3" est persisté dans doc.excluded_headings
+    fresh_doc = DocumentModel.get_by_id(doc.id)
+    assert "page 3" in fresh_doc.excluded_headings
+
+    # 2. Réouverture de DocumentDelimitationDialog : Page 3 DOIT rester décochée
+    dlg2 = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg2)
+    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Unchecked
+    assert dlg2.sections_list.item(0).checkState() == Qt.CheckState.Checked  # Page 1 cochée
+    assert dlg2.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Page 2 cochée
+
+    # 3. Manipulation du slider de pages (déplacer puis ré-étendre à toute la portée)
+    dlg2.btn_scope_mode_range.click()
+    dlg2.spin_p_start.setValue(1)
+    dlg2.spin_p_end.setValue(5)
+
+    # Page 3 NE DOIT PAS être cochée par le mouvement du slider
+    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Unchecked
+
+    # 4. DocumentScopeDialog ne contient pas la page 3
+    scope_dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope_dlg)
+    useful_titles = [u["title"] for u in scope_dlg._useful_chunks]
+    assert "Page 3" not in useful_titles
+    assert len(scope_dlg._useful_chunks) == 4
+
+
+@pytest.mark.ui
+def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le saut immédiat de la vue PDF et l'ajustement dynamique des sliders dans DocumentDelimitationDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    content = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte pédagogique détaillé pour la page {p}." for p in range(1, 6))
+    doc = DocumentModel.create(
+        title=f"Sync Preview Doc {uid}",
+        file_type="pdf",
+        total_pages=5,
+        content=content,
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Section {p}",
+            content=f"Texte pédagogique détaillé pour la page {p}.",
+            content_hash=f"hash_sync_dlg_{p}",
+        )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Initialement, toutes les pages 1 à 5 sont cochées
+    assert dlg.spin_p_start.value() == 1
+    assert dlg.spin_p_end.value() == 5
+    assert dlg.preview_widget._current_page == 1
+    assert 1 in dlg.preview_widget._included_pages
+    assert "INCLUSE" in dlg.preview_widget.lbl_scope_status.text()
+
+    # 1. Clic direct sur la section 3 (page 3) -> la visionneuse doit sauter immédiatement à la page 3
+    item3 = dlg.sections_list.item(2)
+    dlg.sections_list.itemClicked.emit(item3)
+    assert dlg.preview_widget._current_page == 3
+    assert "Page 3 INCLUSE" in dlg.preview_widget.lbl_scope_status.text()
+
+    # 2. Décocher la section 1 (page 1)
+    w_row1 = dlg.sections_list.itemWidget(dlg.sections_list.item(0))
+    assert isinstance(w_row1, SectionRowWidget)
+    w_row1.checkbox.setChecked(False)
+
+    # Le curseur de début doit se rétrécir automatiquement à 2
+    assert dlg.spin_p_start.value() == 2
+    assert dlg.slider_p_start.value() == 2
+    assert dlg.range_bar._start == 2
+    # La visionneuse doit avoir sauté à la page 1 et afficher EXCLUE
+    assert dlg.preview_widget._current_page == 1
+    assert 1 not in dlg.preview_widget._included_pages
+    assert "Page 1 EXCLUE" in dlg.preview_widget.lbl_scope_status.text()
+
+    # 3. Décocher la section 5 (page 5)
+    w_row5 = dlg.sections_list.itemWidget(dlg.sections_list.item(4))
+    assert isinstance(w_row5, SectionRowWidget)
+    w_row5.checkbox.setChecked(False)
+
+    # Le curseur de fin doit se rétrécir automatiquement à 4
+    assert dlg.spin_p_end.value() == 4
+    assert dlg.slider_p_end.value() == 4
+    assert dlg.range_bar._end == 4
+    assert dlg.preview_widget._current_page == 5
+    assert 5 not in dlg.preview_widget._included_pages
+    assert "Page 5 EXCLUE" in dlg.preview_widget.lbl_scope_status.text()
+
+    # 4. Déplacement du slider de début à 3
+    dlg.spin_p_start.setValue(3)
+    assert dlg.preview_widget._current_page == 3
+    assert 3 in dlg.preview_widget._included_pages
+    assert "Page 3 INCLUSE" in dlg.preview_widget.lbl_scope_status.text()
+    # La section 2 (page 2) doit avoir été décochée automatiquement par le déplacement de borne
+    assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Unchecked
+
+
+@pytest.mark.ui
+def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le saut immédiat de la vue PDF et l'ajustement dynamique des sliders dans DocumentScopeDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    content = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte de cours pour le fragment de la page {p}." for p in range(1, 6))
+    doc = DocumentModel.create(
+        title=f"Sync Scope Doc {uid}",
+        file_type="pdf",
+        total_pages=5,
+        content=content,
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Segment {p}",
+            content=f"Texte de cours pour le fragment de la page {p}.",
+            content_hash=f"hash_scope_dlg_{p}",
+        )
+
+    scope_dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope_dlg)
+
+    # Vérification initiale
+    assert scope_dlg.sections_list.count() == 5
+    assert scope_dlg.spin_p_start.value() == 1
+    assert scope_dlg.spin_p_end.value() == 5
+    assert scope_dlg.preview_widget._current_page == 1
+
+    # 1. Clic sur la section 4 (page 4)
+    item4 = scope_dlg.sections_list.item(3)
+    scope_dlg.sections_list.itemClicked.emit(item4)
+    assert scope_dlg.preview_widget._current_page == 4
+    assert "Page 4 INCLUSE" in scope_dlg.preview_widget.lbl_scope_status.text()
+
+    # 2. Décocher la section 1 (page 1)
+    w_row1 = scope_dlg.sections_list.itemWidget(scope_dlg.sections_list.item(0))
+    assert isinstance(w_row1, SectionRowWidget)
+    w_row1.checkbox.setChecked(False)
+
+    # Rétrécissement dynamique des sliders vers la plage réelle [2, 5]
+    assert scope_dlg.spin_p_start.value() == 2
+    assert scope_dlg.slider_p_start.value() == 2
+    assert scope_dlg.range_bar._start == 2
+    assert scope_dlg.preview_widget._current_page == 1
+    assert "Page 1 EXCLUE" in scope_dlg.preview_widget.lbl_scope_status.text()
+
+    # La vue finale assemblée ne doit plus contenir Segment 1
+    scope_dlg._refresh_final_preview()
+    assert "Segment 1" not in scope_dlg.final_preview_browser.toPlainText()
+    assert "Segment 2" in scope_dlg.final_preview_browser.toPlainText()
+
+    # 3. Décocher la section 5 (page 5)
+    w_row5 = scope_dlg.sections_list.itemWidget(scope_dlg.sections_list.item(4))
+    assert isinstance(w_row5, SectionRowWidget)
+    w_row5.checkbox.setChecked(False)
+
+    assert scope_dlg.spin_p_end.value() == 4
+    assert scope_dlg.slider_p_end.value() == 4
+    assert scope_dlg.preview_widget._current_page == 5
+    assert "Page 5 EXCLUE" in scope_dlg.preview_widget.lbl_scope_status.text()
+
+    # 4. Action Tout cocher
+    scope_dlg._set_all_checked(True)
+    assert scope_dlg.spin_p_start.value() == 1
+    assert scope_dlg.spin_p_end.value() == 5
+    assert 1 in scope_dlg.preview_widget._included_pages
+    assert 5 in scope_dlg.preview_widget._included_pages

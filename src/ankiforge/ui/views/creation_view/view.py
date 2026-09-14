@@ -825,15 +825,23 @@ class CreationView(QWidget):
 
             show_toast(self, "Veuillez sélectionner un document à délimiter.", is_error=True)
             return
+        if getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception:
+                pass
         from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
         dlg = DocumentDelimitationDialog(doc, parent=self)
         if dlg.exec():
-            sp = getattr(doc, "start_page", 1) or 1
-            ep = getattr(doc, "end_page", None)
+            reloaded_doc = DocumentModel.get_by_id(doc.id) if getattr(doc, "id", None) else doc
+            self._current_selected_doc = reloaded_doc
+            self.doc_picker_btn.set_document(reloaded_doc, emit_signal=False)
+            sp = getattr(reloaded_doc, "start_page", 1) or 1
+            ep = getattr(reloaded_doc, "end_page", None)
             if ep is not None:
                 self.segment_inspector.input_page_scope.setText(f"{sp}-{ep}")
-            self.segment_inspector.set_document(doc)
+            self.segment_inspector.set_document(reloaded_doc)
 
     @Slot()
     def _on_open_scope_dialog_for_current_doc(self) -> None:
@@ -843,6 +851,12 @@ class CreationView(QWidget):
 
             show_toast(self, "Veuillez sélectionner un document pour définir sa portée.", is_error=True)
             return
+        if getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception:
+                pass
+            self._current_selected_doc = doc
         from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
         initial_scope = self.segment_inspector.input_page_scope.text().strip()

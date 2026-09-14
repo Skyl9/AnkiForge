@@ -157,16 +157,27 @@ class DocumentPickerButton(QFrame):
 
     def set_document(self, doc: DocumentModel | None, emit_signal: bool = True) -> None:
         """Définit le document actuellement sélectionné."""
-        if self._current_doc == doc:
-            self._update_display()
-            return
+        is_same = (self._current_doc is not None and doc is not None and getattr(self._current_doc, "id", None) is not None and getattr(self._current_doc, "id", None) == getattr(doc, "id", None)) or (
+            self._current_doc is None and doc is None
+        )
+
+        if doc is not None and getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception:
+                pass
         self._current_doc = doc
         self._update_display()
-        if emit_signal:
+        if emit_signal and not is_same:
             self.document_changed.emit(doc)
 
     def get_document(self) -> DocumentModel | None:
         """Récupère le document actuellement sélectionné."""
+        if self._current_doc and getattr(self._current_doc, "id", None):
+            try:
+                self._current_doc = DocumentModel.get_by_id(self._current_doc.id)
+            except Exception:
+                pass
         return self._current_doc
 
     def clear_document(self) -> None:

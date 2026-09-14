@@ -118,11 +118,6 @@ class SectionRowWidget(QWidget):
             diag_badge.setStyleSheet(
                 "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
-        elif is_noise:
-            diag_badge = QLabel("🔇 Bruit (Non péda)")
-            diag_badge.setStyleSheet(
-                "background-color: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
-            )
         elif word_count < 25:
             diag_badge = QLabel("⚠️ Quasi vide")
             diag_badge.setStyleSheet("background-color: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px;")
@@ -225,6 +220,7 @@ class DocumentPreviewWidget(QWidget):
         self._current_mode = "markdown"
         self._scope_start: int = 1
         self._scope_end: int = self._total_pages
+        self._included_pages: set[int] = set(range(1, self._total_pages + 1))
 
         self._setup_ui()
         self._load_document()
@@ -654,11 +650,19 @@ class DocumentPreviewWidget(QWidget):
         if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
             self.pdf_viewer.setZoomMode(QPdfView.ZoomMode.FitToWidth)
 
-    def set_scope_range(self, start_page: int, end_page: int) -> None:
-        """Définit les bornes de la portée demandée pour mettre à jour l'indicateur visuel."""
+    def set_scope_range(self, start_page: int, end_page: int, included_pages: set[int] | None = None) -> None:
+        """Définit les bornes de la portée demandée et les pages incluses pour mettre à jour l'indicateur visuel."""
         self._scope_start = max(1, start_page)
         self._scope_end = max(self._scope_start, end_page)
+        if included_pages is not None:
+            self._included_pages = set(included_pages)
+        else:
+            self._included_pages = set(range(self._scope_start, self._scope_end + 1))
         self._update_scope_badge()
+
+    def set_active_scope(self, start_page: int, end_page: int, included_pages: set[int] | None = None) -> None:
+        """Alias pour set_scope_range avec support explicite des pages incluses."""
+        self.set_scope_range(start_page, end_page, included_pages=included_pages)
 
     def _update_scope_badge(self) -> None:
         if not hasattr(self, "lbl_scope_status"):
@@ -666,7 +670,8 @@ class DocumentPreviewWidget(QWidget):
         if not self._is_paginated:
             self.lbl_scope_status.hide()
             return
-        if self._scope_start <= self._current_page <= self._scope_end:
+        is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
+        if is_included:
             self.lbl_scope_status.setText(f"✅ Page {self._current_page} INCLUSE (portée {self._scope_start}–{self._scope_end})")
             self.lbl_scope_status.setStyleSheet(
                 "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
@@ -720,10 +725,29 @@ class DocumentDelimitationDialog(QDialog):
 
     def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        if getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception:
+                pass
         self.doc = doc
         self._chunk_cards: dict[int, int] = {}
         self._page_cards: dict[int, int] = {}
+        self._hash_cards: dict[str, int] = {}
+        self._heading_page_cards: dict[tuple[str | None, int | None], int] = {}
         self._section_meta: dict[int, dict[str, Any]] = {}
+        self._syncing_selection: bool = False
+
+        self._manual_exclusions: set[str] = set()
+        raw_excl = getattr(self.doc, "excluded_headings", None)
+        if raw_excl:
+            try:
+                parsed = json.loads(raw_excl)
+                if isinstance(parsed, list):
+                    self._manual_exclusions = {str(x).lower().strip() for x in parsed if str(x).strip()}
+            except Exception:
+                self._manual_exclusions = set()
+
         self._load_document_stats()
 
         # Détection de pagination : physique uniquement pour les PDF et Albums
@@ -748,12 +772,24 @@ class DocumentDelimitationDialog(QDialog):
             self._max_page = max([int(p.page_number) for p in pages_query], default=int(doc.total_pages or 1))
         else:
             self._all_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md")
+            if not self._all_chunks and getattr(doc, "id", None):
+                existing_recs = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
+                self._all_chunks = [
+                    {
+                        "index": c.chunk_index,
+                        "heading_path": c.heading_path,
+                        "page_number": c.page_number,
+                        "content": c.content,
+                        "content_hash": c.content_hash,
+                    }
+                    for c in existing_recs
+                ]
             page_numbers = [int(chunk["page_number"]) for chunk in self._all_chunks if chunk.get("page_number") is not None]
             self._max_page = max(page_numbers, default=int(doc.total_pages or 1))
             if doc.total_pages and doc.total_pages > self._max_page:
                 self._max_page = int(doc.total_pages)
 
-        win_title = f"Délimiter les pages et sections — {doc.title}" if self.is_paginated else f"Délimiter les sections — {doc.title}"
+        win_title = f"Délimitation & Assainissement global — {doc.title}"
         self.setWindowTitle(win_title)
         self.resize(1280, 780)
         self.setMinimumSize(960, 600)
@@ -822,15 +858,26 @@ class DocumentDelimitationDialog(QDialog):
         h_layout.setSpacing(4)
 
         header_top = QHBoxLayout()
+        header_top.setSpacing(8)
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.ACCENT_PRIMARY).pixmap(20, 20))
-        title_lbl = QLabel(f"Délimiter le périmètre utile : <b>{doc.title}</b>")
+        icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_YELLOW).pixmap(20, 20))
+        title_lbl = QLabel(f"Délimitation globale : <b>{doc.title}</b>")
         title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
         header_top.addWidget(icon_lbl)
-        header_top.addWidget(title_lbl, 1)
+        header_top.addWidget(title_lbl)
+
+        badge_global = QLabel("DÉLIMITATION GLOBALE (STRUCTURE DU DOCUMENT)")
+        badge_global.setStyleSheet(
+            "background-color: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: bold;"
+        )
+        header_top.addWidget(badge_global)
+        header_top.addStretch()
         h_layout.addLayout(header_top)
 
-        desc_lbl = QLabel("Excluez les parties non pédagogiques (sommaires, préfaces, annexes) pour focaliser la couverture, l'éditeur et la recherche IA sur le contenu essentiel.")
+        desc_lbl = QLabel(
+            "Éliminez définitivement les parties non pertinentes (pages blanches, répétitions, sommaires, préfaces). "
+            "Cette délimitation assainit durablement la structure du document dans la bibliothèque et réindexe le moteur de recherche IA (RAG)."
+        )
         desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
         desc_lbl.setWordWrap(True)
         h_layout.addWidget(desc_lbl)
@@ -1049,16 +1096,9 @@ class DocumentDelimitationDialog(QDialog):
         btn_uncheck_all.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
         btn_uncheck_all.clicked.connect(lambda: self._set_all_checked(False))
 
-        btn_smart_filter = SecondaryButton("Filtre Anti-Bruit Automatique")
-        btn_smart_filter.setIcon(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW))
-        btn_smart_filter.setFixedHeight(28)
-        btn_smart_filter.setStyleSheet(f"font-size: 11px; padding: 4px 12px; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW}; border-radius: 4px;")
-        btn_smart_filter.clicked.connect(self._apply_smart_filter)
-
         quick_btns.addWidget(btn_check_all)
         quick_btns.addWidget(btn_uncheck_all)
         quick_btns.addStretch()
-        quick_btns.addWidget(btn_smart_filter)
         sections_layout.addLayout(quick_btns)
 
         self.sections_list = QListWidget()
@@ -1092,6 +1132,7 @@ class DocumentDelimitationDialog(QDialog):
         self.sections_list.setMinimumHeight(240)
         self.sections_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
         self.sections_list.currentRowChanged.connect(self._on_section_selected)
+        self.sections_list.itemClicked.connect(lambda item: self._on_section_selected(self.sections_list.row(item)))
         sections_layout.addWidget(self.sections_list, 1)
         left_layout.addWidget(sections_card, 1)
 
@@ -1126,7 +1167,7 @@ class DocumentDelimitationDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         footer.addWidget(btn_cancel)
 
-        btn_apply = PrimaryButton("Appliquer la sélection")
+        btn_apply = PrimaryButton("Enregistrer la délimitation globale")
         btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
         btn_apply.clicked.connect(self._on_apply)
         footer.addWidget(btn_apply)
@@ -1145,6 +1186,7 @@ class DocumentDelimitationDialog(QDialog):
 
     def _on_mode_all_clicked(self) -> None:
         self.slider_scope_container.hide()
+        self._manual_exclusions.clear()
         self.spin_p_start.blockSignals(True)
         self.spin_p_end.blockSignals(True)
         self.slider_p_start.blockSignals(True)
@@ -1161,13 +1203,24 @@ class DocumentDelimitationDialog(QDialog):
         self.slider_p_end.blockSignals(False)
 
         self.range_bar.set_range(1, self._max_page, self._max_page)
-        self.preview_widget.set_scope_range(1, self._max_page)
+        self._set_all_checked(True)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(1, self._max_page, included_pages=set(range(1, self._max_page + 1)))
         self._update_kpi()
 
     def _on_mode_range_clicked(self) -> None:
         self.slider_scope_container.show()
-        self.range_bar.set_range(self.spin_p_start.value(), self.spin_p_end.value(), self._max_page)
-        self.preview_widget.set_scope_range(self.spin_p_start.value(), self.spin_p_end.value())
+        sp = self.spin_p_start.value()
+        ep = self.spin_p_end.value()
+        self.range_bar.set_range(sp, ep, self._max_page)
+        self._filter_sections_by_pages(sp, ep)
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(sp, ep, included_pages=checked_pages)
         self._update_kpi()
 
     def _on_slider_start_changed(self, val: int) -> None:
@@ -1181,6 +1234,8 @@ class DocumentDelimitationDialog(QDialog):
         self.spin_p_end.setValue(val)
 
     def _on_start_page_changed(self, val: int) -> None:
+        if self._syncing_selection:
+            return
         if hasattr(self, "btn_scope_mode_range") and (val > 1 or self.spin_p_end.value() < self._max_page):
             self.btn_scope_mode_range.setChecked(True)
             self.slider_scope_container.show()
@@ -1189,12 +1244,20 @@ class DocumentDelimitationDialog(QDialog):
         self.slider_p_start.blockSignals(False)
         if hasattr(self, "range_bar"):
             self.range_bar.set_range(val, self.spin_p_end.value(), self._max_page)
+        self._filter_sections_by_pages(val, self.spin_p_end.value())
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
         if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(val, self.spin_p_end.value())
+            self.preview_widget.set_scope_range(val, self.spin_p_end.value(), included_pages=checked_pages)
             self.preview_widget.jump_to_page(val)
         self._update_kpi()
 
     def _on_end_page_changed(self, val: int) -> None:
+        if self._syncing_selection:
+            return
         if hasattr(self, "btn_scope_mode_range") and (self.spin_p_start.value() > 1 or val < self._max_page):
             self.btn_scope_mode_range.setChecked(True)
             self.slider_scope_container.show()
@@ -1203,15 +1266,101 @@ class DocumentDelimitationDialog(QDialog):
         self.slider_p_end.blockSignals(False)
         if hasattr(self, "range_bar"):
             self.range_bar.set_range(self.spin_p_start.value(), val, self._max_page)
+        self._filter_sections_by_pages(self.spin_p_start.value(), val)
+        checked_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        }
         if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(self.spin_p_start.value(), val)
+            self.preview_widget.set_scope_range(self.spin_p_start.value(), val, included_pages=checked_pages)
             self.preview_widget.jump_to_page(val)
         self._update_kpi()
 
+    def _filter_sections_by_pages(self, start_p: int, end_p: int) -> None:
+        """Coche ou décoche automatiquement les fragments selon leur appartenance à la plage de pages sélectionnée sans écraser les exclusions manuelles."""
+        if not self.is_paginated or self._syncing_selection:
+            return
+        self._syncing_selection = True
+        try:
+            self.sections_list.blockSignals(True)
+            for i in range(self.sections_list.count()):
+                meta = self._section_meta.get(i, {})
+                p_num = meta.get("page_number")
+                title = str(meta.get("title") or "").lower().strip()
+                if p_num is not None:
+                    in_range = start_p <= p_num <= end_p
+                    should_check = in_range and (title not in self._manual_exclusions)
+                    item = self.sections_list.item(i)
+                    item.setCheckState(Qt.CheckState.Checked if should_check else Qt.CheckState.Unchecked)
+                    w = self.sections_list.itemWidget(item)
+                    if isinstance(w, SectionRowWidget):
+                        w.set_checked(should_check)
+            self.sections_list.blockSignals(False)
+        finally:
+            self._syncing_selection = False
+
+    def _on_section_checked_changed(self, item: QListWidgetItem, is_checked: bool) -> None:
+        """Synchronisation dynamique unifiée section -> slider et mémorisation des exclusions manuelles avec navigation immédiate."""
+        row = self.sections_list.row(item)
+        meta = self._section_meta.get(row, {})
+        title = str(meta.get("title") or "").lower().strip()
+        orig_title = str(meta.get("title") or "")
+        p_num = meta.get("page_number")
+
+        # 1. Navigation immédiate vers la section concernée dans l'aperçu
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.jump_to_heading(orig_title, p_num)
+
+        # 2. Mémorisation des exclusions manuelles
+        if not is_checked:
+            if title:
+                self._manual_exclusions.add(title)
+        else:
+            if title:
+                self._manual_exclusions.discard(title)
+
+        if not self.is_paginated or self._syncing_selection:
+            self._update_kpi()
+            return
+
+        # 3. Recalcul unifié des bornes réelles depuis l'ensemble des sections cochées
+        checked_pages = [
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+        ]
+
+        if checked_pages:
+            min_p = min(checked_pages)
+            max_p = max(checked_pages)
+        else:
+            min_p = self.spin_p_start.value()
+            max_p = self.spin_p_end.value()
+
+        self._syncing_selection = True
+        try:
+            self.spin_p_start.setValue(min_p)
+            self.spin_p_end.setValue(max_p)
+            self.slider_p_start.setValue(min_p)
+            self.slider_p_end.setValue(max_p)
+            if hasattr(self, "range_bar"):
+                self.range_bar.set_range(min_p, max_p, self._max_page)
+        finally:
+            self._syncing_selection = False
+
+        # 4. Actualisation immédiate du statut de la visionneuse
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(min_p, max_p, included_pages=set(checked_pages))
+
+        self._update_kpi()
+
     def _load_document_stats(self) -> None:
-        """Charge la distribution des cartes créées par fragment et par page."""
+        """Charge la distribution des cartes créées par fragment et par page avec indexation robuste."""
         self._chunk_cards = {}
         self._page_cards = {}
+        self._hash_cards = {}
+        self._heading_page_cards = {}
 
         if not getattr(self.doc, "id", None):
             return
@@ -1226,20 +1375,34 @@ class DocumentDelimitationDialog(QDialog):
                 NoteChunkLinkModel.select(
                     DocumentChunkModel.chunk_index,
                     DocumentChunkModel.page_number,
+                    DocumentChunkModel.content_hash,
+                    DocumentChunkModel.heading_path,
                     fn.COUNT(NoteChunkLinkModel.note).alias("cnt"),
                 )
                 .join(DocumentChunkModel)
                 .where(DocumentChunkModel.document == self.doc)
-                .group_by(DocumentChunkModel.chunk_index, DocumentChunkModel.page_number)
+                .group_by(
+                    DocumentChunkModel.chunk_index,
+                    DocumentChunkModel.page_number,
+                    DocumentChunkModel.content_hash,
+                    DocumentChunkModel.heading_path,
+                )
             )
             for row in links:
                 c_idx = row.chunk.chunk_index
                 p_num = row.chunk.page_number
+                c_hash = row.chunk.content_hash
+                h_path = row.chunk.heading_path
                 cnt = int(getattr(row, "cnt", 0))
                 if c_idx is not None:
                     self._chunk_cards[c_idx] = self._chunk_cards.get(c_idx, 0) + cnt
                 if p_num is not None:
                     self._page_cards[p_num] = self._page_cards.get(p_num, 0) + cnt
+                if c_hash:
+                    self._hash_cards[c_hash] = self._hash_cards.get(c_hash, 0) + cnt
+                if h_path:
+                    key = (h_path, p_num)
+                    self._heading_page_cards[key] = self._heading_page_cards.get(key, 0) + cnt
         except Exception as e:
             logger.debug("Erreur comptage des cartes par fragment: %s", e)
 
@@ -1248,16 +1411,6 @@ class DocumentDelimitationDialog(QDialog):
         self.sections_list.blockSignals(True)
         self.sections_list.clear()
         self._section_meta.clear()
-
-        excluded_list: list[str] = []
-        raw_excl = getattr(self.doc, "excluded_headings", None)
-        if raw_excl:
-            try:
-                parsed = json.loads(raw_excl)
-                if isinstance(parsed, list):
-                    excluded_list = [str(x).lower() for x in parsed]
-            except Exception:
-                excluded_list = []
 
         chunks_to_display = self._all_chunks
         if not chunks_to_display:
@@ -1273,47 +1426,29 @@ class DocumentDelimitationDialog(QDialog):
                 for c in existing
             ]
 
-        noise_keywords = [
-            "sommaire",
-            "table des matières",
-            "table of contents",
-            "toc",
-            "remerciements",
-            "acknowledgments",
-            "acknowledgements",
-            "avant-propos",
-            "préface",
-            "foreword",
-            "bibliographie",
-            "references",
-            "références",
-            "annexe",
-            "annexes",
-            "appendix",
-            "appendices",
-            "index",
-            "glossaire",
-            "glossary",
-            "copyright",
-            "license",
-            "mentions légales",
-            "colophon",
-        ]
-
         for idx, c_data in enumerate(chunks_to_display):
             title_str = c_data.get("heading_path") or (f"Page {c_data.get('page_number')}" if c_data.get("page_number") else f"Section #{c_data.get('index', 0) + 1}")
             page_num = c_data.get("page_number")
             chunk_idx = c_data.get("index", idx)
             content = str(c_data.get("content") or "")
             word_count = len(content.split()) if content else 0
+            c_hash = c_data.get("content_hash")
 
-            # Nombre de cartes associées
-            cards_count = self._chunk_cards.get(chunk_idx, 0)
-            if not cards_count and page_num is not None:
+            # Nombre de cartes associées : recherche prioritaire par hash de contenu ou (heading_path, page_num)
+            cards_count = 0
+            if c_hash and c_hash in self._hash_cards:
+                cards_count = self._hash_cards[c_hash]
+            elif (c_data.get("heading_path"), page_num) in self._heading_page_cards:
+                cards_count = self._heading_page_cards[(c_data.get("heading_path"), page_num)]
+            elif (title_str, page_num) in self._heading_page_cards:
+                cards_count = self._heading_page_cards[(title_str, page_num)]
+            elif chunk_idx in self._chunk_cards:
+                cards_count = self._chunk_cards[chunk_idx]
+            elif page_num is not None:
                 cards_count = self._page_cards.get(page_num, 0)
 
             low_title = title_str.lower()
-            is_noise = any(k in low_title for k in noise_keywords)
+            is_noise = False
 
             self._section_meta[idx] = {
                 "title": title_str,
@@ -1324,9 +1459,12 @@ class DocumentDelimitationDialog(QDialog):
             }
 
             item = QListWidgetItem()
-            # Si des exclusions sont mémorisées, on les respecte fidèlement
-            # Sinon, filtre automatique : on conserve le contenu utile ou toute section ayant des cartes créées
-            is_checked = (low_title not in excluded_list) if excluded_list else (cards_count > 0 or not is_noise)
+            # Si des exclusions manuelles sont mémorisées, on les respecte fidèlement
+            # Si le document est paginé, on respecte également la plage de pages active [start_p, end_p]
+            in_range = True
+            if self.is_paginated and page_num is not None and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
+                in_range = self.spin_p_start.value() <= page_num <= self.spin_p_end.value()
+            is_checked = in_range and (low_title not in self._manual_exclusions)
 
             item.setCheckState(Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
             item.setData(Qt.ItemDataRole.UserRole, title_str)
@@ -1342,15 +1480,11 @@ class DocumentDelimitationDialog(QDialog):
                 is_noise=is_noise,
                 show_page=self.is_paginated,
             )
-            row_widget.checked_changed.connect(lambda _: self._update_kpi())
+            row_widget.checked_changed.connect(lambda chk, it=item: self._on_section_checked_changed(it, chk))
             item.setSizeHint(QSize(0, 36))
 
             # Tooltip riche
-            rec_text = (
-                "À conserver impérativement (Cartes déjà créées)"
-                if cards_count > 0
-                else ("Bruit documentaire non pédagogique" if is_noise else ("Section courte / à vérifier" if word_count < 25 else "Contenu de cours standard"))
-            )
+            rec_text = "À conserver impérativement (Cartes déjà créées)" if cards_count > 0 else ("Section courte / à vérifier" if word_count < 25 else "Contenu de cours standard")
             preview = content[:220].replace("\n", " ").strip()
             if len(content) > 220:
                 preview += "..."
@@ -1424,25 +1558,47 @@ class DocumentDelimitationDialog(QDialog):
             widget = self.sections_list.itemWidget(item)
             if isinstance(widget, SectionRowWidget):
                 widget.set_checked(checked)
-        self.sections_list.blockSignals(False)
-        self._update_kpi()
-
-    def _apply_smart_filter(self, notify: bool = True) -> None:
-        self.sections_list.blockSignals(True)
-        for i in range(self.sections_list.count()):
-            item = self.sections_list.item(i)
             meta = self._section_meta.get(i, {})
-            is_noise = meta.get("is_noise", False)
-            cards_cnt = int(meta.get("cards_count", 0))
-            should_check = not (is_noise and cards_cnt == 0)
-            item.setCheckState(Qt.CheckState.Checked if should_check else Qt.CheckState.Unchecked)
-            widget = self.sections_list.itemWidget(item)
-            if isinstance(widget, SectionRowWidget):
-                widget.set_checked(should_check)
+            title = str(meta.get("title") or "").lower().strip()
+            if not checked:
+                if title:
+                    self._manual_exclusions.add(title)
+            else:
+                if title:
+                    self._manual_exclusions.discard(title)
         self.sections_list.blockSignals(False)
+
+        if self.is_paginated:
+            checked_pages = [
+                self._section_meta[i]["page_number"]
+                for i in range(self.sections_list.count())
+                if self.sections_list.item(i).checkState() == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
+            ]
+            if checked:
+                min_p = 1
+                max_p = self._max_page
+            elif checked_pages:
+                min_p = min(checked_pages)
+                max_p = max(checked_pages)
+            else:
+                min_p = self.spin_p_start.value()
+                max_p = self.spin_p_end.value()
+
+            self._syncing_selection = True
+            try:
+                self.spin_p_start.setValue(min_p)
+                self.spin_p_end.setValue(max_p)
+                self.slider_p_start.setValue(min_p)
+                self.slider_p_end.setValue(max_p)
+                if hasattr(self, "range_bar"):
+                    self.range_bar.set_range(min_p, max_p, self._max_page)
+            finally:
+                self._syncing_selection = False
+
+            if hasattr(self, "preview_widget"):
+                self.preview_widget.set_scope_range(min_p, max_p, included_pages=set(checked_pages))
+
         self._update_kpi()
-        if notify:
-            show_toast(self, "Filtre intelligent appliqué : bruit documentaire exclu.")
 
     def _on_apply(self) -> None:
         if self.is_paginated:
@@ -1461,25 +1617,31 @@ class DocumentDelimitationDialog(QDialog):
             page_start = None
             page_end = None
 
-        selected_headings: list[str] = []
-        excluded_headings: list[str] = []
+        effective_exclusions: set[str] = set()
         for i in range(self.sections_list.count()):
             item = self.sections_list.item(i)
-            val = str(item.data(Qt.ItemDataRole.UserRole))
-            if item.checkState() == Qt.CheckState.Checked:
-                selected_headings.append(val)
-            else:
-                excluded_headings.append(val)
+            val = str(item.data(Qt.ItemDataRole.UserRole) or "").strip()
+            if item.checkState() == Qt.CheckState.Unchecked and val:
+                effective_exclusions.add(val)
+                effective_exclusions.add(val.lower())
+        for ex in self._manual_exclusions:
+            if ex:
+                effective_exclusions.add(ex)
 
         retained_chunks = []
+        low_exclusions = {e.lower().strip() for e in effective_exclusions}
         for chunk in self._all_chunks:
             if self.is_paginated and page_start is not None and page_end is not None:
                 page_number = chunk.get("page_number")
                 if page_number is not None and not (page_start <= page_number <= page_end):
                     continue
-            h_path = chunk.get("heading_path", "")
-            if not selected_headings or any(sh in h_path for sh in selected_headings) or not h_path:
-                retained_chunks.append(chunk)
+            h_path = (chunk.get("heading_path") or "").strip()
+            title_str = h_path or (f"Page {chunk.get('page_number')}" if chunk.get("page_number") else f"Section #{chunk.get('index', 0) + 1}")
+            low_title = title_str.lower().strip()
+            low_h_path = h_path.lower()
+            if low_title in low_exclusions or (low_h_path and any(ex in low_h_path for ex in low_exclusions)):
+                continue
+            retained_chunks.append(chunk)
 
         if not retained_chunks:
             show_toast(self, "Aucun contenu ne correspond à cette sélection.", is_error=True)
@@ -1488,21 +1650,65 @@ class DocumentDelimitationDialog(QDialog):
         # 1. Persistance durable sur DocumentModel
         self.doc.start_page = page_start
         self.doc.end_page = page_end
-        self.doc.excluded_headings = json.dumps(excluded_headings, ensure_ascii=False)
+        self.doc.excluded_headings = json.dumps(sorted(list(effective_exclusions)), ensure_ascii=False)
+        if getattr(self, "_max_page", 0) and self._max_page > 1:
+            self.doc.total_pages = self._max_page
         self.doc.save()
 
-        # 2. Mise à jour atomique des chunks actifs en base
+        # 2. Mise à jour différentielle atomique des chunks actifs en base (préserve NoteChunkLinkModel !)
         with DocumentChunkModel._meta.database.atomic():
-            DocumentChunkModel.delete().where(DocumentChunkModel.document == self.doc).execute()
+            existing_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
+            existing_by_hash: dict[str, list[DocumentChunkModel]] = {}
+            existing_by_heading_page: dict[tuple[str | None, int | None], list[DocumentChunkModel]] = {}
+            for c in existing_chunks:
+                if c.content_hash:
+                    existing_by_hash.setdefault(c.content_hash, []).append(c)
+                if c.heading_path:
+                    existing_by_heading_page.setdefault((c.heading_path, c.page_number), []).append(c)
+
+            matched_chunk_ids: set[int] = set()
+
             for idx, c_data in enumerate(retained_chunks):
-                DocumentChunkModel.create(
-                    document=self.doc,
-                    chunk_index=idx,
-                    content=c_data["content"],
-                    page_number=c_data.get("page_number"),
-                    heading_path=c_data.get("heading_path"),
-                    content_hash=c_data.get("content_hash") or ChunkingService.hash_content(c_data["content"]),
-                )
+                c_content = c_data["content"]
+                c_hash = c_data.get("content_hash") or ChunkingService.hash_content(c_content)
+                c_page = c_data.get("page_number")
+                c_heading = c_data.get("heading_path")
+
+                matched_chunk: DocumentChunkModel | None = None
+                if c_hash in existing_by_hash:
+                    for cand in existing_by_hash[c_hash]:
+                        if cand.id not in matched_chunk_ids:
+                            matched_chunk = cand
+                            break
+
+                if matched_chunk is None and (c_heading, c_page) in existing_by_heading_page:
+                    for cand in existing_by_heading_page[(c_heading, c_page)]:
+                        if cand.id not in matched_chunk_ids:
+                            matched_chunk = cand
+                            break
+
+                if matched_chunk is not None:
+                    matched_chunk_ids.add(matched_chunk.id)
+                    matched_chunk.chunk_index = idx
+                    matched_chunk.content = c_content
+                    matched_chunk.page_number = c_page
+                    matched_chunk.heading_path = c_heading
+                    matched_chunk.content_hash = c_hash
+                    matched_chunk.save()
+                else:
+                    created = DocumentChunkModel.create(
+                        document=self.doc,
+                        chunk_index=idx,
+                        content=c_content,
+                        page_number=c_page,
+                        heading_path=c_heading,
+                        content_hash=c_hash,
+                    )
+                    matched_chunk_ids.add(created.id)
+
+            chunks_to_delete = [c.id for c in existing_chunks if c.id not in matched_chunk_ids]
+            if chunks_to_delete:
+                DocumentChunkModel.delete().where(DocumentChunkModel.id.in_(chunks_to_delete)).execute()
 
         # 3. Réindexation RAG si demandée
         if self.chk_revectorize.isChecked():

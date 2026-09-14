@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import DocumentModel
+from ankiforge.database.models import DocumentChunkModel, DocumentModel
 from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.ui.components.badges import Badge
@@ -438,12 +438,22 @@ class SegmentInspectorWidget(QFrame):
 
     def set_document(self, doc: DocumentModel | None, fallback_text: str = "") -> None:
         """Définit le document source ou texte brut à inspecter et ajuste la portée."""
+        if doc is not None and getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception:
+                pass
         self._doc = doc
         self._fallback_text = fallback_text
 
         if doc is not None:
             ft = (getattr(doc, "file_type", "") or "md").lower()
-            tot = _safe_int(getattr(doc, "total_pages", None), default=1)
+            max_chunk_p = 1
+            if getattr(doc, "id", None):
+                chunk_pages = [c.page_number for c in DocumentChunkModel.select(DocumentChunkModel.page_number).where(DocumentChunkModel.document == doc) if c.page_number is not None]
+                if chunk_pages:
+                    max_chunk_p = max(chunk_pages)
+            tot = max(_safe_int(getattr(doc, "total_pages", None), default=1), max_chunk_p)
             sp = _safe_int(getattr(doc, "start_page", None), default=1)
             ep = _safe_int(getattr(doc, "end_page", None), default=tot)
 
@@ -641,23 +651,44 @@ class SegmentInspectorWidget(QFrame):
         ft = (getattr(self._doc, "file_type", "") or "md").lower() if self._doc else "md"
 
         if strat_key == "page":
-            raw_chunks = ChunkingService.extract_chunks(raw_text, file_type=ft if ft in ("pdf", "album", "pptx") else "pdf")
-            max_p = len(raw_chunks) or getattr(self, "_current_doc_total_units", 9999) or 9999
-            allowed_pages = self._parse_page_range(self.input_page_scope.text().strip(), max_p)
-            for c in raw_chunks:
-                p_num = c.get("page_number") or (c["index"] + 1)
-                if p_num in allowed_pages:
-                    unit_sg = getattr(self, "_current_doc_unit_singular", "Page")
-                    chunks_data.append(
-                        {
-                            "index": len(chunks_data),
-                            "title": f"{unit_sg.capitalize()} {p_num}",
-                            "content": c["content"],
-                            "page_number": p_num,
-                            "heading_path": c.get("heading_path"),
-                            "tokens": ContextCompactor.estimate_tokens(c["content"]),
-                        }
-                    )
+            db_chunks = (
+                list(DocumentChunkModel.select().where(DocumentChunkModel.document == self._doc).order_by(DocumentChunkModel.chunk_index)) if (self._doc and getattr(self._doc, "id", None)) else []
+            )
+            if db_chunks:
+                max_p = getattr(self, "_current_doc_total_units", 9999) or 9999
+                allowed_pages = self._parse_page_range(self.input_page_scope.text().strip(), max_p)
+                for c in db_chunks:
+                    p_num = c.page_number
+                    if p_num is None or p_num in allowed_pages:
+                        unit_sg = getattr(self, "_current_doc_unit_singular", "Page")
+                        chunks_data.append(
+                            {
+                                "index": len(chunks_data),
+                                "title": c.heading_path or f"{unit_sg.capitalize()} {p_num or len(chunks_data) + 1}",
+                                "content": c.content,
+                                "page_number": p_num,
+                                "heading_path": c.heading_path,
+                                "tokens": ContextCompactor.estimate_tokens(c.content or ""),
+                            }
+                        )
+            else:
+                raw_chunks = ChunkingService.extract_chunks(raw_text, file_type=ft if ft in ("pdf", "album", "pptx") else "pdf")
+                max_p = len(raw_chunks) or getattr(self, "_current_doc_total_units", 9999) or 9999
+                allowed_pages = self._parse_page_range(self.input_page_scope.text().strip(), max_p)
+                for c in raw_chunks:
+                    p_num = c.get("page_number") or (c["index"] + 1)
+                    if p_num in allowed_pages:
+                        unit_sg = getattr(self, "_current_doc_unit_singular", "Page")
+                        chunks_data.append(
+                            {
+                                "index": len(chunks_data),
+                                "title": f"{unit_sg.capitalize()} {p_num}",
+                                "content": c["content"],
+                                "page_number": p_num,
+                                "heading_path": c.get("heading_path"),
+                                "tokens": ContextCompactor.estimate_tokens(c["content"]),
+                            }
+                        )
 
         elif strat_key == "range":
             # Groupe toute la portée sélectionnée en 1 seul bloc unifié

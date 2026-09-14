@@ -147,13 +147,15 @@ def test_document_delimitation_dialog(qtbot):
     dlg = DocumentDelimitationDialog(doc)
     qtbot.addWidget(dlg)
 
-    # Vérifier les sections peuplées
+    # Vérifier les sections peuplées (toutes cochées par défaut car filtre anti-bruit défaillant supprimé)
     assert dlg.sections_list.count() == 3
-
-    # Sommaire et Bibliographie doivent être décochés par le filtre initial
-    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked
+    assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Checked
     assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Checked
-    assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Unchecked
+    assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked
+
+    # Exclure manuellement Sommaire et Bibliographie
+    dlg.sections_list.item(0).setCheckState(Qt.CheckState.Unchecked)
+    dlg.sections_list.item(2).setCheckState(Qt.CheckState.Unchecked)
 
     # Appliquer la délimitation
     dlg.chk_revectorize.setChecked(False)
