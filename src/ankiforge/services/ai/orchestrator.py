@@ -133,6 +133,11 @@ class PipelineOrchestrator(QRunnable):
             "document_chunk": self.state.get_variable("document_chunk", "") or self.state.get_variable("text_source", ""),
             "target_deck": self.state.get_variable("target_deck", "Default"),
             "note_type": self.state.get_variable("note_type", "Basique"),
+            "source_chunk": self.state.get_variable("source_chunk", ""),
+            "source_chunk_id": self.state.get_variable("source_chunk_id"),
+            "source_chunk_hash": self.state.get_variable("source_chunk_hash"),
+            "source_heading_path": self.state.get_variable("source_heading_path", ""),
+            "source_page_number": self.state.get_variable("source_page_number"),
         }
         if extra_context:
             context.update(extra_context)
@@ -322,6 +327,13 @@ class PipelineOrchestrator(QRunnable):
 
         raw_system_prompt = cfg.get("prompt_override") or (step.persona.system_prompt if step.persona else "")
         rendered_sys = self._render_prompt_template(raw_system_prompt)
+        if self.state.get_variable("strict_source_grounding", False):
+            rendered_sys = (
+                "RÈGLE DE GROUNDING STRICTE : utilise exclusivement le texte source du chunk courant. "
+                "N'ajoute aucune information issue de tes connaissances générales ou d'un autre chunk. "
+                "Si une information ne peut pas être démontrée par ce texte, omets la carte concernée. "
+                "Ne complète pas les données manquantes par hypothèse.\n\n" + rendered_sys
+            )
 
         # Préparation du prompt utilisateur à partir du contexte courant
         input_var = cfg.get("input_variable")
@@ -409,6 +421,15 @@ class PipelineOrchestrator(QRunnable):
         w_sparse = float(cfg.get("w_sparse", 0.4))
         rrf_k = int(cfg.get("rrf_k", 60))
 
+        if self.state.get_variable("strict_source_grounding", False):
+            source_chunk = str(self.state.get_variable("source_chunk", "")).strip()
+            out_var = cfg.get("output_variable") or "retrieved_chunks"
+            grounded_retrieved = [source_chunk] if source_chunk else []
+            self.state.set_variable(out_var, grounded_retrieved)
+            self.state.set_variable(f"{out_var}_details", [{"content": source_chunk, "grounded": True}] if source_chunk else [])
+            self.state.set_variable("last_output", source_chunk)
+            return
+
         query = (
             cfg.get("rag_query_template")
             or self.state.get_variable("rag_query")
@@ -482,6 +503,8 @@ class PipelineOrchestrator(QRunnable):
             item_str = json.dumps(item_content, ensure_ascii=False) if isinstance(item_content, dict | list) else str(item_content)
 
             rendered_sys = self._render_prompt_template(raw_system_prompt, extra_context={"item": item_content, "index": index})
+            if self.state.get_variable("strict_source_grounding", False):
+                rendered_sys = "RÈGLE DE GROUNDING STRICTE : utilise exclusivement cet élément source. N'ajoute aucune information externe et omets toute carte non démontrable.\n\n" + rendered_sys
 
             max_tokens_val = self.state.get_variable("max_tokens")
             step_max_tokens = int(max_tokens_val) if max_tokens_val else None

@@ -92,7 +92,7 @@ def test_delimitation_dialog_persists_settings_and_filters_chunks(qtbot):
     assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Physio
     assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Checked  # Biblio
 
-    # On restreint de page 2 à page 3 via le slider -> synchronisation bidirectionnelle
+    # On restreint de page 2 à page 3 via le slider -> les pages gouvernent la sélection.
     dlg.spin_p_start.setValue(2)
     dlg.spin_p_end.setValue(3)
     assert dlg.sections_list.item(0).checkState() == Qt.CheckState.Unchecked  # Page 1 exclue
@@ -107,10 +107,7 @@ def test_delimitation_dialog_persists_settings_and_filters_chunks(qtbot):
     reloaded_doc = DocumentModel.get_by_id(doc.id)
     assert reloaded_doc.start_page == 2
     assert reloaded_doc.end_page == 3
-    assert reloaded_doc.excluded_headings is not None
-    excl_list = json.loads(reloaded_doc.excluded_headings)
-    assert any("Sommaire" in s for s in excl_list)
-    assert any("Bibliographie" in s for s in excl_list)
+    assert reloaded_doc.excluded_headings == "[]"
 
     # Vérification des chunks actifs restants en BDD
     active_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc))

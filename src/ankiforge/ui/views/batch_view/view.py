@@ -44,6 +44,8 @@ from ankiforge.database.models import (
     PipelineStepModel,
     db,
 )
+from ankiforge.services.batch.models import BatchTaskSnapshot
+from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.components import (
@@ -87,6 +89,7 @@ class BatchView(QWidget):
         self.ai_manager = ai_manager
         self.worker: BatchWorker | None = None
         self.queue_tasks_data: list[dict[str, Any]] = []
+        self._batch_scope_results: dict[int, dict[str, Any]] = {}
         self.cell_widgets_map: dict[int, ProgressTableCellWidget] = {}
         self.status_badges_map: dict[int, Badge] = {}
         self.cards_items_map: dict[int, QTableWidgetItem] = {}
@@ -193,6 +196,14 @@ class BatchView(QWidget):
         self.doc_picker_btn = DocumentPickerButton(self)
         self.doc_picker_btn.document_changed.connect(self._on_picker_document_changed)
         src_layout.addWidget(self.doc_picker_btn)
+
+        # Bouton explicite pour ouvrir la modale de délimitation et découpage du document
+        self.btn_delimit_doc = SecondaryButton("Délimiter & Découper le document...")
+        self.btn_delimit_doc.setIcon(load_phosphor_icon("ph.crop", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_delimit_doc.setToolTip("Ouvrir l'outil visuel de délimitation et de découpage en sections du document")
+        self.btn_delimit_doc.clicked.connect(self._on_open_delimitation_for_batch_doc)
+        self.btn_delimit_doc.setVisible(False)
+        src_layout.addWidget(self.btn_delimit_doc)
 
         # Inspecteur de découpage et de portée
         self.segment_inspector = SegmentInspectorWidget(parent=self)
@@ -327,6 +338,10 @@ class BatchView(QWidget):
         saved_autoval = SettingsService.get("batch/auto_validation", True)
         self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=bool(saved_autoval))
         self.cb_autoval.toggled.connect(lambda s: SettingsService.set("batch/auto_validation", s, category="batch"))
+
+        saved_full_document = SettingsService.get("batch/process_full_document", False)
+        self.cb_full_document = OptionToggleRow("Document complet par chunks", icon_name="ph.files", checked=bool(saved_full_document))
+        self.cb_full_document.hide()
 
         opt_layout.addWidget(self.cb_vision, 1)
         opt_layout.addWidget(self.cb_autoval, 1)
@@ -626,6 +641,7 @@ class BatchView(QWidget):
     def _on_picker_document_changed(self, doc: DocumentModel | None) -> None:
         self._segment_inspector_doc = doc
         if doc is not None:
+            self.btn_delimit_doc.setVisible(True)
             self.segment_inspector.setVisible(True)
             self.segment_inspector.set_document(doc)
             self.docs_list.blockSignals(True)
@@ -638,6 +654,7 @@ class BatchView(QWidget):
                     it.setCheckState(Qt.CheckState.Unchecked)
             self.docs_list.blockSignals(False)
         else:
+            self.btn_delimit_doc.setVisible(False)
             self.segment_inspector.setVisible(False)
             self.segment_inspector.set_document(None)
             self._set_all_docs_checked(False)
@@ -649,6 +666,7 @@ class BatchView(QWidget):
         if isinstance(doc, DocumentModel):
             self._segment_inspector_doc = doc
             self.doc_picker_btn.set_document(doc, emit_signal=False)
+            self.btn_delimit_doc.setVisible(True)
             self.segment_inspector.setVisible(True)
             self.segment_inspector.set_document(doc)
             self._update_selected_docs_count()
@@ -673,7 +691,7 @@ class BatchView(QWidget):
                 pass
         from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
-        dlg = DocumentDelimitationDialog(doc, parent=self)
+        dlg = DocumentDelimitationDialog(doc, context="batch", parent=self)
         if dlg.exec():
             reloaded_doc = DocumentModel.get_by_id(doc.id) if getattr(doc, "id", None) else doc
             self._segment_inspector_doc = reloaded_doc
@@ -683,7 +701,14 @@ class BatchView(QWidget):
             if ep is not None:
                 self.segment_inspector.input_page_scope.setText(f"{sp}-{ep}")
             self.segment_inspector.set_document(reloaded_doc)
+            recomputed_chunks = self._resolve_batch_chunks(reloaded_doc)
+            if recomputed_chunks:
+                self.segment_inspector._chunks = recomputed_chunks
+                self.segment_inspector._refresh_list_ui()
             self._update_selected_docs_count()
+            chunks_count = len(recomputed_chunks)
+            msg = f"Découpage validé : {chunks_count} section(s) prête(s) pour le lot !" if chunks_count > 0 else "Délimitation enregistrée pour le document."
+            show_toast(self, msg)
 
     @Slot()
     def _on_open_scope_dialog_for_batch_doc(self) -> None:
@@ -703,6 +728,7 @@ class BatchView(QWidget):
         dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, parent=self)
         if dlg.exec():
             res = dlg.get_result()
+            self._batch_scope_results[int(doc.id)] = res
             self.segment_inspector.apply_scope_result(res)
             self._update_selected_docs_count()
 
@@ -1074,21 +1100,20 @@ class BatchView(QWidget):
 
         added_count = 0
         for doc in checked_docs:
-            doc_content = getattr(doc, "content", "") or ""
-            # Prise en compte des segments personnalisés si ce document est inspecté
+            persisted_chunks = self._resolve_batch_chunks(doc)
+            selected_chunks: list[dict[str, Any]] = []
+
             if self._segment_inspector_doc and getattr(self._segment_inspector_doc, "id", None) == doc.id and hasattr(self, "segment_inspector"):
                 active_segs = self.segment_inspector.get_active_segments()
-                if active_segs:
-                    doc_content = "\n\n".join(s["content"] for s in active_segs)
-                    tokens_est = self.segment_inspector.get_total_active_tokens()
-                else:
-                    words_count = len(doc_content.split())
-                    tokens_est = int(words_count * 1.3) if words_count > 0 else 25000
-            else:
-                words_count = len(doc_content.split())
-                tokens_est = int(words_count * 1.3) if words_count > 0 else 25000
+                # Si l'utilisateur a des segments actifs qui ne sont pas le fallback 'Document Complet'
+                if active_segs and any(s.get("title") != "Document Complet" for s in active_segs):
+                    selected_chunks = active_segs
+                elif persisted_chunks:
+                    selected_chunks = persisted_chunks
+            elif persisted_chunks:
+                selected_chunks = persisted_chunks
 
-            task_data: dict[str, Any] = {
+            base_task_data: dict[str, Any] = {
                 "doc": doc,
                 "deck": self.current_deck,
                 "deck_name": deck_name,
@@ -1102,17 +1127,98 @@ class BatchView(QWidget):
                 "temperature": self.slider_temp.value() / 10.0,
                 "max_tokens": self.slider_tokens.value() * 1024,
                 "status": "En attente",
-                "tokens_est": tokens_est,
                 "progress_pct": 0,
                 "cards_count": 0,
             }
 
-            self.queue_tasks_data.append(task_data)
-            added_count += 1
+            if selected_chunks and len(selected_chunks) > 0:
+                for chunk_index, chunk in enumerate(selected_chunks):
+                    chunk_content = str(chunk.get("content", "")).strip()
+                    if not chunk_content:
+                        continue
+                    chunk_title = str(chunk.get("title") or chunk.get("heading_path") or f"Section {chunk_index + 1}")
+                    chunk_task = {
+                        **base_task_data,
+                        "doc_title": f"{doc.title} — {chunk_title}",
+                        "doc_content": chunk_content,
+                        "source_chunks": [chunk],
+                        "chunk_label": chunk_title,
+                        "chunk_index": chunk_index,
+                        "tokens_est": int(chunk.get("tokens") or len(chunk_content.split()) * 1.3),
+                    }
+                    self.queue_tasks_data.append(chunk_task)
+                    added_count += 1
+            else:
+                doc_content = getattr(doc, "content", "") or ""
+                words_count = len(doc_content.split())
+                tokens_est = int(words_count * 1.3) if words_count > 0 else 25000
+                self.queue_tasks_data.append(
+                    {
+                        **base_task_data,
+                        "doc_title": doc.title,
+                        "doc_content": doc_content,
+                        "source_chunks": [],
+                        "tokens_est": tokens_est,
+                    }
+                )
+                added_count += 1
 
         self._update_queue_table()
         self._update_estimates_summary()
         show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
+
+    @staticmethod
+    def _resolve_batch_chunks(doc: DocumentModel) -> list[dict[str, Any]]:
+        """Retourne les chunks du périmètre documentaire dans un ordre stable."""
+        excluded: set[str] = set()
+        raw_excluded = getattr(doc, "excluded_headings", None)
+        if raw_excluded:
+            try:
+                excluded = {str(value).strip().casefold() for value in json.loads(raw_excluded) if str(value).strip()}
+            except (TypeError, ValueError, json.JSONDecodeError):
+                logger.warning("Exclusions de titres invalides pour le document %s.", getattr(doc, "id", None))
+
+        chunks: list[dict[str, Any]] = []
+        persisted = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index.asc()))
+        if persisted:
+            raw_chunks = [
+                {
+                    "id": chunk.id,
+                    "index": chunk.chunk_index,
+                    "content": chunk.content,
+                    "content_hash": chunk.content_hash,
+                    "heading_path": chunk.heading_path,
+                    "page_number": chunk.page_number,
+                }
+                for chunk in persisted
+            ]
+        else:
+            raw_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md")
+
+        start_page = getattr(doc, "start_page", None)
+        end_page = getattr(doc, "end_page", None)
+        for index, chunk in enumerate(raw_chunks):
+            content = str(chunk.get("content", "")).strip()
+            heading_path = str(chunk.get("heading_path") or "").strip()
+            page_number = chunk.get("page_number")
+            if not content:
+                continue
+            if page_number is not None and ((start_page is not None and page_number < start_page) or (end_page is not None and page_number > end_page)):
+                continue
+            heading_lower = heading_path.casefold()
+            if excluded and any(item == heading_lower or item in heading_lower for item in excluded):
+                continue
+            chunks.append(
+                {
+                    **chunk,
+                    "index": index,
+                    "title": heading_path or f"Chunk {index + 1}",
+                    "content": content,
+                    "content_hash": chunk.get("content_hash") or ChunkingService.hash_content(content),
+                    "tokens": int(chunk.get("tokens") or len(content.split()) * 1.3),
+                }
+            )
+        return chunks
 
     def _update_queue_table(self) -> None:
         self.queue_table.blockSignals(True)
@@ -1160,8 +1266,10 @@ class BatchView(QWidget):
             self.queue_table.setCellWidget(i, 1, status_badge)
 
             # Col 2: Document source
-            doc_item = QTableWidgetItem(f"📄 {doc.title}")
-            doc_item.setToolTip(f"ID: {doc.id} | Type: {doc.file_type or 'doc'} | Mots: {len((doc.content or '').split())}")
+            chunk_label = task.get("chunk_label")
+            source_label = f"📄 {doc.title} › {chunk_label}" if chunk_label else f"📄 {doc.title}"
+            doc_item = QTableWidgetItem(source_label)
+            doc_item.setToolTip(f"ID: {doc.id} | Type: {doc.file_type or 'doc'} | Mots: {len((task.get('doc_content') or doc.content or '').split())}")
             self.queue_table.setItem(i, 2, doc_item)
 
             # Col 3: Paquet cible
@@ -1288,7 +1396,7 @@ class BatchView(QWidget):
             show_toast(self, "La file d'attente est vide ! Ajoutez des tâches avant de lancer.", is_error=True)
             return
 
-        tasks_payloads: list[BatchTaskPayload] = []
+        tasks_payloads: list[BatchTaskPayload | BatchTaskSnapshot] = []
 
         for idx, task in enumerate(self.queue_tasks_data):
             task["status"] = "En attente"
@@ -1329,8 +1437,8 @@ class BatchView(QWidget):
             payload = BatchTaskPayload(
                 task_index=idx,
                 doc_id=doc.id,
-                doc_title=doc.title,
-                doc_content=getattr(doc, "content", "") or "",
+                doc_title=str(task.get("doc_title") or doc.title),
+                doc_content=str(task.get("doc_content") or getattr(doc, "content", "") or ""),
                 deck_id=deck.id,
                 deck_name=deck.name,
                 model_id=note_type.id,
@@ -1342,10 +1450,12 @@ class BatchView(QWidget):
                 llm_id=llm_id,
                 llm_config=llm_config,
                 chunk_strategy="auto",
-                use_vision=task.get("use_vision", False),
-                auto_validation=task.get("auto_val", True),
+                use_vision=bool(task.get("use_vision", False)),
+                auto_validation=bool(task.get("auto_val", True)),
                 temperature=float(task.get("temperature", 0.7)),
                 max_tokens=int(task.get("max_tokens", 16384)),
+                process_full_document=False,
+                source_chunks=list(task.get("source_chunks", [])),
             )
             tasks_payloads.append(payload)
 
@@ -1354,7 +1464,7 @@ class BatchView(QWidget):
         self._total_cards_accumulated = 0
 
         self._set_running_ui_state(True)
-        self._log_formatted_line("INFO", f"Initialisation du pipeline de traitement par lots ({len(tasks_payloads)} document(s))...")
+        self._log_formatted_line("INFO", f"Initialisation du pipeline de traitement par lots ({len(tasks_payloads)} tâche(s))...")
 
         self.worker = BatchWorker(tasks=tasks_payloads)
         self.worker.task_started.connect(self._on_task_started)
@@ -1432,6 +1542,7 @@ class BatchView(QWidget):
             task = self.queue_tasks_data[task_idx]
             task["status"] = "Erreur"
             task["progress_pct"] = 100
+            task["error_message"] = error_message
 
             if task_idx in self.status_badges_map:
                 self.status_badges_map[task_idx].setText("Erreur")
@@ -1439,6 +1550,45 @@ class BatchView(QWidget):
 
             if task_idx in self.cell_widgets_map:
                 self.cell_widgets_map[task_idx].update_progress(100, "Échec", color=DesignTokens.COLOR_RED)
+
+    def accept_batch_task(self, task_idx: int, accepted_cards: list[dict[str, Any]] | None = None) -> bool:
+        """Persist the reviewed cards for one new scope-based queue row."""
+        if not 0 <= task_idx < len(self.queue_tasks_data):
+            return False
+        task = self.queue_tasks_data[task_idx]
+        pending = accepted_cards if accepted_cards is not None else list(task.get("pending_cards", []))
+        original_count = len(task.get("pending_cards", []))
+        if task.get("scope_snapshot") is None or not pending:
+            return False
+        fields = getattr(task.get("note_type"), "fields_schema", "[]") or "[]"
+        try:
+            expected_fields = json.loads(fields) if isinstance(fields, str) else fields
+        except json.JSONDecodeError:
+            expected_fields = ["Front", "Back"]
+        if any(not all(str(card.get(field, "")).strip() for field in expected_fields) for card in pending):
+            raise ValueError("Chaque carte acceptée doit contenir tous les champs requis.")
+        self._save_extracted_notes_to_db(
+            pending,
+            task["deck"].id if hasattr(task.get("deck"), "id") else 1,
+            task["note_type"].id if hasattr(task.get("note_type"), "id") else 1,
+            task["doc"].id if hasattr(task.get("doc"), "id") else 0,
+        )
+        task["pending_cards"] = pending
+        task["status"] = "Acceptée" if len(pending) == original_count else "Partielle"
+        self._update_queue_table()
+        return True
+
+    def reject_batch_task(self, task_idx: int) -> bool:
+        """Discard a pending scope result without writing it to the database."""
+        if not 0 <= task_idx < len(self.queue_tasks_data):
+            return False
+        task = self.queue_tasks_data[task_idx]
+        if task.get("scope_snapshot") is None:
+            return False
+        task["pending_cards"] = []
+        task["status"] = "Rejetée"
+        self._update_queue_table()
+        return True
 
     def _save_extracted_notes_to_db(self, notes_data: list[dict[str, Any]], deck_id: int, model_id: int, doc_id: int = 0) -> None:
         try:
@@ -1451,13 +1601,6 @@ class BatchView(QWidget):
             target_chunk: DocumentChunkModel | None = None
             if doc:
                 target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
-                if not target_chunk:
-                    target_chunk = DocumentChunkModel.create(
-                        document=doc,
-                        chunk_index=0,
-                        content=f"Document {doc.title}",
-                        heading_path="Batch",
-                    )
 
             tags_list = build_document_tags(
                 doc_id=doc.id if doc else None,
@@ -1467,7 +1610,15 @@ class BatchView(QWidget):
 
             created_cards_count = 0
             with db.atomic():
-                for cleaned_fields in notes_data:
+                for raw_fields in notes_data:
+                    source_chunk_id = raw_fields.get("_source_chunk_id")
+                    source_chunk_hash = raw_fields.get("_source_chunk_hash")
+                    cleaned_fields = {key: value for key, value in raw_fields.items() if not key.startswith("_source_")}
+                    note_chunk = target_chunk
+                    if doc and source_chunk_id:
+                        note_chunk = DocumentChunkModel.get_or_none((DocumentChunkModel.id == source_chunk_id) & (DocumentChunkModel.document == doc))
+                    if doc and note_chunk is None and source_chunk_hash:
+                        note_chunk = DocumentChunkModel.get_or_none((DocumentChunkModel.document == doc) & (DocumentChunkModel.content_hash == source_chunk_hash))
                     note = NoteModel.create(
                         guid=str(uuid.uuid4())[:10],
                         note_type=note_type,
@@ -1482,9 +1633,9 @@ class BatchView(QWidget):
                         is_active=True,
                     )
 
-                    if target_chunk:
+                    if note_chunk:
                         try:
-                            NoteChunkLinkModel.get_or_create(note=note, chunk=target_chunk)
+                            NoteChunkLinkModel.get_or_create(note=note, chunk=note_chunk)
                         except Exception as e:
                             logger.warning("Erreur lien chunk batch : %s", e)
 

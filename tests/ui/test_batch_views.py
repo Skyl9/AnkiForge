@@ -275,6 +275,90 @@ def test_batch_worker_error_resilience(qtbot: Any, monkeypatch: Any) -> None:
     assert failed_tasks[0][0] == 0
 
 
+def test_batch_worker_processes_document_chunks_sequentially(qtbot: Any, monkeypatch: Any) -> None:
+    """Le mode document complet isole chaque chunk et conserve leur ordre."""
+    seen_sources: list[str] = []
+    deck = DeckModel.create(name="Deck Chunked Batch")
+    nt = NoteTypeModel.create(name="Model Chunked Batch", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    doc = DocumentModel.create(title="Document Chunked.md", content_markdown="ignored", file_type="md")
+
+    task = BatchTaskPayload(
+        task_index=0,
+        doc_id=doc.id,
+        doc_title=doc.title,
+        doc_content="fallback",
+        deck_id=deck.id,
+        deck_name=deck.name,
+        model_id=nt.id,
+        model_name=nt.name,
+        note_type_fields=["Front", "Back"],
+        note_type_templates=[],
+        pipeline_id=1,
+        pipeline_name="Standard",
+        llm_id=1,
+        llm_config={"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        process_full_document=True,
+        source_chunks=[
+            {"id": 11, "content": "Premier chunk", "content_hash": "hash-1"},
+            {"id": 12, "content": "Deuxième chunk", "content_hash": "hash-2"},
+            {"id": 13, "content": "Troisième chunk", "content_hash": "hash-3"},
+        ],
+    )
+
+    worker = BatchWorker(tasks=[task])
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        source = self_orch.state.get_variable("source_chunk")
+        seen_sources.append(source)
+        self_orch.state.variables["generated_cards"] = [{"Front": source, "Back": f"Réponse à {source}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+    completed: list[list[dict[str, Any]]] = []
+    worker.task_completed.connect(lambda _idx, notes, _count: completed.append(notes))
+
+    with qtbot.waitSignal(worker.batch_finished, timeout=5000) as blocker:
+        worker.start()
+
+    assert tuple(blocker.args) == (1, 0, 3)
+    assert seen_sources == ["Premier chunk", "Deuxième chunk", "Troisième chunk"]
+    assert [note["_source_chunk_id"] for note in completed[0]] == [11, 12, 13]
+
+
+def test_batch_view_has_delimit_button_and_hidden_full_document_option(qtbot: Any) -> None:
+    """Le bouton de délimitation est présent et cb_full_document est masqué de l'UI."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    assert hasattr(view, "btn_delimit_doc")
+    assert "Délimiter" in view.btn_delimit_doc.text() and "Découper" in view.btn_delimit_doc.text()
+    assert view.cb_full_document.isHidden() is True
+
+
+def test_batch_queue_expands_selected_chunks_into_independent_rows(qtbot: Any) -> None:
+    """Chaque chunk sélectionné dans le modal/inspecteur devient une tâche autonome."""
+    doc = DocumentModel.create(title="Document Sections.md", content="Source", file_type="md")
+    DocumentChunkModel.create(document=doc, chunk_index=0, content="Section A content", content_hash="section-a", heading_path="Section A")
+    DocumentChunkModel.create(document=doc, chunk_index=1, content="Section B content", content_hash="section-b", heading_path="Section B")
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view._segment_inspector_doc = doc
+    view.segment_inspector.set_document(doc)
+    view.segment_inspector._chunks = view._resolve_batch_chunks(doc)
+    view.segment_inspector._refresh_list_ui()
+    view.doc_picker_btn.set_document(doc, emit_signal=False)
+
+    view.segment_inspector._set_all_checked(False)
+    second_item = view.segment_inspector.segments_list.item(1)
+    second_item.setCheckState(Qt.CheckState.Checked)
+    second_widget = view.segment_inspector.segments_list.itemWidget(second_item)
+    second_widget.set_checked(True)
+    view._on_add_to_queue_clicked()
+
+    assert len(view.queue_tasks_data) == 1
+    assert view.queue_tasks_data[0]["chunk_label"] == "Section B"
+    assert view.queue_tasks_data[0]["source_chunks"][0]["content_hash"] == "section-b"
+
+
 def test_batch_worker_cancellation(qtbot: Any) -> None:
     """Vérifie que l'annulation interrompt le worker proprement."""
     task = BatchTaskPayload(
@@ -320,3 +404,84 @@ def test_batch_view_start_and_stop_button(qtbot: Any, monkeypatch: Any) -> None:
     # Simuler la fin du batch
     view._on_batch_finished(1, 0, 5)
     assert "Démarrer" in view.btn_start_pipeline.text()
+
+
+def test_batch_view_delimit_button_opens_dialog_with_batch_context(qtbot: Any, monkeypatch: Any) -> None:
+    """Vérifie que le bouton de délimitation ouvre DocumentDelimitationDialog avec context='batch'."""
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    doc = DocumentModel.create(title="Doc Delimit Test.pdf", content_markdown="Page 1", file_type="pdf")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.doc_picker_btn.set_document(doc)
+    assert not view.btn_delimit_doc.isHidden()
+
+    opened_context = []
+
+    def mock_exec(self_dlg: Any) -> int:
+        opened_context.append(getattr(self_dlg, "context", None))
+        return 0
+
+    monkeypatch.setattr(DocumentDelimitationDialog, "exec", mock_exec)
+    view.btn_delimit_doc.click()
+    assert len(opened_context) == 1
+    assert opened_context[0] == "batch"
+
+
+def test_batch_view_full_execution_persists_notes_in_db(qtbot: Any, monkeypatch: Any) -> None:
+    """Vérifie l'exécution complète depuis BatchView avec persistance effective en base de données."""
+    deck = DeckModel.create(name="Deck Persist Batch")
+    nt = NoteTypeModel.create(
+        name="Model Persist Batch",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+    doc = DocumentModel.create(title="Doc Big.md", content="Contenu global", file_type="md")
+    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, content="Section 1 texte", heading_path="Section 1", content_hash="hash-sec-1")
+    c2 = DocumentChunkModel.create(document=doc, chunk_index=1, content="Section 2 texte", heading_path="Section 2", content_hash="hash-sec-2")
+
+    pipe = PipelineModel.create(name="Pipeline Persist")
+    PipelineStepModel.create(pipeline=pipe, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps({"prompt_template": "Test"}))
+    LLMConfigModel.create(display_name="LLM Persist", provider="openai", model_id="gpt-4o", api_key="sk-test")
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    view.current_deck = deck
+    view.current_model = nt
+    view.doc_picker_btn.set_document(doc)
+
+    # Ajout à la queue -> doit créer 2 tâches indépendantes (1 par chunk)
+    view._on_add_to_queue_clicked()
+    assert len(view.queue_tasks_data) == 2
+    assert view.queue_tasks_data[0]["chunk_label"] == "Section 1"
+    assert view.queue_tasks_data[1]["chunk_label"] == "Section 2"
+
+    # Mock de l'exécution du DAG
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        source = self_orch.state.get_variable("source_chunk") or self_orch.state.get_variable("text_source")
+        self_orch.state.variables["generated_cards"] = [{"Front": f"Q pour {source}", "Back": f"A pour {source}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    # Démarrer le batch
+    view._on_start_batch()
+    assert view.worker is not None
+
+    with qtbot.waitSignal(view.worker.batch_finished, timeout=5000):
+        pass
+
+    # Vérifications après exécution
+    assert view.queue_tasks_data[0]["status"] == "Succès"
+    assert view.queue_tasks_data[1]["status"] == "Succès"
+    assert view.queue_tasks_data[0]["cards_count"] == 1
+    assert view.queue_tasks_data[1]["cards_count"] == 1
+
+    # Cartes et liens de chunks persistés en BDD
+    links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk.in_([c1, c2])))
+    assert len(links) == 2
+    cards = list(CardModel.select().where(CardModel.deck == deck))
+    assert len(cards) == 2

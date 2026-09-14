@@ -273,3 +273,260 @@ class ChunkingService:
                     )
 
         return chunks
+
+    @classmethod
+    def extract_heading_tree_with_pages(
+        cls,
+        content: str,
+        total_pages: int | None = None,
+        file_type: str | None = None,
+    ) -> list["HeadingTreeNode"]:
+        """Extrait l'arbre hiérarchique des titres (H1, H2, H3...) en associant à chaque titre sa plage de pages physiques.
+
+        Pour les documents convertis en Markdown (PDF avec marqueurs <!-- PAGE: X --> ou documents purs),
+        permet une navigation et une sélection sémantique de chapitres complète.
+
+        Returns:
+            list[HeadingTreeNode]: Liste des nœuds racines (H1) contenant leurs enfants récursifs (H2, H3).
+        """
+        if not content or not content.strip():
+            return []
+
+        # 1. Repérage des marqueurs de pages et de leurs positions en caractères
+        page_positions: list[tuple[int, int]] = []
+        for m in cls.PAGE_MARKER_REGEX.finditer(content):
+            p_str = m.group(1) or m.group(2)
+            p_num = int(p_str) if p_str and p_str.isdigit() else None
+            if p_num is not None:
+                page_positions.append((m.start(), p_num))
+
+        def find_page_for_offset(offset: int) -> int | None:
+            if not page_positions:
+                return None
+            current_page = page_positions[0][1]
+            for char_pos, p_num in page_positions:
+                if char_pos <= offset:
+                    current_page = p_num
+                else:
+                    break
+            return current_page
+
+        # 2. Détection de tous les titres Markdown ATX (#, ##, ###)
+        heading_matches = list(cls.HEADING_REGEX.finditer(content))
+        if not heading_matches:
+            return []
+
+        flat_nodes: list[HeadingTreeNode] = []
+        current_heading_stack: list[str] = []
+
+        for idx, h_match in enumerate(heading_matches):
+            level = len(h_match.group(1))
+            title = h_match.group(2).strip()
+            start_offset = h_match.start()
+            end_offset = heading_matches[idx + 1].start() if idx + 1 < len(heading_matches) else len(content)
+
+            raw_body = content[h_match.end() : end_offset]
+            trailing_markers = list(cls.PAGE_MARKER_REGEX.finditer(raw_body))
+            content_end_offset = end_offset
+            if trailing_markers:
+                last_m = trailing_markers[-1]
+                # Si le marqueur de page est à la fin du bloc (juste avant le titre suivant)
+                if not raw_body[last_m.end() :].strip():
+                    content_end_offset = h_match.end() + last_m.start()
+
+            clean_body = content[h_match.end() : content_end_offset].rstrip()
+            word_count = len(clean_body.split()) if clean_body else 0
+            token_count = max(1, int(round(word_count * 1.33))) if word_count else 0
+
+            start_p = find_page_for_offset(start_offset)
+            last_content_offset = h_match.end() + len(clean_body) - 1 if clean_body else start_offset
+            end_p = find_page_for_offset(last_content_offset) if last_content_offset >= start_offset else start_p
+            if start_p is not None and end_p is not None and end_p < start_p:
+                end_p = start_p
+            if total_pages and end_p and end_p > total_pages:
+                end_p = total_pages
+
+            # Construction du fil d'Ariane
+            current_heading_stack = current_heading_stack[: level - 1]
+            while len(current_heading_stack) < level - 1:
+                current_heading_stack.append("Section")
+            current_heading_stack.append(title)
+            heading_path = " > ".join(current_heading_stack)
+
+            node = HeadingTreeNode(
+                title=title,
+                level=level,
+                slug=re.sub(r"[^\w\s-]", "", title).strip().lower().replace(" ", "-"),
+                start_page=start_p,
+                end_page=end_p,
+                word_count=word_count,
+                token_count=token_count,
+                heading_path=heading_path,
+                chunk_index=idx,
+            )
+            flat_nodes.append(node)
+
+        # 3. Assemblage arborescent H1 -> H2 -> H3
+        root_nodes: list[HeadingTreeNode] = []
+        stack: list[HeadingTreeNode] = []
+
+        for node in flat_nodes:
+            while stack and stack[-1].level >= node.level:
+                stack.pop()
+
+            if not stack:
+                root_nodes.append(node)
+            else:
+                stack[-1].children.append(node)
+
+            stack.append(node)
+
+        # 4. Propagation récursive des plages de pages et volumes aux nœuds parents
+        def propagate_bounds(n: HeadingTreeNode) -> tuple[int | None, int | None, int, int]:
+            sub_min_p = n.start_page
+            sub_max_p = n.end_page
+            total_words = n.word_count
+            total_tokens = n.token_count
+
+            for child in n.children:
+                c_min, c_max, c_words, c_tokens = propagate_bounds(child)
+                if c_min is not None:
+                    sub_min_p = c_min if sub_min_p is None else min(sub_min_p, c_min)
+                if c_max is not None:
+                    sub_max_p = c_max if sub_max_p is None else max(sub_max_p, c_max)
+                total_words += c_words
+                total_tokens += c_tokens
+
+            n.start_page = sub_min_p
+            n.end_page = sub_max_p
+            n.word_count = total_words
+            n.token_count = total_tokens
+            return sub_min_p, sub_max_p, total_words, total_tokens
+
+        for root in root_nodes:
+            propagate_bounds(root)
+
+        return root_nodes
+
+    @classmethod
+    def build_tree_from_chunks(cls, chunks: list[dict[str, Any]]) -> list["HeadingTreeNode"]:
+        """Construit un arbre HeadingTreeNode à partir d'une liste de dictionnaires de chunks."""
+        if not chunks:
+            return []
+
+        has_headings = any(bool(c.get("heading_path")) for c in chunks)
+        if not has_headings:
+            nodes: list[HeadingTreeNode] = []
+            for idx, c in enumerate(chunks):
+                p = c.get("page_number")
+                title = f"Page {p}" if p else f"Section #{idx + 1}"
+                content = str(c.get("content") or "")
+                words = len(content.split())
+                nodes.append(
+                    HeadingTreeNode(
+                        title=title,
+                        level=1,
+                        start_page=p,
+                        end_page=p,
+                        word_count=words,
+                        token_count=max(1, int(round(words * 1.33))),
+                        heading_path=title,
+                        chunk_index=c.get("index", idx),
+                    )
+                )
+            return nodes
+
+        root_nodes: list[HeadingTreeNode] = []
+        node_cache: dict[str, HeadingTreeNode] = {}
+
+        for idx, c in enumerate(chunks):
+            h_path = (c.get("heading_path") or "").strip()
+            p = c.get("page_number")
+            content = str(c.get("content") or "")
+            words = len(content.split())
+            tokens = max(1, int(round(words * 1.33))) if words else 0
+
+            if not h_path:
+                h_path = f"Page {p}" if p else f"Section #{idx + 1}"
+
+            parts = [part.strip() for part in h_path.split(" > ") if part.strip()]
+            if not parts:
+                parts = [h_path]
+
+            curr_path = ""
+            parent_node: HeadingTreeNode | None = None
+
+            for lvl, part in enumerate(parts, start=1):
+                curr_path = f"{curr_path} > {part}" if curr_path else part
+                if curr_path in node_cache:
+                    existing = node_cache[curr_path]
+                    if p is not None:
+                        existing.start_page = p if existing.start_page is None else min(existing.start_page, p)
+                        existing.end_page = p if existing.end_page is None else max(existing.end_page, p)
+                    existing.word_count += words
+                    existing.token_count += tokens
+                    parent_node = existing
+                else:
+                    new_node = HeadingTreeNode(
+                        title=part,
+                        level=lvl,
+                        start_page=p,
+                        end_page=p,
+                        word_count=words if lvl == len(parts) else 0,
+                        token_count=tokens if lvl == len(parts) else 0,
+                        heading_path=curr_path,
+                        chunk_index=c.get("index", idx) if lvl == len(parts) else None,
+                    )
+                    node_cache[curr_path] = new_node
+                    if parent_node is None:
+                        root_nodes.append(new_node)
+                    else:
+                        parent_node.children.append(new_node)
+                    parent_node = new_node
+
+        return root_nodes
+
+
+class HeadingTreeNode:
+    """Nœud hiérarchique représentant un titre et sa section, avec correspondance de pages physiques et statistiques."""
+
+    def __init__(
+        self,
+        title: str,
+        level: int = 1,
+        slug: str = "",
+        start_page: int | None = None,
+        end_page: int | None = None,
+        word_count: int = 0,
+        token_count: int = 0,
+        cards_count: int = 0,
+        heading_path: str = "",
+        chunk_index: int | None = None,
+        children: list["HeadingTreeNode"] | None = None,
+    ) -> None:
+        self.title = title
+        self.level = level
+        self.slug = slug
+        self.start_page = start_page
+        self.end_page = end_page
+        self.word_count = word_count
+        self.token_count = token_count
+        self.cards_count = cards_count
+        self.heading_path = heading_path or title
+        self.chunk_index = chunk_index
+        self.children: list[HeadingTreeNode] = children if children is not None else []
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "title": self.title,
+            "level": self.level,
+            "slug": self.slug,
+            "start_page": self.start_page,
+            "end_page": self.end_page,
+            "word_count": self.word_count,
+            "token_count": self.token_count,
+            "cards_count": self.cards_count,
+            "heading_path": self.heading_path,
+            "chunk_index": self.chunk_index,
+            "children": [child.to_dict() for child in self.children],
+        }

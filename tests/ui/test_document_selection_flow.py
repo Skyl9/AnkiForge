@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import uuid
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtWidgets import QListWidgetItem, QMessageBox
 
 from ankiforge.database.models import (
     DocumentModel,
@@ -429,12 +430,12 @@ def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: An
     assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Checked  # Page 4
     assert dlg.sections_list.item(4).checkState() == Qt.CheckState.Unchecked  # Page 5
 
-    # 2. Section -> Slider : cocher la section de la page 5 élargit spin_p_end à 5
+    # 2. En mode pages, les cases restent décoratives et ne modifient pas la borne source.
     row_w5 = dlg.sections_list.itemWidget(dlg.sections_list.item(4))
     assert isinstance(row_w5, SectionRowWidget)
     row_w5.checkbox.setChecked(True)
 
-    assert dlg.spin_p_end.value() == 5
+    assert dlg.spin_p_end.value() == 4
 
 
 @pytest.mark.ui
@@ -468,11 +469,11 @@ def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any,
     assert dlg.sections_list.item(2).checkState() == Qt.CheckState.Checked  # Chap 3
     assert dlg.sections_list.item(3).checkState() == Qt.CheckState.Unchecked  # Chap 4
 
-    # 2. Section -> Slider : cocher Chapitre 4 élargit spin_p_end à 4
+    # 2. En mode pages, cocher une section ne modifie pas la plage.
     row_w4 = dlg.sections_list.itemWidget(dlg.sections_list.item(3))
     assert isinstance(row_w4, SectionRowWidget)
     row_w4.checkbox.setChecked(True)
-    assert dlg.spin_p_end.value() == 4
+    assert dlg.spin_p_end.value() == 3
 
     # 3. Vue Finale Assemblée
     assert dlg.preview_stack.currentIndex() == 0  # Document Source par défaut
@@ -482,7 +483,7 @@ def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any,
     final_text = dlg.final_preview_browser.toPlainText()
     assert "Texte du chapitre 2" in final_text
     assert "Texte du chapitre 3" in final_text
-    assert "Texte du chapitre 4" in final_text
+    assert "Texte du chapitre 4" not in final_text
     assert "Texte du chapitre 1" not in final_text
 
     # Revenir sur Document Source
@@ -590,14 +591,14 @@ def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mo
     # Appliquer
     dlg1._on_apply()
 
-    # Vérifier que "page 3" est persisté dans doc.excluded_headings
+    # En mode pages, l'interaction avec l'arbre n'est pas persistée comme exclusion.
     fresh_doc = DocumentModel.get_by_id(doc.id)
-    assert "page 3" in fresh_doc.excluded_headings
+    assert fresh_doc.excluded_headings == "[]"
 
-    # 2. Réouverture de DocumentDelimitationDialog : Page 3 DOIT rester décochée
+    # 2. Réouverture de DocumentDelimitationDialog : toutes les pages restent retenues.
     dlg2 = DocumentDelimitationDialog(doc)
     qtbot.addWidget(dlg2)
-    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Unchecked
+    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Checked
     assert dlg2.sections_list.item(0).checkState() == Qt.CheckState.Checked  # Page 1 cochée
     assert dlg2.sections_list.item(1).checkState() == Qt.CheckState.Checked  # Page 2 cochée
 
@@ -606,15 +607,15 @@ def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mo
     dlg2.spin_p_start.setValue(1)
     dlg2.spin_p_end.setValue(5)
 
-    # Page 3 NE DOIT PAS être cochée par le mouvement du slider
-    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Unchecked
+    # Page 3 reste cochée dans la plage complète.
+    assert dlg2.sections_list.item(2).checkState() == Qt.CheckState.Checked
 
-    # 4. DocumentScopeDialog ne contient pas la page 3
+    # 4. DocumentScopeDialog conserve toutes les pages car l'exclusion était décorative en mode pages.
     scope_dlg = DocumentScopeDialog(doc)
     qtbot.addWidget(scope_dlg)
     useful_titles = [u["title"] for u in scope_dlg._useful_chunks]
-    assert "Page 3" not in useful_titles
-    assert len(scope_dlg._useful_chunks) == 4
+    assert "Page 3" in useful_titles
+    assert len(scope_dlg._useful_chunks) == 5
 
 
 @pytest.mark.ui
@@ -662,27 +663,27 @@ def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, m
     assert isinstance(w_row1, SectionRowWidget)
     w_row1.checkbox.setChecked(False)
 
-    # Le curseur de début doit se rétrécir automatiquement à 2
-    assert dlg.spin_p_start.value() == 2
-    assert dlg.slider_p_start.value() == 2
-    assert dlg.range_bar._start == 2
-    # La visionneuse doit avoir sauté à la page 1 et afficher EXCLUE
+    # La borne reste gouvernée par les contrôles de pages.
+    assert dlg.spin_p_start.value() == 1
+    assert dlg.slider_p_start.value() == 1
+    assert dlg.range_bar._start == 1
+    # La visionneuse conserve l'inclusion de la page.
     assert dlg.preview_widget._current_page == 1
-    assert 1 not in dlg.preview_widget._included_pages
-    assert "Page 1 EXCLUE" in dlg.preview_widget.lbl_scope_status.text()
+    assert 1 in dlg.preview_widget._included_pages
+    assert "Page 1 INCLUSE" in dlg.preview_widget.lbl_scope_status.text()
 
     # 3. Décocher la section 5 (page 5)
     w_row5 = dlg.sections_list.itemWidget(dlg.sections_list.item(4))
     assert isinstance(w_row5, SectionRowWidget)
     w_row5.checkbox.setChecked(False)
 
-    # Le curseur de fin doit se rétrécir automatiquement à 4
-    assert dlg.spin_p_end.value() == 4
-    assert dlg.slider_p_end.value() == 4
-    assert dlg.range_bar._end == 4
+    # La borne reste gouvernée par les contrôles de pages.
+    assert dlg.spin_p_end.value() == 5
+    assert dlg.slider_p_end.value() == 5
+    assert dlg.range_bar._end == 5
     assert dlg.preview_widget._current_page == 5
-    assert 5 not in dlg.preview_widget._included_pages
-    assert "Page 5 EXCLUE" in dlg.preview_widget.lbl_scope_status.text()
+    assert 5 in dlg.preview_widget._included_pages
+    assert "Page 5 INCLUSE" in dlg.preview_widget.lbl_scope_status.text()
 
     # 4. Déplacement du slider de début à 3
     dlg.spin_p_start.setValue(3)
@@ -737,16 +738,16 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
     assert isinstance(w_row1, SectionRowWidget)
     w_row1.checkbox.setChecked(False)
 
-    # Rétrécissement dynamique des sliders vers la plage réelle [2, 5]
-    assert scope_dlg.spin_p_start.value() == 2
-    assert scope_dlg.slider_p_start.value() == 2
-    assert scope_dlg.range_bar._start == 2
+    # La plage reste la source de vérité en mode pages.
+    assert scope_dlg.spin_p_start.value() == 1
+    assert scope_dlg.slider_p_start.value() == 1
+    assert scope_dlg.range_bar._start == 1
     assert scope_dlg.preview_widget._current_page == 1
-    assert "Page 1 EXCLUE" in scope_dlg.preview_widget.lbl_scope_status.text()
+    assert "Page 1 INCLUSE" in scope_dlg.preview_widget.lbl_scope_status.text()
 
     # La vue finale assemblée ne doit plus contenir Segment 1
     scope_dlg._refresh_final_preview()
-    assert "Segment 1" not in scope_dlg.final_preview_browser.toPlainText()
+    assert "Segment 1" in scope_dlg.final_preview_browser.toPlainText()
     assert "Segment 2" in scope_dlg.final_preview_browser.toPlainText()
 
     # 3. Décocher la section 5 (page 5)
@@ -754,10 +755,10 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
     assert isinstance(w_row5, SectionRowWidget)
     w_row5.checkbox.setChecked(False)
 
-    assert scope_dlg.spin_p_end.value() == 4
-    assert scope_dlg.slider_p_end.value() == 4
+    assert scope_dlg.spin_p_end.value() == 5
+    assert scope_dlg.slider_p_end.value() == 5
     assert scope_dlg.preview_widget._current_page == 5
-    assert "Page 5 EXCLUE" in scope_dlg.preview_widget.lbl_scope_status.text()
+    assert "Page 5 INCLUSE" in scope_dlg.preview_widget.lbl_scope_status.text()
 
     # 4. Action Tout cocher
     scope_dlg._set_all_checked(True)
@@ -765,3 +766,499 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
     assert scope_dlg.spin_p_end.value() == 5
     assert 1 in scope_dlg.preview_widget._included_pages
     assert 5 in scope_dlg.preview_widget._included_pages
+
+
+@pytest.mark.ui
+def test_structure_delimitation_pdf_markdown_tree_cascade_and_chapter_range(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la hiérarchie arborescente, la cascade tristate et le sélecteur rapide de chapitres pour un PDF-Markdown."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    content = (
+        "<!-- PAGE: 1 -->\n"
+        "# Chapitre 1 : Introduction\n"
+        "Texte d'introduction générale au cours de médecine.\n\n"
+        "## 1.1 Contexte et Enjeux\n"
+        "Le contexte clinique actuel nécessite une réactivité accrue.\n\n"
+        "<!-- PAGE: 2 -->\n"
+        "## 1.2 Objectifs d'Apprentissage\n"
+        "Maîtriser les principes diagnostiques fondamentaux.\n\n"
+        "<!-- PAGE: 3 -->\n"
+        "# Chapitre 2 : Méthodologie\n"
+        "Protocole d'expérimentation et démarches standardisées.\n\n"
+        "<!-- PAGE: 4 -->\n"
+        "## 2.1 Outils et Matériel\n"
+        "Instruments de laboratoire et analyse statistique avancée.\n"
+    )
+
+    doc = DocumentModel.create(
+        title=f"Cours Cardio {uid}",
+        file_type="pdf",
+        total_pages=4,
+        content=content,
+    )
+
+    # 1. Vérification dans DocumentDelimitationDialog
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Vérifier que le bouton de mode Par Chapitres est visible
+    assert not dlg.btn_scope_mode_structure.isHidden()
+    assert dlg.combo_c_start.count() == 2  # 2 chapitres racines (Chapitre 1, Chapitre 2)
+
+    # Vérifier l'arbre : 2 racines (Chapitre 1 et Chapitre 2)
+    assert dlg.sections_list.topLevelItemCount() == 2
+    c1_item = dlg.sections_list.topLevelItem(0)
+    c2_item = dlg.sections_list.topLevelItem(1)
+    assert c1_item is not None and c2_item is not None
+    assert c1_item.childCount() == 2  # 1.1 et 1.2
+    assert c2_item.childCount() == 1  # 2.1
+
+    # L'arbre fin n'est disponible qu'après activation explicite de Par Sections.
+    assert dlg.sections_list.isHidden()
+    dlg.btn_scope_mode_sections.click()
+    assert not dlg.sections_list.isHidden()
+
+    # Cascade Down : Décocher Chapitre 1 -> ses enfants 1.1 et 1.2 deviennent décochés
+    w_c1 = dlg.sections_list.itemWidget(c1_item, 0)
+    assert isinstance(w_c1, SectionRowWidget)
+    w_c1.checkbox.setChecked(False)
+
+    assert c1_item.checkState(0) == Qt.CheckState.Unchecked
+    assert c1_item.child(0).checkState(0) == Qt.CheckState.Unchecked
+    assert c1_item.child(1).checkState(0) == Qt.CheckState.Unchecked
+
+    # Cascade Up : Recocher l'enfant 1.1 -> le parent Chapitre 1 devient PartiallyChecked
+    w_sub1 = dlg.sections_list.itemWidget(c1_item.child(0), 0)
+    assert isinstance(w_sub1, SectionRowWidget)
+    w_sub1.checkbox.setChecked(True)
+
+    assert c1_item.child(0).checkState(0) == Qt.CheckState.Checked
+    assert c1_item.checkState(0) == Qt.CheckState.PartiallyChecked
+
+    # Recocher l'enfant 1.2 -> le parent Chapitre 1 redevient Checked
+    w_sub2 = dlg.sections_list.itemWidget(c1_item.child(1), 0)
+    assert isinstance(w_sub2, SectionRowWidget)
+    w_sub2.checkbox.setChecked(True)
+    assert c1_item.checkState(0) == Qt.CheckState.Checked
+
+    # Sélection par plage de chapitres : Sélectionner uniquement Chapitre 2
+    dlg.btn_scope_mode_structure.click()
+    assert not dlg.structure_scope_container.isHidden()
+    dlg.combo_c_start.setCurrentIndex(1)
+    dlg.combo_c_end.setCurrentIndex(1)
+
+    # En mode chapitres, l'arbre fin est masqué et les bornes restent inchangées.
+    assert dlg.sections_list.isHidden()
+    assert dlg.spin_p_start.value() == 1
+    assert dlg.spin_p_end.value() == 4
+
+    # 2. Vérification dans DocumentScopeDialog
+    # Créer les chunks pour le doc
+    for idx, (p, h) in enumerate([(1, "Chapitre 1 > 1.1 Contexte et Enjeux"), (2, "Chapitre 1 > 1.2 Objectifs d'Apprentissage"), (3, "Chapitre 2"), (4, "Chapitre 2 > 2.1 Outils et Matériel")]):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=idx,
+            page_number=p,
+            heading_path=h,
+            content=f"Contenu {h} page {p}",
+            content_hash=f"h_pdf_md_{idx}",
+        )
+
+    scope_dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope_dlg)
+
+    assert not scope_dlg.btn_mode_structure.isHidden()
+    assert scope_dlg.sections_list.topLevelItemCount() == 2
+
+    # Passer en mode chapitres et choisir uniquement Chapitre 1
+    scope_dlg.btn_mode_structure.click()
+    scope_dlg.combo_c_start.setCurrentIndex(0)
+    scope_dlg.combo_c_end.setCurrentIndex(0)
+
+    assert scope_dlg.sections_list.isHidden()
+
+    # Vérifier que les pages restent la délimitation active [1, 4].
+    assert scope_dlg.spin_p_start.value() == 1
+    assert scope_dlg.spin_p_end.value() == 4
+
+    scope_dlg._on_apply()
+    res = scope_dlg.get_result()
+    res_headings = [c.get("heading_path") for c in res["chunks"]]
+    assert any("Chapitre 1" in (h or "") for h in res_headings)
+    assert not any("Chapitre 2" in (h or "") for h in res_headings)
+    assert res["selection_mode"] == "chapters"
+    assert res["start_page"] == 1
+    assert res["end_page"] == 4
+    assert res["range_str"] == ""
+
+
+@pytest.mark.ui
+def test_structure_delimitation_pure_markdown_no_pages_card(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le comportement avec un document Markdown pur : masque pages_card, affiche sélecteur dans sections."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    content = (
+        "# Partie 1 : Introduction Théorique\n"
+        "Exposé détaillé des concepts et postulats de base en génétique.\n\n"
+        "## Définitions clés\n"
+        "Allèle, locus, génotype, phénotype et dominance génétique.\n\n"
+        "# Partie 2 : Applications Pratiques\n"
+        "Exercices et études de cas cliniques de transmission héréditaire.\n\n"
+        "## Cas Clinique A\n"
+        "Analyse de l'arbre généalogique d'une famille porteuse.\n"
+    )
+
+    doc = DocumentModel.create(
+        title=f"Genetique {uid}",
+        file_type="md",
+        total_pages=1,
+        content=content,
+    )
+
+    # 1. DocumentDelimitationDialog
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Le conteneur de pages doit être masqué
+    assert dlg.pages_card.isHidden()
+    # Le Markdown structuré démarre en mode sections ; le mode chapitres est explicite.
+    assert dlg.btn_scope_mode_sections.isChecked()
+    assert not dlg.sections_list.isHidden()
+    assert dlg.structure_scope_container.isHidden()
+    assert dlg.combo_c_start.count() == 2
+
+    # Décocher Partie 1
+    w_p1 = dlg.sections_list.itemWidget(dlg.sections_list.topLevelItem(0), 0)
+    assert isinstance(w_p1, SectionRowWidget)
+    w_p1.checkbox.setChecked(False)
+
+    dlg._on_apply()
+
+    fresh_doc = DocumentModel.get_by_id(doc.id)
+    assert "partie 1" in fresh_doc.excluded_headings.lower()
+
+    # 2. DocumentScopeDialog
+    # NOTE: _on_apply() a déjà synchronisé les chunks en BDD (chunks de Partie 2 uniquement).
+    # Ne pas créer de chunks manuellement ici pour éviter les doublons.
+
+    scope_dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope_dlg)
+
+    assert scope_dlg.pages_card.isHidden()
+    assert scope_dlg.btn_mode_sections.isChecked()
+    assert not scope_dlg.sections_list.isHidden()
+    assert scope_dlg.structure_scope_container.isHidden()
+
+    # Puisque Partie 1 a été exclue lors de la délimitation, scope_dlg ne contient que Partie 2
+    assert len(scope_dlg._useful_chunks) >= 1
+    assert all("Partie 1" not in (c.get("heading_path") or "") for c in scope_dlg._useful_chunks)
+    assert any("Partie 2" in (c.get("heading_path") or c.get("title") or "") for c in scope_dlg._useful_chunks)
+
+
+@pytest.mark.ui
+def test_structure_delimitation_scanned_pdf_or_album_hides_structure_mode(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que pour un Album ou PDF numérisé sans titres, le bouton Par Chapitres est masqué."""
+    from ankiforge.database.models import DocumentPageModel, MediaModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Planches Anatomie {uid}",
+        file_type="album",
+        total_pages=3,
+        content="",
+    )
+    media = MediaModel.create(
+        filename=f"scan_{uid}.png",
+        original_name=f"scan_{uid}.png",
+        checksum=f"sha256_fake_{uid}",
+        mime_type="image/png",
+    )
+    for p in range(1, 4):
+        DocumentPageModel.create(
+            document=doc,
+            media=media,
+            page_number=p,
+            ocr_text=f"Scan de planche sans aucun titre structuré {p}",
+        )
+
+    # 1. Delimitation
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    assert dlg.btn_scope_mode_structure.isHidden()
+    assert dlg.structure_scope_container.isHidden()
+    # Sections sous forme de planches simples
+    assert dlg.sections_list.count() == 3
+
+    # 2. Scope
+    scope_dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope_dlg)
+
+    assert scope_dlg.btn_mode_structure.isHidden()
+    assert scope_dlg.structure_scope_container.isHidden()
+    assert scope_dlg.sections_list.count() == 3
+
+
+@pytest.mark.ui
+def test_modal_hierarchical_filter_keeps_ancestors_and_check_states(qtbot: Any, mock_db: Any) -> None:
+    """Le filtre garde les ancêtres visibles et ne modifie jamais les cases cochées."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Filtre hiérarchique {uid}",
+        file_type="md",
+        content=(
+            "# Chapitre Alpha\n"
+            "Introduction générale suffisamment longue pour former une section.\n\n"
+            "## Sous-section Cible\n"
+            "Contenu ciblé suffisamment long pour être conservé dans le document.\n\n"
+            "# Chapitre Beta\n"
+            "Autre contenu général suffisamment long pour former une section.\n\n"
+            "## Sous-section Autre\n"
+            "Contenu différent suffisamment long pour être conservé dans le document.\n"
+        ),
+    )
+
+    delimitation = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(delimitation)
+    alpha = delimitation.sections_list.topLevelItem(0)
+    beta = delimitation.sections_list.topLevelItem(1)
+    assert alpha is not None and beta is not None
+    target = alpha.child(0)
+    target_widget = delimitation.sections_list.itemWidget(target, 0)
+    assert isinstance(target_widget, SectionRowWidget)
+    target_widget.checkbox.setChecked(False)
+    assert target.checkState(0) == Qt.CheckState.Unchecked
+
+    delimitation.filter_input.setText("cible")
+    assert not alpha.isHidden()
+    assert not target.isHidden()
+    assert beta.isHidden()
+    assert target.checkState(0) == Qt.CheckState.Unchecked
+
+    delimitation.filter_input.clear()
+    assert not beta.isHidden()
+    assert target.checkState(0) == Qt.CheckState.Unchecked
+
+    with patch("ankiforge.ui.dialogs.document_scope_dialog.SettingsService.get", return_value=None):
+        scope = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope)
+    scope_alpha = scope.sections_list.topLevelItem(0)
+    scope_beta = scope.sections_list.topLevelItem(1)
+    assert scope_alpha is not None and scope_beta is not None
+    scope.filter_input.setText("cible")
+    assert not scope_alpha.isHidden()
+    assert scope_alpha.child(0) is not None and not scope_alpha.child(0).isHidden()
+    assert scope_beta.isHidden()
+
+
+@pytest.mark.ui
+def test_delimitation_assembled_preview_uses_in_memory_selection(qtbot: Any, mock_db: Any) -> None:
+    """La vue finale assemble les feuilles sélectionnées sans dépendre de la BDD."""
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Aperçu assemblé {uid}",
+        file_type="md",
+        content=("# Chapitre\n## Première partie\nTexte de la première partie, utile pour la génération.\n\n## Deuxième partie\nTexte de la deuxième partie, utile pour la génération.\n"),
+    )
+    dialog = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dialog)
+
+    dialog.btn_view_final.click()
+    assembled = dialog.final_preview_browser.toPlainText()
+    assert "première partie" in assembled.lower()
+    assert "deuxième partie" in assembled.lower()
+
+    second = dialog.sections_list.topLevelItem(0).child(1)
+    second_widget = dialog.sections_list.itemWidget(second, 0)
+    assert isinstance(second_widget, SectionRowWidget)
+    second_widget.checkbox.setChecked(False)
+    dialog._refresh_final_preview()
+    assembled_after = dialog.final_preview_browser.toPlainText().lower()
+    assert "première partie" in assembled_after
+    assert "deuxième partie" not in assembled_after
+
+
+@pytest.mark.ui
+def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qtbot: Any, mock_db: Any) -> None:
+    """Le reset est confirmé avant de vider les bornes et exclusions persistées."""
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Reset délimitation {uid}",
+        file_type="pdf",
+        total_pages=5,
+        start_page=2,
+        end_page=4,
+        excluded_headings='["sommaire"]',
+        content="# Chapitre\nContenu suffisamment long pour une section.",
+    )
+    dialog = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dialog)
+
+    with patch(
+        "ankiforge.ui.views.documents_view.dialogs.delimitation_dialog.QMessageBox.question",
+        return_value=QMessageBox.StandardButton.No,
+    ):
+        dialog._on_reset()
+    unchanged = DocumentModel.get_by_id(doc.id)
+    assert unchanged.start_page == 2
+    assert unchanged.end_page == 4
+
+    with patch(
+        "ankiforge.ui.views.documents_view.dialogs.delimitation_dialog.QMessageBox.question",
+        return_value=QMessageBox.StandardButton.Yes,
+    ):
+        dialog._on_reset()
+    reset = DocumentModel.get_by_id(doc.id)
+    assert reset.start_page is None
+    assert reset.end_page is None
+    assert reset.excluded_headings == "[]"
+
+
+@pytest.mark.ui
+def test_scope_context_progress_is_hidden_without_valid_limit(qtbot: Any, mock_db: Any) -> None:
+    """Une limite de contexte absente ou invalide ne doit pas afficher de jauge trompeuse."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Contexte {uid}",
+        file_type="md",
+        content="# Section\nContenu suffisamment long pour estimer quelques tokens.",
+    )
+    with patch("ankiforge.ui.dialogs.document_scope_dialog.SettingsService.get", return_value=None):
+        dialog = DocumentScopeDialog(doc)
+    qtbot.addWidget(dialog)
+    assert dialog.token_progress.isHidden()
+    assert dialog.lbl_context_tokens.isHidden()
+
+    with patch("ankiforge.ui.dialogs.document_scope_dialog.SettingsService.get", return_value="100"):
+        configured = DocumentScopeDialog(doc)
+    qtbot.addWidget(configured)
+    assert not configured.token_progress.isHidden()
+    assert configured.token_progress.maximum() == 100
+
+
+@pytest.mark.ui
+def test_pdf_defaults_to_pages_and_requires_explicit_section_activation(qtbot: Any, mock_db: Any) -> None:
+    """Un PDF structuré démarre en mode pages et le mode sections est explicite."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    content = "<!-- PAGE: 1 -->\n# Introduction\nTexte introductif.\n\n<!-- PAGE: 2 -->\n# Conclusion\nTexte final."
+    doc = DocumentModel.create(title=f"PDF modes {uid}", file_type="pdf", total_pages=2, content=content)
+
+    delimitation = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(delimitation)
+    assert delimitation.selection_mode == "pages"
+    assert delimitation.btn_scope_mode_all.isChecked()
+    assert not delimitation.btn_scope_mode_structure.isChecked()
+    assert not delimitation.btn_scope_mode_structure.isHidden()
+    assert delimitation.sections_card.isHidden()
+
+    scope = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope)
+    assert scope.selection_mode == "pages"
+    assert scope.btn_mode_all.isChecked()
+    assert not scope.btn_mode_structure.isChecked()
+    assert not scope.btn_mode_structure.isHidden()
+    assert scope.sections_card.isHidden()
+
+    delimitation.btn_scope_mode_structure.click()
+    scope.btn_mode_structure.click()
+    assert delimitation.selection_mode == "chapters"
+    assert scope.selection_mode == "chapters"
+    assert delimitation.sections_card.isHidden()
+    assert scope.sections_card.isHidden()
+    assert delimitation.sections_list.isHidden()
+    assert scope.sections_list.isHidden()
+    delimitation.btn_scope_mode_sections.click()
+    scope.btn_mode_sections.click()
+    assert delimitation.selection_mode == "sections"
+    assert scope.selection_mode == "sections"
+    assert not delimitation.sections_card.isHidden()
+    assert not scope.sections_card.isHidden()
+    assert not delimitation.sections_list.isHidden()
+    assert not scope.sections_list.isHidden()
+
+
+@pytest.mark.ui
+def test_markdown_defaults_to_sections_and_section_selection_does_not_change_pages(qtbot: Any, mock_db: Any) -> None:
+    """Un Markdown non paginé démarre en mode sections."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Markdown modes {uid}",
+        file_type="md",
+        total_pages=1,
+        content="# Partie A\nTexte A.\n\n# Partie B\nTexte B.",
+    )
+
+    delimitation = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(delimitation)
+    assert delimitation.selection_mode == "sections"
+    assert delimitation.btn_scope_mode_sections.isChecked()
+    assert delimitation.pages_card.isHidden()
+    assert not delimitation.sections_card.isHidden()
+    row = delimitation.sections_list.itemWidget(delimitation.sections_list.topLevelItem(0), 0)
+    assert isinstance(row, SectionRowWidget)
+    row.checkbox.setChecked(False)
+
+    scope = DocumentScopeDialog(doc)
+    qtbot.addWidget(scope)
+    assert scope.selection_mode == "sections"
+    assert scope.btn_mode_sections.isChecked()
+    assert scope.pages_card.isHidden()
+    assert not scope.sections_card.isHidden()
+    scope_row = scope.sections_list.itemWidget(scope.sections_list.topLevelItem(0), 0)
+    assert isinstance(scope_row, SectionRowWidget)
+    scope_row.checkbox.setChecked(False)
+
+
+@pytest.mark.ui
+def test_section_mode_persists_sections_without_page_bounds(qtbot: Any, mock_db: Any) -> None:
+    """La validation en mode sections persiste les exclusions, pas une plage de pages dérivée."""
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Section persistence {uid}",
+        file_type="pdf",
+        total_pages=2,
+        start_page=1,
+        end_page=2,
+        content="<!-- PAGE: 1 -->\n# Partie A\nTexte A.\n\n<!-- PAGE: 2 -->\n# Partie B\nTexte B.",
+    )
+    dialog = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dialog)
+    dialog.btn_scope_mode_sections.click()
+    assert dialog.spin_p_start.value() == 1
+    assert dialog.spin_p_end.value() == 2
+
+    row = dialog.sections_list.itemWidget(dialog.sections_list.topLevelItem(0), 0)
+    assert isinstance(row, SectionRowWidget)
+    row.checkbox.setChecked(False)
+    assert dialog.spin_p_start.value() == 1
+    assert dialog.spin_p_end.value() == 2
+    dialog._on_apply()
+
+    persisted = DocumentModel.get_by_id(doc.id)
+    assert persisted.start_page is None
+    assert persisted.end_page is None
+    assert "partie a" in persisted.excluded_headings.lower()
