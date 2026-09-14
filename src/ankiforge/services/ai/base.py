@@ -18,6 +18,7 @@ class LLMProvider(ABC):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         Génère une réponse à partir d'un prompt système et d'un prompt utilisateur.
@@ -27,6 +28,7 @@ class LLMProvider(ABC):
             user_prompt (str | list[dict[str, Any]]): Le message de l'utilisateur ou un payload multimodal.
             response_format (str): Le format attendu ("json" ou "text"). Par défaut "json".
             max_tokens (int | None): Plafond maximal de tokens à générer (optionnel).
+            temperature (float | None): Température de créativité (optionnel, fournisseur défaut sinon).
 
         Returns:
             str: La réponse brute générée par l'IA.
@@ -51,6 +53,7 @@ class MockProvider(LLMProvider):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         Simule une réponse JSON ou textuelle immédiate.
@@ -59,6 +62,8 @@ class MockProvider(LLMProvider):
             system_prompt (str): Instructions ignorées par le mock.
             user_prompt (str | list[dict[str, Any]]): Message ignoré par le mock.
             response_format (str): Définit si le mock renvoie du JSON simulé ou du texte.
+            max_tokens (int | None): Limite de tokens (ignorée par le mock).
+            temperature (float | None): Température (ignorée par le mock).
 
         Returns:
             str: Une réponse factice prédéfinie.

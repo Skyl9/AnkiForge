@@ -1,10 +1,11 @@
 import json
 import logging
+import os
 import time
 import uuid
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt, QThreadPool, Slot
+from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -32,6 +33,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+from ankiforge.services.ai.pricing_service import estimate_run_cost
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.services.settings_service import SettingsService
@@ -52,6 +54,7 @@ from ankiforge.ui.views.ab_tests_view.widgets import (
     TagPillButton,
 )
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -85,12 +88,26 @@ class ABTestsView(QWidget):
 
         self.source_text_edit: StyledTextEdit = StyledTextEdit()
 
+        self._engine_cfg_a: Any = None
+        self._engine_cfg_b: Any = None
+        self._persona_cfg_a: Any = None
+        self._persona_cfg_b: Any = None
+        self._pipeline_cfg_a: Any = None
+        self._pipeline_cfg_b: Any = None
+        self._winner_branch: str | None = None
+        self._mode_at_run: int = 0
+
         self._setup_ui()
         self._connect_signals()
         self.refresh_data()
-        self._insert_mock_initial_data()
+        if os.environ.get("ANKIFORGE_ENV") == "testing":
+            self._insert_mock_initial_data()
 
-    def _build_advanced_settings(self) -> tuple[QWidget, QSlider, QSlider]:
+        self._elapsed_timer = QTimer(self)
+        self._elapsed_timer.setInterval(250)
+        self._elapsed_timer.timeout.connect(self._on_elapsed_tick)
+
+    def _build_inference_sliders(self, accent_color: str) -> tuple[QWidget, QSlider, QSlider]:
         """Génère un widget compact pour les réglages de température et tokens."""
         adv_widget = QWidget()
         adv_layout = QHBoxLayout(adv_widget)
@@ -114,21 +131,21 @@ class ABTestsView(QWidget):
                 border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
-                background: {DesignTokens.ACCENT_PRIMARY};
-                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                background: {accent_color};
+                border: 1px solid {accent_color};
                 width: 12px;
                 height: 12px;
                 margin: -4px 0;
                 border-radius: 6px;
             }}
             QSlider::sub-page:horizontal {{
-                background: {DesignTokens.ACCENT_PRIMARY};
+                background: {accent_color};
             }}
         """
         temp_slider.setStyleSheet(slider_style)
 
         lbl_temp_val = QLabel("0.70")
-        lbl_temp_val.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        lbl_temp_val.setStyleSheet(f"color: {accent_color}; font-size: 11px; font-weight: bold;")
         temp_slider.valueChanged.connect(lambda v, lbl=lbl_temp_val: lbl.setText(f"{v / 100:.2f}"))
 
         adv_layout.addWidget(lbl_temp)
@@ -145,7 +162,7 @@ class ABTestsView(QWidget):
         tok_slider.setStyleSheet(slider_style)
 
         lbl_tok_val = QLabel("4096")
-        lbl_tok_val.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;")
+        lbl_tok_val.setStyleSheet(f"color: {accent_color}; font-size: 11px; font-weight: bold;")
         tok_slider.valueChanged.connect(lambda v, lbl=lbl_tok_val: lbl.setText(str(v)))
 
         adv_layout.addWidget(lbl_tok)
@@ -154,6 +171,51 @@ class ABTestsView(QWidget):
         adv_layout.addStretch()
 
         return adv_widget, temp_slider, tok_slider
+
+    def _load_ab_settings(self) -> None:
+        """Restaure les réglages inférence (globaux et par branche) depuis SettingsService."""
+        temp_int = int(SettingsService.get("ab_test/global_temperature", 70))
+        tok_int = int(SettingsService.get("ab_test/global_max_tokens", 4096))
+        self.global_temp_slider.blockSignals(True)
+        self.global_tok_slider.blockSignals(True)
+        self.global_temp_slider.setValue(max(0, min(200, temp_int)))
+        self.global_tok_slider.setValue(max(256, min(8192, tok_int)))
+        self.global_temp_slider.blockSignals(False)
+        self.global_tok_slider.blockSignals(False)
+
+        for slider, key, min_val, max_val in (
+            (self.temp_slider_a, "ab_test/temperature_a", 0, 200),
+            (self.tok_slider_a, "ab_test/max_tokens_a", 256, 8192),
+            (self.temp_slider_b, "ab_test/temperature_b", 0, 200),
+            (self.tok_slider_b, "ab_test/max_tokens_b", 256, 8192),
+        ):
+            val = int(SettingsService.get(key, slider.value()))
+            slider.blockSignals(True)
+            slider.setValue(max(min_val, min(max_val, val)))
+            slider.blockSignals(False)
+
+    def _persist_slider(self, key: str, value: int) -> None:
+        SettingsService.set(key, int(value), category="ab_test")
+
+    def _on_independent_settings_changed(self) -> None:
+        independent = self.chk_independent.isChecked()
+        SettingsService.set("ab_test/independent_settings", independent, category="ab_test")
+        for slider in (self.temp_slider_a, self.tok_slider_a, self.temp_slider_b, self.tok_slider_b):
+            slider.setEnabled(independent)
+        self.adv_branch_a_widget.setVisible(independent)
+        self.adv_branch_b_widget.setVisible(independent)
+
+    def _effective_temperature(self, branch: str) -> float | None:
+        if self.chk_independent.isChecked():
+            slider = self.temp_slider_a if branch == "A" else self.temp_slider_b
+            return slider.value() / 100
+        return self.global_temp_slider.value() / 100
+
+    def _effective_max_tokens(self, branch: str) -> int | None:
+        if self.chk_independent.isChecked():
+            slider = self.tok_slider_a if branch == "A" else self.tok_slider_b
+            return slider.value()
+        return self.global_tok_slider.value()
 
     def _setup_ui(self) -> None:
         main_layout = QHBoxLayout(self)
@@ -271,6 +333,13 @@ class ABTestsView(QWidget):
         apply_shadow(self.btn_run, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
         row2.addWidget(self.btn_run, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        self.btn_adopt_winner = SecondaryButton("Adopter le Gagnant", tooltip="Enregistre la config de la branche gagnante comme configuration de création par défaut (F4)")
+        self.btn_adopt_winner.setIcon(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN))
+        self.btn_adopt_winner.setFixedHeight(30)
+        self.btn_adopt_winner.setEnabled(False)
+        self.btn_adopt_winner.clicked.connect(self._on_adopt_winner)
+        row2.addWidget(self.btn_adopt_winner, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         config_bar_layout.addLayout(row2)
         ab_layout.addWidget(self.config_bar_widget)
 
@@ -281,13 +350,24 @@ class ABTestsView(QWidget):
         adv_drawer_layout.setContentsMargins(10, 6, 10, 6)
         adv_drawer_layout.setSpacing(6)
 
-        self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_advanced_settings()
-        self.temp_slider_a = self.global_temp_slider
-        self.tok_slider_a = self.global_tok_slider
-        self.temp_slider_b = self.global_temp_slider
-        self.tok_slider_b = self.global_tok_slider
+        self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_inference_sliders(DesignTokens.ACCENT_PRIMARY)
+
+        self.adv_branch_a_widget, self.temp_slider_a, self.tok_slider_a = self._build_inference_sliders(DesignTokens.BRANCH_A)
+        self.adv_branch_b_widget, self.temp_slider_b, self.tok_slider_b = self._build_inference_sliders(DesignTokens.BRANCH_B)
+
+        self.chk_independent = QCheckBox("Réglages indépendants A/B")
+        self.chk_independent.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_independent.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
+        self.chk_independent.setChecked(bool(SettingsService.get("ab_test/independent_settings", False)))
+        self.chk_independent.stateChanged.connect(self._on_independent_settings_changed)
 
         adv_drawer_layout.addWidget(self.global_adv_widget)
+        adv_drawer_layout.addWidget(self.chk_independent)
+        adv_drawer_layout.addWidget(self.adv_branch_a_widget)
+        adv_drawer_layout.addWidget(self.adv_branch_b_widget)
+
+        self._load_ab_settings()
+        self._on_independent_settings_changed()
         self.adv_drawer.hide()
         ab_layout.addWidget(self.adv_drawer)
 
@@ -360,6 +440,10 @@ class ABTestsView(QWidget):
         self.btn_subtab_json.clicked.connect(lambda: self._switch_view_mode(2))
         switcher_bar.addWidget(self.btn_subtab_json, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        self.btn_subtab_diff = SubTabButton("Diff A↔B", "ph.git-diff", is_active=False)
+        self.btn_subtab_diff.clicked.connect(lambda: self._switch_view_mode(3))
+        switcher_bar.addWidget(self.btn_subtab_diff, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         switcher_bar.addStretch()
 
         self.btn_flip_both = SecondaryButton("Retourner (Verso)")
@@ -422,14 +506,27 @@ class ABTestsView(QWidget):
         self.btn_import_a.setFixedHeight(28)
         self.btn_import_a.clicked.connect(lambda: self._on_import_branch_to_forge("A"))
 
+        self.chk_import_current_a = QCheckBox("Carte visible")
+        self.chk_import_current_a.setToolTip("Importer uniquement la carte actuellement affichée de la Branche A")
+        self.chk_import_current_a.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_import_current_a.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.chk_import_current_a.setChecked(bool(SettingsService.get("ab_test/import_current_only", False)))
+
+        self.btn_copy_a_to_b = SecondaryButton("Copier config A→B", tooltip="Copier les réglages inférence de la Branche A vers la Branche B")
+        self.btn_copy_a_to_b.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_copy_a_to_b.setFixedHeight(28)
+        self.btn_copy_a_to_b.clicked.connect(self._on_copy_config_a_to_b)
+
         toolbar_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.engine_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.persona_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.pipeline_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.btn_copy_a_to_b, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.chk_import_current_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.btn_import_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_a.addLayout(toolbar_a)
 
-        self.kpi_a = BranchKpiWidget("BRANCHE A", color_hex="#8b5cf6")
+        self.kpi_a = BranchKpiWidget("BRANCHE A", color_hex=DesignTokens.BRANCH_A)
         layout_a.addWidget(self.kpi_a)
 
         self.stack_a = QStackedWidget()
@@ -450,6 +547,8 @@ class ABTestsView(QWidget):
         self.stack_a.addWidget(self.preview_a)
         self.stack_a.addWidget(self.table_a)
         self.stack_a.addWidget(self.json_edit_a)
+        self.diff_a = DiffViewerWidget()
+        self.stack_a.addWidget(self.diff_a)
         layout_a.addWidget(self.stack_a, 1)
 
         self.compare_splitter.addWidget(self.panel_a)
@@ -480,14 +579,21 @@ class ABTestsView(QWidget):
         self.btn_import_b.setFixedHeight(28)
         self.btn_import_b.clicked.connect(lambda: self._on_import_branch_to_forge("B"))
 
+        self.chk_import_current_b = QCheckBox("Carte visible")
+        self.chk_import_current_b.setToolTip("Importer uniquement la carte actuellement affichée de la Branche B")
+        self.chk_import_current_b.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_import_current_b.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.chk_import_current_b.setChecked(bool(SettingsService.get("ab_test/import_current_only", False)))
+
         toolbar_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.engine_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.persona_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.pipeline_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.chk_import_current_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.btn_import_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_b.addLayout(toolbar_b)
 
-        self.kpi_b = BranchKpiWidget("BRANCHE B", color_hex="#06b6d4")
+        self.kpi_b = BranchKpiWidget("BRANCHE B", color_hex=DesignTokens.BRANCH_B)
         layout_b.addWidget(self.kpi_b)
 
         self.stack_b = QStackedWidget()
@@ -508,10 +614,13 @@ class ABTestsView(QWidget):
         self.stack_b.addWidget(self.preview_b)
         self.stack_b.addWidget(self.table_b)
         self.stack_b.addWidget(self.json_edit_b)
+        self.diff_b = DiffViewerWidget()
+        self.stack_b.addWidget(self.diff_b)
         layout_b.addWidget(self.stack_b, 1)
 
         self.compare_splitter.addWidget(self.panel_b)
         self.compare_splitter.setSizes([500, 500])
+        self.compare_splitter.setChildrenCollapsible(False)
 
         # ── 6. BARRE DE PAGINATION INTÉGRÉE ──────────────────────────────────
         pagination_bar = QHBoxLayout()
@@ -681,6 +790,21 @@ class ABTestsView(QWidget):
 
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
+        for slider, key in (
+            (self.global_temp_slider, "ab_test/global_temperature"),
+            (self.global_tok_slider, "ab_test/global_max_tokens"),
+            (self.temp_slider_a, "ab_test/temperature_a"),
+            (self.tok_slider_a, "ab_test/max_tokens_a"),
+            (self.temp_slider_b, "ab_test/temperature_b"),
+            (self.tok_slider_b, "ab_test/max_tokens_b"),
+        ):
+            slider.valueChanged.connect(lambda v, k=key: self._persist_slider(k, v))
+
+        self.chk_independent.stateChanged.connect(self._on_independent_settings_changed)
+
+        for chk_import in (self.chk_import_current_a, self.chk_import_current_b):
+            chk_import.stateChanged.connect(lambda s, k="ab_test/import_current_only": self._persist_slider(k, 1 if s == Qt.CheckState.Checked.value else 0))
+
     def _on_source_text_changed(self) -> None:
         cnt = len(self.source_text_edit.toPlainText())
         self.lbl_src_chars.setText(f"{cnt} caractère{'s' if cnt > 1 else ''}")
@@ -703,6 +827,7 @@ class ABTestsView(QWidget):
         self.btn_subtab_preview.set_active(mode_idx == 0)
         self.btn_subtab_table.set_active(mode_idx == 1)
         self.btn_subtab_json.set_active(mode_idx == 2)
+        self.btn_subtab_diff.set_active(mode_idx == 3)
         self.stack_a.setCurrentIndex(mode_idx)
         self.stack_b.setCurrentIndex(mode_idx)
 
@@ -902,6 +1027,16 @@ class ABTestsView(QWidget):
             self.table_b.setRowCount(0)
             self.json_edit_b.clear()
 
+        # Diff A ↔ B (4e niveau)
+        if self.cards_a and self.cards_b:
+            card_a = self.cards_a[self.index_a]
+            card_b = self.cards_b[self.index_b]
+            self.diff_a.set_content_diff(card_a, card_b)
+            self.diff_b.set_content_diff(card_b, card_a)
+        else:
+            self.diff_a.setHtml("<p style='color:#94a3b8;'>En attente des cartes des deux branches pour générer le diff.</p>")
+            self.diff_b.setHtml("<p style='color:#94a3b8;'>En attente des cartes des deux branches pour générer le diff.</p>")
+
     @Slot()
     def _prev_a(self) -> None:
         if self.cards_a and self.index_a > 0:
@@ -947,8 +1082,28 @@ class ABTestsView(QWidget):
 
         mode_idx = self.mode_combo.currentIndex()
 
+        temp_a = self._effective_temperature("A")
+        tok_a = self._effective_max_tokens("A")
+        temp_b = self._effective_temperature("B")
+        tok_b = self._effective_max_tokens("B")
+
+        inf_cfg_a: dict[str, Any] = {}
+        if temp_a is not None:
+            inf_cfg_a["temperature"] = temp_a
+        if tok_a is not None:
+            inf_cfg_a["max_tokens"] = tok_a
+        inf_cfg_b: dict[str, Any] = {}
+        if temp_b is not None:
+            inf_cfg_b["temperature"] = temp_b
+        if tok_b is not None:
+            inf_cfg_b["max_tokens"] = tok_b
+
         steps_a = None
         steps_b = None
+        self._persona_cfg_a = None
+        self._persona_cfg_b = None
+        self._pipeline_cfg_a = None
+        self._pipeline_cfg_b = None
 
         if mode_idx == 0:
             engine_a = self.engine_a_combo.currentData()
@@ -957,8 +1112,8 @@ class ABTestsView(QWidget):
             pipe_id_b = None
             common_persona = self.persona_combo.currentData()
             if common_persona:
-                steps_a = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1)]
-                steps_b = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1)]
+                steps_a = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_a))]
+                steps_b = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_b))]
 
         elif mode_idx == 1:
             engine_a = self.global_engine_combo.currentData()
@@ -967,18 +1122,24 @@ class ABTestsView(QWidget):
             pipe_id_b = None
             p_a = self.persona_a_combo.currentData()
             p_b = self.persona_b_combo.currentData()
+            self._persona_cfg_a = p_a
+            self._persona_cfg_b = p_b
             if p_a:
-                steps_a = [PipelineStepModel(persona=p_a, step_type="LLM_PROMPT", step_order=1)]
+                steps_a = [PipelineStepModel(persona=p_a, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_a))]
             if p_b:
-                steps_b = [PipelineStepModel(persona=p_b, step_type="LLM_PROMPT", step_order=1)]
+                steps_b = [PipelineStepModel(persona=p_b, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_b))]
 
         else:
             engine_a = self.global_engine_combo.currentData()
             engine_b = self.global_engine_combo.currentData()
             pipe_a = self.pipeline_a_combo.currentData()
             pipe_b = self.pipeline_b_combo.currentData()
+            self._pipeline_cfg_a = pipe_a
+            self._pipeline_cfg_b = pipe_b
             pipe_id_a = pipe_a.id if pipe_a else None
             pipe_id_b = pipe_b.id if pipe_b else None
+
+        self._mode_at_run = mode_idx
 
         show_toast(self, "Lancement du test A/B en parallèle via le Moteur DAG...")
         self.btn_run.setEnabled(False)
@@ -986,6 +1147,7 @@ class ABTestsView(QWidget):
         self._completed_b = False
         self.kpi_a.set_running()
         self.kpi_b.set_running()
+        self._elapsed_timer.start()
 
         provider_a = None
         provider_b = None
@@ -1002,12 +1164,22 @@ class ABTestsView(QWidget):
         state_a.set_variable("text_source", text_source)
         state_a.set_variable("fields", nt_schema)
         state_a.set_variable("note_type_id", nt_id)
+        if temp_a is not None:
+            state_a.set_variable("temperature", temp_a)
+        if tok_a is not None:
+            state_a.set_variable("max_tokens", tok_a)
 
         state_b = PipelineRunState(initial_prompt=text_source[:120])
         state_b.set_variable("text_source", text_source)
         state_b.set_variable("fields", nt_schema)
         state_b.set_variable("note_type_id", nt_id)
+        if temp_b is not None:
+            state_b.set_variable("temperature", temp_b)
+        if tok_b is not None:
+            state_b.set_variable("max_tokens", tok_b)
 
+        self._engine_cfg_a = engine_a
+        self._engine_cfg_b = engine_b
         self._start_time_a = time.perf_counter()
         self._start_time_b = time.perf_counter()
 
@@ -1032,6 +1204,12 @@ class ABTestsView(QWidget):
         QThreadPool.globalInstance().start(self.orchestrator_a)
         QThreadPool.globalInstance().start(self.orchestrator_b)
 
+    def _on_elapsed_tick(self) -> None:
+        if not self._completed_a:
+            self.kpi_a.set_running_elapsed(time.perf_counter() - self._start_time_a)
+        if not self._completed_b:
+            self.kpi_b.set_running_elapsed(time.perf_counter() - self._start_time_b)
+
     def _extract_cards_from_state(self, state: PipelineRunState) -> list[dict[str, Any]]:
         raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
         return extract_cards_from_data(raw_cards)
@@ -1044,9 +1222,11 @@ class ABTestsView(QWidget):
         self._completed_a = True
 
         tokens_est = len(str(self.cards_a)) // 4
-        cost_est = (tokens_est / 1000) * 0.002
+        _, cost_est = estimate_run_cost(tokens_est, tokens_est, self._engine_cfg_a)
         self.kpi_a.set_results(elapsed=elapsed, cards_count=len(self.cards_a), tokens=tokens_est, cost_usd=cost_est, is_success=True)
 
+        if self._completed_b:
+            self._elapsed_timer.stop()
         self._check_test_complete()
 
     @Slot(object)
@@ -1057,14 +1237,18 @@ class ABTestsView(QWidget):
         self._completed_b = True
 
         tokens_est = len(str(self.cards_b)) // 4
-        cost_est = (tokens_est / 1000) * 0.002
+        _, cost_est = estimate_run_cost(tokens_est, tokens_est, self._engine_cfg_b)
         self.kpi_b.set_results(elapsed=elapsed, cards_count=len(self.cards_b), tokens=tokens_est, cost_usd=cost_est, is_success=True)
 
+        if self._completed_a:
+            self._elapsed_timer.stop()
         self._check_test_complete()
 
     def _on_error_a(self, err: str) -> None:
         elapsed = time.perf_counter() - self._start_time_a
         self._completed_a = True
+        if self._completed_b:
+            self._elapsed_timer.stop()
         self.kpi_a.set_results(elapsed=elapsed, cards_count=0, tokens=0, cost_usd=0.0, is_success=False, err_msg=err)
         show_toast(self, f"Erreur Branche A: {err}", is_error=True)
         self._check_test_complete()
@@ -1072,6 +1256,8 @@ class ABTestsView(QWidget):
     def _on_error_b(self, err: str) -> None:
         elapsed = time.perf_counter() - self._start_time_b
         self._completed_b = True
+        if self._completed_a:
+            self._elapsed_timer.stop()
         self.kpi_b.set_results(elapsed=elapsed, cards_count=0, tokens=0, cost_usd=0.0, is_success=False, err_msg=err)
         show_toast(self, f"Erreur Branche B: {err}", is_error=True)
         self._check_test_complete()
@@ -1081,38 +1267,130 @@ class ABTestsView(QWidget):
         time_b = self.kpi_b._last_elapsed
         cost_a = self.kpi_a._last_cost
         cost_b = self.kpi_b._last_cost
+        cards_a = self.kpi_a._last_cards
+        cards_b = self.kpi_b._last_cards
+        tokens_a = self.kpi_a._last_tokens
+        tokens_b = self.kpi_b._last_tokens
 
-        if time_a > 0 and time_b > 0:
-            if time_a < time_b * 0.90:
-                ratio = time_b / time_a if time_a > 0 else 1.0
-                self.kpi_a.set_winner(f"⚡ {ratio:.1f}x plus rapide")
-                self.kpi_b.clear_winner()
-            elif time_b < time_a * 0.90:
-                ratio = time_a / time_b if time_b > 0 else 1.0
-                self.kpi_b.set_winner(f"⚡ {ratio:.1f}x plus rapide")
-                self.kpi_a.clear_winner()
-            elif cost_a < cost_b * 0.85:
-                self.kpi_a.set_winner("💰 Plus économique")
-                self.kpi_b.clear_winner()
-            elif cost_b < cost_a * 0.85:
-                self.kpi_b.set_winner("💰 Plus économique")
-                self.kpi_a.clear_winner()
+        self.kpi_a.clear_winner()
+        self.kpi_b.clear_winner()
+        self._winner_branch = None
+
+        if time_a <= 0 or time_b <= 0 or (cards_a <= 0 and cards_b <= 0):
+            return
+
+        if cards_a <= 0:
+            self._winner_branch = "B"
+            self.kpi_b.set_winner("Plus de cartes générées")
+            return
+        if cards_b <= 0:
+            self._winner_branch = "A"
+            self.kpi_a.set_winner("Plus de cartes générées")
+            return
+
+        def score(elapsed: float, cards: int, tokens: int, cost: float) -> float:
+            tps = cards / elapsed if elapsed > 0 else 0.0
+            tokens_per_card = tokens / cards if cards > 0 else 0.0
+            cost_per_card = cost / cards if cards > 0 else 0.0
+            return (tps * 10.0) - (tokens_per_card * 0.005) - (cost_per_card * 100_000.0)
+
+        score_a = score(time_a, cards_a, tokens_a, cost_a)
+        score_b = score(time_b, cards_b, tokens_b, cost_b)
+
+        delta_time = time_a - time_b
+        delta_cards = cards_a - cards_b
+        delta_cost = cost_a - cost_b
+
+        if score_a > score_b:
+            self._winner_branch = "A"
+            faster_a = delta_time <= -0.5 and time_b / time_a >= 1.25 if time_a > 0 else False
+            if faster_a:
+                ratio = time_b / time_a
+                self.kpi_a.set_winner(f"{ratio:.1f}x plus rapide")
+            elif delta_cards > 0 and abs(delta_time) < 0.5:
+                self.kpi_a.set_winner(f"+{delta_cards} cartes")
+            elif delta_cost < 0 and abs(delta_cost) > 0.0001:
+                self.kpi_a.set_winner("Meilleur coût / carte")
             else:
-                self.kpi_a.clear_winner()
-                self.kpi_b.clear_winner()
+                self.kpi_a.set_winner("Score global supérieur")
+        elif score_b > score_a:
+            self._winner_branch = "B"
+            faster_b = delta_time >= 0.5 and time_a / time_b >= 1.25 if time_b > 0 else False
+            if faster_b:
+                ratio = time_a / time_b
+                self.kpi_b.set_winner(f"{ratio:.1f}x plus rapide")
+            elif delta_cards < 0 and abs(delta_time) < 0.5:
+                self.kpi_b.set_winner(f"{-delta_cards} cartes de plus")
+            elif delta_cost > 0 and abs(delta_cost) > 0.0001:
+                self.kpi_b.set_winner("Meilleur coût / carte")
+            else:
+                self.kpi_b.set_winner("Score global supérieur")
 
     def _check_test_complete(self) -> None:
         if self._completed_a and self._completed_b:
             self.btn_run.setEnabled(True)
             self._evaluate_winner()
+            if self._winner_branch:
+                self.btn_adopt_winner.setEnabled(True)
             self._update_views()
             show_toast(self, "Test A/B terminé avec succès !")
+
+    def _on_copy_config_a_to_b(self) -> None:
+        """Copie les réglages inférence (et le moteur en mode 0) de la Branche A vers la Branche B."""
+        self.temp_slider_b.setValue(self.temp_slider_a.value())
+        self.tok_slider_b.setValue(self.tok_slider_a.value())
+        if self.mode_combo.currentIndex() == 0:
+            self.engine_b_combo.setCurrentIndex(self.engine_a_combo.currentIndex())
+        show_toast(self, "Configuration de la Branche A copiée vers la Branche B.")
+
+    def _on_adopt_winner(self) -> None:
+        """F4 : enregistre la configuration de la branche gagnante comme configuration de création par défaut."""
+        if not self._winner_branch:
+            show_toast(self, "Aucun gagnant à adopter pour le moment.", is_error=True)
+            return
+
+        mode_idx = getattr(self, "_mode_at_run", self.mode_combo.currentIndex())
+
+        if mode_idx == 0:
+            engine = self._engine_cfg_a if self._winner_branch == "A" else self._engine_cfg_b
+            if engine is not None:
+                SettingsService.set("creation/engine_id", engine.id, category="creation")
+        elif mode_idx == 1:
+            persona = self._persona_cfg_a if self._winner_branch == "A" else self._persona_cfg_b
+            if persona is not None:
+                SettingsService.set("creation/persona_id", persona.id, category="creation")
+        elif mode_idx == 2:
+            pipeline = self._pipeline_cfg_a if self._winner_branch == "A" else self._pipeline_cfg_b
+            if pipeline is not None:
+                SettingsService.set("creation/pipeline_id", pipeline.id, category="creation")
+
+        if self.chk_independent.isChecked():
+            temp = self._effective_temperature(self._winner_branch)
+            tok = self._effective_max_tokens(self._winner_branch)
+        else:
+            temp = self._effective_temperature("A")
+            tok = self._effective_max_tokens("A")
+        if temp is not None:
+            SettingsService.set("ab_test/winner_temperature", float(temp), category="ab_test")
+        if tok is not None:
+            SettingsService.set("ab_test/winner_max_tokens", int(tok), category="ab_test")
+
+        show_toast(self, f"Configuration de la Branche {self._winner_branch} adoptée comme création par défaut.")
 
     def _on_import_branch_to_forge(self, branch: str) -> None:
         cards = self.cards_a if branch == "A" else self.cards_b
         if not cards:
             show_toast(self, f"Aucune carte à importer depuis la Branche {branch}.", is_error=True)
             return
+
+        only_current = (self.chk_import_current_a if branch == "A" else self.chk_import_current_b).isChecked()
+        if only_current:
+            index = self.index_a if branch == "A" else self.index_b
+            if 0 <= index < len(cards):
+                cards = [cards[index]]
+            else:
+                show_toast(self, f"Position de carte invalide pour la Branche {branch}.", is_error=True)
+                return
 
         selected_nt = self.model_combo.currentData()
         if not selected_nt:
@@ -1141,7 +1419,8 @@ class ABTestsView(QWidget):
             btn.setText(f"✓ {imported_count} Importées")
             btn.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
 
-            show_toast(self, f"{imported_count} cartes de la Branche {branch} importées dans le paquet '{selected_deck.name}' !")
+            detail = "carte visible" if only_current else f"{imported_count} cartes"
+            show_toast(self, f"{detail} de la Branche {branch} importée(s) dans le paquet '{selected_deck.name}' !")
         except Exception as e:
             logger.exception("Erreur lors de l'import des cartes A/B dans la Forge")
             show_toast(self, f"Erreur lors de l'import : {e}", is_error=True)

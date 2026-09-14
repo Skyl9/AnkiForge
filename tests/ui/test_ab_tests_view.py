@@ -114,7 +114,7 @@ def test_ab_tests_view_engine_comparison(qtbot):
     assert view.cards_b[0]["Front"] == "Question Branche B"
 
     # Vérification des KPIs affichés
-    assert "⏱️" in view.kpi_a.lbl_time.text()
+    assert "s" in view.kpi_a.lbl_time.text()
     assert "1 carte" in view.kpi_a.lbl_cards.text()
 
     # Tester l'import dans la forge
@@ -232,3 +232,126 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     light_profile = engine.get_theme("jetbrains_light")
     if light_profile:
         view.refresh_theme(light_profile)
+
+
+@pytest.mark.ui
+def test_ab_tests_view_inference_sliders_independent(qtbot):
+    """Vérifie la persistance des sliders d'inférence et le calcul température/tokens par branche."""
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    assert view.global_temp_slider.value() == 70
+    assert view.global_tok_slider.value() == 4096
+
+    # Mode global : les deux branches héritent du réglage commun
+    view.global_temp_slider.setValue(120)
+    view.global_tok_slider.setValue(2048)
+    assert view._effective_temperature("A") == 1.2
+    assert view._effective_temperature("B") == 1.2
+    assert view._effective_max_tokens("A") == 2048
+    assert view._effective_max_tokens("B") == 2048
+
+    # Mode indépendant : réglages propres à chaque branche
+    view.chk_independent.setChecked(True)
+    assert not view.adv_branch_a_widget.isHidden()
+    view.temp_slider_a.setValue(30)
+    view.tok_slider_a.setValue(1024)
+    view.temp_slider_b.setValue(180)
+    view.tok_slider_b.setValue(512)
+    assert view._effective_temperature("A") == 0.3
+    assert view._effective_temperature("B") == 1.8
+    assert view._effective_max_tokens("A") == 1024
+    assert view._effective_max_tokens("B") == 512
+
+
+@pytest.mark.ui
+def test_ab_tests_view_evaluate_winner_and_adopt(qtbot):
+    """Vérifie le multi-critère (temps/cartes/coût) et le bouton 'Adopter le Gagnant'."""
+    from ankiforge.services.settings_service import SettingsService
+
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Branch A plus rapide, B plus coûteuse -> A gagne sur la rapidité
+    view.kpi_a.set_results(elapsed=1.0, cards_count=2, tokens=300, cost_usd=0.001, is_success=True)
+    view.kpi_b.set_results(elapsed=3.0, cards_count=2, tokens=350, cost_usd=0.002, is_success=True)
+    view._evaluate_winner()
+    assert view._winner_branch == "A"
+    assert not view.kpi_a.badge_winner.isHidden()
+    assert "rapide" in view.kpi_a.badge_winner.text()
+    assert view.kpi_b.badge_winner.isHidden()
+
+    # Mode 0 : adopt le gagnant -> écrit creation/engine_id
+    view.mode_combo.setCurrentIndex(0)
+    view._mode_at_run = 0
+    cfg_a = LLMConfigModel.create(provider="mock_adopt", model_id="model_adopt", display_name="Model Adopt")
+    view._engine_cfg_a = cfg_a
+    view._engine_cfg_b = LLMConfigModel.create(provider="mock_adopt2", model_id="model_adopt2", display_name="Model Adopt 2")
+    view._winner_branch = "A"
+    view._on_adopt_winner()
+    assert SettingsService.get("creation/engine_id") == cfg_a.id
+
+
+@pytest.mark.ui
+def test_ab_tests_view_diff_and_copy_config(qtbot):
+    """Vérifie le 4e niveau de vue Diff A↔B et le bouton 'Copier config A→B'."""
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Diff
+    view.cards_a = [{"Front": "Question A", "Back": "Réponse A"}]
+    view.cards_b = [{"Front": "Question B modifiée", "Back": "Réponse B"}]
+    view.index_a = 0
+    view.index_b = 0
+    view._update_views()
+    html_a = view.diff_a.toHtml()
+    assert "Champ" in html_a
+    assert "Question" in html_a
+
+    view._switch_view_mode(3)
+    assert view.stack_a.currentIndex() == 3
+    assert view.stack_b.currentIndex() == 3
+
+    # Copie config A -> B
+    view.temp_slider_a.setValue(55)
+    view.tok_slider_a.setValue(3072)
+    view._on_copy_config_a_to_b()
+    assert view.temp_slider_b.value() == 55
+    assert view.tok_slider_b.value() == 3072
+
+
+@pytest.mark.ui
+def test_ab_tests_view_partial_import_current_card(qtbot):
+    """Vérifie l'import sélectif de la carte visible dans la Forge."""
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(
+        name=f"NoteType Partial Import {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
+        css_style=".card { font-family: arial; }",
+    )
+    deck = DeckModel.create(name=f"Deck Partial Import {uid}")
+
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    view.model_combo.setCurrentIndex(view.model_combo.findText(nt.name))
+    view.deck_combo.setCurrentIndex(view.deck_combo.findText(deck.name))
+
+    view.cards_a = [{"Front": "Carte 1", "Back": "Back 1"}, {"Front": "Carte 2", "Back": "Back 2"}]
+    view.index_a = 1  # Carte 2 affichée
+    view._update_views()
+
+    # Import partiel : seulement la carte visible (index 1)
+    view.chk_import_current_a.setChecked(True)
+    initial_notes = NoteModel.select().count()
+    view._on_import_branch_to_forge("A")
+    assert NoteModel.select().count() == initial_notes + 1
+
+    from ankiforge.database.models import NoteVersionModel
+
+    last_note = NoteModel.select().order_by(NoteModel.id.desc()).get()
+    version = NoteVersionModel.get_or_none(note=last_note, is_active=True)
+    assert version is not None
+    assert "Carte 2" in version.content

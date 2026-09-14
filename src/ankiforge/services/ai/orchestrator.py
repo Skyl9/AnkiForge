@@ -299,22 +299,26 @@ class PipelineOrchestrator(QRunnable):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
+        kwargs: dict[str, Any] = {
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "response_format": response_format,
+        }
         if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        try:
+            return provider.generate(**kwargs)
+        except TypeError:
+            kwargs.pop("temperature", None)
             try:
-                return provider.generate(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    response_format=response_format,
-                    max_tokens=max_tokens,
-                )
+                return provider.generate(**kwargs)
             except TypeError:
-                pass
-        return provider.generate(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            response_format=response_format,
-        )
+                kwargs.pop("max_tokens", None)
+                return provider.generate(**kwargs)
 
     def _execute_llm_prompt(self, step: PipelineStepModel) -> None:
         """Exécute un prompt LLM standard en interpolant les templates Jinja2."""
@@ -360,6 +364,9 @@ class PipelineOrchestrator(QRunnable):
         max_tokens_val = cfg.get("max_tokens") or self.state.get_variable("max_tokens")
         step_max_tokens = int(max_tokens_val) if max_tokens_val else None
 
+        temperature_val = cfg.get("temperature") or self.state.get_variable("temperature")
+        step_temperature = float(temperature_val) if temperature_val else None
+
         use_vision = bool(self.state.get_variable("use_vision", False))
         if use_vision:
             from ankiforge.utils.paths import get_media_dir
@@ -373,6 +380,7 @@ class PipelineOrchestrator(QRunnable):
                 user_prompt=multimodal_input,
                 response_format=output_format,
                 max_tokens=step_max_tokens,
+                temperature=step_temperature,
             )
         else:
             from ankiforge.utils.vision_utils import strip_image_tags
@@ -384,6 +392,7 @@ class PipelineOrchestrator(QRunnable):
                 user_prompt=clean_input,
                 response_format=output_format,
                 max_tokens=step_max_tokens,
+                temperature=step_temperature,
             )
 
         parsed_output: Any = response_text
@@ -509,12 +518,16 @@ class PipelineOrchestrator(QRunnable):
             max_tokens_val = self.state.get_variable("max_tokens")
             step_max_tokens = int(max_tokens_val) if max_tokens_val else None
 
+            temperature_val = self.state.get_variable("temperature")
+            step_temperature = float(temperature_val) if temperature_val else None
+
             response = self._call_provider_generate(
                 provider=self.ai_provider,
                 system_prompt=rendered_sys,
                 user_prompt=item_str,
                 response_format=output_format,
                 max_tokens=step_max_tokens,
+                temperature=step_temperature,
             )
 
             parsed = response

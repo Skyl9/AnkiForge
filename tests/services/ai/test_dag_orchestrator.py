@@ -1,3 +1,4 @@
+import json
 import threading
 from typing import Any
 
@@ -20,9 +21,9 @@ class DummyProvider(LLMProvider):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
-        **kwargs: Any,
+        temperature: float | None = None,
     ) -> str:
-        self.calls.append({"system": system_prompt, "user": user_prompt, "format": response_format, "max_tokens": max_tokens})
+        self.calls.append({"system": system_prompt, "user": user_prompt, "format": response_format, "max_tokens": max_tokens, "temperature": temperature})
         for key, resp in self.responses.items():
             if key in system_prompt or key in str(user_prompt):
                 return resp
@@ -413,3 +414,79 @@ def test_orchestrator_rag_retrieval_hybrid_step(tmp_path, monkeypatch):
     details = final_state.variables["retrieved_chunks_details"]
     assert len(details) == 1
     assert "rrf_score" in details[0]
+
+
+def test_orchestrator_forwards_temperature_and_max_tokens_from_config(qtbot):
+    """Vérifie que temperature / max_tokens dans config_data (ou l'état) sont transmis au provider."""
+    pipeline = PipelineModel.create(name="Pipeline Température")
+    persona = PersonaModel.create(name="Générateur Temp", system_prompt="Générateur JSON.", output_format="json")
+    step = PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"temperature": 0.85}),
+    )
+    del step
+
+    provider = DummyProvider()
+    initial_state = PipelineRunState(initial_prompt="Créer des cartes")
+    initial_state.set_variable("max_tokens", 512)
+
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    assert provider.calls, "Le provider aurait dû être appelé."
+    last_call = provider.calls[-1]
+    assert last_call["temperature"] == 0.85
+    assert last_call["max_tokens"] == 512
+
+
+def test_orchestrator_uses_state_temperature_when_config_missing():
+    """Vérifie le repli sur la variable d'état 'temperature' quand config_data n'en contient pas."""
+    pipeline = PipelineModel.create(name="Pipeline État Température")
+    persona = PersonaModel.create(name="Agent État", system_prompt="Agent JSON.", output_format="json")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+
+    provider = DummyProvider()
+    initial_state = PipelineRunState(initial_prompt="Créer des cartes")
+    initial_state.set_variable("temperature", 0.45)
+
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    assert provider.calls
+    assert provider.calls[-1]["temperature"] == 0.45
+
+
+def test_call_provider_generate_falls_back_for_legacy_providers():
+    """Vérifie le repli sans temperature pour les providers legacy ne l'acceptant pas."""
+
+    class LegacyProvider(LLMProvider):
+        def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+            return '{"cards": [{"Front": "Q", "Back": "A"}]}'
+
+    pipeline = PipelineModel.create(name="Pipeline Legacy Provider")
+    persona = PersonaModel.create(name="Agent Legacy", system_prompt="Agent JSON.", output_format="json")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"temperature": 0.9, "max_tokens": 1000}),
+    )
+
+    provider = LegacyProvider()
+    initial_state = PipelineRunState(initial_prompt="Créer des cartes")
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1

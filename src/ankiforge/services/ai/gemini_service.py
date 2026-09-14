@@ -51,6 +51,7 @@ class GeminiService(LLMProvider):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         Génère une réponse textuelle ou JSON structurée via Gemini.
@@ -60,6 +61,7 @@ class GeminiService(LLMProvider):
             user_prompt (str | list[dict[str, Any]]): Prompt utilisateur ou contenu multimodal.
             response_format (str): Format de réponse ("json" ou "text").
             max_tokens (int | None): Plafond optionnel de tokens à générer.
+            temperature (float | None): Température de créativité (défaut 0.2).
 
         Returns:
             str: Le contenu textuel de la réponse générée.
@@ -70,7 +72,7 @@ class GeminiService(LLMProvider):
         effective_max = max_tokens or self.max_tokens
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            temperature=0.2,
+            temperature=temperature if temperature is not None else 0.2,
             max_output_tokens=effective_max,
         )
 

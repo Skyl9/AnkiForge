@@ -71,6 +71,10 @@ class DesignTokens:
     FLAG_TURQUOISE = "#06b6d4"
     FLAG_PURPLE = "#a855f7"
 
+    # A/B Testing branches
+    BRANCH_A = "#8b5cf6"
+    BRANCH_B = "#06b6d4"
+
     FLAG_COLORS: dict[int, str] = {
         1: "#ef4444",
         2: "#f97316",

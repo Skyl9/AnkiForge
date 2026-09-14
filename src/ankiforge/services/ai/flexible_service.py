@@ -43,6 +43,7 @@ class OpenAICompatibleProvider(LLMProvider):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         Envoie une requête de génération à l'API.
@@ -52,6 +53,7 @@ class OpenAICompatibleProvider(LLMProvider):
             user_prompt (str | list[dict[str, Any]]): Contenu de l'utilisateur (texte ou multimodal).
             response_format (str): Format de réponse attendu ("json" ou "text").
             max_tokens (int | None): Plafond optionnel de tokens à générer.
+            temperature (float | None): Température de créativité (défaut 0.2).
 
         Returns:
             str: Le texte généré par l'IA.
@@ -68,7 +70,7 @@ class OpenAICompatibleProvider(LLMProvider):
             kwargs: dict[str, Any] = {
                 "model": self.model_name,
                 "messages": messages,
-                "temperature": 0.2,
+                "temperature": temperature if temperature is not None else 0.2,
             }
 
             if any(k in self.model_name.lower() for k in ("o1", "o3", "gpt-5")):
@@ -208,6 +210,7 @@ class AnthropicProvider(LLMProvider):
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         headers = {
             "x-api-key": self.api_key,
@@ -249,6 +252,7 @@ class AnthropicProvider(LLMProvider):
             "model": self.model_name,
             "system": system_prompt,
             "messages": [{"role": "user", "content": anthropic_content}],
+            "temperature": temperature if temperature is not None else 0.2,
         }
 
         # Support du Thinking Mode pour Claude 3.7

@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.ab_tests_view.constants import apply_pill_style
+from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
 class BranchKpiWidget(QFrame):
@@ -12,6 +13,7 @@ class BranchKpiWidget(QFrame):
         super().__init__(parent)
         self.branch_title = branch_title
         self.color_hex = color_hex
+        self._running: bool = False
         self._last_elapsed: float = 0.0
         self._last_cards: int = 0
         self._last_tokens: int = 0
@@ -33,7 +35,7 @@ class BranchKpiWidget(QFrame):
         apply_pill_style(self.lbl_branch, color_hex)
         top_row.addWidget(self.lbl_branch, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.badge_winner = QLabel("⚡ Plus rapide")
+        self.badge_winner = QLabel("Plus rapide")
         self.badge_winner.setAlignment(Qt.AlignmentFlag.AlignCenter)
         apply_pill_style(self.badge_winner, DesignTokens.COLOR_GREEN)
         self.badge_winner.hide()
@@ -49,23 +51,55 @@ class BranchKpiWidget(QFrame):
 
         metrics_row = QHBoxLayout()
         metrics_row.setContentsMargins(0, 0, 0, 0)
-        metrics_row.setSpacing(12)
+        metrics_row.setSpacing(16)
 
-        self.lbl_time = QLabel("⏱️ 0.00s")
+        self.lbl_time = QLabel("0.00s")
         self.lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent;")
-        metrics_row.addWidget(self.lbl_time, alignment=Qt.AlignmentFlag.AlignVCenter)
+        ico_time = QLabel()
+        ico_time.setFixedSize(14, 14)
+        ico_time.setPixmap(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_MUTED).pixmap(13, 13))
+        row_time = QHBoxLayout()
+        row_time.setContentsMargins(0, 0, 0, 0)
+        row_time.setSpacing(4)
+        row_time.addWidget(ico_time)
+        row_time.addWidget(self.lbl_time)
+        metrics_row.addLayout(row_time)
 
-        self.lbl_cards = QLabel("🃏 0 cartes")
+        self.lbl_cards = QLabel("0 cartes")
         self.lbl_cards.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent;")
-        metrics_row.addWidget(self.lbl_cards, alignment=Qt.AlignmentFlag.AlignVCenter)
+        ico_cards = QLabel()
+        ico_cards.setFixedSize(14, 14)
+        ico_cards.setPixmap(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_MUTED).pixmap(13, 13))
+        row_cards = QHBoxLayout()
+        row_cards.setContentsMargins(0, 0, 0, 0)
+        row_cards.setSpacing(4)
+        row_cards.addWidget(ico_cards)
+        row_cards.addWidget(self.lbl_cards)
+        metrics_row.addLayout(row_cards)
 
-        self.lbl_tokens = QLabel("🪙 ~0 tok")
+        self.lbl_tokens = QLabel("~0 tok")
         self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
-        metrics_row.addWidget(self.lbl_tokens, alignment=Qt.AlignmentFlag.AlignVCenter)
+        ico_tokens = QLabel()
+        ico_tokens.setFixedSize(14, 14)
+        ico_tokens.setPixmap(load_phosphor_icon("ph.coins", color=DesignTokens.TEXT_MUTED).pixmap(13, 13))
+        row_tokens = QHBoxLayout()
+        row_tokens.setContentsMargins(0, 0, 0, 0)
+        row_tokens.setSpacing(4)
+        row_tokens.addWidget(ico_tokens)
+        row_tokens.addWidget(self.lbl_tokens)
+        metrics_row.addLayout(row_tokens)
 
-        self.lbl_cost = QLabel("💰 $0.000")
+        self.lbl_cost = QLabel("$0.000")
         self.lbl_cost.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
-        metrics_row.addWidget(self.lbl_cost, alignment=Qt.AlignmentFlag.AlignVCenter)
+        ico_cost = QLabel()
+        ico_cost.setFixedSize(14, 14)
+        ico_cost.setPixmap(load_phosphor_icon("ph.currency-dollar", color=DesignTokens.TEXT_MUTED).pixmap(13, 13))
+        row_cost = QHBoxLayout()
+        row_cost.setContentsMargins(0, 0, 0, 0)
+        row_cost.setSpacing(4)
+        row_cost.addWidget(ico_cost)
+        row_cost.addWidget(self.lbl_cost)
+        metrics_row.addLayout(row_cost)
 
         metrics_row.addStretch()
         layout.addLayout(metrics_row)
@@ -81,29 +115,34 @@ class BranchKpiWidget(QFrame):
 
     def set_running(self) -> None:
         self.badge_winner.hide()
-        self.lbl_status.setText("⏳ En cours...")
+        self._running = True
+        self.lbl_status.setText("En cours...")
         apply_pill_style(self.lbl_status, DesignTokens.COLOR_BLUE)
 
+    def set_running_elapsed(self, elapsed: float) -> None:
+        self.lbl_time.setText(f"{elapsed:.2f}s")
+
     def set_results(self, elapsed: float, cards_count: int, tokens: int, cost_usd: float, is_success: bool = True, err_msg: str = "") -> None:
+        self._running = False
         self._last_elapsed = elapsed
         self._last_cards = cards_count
         self._last_tokens = tokens
         self._last_cost = cost_usd
 
-        self.lbl_time.setText(f"⏱️ {elapsed:.2f}s")
-        self.lbl_cards.setText(f"🃏 {cards_count} carte{'s' if cards_count > 1 else ''}")
-        self.lbl_tokens.setText(f"🪙 ~{tokens} tok")
-        self.lbl_cost.setText(f"💰 ${cost_usd:.4f}" if cost_usd > 0 else "💰 0€ (Local)")
+        self.lbl_time.setText(f"{elapsed:.2f}s")
+        self.lbl_cards.setText(f"{cards_count} carte{'s' if cards_count > 1 else ''}")
+        self.lbl_tokens.setText(f"~{tokens} tok")
+        self.lbl_cost.setText(f"${cost_usd:.4f}" if cost_usd > 0 else "0 (Local)")
 
         if is_success:
-            self.lbl_status.setText("✅ Terminé")
+            self.lbl_status.setText("Terminé")
             apply_pill_style(self.lbl_status, DesignTokens.COLOR_GREEN)
         else:
-            self.lbl_status.setText("❌ Erreur")
+            self.lbl_status.setText("Erreur")
             self.lbl_status.setToolTip(err_msg)
             apply_pill_style(self.lbl_status, DesignTokens.COLOR_RED)
 
-    def set_winner(self, text: str = "⚡ Plus rapide") -> None:
+    def set_winner(self, text: str = "Plus rapide") -> None:
         self.badge_winner.setText(text)
         self.badge_winner.show()
 
