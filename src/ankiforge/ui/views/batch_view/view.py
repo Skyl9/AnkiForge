@@ -160,7 +160,9 @@ class BatchView(QWidget):
         build_layout.setSpacing(8)
 
         scroll_area.setWidget(scroll_content)
-        build_main_layout.addWidget(scroll_area)
+        scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        scroll_area.setMinimumHeight(100)
+        build_main_layout.addWidget(scroll_area, stretch=1)
 
         # Section 1: Source (Document Source - Miroir de CreationView)
         src_card = QFrame()
@@ -459,14 +461,15 @@ class BatchView(QWidget):
 
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue", tooltip="Ajouter la sélection actuelle à la file d'attente du lot")
         self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
-        apply_shadow(self.btn_add_to_queue, blur=20, offset_y=0, color="rgba(99, 102, 241, 0.75)")
+        apply_shadow(self.btn_add_to_queue, blur=10, offset_y=2, color="rgba(99, 102, 241, 0.45)")
         self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
 
         btn_container = QWidget()
+        btn_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         btn_layout = QVBoxLayout(btn_container)
-        btn_layout.setContentsMargins(10, 8, 10, 10)
+        btn_layout.setContentsMargins(10, 6, 10, 8)
         btn_layout.addWidget(self.btn_add_to_queue)
-        build_main_layout.addWidget(btn_container)
+        build_main_layout.addWidget(btn_container, stretch=0)
 
         self.build_panel.setMinimumWidth(380)
         self.build_panel.add_tab("Paramètres du Build", build_content, "ph.sliders-horizontal", closable=False)
@@ -771,7 +774,6 @@ class BatchView(QWidget):
             docs = list(DocumentModel.select().order_by(DocumentModel.id.desc()))
             if docs:
                 for doc in docs:
-                    self.doc_combo.addItem(f"📄 {doc.title}", userData=doc)
                     content = getattr(doc, "content", "") or ""
                     words = len(content.split())
                     ftype = (getattr(doc, "file_type", "") or "doc").lower()
@@ -803,7 +805,8 @@ class BatchView(QWidget):
                         icon_name = "ph.globe"
                         icon_color = DesignTokens.ACCENT_PRIMARY
 
-                    it = QListWidgetItem(f"📄 {doc.title} ({words} mots • {ftype.upper()})")
+                    self.doc_combo.addItem(load_phosphor_icon(icon_name, color=icon_color), doc.title, userData=doc)
+                    it = QListWidgetItem(f"{doc.title} ({words} mots • {ftype.upper()})")
                     it.setIcon(load_phosphor_icon(icon_name, color=icon_color))
                     it.setFlags(it.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                     it.setCheckState(Qt.CheckState.Unchecked)
@@ -1267,8 +1270,9 @@ class BatchView(QWidget):
 
             # Col 2: Document source
             chunk_label = task.get("chunk_label")
-            source_label = f"📄 {doc.title} › {chunk_label}" if chunk_label else f"📄 {doc.title}"
+            source_label = f"{doc.title} › {chunk_label}" if chunk_label else doc.title
             doc_item = QTableWidgetItem(source_label)
+            doc_item.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
             doc_item.setToolTip(f"ID: {doc.id} | Type: {doc.file_type or 'doc'} | Mots: {len((task.get('doc_content') or doc.content or '').split())}")
             self.queue_table.setItem(i, 2, doc_item)
 

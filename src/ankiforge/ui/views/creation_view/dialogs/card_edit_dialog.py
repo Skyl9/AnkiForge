@@ -57,8 +57,8 @@ class CardEditDialog(QDialog):
             ordered_fields = ["Front", "Back"]
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
         # En-tête avec modèle
         header_layout = QHBoxLayout()

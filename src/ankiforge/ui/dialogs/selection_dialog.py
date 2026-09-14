@@ -43,8 +43,8 @@ class SelectionDialog(QDialog):
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
         # Barre de recherche
         search_layout = QHBoxLayout()
@@ -79,7 +79,7 @@ class SelectionDialog(QDialog):
                 outline: none;
             }}
             QListWidget::item {{
-                padding: 10px;
+                padding: 7px 10px;
                 border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
             }}
             QListWidget::item:hover {{
@@ -173,8 +173,8 @@ class MultiSelectionDialog(QDialog):
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
         # Barre de recherche & boutons rapides
         top_row = QHBoxLayout()

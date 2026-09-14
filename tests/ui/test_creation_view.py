@@ -356,7 +356,7 @@ def test_creation_view_generation_logs_tab(qtbot: Any, mock_db: Any) -> None:
 
     # 3. Tester l'ajout de logs via _append_generation_log
     view._append_generation_log("Test log step", level="STEP")
-    assert "▶" in view.generation_logs_console.toPlainText()
+    assert "[STEP]" in view.generation_logs_console.toPlainText()
     assert "Test log step" in view.generation_logs_console.toPlainText()
 
     # 4. Tester l'effacement du journal
@@ -365,7 +365,7 @@ def test_creation_view_generation_logs_tab(qtbot: Any, mock_db: Any) -> None:
 
     # 5. Tester l'enregistrement d'erreur
     view._on_generation_error("Erreur critique d'API")
-    assert "❌" in view.generation_logs_console.toPlainText()
+    assert "[ERROR]" in view.generation_logs_console.toPlainText()
     assert "Erreur critique d'API" in view.err_lbl.text()
     assert "Journal des Erreurs (1)" in view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_ERRORS].text()
 

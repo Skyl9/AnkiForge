@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -61,7 +62,10 @@ class CreationHubWidget(QWidget):
         # Card 1: Explorer les Documents
         card_doc = QFrame()
         card_doc.setObjectName("cardDoc")
-        card_doc.setFixedSize(320, 190)
+        card_doc.setMinimumWidth(260)
+        card_doc.setMaximumWidth(340)
+        card_doc.setFixedHeight(200)
+        card_doc.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         card_doc.setStyleSheet(f"""
             QFrame#cardDoc {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -102,7 +106,10 @@ class CreationHubWidget(QWidget):
         # Card 2: Saisie Libre
         card_text = QFrame()
         card_text.setObjectName("cardText")
-        card_text.setFixedSize(320, 190)
+        card_text.setMinimumWidth(260)
+        card_text.setMaximumWidth(340)
+        card_text.setFixedHeight(200)
+        card_text.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         card_text.setStyleSheet(f"""
             QFrame#cardText {{
                 background-color: {DesignTokens.BG_PANEL};

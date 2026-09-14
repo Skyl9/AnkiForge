@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QTextBrowser,
     QVBoxLayout,
@@ -338,9 +339,10 @@ class DocumentEditorWidget(QWidget):
         layout.addWidget(self.editor_stack, 1)
 
         bot_widget = QWidget()
+        bot_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         bot_widget.setStyleSheet("background: transparent;")
         bot_layout = QHBoxLayout(bot_widget)
-        bot_layout.setContentsMargins(0, 8, 0, 0)
+        bot_layout.setContentsMargins(0, 6, 0, 0)
 
         self.tokens_lbl = QLabel("Aa 0 chars  |  ~0 Tokens")
         self.tokens_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px;")

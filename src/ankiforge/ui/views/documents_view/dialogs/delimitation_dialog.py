@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSlider,
     QSpinBox,
     QSplitter,
@@ -245,49 +246,55 @@ class SectionRowWidget(QWidget):
         if show_page and page_number is not None:
             p_span = f"p. {page_number}–{end_page}" if end_page is not None and end_page > page_number else f"p. {page_number}"
             page_suffix = f" <span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'>({p_span})</span>"
+            full_tooltip = f"{title} ({p_span})"
         else:
             page_suffix = ""
+            full_tooltip = title
 
-        title_lbl = QLabel(f"{title}{page_suffix}")
+        title_lbl = QLabel(f"{html.escape(title)}{page_suffix}")
         title_lbl.setTextFormat(Qt.TextFormat.RichText)
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500; border: none; background: transparent;")
+        title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        title_lbl.setMinimumWidth(80)
+        title_lbl.setToolTip(full_tooltip)
         layout.addWidget(title_lbl, 1)
 
-        # Badge Volume de mots
+        # Badge Volume de mots (compact)
         if word_count < 25 and not is_noise:
-            word_badge = QLabel(f"⚠️ {word_count} mots")
-            word_badge.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; border: none; background: transparent;")
+            word_badge = QLabel(f"{word_count} mots")
+            word_badge.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 10px; font-weight: 500; border: none; background: transparent;")
         else:
             word_badge = QLabel(f"{word_count} mots")
-            word_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+            word_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         layout.addWidget(word_badge)
 
-        # Badge Cartes existantes
+        # Badge Cartes existantes — UNIQUEMENT si cartes > 0 (évite d'encombrer chaque ligne avec "0 carte")
         if cards_count > 0:
-            card_badge = QLabel(f"🎴 {cards_count} carte{'s' if cards_count > 1 else ''}")
+            card_badge = QLabel(f"{cards_count} carte{'s' if cards_count > 1 else ''}")
             card_badge.setStyleSheet(
                 f"background-color: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; "
-                f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px; padding: 2px 6px; "
-                "font-weight: bold; font-size: 11px;"
+                f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px; padding: 1px 5px; "
+                "font-weight: bold; font-size: 10px;"
             )
-        else:
-            card_badge = QLabel("0 carte")
-            card_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        layout.addWidget(card_badge)
+            layout.addWidget(card_badge)
 
-        # Badge Diagnostic / Recommandation
+        # Badge Diagnostic / Recommandation — UNIQUEMENT pour les alertes réelles (Quasi vide, Exclu, Utile)
         if cards_count > 0:
-            diag_badge = QLabel("⭐ Utile (Cartes)")
+            diag_badge = QLabel("Utile (Cartes)")
             diag_badge.setStyleSheet(
-                "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+                "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
             )
+            layout.addWidget(diag_badge)
+        elif is_noise:
+            diag_badge = QLabel("Exclu")
+            diag_badge.setStyleSheet(
+                "background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+            )
+            layout.addWidget(diag_badge)
         elif word_count < 25 and is_leaf:
-            diag_badge = QLabel("⚠️ Quasi vide")
-            diag_badge.setStyleSheet("background-color: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px;")
-        else:
-            diag_badge = QLabel("📖 Cours")
-            diag_badge.setStyleSheet(f"background-color: rgba(99, 102, 241, 0.1); color: {DesignTokens.TEXT_SECONDARY}; border-radius: 4px; padding: 2px 6px; font-size: 10px;")
-        layout.addWidget(diag_badge)
+            diag_badge = QLabel("Quasi vide")
+            diag_badge.setStyleSheet("background-color: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px;")
+            layout.addWidget(diag_badge)
 
     def _on_check_state_changed(self, state: Qt.CheckState) -> None:
         self._tree_widget.setCurrentItem(self._item)
@@ -317,7 +324,83 @@ class SectionRowWidget(QWidget):
             new_state = Qt.CheckState.Unchecked if self.checkbox.checkState() == Qt.CheckState.Checked else Qt.CheckState.Checked
             self.checkbox.setCheckState(new_state)
         self._tree_widget.itemClicked.emit(self._item)
-        super().mousePressEvent(event)
+
+
+class ChapterCardWidget(QFrame):
+    """Carte interactive pour la sélection d'un chapitre dans le mode Par Chapitres."""
+
+    toggled = Signal(int, bool)
+
+    def __init__(
+        self,
+        chapter_index: int,
+        title: str,
+        start_page: int | None = None,
+        end_page: int | None = None,
+        subsections_count: int = 0,
+        word_count: int = 0,
+        is_checked: bool = True,
+        is_paginated: bool = False,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.chapter_index = chapter_index
+        self.setObjectName(f"chapterCard_{chapter_index}")
+        self.setStyleSheet(f"""
+            QFrame#{self.objectName()} {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#{self.objectName()}:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
+
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(is_checked)
+        self.checkbox.stateChanged.connect(lambda s: self.toggled.emit(self.chapter_index, s == Qt.CheckState.Checked.value))
+        layout.addWidget(self.checkbox)
+
+        badge_h1 = QLabel(f"Ch. {chapter_index + 1}")
+        badge_h1.setStyleSheet(
+            "background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+        )
+        layout.addWidget(badge_h1)
+
+        info_col = QVBoxLayout()
+        info_col.setSpacing(2)
+
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600; border: none; background: transparent;")
+        title_lbl.setWordWrap(True)
+        info_col.addWidget(title_lbl)
+
+        meta_parts: list[str] = []
+        if is_paginated and start_page is not None:
+            p_span = f"Pages {start_page}–{end_page}" if end_page and end_page > start_page else f"Page {start_page}"
+            meta_parts.append(p_span)
+        if subsections_count > 0:
+            meta_parts.append(f"{subsections_count} sous-section{'s' if subsections_count > 1 else ''}")
+        meta_parts.append(f"~{word_count} mots")
+        meta_str = " • ".join(meta_parts)
+
+        meta_lbl = QLabel(meta_str)
+        meta_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        info_col.addWidget(meta_lbl)
+
+        layout.addLayout(info_col, 1)
+
+    def set_checked(self, checked: bool) -> None:
+        self.checkbox.blockSignals(True)
+        self.checkbox.setChecked(checked)
+        self.checkbox.blockSignals(False)
+
+    def is_checked(self) -> bool:
+        return self.checkbox.isChecked()
 
 
 class ScopeRangeBarWidget(QWidget):
@@ -672,7 +755,7 @@ class DocumentPreviewWidget(QWidget):
                 f'<div id="page-{p_num}" style="margin: 28px 0 14px 0; border-top: 2px dashed #475569; padding-top: 6px;">'
                 f'<a name="page-{p_num}"></a>'
                 f'<span style="background-color: #312e81; color: #c7d2fe; font-size: 11px; font-weight: bold; '
-                f'padding: 3px 10px; border-radius: 12px; border: 1px solid #4338ca;">📄 Page {p_num}</span>'
+                f'padding: 3px 10px; border-radius: 12px; border: 1px solid #4338ca;">Page {p_num}</span>'
                 f"</div>"
             )
 
@@ -863,12 +946,12 @@ class DocumentPreviewWidget(QWidget):
             return
         is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
         if is_included:
-            self.lbl_scope_status.setText(f"✅ Page {self._current_page} INCLUSE (portée {self._scope_start}–{self._scope_end})")
+            self.lbl_scope_status.setText(f"Page {self._current_page} INCLUSE (portée {self._scope_start}–{self._scope_end})")
             self.lbl_scope_status.setStyleSheet(
                 "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
         else:
-            self.lbl_scope_status.setText(f"🚫 Page {self._current_page} EXCLUE (portée {self._scope_start}–{self._scope_end})")
+            self.lbl_scope_status.setText(f"Page {self._current_page} EXCLUE (portée {self._scope_start}–{self._scope_end})")
             self.lbl_scope_status.setStyleSheet(
                 "background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
@@ -982,6 +1065,9 @@ class DocumentDelimitationDialog(QDialog):
             if doc.total_pages and doc.total_pages > self._max_page:
                 self._max_page = int(doc.total_pages)
 
+        self._chapter_cards: list[ChapterCardWidget] = []
+        self._tree_nodes: list[HeadingTreeNode] = []
+
         win_title = f"Découpage & Délimitation pour génération par lots — {doc.title}" if self.context == "batch" else f"Délimitation & Assainissement global — {doc.title}"
         self.setWindowTitle(win_title)
         self.resize(1280, 780)
@@ -993,7 +1079,7 @@ class DocumentDelimitationDialog(QDialog):
                 background-color: {DesignTokens.BG_MAIN};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
-            QFrame#headerCard, QFrame#pagesCard, QFrame#sectionsCard {{
+            QFrame#headerCard, QFrame#pagesCard, QFrame#sectionsCard, QFrame#allCard, QFrame#chaptersCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
@@ -1040,20 +1126,20 @@ class DocumentDelimitationDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
 
         # Panneau gauche : configuration de la délimitation
         left_container = QWidget()
         left_layout = QVBoxLayout(left_container)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(10)
+        left_layout.setSpacing(8)
 
         # 1. En-tête descriptif
         header_card = QFrame()
         header_card.setObjectName("headerCard")
         h_layout = QVBoxLayout(header_card)
-        h_layout.setContentsMargins(12, 10, 12, 10)
+        h_layout.setContentsMargins(10, 8, 10, 8)
         h_layout.setSpacing(4)
 
         header_top = QHBoxLayout()
@@ -1082,23 +1168,9 @@ class DocumentDelimitationDialog(QDialog):
         h_layout.addWidget(desc_lbl)
         left_layout.addWidget(header_card)
 
-        # 2. Plage de pages (uniquement pour documents paginés comme les PDF)
-        self.pages_card = QFrame()
-        self.pages_card.setObjectName("pagesCard")
-        pages_card_layout = QVBoxLayout(self.pages_card)
-        pages_card_layout.setContentsMargins(12, 10, 12, 10)
-        pages_card_layout.setSpacing(8)
+        self.left_layout = left_layout
 
-        lbl_sec1 = QLabel("1. BORNES DE PAGINATION UTILE")
-        lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
-        pages_card_layout.addWidget(lbl_sec1)
-
-        # Barre visuelle de la portée sélectionnée
-        self.range_bar = ScopeRangeBarWidget(self)
-        pages_card_layout.addWidget(self.range_bar)
-
-        # Sélecteur de mode de portée. Les modes de pages restent distincts des
-        # sélections structurelles fines.
+        # Sélecteur de mode de portée (persistant en haut du panneau gauche)
         mode_row = QHBoxLayout()
         mode_row.setContentsMargins(0, 0, 0, 0)
         mode_row.setSpacing(6)
@@ -1124,18 +1196,22 @@ class DocumentDelimitationDialog(QDialog):
             }}
         """
         self.btn_scope_mode_all = QPushButton("Tout le document")
+        self.btn_scope_mode_all.setIcon(load_phosphor_icon("ph.files", color=DesignTokens.TEXT_PRIMARY))
         self.btn_scope_mode_all.setCheckable(True)
         self.btn_scope_mode_all.setStyleSheet(mode_btn_style)
 
         self.btn_scope_mode_range = QPushButton("Plage de pages")
+        self.btn_scope_mode_range.setIcon(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_PRIMARY))
         self.btn_scope_mode_range.setCheckable(True)
         self.btn_scope_mode_range.setStyleSheet(mode_btn_style)
 
-        self.btn_scope_mode_structure = QPushButton("🌳 Par Chapitres")
+        self.btn_scope_mode_structure = QPushButton("Par Chapitres")
+        self.btn_scope_mode_structure.setIcon(load_phosphor_icon("ph.tree-structure", color=DesignTokens.TEXT_PRIMARY))
         self.btn_scope_mode_structure.setCheckable(True)
         self.btn_scope_mode_structure.setStyleSheet(mode_btn_style)
 
         self.btn_scope_mode_sections = QPushButton("Par Sections")
+        self.btn_scope_mode_sections.setIcon(load_phosphor_icon("ph.list-dashes", color=DesignTokens.TEXT_PRIMARY))
         self.btn_scope_mode_sections.setCheckable(True)
         self.btn_scope_mode_sections.setStyleSheet(mode_btn_style)
 
@@ -1157,13 +1233,28 @@ class DocumentDelimitationDialog(QDialog):
         lbl_max_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
         mode_row.addWidget(lbl_max_info)
         mode_row.addStretch()
+
         self.mode_card = QFrame()
         self.mode_card.setObjectName("pagesCard")
         mode_card_layout = QVBoxLayout(self.mode_card)
-        mode_card_layout.setContentsMargins(12, 10, 12, 10)
+        mode_card_layout.setContentsMargins(10, 8, 10, 8)
         mode_card_layout.setSpacing(0)
         mode_card_layout.addLayout(mode_row)
         left_layout.addWidget(self.mode_card)
+
+        # 2. Carte Mode Pages (Plage de pages & barre visuelle)
+        self.pages_card = QFrame()
+        self.pages_card.setObjectName("pagesCard")
+        pages_card_layout = QVBoxLayout(self.pages_card)
+        pages_card_layout.setContentsMargins(12, 10, 12, 10)
+        pages_card_layout.setSpacing(8)
+
+        lbl_sec1 = QLabel("1. BORNES DE PAGINATION UTILE")
+        lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        pages_card_layout.addWidget(lbl_sec1)
+
+        self.range_bar = ScopeRangeBarWidget(self)
+        pages_card_layout.addWidget(self.range_bar)
 
         # Conteneur des curseurs (slider) et spinboxes — Visible UNIQUEMENT en mode Plage de pages
         self.slider_scope_container = QWidget()
@@ -1265,16 +1356,200 @@ class DocumentDelimitationDialog(QDialog):
 
         pages_card_layout.addWidget(self.slider_scope_container)
 
-        # Conteneur des menus déroulants de chapitres — Visible en mode Par Chapitres
+        # Préréglages rapides de pagination
+        self.range_presets_container = QWidget()
+        presets_layout = QHBoxLayout(self.range_presets_container)
+        presets_layout.setContentsMargins(0, 2, 0, 2)
+        presets_layout.setSpacing(6)
+        lbl_presets = QLabel("Préréglages :")
+        lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        presets_layout.addWidget(lbl_presets)
+
+        preset_btn_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 3px 8px;
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+        btn_preset_all = QPushButton("100% (Tout)")
+        btn_preset_all.setStyleSheet(preset_btn_style)
+        btn_preset_all.clicked.connect(lambda: self._apply_page_preset(1, self._max_page))
+        btn_preset_h1 = QPushButton("1ère moitié")
+        btn_preset_h1.setStyleSheet(preset_btn_style)
+        btn_preset_h1.clicked.connect(lambda: self._apply_page_preset(1, max(1, self._max_page // 2)))
+        btn_preset_h2 = QPushButton("2ème moitié")
+        btn_preset_h2.setStyleSheet(preset_btn_style)
+        btn_preset_h2.clicked.connect(lambda: self._apply_page_preset(min(self._max_page, self._max_page // 2 + 1), self._max_page))
+        btn_preset_10 = QPushButton("10 premières p.")
+        btn_preset_10.setStyleSheet(preset_btn_style)
+        btn_preset_10.clicked.connect(lambda: self._apply_page_preset(1, min(10, self._max_page)))
+
+        presets_layout.addWidget(btn_preset_all)
+        presets_layout.addWidget(btn_preset_h1)
+        presets_layout.addWidget(btn_preset_h2)
+        presets_layout.addWidget(btn_preset_10)
+        presets_layout.addStretch()
+        pages_card_layout.addWidget(self.range_presets_container)
+
+        # Récapitulatif d'impact et de couverture de pagination
+        self.range_info_card = QFrame()
+        self.range_info_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        ric_layout = QVBoxLayout(self.range_info_card)
+        ric_layout.setContentsMargins(10, 8, 10, 8)
+        ric_layout.setSpacing(4)
+        lbl_ric_title = QLabel("RÉCAPITULATIF DE LA PLAGE SÉLECTIONNÉE")
+        lbl_ric_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        ric_layout.addWidget(lbl_ric_title)
+        self.lbl_range_coverage_kpi = QLabel("")
+        self.lbl_range_coverage_kpi.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: bold; border: none;")
+        ric_layout.addWidget(self.lbl_range_coverage_kpi)
+        self.lbl_range_words_kpi = QLabel("")
+        self.lbl_range_words_kpi.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        ric_layout.addWidget(self.lbl_range_words_kpi)
+        self.lbl_range_chapters_kpi = QLabel("")
+        self.lbl_range_chapters_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; border: none;")
+        self.lbl_range_chapters_kpi.setWordWrap(True)
+        ric_layout.addWidget(self.lbl_range_chapters_kpi)
+        pages_card_layout.addWidget(self.range_info_card)
+
+        self.range_bar.set_range(self.spin_p_start.value(), self.spin_p_end.value(), self._max_page)
+        self.lbl_page_impact = QLabel()
+        self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        pages_card_layout.addWidget(self.lbl_page_impact)
+
+        # 3. Mode All: Carte récapitulative complète
+        self.all_card = QFrame()
+        self.all_card.setObjectName("allCard")
+        all_layout = QVBoxLayout(self.all_card)
+        all_layout.setContentsMargins(14, 14, 14, 14)
+        all_layout.setSpacing(12)
+
+        hero_banner = QFrame()
+        hero_banner.setStyleSheet(f"""
+            QFrame {{
+                background-color: rgba(34, 197, 94, 0.08);
+                border: 1px solid rgba(34, 197, 94, 0.25);
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        hero_layout = QHBoxLayout(hero_banner)
+        hero_layout.setContentsMargins(10, 8, 10, 8)
+        hero_layout.setSpacing(10)
+        hero_icon = QLabel()
+        hero_icon.setPixmap(load_phosphor_icon("ph.check-circle", color="#22c55e").pixmap(24, 24))
+        hero_layout.addWidget(hero_icon)
+        hero_text_col = QVBoxLayout()
+        hero_text_col.setSpacing(2)
+        hero_title = QLabel("Document intégralement sélectionné")
+        hero_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        hero_subtitle = QLabel("Toutes les pages utiles et sections du document sont actives pour l'analyse et la génération.")
+        hero_subtitle.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        hero_text_col.addWidget(hero_title)
+        hero_text_col.addWidget(hero_subtitle)
+        hero_layout.addLayout(hero_text_col, 1)
+        all_layout.addWidget(hero_banner)
+
+        kpi_grid = QHBoxLayout()
+        kpi_grid.setSpacing(8)
+
+        def _make_kpi_box(title: str, default_val: str, subtitle: str) -> tuple[QFrame, QLabel]:
+            box = QFrame()
+            box.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+            b_layout = QVBoxLayout(box)
+            b_layout.setContentsMargins(8, 6, 8, 6)
+            b_layout.setSpacing(2)
+            lbl_t = QLabel(title)
+            lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; text-transform: uppercase; border: none;")
+            lbl_v = QLabel(default_val)
+            lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none;")
+            lbl_s = QLabel(subtitle)
+            lbl_s.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none;")
+            b_layout.addWidget(lbl_t)
+            b_layout.addWidget(lbl_v)
+            b_layout.addWidget(lbl_s)
+            return box, lbl_v
+
+        box_pages, self.lbl_all_kpi_pages = _make_kpi_box("Pages utiles", f"{self._max_page} p.", "100% actif")
+        box_chapters, self.lbl_all_kpi_chapters = _make_kpi_box("Chapitres", "—", "Structure globale")
+        box_sections, self.lbl_all_kpi_sections = _make_kpi_box("Sections", "—", "Titres détectés")
+        box_words, self.lbl_all_kpi_words = _make_kpi_box("Volume texte", "—", "Estimation mots")
+        kpi_grid.addWidget(box_pages)
+        kpi_grid.addWidget(box_chapters)
+        kpi_grid.addWidget(box_sections)
+        kpi_grid.addWidget(box_words)
+        all_layout.addLayout(kpi_grid)
+
+        lbl_outline_title = QLabel("SOMMAIRE DU CONTENU INCLUS")
+        lbl_outline_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        all_layout.addWidget(lbl_outline_title)
+
+        self.all_outline_scroll = QScrollArea()
+        self.all_outline_scroll.setWidgetResizable(True)
+        self.all_outline_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: transparent;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        self.all_outline_container = QWidget()
+        self.all_outline_container.setStyleSheet("background: transparent;")
+        self.all_outline_layout = QVBoxLayout(self.all_outline_container)
+        self.all_outline_layout.setContentsMargins(6, 6, 6, 6)
+        self.all_outline_layout.setSpacing(4)
+        self.all_outline_scroll.setWidget(self.all_outline_container)
+        all_layout.addWidget(self.all_outline_scroll, 1)
+
+        # 4. Mode Chapters: Carte de sélection par chapitres
+        self.chapters_card = QFrame()
+        self.chapters_card.setObjectName("chaptersCard")
+        chapters_layout = QVBoxLayout(self.chapters_card)
+        chapters_layout.setContentsMargins(14, 12, 14, 12)
+        chapters_layout.setSpacing(10)
+
+        ch_header = QHBoxLayout()
+        lbl_ch_title = QLabel("SÉLECTION PAR CHAPITRES")
+        lbl_ch_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        ch_header.addWidget(lbl_ch_title)
+        ch_header.addStretch()
+
+        self.lbl_chapters_kpi = QLabel("")
+        self.lbl_chapters_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none;")
+        ch_header.addWidget(self.lbl_chapters_kpi)
+        chapters_layout.addLayout(ch_header)
+
+        # Toolbar : Sélecteur de plage de chapitres + Boutons rapides
+        ch_toolbar = QHBoxLayout()
+        ch_toolbar.setContentsMargins(0, 0, 0, 0)
+        ch_toolbar.setSpacing(8)
+
         self.structure_scope_container = QWidget()
         struct_scope_layout = QHBoxLayout(self.structure_scope_container)
-        struct_scope_layout.setContentsMargins(0, 4, 0, 0)
-        struct_scope_layout.setSpacing(8)
+        struct_scope_layout.setContentsMargins(0, 0, 0, 0)
+        struct_scope_layout.setSpacing(6)
 
-        lbl_c_start = QLabel("De :")
-        lbl_c_start.setFixedWidth(28)
-        lbl_c_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
-        self.combo_c_start = QComboBox()
         combo_style = f"""
             QComboBox {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -1292,45 +1567,85 @@ class DocumentDelimitationDialog(QDialog):
                 border: 1px solid {DesignTokens.BORDER_COLOR};
             }}
         """
+        lbl_c_start = QLabel("De :")
+        lbl_c_start.setFixedWidth(24)
+        lbl_c_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.combo_c_start = QComboBox()
         self.combo_c_start.setStyleSheet(combo_style)
-
         lbl_c_end = QLabel("À :")
-        lbl_c_end.setFixedWidth(20)
+        lbl_c_end.setFixedWidth(16)
         lbl_c_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
         self.combo_c_end = QComboBox()
         self.combo_c_end.setStyleSheet(combo_style)
-
         self.combo_c_start.currentIndexChanged.connect(self._on_chapter_range_changed)
         self.combo_c_end.currentIndexChanged.connect(self._on_chapter_range_changed)
-
         struct_scope_layout.addWidget(lbl_c_start)
         struct_scope_layout.addWidget(self.combo_c_start, 1)
         struct_scope_layout.addWidget(lbl_c_end)
         struct_scope_layout.addWidget(self.combo_c_end, 1)
+        ch_toolbar.addWidget(self.structure_scope_container, 1)
 
-        pages_card_layout.addWidget(self.structure_scope_container)
-        self.structure_scope_container.hide()
+        btn_ch_all = SecondaryButton("Tout cocher")
+        btn_ch_all.setFixedHeight(28)
+        btn_ch_all.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        btn_ch_all.clicked.connect(self._on_check_all_chapters)
 
-        # Détermination du mode initial et visibilité du curseur
-        has_custom_pages = bool(doc.start_page and doc.end_page and (doc.start_page > 1 or doc.end_page < self._max_page))
-        if has_custom_pages:
-            self.btn_scope_mode_range.setChecked(True)
-            self.slider_scope_container.show()
-        else:
-            self.btn_scope_mode_all.setChecked(True)
-            self.slider_scope_container.hide()
-        self.btn_scope_mode_sections.setEnabled(True)
+        btn_ch_none = SecondaryButton("Tout décocher")
+        btn_ch_none.setFixedHeight(28)
+        btn_ch_none.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        btn_ch_none.clicked.connect(self._on_uncheck_all_chapters)
 
-        self.range_bar.set_range(self.spin_p_start.value(), self.spin_p_end.value(), self._max_page)
+        ch_toolbar.addWidget(btn_ch_all)
+        ch_toolbar.addWidget(btn_ch_none)
+        chapters_layout.addLayout(ch_toolbar)
 
-        self.lbl_page_impact = QLabel()
-        self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
-        pages_card_layout.addWidget(self.lbl_page_impact)
+        self.chapters_scroll = QScrollArea()
+        self.chapters_scroll.setWidgetResizable(True)
+        self.chapters_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: transparent;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        self.chapters_list_container = QWidget()
+        self.chapters_list_container.setStyleSheet("background: transparent;")
+        self.chapters_list_layout = QVBoxLayout(self.chapters_list_container)
+        self.chapters_list_layout.setContentsMargins(6, 6, 6, 6)
+        self.chapters_list_layout.setSpacing(6)
+        self.chapters_scroll.setWidget(self.chapters_list_container)
+        chapters_layout.addWidget(self.chapters_scroll, 1)
+
+        self.lbl_chapters_summary = QLabel("")
+        self.lbl_chapters_summary.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        chapters_layout.addWidget(self.lbl_chapters_summary)
 
         if self.is_paginated:
             left_layout.addWidget(self.pages_card)
         else:
             self.pages_card.hide()
+        left_layout.addWidget(self.all_card, 1)
+        left_layout.addWidget(self.chapters_card, 1)
+
+        # Détermination du mode initial et visibilité
+        has_custom_pages = bool(doc.start_page and doc.end_page and (doc.start_page > 1 or doc.end_page < self._max_page))
+        if has_custom_pages:
+            self.btn_scope_mode_range.setChecked(True)
+            self.slider_scope_container.show()
+            self.range_presets_container.show()
+            self.range_info_card.show()
+            self.all_card.hide()
+            self.chapters_card.hide()
+            left_layout.setStretchFactor(self.pages_card, 1)
+        else:
+            self.btn_scope_mode_all.setChecked(True)
+            self.slider_scope_container.hide()
+            self.range_presets_container.hide()
+            self.range_info_card.hide()
+            self.all_card.show()
+            self.chapters_card.hide()
+            left_layout.setStretchFactor(self.pages_card, 0)
+        self.btn_scope_mode_sections.setEnabled(True)
 
         # 3. Liste des sections et chapitres cochables
         sections_card = QFrame()
@@ -1352,10 +1667,6 @@ class DocumentDelimitationDialog(QDialog):
         sec_header.addWidget(self.lbl_selection_kpi)
         sections_layout.addLayout(sec_header)
 
-        # Si non paginé (Markdown pur), placer le conteneur de chapitres dans sections_layout
-        if not self.is_paginated:
-            sections_layout.addWidget(self.structure_scope_container)
-
         # Actions rapides
         self.section_actions = QWidget()
         quick_btns = QHBoxLayout(self.section_actions)
@@ -1375,7 +1686,7 @@ class DocumentDelimitationDialog(QDialog):
         sections_layout.addWidget(self.section_actions)
 
         self.filter_input = QLineEdit()
-        self.filter_input.setPlaceholderText("🔍 Filtrer les sections et leurs titres...")
+        self.filter_input.setPlaceholderText("Filtrer les sections et leurs titres...")
         self.filter_input.setClearButtonEnabled(True)
         self.filter_input.setFixedHeight(28)
         self.filter_input.setStyleSheet(
@@ -1390,6 +1701,7 @@ class DocumentDelimitationDialog(QDialog):
         tree_container_layout = QVBoxLayout(self.section_tree_container)
         tree_container_layout.setContentsMargins(0, 0, 0, 0)
         self.sections_list = DocumentStructureTreeWidget()
+        self.sections_list.setIndentation(16)
         self.sections_tree = self.sections_list
         self.sections_list.setStyleSheet(f"""
             QTreeWidget {{
@@ -1438,11 +1750,13 @@ class DocumentDelimitationDialog(QDialog):
         view_switch_bar = QHBoxLayout()
         view_switch_bar.setContentsMargins(0, 0, 0, 0)
         view_switch_bar.setSpacing(6)
-        self.btn_view_source = QPushButton("📄 Document Source")
+        self.btn_view_source = QPushButton("Document Source")
+        self.btn_view_source.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY))
         self.btn_view_source.setCheckable(True)
         self.btn_view_source.setChecked(True)
         self.btn_view_source.setStyleSheet(mode_btn_style)
-        self.btn_view_final = QPushButton("👁️ Vue Finale Assemblée")
+        self.btn_view_final = QPushButton("Vue Finale Assemblée")
+        self.btn_view_final.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_view_final.setCheckable(True)
         self.btn_view_final.setStyleSheet(mode_btn_style)
         self.view_switch_group = QButtonGroup(self)
@@ -1646,14 +1960,14 @@ class DocumentDelimitationDialog(QDialog):
         ]
 
         if not checked_items:
-            self.lbl_final_preview_kpi.setText("⚠️ Aucun fragment sélectionné pour la vue finale.")
+            self.lbl_final_preview_kpi.setText("Aucun fragment sélectionné pour la vue finale.")
             self.final_preview_browser.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED}; font-style: italic;'>Cochez au moins une section pour prévisualiser le contenu assemblé.</p>")
             return
 
         total_words = sum(len(str(chunk.get("content", "")).split()) for _, chunk in checked_items)
         total_tokens = sum(int(meta.get("tokens", 0)) for meta, _ in checked_items)
         approx_cards = max(1, total_words // 180) if total_words else 0
-        self.lbl_final_preview_kpi.setText(f"📦 {len(checked_items)} fragment(s) assemblé(s) • ~{total_tokens:,} tokens • ~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+        self.lbl_final_preview_kpi.setText(f"{len(checked_items)} fragment(s) assemblé(s) • ~{total_tokens:,} tokens • ~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
 
         html_blocks: list[str] = []
         for meta, chunk in checked_items:
@@ -1665,15 +1979,65 @@ class DocumentDelimitationDialog(QDialog):
                 f'<div style="background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; '
                 f'border-radius: 6px; padding: 12px; margin-bottom: 12px;">'
                 f'<div style="color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; margin-bottom: 8px;">'
-                f"📌 {title}{page_info}</div>"
+                f"{title}{page_info}</div>"
                 f'<div style="color: {DesignTokens.TEXT_PRIMARY}; white-space: pre-wrap;">{content}</div></div>'
             )
         self.final_preview_browser.setHtml("".join(html_blocks))
 
+    def _apply_page_preset(self, start: int, end: int) -> None:
+        """Applique un préréglage de pagination et met à jour l'interface."""
+        self.spin_p_start.setValue(start)
+        self.spin_p_end.setValue(end)
+
+    def _on_check_all_chapters(self) -> None:
+        """Coche tous les chapitres dans la vue chapitres."""
+        for card in self._chapter_cards:
+            card.set_checked(True)
+        if hasattr(self, "combo_c_start") and hasattr(self, "combo_c_end") and self.combo_c_start.count() > 0:
+            self.combo_c_start.blockSignals(True)
+            self.combo_c_end.blockSignals(True)
+            self.combo_c_start.setCurrentIndex(0)
+            self.combo_c_end.setCurrentIndex(self.combo_c_start.count() - 1)
+            self.combo_c_start.blockSignals(False)
+            self.combo_c_end.blockSignals(False)
+        self._set_all_checked(True)
+
+    def _on_uncheck_all_chapters(self) -> None:
+        """Décoche tous les chapitres dans la vue chapitres."""
+        for card in self._chapter_cards:
+            card.set_checked(False)
+        self._set_all_checked(False)
+
+    def _on_chapter_card_toggled(self, chapter_index: int, is_checked: bool) -> None:
+        """Met à jour les sections et l'aperçu lorsqu'une carte de chapitre est basculée."""
+        self._syncing_selection = True
+        try:
+            for i in range(self.sections_list.count()):
+                meta = self._section_meta.get(i, {})
+                if meta.get("root_index") == chapter_index:
+                    it = self.sections_list.item(i)
+                    if it:
+                        w = self.sections_list.itemWidget(it, 0)
+                        if isinstance(w, SectionRowWidget):
+                            w.set_checked(is_checked)
+                        else:
+                            it.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
+        finally:
+            self._syncing_selection = False
+        self._refresh_final_preview()
+        self._update_kpi()
+
     def _on_mode_all_clicked(self) -> None:
         self.selection_mode = "pages"
         self._set_section_controls_visible(False)
-        self.slider_scope_container.hide()
+        self.all_card.show()
+        self.chapters_card.hide()
+        if self.is_paginated:
+            self.pages_card.show()
+            self.slider_scope_container.hide()
+            self.range_presets_container.hide()
+            self.range_info_card.hide()
+            self.left_layout.setStretchFactor(self.pages_card, 0)
         if hasattr(self, "structure_scope_container"):
             self.structure_scope_container.hide()
         self._manual_exclusions.clear()
@@ -1694,6 +2058,8 @@ class DocumentDelimitationDialog(QDialog):
 
         self.range_bar.set_range(1, self._max_page, self._max_page)
         self._set_all_checked(True)
+        for card in self._chapter_cards:
+            card.set_checked(True)
         if hasattr(self, "preview_widget"):
             self.preview_widget.set_scope_range(1, self._max_page, included_pages=set(range(1, self._max_page + 1)))
         self._update_kpi()
@@ -1701,9 +2067,16 @@ class DocumentDelimitationDialog(QDialog):
     def _on_mode_range_clicked(self) -> None:
         self.selection_mode = "pages"
         self._set_section_controls_visible(False)
+        self.all_card.hide()
+        self.chapters_card.hide()
+        if self.is_paginated:
+            self.pages_card.show()
+            self.slider_scope_container.show()
+            self.range_presets_container.show()
+            self.range_info_card.show()
+            self.left_layout.setStretchFactor(self.pages_card, 1)
         if hasattr(self, "structure_scope_container"):
             self.structure_scope_container.hide()
-        self.slider_scope_container.show()
         sp = self.spin_p_start.value()
         ep = self.spin_p_end.value()
         self.range_bar.set_range(sp, ep, self._max_page)
@@ -1719,7 +2092,14 @@ class DocumentDelimitationDialog(QDialog):
 
     def _on_mode_structure_clicked(self) -> None:
         self.selection_mode = "chapters"
-        self.slider_scope_container.hide()
+        self.all_card.hide()
+        self.chapters_card.show()
+        if self.is_paginated:
+            self.pages_card.show()
+            self.slider_scope_container.hide()
+            self.range_presets_container.hide()
+            self.range_info_card.hide()
+            self.left_layout.setStretchFactor(self.pages_card, 0)
         self._set_section_controls_visible(False)
         if hasattr(self, "structure_scope_container"):
             self.structure_scope_container.show()
@@ -1727,8 +2107,16 @@ class DocumentDelimitationDialog(QDialog):
 
     def _on_mode_sections_clicked(self) -> None:
         self.selection_mode = "sections"
-        self.slider_scope_container.hide()
-        self.structure_scope_container.hide()
+        self.all_card.hide()
+        self.chapters_card.hide()
+        if self.is_paginated:
+            self.pages_card.show()
+            self.slider_scope_container.hide()
+            self.range_presets_container.hide()
+            self.range_info_card.hide()
+            self.left_layout.setStretchFactor(self.pages_card, 0)
+        if hasattr(self, "structure_scope_container"):
+            self.structure_scope_container.hide()
         self._set_section_controls_visible(True)
         self._update_kpi()
 
@@ -1744,6 +2132,9 @@ class DocumentDelimitationDialog(QDialog):
             self.combo_c_end.setCurrentIndex(idx_start)
             self.combo_c_end.blockSignals(False)
             idx_end = idx_start
+
+        for card in self._chapter_cards:
+            card.set_checked(idx_start <= card.chapter_index <= idx_end)
 
         if self.selection_mode == "chapters":
             checked_pages = [
@@ -2150,6 +2541,84 @@ class DocumentDelimitationDialog(QDialog):
         for root_node in tree_nodes:
             _add_node_recursive(root_node, None)
 
+        self._tree_nodes = tree_nodes
+        self._chapter_cards.clear()
+        while self.chapters_list_layout.count():
+            item_c = self.chapters_list_layout.takeAt(0)
+            w_c = item_c.widget()
+            if w_c:
+                w_c.deleteLater()
+
+        while self.all_outline_layout.count():
+            item_o = self.all_outline_layout.takeAt(0)
+            w_o = item_o.widget()
+            if w_o:
+                w_o.deleteLater()
+
+        def _gather_chapter_stats(n: HeadingTreeNode) -> tuple[int, int]:
+            sub_c = len(n.children)
+            words = n.word_count
+            for ch in n.children:
+                sc, w = _gather_chapter_stats(ch)
+                sub_c += sc
+                words += w
+            return sub_c, words
+
+        for idx, root_n in enumerate(tree_nodes):
+            subsections_count, chapter_words = _gather_chapter_stats(root_n)
+            ch_card = ChapterCardWidget(
+                chapter_index=idx,
+                title=root_n.title,
+                start_page=root_n.start_page,
+                end_page=root_n.end_page,
+                subsections_count=subsections_count,
+                word_count=chapter_words,
+                is_checked=True,
+                is_paginated=self.is_paginated,
+            )
+            ch_card.toggled.connect(self._on_chapter_card_toggled)
+            self._chapter_cards.append(ch_card)
+            self.chapters_list_layout.addWidget(ch_card)
+
+            outline_row = QFrame()
+            outline_row.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+            or_layout = QHBoxLayout(outline_row)
+            or_layout.setContentsMargins(8, 6, 8, 6)
+            or_layout.setSpacing(8)
+
+            ch_badge = QLabel(f"Ch. {idx + 1}")
+            ch_badge.setStyleSheet(
+                "background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+            )
+            or_layout.addWidget(ch_badge)
+
+            or_title = QLabel(root_n.title)
+            or_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+            or_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            or_layout.addWidget(or_title, 1)
+
+            p_parts: list[str] = []
+            if self.is_paginated and root_n.start_page is not None:
+                p_span = f"p. {root_n.start_page}–{root_n.end_page}" if root_n.end_page and root_n.end_page > root_n.start_page else f"p. {root_n.start_page}"
+                p_parts.append(p_span)
+            if subsections_count > 0:
+                p_parts.append(f"{subsections_count} sec.")
+            p_parts.append(f"~{chapter_words:,} mots".replace(",", " "))
+            or_meta = QLabel(" • ".join(p_parts))
+            or_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+            or_layout.addWidget(or_meta)
+
+            self.all_outline_layout.addWidget(outline_row)
+
+        self.chapters_list_layout.addStretch()
+        self.all_outline_layout.addStretch()
+
         for i in range(self.sections_list.count()):
             it = self.sections_list.item(i)
             if it and it.childCount() > 0:
@@ -2193,11 +2662,38 @@ class DocumentDelimitationDialog(QDialog):
         pct_words = int(round((checked_words / total_words) * 100)) if total_words > 0 else 100
 
         if excluded_cards > 0:
-            self.lbl_selection_kpi.setText(f"✅ {checked_count} retenues ({pct_words}% mots) • ⚠️ 🚫 {excluded_count} exclues (dont {excluded_cards} carte{'s' if excluded_cards > 1 else ''} !)")
+            self.lbl_selection_kpi.setText(f"{checked_count} retenues ({pct_words}% mots) • {excluded_count} exclues (dont {excluded_cards} carte{'s' if excluded_cards > 1 else ''} !)")
             self.lbl_selection_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
         else:
-            self.lbl_selection_kpi.setText(f"✅ {checked_count} retenues ({pct_words}% mots • {checked_cards} cartes) • 🚫 {excluded_count} exclues ({100 - pct_words}%)")
+            self.lbl_selection_kpi.setText(f"{checked_count} retenues ({pct_words}% mots • {checked_cards} cartes) • {excluded_count} exclues ({100 - pct_words}%)")
             self.lbl_selection_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+
+        # Mise à jour des KPIs du Mode All
+        if hasattr(self, "lbl_all_kpi_pages"):
+            self.lbl_all_kpi_pages.setText(f"{self._max_page} p.")
+            self.lbl_all_kpi_chapters.setText(f"{len(self._chapter_cards)} chap.")
+            self.lbl_all_kpi_sections.setText(f"{len(self._section_meta)} sec.")
+            self.lbl_all_kpi_words.setText(f"~{total_words:,} mots".replace(",", " "))
+
+        # Mise à jour des informations du Mode Range
+        if hasattr(self, "lbl_range_coverage_kpi") and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
+            sp = self.spin_p_start.value()
+            ep = self.spin_p_end.value()
+            p_cnt = ep - sp + 1
+            p_pct = (p_cnt / self._max_page * 100) if self._max_page > 0 else 100.0
+            self.lbl_range_coverage_kpi.setText(f"Pages {sp} à {ep} ({p_cnt} / {self._max_page} pages — {p_pct:.1f}%)")
+            words_in_range = sum(m.get("word_count", 0) for m in self._section_meta.values() if m.get("page_number") and sp <= m.get("page_number") <= ep and m.get("is_leaf"))
+            chs_in_range = [c.title for c in self._tree_nodes if (c.start_page is not None and c.end_page is not None and max(sp, c.start_page) <= min(ep, c.end_page))]
+            self.lbl_range_words_kpi.setText(f"Volume estimé dans la plage : ~{words_in_range:,} mots".replace(",", " "))
+            ch_txt = ", ".join(chs_in_range[:3]) + (f" (+{len(chs_in_range) - 3})" if len(chs_in_range) > 3 else "") if chs_in_range else "Tous"
+            self.lbl_range_chapters_kpi.setText(f"Chapitres concernés : {ch_txt}")
+
+        # Mise à jour des KPIs du Mode Chapitres
+        if hasattr(self, "lbl_chapters_kpi") and hasattr(self, "_chapter_cards"):
+            checked_chs = [c for c in self._chapter_cards if c.is_checked()]
+            self.lbl_chapters_kpi.setText(f"{len(checked_chs)} / {len(self._chapter_cards)} chapitres sélectionnés")
+            ch_plural = "s" if len(checked_chs) > 1 else ""
+            self.lbl_chapters_summary.setText(f"{len(checked_chs)} chapitre{ch_plural} actif{ch_plural} • {checked_words:,} mots sélectionnés".replace(",", " "))
 
         # Impact sur la pagination (uniquement si le document est un PDF / paginé)
         if self.is_paginated and self.selection_mode == "pages":
@@ -2209,10 +2705,10 @@ class DocumentDelimitationDialog(QDialog):
 
             if excluded_page_cards > 0:
                 p_str = ", ".join(f"p.{p}" for p in sorted(excluded_pages))
-                self.lbl_page_impact.setText(f"⚠️ {excluded_page_cards} carte(s) existante(s) dans les pages exclues ({p_str}) — la délimitation restreindra leur couverture.")
+                self.lbl_page_impact.setText(f"{excluded_page_cards} carte(s) existante(s) dans les pages exclues ({p_str}) — la délimitation restreindra leur couverture.")
                 self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
             else:
-                self.lbl_page_impact.setText("✅ Aucune carte n'est impactée par les bornes de pagination choisies.")
+                self.lbl_page_impact.setText("Aucune carte n'est impactée par les bornes de pagination choisies.")
                 self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; border: none; background: transparent;")
         else:
             self.lbl_page_impact.hide()

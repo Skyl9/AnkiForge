@@ -201,8 +201,8 @@ class SegmentInspectorWidget(QFrame):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
 
         # 1. En-tête : Titre, bouton délimiter (pas de badge de page)
         top_row = QHBoxLayout()
@@ -371,8 +371,8 @@ class SegmentInspectorWidget(QFrame):
 
         # 4. Liste des segments interactifs avec case à cocher
         self.segments_list = QListWidget()
-        self.segments_list.setMinimumHeight(150)
-        self.segments_list.setMaximumHeight(260)
+        self.segments_list.setMinimumHeight(110)
+        self.segments_list.setMaximumHeight(210)
         self.segments_list.setStyleSheet(f"""
             QListWidget {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -606,23 +606,23 @@ class SegmentInspectorWidget(QFrame):
         ft = (getattr(self._doc, "file_type", "") or "md").lower() if self._doc else "md"
 
         if ft in ("pdf", "album", "pptx", "epub"):
-            self.combo_strategy.addItem("📄 Par Page (1 page = 1 segment)", "page")
-            self.combo_strategy.addItem("🎯 Plage complète en 1 bloc", "range")
-            self.combo_strategy.addItem("📑 Par Chapitre (Titres / TOC)", "toc")
-            self.combo_strategy.addItem("📏 Fenêtre de tokens fixe", "tokens")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_SECONDARY), "Par Page (1 page = 1 segment)", "page")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), "Plage complète en 1 bloc", "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.bookmarks", color=DesignTokens.TEXT_SECONDARY), "Par Chapitre (Titres / TOC)", "toc")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), "Fenêtre de tokens fixe", "tokens")
         elif ft in ("audio", "mp3", "m4a", "wav", "youtube", "video"):
-            self.combo_strategy.addItem("⏱️ Par Intervalle (3 minutes)", "time_3m")
-            self.combo_strategy.addItem("⏱️ Par Intervalle (5 minutes)", "time_5m")
-            self.combo_strategy.addItem("🎬 Par Chapitre / Section", "toc")
-            self.combo_strategy.addItem("🎯 Portée complète en 1 bloc", "range")
-            self.combo_strategy.addItem("📏 Fenêtre de tokens", "tokens")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_SECONDARY), "Par Intervalle (3 minutes)", "time_3m")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_SECONDARY), "Par Intervalle (5 minutes)", "time_5m")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.film-strip", color=DesignTokens.TEXT_SECONDARY), "Par Chapitre / Section", "toc")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_SECONDARY), "Portée complète en 1 bloc", "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.ruler", color=DesignTokens.TEXT_SECONDARY), "Fenêtre de tokens", "tokens")
         else:
             # Markdown, Texte, Web
-            self.combo_strategy.addItem("📑 Par Titre H2 (Recommandé)", "h2")
-            self.combo_strategy.addItem("📚 Par Grand Chapitre (H1)", "h1")
-            self.combo_strategy.addItem("🔍 Par Sous-Section (H3)", "h3")
-            self.combo_strategy.addItem("🌐 Bloc unique (Tout en 1 bloc)", "range")
-            self.combo_strategy.addItem("📏 Fenêtre glissante (Tokens + Overlap)", "tokens")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-two", color=DesignTokens.TEXT_SECONDARY), "Par Titre H2 (Recommandé)", "h2")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-one", color=DesignTokens.TEXT_SECONDARY), "Par Grand Chapitre (H1)", "h1")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.text-h-three", color=DesignTokens.TEXT_SECONDARY), "Par Sous-Section (H3)", "h3")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.square", color=DesignTokens.TEXT_SECONDARY), "Bloc unique (Tout en 1 bloc)", "range")
+            self.combo_strategy.addItem(load_phosphor_icon("ph.arrows-split", color=DesignTokens.TEXT_SECONDARY), "Fenêtre glissante (Tokens + Overlap)", "tokens")
 
         self.combo_strategy.blockSignals(False)
         self._update_controls_visibility()
@@ -756,7 +756,7 @@ class SegmentInspectorWidget(QFrame):
                 chunks_data.append(
                     {
                         "index": c["index"],
-                        "title": f"⏱️ {mins:02d}:{secs:02d}",
+                        "title": f"{mins:02d}:{secs:02d}",
                         "content": c["content"],
                         "page_number": None,
                         "heading_path": None,

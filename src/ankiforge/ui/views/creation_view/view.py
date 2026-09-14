@@ -564,7 +564,7 @@ class CreationView(QWidget):
         cartes_layout.addWidget(self.results_splitter, 1)
 
         main_bot_toolbar = QHBoxLayout()
-        main_bot_toolbar.setContentsMargins(12, 0, 12, 12)
+        main_bot_toolbar.setContentsMargins(10, 4, 10, 8)
 
         self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge (0)")
         self.btn_save_anki.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
@@ -1771,17 +1771,17 @@ class CreationView(QWidget):
         """Ajoute une ligne horodatée et préfixée dans la console de logs d'exécution."""
         now_str = datetime.datetime.now().strftime("%H:%M:%S")
         prefix = {
-            "START": "🚀",
-            "STEP": "▶",
-            "PROGRESS": "⏳",
-            "SUCCESS": "✅",
-            "PAUSE": "⏸",
-            "FINISH": "✨",
-            "ERROR": "❌",
-            "CANCEL": "⏹",
-            "WARNING": "⚠️",
-            "INFO": "ℹ️",
-        }.get(level.upper(), "ℹ️")
+            "START": "[START]",
+            "STEP": "[STEP]",
+            "PROGRESS": "[PROGRESS]",
+            "SUCCESS": "[OK]",
+            "PAUSE": "[PAUSE]",
+            "FINISH": "[DONE]",
+            "ERROR": "[ERROR]",
+            "CANCEL": "[CANCEL]",
+            "WARNING": "[WARN]",
+            "INFO": "[INFO]",
+        }.get(level.upper(), "[INFO]")
 
         formatted_line = f"[{now_str}] {prefix} {message}"
         self.generation_logs_console.appendPlainText(formatted_line)
@@ -1795,7 +1795,7 @@ class CreationView(QWidget):
         self._append_generation_log(f"Étape {step_order} : {desc}", level="STEP")
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
-            active_editor.raw_editor.setPlaceholderText(f"⏳ Étape {step_order}: {desc}...")
+            active_editor.raw_editor.setPlaceholderText(f"Étape {step_order}: {desc}...")
 
     @Slot(int, int, str)
     def _on_orchestrator_step_progress(self, current: int, total: int, detail: str) -> None:
@@ -1803,7 +1803,7 @@ class CreationView(QWidget):
         self._append_generation_log(f"Progression ({current}/{total}) : {detail}", level="PROGRESS")
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
-            active_editor.raw_editor.setPlaceholderText(f"⏳ {detail} ({current}/{total})...")
+            active_editor.raw_editor.setPlaceholderText(f"{detail} ({current}/{total})...")
 
     @Slot(int, object)
     def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
@@ -2239,7 +2239,7 @@ class CreationView(QWidget):
         else:
             self.results_table.selectRow(self.current_preview_index)
             self._update_card_preview()
-            show_toast(self, "✅ Toutes les cartes ont été passées en revue !", is_error=False)
+            show_toast(self, "Toutes les cartes ont été passées en revue !", is_error=False)
 
     @Slot()
     def _on_edit_card(self) -> None:
@@ -2291,7 +2291,7 @@ class CreationView(QWidget):
             card["status"] = previous_status
             self._populate_results_table()
             self._update_card_preview()
-            show_toast(self, "✏️ Carte modifiée en mémoire.")
+            show_toast(self, "Carte modifiée en mémoire.")
 
     @Slot()
     def _on_reject_card(self) -> None:
@@ -2485,7 +2485,7 @@ class CreationView(QWidget):
                 saved_count += 1
 
             self._populate_results_table()
-            show_toast(self, f"💾 {saved_count} carte(s) enregistrée(s) dans la Forge !", is_error=False)
+            show_toast(self, f"{saved_count} carte(s) enregistrée(s) dans la Forge !", is_error=False)
             self._check_completion()
 
         except Exception as e:
@@ -2498,7 +2498,7 @@ class CreationView(QWidget):
             if pending:
                 show_toast(
                     self,
-                    f"⏳ {pending} carte(s) restante(s) à traiter (Garder ou Rejeter).",
+                    f"{pending} carte(s) restante(s) à traiter (Garder ou Rejeter).",
                     is_error=False,
                 )
             return
@@ -2508,7 +2508,7 @@ class CreationView(QWidget):
         refused = counts.get("Refusée", 0)
         show_toast(
             self,
-            f"🎉 Session terminée : {saved} carte(s) enregistrée(s), {refused} refusée(s).",
+            f"Session terminée : {saved} carte(s) enregistrée(s), {refused} refusée(s).",
             is_error=False,
         )
 
