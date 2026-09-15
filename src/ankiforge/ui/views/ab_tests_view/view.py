@@ -285,7 +285,7 @@ class ABTestsView(QWidget):
         src_header.addStretch()
 
         btn_clear_src = IconButton("ph.trash", tooltip="Effacer le texte source", size=22)
-        btn_clear_src.clicked.connect(lambda: self.source_editor.set_content(""))
+        btn_clear_src.clicked.connect(self._on_clear_source)
         src_header.addWidget(btn_clear_src, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         source_layout.addLayout(src_header)
@@ -914,6 +914,12 @@ class ABTestsView(QWidget):
             self.source_editor.set_document(None)
             return
         self._apply_document_to_source(doc)
+
+    def _on_clear_source(self) -> None:
+        """Efface le texte source : désélectionne le document lié et vide l'éditeur."""
+        self.doc_picker.clear_document()
+        self.source_editor.set_content("")
+        show_toast(self, "Texte source effacé.")
 
     def _apply_document_to_source(self, doc: DocumentModel) -> None:
         """Envoie le contenu du document sélectionné dans le texte source (vues PDF/Stylisé/Source)."""

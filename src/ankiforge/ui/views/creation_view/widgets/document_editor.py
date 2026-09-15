@@ -649,6 +649,9 @@ class DocumentEditorWidget(QWidget):
 
         if doc is None:
             self.view_toggle_frame.hide()
+            self._raw_content = ""
+            self.raw_editor.setPlainText("")
+            self.markdown_viewer.setHtml("")
             self._on_text_changed()
             self.editor_stack.setCurrentWidget(self.raw_editor)
             return

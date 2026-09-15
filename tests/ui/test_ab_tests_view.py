@@ -425,6 +425,61 @@ def test_ab_tests_view_document_import(qtbot):
     assert view.source_editor.view_toggle_frame.isHidden()
 
 
+@pytest.mark.ui
+def test_ab_tests_view_trash_clears_source_markdown(qtbot):
+    """Vérifie que la poubelle efface le texte source et désélectionne le document (Markdown)."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Clear Md {uid}",
+        content="# Chapitre\n\nContenu markdown à effacer.",
+        file_type="md",
+    )
+
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.doc_picker.set_document(doc)
+    assert view.source_editor.doc_model.id == doc.id
+    assert view.source_editor.get_text().startswith("# Chapitre")
+    assert view.doc_picker.get_document().id == doc.id
+
+    view._on_clear_source()
+
+    assert view.doc_picker.get_document() is None
+    assert view.doc_picker.title_label.text() == "Sélectionner un cours..."
+    assert view.source_editor.doc_model is None
+    assert view.source_editor.get_text() == ""
+    assert view.source_editor.view_toggle_frame.isHidden()
+    assert view.source_editor.editor_stack.currentWidget() is view.source_editor.raw_editor
+
+
+@pytest.mark.ui
+def test_ab_tests_view_trash_clears_source_pdf(qtbot):
+    """Vérifie que la poubelle efface un document PDF dont la vue reste présentée."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Clear Pdf {uid}",
+        content="Page 1\n<!-- PAGE: 2 -->\nPage 2",
+        file_type="pdf",
+        total_pages=2,
+    )
+
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.doc_picker.set_document(doc)
+    assert view.source_editor.doc_model.id == doc.id
+    assert not view.source_editor.view_toggle_frame.isHidden()
+
+    view._on_clear_source()
+
+    assert view.doc_picker.get_document() is None
+    assert view.source_editor.doc_model is None
+    assert view.source_editor.get_text() == ""
+    assert view.source_editor.view_toggle_frame.isHidden()
+    assert view.source_editor.editor_stack.currentWidget() is view.source_editor.raw_editor
+
+
 @pytest.mark.slow
 @pytest.mark.ui
 def test_ab_tests_view_config_summary_populated(qtbot):
