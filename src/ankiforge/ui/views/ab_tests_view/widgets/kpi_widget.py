@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.ab_tests_view.constants import apply_pill_style
@@ -121,10 +121,12 @@ class BranchKpiWidget(QFrame):
 
     def _set_metrics_dimmed(self, dimmed: bool) -> None:
         opacity = 0.4 if dimmed else 1.0
-        for lbl in (self.lbl_time, self.lbl_cards):
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent; opacity: {opacity}%;")
-        for lbl in (self.lbl_tokens, self.lbl_cost):
-            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; opacity: {opacity}%;")
+        for lbl in (self.lbl_time, self.lbl_cards, self.lbl_tokens, self.lbl_cost):
+            effect = lbl.graphicsEffect()
+            if not isinstance(effect, QGraphicsOpacityEffect):
+                effect = QGraphicsOpacityEffect(lbl)
+                lbl.setGraphicsEffect(effect)
+            effect.setOpacity(opacity)
 
     def set_running(self) -> None:
         self._running = True

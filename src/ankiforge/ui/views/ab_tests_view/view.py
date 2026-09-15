@@ -256,6 +256,7 @@ class ABTestsView(QWidget):
         self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), "Comparer deux Moteurs IA")
         self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), "Comparer deux Prompts / Personas")
         self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), "Comparer deux Pipelines DAG")
+        self.mode_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToContents)
         box_test.addWidget(self.mode_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         lbl_deck = QLabel("Paquet Cible :")
@@ -388,10 +389,6 @@ class ABTestsView(QWidget):
 
         lbl_presets = QLabel("Charger un exemple :")
         lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: 500;")
-        src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        lbl_presets = QLabel("Charger un exemple :")
-        lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold;")
         src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         for label, text_content, var_style in PRESET_SAMPLES:
