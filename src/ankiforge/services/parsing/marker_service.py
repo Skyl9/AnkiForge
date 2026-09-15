@@ -106,7 +106,7 @@ class MarkerService:
                     stderr=subprocess.DEVNULL,
                     check=False,
                     timeout=5,
-                )
+                )  # argv fixe [python, -c, code métier constant], jamais de shell
                 if res.returncode != 0:
                     return False
             except Exception:
@@ -130,7 +130,7 @@ class MarkerService:
                 stderr=subprocess.DEVNULL,
                 check=False,
                 timeout=5,
-            )
+            )  # argv fixe [python, -c, code métier constant], jamais de shell
             return res.returncode == 0
         except Exception:
             return False
@@ -172,7 +172,7 @@ class MarkerService:
                     text=True,
                     timeout=5,
                     check=False,
-                )
+                )  # argv fixe [uv, python, find, spec], exécutable localisé/validé, pas de shell
                 if res.returncode == 0:
                     found = res.stdout.strip()
                     if found and cls._is_python_compatible(found):
@@ -255,7 +255,7 @@ class MarkerService:
             encoding="utf-8",
             errors="replace",
             shell=False,
-        )
+        )  # argv construit en interne (liste fixe, jamais shell), exécutables résolus par _find_uv/_find_python
         if process.stdout is not None:
             for line in process.stdout:
                 if progress_callback and line.strip():

@@ -136,7 +136,7 @@ class HumanValidationDialog(QDialog):
             self.editor.setPlainText(json.dumps(parsed, ensure_ascii=False, indent=2))
         except Exception:
             # Ne pas modifier si texte brut non-JSON
-            pass  # nosec B110
+            pass
 
     def _on_validate_clicked(self) -> None:
         """Parse le contenu modifié et met à jour l'état avant de valider la boîte de dialogue."""

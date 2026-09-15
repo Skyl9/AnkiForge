@@ -142,7 +142,7 @@ class OCRService:
                     text=True,
                     timeout=30,
                     check=False,
-                )
+                )  # argv fixe, source SWIFT_OCR_SOURCE embarquée (aucune interpolation), timeout borné
                 if res.returncode == 0 and bin_path.exists():
                     self._apple_vision_binary = bin_path
                     logger.info("Binaire Apple Vision OCR compilé avec succès dans %s", bin_path)
@@ -170,7 +170,7 @@ class OCRService:
         try:
             cmd = [str(self._apple_vision_binary), str(p)] if self._apple_vision_binary and self._apple_vision_binary.exists() else ["swift", "-e", SWIFT_OCR_SOURCE, str(p)]
 
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)  # nosec B603
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)  # nosec B603  # argv fixe, chemin image vérifié + source Swift embarquée, pas de shell
             if res.returncode == 0:
                 return res.stdout.strip()
             logger.warning("Erreur exécution Apple Vision OCR (code %d) : %s", res.returncode, res.stderr)

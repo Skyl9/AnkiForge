@@ -15,6 +15,21 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _is_loopback_url(url: str) -> bool:
+    """Vérifie que l'URL pointe vers une adresse de boucle locale (anti-SSRF).
+
+    Les API locales (Ollama) ne doivent jamais être interrogées sur un hôte
+    distant : cela éviterait qu'une URL fournie par un tiers déclenche des
+    requêtes réseaux arbitraires depuis la machine de l'utilisateur.
+    """
+    from urllib.parse import urlparse
+
+    host = urlparse(url).hostname or ""
+    return host.lower() in _LOOPBACK_HOSTS
+
 
 @dataclass(frozen=True)
 class ModelSpec:
@@ -437,27 +452,34 @@ class ModelCatalog:
         if any(t in m_name_low for t in ("r1", "reasoning", "qwq", "think")):
             supports_thinking = True
 
-        try:
-            with urllib.request.urlopen(req, timeout=3.0) as resp:  # nosec B310
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    model_info = data.get("model_info", {})
-                    # Recherche du projecteur vision
-                    for k in model_info:
-                        if "clip" in k.lower() or "projector" in k.lower():
-                            supports_vision = True
-                        if "context_length" in k.lower():
-                            try:
-                                context_len = int(model_info[k])
-                            except (ValueError, TypeError):
-                                pass
+        if _is_loopback_url(base_url):
+            try:
+                with urllib.request.urlopen(req, timeout=3.0) as resp:  # nosec B310  # boucle locale uniquement + timeout
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        model_info = data.get("model_info", {})
+                        # Recherche du projecteur vision
+                        for k in model_info:
+                            if "clip" in k.lower() or "projector" in k.lower():
+                                supports_vision = True
+                            if "context_length" in k.lower():
+                                try:
+                                    context_len = int(model_info[k])
+                                except (ValueError, TypeError):
+                                    pass
 
-                    # Vérification du template pour la balise <think>
-                    template = str(data.get("template", ""))
-                    if "<think>" in template or "thought" in template:
-                        supports_thinking = True
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, Exception) as e:
-            logger.debug("Détection Ollama show impossible pour %s (%s), repli heuristique", model_name, e)
+                        # Vérification du template pour la balise  thinking
+                        template = str(data.get("template", ""))
+                        if " thinking" in template or "thought" in template:
+                            supports_thinking = True
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, Exception) as e:
+                logger.debug("Détection Ollama show impossible pour %s (%s), repli heuristique", model_name, e)
+        else:
+            logger.warning(
+                "URL Ollama non locale (%s) ignorée pour la détection de capacités de '%s' (anti-SSRF).",
+                base_url,
+                model_name,
+            )
 
         tasks: list[str] = ["flashcards"]
         if supports_vision:

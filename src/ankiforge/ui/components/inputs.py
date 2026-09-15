@@ -406,7 +406,7 @@ class DBComboBox(StyledComboBox):
                         self.setCurrentIndex(i)
                         break
         except Exception:
-            pass  # nosec B110
+            pass
 
     def refresh_data(self) -> None:
         """Alias pour refresh_from_model."""

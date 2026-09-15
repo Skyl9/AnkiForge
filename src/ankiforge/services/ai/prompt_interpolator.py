@@ -9,10 +9,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from jinja2 import BaseLoader, Environment
-
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import format_available_card_models_prompt
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +150,7 @@ class PipelinePromptInterpolator:
             is_valid = True
             error_msg: str | None = None
             try:
-                env = Environment(loader=BaseLoader(), autoescape=False)  # nosec B701
+                env = create_prompt_environment()
                 tpl = env.from_string(raw_query)
                 rendered_query = tpl.render(**context)
             except Exception as e:
@@ -197,7 +196,7 @@ class PipelinePromptInterpolator:
         is_valid = True
         error_msg = None
         try:
-            env = Environment(loader=BaseLoader(), autoescape=False)  # nosec B701
+            env = create_prompt_environment()
             tpl = env.from_string(raw_template)
             rendered_sys = tpl.render(**context)
         except Exception as e:

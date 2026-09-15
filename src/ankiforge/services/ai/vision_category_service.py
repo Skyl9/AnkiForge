@@ -213,8 +213,11 @@ class VisionCategoryService:
 
         try:
             from ankiforge.services.ai.flexible_service import AIManager
+            from ankiforge.utils.secret_store import load_llm_key
 
             key = str(SettingsService.get(f"keys/{category.provider.lower()}", ""))
+            if not key:
+                key = load_llm_key(str(category.model_id), str(category.provider)) or ""
             return AIManager.create_provider(
                 provider_name=category.provider,
                 model_id=category.model_id,

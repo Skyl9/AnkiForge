@@ -396,7 +396,7 @@ class MainWindow(QMainWindow):
                 try:
                     view_widget.refresh_theme(profile)
                 except Exception:
-                    pass  # nosec B110
+                    pass
         from ankiforge.ui.components.panels import IdePanel
 
         for panel in self.findChildren(IdePanel):
@@ -404,12 +404,12 @@ class MainWindow(QMainWindow):
                 try:
                     panel.refresh_theme(profile)
                 except Exception:
-                    pass  # nosec B110
+                    pass
         if hasattr(self, "_settings_window") and self._settings_window is not None and hasattr(self._settings_window, "refresh_theme"):
             try:
                 self._settings_window.refresh_theme(profile)
             except Exception:
-                pass  # nosec B110
+                pass
         theme_id = getattr(profile, "theme_id", "") if profile else ""
         event_bus.publish(ThemeChangedEvent(theme_name=str(theme_id)))
 

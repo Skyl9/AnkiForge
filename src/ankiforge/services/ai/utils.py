@@ -328,7 +328,7 @@ def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
             if result:
                 return result
     except Exception:
-        pass  # nosec B110
+        pass
 
     if isinstance(data, str):
         try:

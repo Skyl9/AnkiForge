@@ -642,7 +642,7 @@ class CardModelsView(QWidget):
                             if is_template_cloze(t_list):
                                 is_m_cloze = True
                     except Exception:
-                        pass  # nosec B110
+                        pass
                 if not is_m_cloze and any(w in m.name.lower() for w in ("cloze", "trou", "texte à trou")):
                     is_m_cloze = True
 
@@ -756,7 +756,7 @@ class CardModelsView(QWidget):
                     if isinstance(parsed_tmpl, list) and parsed_tmpl:
                         self._templates_list = parsed_tmpl
                 except Exception:
-                    pass  # nosec B110
+                    pass
 
             if not self._templates_list:
                 self._templates_list = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": '{{FrontSide}}<br><hr id="answer"><br>{{Back}}'}]
@@ -903,7 +903,7 @@ class CardModelsView(QWidget):
                         if first_val:
                             summary += f" : {first_val[:28]}..."
                     except Exception:
-                        pass  # nosec B110
+                        pass
                 self.note_witness_combo.addItem(summary, userData=v.note_id)
 
         self.note_witness_combo.blockSignals(False)

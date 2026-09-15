@@ -1,8 +1,5 @@
 """Dialogue d'édition et de test de scripts Python personnalisés pour les étapes DAG."""
 
-import json
-from typing import Any
-
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -17,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import PythonToolModel
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.tools.tool_sandbox import run_python_tool
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
@@ -197,21 +195,15 @@ class ToolEditorDialog(QDialog):
             ],
         )
 
-        local_scope: dict[str, Any] = {}
-        global_scope: dict[str, Any] = {"state": state, "json": json}
         try:
-            exec(code, global_scope, local_scope)  # nosec B102
-            run_fn = local_scope.get("run") or global_scope.get("run")
-            if not callable(run_fn):
-                self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ 'run' n'est pas appelable.</span>")
-                return
-
-            res = run_fn(state)
+            res = run_python_tool(code, state, log_name="tool_editor_test")
             self.edit_console.setHtml(
                 f"<span style='color: {DesignTokens.COLOR_GREEN};'><b>✅ Exécution réussie !</b></span><br>"
                 f"<span style='color: {DesignTokens.TEXT_MUTED};'>Résultat : {res}</span><br>"
                 f"<span style='color: {DesignTokens.TEXT_MUTED};'>Cartes : {len(state.get_variable('generated_cards', []))}</span>"
             )
+        except TimeoutError as e:
+            self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ Timeout : {e}</span>")
         except Exception as e:
             self.edit_console.setHtml(f"<span style='color: {DesignTokens.COLOR_RED};'>❌ Exception à l'exécution : {e}</span>")
 

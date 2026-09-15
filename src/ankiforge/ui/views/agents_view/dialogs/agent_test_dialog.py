@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-from jinja2 import BaseLoader, Environment
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -17,6 +16,7 @@ from ankiforge.services.ai.persona_templates import SAMPLE_TEST_INPUTS
 from ankiforge.ui.components import PrimaryButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ class AgentTestDialog(QDialog):
             provider = MockProvider()
 
         try:
-            env = Environment(loader=BaseLoader(), autoescape=False)  # nosec B701
+            env = create_prompt_environment()
             tpl = env.from_string(str(self.persona.system_prompt or ""))
             rendered_sys = tpl.render(
                 text_source=user_input,

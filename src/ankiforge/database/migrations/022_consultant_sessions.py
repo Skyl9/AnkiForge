@@ -38,7 +38,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
             database.execute_sql("CREATE INDEX IF NOT EXISTS idx_consultant_msg_session_created ON consultant_messages (session_id, created_at);")
             database.execute_sql("CREATE INDEX IF NOT EXISTS idx_consultant_session_updated ON consultant_sessions (updated_at DESC);")
         except Exception:
-            pass  # nosec B110
+            pass
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:

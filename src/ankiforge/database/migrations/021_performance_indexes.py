@@ -17,7 +17,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
             try:
                 database.execute_sql(sql)
             except Exception:
-                pass  # nosec B110
+                pass
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -35,4 +35,4 @@ def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -
             try:
                 database.execute_sql(f"DROP INDEX IF EXISTS {idx_name};")
             except Exception:
-                pass  # nosec B110
+                pass

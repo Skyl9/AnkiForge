@@ -1,12 +1,12 @@
 from typing import Any
 
-from jinja2 import BaseLoader, Environment
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QLabel, QPlainTextEdit, QVBoxLayout, QWidget
 
 from ankiforge.ui.components import SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 
 class AgentPromptPreviewDialog(QDialog):
@@ -36,7 +36,7 @@ class AgentPromptPreviewDialog(QDialog):
 
         rendered_text = ""
         try:
-            env = Environment(loader=BaseLoader(), autoescape=False)  # nosec B701
+            env = create_prompt_environment()
             tpl = env.from_string(template_str)
             mock_vars: dict[str, Any] = {
                 "text_source": "Soit A une matrice carrée n x n. A est diagonalisable s'il existe une base de vecteurs propres.",

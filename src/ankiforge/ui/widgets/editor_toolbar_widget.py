@@ -203,7 +203,7 @@ class EditorToolbarWidget(QWidget):
                             group=act.get("group", "custom"),
                         )
         except Exception:
-            pass  # nosec B110
+            pass
 
     def register_action(
         self,

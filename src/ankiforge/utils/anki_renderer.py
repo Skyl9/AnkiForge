@@ -167,9 +167,11 @@ def get_mathjax_script() -> str:
         js_url = js_res.as_uri()
         auto_render_url = auto_render_res.as_uri()
     else:
-        css_url = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
-        js_url = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
-        auto_render_url = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        # Pas de fallback CDN : le rendu mathématique est purement local (hors-ligne
+        # et confidentiel). Si le bundle KaTeX manque, on renonce à la syntaxe KaTeX
+        # mais le contenu reste lisible.
+        logger.error("Bundle KaTeX local introuvable (css/js/auto-render) : rendu mathématique désactivé.")
+        return ""
 
     return f"""
     <link rel="stylesheet" href="{css_url}" crossorigin="anonymous">

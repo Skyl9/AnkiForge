@@ -70,6 +70,10 @@ class SafeWebEnginePage(QWebEnginePage):
 
     action_requested = Signal(str, dict)  # action_name, params_dict
 
+    # Schémas autorisés pour une navigation de premier plan. Tout ce qui sort de
+    # cette allow-list est bloqué (les rendus Anki sont du contenu local contrôlé).
+    _ALLOWED_NAVIGATION_SCHEMES: frozenset[str] = frozenset({"file", "data", "about", "ankiforge", "qrc", "blob"})
+
     def __init__(self, profile: QWebEngineProfile | None = None, parent: QWidget | None = None) -> None:
         AnkiForgeWebProfile.configure_profile(profile)
         if profile is not None:
@@ -82,7 +86,12 @@ class SafeWebEnginePage(QWebEnginePage):
             super().__init__(parent)
 
     def acceptNavigationRequest(self, url: QUrl | str, _type: QWebEnginePage.NavigationType, isMainFrame: bool) -> bool:
-        """Intercepte les protocoles applicatifs ankiforge:// sans recharger la page."""
+        """Intercepte les protocoles applicatifs ankiforge:// sans recharger la page.
+
+        Tout schéma hors allow-list (_ALLOWED_NAVIGATION_SCHEMES) est rejeté :
+        un rendu de carte ne doit jamais déclencher de navigation réseau entrante
+        (CSS/JS/iframe) ni sortante (liens externes côté HTML injecté).
+        """
         qurl = QUrl(url) if isinstance(url, str) else url
         if qurl.scheme() == "ankiforge":
             action = qurl.host()
@@ -97,6 +106,13 @@ class SafeWebEnginePage(QWebEnginePage):
                     params["target"] = raw_path
             logger.debug("Action WebEngine interceptée : %s %s", action, params)
             self.action_requested.emit(action, params)
+            return False
+        if qurl.scheme() not in self._ALLOWED_NAVIGATION_SCHEMES:
+            logger.warning(
+                "Navigation WebEngine bloquée (schéma '%s' hors allow-list) : %s",
+                qurl.scheme(),
+                qurl.toString(),
+            )
             return False
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
@@ -154,9 +170,13 @@ class SafeWebEngineView(QWebEngineView):
         if page is not None:
             page.setBackgroundColor(Qt.GlobalColor.transparent)
             settings = page.settings()
+            # Les rendus sont purement locaux : pas d'accès réseau (les ressources
+            # KaTeX/fonts sont bundlées) et pas de navigation/indexation distante.
             settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
-            settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+            settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
             settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, False)
+            settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, False)
+            settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, False)
 
     def reset_dom(self) -> None:
         """Vide l'arborescence DOM et libère le cache mémoire sans recréer la page C++."""
@@ -190,7 +210,7 @@ class SafeWebEngineView(QWebEngineView):
             self.stop()
             self.history().clear()
         except Exception:
-            pass  # nosec B110
+            pass
 
     def closeEvent(self, event: Any) -> None:
         self.cleanup()

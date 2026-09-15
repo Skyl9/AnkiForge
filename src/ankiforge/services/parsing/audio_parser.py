@@ -160,10 +160,11 @@ class AudioParser:
                 from peewee import PeeweeException
 
                 from ankiforge.database.models import LLMConfigModel
+                from ankiforge.utils.secret_store import load_llm_key
 
                 cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "openai").first()
-                if cfg and cfg.api_key:
-                    openai_key = str(cfg.api_key)
+                if cfg:
+                    openai_key = str(cfg.api_key) if cfg.api_key else load_llm_key(str(cfg.model_id), "openai") or ""
             except (PeeweeException, KeyError, AttributeError):
                 pass
 
@@ -187,10 +188,11 @@ class AudioParser:
                 from peewee import PeeweeException
 
                 from ankiforge.database.models import LLMConfigModel
+                from ankiforge.utils.secret_store import load_llm_key
 
                 cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "groq").first()
-                if cfg and cfg.api_key:
-                    groq_key = str(cfg.api_key)
+                if cfg:
+                    groq_key = str(cfg.api_key) if cfg.api_key else load_llm_key(str(cfg.model_id), "groq") or ""
             except (PeeweeException, KeyError, AttributeError):
                 pass
 

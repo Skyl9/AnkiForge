@@ -1243,7 +1243,7 @@ class ConsultantView(QWidget):
                     if doc:
                         data["documents"].append({"titre": doc.title, "contenu": getattr(doc, "content", "")})
                 except Exception:
-                    pass  # nosec B110
+                    pass
 
             elif ctx_id.startswith("model_"):
                 try:
@@ -1262,7 +1262,7 @@ class ConsultantView(QWidget):
                             }
                         )
                 except Exception:
-                    pass  # nosec B110
+                    pass
 
             elif ctx_id.startswith("deck_"):
                 try:
@@ -1288,7 +1288,7 @@ class ConsultantView(QWidget):
                                 )
                         data["paquets"].append({"nom": deck.name, "cartes": notes_data})
                 except Exception:
-                    pass  # nosec B110
+                    pass
 
             elif ctx_id.startswith("card_"):
                 try:
@@ -1311,7 +1311,7 @@ class ConsultantView(QWidget):
                             }
                         )
                 except Exception:
-                    pass  # nosec B110
+                    pass
 
         return data
 

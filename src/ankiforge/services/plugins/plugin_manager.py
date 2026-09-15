@@ -171,7 +171,7 @@ class PluginManager:
                     logger.warning("🛡️ Touche Shift détectée au boot : Activation du Safe Mode (Addons désactivés) !")
                     return True
         except Exception:
-            pass  # nosec B110
+            pass
 
         return False
 
@@ -397,11 +397,11 @@ class PluginManager:
         system = platform.system()
         try:
             if system == "Darwin":
-                subprocess.Popen(["open", str(folder_path)])  # nosec B603 B607
+                subprocess.Popen(["open", str(folder_path)])  # nosec B603 B607  # argv fixe, pas de shell, chemins issus de la config utilisateur
             elif system == "Windows":
-                os.startfile(str(folder_path))  # type: ignore[attr-defined] # nosec B606
+                os.startfile(str(folder_path))  # type: ignore[attr-defined] # nosec B606  # ouvre un dossier local sélectionné par l'utilisateur (comportement attendu, non un fichier arbitraire)
             else:
-                subprocess.Popen(["xdg-open", str(folder_path)])  # nosec B603 B607
+                subprocess.Popen(["xdg-open", str(folder_path)])  # nosec B603 B607  # argv fixe, pas de shell, chemins issus de la config utilisateur
         except Exception as e:
             logger.error("Impossible d'ouvrir le dossier %s : %s", folder_path, e)
 

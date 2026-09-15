@@ -158,7 +158,7 @@ def test_safe_web_engine_view_has_file_urls_enabled(qtbot: Any) -> None:
     qtbot.addWidget(view)
 
     assert view.settings().testAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls) is True
-    assert view.settings().testAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls) is True
+    assert view.settings().testAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls) is False
     view.cleanup()
 
 
@@ -167,7 +167,7 @@ def test_webengine_headless_renders_katex_formulas(qtbot: Any) -> None:
     """Test réel offscreen dans QWebEnginePage pour confirmer que KaTeX s'exécute et génère .katex."""
     page = QWebEnginePage()
     page.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
-    page.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+    page.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
 
     fields = {
         "Front": (

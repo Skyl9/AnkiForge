@@ -5,6 +5,14 @@ import os
 import pytest
 from peewee import SqliteDatabase
 
+# Neutralise le trousseau OS durant les tests : aucun accès au Keychain/Credential
+# Manager CI, et le code tombe proprement sur son repli (colonne api_key en BDD).
+with contextlib.suppress(Exception):
+    import keyring
+    from keyring.backends import fail
+
+    keyring.set_keyring(fail.Keyring())
+
 from ankiforge.database.models import (
     AICacheModel,
     AuditRecordModel,

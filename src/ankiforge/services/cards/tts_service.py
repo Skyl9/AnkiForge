@@ -16,19 +16,114 @@ import os
 import platform
 import re
 import shutil
-import subprocess  # nosec B404
-import tarfile
+import subprocess  # nosec B404  # appels en liste de binaires système, jamais shell=True
 import urllib.request
-import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.services.settings_service import SettingsService
+from ankiforge.utils.archive_utils import safe_extract_tar, safe_extract_zip
 from ankiforge.utils.paths import get_app_data_dir, resolve_media_path
 
 logger = logging.getLogger(__name__)
+
+# =========================================================================
+# CONSTANTES DE SÉCURITÉ TÉLÉCHARGEMENT PIPER SIDECAR
+# =========================================================================
+
+# Plafonds de taille (les archives Piper pèsent ~20-26 Mo, la voix ~28 Mo).
+_MAX_PIPER_ARCHIVE_BYTES = 150 * 1024 * 1024
+_MAX_PIPER_VOICE_BYTES = 150 * 1024 * 1024
+_PIPER_DOWNLOAD_TIMEOUT_SECONDS = 30.0
+
+# Release GitHub épinglée (tag immuable). SHA-256 officiels des assets vérifiés
+# le 2026-09-15 depuis github.com/rhasspy/piper/releases/tag/2023.11.14-2.
+# Mapping (système, architecture) -> (nom_asset, sha256, est_une_archive_tar).
+_PIPER_ASSETS: dict[tuple[str, str], tuple[str, str, bool]] = {
+    ("Darwin", "arm64"): (
+        "piper_macos_aarch64.tar.gz",
+        "6b1eb03b3735946cb35216e063e7eebcc33a6bbf5dd96ec0217959bf1cdcb0cc",
+        True,
+    ),
+    ("Darwin", "x86_64"): (
+        "piper_macos_x64.tar.gz",
+        "ced85c0a3df13945b1e623b878a48fdc2854d5c485b4b67f62857cf551deaf8b",
+        True,
+    ),
+    ("Linux", "arm64"): (
+        "piper_linux_aarch64.tar.gz",
+        "fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb",
+        True,
+    ),
+    ("Linux", "x86_64"): (
+        "piper_linux_x86_64.tar.gz",
+        "a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992",
+        True,
+    ),
+    ("Windows", "amd64"): (
+        "piper_windows_amd64.zip",
+        "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea",
+        False,
+    ),
+}
+_PIPER_RELEASE_BASE_URL = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2"
+
+# Voix française par défaut (siwis-low) — SHA-256 officiels vérifiés le 2026-09-15
+# depuis huggingface.co/rhasspy/piper-voices (résolution main).
+_PIPER_VOICE_BASE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low"
+_PIPER_VOICE_SHA256: dict[str, str] = {
+    "fr_FR-siwis-low.onnx": "a7b7dcaf87229b32af8275cb1a719371234ea677bc0313d2289d5c50ab0ac53d",
+    "fr_FR-siwis-low.onnx.json": "9722527d748c284f6dd7639c4b4e661853d4f7d4514079571f67d6a97a652b69",
+}
+
+
+def _download_verified(
+    url: str,
+    dest: Path,
+    expected_sha256: str,
+    *,
+    max_bytes: int,
+    timeout: float = _PIPER_DOWNLOAD_TIMEOUT_SECONDS,
+    progress_callback: Callable[[str], None] | None = None,
+    progress_label: str = "Téléchargement",
+) -> None:
+    """Télécharge un fichier HTTPS en streaming avec plafond de taille et vérification SHA-256.
+
+    Raises:
+        ValueError: si la taille annoncée ou reçue dépasse le plafond, ou si
+            l'empreinte SHA-256 ne correspond pas à la valeur attendue.
+    """
+    req = urllib.request.Request(url, headers={"User-Agent": "AnkiForge/1.0"})
+    hasher = hashlib.sha256()
+    downloaded = 0
+    chunk_size = 1024 * 64
+
+    with urllib.request.urlopen(req, timeout=timeout) as resp, open(dest, "wb") as out_file:  # nosec B310  # HTTPS + certificats par défaut, timeout borné
+        total_size = int(resp.headers.get("Content-Length", 0))
+        if total_size > max_bytes:
+            raise ValueError(f"Taille annoncée ({total_size} octets) supérieure au plafond autorisé ({max_bytes}).")
+
+        while True:
+            chunk = resp.read(chunk_size)
+            if not chunk:
+                break
+            out_file.write(chunk)
+            hasher.update(chunk)
+            downloaded += len(chunk)
+            if downloaded > max_bytes:
+                raise ValueError(f"Taille téléchargée ({downloaded} octets) supérieure au plafond autorisé ({max_bytes}).")
+            if progress_callback and total_size > 0:
+                percent = int((downloaded / total_size) * 100)
+                mb = downloaded / (1024 * 1024)
+                total_mb = total_size / (1024 * 1024)
+                progress_callback(f"{progress_label} : {mb:.1f}/{total_mb:.1f} Mo ({percent}%)")
+
+    computed = hasher.hexdigest()
+    if computed != expected_sha256:
+        dest.unlink(missing_ok=True)
+        raise ValueError(f"Échec de la vérification SHA-256 de '{url}'. Le fichier est corrompu ou non authentique (attendu {expected_sha256[:16]}…, reçu {computed[:16]}…).")
 
 
 class TextNormalizer:
@@ -264,7 +359,7 @@ class PiperSidecarProvider(TTSProvider):
                 check=False,
                 timeout=2,
                 cwd=str(exe.parent),
-            )  # nosec B603
+            )  # nosec B603  # argv fixe [exe, "--version"], binaire vérifié SHA-256, aucun shell
             if res.returncode == 0:
                 return True, "Opérationnel"
             err = res.stderr.decode("utf-8", errors="ignore").strip()
@@ -349,7 +444,7 @@ class PiperSidecarProvider(TTSProvider):
                 capture_output=True,
                 check=False,
                 cwd=str(piper_exe.parent),
-            )  # nosec B603
+            )  # nosec B603  # argv liste fixe, chemins vérifiés + SHA-256, input via stdin (pas shell)
             if proc.returncode != 0:
                 err_msg = proc.stderr.decode("utf-8", errors="ignore")
                 raise RuntimeError(f"Piper a échoué (code {proc.returncode}) : {err_msg}")
@@ -416,7 +511,7 @@ class SystemSpeechProvider(TTSProvider):
         sys_name = platform.system()
         if sys_name == "Darwin":
             try:
-                out = subprocess.check_output(["/usr/bin/say", "-v", "?"], text=True)  # nosec B603
+                out = subprocess.check_output(["/usr/bin/say", "-v", "?"], text=True)  # nosec B603  # argv fixe, binaire système macOS (existance vérifiée)
                 voices = []
                 for line in out.strip().splitlines()[:15]:
                     parts = line.split()
@@ -449,14 +544,14 @@ class SystemSpeechProvider(TTSProvider):
                 if voice and voice != "default":
                     cmd.extend(["-v", voice])
                 cmd.extend(["-o", str(aiff_path), text])
-                subprocess.run(cmd, check=True)  # nosec B603
+                subprocess.run(cmd, check=True)  # nosec B603  # argv liste fixe [binaire système, -v, voix, -o, wav, texte]
 
                 # Conversion en AAC/m4a si afconvert est disponible
                 if Path("/usr/bin/afconvert").exists():
                     subprocess.run(
                         ["/usr/bin/afconvert", "-f", "mp4f", "-d", "aac", str(aiff_path), str(m4a_path)],
                         check=True,
-                    )  # nosec B603
+                    )  # nosec B603  # argv fixe, chemins temporaires ~/.ankiforge/tmp, aucun shell
                     if m4a_path.exists():
                         return m4a_path.read_bytes()
 
@@ -475,7 +570,7 @@ class SystemSpeechProvider(TTSProvider):
             $synth.Dispose();
             """
             try:
-                subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_script], check=True)  # nosec B603 B607
+                subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_script], check=True)  # nosec B603 B607  # pas de shell=True ; texte échappé des guillemets simples, chemins temporaires dédiés
                 if wav_path.exists():
                     return wav_path.read_bytes()
                 raise RuntimeError("PowerShell SAPI5 n'a pas pu créer de fichier audio.")
@@ -485,7 +580,7 @@ class SystemSpeechProvider(TTSProvider):
         elif sys_name == "Linux":
             wav_path = temp_dir / f"sys_{h}.wav"
             if shutil.which("espeak-ng"):
-                subprocess.run(["espeak-ng", "-w", str(wav_path), text], check=True)  # nosec B603 B607
+                subprocess.run(["espeak-ng", "-w", str(wav_path), text], check=True)  # nosec B603 B607  # argv liste fixe, texte passé en argument (jamais shell)
                 if wav_path.exists():
                     data = wav_path.read_bytes()
                     wav_path.unlink()
@@ -637,87 +732,73 @@ class TTSService:
         """
         Télécharge et décompresse automatiquement l'exécutable officiel Piper
         correspondant à la plateforme courante dans ~/.ankiforge/tools/tts/.
+
+        Intégrité : chaque asset est épinglé en SHA-256 (source officielle GitHub)
+        et le téléchargement est soumis à un plafond de taille et un timeout.
         """
         sys_name = platform.system()
         arch = platform.machine().lower()
+
+        # Résolution de l'asset officiel correspondant à la plateforme
+        key = (sys_name, "amd64") if sys_name == "Windows" else (sys_name, "arm64" if "arm" in arch or "aarch64" in arch else "x86_64")
+        if key not in _PIPER_ASSETS:
+            raise RuntimeError(f"Plateforme non supportée pour Piper automatique : {sys_name} {arch}")
+        asset_name, expected_sha256, is_tar = _PIPER_ASSETS[key]
+
         tools_dir = get_app_data_dir() / "tools" / "tts"
         tools_dir.mkdir(parents=True, exist_ok=True)
 
-        url = ""
-        is_tar = True
-
-        if sys_name == "Darwin":
-            if "arm" in arch or "aarch64" in arch:
-                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_aarch64.tar.gz"
-            else:
-                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_macos_x64.tar.gz"
-        elif sys_name == "Linux":
-            if "arm" in arch or "aarch64" in arch:
-                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz"
-            else:
-                url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz"
-        elif sys_name == "Windows":
-            url = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip"
-            is_tar = False
-        else:
-            raise RuntimeError(f"Plateforme non supportée pour Piper automatique : {sys_name} {arch}")
-
+        url = f"{_PIPER_RELEASE_BASE_URL}/{asset_name}"
         archive_path = tools_dir / ("piper_archive.tar.gz" if is_tar else "piper_archive.zip")
 
         if progress_callback:
-            progress_callback("Téléchargement de Piper depuis GitHub...")
+            progress_callback("Téléchargement de Piper depuis GitHub (vérification SHA-256)...")
 
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "AnkiForge/1.0"})
-            with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out_file:  # nosec B310
-                total_size = int(resp.headers.get("Content-Length", 0))
-                downloaded = 0
-                chunk_size = 1024 * 64
-                while True:
-                    chunk = resp.read(chunk_size)
-                    if not chunk:
-                        break
-                    out_file.write(chunk)
-                    downloaded += len(chunk)
-                    if progress_callback and total_size > 0:
-                        percent = int((downloaded / total_size) * 100)
-                        mb = downloaded / (1024 * 1024)
-                        total_mb = total_size / (1024 * 1024)
-                        progress_callback(f"Téléchargement de Piper : {mb:.1f}/{total_mb:.1f} Mo ({percent}%)")
+            _download_verified(
+                url,
+                archive_path,
+                expected_sha256,
+                max_bytes=_MAX_PIPER_ARCHIVE_BYTES,
+                progress_callback=progress_callback,
+                progress_label="Téléchargement de Piper",
+            )
 
             if progress_callback:
                 progress_callback("Extraction de l'archive...")
 
             if is_tar:
-                with tarfile.open(archive_path, "r:gz") as tar:
-                    tar.extractall(path=tools_dir, filter="data")  # nosec B202
+                safe_extract_tar(archive_path, tools_dir, max_total_size=_MAX_PIPER_ARCHIVE_BYTES)
             else:
-                with zipfile.ZipFile(archive_path, "r") as zip_ref:
-                    zip_ref.extractall(path=tools_dir)  # nosec B202
+                safe_extract_zip(archive_path, tools_dir, max_total_size=_MAX_PIPER_ARCHIVE_BYTES)
 
             archive_path.unlink(missing_ok=True)
 
-            # S'assurer des permissions d'exécution
+            # S'assurer des permissions d'exécution (fichiers téléchargés dans le
+            # profil utilisateur ~/.ankiforge/tools, mode 0755 requis pour s'exécuter)
             exe = PiperSidecarProvider.get_piper_executable()
             if exe and sys_name != "Windows":
-                os.chmod(exe, 0o755)  # nosec B103
+                os.chmod(exe, 0o755)  # nosec B103  # propriété de l'utilisateur, nécessaire à l'exécution
                 for helper_name in ("piper_phonemize", "espeak-ng"):
                     helper = exe.parent / helper_name
                     if helper.exists():
-                        os.chmod(helper, 0o755)  # nosec B103
+                        os.chmod(helper, 0o755)  # nosec B103  # idem
 
             # Télécharger une voix française par défaut si aucune voix n'est présente
             voices_dir = PiperSidecarProvider.get_voices_dir()
             if not list(voices_dir.glob("*.onnx")):
                 if progress_callback:
                     progress_callback("Téléchargement de la voix française (fr_FR-siwis-low)...")
-                voice_base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low"
                 for ext in (".onnx", ".onnx.json"):
-                    v_url = f"{voice_base}/fr_FR-siwis-low{ext}"
-                    v_dest = voices_dir / f"fr_FR-siwis-low{ext}"
-                    v_req = urllib.request.Request(v_url, headers={"User-Agent": "AnkiForge/1.0"})
-                    with urllib.request.urlopen(v_req) as v_resp, open(v_dest, "wb") as v_out:  # nosec B310
-                        shutil.copyfileobj(v_resp, v_out)
+                    fname = f"fr_FR-siwis-low{ext}"
+                    v_url = f"{_PIPER_VOICE_BASE_URL}/{fname}"
+                    v_dest = voices_dir / fname
+                    _download_verified(
+                        v_url,
+                        v_dest,
+                        _PIPER_VOICE_SHA256[fname],
+                        max_bytes=_MAX_PIPER_VOICE_BYTES,
+                    )
 
             if progress_callback:
                 progress_callback("Piper installé avec succès !")

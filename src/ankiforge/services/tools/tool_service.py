@@ -14,6 +14,7 @@ from typing import Any
 
 from ankiforge.database.models import PythonToolModel, db
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.tools.tool_sandbox import run_python_tool
 
 logger = logging.getLogger(__name__)
 
@@ -296,29 +297,23 @@ class ToolService:
             logger.warning(msg)
             return {"status": "error", "error": msg}
 
-        # 3. Exécution dynamique sécurisée du script Python
-        local_scope: dict[str, Any] = {}
-        global_scope: dict[str, Any] = {
-            "state": state,
-            "args": args or {},
-            "json": json,
-            "re": re,
-            "datetime": datetime,
-            "logging": logging,
-            "logger": logging.getLogger(f"custom_tool.{tool_name}"),
-        }
-
+        # 3. Exécution dynamique sandboxée du script Python (builtins restreints + timeout)
         try:
-            exec(str(tool.code), global_scope, local_scope)  # nosec B102
-            run_fn = local_scope.get("run") or global_scope.get("run")
-
-            if callable(run_fn):
-                result = run_fn(state)
-                return result
-            else:
-                msg = f"Le script de l'outil '{tool_name}' doit définir une fonction 'def run(state):'."
-                logger.error(msg)
-                return {"status": "error", "error": msg}
+            result = run_python_tool(
+                str(tool.code),
+                state,
+                args,
+                log_name=f"custom_tool.{tool_name}",
+            )
+            return result
+        except TimeoutError as e:
+            msg = f"Le script de l'outil '{tool_name}' a dépassé le délai maximal."
+            logger.error(msg)
+            return {"status": "error", "error": str(e)}
+        except ValueError as e:
+            msg = f"Le script de l'outil '{tool_name}' est invalide : {e}"
+            logger.error(msg)
+            return {"status": "error", "error": msg}
         except Exception as e:
             logger.exception("Erreur lors de l'exécution de l'outil '%s': %s", tool_name, e)
             return {"status": "error", "error": str(e)}

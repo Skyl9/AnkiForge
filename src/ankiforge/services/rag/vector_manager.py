@@ -48,9 +48,11 @@ class VectorManager:
         self.faiss_dir.mkdir(parents=True, exist_ok=True)
 
         if llm_config:
+            from ankiforge.utils.secret_store import load_llm_key
+
             p_name = str(llm_config.provider).lower()
             base_url = "https://api.openai.com/v1" if p_name == "openai" else "http://localhost:11434/v1"
-            api_key_str = str(llm_config.api_key) if llm_config.api_key else "dummy_key"
+            api_key_str = str(llm_config.api_key) if llm_config.api_key else load_llm_key(str(llm_config.model_id), str(llm_config.provider)) or "dummy_key"
             self.client: OpenAI | None = OpenAI(base_url=base_url, api_key=api_key_str)
             self.embedding_model = "mxbai-embed-large" if p_name == "ollama" else "text-embedding-3-small"
         else:

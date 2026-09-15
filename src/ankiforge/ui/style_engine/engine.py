@@ -1019,7 +1019,7 @@ class StyleEngine(QObject):
 
             SettingModel.set_value(f"profiles/{profile_name}/theme_id", theme_id, category="appearance")
         except Exception:
-            pass  # nosec B110
+            pass
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -1035,7 +1035,7 @@ class StyleEngine(QObject):
             if val:
                 return str(val)
         except Exception:
-            pass  # nosec B110
+            pass
 
         from ankiforge.utils.environment import get_app_qsettings
 

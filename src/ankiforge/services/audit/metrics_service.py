@@ -386,7 +386,7 @@ class MetricsService:
             cards_count = CardModel.select().count()
             decks_count = DeckModel.select().count()
         except Exception:
-            pass  # nosec B110
+            pass
 
         return {
             "kpis": {

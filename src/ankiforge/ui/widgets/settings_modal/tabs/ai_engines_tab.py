@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.model_catalog import ModelCatalog
+from ankiforge.services.ai.model_catalog import ModelCatalog, _is_loopback_url
 from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
@@ -81,7 +81,10 @@ class CloudKeyPingWorker(QRunnable):
             elif self.provider_id == "anthropic":
                 req = urllib.request.Request("https://api.anthropic.com/v1/models", headers={"x-api-key": self.key_val, "anthropic-version": "2023-06-01", "User-Agent": "AnkiForge"})
             elif self.provider_id == "gemini":
-                req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models?key={self.key_val}", headers={"User-Agent": "AnkiForge"})
+                req = urllib.request.Request(
+                    "https://generativelanguage.googleapis.com/v1beta/models",
+                    headers={"x-goog-api-key": self.key_val, "User-Agent": "AnkiForge"},
+                )  # la clé passe par l'en-tête x-goog-api-key, jamais dans l'URL (anti-fuite)
             elif self.provider_id == "groq":
                 req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
 
@@ -644,8 +647,14 @@ class AIEnginesTab(QWidget):
 
             # Persistance immédiate de la clé testée
             try:
-                SettingsService.set(f"keys/{provider_id}", key_val, category="api_keys")
-                LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == provider_id).execute()
+                from ankiforge.utils.secret_store import store_llm_key
+
+                if store_llm_key(provider_id, provider_id, key_val):
+                    # Clé dans le trousseau OS : ne plus la persister en clair en BDD
+                    LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == provider_id).execute()
+                else:
+                    SettingsService.set(f"keys/{provider_id}", key_val, category="api_keys")
+                    LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == provider_id).execute()
             except Exception as e:
                 logger.error("Échec de sauvegarde de la clé %s : %s", provider_id, e)
                 show_toast(self, f"Impossible d'enregistrer la clé {provider_name}.", is_error=True)
@@ -692,9 +701,14 @@ class AIEnginesTab(QWidget):
         url = self.le_ollama_url.text().strip().rstrip("/")
         if not (url.startswith("http://") or url.startswith("https://")):
             url = f"http://{url}"
+        if not _is_loopback_url(url):
+            self.badge_ollama_status.setText("URL non locale (anti-SSRF)")
+            apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
+            self.badge_ollama_status.show()
+            return
         try:
             req = urllib.request.Request(f"{url}/api/tags", headers={"User-Agent": "AnkiForge"})
-            with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310
+            with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310  # boucle locale uniquement + timeout borné
                 data = json.loads(resp.read().decode())
                 models = [m.get("name") for m in data.get("models", [])]
                 if models:
@@ -845,6 +859,14 @@ class AIEnginesTab(QWidget):
 
             spec = ModelCatalog.get_model_spec(provider, model_id)
             api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
+
+            # Stockage du secret dans le trousseau OS si possible (jamais en clair en BDD)
+            if api_key:
+                from ankiforge.utils.secret_store import store_llm_key
+
+                if store_llm_key(model_id, provider, api_key):
+                    api_key = ""
+
             effective_context_limit = context_limit if context_limit is not None else (spec.context_window if spec else (1048576 if provider == "gemini" else 128000))
 
             LLMConfigModel.create(
@@ -993,13 +1015,24 @@ class AIEnginesTab(QWidget):
 
     def save_tab(self) -> None:
         """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel, sauvegarde les options globales et recharge l'IA."""
+        from ankiforge.utils.secret_store import store_llm_key
+
         for p_id, edit in self.key_edits.items():
             key_val = edit.text().strip()
-            SettingsService.set(f"keys/{p_id}", key_val, category="api_keys")
-            try:
-                LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == p_id).execute()
-            except Exception as e:
-                logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
+            if not key_val:
+                continue
+            if store_llm_key(p_id, p_id, key_val):
+                # Clé dans le trousseau OS : ne plus la persister en clair en BDD
+                try:
+                    LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == p_id).execute()
+                except Exception as e:
+                    logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
+            else:
+                SettingsService.set(f"keys/{p_id}", key_val, category="api_keys")
+                try:
+                    LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == p_id).execute()
+                except Exception as e:
+                    logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
 
         SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
 

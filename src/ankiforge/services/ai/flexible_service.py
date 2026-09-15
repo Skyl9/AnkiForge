@@ -306,12 +306,18 @@ class AIManager:
     def create_provider_from_config(config: LLMConfigModel) -> LLMProvider:
         """
         Crée un fournisseur d'IA à partir d'un objet de configuration en base de données.
-        Injecte l'api_key et max_tokens stockés en BDD.
+        Injecte l'api_key et max_tokens. La clé est chargée depuis le trousseau OS
+        (keyring) en priorité, puis depuis la BDD (stockage historique).
         """
+        from ankiforge.utils.secret_store import load_llm_key
+
+        key = str(config.api_key) if config.api_key else None
+        if not key:
+            key = load_llm_key(str(config.model_id), str(config.provider))
         return AIManager.create_provider(
             provider_name=str(config.provider),
             model_id=str(config.model_id),
-            api_key=str(config.api_key) if config.api_key else None,
+            api_key=key,
             max_tokens=int(getattr(config, "max_tokens", 16384) or 16384),
         )
 
@@ -330,11 +336,19 @@ class AIManager:
         key = api_key or ""
         if not key:
             try:
+                from ankiforge.utils.secret_store import load_llm_key
+
+                key = load_llm_key(model_id, p_name) or ""
+            except Exception:
+                pass
+
+        if not key:
+            try:
                 from ankiforge.services.settings_service import SettingsService
 
                 key = str(SettingsService.get(f"keys/{p_name}", ""))
             except Exception:
-                pass  # nosec B110
+                pass
 
         try:
             if p_name == "ollama":

@@ -810,7 +810,7 @@ class ImportManager:
             try:
                 local_content = json.loads(local_version.content)
             except Exception:
-                pass  # nosec B110
+                pass
 
         local_text = " ".join(str(v).strip() for v in local_content.values())
         incoming_text = " ".join(str(v).strip() for v in incoming_content.values())
@@ -834,7 +834,7 @@ class ImportManager:
                     if isinstance(parsed, list):
                         local_tags = parsed
                 except Exception:
-                    pass  # nosec B110
+                    pass
 
             conflicts.append(
                 ConflictItem(

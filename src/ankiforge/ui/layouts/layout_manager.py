@@ -77,7 +77,7 @@ class LayoutManager:
             if val and str(val) in cls.LAYOUTS:
                 return str(val)
         except Exception:
-            pass  # nosec B110
+            pass
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -96,7 +96,7 @@ class LayoutManager:
 
                 SettingModel.set_value(f"profiles/{profile_name}/layout_id", layout_id, category="appearance")
             except Exception:
-                pass  # nosec B110
+                pass
 
             from ankiforge.utils.environment import get_app_qsettings
 

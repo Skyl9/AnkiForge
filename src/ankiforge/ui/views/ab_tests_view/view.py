@@ -1038,7 +1038,7 @@ class ABTestsView(QWidget):
             try:
                 fields = json.loads(selected_nt.fields_schema)
             except Exception:
-                pass  # nosec B110
+                pass
 
         f_front = fields[0] if len(fields) > 0 else "Front"
         f_back = fields[1] if len(fields) > 1 else "Back"
@@ -1394,22 +1394,22 @@ class ABTestsView(QWidget):
             try:
                 self.orchestrator_a.cancel()
             except Exception:
-                pass  # nosec B110
+                pass
         if hasattr(self, "orchestrator_b") and self.orchestrator_b is not None:
             try:
                 self.orchestrator_b.cancel()
             except Exception:
-                pass  # nosec B110
+                pass
         if hasattr(self, "preview_a") and self.preview_a is not None:
             try:
                 self.preview_a.close()
             except Exception:
-                pass  # nosec B110
+                pass
         if hasattr(self, "preview_b") and self.preview_b is not None:
             try:
                 self.preview_b.close()
             except Exception:
-                pass  # nosec B110
+                pass
         super().closeEvent(event)
 
 
