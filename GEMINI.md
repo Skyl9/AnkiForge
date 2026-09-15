@@ -20,6 +20,18 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 💾 **Base de Données (Peewee ORM)** : `~/.gemini/skills/technologies/peewee-orm-standards.md` ou `.agents/skills/peewee-expert/SKILL.md`
 - 🧪 **Tests & QA (pytest-qt)** : `~/.gemini/skills/technologies/pytest-qt-headless.md`
 - 🔍 **Audit de Conformité AnkiForge** : `.agents/skills/audit-ankiforge/SKILL.md`
+- 📋 **Mise à jour des Métadonnées** : `.agents/skills/mise-a-jour-metadonnees/SKILL.md`
+
+*Audits spécialisés (utiliser directement sans passer par `audit-ankiforge` pour un périmètre ciblé) :*
+- 📦 **Audit Dépendances & Supply Chain** : `.agents/skills/audit-dependances/SKILL.md`
+- 🎨 **Audit Design System & Accessibilité UI** : `.agents/skills/audit-design-ui/SKILL.md`
+- 🗄️ **Audit Données & Modèle Peewee** : `.agents/skills/audit-donnees/SKILL.md`
+- 🤖 **Audit Moteur IA & Pipeline DAG** : `.agents/skills/audit-ia-pipeline/SKILL.md`
+- ⚡ **Audit Performance & Réactivité Qt** : `.agents/skills/audit-performance/SKILL.md`
+- 🧹 **Audit Qualité du Code (ruff/mypy)** : `.agents/skills/audit-qualite-code/SKILL.md`
+- 🔒 **Audit Sécurité** : `.agents/skills/audit-securite/SKILL.md`
+- 🧪 **Audit Tests & CI/CD** : `.agents/skills/audit-tests-ci/SKILL.md`
+- 📸 **Inspection Visuelle UI (screenshot offscreen)** : `.agents/skills/ui-screenshot/SKILL.md`
 
 ## 🗺️ Règles Métier & Architecture Technique Actuelle (AnkiForge)
 

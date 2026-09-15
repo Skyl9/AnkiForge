@@ -50,6 +50,14 @@ Liens cliquables `[fichier.py:Lnn](file://<abs>/...#Lnn)` · règle violée · e
 ### 🗺️ Plan priorisé
 Actions triées par impact (un blocage de thread d'abord), avec mesure de vérification (ex. re-test temps de réponse, profiler).
 
+## ⛔ Ne PAS utiliser ce skill si...
+
+- La demande est un **profiling fin avec des outils externes** (cProfile, py-spy) — ce skill fait de l'analyse statique par grep, pas du profiling dynamique.
+- L'utilisateur signale une **lenteur côté réseau externe** (LLM distant, latence API) : hors périmètre du skill (qui couvre le thread principal Qt + BDD).
+- La requête concerne les **performances des tests** eux-mêmes → utiliser `audit-tests-ci`.
+- La requête est une **demande de refactoring pur** sans diagnostic préalable.
+- La lenteur signalée est une **régression après un merge** non encore analysée : commencer par lire les logs de CI.
+
 ## 5. Clôture
 
 Résume les principaux bloquants dans le chat, indique le chemin du rapport, et propose des correctifs (déport en `QThreadPool`, prefetch Peewee, lazy import).

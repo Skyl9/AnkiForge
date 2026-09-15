@@ -62,13 +62,20 @@ Un résumé du nombre d'anomalies trouvées, catégorisées par **Sévérité** 
 
 ### 🔍 Liste Détaillée des Violations
 Pour chaque violation, fournis :
-1. Le fichier et la ligne concernée sous forme de lien cliquable absolu (ex: [models.py:L24](file:///Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/src/ankiforge/database/models.py#L24)).
+1. Le fichier et la ligne concernée sous forme de lien cliquable absolu (ex: [models.py:L24](file://{workspace}/src/ankiforge/database/models.py#L24)).
 2. La règle violée (en citant la section correspondante de `GEMINI.md`).
 3. L'extrait de code incriminé.
 4. Une proposition de correction immédiate (code diff suggéré).
 
 ### 🗺️ Plan de Résolution Recommandé
 Une liste d'actions ordonnées par priorité pour remettre le projet en conformité, en commençant par les anomalies critiques (ex: blocages de thread, fuites de base de données, erreurs de tests).
+
+## ⛔ Ne PAS utiliser ce skill si...
+
+- La requête concerne une **modification de code isolée** sans besoin d'audit global (utiliser directement les outils d'édition).
+- L'utilisateur demande de **corriger** un bug spécifique déjà identifié (ce skill est un auditeur, pas un correcteur automatique).
+- La demande porte uniquement sur un **sous-domaine spécialisé** : utiliser alors le skill dédié (`audit-donnees`, `audit-securite`, `audit-tests-ci`, `audit-performance`, `audit-design-ui`, `audit-ia-pipeline`, `audit-qualite-code`, `audit-dependances`).
+- L'audit a déjà été effectué récemment et aucune modification du code source n'a eu lieu depuis.
 
 ## 5. Clôture de la Tâche
 

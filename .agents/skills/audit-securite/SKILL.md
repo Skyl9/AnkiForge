@@ -62,6 +62,14 @@ Pour chaque violation : lien cliquable absolu `[fichier.py:Lnn](file://<abs>/...
 ### 🗺️ Plan de remédiation priorisé
 Actions ordonnées (critiques d'abord : secrets exposés, exécution non confinée, SSRF), avec commandes de vérification associées.
 
+## ⛔ Ne PAS utiliser ce skill si...
+
+- La demande est une **CVE sur une dépendance externe** (bibliothèque PyPI) → utiliser `audit-dependances`.
+- L'utilisateur veut seulement **corriger un hardcoded secret déjà identifié** sans audit complet.
+- La requête porte sur la **qualité du code** (typage, lint) et non sur la sécurité → utiliser `audit-qualite-code`.
+- La demande concerne une **vulnérabilité dans un système tiers** (serveur, infra) et non dans le code source AnkiForge.
+- Les outils `bandit` et `gitleaks` **ne sont pas disponibles** dans l'environnement : vérifier d'abord que `uv run bandit --version` fonctionne.
+
 ## 5. Clôture
 
 1. Résume dans le chat les résultats majeurs (nombre de problématiques, les plus critiques).

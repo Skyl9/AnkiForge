@@ -55,6 +55,14 @@ Liens cliquables `[fichier.test:Lnn](file://<abs>/...#Lnn)` · règle violée ·
 ### 🗺️ Plan priorisé
 Actions ordonnées (flakiness/mocking d'abord), puis optimisations CI (durées, caches, parallélisation sûre).
 
+## ⛔ Ne PAS utiliser ce skill si...
+
+- La demande est d'**écrire un nouveau test** pour une fonctionnalité → utiliser les outils d'édition directement.
+- L'utilisateur veut uniquement **relancer la suite de tests** sans audit (`uv run pytest` suffit).
+- La requête concerne les **performances de l'application** (lenteur UI, N+1 queries) → utiliser `audit-performance`.
+- Le workflow CI dont parle l'utilisateur est un **projet différent** (hors AnkiForge GitHub Actions).
+- Les **erreurs de tests** signalées sont déjà triagées et le correctif est connu — passer directement à la correction.
+
 ## 5. Clôture
 
 Résume l'état des tests (nombre, durée, couverture) et les risques de flakiness dans le chat, indique le chemin du rapport, propose les correctifs (fixtures, mocks, ajustements CI).

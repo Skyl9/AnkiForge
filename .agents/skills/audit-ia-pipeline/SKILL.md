@@ -52,6 +52,14 @@ Liens cliquables `[fichier.py:Lnn](file://<abs>/...#Lnn)` · règle · extrait �
 ### 🗺️ Plan priorisé
 Ordre : robustesse parsing + injection (critiques) → erreurs/retry → coûts → hygiène MCP.
 
+## ⛔ Ne PAS utiliser ce skill si...
+
+- La demande est d'**écrire ou modifier un pipeline DAG** (utiliser les outils d'édition directement, le skill est un auditeur).
+- L'utilisateur veut tester une **connexion LLM en direct** (hors périmètre du skill — jamais d'appels réels en audit).
+- La demande concerne uniquement la **sécurité des clés API stockées** → utiliser `audit-securite`.
+- La demande concerne uniquement les **performances Qt/BDD** → utiliser `audit-performance`.
+- Le projet n'utilise pas `PipelineOrchestrator` ni `MCPToolService` (hors périmètre AnkiForge).
+
 ## 5. Clôture
 
 Résume les risques IA majeurs dans le chat, indique le chemin du rapport, propose les correctifs (try/except JSON, migration de prompt vers Jinja2, retry/timeouts).

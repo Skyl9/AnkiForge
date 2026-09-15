@@ -1,6 +1,12 @@
 ---
 name: ui-screenshot
-description: Permet à l'agent de capturer des captures d'écran (screenshots) haute résolution de n'importe quelle vue d'AnkiForge en mode headless/offscreen et de les inspecter visuellement avec view_file.
+description: >
+  Permet à l'agent de capturer des captures d'écran (screenshots) haute résolution de n'importe
+  quelle vue d'AnkiForge en mode headless/offscreen et de les inspecter visuellement avec view_file.
+  Activer lorsque l'utilisateur demande de "capturer une vue", "screenshot AnkiForge", "inspecter
+  visuellement", "voir le rendu", "valider l'UI graphiquement", "before/after refonte", "capture
+  offscreen Qt", "vérifier l'affichage", "voir la maquette en action" ou demande une validation
+  visuelle après modification d'un composant PySide6.
 ---
 
 # 📸 Compétence : Inspecteur Graphique & Capture d'Écran Autonome (AnkiForge UI Inspector)
@@ -40,7 +46,7 @@ Une fois le screenshot généré, **appelle impérativement l'outil `view_file`*
 
 ```json
 {
-  "AbsolutePath": "/Users/tristanrigaud-humbert/PycharmProjects/AnkiForge/temp/screens/creation.png",
+  "AbsolutePath": "{workspace}/temp/screens/creation.png",
   "toolAction": "Inspecting UI screenshot",
   "toolSummary": "Inspect UI screenshot"
 }
@@ -74,3 +80,13 @@ Pour chaque menu à refondre :
 5. **🧪 Validation Technique :**
    - Lancer `uv run pytest tests/ui/test_<view_name>_view.py`.
    - Valider `mypy`, `bandit`, et les hooks `pre-commit`.
+
+---
+
+## ⛔ Ne PAS utiliser ce skill si...
+
+- Le script `script/capture_view.py` **n'existe pas encore** dans le projet — vérifier sa présence avant d'invoquer le skill.
+- L'utilisateur demande uniquement un **audit de code UI** sans besoin de validation visuelle → utiliser `audit-design-ui`.
+- La validation demandée porte sur la **logique métier** d'un composant (signaux/slots, données) et non son rendu → utiliser les tests pytest.
+- L'environnement **n'a pas de driver graphique offscreen** Qt disponible (`QT_QPA_PLATFORM=offscreen` doit fonctionner) — tester d'abord avec `uv run python -c "from PySide6.QtWidgets import QApplication"`.
+- L'utilisateur demande une **comparaison de maquette web** avec l'UI Qt → utiliser le skill `maquette-studio` ou `ankiforge-qt-translator`.

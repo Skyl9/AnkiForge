@@ -55,6 +55,14 @@ Liens cliquables `[fichier.py:Lnn](file://<abs>/...#Lnn)` · règle (code ruff/m
 ### 🗺️ Plan de remédiation
 Actions ordonnées par priorité (print() et typing d'abord — bloquants CI réels), puis suggestions de refactoring SIM/UP.
 
+## ⛔ Ne PAS utiliser ce skill si...
+
+- L'utilisateur veut **appliquer automatiquement** les correctifs ruff sans audit préalable : lancer `uv run ruff check --fix .` directement suffit.
+- La demande porte sur la **sécurité du code** (subprocess, secrets, sandbox) → utiliser `audit-securite`.
+- La demande porte uniquement sur les **imports de dépendances** ou CVE → utiliser `audit-dependances`.
+- La demande est une **revue de logique métier** (pas de qualité formelle) — ce skill couvre uniquement le style, le typage et le linting, pas la correction fonctionnelle.
+- Le projet n'utilise pas `ruff` + `mypy` comme outils de qualité.
+
 ## 5. Clôture
 
 Résume le nombre d'issues et les plus bloquantes dans le chat, indique le chemin du rapport, et propose d'appliquer les correctifs automatiques (`uv run ruff check --fix .`) puis de relancer les vérifications.
