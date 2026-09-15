@@ -6,14 +6,17 @@ import pytest
 
 from ankiforge.database.models import (
     DeckModel,
+    DocumentModel,
     LLMConfigModel,
     NoteTypeModel,
     PersonaModel,
     PipelineModel,
 )
 from ankiforge.services.ai.base import LLMProvider
+from ankiforge.ui.components import StyledTextEdit
 from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.views.ab_tests_view import ABTestsView
+from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 
 
 class DummyABProviderA(LLMProvider):
@@ -195,22 +198,39 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     # 2. Disposition splitter source | paramètres (l'espace est désormais occupé)
     assert hasattr(view, "config_splitter")
     assert hasattr(view, "config_panel")
-    assert view.source_text_edit.minimumHeight() == 260
-    assert view.source_text_edit.sizePolicy().horizontalPolicy() == view.source_text_edit.sizePolicy().Policy.Expanding
+    assert isinstance(view.source_text_edit, StyledTextEdit)
+    assert isinstance(view.source_editor, DocumentEditorWidget)  # composant réutilisé de la vue Création
+    assert not view.source_editor.btn_generate.isVisibleTo(view.source_editor)  # pas de "Générer" ici
+    assert view.source_editor.minimumHeight() == 260
+    assert view.source_editor.sizePolicy().horizontalPolicy() == view.source_editor.sizePolicy().Policy.Expanding
+    assert view.doc_picker.minimumHeight() > 30  # plus d'écrasement du bouton document
+    assert not hasattr(view, "btn_samples")  # exemples sources supprimés
     assert not hasattr(view, "config_bar_widget")
     assert not hasattr(view, "adv_drawer")
     assert not hasattr(view, "btn_toggle_source")
     assert not hasattr(view, "btn_adv_toggle")
 
-    # 3. Réglages Inférence toujours visibles (plus de tiroir repliable)
+    # 3. Branches à comparer sur l'écran Configuration (paramètres testés réglables avant le run)
+    assert view.engine_a_combo.parent() is view.branches_block
+    assert view.engine_b_combo.parent() is view.branches_block
+    assert view.persona_a_combo.parent() is view.branches_block
+    assert view.pipeline_b_combo.parent() is view.branches_block
+    assert hasattr(view, "lbl_branch_a")  # label lecture seule sur l'écran Résultats
+    assert hasattr(view, "lbl_branch_b")
+
+    # 3. Réglages Inférence toujours visibles : 1 barre globale OU 2 barres A/B, jamais les trois
     assert not view.global_adv_widget.isHidden()
     assert not view.chk_independent.isHidden()
     assert view.adv_branch_a_widget.isHidden()  # réglages indépendants A/B off par défaut
     assert view.adv_branch_b_widget.isHidden()
     view.chk_independent.setChecked(True)
+    assert view.global_adv_widget.isHidden()
     assert not view.adv_branch_a_widget.isHidden()
     assert not view.adv_branch_b_widget.isHidden()
     view.chk_independent.setChecked(False)
+    assert not view.global_adv_widget.isHidden()
+    assert view.adv_branch_a_widget.isHidden()
+    assert view.adv_branch_b_widget.isHidden()
 
     # 4. État initial idle des KPI : aucune métrique trompeuse (spéc #3)
     assert view.kpi_a.lbl_time.text() == "—"
@@ -237,6 +257,7 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     assert hasattr(view, "config_summary_bar")
     assert hasattr(view, "btn_back")
     assert view.btn_back.parent() is view.config_summary_bar
+    assert view.config_summary_bar.minimumHeight() == 40  # 2 lignes + hauteur auto, plus de fixed 44px
     view._show_results_page()
     assert view.phase_stack.currentWidget() is view.results_page
     view._show_config_page()
@@ -364,36 +385,44 @@ def test_ab_tests_view_diff_and_copy_config(qtbot):
 
 
 @pytest.mark.ui
-def test_ab_tests_view_source_modal_imports(qtbot):
-    """Vérifie le remplacement des pills par des imports modaux (Exemples + Document)."""
+def test_ab_tests_view_document_import(qtbot):
+    """Vérifie l'import d'un document dans le texte source avec les vues Rendu Stylisé / Source."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Labo {uid}",
+        content="# Titre du cours\n\nCeci est un extrait de cours en Markdown pour le laboratoire A/B.",
+        file_type="md",
+    )
+
     view = ABTestsView(ai_manager=None)
     qtbot.addWidget(view)
 
-    # Bouton modale d'exemples présent (plus de TagPillButton dans le header source)
+    # Bouton d'exemples supprimé, sélecteur de document conservé
     from ankiforge.ui.components import DocumentPickerButton
 
-    assert hasattr(view, "btn_samples")
+    assert not hasattr(view, "btn_samples")
     assert hasattr(view, "doc_picker")
     assert isinstance(view.doc_picker, DocumentPickerButton)
 
-    # L'import d'un exemple prédéfini peuple le texte source sans interaction directe
-    from ankiforge.ui.views.ab_tests_view.constants import PRESET_SAMPLES
-    from ankiforge.ui.views.ab_tests_view.dialogs import SampleSelectWindow
+    # L'import d'un document active les vues stylisées du composant
+    view._apply_document_to_source(doc)
+    assert view.source_editor.doc_model is doc
+    assert not view.source_editor.view_toggle_frame.isHidden()
+    assert view.source_editor.btn_view_pdf.text() == "Rendu Stylisé"
+    assert view.source_editor.btn_view_md.text() == "Source Markdown"
+    # Vue "Rendu Stylisé" (markdown) active après l'import
+    assert view.source_editor.editor_stack.currentWidget() is view.source_editor.markdown_viewer
+    assert view.source_editor.get_text().startswith("# Titre du cours")
 
-    modal = SampleSelectWindow(parent=view)
-    qtbot.addWidget(modal)
-    assert modal.list.count() == len(PRESET_SAMPLES)
+    # Bascule vers "Source Markdown" (éditeur brut)
+    view.source_editor.btn_view_md.setChecked(True)
+    view.source_editor._on_view_toggled("md")
+    assert view.source_editor.editor_stack.currentWidget() is view.source_editor.raw_editor
 
-    picked: list[str] = []
-    modal.sample_picked.connect(picked.append)
-    modal.list.setCurrentRow(0)
-    modal._on_confirm()
-    assert len(picked) == 1
-    assert picked[0] == PRESET_SAMPLES[0][1]
-
-    # L'injection de l'exemple peuple le texte source
-    view.source_text_edit.setPlainText(PRESET_SAMPLES[1][1])
-    assert view.source_text_edit.toPlainText() == PRESET_SAMPLES[1][1]
+    # Vider le document : retour au mode texte libre
+    view._on_document_changed(None)
+    assert view.source_editor.doc_model is None
+    assert view.source_editor.view_toggle_frame.isHidden()
 
 
 @pytest.mark.slow
@@ -443,5 +472,8 @@ def test_ab_tests_view_config_summary_populated(qtbot):
     assert deck.name in view.summary_labels["deck"].text()
     assert "Model Summary A" in view.summary_labels["branch_a"].text()
     assert "Model Summary B" in view.summary_labels["branch_b"].text()
+    assert "Moteur A" in view.lbl_branch_a.text()
+    assert "Model Summary A" in view.lbl_branch_a.text()
+    assert "Model Summary B" in view.lbl_branch_b.text()
     assert "0.70" in view.summary_labels["inf_a"].text()
     assert "4096" in view.summary_labels["inf_a"].text()

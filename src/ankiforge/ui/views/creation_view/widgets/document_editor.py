@@ -635,6 +635,56 @@ class DocumentEditorWidget(QWidget):
 
             self.pdf_view.pageNavigator().jump(page_index, QPointF(0, 0), self.pdf_view.zoomFactor())
 
+    def set_document(self, doc: Any | None) -> None:
+        """Bascule dynamiquement le document affiché (utilisé par le Laboratoire A/B).
+
+        - ``None`` : retour au mode texte libre (toggle masqué, éditeur brut).
+        - PDF : charge le PDF (vue PDF + Texte Extrait).
+        - Album : galerie planches (vue Galerie + Texte & Analyse).
+        - Autre (md/docx/html/...) : Rendu Stylisé + Source Markdown.
+        """
+        self._pdf_selected_pages = []
+        self.doc_model = doc
+        file_type = getattr(doc, "file_type", "").lower() if doc else ""
+
+        if doc is None:
+            self.view_toggle_frame.hide()
+            self._on_text_changed()
+            self.editor_stack.setCurrentWidget(self.raw_editor)
+            return
+
+        raw = getattr(doc, "content", "") or getattr(doc, "text_content", "") or ""
+        self._raw_content = raw
+        self.raw_editor.setPlainText(raw)
+        self.markdown_viewer.setHtml(markdown.markdown(raw, extensions=["fenced_code", "tables"]))
+
+        if file_type == "pdf":
+            self.btn_view_pdf.setText("PDF")
+            self.btn_view_md.setText("Texte Extrait")
+            self.view_toggle_frame.show()
+            media = getattr(doc, "original_media", None)
+            if media and getattr(media, "filename", None) and hasattr(self, "pdf_document") and self.pdf_document is not None:
+                pdf_path = resolve_media_path(media.filename)
+                if pdf_path.exists():
+                    self.pdf_document.load(str(pdf_path))
+            self.btn_view_pdf.setChecked(True)
+            self._on_view_toggled("pdf")
+        elif file_type == "album":
+            if not hasattr(self, "album_container"):
+                self._init_album_container()
+            self.btn_view_pdf.setText("Galerie Planches")
+            self.btn_view_md.setText("Texte & Analyse")
+            self.view_toggle_frame.show()
+            self.btn_view_pdf.setChecked(True)
+            self._on_view_toggled("pdf")
+        else:
+            self.btn_view_pdf.setText("Rendu Stylisé")
+            self.btn_view_md.setText("Source Markdown")
+            self.view_toggle_frame.show()
+            self.btn_view_pdf.setChecked(True)
+            self._on_view_toggled("pdf")
+        self._on_text_changed()
+
     def set_content(self, content: str) -> None:
         self._raw_content = content
         self.raw_editor.setPlainText(content)

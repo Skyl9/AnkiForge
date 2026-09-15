@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer, Slot
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QFontMetrics, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -46,12 +46,11 @@ from ankiforge.ui.components import (
     StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.views.ab_tests_view.constants import PRESET_SAMPLES
-from ankiforge.ui.views.ab_tests_view.dialogs import SampleSelectWindow
 from ankiforge.ui.views.ab_tests_view.widgets import (
     BranchKpiWidget,
     SubTabButton,
 )
+from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
 from ankiforge.ui.widgets.toast import show_toast
@@ -85,7 +84,8 @@ class ABTestsView(QWidget):
 
         self.summary_labels: dict[str, QLabel] = {}
 
-        self.source_text_edit: StyledTextEdit = StyledTextEdit()
+        self.source_editor = DocumentEditorWidget(content="", source_title="Source Laboratoire A/B", doc_model=None)
+        self.source_text_edit: StyledTextEdit = self.source_editor.raw_editor
 
         self._engine_cfg_a: Any = None
         self._engine_cfg_b: Any = None
@@ -199,6 +199,7 @@ class ABTestsView(QWidget):
         SettingsService.set("ab_test/independent_settings", independent, category="ab_test")
         for slider in (self.temp_slider_a, self.tok_slider_a, self.temp_slider_b, self.tok_slider_b):
             slider.setEnabled(independent)
+        self.global_adv_widget.setVisible(not independent)
         self.adv_branch_a_widget.setVisible(independent)
         self.adv_branch_b_widget.setVisible(independent)
 
@@ -278,33 +279,21 @@ class ABTestsView(QWidget):
         lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: 500;")
         src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_samples = SecondaryButton("Exemples")
-        self.btn_samples.setIcon(load_phosphor_icon("ph.stack", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_samples.setFixedHeight(26)
-        self.btn_samples.setToolTip("Insérer un texte d'exemple prédéfini dans le laboratoire")
-        src_header.addWidget(self.btn_samples, alignment=Qt.AlignmentFlag.AlignVCenter)
-
         self.doc_picker = DocumentPickerButton(allow_clear=True)
-        self.doc_picker.setFixedHeight(30)
         src_header.addWidget(self.doc_picker, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         src_header.addStretch()
 
-        self.lbl_src_chars = QLabel("0 caractères")
-        self.lbl_src_chars.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-family: '{DesignTokens.FONT_CODE}';")
-        src_header.addWidget(self.lbl_src_chars, alignment=Qt.AlignmentFlag.AlignVCenter)
-
         btn_clear_src = IconButton("ph.trash", tooltip="Effacer le texte source", size=22)
-        btn_clear_src.clicked.connect(lambda: self.source_text_edit.clear())
+        btn_clear_src.clicked.connect(lambda: self.source_editor.set_content(""))
         src_header.addWidget(btn_clear_src, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         source_layout.addLayout(src_header)
 
-        self.source_text_edit.setPlaceholderText("Collez ici l'extrait de cours ou la consigne à tester dans le laboratoire A/B...")
-        self.source_text_edit.setMinimumHeight(260)
-        self.source_text_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.source_text_edit.textChanged.connect(self._on_source_text_changed)
-        source_layout.addWidget(self.source_text_edit)
+        self.source_editor.setMinimumHeight(260)
+        self.source_editor.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.source_editor.btn_generate.hide()
+        source_layout.addWidget(self.source_editor, 1)
 
         # ── 1b. COLONNE DROITE : PARAMÈTRES DU TEST (panel vertical) ──────────
         self.config_panel = QFrame()
@@ -399,7 +388,52 @@ class ABTestsView(QWidget):
         box_eval.addLayout(eval_rows)
         config_panel_layout.addWidget(block_eval)
 
-        # Section 3 : Réglages Inférence (toujours visibles)
+        # Section 3 : Branches à comparer (ce qui est réellement testé : Moteur / Prompt / Pipeline)
+        self.branches_block, branches_box = self._build_config_block("BRANCHES À COMPARER")
+        branches_rows = QVBoxLayout()
+        branches_rows.setContentsMargins(0, 0, 0, 0)
+        branches_rows.setSpacing(6)
+
+        row_branch_a = QHBoxLayout()
+        row_branch_a.setContentsMargins(0, 0, 0, 0)
+        row_branch_a.setSpacing(8)
+        self.lbl_a = QLabel("Moteur A :")
+        self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.engine_a_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
+        self.persona_a_combo = StyledComboBox()
+        self.persona_a_combo.setFixedHeight(30)
+        self.persona_a_combo.hide()
+        self.pipeline_a_combo = StyledComboBox()
+        self.pipeline_a_combo.setFixedHeight(30)
+        self.pipeline_a_combo.hide()
+        row_branch_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row_branch_a.addWidget(self.engine_a_combo, 1)
+        row_branch_a.addWidget(self.persona_a_combo, 1)
+        row_branch_a.addWidget(self.pipeline_a_combo, 1)
+        branches_rows.addLayout(row_branch_a)
+
+        row_branch_b = QHBoxLayout()
+        row_branch_b.setContentsMargins(0, 0, 0, 0)
+        row_branch_b.setSpacing(8)
+        self.lbl_b = QLabel("Moteur B :")
+        self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.engine_b_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
+        self.persona_b_combo = StyledComboBox()
+        self.persona_b_combo.setFixedHeight(30)
+        self.persona_b_combo.hide()
+        self.pipeline_b_combo = StyledComboBox()
+        self.pipeline_b_combo.setFixedHeight(30)
+        self.pipeline_b_combo.hide()
+        row_branch_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row_branch_b.addWidget(self.engine_b_combo, 1)
+        row_branch_b.addWidget(self.persona_b_combo, 1)
+        row_branch_b.addWidget(self.pipeline_b_combo, 1)
+        branches_rows.addLayout(row_branch_b)
+
+        branches_box.addLayout(branches_rows)
+        config_panel_layout.addWidget(self.branches_block)
+
+        # Section 4 : Réglages Inférence (toujours visibles)
         block_inf, box_inf = self._build_config_block("RÉGLAGES INFÉRENCE")
         inf_rows = QVBoxLayout()
         inf_rows.setContentsMargins(0, 0, 0, 0)
@@ -444,29 +478,37 @@ class ABTestsView(QWidget):
         # ── 2. BARRE DE RÉSUMÉ DE CONFIGURATION (ÉCRAN RÉSULTATS) ─────────────
         self.config_summary_bar = QFrame()
         self.config_summary_bar.setObjectName("ConfigSummaryBar")
-        self.config_summary_bar.setFixedHeight(44)
+        self.config_summary_bar.setMinimumHeight(40)
         self._apply_summary_bar_style()
 
-        summary_layout = QHBoxLayout(self.config_summary_bar)
-        summary_layout.setContentsMargins(12, 5, 12, 5)
-        summary_layout.setSpacing(8)
+        summary_vbox = QVBoxLayout(self.config_summary_bar)
+        summary_vbox.setContentsMargins(12, 6, 12, 6)
+        summary_vbox.setSpacing(4)
+
+        summary_top = QHBoxLayout()
+        summary_top.setSpacing(8)
 
         self.btn_back = SecondaryButton("Modifier la configuration")
         self.btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
         self.btn_back.setFixedHeight(28)
         self.btn_back.clicked.connect(self._show_config_page)
-        summary_layout.addWidget(self.btn_back, alignment=Qt.AlignmentFlag.AlignVCenter)
+        summary_top.addWidget(self.btn_back, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         lbl_summary_title = QLabel("RÉSUMÉ DE LA CONFIGURATION :")
         lbl_summary_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
-        summary_layout.addWidget(lbl_summary_title, alignment=Qt.AlignmentFlag.AlignVCenter)
+        summary_top.addWidget(lbl_summary_title, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        summary_top.addStretch()
 
         self.summary_badges = QWidget()
+        self.summary_badges.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         badges_flow = FlowLayout(self.summary_badges, margin=0, h_spacing=6, v_spacing=4)
         for key in ("mode", "deck", "model", "branch_a", "branch_b", "inf_a", "inf_b"):
             self.summary_labels[key] = self._make_summary_badge("—")
             badges_flow.addWidget(self.summary_labels[key])
-        summary_layout.addWidget(self.summary_badges, 1)
+
+        summary_vbox.addLayout(summary_top)
+        summary_vbox.addWidget(self.summary_badges)
 
         results_layout.addWidget(self.config_summary_bar)
 
@@ -542,25 +584,16 @@ class ABTestsView(QWidget):
         toolbar_a.setContentsMargins(0, 0, 0, 0)
         toolbar_a.setSpacing(8)
 
-        self.lbl_a = QLabel("Moteur A :")
-        self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.engine_a_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.persona_a_combo = StyledComboBox()
-        self.persona_a_combo.setFixedHeight(30)
-        self.persona_a_combo.hide()
-        self.pipeline_a_combo = StyledComboBox()
-        self.pipeline_a_combo.setFixedHeight(30)
-        self.pipeline_a_combo.hide()
+        self.lbl_branch_a = QLabel("—")
+        self.lbl_branch_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600;")
+        self.lbl_branch_a.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.btn_flip_a = SecondaryButton("Voir Verso")
         self.btn_flip_a.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_flip_a.setFixedHeight(26)
         self.btn_flip_a.setToolTip("Basculer Recto/Verso de la Branche A")
 
-        toolbar_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_a.addWidget(self.engine_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_a.addWidget(self.persona_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_a.addWidget(self.pipeline_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.lbl_branch_a, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.btn_flip_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_a.addLayout(toolbar_a)
 
@@ -603,25 +636,16 @@ class ABTestsView(QWidget):
         toolbar_b.setContentsMargins(0, 0, 0, 0)
         toolbar_b.setSpacing(8)
 
-        self.lbl_b = QLabel("Moteur B :")
-        self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.engine_b_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.persona_b_combo = StyledComboBox()
-        self.persona_b_combo.setFixedHeight(30)
-        self.persona_b_combo.hide()
-        self.pipeline_b_combo = StyledComboBox()
-        self.pipeline_b_combo.setFixedHeight(30)
-        self.pipeline_b_combo.hide()
+        self.lbl_branch_b = QLabel("—")
+        self.lbl_branch_b.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 600;")
+        self.lbl_branch_b.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.btn_flip_b = SecondaryButton("Voir Verso")
         self.btn_flip_b.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         self.btn_flip_b.setFixedHeight(26)
         self.btn_flip_b.setToolTip("Basculer Recto/Verso de la Branche B")
 
-        toolbar_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_b.addWidget(self.engine_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_b.addWidget(self.persona_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_b.addWidget(self.pipeline_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.lbl_branch_b, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.btn_flip_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_b.addLayout(toolbar_b)
 
@@ -813,17 +837,6 @@ class ABTestsView(QWidget):
         self.panel_a.setStyleSheet(panel_css)
         self.panel_b.setStyleSheet(panel_css)
 
-        self.source_text_edit.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
-                padding: 6px;
-                font-size: 12px;
-            }}
-        """)
-
         table_css = f"""
             QTableWidget {{
                 background-color: {DesignTokens.BG_INPUT};
@@ -893,32 +906,23 @@ class ABTestsView(QWidget):
         self.btn_back.clicked.connect(self._show_config_page)
         self.btn_flip_a.clicked.connect(lambda: self.preview_a.flip_card())
         self.btn_flip_b.clicked.connect(lambda: self.preview_b.flip_card())
-        self.btn_samples.clicked.connect(self._on_open_samples_modal)
         self.doc_picker.document_changed.connect(self._on_document_changed)
-
-    def _on_open_samples_modal(self) -> None:
-        """Ouvre la modale de sélection d'un texte d'exemple prédéfini."""
-        modal = SampleSelectWindow(parent=self)
-        modal.sample_picked.connect(self.source_text_edit.setPlainText)
-        modal.show()
 
     def _on_document_changed(self, doc: DocumentModel | None) -> None:
         """Réagit au changement de document source sélectionné via DocumentPickerButton."""
-        if doc is not None:
-            self._apply_document_to_source(doc)
+        if doc is None:
+            self.source_editor.set_document(None)
+            return
+        self._apply_document_to_source(doc)
 
     def _apply_document_to_source(self, doc: DocumentModel) -> None:
-        """Envoie le contenu du document sélectionné dans le texte source."""
+        """Envoie le contenu du document sélectionné dans le texte source (vues PDF/Stylisé/Source)."""
         content = getattr(doc, "content", "") or getattr(doc, "text_content", "") or ""
         if not content:
             show_toast(self, f"Le document « {doc.title} » est vide.", is_error=True)
             return
-        self.source_text_edit.setPlainText(content)
-        show_toast(self, f"Document « {doc.title} » importé dans le texte source.")
-
-    def _on_source_text_changed(self) -> None:
-        cnt = len(self.source_text_edit.toPlainText())
-        self.lbl_src_chars.setText(f"{cnt} caractère{'s' if cnt > 1 else ''}")
+        self.source_editor.set_document(doc)
+        show_toast(self, f"Document « {doc.title} » importé (vues PDF/Stylisé/Source disponibles).")
 
     def _branch_display(self, branch: str) -> str:
         mode_idx = self.mode_combo.currentIndex()
@@ -932,6 +936,16 @@ class ABTestsView(QWidget):
             return "—"
         display = getattr(cfg, "name", None) or getattr(cfg, "display_name", None) or getattr(cfg, "model_id", None) or "—"
         return str(display)
+
+    def _elide_badge(self, text: str, max_w: int = 220) -> str:
+        """Tronque le texte d'un badge pour qu'il tienne dans FlowLayout sans écrasement."""
+        return QFontMetrics(self.summary_labels["mode"].font()).elidedText(text, Qt.TextElideMode.ElideRight, max_w)
+
+    def _update_results_branch_labels(self) -> None:
+        """Affiche sur les toolbars Résultats la branche A/B réellement configurée (lecture seule)."""
+        prefix = {0: "Moteur", 1: "Prompt", 2: "Pipeline"}.get(self.mode_combo.currentIndex(), "Moteur")
+        self.lbl_branch_a.setText(self._elide_badge(f"{prefix} A : {self._branch_display('A')}"))
+        self.lbl_branch_b.setText(self._elide_badge(f"{prefix} B : {self._branch_display('B')}"))
 
     def _update_config_summary(self) -> None:
         """Met à jour les badges de résumé de configuration affichés sur l'écran Résultats."""
@@ -947,13 +961,14 @@ class ABTestsView(QWidget):
         fmt_temp_b = "—" if temp_b is None else f"{temp_b:.2f}"
         fmt_tok = "—" if tok_a is None else str(int(tok_a))
         fmt_tok_b = "—" if tok_b is None else str(int(tok_b))
-        self.summary_labels["mode"].setText(f"Mode : {self.mode_combo.currentText()}")
-        self.summary_labels["deck"].setText(f"Deck : {deck_name}")
-        self.summary_labels["model"].setText(f"Modèle : {nt_name}")
-        self.summary_labels["branch_a"].setText(f"A : {self._branch_display('A')}")
-        self.summary_labels["branch_b"].setText(f"B : {self._branch_display('B')}")
-        self.summary_labels["inf_a"].setText(f"IA : {fmt_temp} / {fmt_tok}")
-        self.summary_labels["inf_b"].setText(f"IB : {fmt_temp_b} / {fmt_tok_b}")
+        self.summary_labels["mode"].setText(self._elide_badge(f"Mode : {self.mode_combo.currentText()}"))
+        self.summary_labels["deck"].setText(self._elide_badge(f"Deck : {deck_name}"))
+        self.summary_labels["model"].setText(self._elide_badge(f"Modèle : {nt_name}"))
+        self.summary_labels["branch_a"].setText(self._elide_badge(f"A : {self._branch_display('A')}"))
+        self.summary_labels["branch_b"].setText(self._elide_badge(f"B : {self._branch_display('B')}"))
+        self.summary_labels["inf_a"].setText(self._elide_badge(f"IA : {fmt_temp} / {fmt_tok}"))
+        self.summary_labels["inf_b"].setText(self._elide_badge(f"IB : {fmt_temp_b} / {fmt_tok_b}"))
+        self._update_results_branch_labels()
 
     def _switch_view_mode(self, mode_idx: int) -> None:
         self.btn_subtab_preview.set_active(mode_idx == 0)
@@ -1086,7 +1101,13 @@ class ABTestsView(QWidget):
         return False
 
     def _insert_mock_initial_data(self) -> None:
-        self.source_text_edit.setPlainText(PRESET_SAMPLES[0][1])
+        _mock_source = (
+            "L'insuffisance cardiaque droite est caractérisée par l'incapacité du ventricule droit "
+            "à assurer un débit sanguin pulmonaire suffisant. Les signes cliniques prédominants "
+            "associent turgescence jugulaire, reflux hépato-jugulaire, hépatomégalie douloureuse "
+            "et œdèmes des membres inférieurs."
+        )
+        self.source_editor.set_content(_mock_source)
 
         self.cards_a = [
             {
@@ -1210,7 +1231,7 @@ class ABTestsView(QWidget):
 
     @Slot()
     def _on_run_ab_test(self) -> None:
-        text_source = self.source_text_edit.toPlainText().strip()
+        text_source = self.source_editor.get_text()
         if not text_source:
             show_toast(self, "Veuillez saisir un texte source à tester.", is_error=True)
             return
