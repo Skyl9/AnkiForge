@@ -174,7 +174,7 @@ def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
 
 @pytest.mark.ui
 def test_ab_tests_view_features_and_theme_reactivity(qtbot):
-    """Vérifie le commutateur de vue, les tiroirs repliables, le winner badging et la réactivité du thème."""
+    """Vérifie le commutateur de vue, la disposition splitter, les réglages toujours visibles, le winner badging et la réactivité du thème."""
     view = ABTestsView(ai_manager=None)
     qtbot.addWidget(view)
     view.show()
@@ -192,23 +192,25 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     assert view.stack_a.currentIndex() == 0
     assert view.stack_b.currentIndex() == 0
 
-    # 2. Tiroir texte source
-    assert not view._source_collapsed
-    view._toggle_source_drawer()
-    assert view._source_collapsed
-    assert view.source_text_edit.isHidden()
-    view._toggle_source_drawer()
-    assert not view._source_collapsed
-    assert not view.source_text_edit.isHidden()
+    # 2. Disposition splitter source | paramètres (l'espace est désormais occupé)
+    assert hasattr(view, "config_splitter")
+    assert hasattr(view, "config_panel")
+    assert view.source_text_edit.minimumHeight() == 260
+    assert view.source_text_edit.sizePolicy().horizontalPolicy() == view.source_text_edit.sizePolicy().Policy.Expanding
+    assert not hasattr(view, "config_bar_widget")
+    assert not hasattr(view, "adv_drawer")
+    assert not hasattr(view, "btn_toggle_source")
+    assert not hasattr(view, "btn_adv_toggle")
 
-    # 3. Tiroir paramètres d'inférence
-    assert view._adv_collapsed
-    view._toggle_advanced_drawer()
-    assert not view._adv_collapsed
-    assert not view.adv_drawer.isHidden()
-    view._toggle_advanced_drawer()
-    assert view._adv_collapsed
-    assert view.adv_drawer.isHidden()
+    # 3. Réglages Inférence toujours visibles (plus de tiroir repliable)
+    assert not view.global_adv_widget.isHidden()
+    assert not view.chk_independent.isHidden()
+    assert view.adv_branch_a_widget.isHidden()  # réglages indépendants A/B off par défaut
+    assert view.adv_branch_b_widget.isHidden()
+    view.chk_independent.setChecked(True)
+    assert not view.adv_branch_a_widget.isHidden()
+    assert not view.adv_branch_b_widget.isHidden()
+    view.chk_independent.setChecked(False)
 
     # 4. État initial idle des KPI : aucune métrique trompeuse (spéc #3)
     assert view.kpi_a.lbl_time.text() == "—"
@@ -232,6 +234,9 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
 
     # 5. Progressive disclosure : 2 écrans (Configuration → Résultats)
     assert view.phase_stack.currentWidget() is view.config_page
+    assert hasattr(view, "config_summary_bar")
+    assert hasattr(view, "btn_back")
+    assert view.btn_back.parent() is view.config_summary_bar
     view._show_results_page()
     assert view.phase_stack.currentWidget() is view.results_page
     view._show_config_page()
@@ -389,3 +394,54 @@ def test_ab_tests_view_source_modal_imports(qtbot):
     # L'injection de l'exemple peuple le texte source
     view.source_text_edit.setPlainText(PRESET_SAMPLES[1][1])
     assert view.source_text_edit.toPlainText() == PRESET_SAMPLES[1][1]
+
+
+@pytest.mark.slow
+@pytest.mark.ui
+def test_ab_tests_view_config_summary_populated(qtbot):
+    """Vérifie que la barre de résumé de configuration est peuplée correctement après un run."""
+    uid = uuid.uuid4().hex[:6]
+    NoteTypeModel.create(
+        name=f"NoteType Summary {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
+        css_style=".card { font-family: arial; }",
+    )
+    deck = DeckModel.create(name=f"Deck Summary {uid}")
+    PersonaModel.create(name=f"Agent Summary {uid}", system_prompt="Prompt Summary", output_format="json")
+    cfg_a = LLMConfigModel.create(provider="mock_a", model_id=f"model_a_summary_{uid}", display_name="Model Summary A")
+    LLMConfigModel.create(provider="mock_b", model_id=f"model_b_summary_{uid}", display_name="Model Summary B")
+
+    ai_mgr = DummyABManager(cfg_a_id=cfg_a.id)
+
+    view = ABTestsView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    view.mode_combo.setCurrentIndex(0)
+    idx_ea = view.engine_a_combo.findText("Model Summary A")
+    if idx_ea != -1:
+        view.engine_a_combo.setCurrentIndex(idx_ea)
+    idx_eb = view.engine_b_combo.findText("Model Summary B")
+    if idx_eb != -1:
+        view.engine_b_combo.setCurrentIndex(idx_eb)
+    idx_d = view.deck_combo.findText(deck.name)
+    if idx_d != -1:
+        view.deck_combo.setCurrentIndex(idx_d)
+
+    view.source_text_edit.setPlainText("Texte de vérification du résumé.")
+    view._on_run_ab_test()
+
+    qtbot.waitUntil(lambda: view.btn_run.isEnabled() is True, timeout=7000)
+    from PySide6.QtCore import QThreadPool
+
+    QThreadPool.globalInstance().waitForDone(5000)
+
+    # La barre de résumé reflète la configuration du run
+    assert view.phase_stack.currentWidget() is view.results_page
+    assert "Comparer deux Moteurs IA" in view.summary_labels["mode"].text()
+    assert deck.name in view.summary_labels["deck"].text()
+    assert "Model Summary A" in view.summary_labels["branch_a"].text()
+    assert "Model Summary B" in view.summary_labels["branch_b"].text()
+    assert "0.70" in view.summary_labels["inf_a"].text()
+    assert "4096" in view.summary_labels["inf_a"].text()

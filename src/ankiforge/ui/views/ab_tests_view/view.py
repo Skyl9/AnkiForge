@@ -36,6 +36,7 @@ from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     DocumentPickerButton,
+    FlowLayout,
     IconButton,
     IdePanel,
     ModelSelectorWidget,
@@ -81,8 +82,8 @@ class ABTestsView(QWidget):
         self._start_time_b: float = 0.0
         self._completed_a: bool = False
         self._completed_b: bool = False
-        self._source_collapsed: bool = False
-        self._adv_collapsed: bool = True
+
+        self.summary_labels: dict[str, QLabel] = {}
 
         self.source_text_edit: StyledTextEdit = StyledTextEdit()
 
@@ -238,136 +239,21 @@ class ABTestsView(QWidget):
         results_layout.setContentsMargins(0, 0, 0, 0)
         results_layout.setSpacing(10)
 
-        # ── 1. BARRE DE CONFIGURATION SUPÉRIEURE ───────────────────────────────
-        self.config_bar_widget = QWidget()
-        self.config_bar_widget.setObjectName("ConfigBarWidget")
-        self._apply_config_bar_style()
+        # ── 1. ÉCRAN CONFIGURATION : SPLITTER SOURCE | PARAMÈTRES ─────────────
+        self.config_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.config_splitter.setChildrenCollapsible(False)
+        self.config_splitter.setStyleSheet(f"""
+            QSplitter::handle {{
+                background-color: {DesignTokens.BORDER_COLOR};
+                width: 3px;
+                border-radius: 1px;
+            }}
+            QSplitter::handle:hover {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
 
-        config_bar_layout = QVBoxLayout(self.config_bar_widget)
-        config_bar_layout.setContentsMargins(12, 10, 12, 10)
-        config_bar_layout.setSpacing(8)
-
-        # Ligne 1 : Sélections (Mode, Contexte Commun, Modèle Cible)
-        row1 = QHBoxLayout()
-        row1.setContentsMargins(0, 0, 0, 0)
-        row1.setSpacing(12)
-
-        # Bloc 1 : Configuration du test (Mode + Paquet Cible)
-        block_test, box_test = self._build_config_block("CONFIGURATION DU TEST")
-
-        lbl_mode = QLabel("Mode :")
-        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        box_test.addWidget(lbl_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        self.mode_combo = StyledComboBox()
-        self.mode_combo.setMinimumWidth(190)
-        self.mode_combo.setFixedHeight(30)
-        self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), "Comparer deux Moteurs IA")
-        self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), "Comparer deux Prompts / Personas")
-        self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), "Comparer deux Pipelines DAG")
-        self.mode_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToContents)
-        box_test.addWidget(self.mode_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        lbl_deck = QLabel("Paquet Cible :")
-        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        box_test.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
-        self.deck_combo = StyledComboBox()
-        self.deck_combo.setMinimumWidth(130)
-        self.deck_combo.setFixedHeight(30)
-        box_test.addWidget(self.deck_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        row1.addWidget(block_test, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        # Bloc 2 : Paramètres d'évaluation (Agent/Moteur Commun + Modèle Cible + Inférence)
-        block_eval, box_eval = self._build_config_block("PARAMÈTRES D'ÉVALUATION")
-
-        # Agent Commun
-        self.global_persona_widget = QWidget()
-        gp_layout = QHBoxLayout(self.global_persona_widget)
-        gp_layout.setContentsMargins(0, 0, 0, 0)
-        gp_layout.setSpacing(6)
-        lbl_gp = QLabel("Agent Commun :")
-        lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.persona_combo = StyledComboBox()
-        self.persona_combo.setMinimumWidth(170)
-        self.persona_combo.setFixedHeight(30)
-        gp_layout.addWidget(lbl_gp)
-        gp_layout.addWidget(self.persona_combo)
-        box_eval.addWidget(self.global_persona_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        # Moteur Commun
-        self.global_engine_widget = QWidget()
-        ge_layout = QHBoxLayout(self.global_engine_widget)
-        ge_layout.setContentsMargins(0, 0, 0, 0)
-        ge_layout.setSpacing(6)
-        lbl_ge = QLabel("Moteur Commun :")
-        lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.global_engine_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.global_engine_combo.setMinimumWidth(180)
-        ge_layout.addWidget(lbl_ge)
-        ge_layout.addWidget(self.global_engine_combo)
-        box_eval.addWidget(self.global_engine_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
-        self.global_engine_widget.hide()
-
-        # Modèle NoteType cible
-        lbl_nt = QLabel("Modèle Cible :")
-        lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        box_eval.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
-        self.model_combo = StyledComboBox()
-        self.model_combo.setMinimumWidth(150)
-        self.model_combo.setFixedHeight(30)
-        box_eval.addWidget(self.model_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        self.btn_adv_toggle = SecondaryButton("Réglages Inférence")
-        self.btn_adv_toggle.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_adv_toggle.setFixedHeight(28)
-        self.btn_adv_toggle.clicked.connect(self._toggle_advanced_drawer)
-        box_eval.addWidget(self.btn_adv_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        row1.addWidget(block_eval, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        row1.addStretch()
-
-        self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip="Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)")
-        self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
-        self.btn_run.setIconSize(QSize(15, 15))
-        self.btn_run.setFixedHeight(32)
-        self.btn_run.setMinimumWidth(200)
-        apply_shadow(self.btn_run, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
-        row1.addWidget(self.btn_run, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        config_bar_layout.addLayout(row1)
-        config_layout.addWidget(self.config_bar_widget)
-
-        # ── 2. TIROIR PARAMÈTRES AVANCÉS (Inférence) ──────────────────────────
-        self.adv_drawer = QFrame()
-        self.adv_drawer.setObjectName("AdvDrawer")
-        adv_drawer_layout = QVBoxLayout(self.adv_drawer)
-        adv_drawer_layout.setContentsMargins(10, 6, 10, 6)
-        adv_drawer_layout.setSpacing(6)
-
-        self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_inference_sliders(DesignTokens.ACCENT_PRIMARY)
-
-        self.adv_branch_a_widget, self.temp_slider_a, self.tok_slider_a = self._build_inference_sliders(DesignTokens.BRANCH_A)
-        self.adv_branch_b_widget, self.temp_slider_b, self.tok_slider_b = self._build_inference_sliders(DesignTokens.BRANCH_B)
-
-        self.chk_independent = QCheckBox("Réglages indépendants A/B")
-        self.chk_independent.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_independent.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
-        self.chk_independent.setChecked(bool(SettingsService.get("ab_test/independent_settings", False)))
-        self.chk_independent.stateChanged.connect(self._on_independent_settings_changed)
-
-        adv_drawer_layout.addWidget(self.global_adv_widget)
-        adv_drawer_layout.addWidget(self.chk_independent)
-        adv_drawer_layout.addWidget(self.adv_branch_a_widget)
-        adv_drawer_layout.addWidget(self.adv_branch_b_widget)
-
-        self._load_ab_settings()
-        self._on_independent_settings_changed()
-        self.adv_drawer.hide()
-        config_layout.addWidget(self.adv_drawer)
-
-        # ── 3. TIROIR TEXTE SOURCE REPLIABLE ──────────────────────────────────
+        # ── 1a. COLONNE GAUCHE : TEXTE SOURCE (pleine hauteur) ────────────────
         self.source_box = QFrame()
         self.source_box.setObjectName("SourceBox")
         self._apply_source_box_style()
@@ -412,29 +298,181 @@ class ABTestsView(QWidget):
         btn_clear_src.clicked.connect(lambda: self.source_text_edit.clear())
         src_header.addWidget(btn_clear_src, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_toggle_source = IconButton("ph.caret-up", tooltip="Replier / Déplier le texte source", size=22)
-        self.btn_toggle_source.clicked.connect(self._toggle_source_drawer)
-        src_header.addWidget(self.btn_toggle_source, alignment=Qt.AlignmentFlag.AlignVCenter)
-
         source_layout.addLayout(src_header)
 
         self.source_text_edit.setPlaceholderText("Collez ici l'extrait de cours ou la consigne à tester dans le laboratoire A/B...")
-        self.source_text_edit.setFixedHeight(75)
+        self.source_text_edit.setMinimumHeight(260)
+        self.source_text_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.source_text_edit.textChanged.connect(self._on_source_text_changed)
         source_layout.addWidget(self.source_text_edit)
 
-        config_layout.addWidget(self.source_box)
-        config_layout.addStretch(1)
+        # ── 1b. COLONNE DROITE : PARAMÈTRES DU TEST (panel vertical) ──────────
+        self.config_panel = QFrame()
+        self.config_panel.setObjectName("ConfigPanel")
+        self._apply_config_panel_style()
 
-        # ── 4. BARRE CENTRALE DE COMMUTATION DE REPRÉSENTATION ─────────────────
-        switcher_bar = QHBoxLayout()
-        switcher_bar.setSpacing(6)
+        config_panel_layout = QVBoxLayout(self.config_panel)
+        config_panel_layout.setContentsMargins(12, 10, 12, 10)
+        config_panel_layout.setSpacing(10)
+
+        # Section 1 : Configuration du test (Mode + Paquet Cible)
+        block_test, box_test = self._build_config_block("CONFIGURATION DU TEST")
+        test_rows = QVBoxLayout()
+        test_rows.setContentsMargins(0, 0, 0, 0)
+        test_rows.setSpacing(6)
+
+        row_mode = QHBoxLayout()
+        row_mode.setContentsMargins(0, 0, 0, 0)
+        row_mode.setSpacing(8)
+        lbl_mode = QLabel("Mode :")
+        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.mode_combo = StyledComboBox()
+        self.mode_combo.setMinimumWidth(190)
+        self.mode_combo.setFixedHeight(30)
+        self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), "Comparer deux Moteurs IA")
+        self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), "Comparer deux Prompts / Personas")
+        self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), "Comparer deux Pipelines DAG")
+        self.mode_combo.setSizeAdjustPolicy(StyledComboBox.SizeAdjustPolicy.AdjustToContents)
+        row_mode.addWidget(lbl_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row_mode.addWidget(self.mode_combo, 1)
+        test_rows.addLayout(row_mode)
+
+        row_deck = QHBoxLayout()
+        row_deck.setContentsMargins(0, 0, 0, 0)
+        row_deck.setSpacing(8)
+        lbl_deck = QLabel("Paquet Cible :")
+        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.deck_combo = StyledComboBox()
+        self.deck_combo.setMinimumWidth(130)
+        self.deck_combo.setFixedHeight(30)
+        row_deck.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row_deck.addWidget(self.deck_combo, 1)
+        test_rows.addLayout(row_deck)
+
+        box_test.addLayout(test_rows)
+        config_panel_layout.addWidget(block_test)
+
+        # Section 2 : Paramètres d'évaluation (Agent/Moteur Commun + Modèle Cible)
+        block_eval, box_eval = self._build_config_block("PARAMÈTRES D'ÉVALUATION")
+        eval_rows = QVBoxLayout()
+        eval_rows.setContentsMargins(0, 0, 0, 0)
+        eval_rows.setSpacing(6)
+
+        self.global_persona_widget = QWidget()
+        gp_layout = QHBoxLayout(self.global_persona_widget)
+        gp_layout.setContentsMargins(0, 0, 0, 0)
+        gp_layout.setSpacing(6)
+        lbl_gp = QLabel("Agent Commun :")
+        lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.persona_combo = StyledComboBox()
+        self.persona_combo.setMinimumWidth(170)
+        self.persona_combo.setFixedHeight(30)
+        gp_layout.addWidget(lbl_gp)
+        gp_layout.addWidget(self.persona_combo, 1)
+        eval_rows.addWidget(self.global_persona_widget)
+
+        self.global_engine_widget = QWidget()
+        ge_layout = QHBoxLayout(self.global_engine_widget)
+        ge_layout.setContentsMargins(0, 0, 0, 0)
+        ge_layout.setSpacing(6)
+        lbl_ge = QLabel("Moteur Commun :")
+        lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.global_engine_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
+        self.global_engine_combo.setMinimumWidth(180)
+        ge_layout.addWidget(lbl_ge)
+        ge_layout.addWidget(self.global_engine_combo, 1)
+        eval_rows.addWidget(self.global_engine_widget)
+        self.global_engine_widget.hide()
+
+        row_nt = QHBoxLayout()
+        row_nt.setContentsMargins(0, 0, 0, 0)
+        row_nt.setSpacing(8)
+        lbl_nt = QLabel("Modèle Cible :")
+        lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        self.model_combo = StyledComboBox()
+        self.model_combo.setMinimumWidth(150)
+        self.model_combo.setFixedHeight(30)
+        row_nt.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row_nt.addWidget(self.model_combo, 1)
+        eval_rows.addLayout(row_nt)
+
+        box_eval.addLayout(eval_rows)
+        config_panel_layout.addWidget(block_eval)
+
+        # Section 3 : Réglages Inférence (toujours visibles)
+        block_inf, box_inf = self._build_config_block("RÉGLAGES INFÉRENCE")
+        inf_rows = QVBoxLayout()
+        inf_rows.setContentsMargins(0, 0, 0, 0)
+        inf_rows.setSpacing(6)
+
+        self.global_adv_widget, self.global_temp_slider, self.global_tok_slider = self._build_inference_sliders(DesignTokens.ACCENT_PRIMARY)
+        self.adv_branch_a_widget, self.temp_slider_a, self.tok_slider_a = self._build_inference_sliders(DesignTokens.BRANCH_A)
+        self.adv_branch_b_widget, self.temp_slider_b, self.tok_slider_b = self._build_inference_sliders(DesignTokens.BRANCH_B)
+
+        self.chk_independent = QCheckBox("Réglages indépendants A/B")
+        self.chk_independent.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_independent.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
+        self.chk_independent.setChecked(bool(SettingsService.get("ab_test/independent_settings", False)))
+        self.chk_independent.stateChanged.connect(self._on_independent_settings_changed)
+
+        inf_rows.addWidget(self.global_adv_widget)
+        inf_rows.addWidget(self.chk_independent)
+        inf_rows.addWidget(self.adv_branch_a_widget)
+        inf_rows.addWidget(self.adv_branch_b_widget)
+        box_inf.addLayout(inf_rows)
+        config_panel_layout.addWidget(block_inf)
+
+        config_panel_layout.addStretch(1)
+
+        self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip="Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)")
+        self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_run.setIconSize(QSize(15, 15))
+        self.btn_run.setFixedHeight(34)
+        self.btn_run.setMinimumWidth(200)
+        apply_shadow(self.btn_run, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
+        config_panel_layout.addWidget(self.btn_run)
+
+        self._load_ab_settings()
+        self._on_independent_settings_changed()
+
+        self.config_splitter.addWidget(self.source_box)
+        self.config_splitter.addWidget(self.config_panel)
+        self.config_splitter.setStretchFactor(0, 55)
+        self.config_splitter.setStretchFactor(1, 45)
+        config_layout.addWidget(self.config_splitter, 1)
+
+        # ── 2. BARRE DE RÉSUMÉ DE CONFIGURATION (ÉCRAN RÉSULTATS) ─────────────
+        self.config_summary_bar = QFrame()
+        self.config_summary_bar.setObjectName("ConfigSummaryBar")
+        self.config_summary_bar.setFixedHeight(44)
+        self._apply_summary_bar_style()
+
+        summary_layout = QHBoxLayout(self.config_summary_bar)
+        summary_layout.setContentsMargins(12, 5, 12, 5)
+        summary_layout.setSpacing(8)
 
         self.btn_back = SecondaryButton("Modifier la configuration")
         self.btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
         self.btn_back.setFixedHeight(28)
         self.btn_back.clicked.connect(self._show_config_page)
-        switcher_bar.addWidget(self.btn_back, alignment=Qt.AlignmentFlag.AlignVCenter)
+        summary_layout.addWidget(self.btn_back, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        lbl_summary_title = QLabel("RÉSUMÉ DE LA CONFIGURATION :")
+        lbl_summary_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        summary_layout.addWidget(lbl_summary_title, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.summary_badges = QWidget()
+        badges_flow = FlowLayout(self.summary_badges, margin=0, h_spacing=6, v_spacing=4)
+        for key in ("mode", "deck", "model", "branch_a", "branch_b", "inf_a", "inf_b"):
+            self.summary_labels[key] = self._make_summary_badge("—")
+            badges_flow.addWidget(self.summary_labels[key])
+        summary_layout.addWidget(self.summary_badges, 1)
+
+        results_layout.addWidget(self.config_summary_bar)
+
+        # ── 3. BARRE CENTRALE DE COMMUTATION DE REPRÉSENTATION ─────────────────
+        switcher_bar = QHBoxLayout()
+        switcher_bar.setSpacing(6)
 
         lbl_view_mode = QLabel("VUE COMPARATIVE :")
         lbl_view_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
@@ -479,7 +517,7 @@ class ABTestsView(QWidget):
 
         results_layout.addLayout(switcher_bar)
 
-        # ── 5. COMPARATIF CÔTE-À-CÔTE (BRANCHE A VS BRANCHE B) ─────────────────
+        # ── 4. COMPARATIF CÔTE-À-CÔTE (BRANCHE A VS BRANCHE B) ─────────────────
         self.compare_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.compare_splitter.setStyleSheet(f"""
             QSplitter::handle {{
@@ -617,7 +655,7 @@ class ABTestsView(QWidget):
         self.compare_splitter.setSizes([500, 500])
         self.compare_splitter.setChildrenCollapsible(False)
 
-        # ── 6. BARRE DE PAGINATION INTÉGRÉE ──────────────────────────────────
+        # ── 5. BARRE DE PAGINATION INTÉGRÉE ──────────────────────────────────
         pagination_bar = QHBoxLayout()
         pagination_bar.setContentsMargins(10, 4, 10, 4)
         pagination_bar.setSpacing(12)
@@ -704,17 +742,46 @@ class ABTestsView(QWidget):
         block_v.addLayout(box)
         return frame, box
 
-    def _apply_config_bar_style(self) -> None:
-        self.config_bar_widget.setStyleSheet(f"""
-            QWidget#ConfigBarWidget {{
+    def _apply_config_panel_style(self) -> None:
+        self.config_panel.setStyleSheet(f"""
+            QFrame#ConfigPanel {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
-            QWidget#ConfigBarWidget QLabel {{
+            QFrame#ConfigPanel QLabel {{
                 background: transparent;
             }}
         """)
+
+    def _apply_summary_bar_style(self) -> None:
+        self.config_summary_bar.setStyleSheet(f"""
+            QFrame#ConfigSummaryBar {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-bottom: 2px solid {DesignTokens.ACCENT_PRIMARY};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#ConfigSummaryBar QLabel {{
+                background: transparent;
+            }}
+        """)
+
+    def _make_summary_badge(self, text: str) -> QLabel:
+        badge = QLabel(text)
+        badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 9999px;
+                padding: 2px 10px;
+                font-size: 10.5px;
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-weight: 600;
+            }}
+        """)
+        return badge
 
     def _apply_source_box_style(self) -> None:
         self.source_box.setStyleSheet(f"""
@@ -729,8 +796,9 @@ class ABTestsView(QWidget):
         """)
 
     def _apply_theme_to_widgets(self) -> None:
-        self._apply_config_bar_style()
+        self._apply_config_panel_style()
         self._apply_source_box_style()
+        self._apply_summary_bar_style()
 
         panel_css = f"""
             QFrame#PanelA, QFrame#PanelB {{
@@ -744,14 +812,6 @@ class ABTestsView(QWidget):
         """
         self.panel_a.setStyleSheet(panel_css)
         self.panel_b.setStyleSheet(panel_css)
-
-        self.adv_drawer.setStyleSheet(f"""
-            QFrame#AdvDrawer {{
-                background-color: {DesignTokens.BG_PANEL};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
 
         self.source_text_edit.setStyleSheet(f"""
             QPlainTextEdit {{
@@ -860,19 +920,40 @@ class ABTestsView(QWidget):
         cnt = len(self.source_text_edit.toPlainText())
         self.lbl_src_chars.setText(f"{cnt} caractère{'s' if cnt > 1 else ''}")
 
-    def _toggle_source_drawer(self) -> None:
-        self._source_collapsed = not self._source_collapsed
-        self.source_text_edit.setVisible(not self._source_collapsed)
-        if self._source_collapsed:
-            self.btn_toggle_source.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_MUTED))
-            self.btn_toggle_source.setToolTip("Déplier le texte source")
+    def _branch_display(self, branch: str) -> str:
+        mode_idx = self.mode_combo.currentIndex()
+        if mode_idx == 0:
+            cfg = self.engine_a_combo.currentData() if branch == "A" else self.engine_b_combo.currentData()
+        elif mode_idx == 1:
+            cfg = self.persona_a_combo.currentData() if branch == "A" else self.persona_b_combo.currentData()
         else:
-            self.btn_toggle_source.setIcon(load_phosphor_icon("ph.caret-up", color=DesignTokens.TEXT_MUTED))
-            self.btn_toggle_source.setToolTip("Replier le texte source")
+            cfg = self.pipeline_a_combo.currentData() if branch == "A" else self.pipeline_b_combo.currentData()
+        if cfg is None:
+            return "—"
+        display = getattr(cfg, "name", None) or getattr(cfg, "display_name", None) or getattr(cfg, "model_id", None) or "—"
+        return str(display)
 
-    def _toggle_advanced_drawer(self) -> None:
-        self._adv_collapsed = not self._adv_collapsed
-        self.adv_drawer.setVisible(not self._adv_collapsed)
+    def _update_config_summary(self) -> None:
+        """Met à jour les badges de résumé de configuration affichés sur l'écran Résultats."""
+        deck = self.deck_combo.currentData()
+        nt = self.model_combo.currentData()
+        deck_name = getattr(deck, "name", "—") if deck is not None else "—"
+        nt_name = getattr(nt, "name", "—") if nt is not None else "—"
+        temp_a = self._effective_temperature("A")
+        tok_a = self._effective_max_tokens("A")
+        temp_b = self._effective_temperature("B")
+        tok_b = self._effective_max_tokens("B")
+        fmt_temp = "—" if temp_a is None else f"{temp_a:.2f}"
+        fmt_temp_b = "—" if temp_b is None else f"{temp_b:.2f}"
+        fmt_tok = "—" if tok_a is None else str(int(tok_a))
+        fmt_tok_b = "—" if tok_b is None else str(int(tok_b))
+        self.summary_labels["mode"].setText(f"Mode : {self.mode_combo.currentText()}")
+        self.summary_labels["deck"].setText(f"Deck : {deck_name}")
+        self.summary_labels["model"].setText(f"Modèle : {nt_name}")
+        self.summary_labels["branch_a"].setText(f"A : {self._branch_display('A')}")
+        self.summary_labels["branch_b"].setText(f"B : {self._branch_display('B')}")
+        self.summary_labels["inf_a"].setText(f"IA : {fmt_temp} / {fmt_tok}")
+        self.summary_labels["inf_b"].setText(f"IB : {fmt_temp_b} / {fmt_tok_b}")
 
     def _switch_view_mode(self, mode_idx: int) -> None:
         self.btn_subtab_preview.set_active(mode_idx == 0)
@@ -1198,6 +1279,7 @@ class ABTestsView(QWidget):
             pipe_id_b = pipe_b.id if pipe_b else None
 
         show_toast(self, "Lancement du test A/B en parallèle via le Moteur DAG...")
+        self._update_config_summary()
         self._show_results_page()
         self.btn_run.setEnabled(False)
         self._completed_a = False

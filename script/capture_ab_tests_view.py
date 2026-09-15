@@ -45,11 +45,13 @@ print("✅ Saved AB Tests Config Screen to", out_mode0)
 if view:
     # Basculer sur l'écran Résultats pour capturer les vues comparatives
     view._show_results_page()
+    view._update_config_summary()
     for _ in range(8):
         app.processEvents()
 
     # 2. Mode 1 : Prompts / Personas
     view.mode_combo.setCurrentIndex(1)
+    view._update_config_summary()
     for _ in range(8):
         app.processEvents()
     out_mode1 = out_dir / "ab_tests_mode1_prompts.png"
@@ -58,6 +60,7 @@ if view:
 
     # 3. Mode 2 : Pipelines DAG
     view.mode_combo.setCurrentIndex(2)
+    view._update_config_summary()
     for _ in range(8):
         app.processEvents()
     out_mode2 = out_dir / "ab_tests_mode2_pipelines.png"
@@ -66,6 +69,7 @@ if view:
 
     # 4. Mode 0 - Subtab 1 (Tableau des Champs)
     view.mode_combo.setCurrentIndex(0)
+    view._update_config_summary()
     view._switch_view_mode(1)
     for _ in range(8):
         app.processEvents()
