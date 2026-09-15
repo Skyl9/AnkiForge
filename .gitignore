@@ -49,6 +49,8 @@ mutants/
 
 
 test.md
+# --- Rapports générés par les skills d'audit ---
+audits/
 *.json
 !tests/fixtures/golden_data/**
 !package.json
