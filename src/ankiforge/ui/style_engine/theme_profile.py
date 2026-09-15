@@ -75,3 +75,26 @@ class ThemeProfile:
     syntax_variable: str = "#f97316"  # Variables / Champs Anki {{Champ}}, IDs CSS
     syntax_comment: str = "#64748b"  # Commentaires <!-- -->, /* */
     syntax_number: str = "#22d3ee"  # Nombres, unités px, %, couleurs hex
+
+    # Semantic tinted backgrounds (optionnel — dérivés des color_* par défaut)
+    accent_bg: str = ""
+    color_red_bg: str = ""
+    color_green_bg: str = ""
+    color_yellow_bg: str = ""
+    color_blue_bg: str = ""
+    color_purple_bg: str = ""
+
+    # Semantic text-on-tint (optionnel — teinte claire en sombre, couleur de base en clair)
+    color_red_text: str = ""
+    color_green_text: str = ""
+    color_yellow_text: str = ""
+    color_blue_text: str = ""
+    color_purple_text: str = ""
+
+    # Semantic tinted borders (optionnel — dérivés des color_* par défaut)
+    accent_border: str = ""
+    color_red_border: str = ""
+    color_green_border: str = ""
+    color_yellow_border: str = ""
+    color_blue_border: str = ""
+    color_purple_border: str = ""

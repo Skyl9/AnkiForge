@@ -252,7 +252,7 @@ class BadgeItemDelegate(QStyledItemDelegate):
 
     def __init__(
         self,
-        default_bg: str = "rgba(99, 102, 241, 0.15)",
+        default_bg: str = DesignTokens.ACCENT_BG,
         default_text_color: str = DesignTokens.ACCENT_PRIMARY,
         parent: QWidget | None = None,
     ) -> None:
@@ -287,7 +287,7 @@ class BadgeItemDelegate(QStyledItemDelegate):
         badge_rect = QRectF(x, y, badge_w, badge_h)
 
         # Fond pill avec parsing rgba robuste
-        bg_col = parse_qcolor(bg_color_val, fallback="rgba(99, 102, 241, 0.15)")
+        bg_col = parse_qcolor(bg_color_val, fallback=DesignTokens.ACCENT_BG)
         painter.setBrush(bg_col)
         border_pen = QPen(bg_col.lighter(130) if bg_col.alpha() < 200 else bg_col, 1)
         painter.setPen(border_pen)

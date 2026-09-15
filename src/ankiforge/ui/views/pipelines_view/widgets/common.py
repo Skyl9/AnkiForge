@@ -39,25 +39,25 @@ class TagPillButton(QPushButton):
         self.setToolTip(f"{tooltip}\nInsère : {template_code}")
 
         if variant == "cloze":
-            bg_tint = "rgba(168, 85, 247, 0.12)"
-            border_color = "rgba(168, 85, 247, 0.45)"
-            text_color = "#c084fc"
+            bg_tint = DesignTokens.COLOR_PURPLE_BG
+            border_color = DesignTokens.COLOR_PURPLE_BORDER
+            text_color = DesignTokens.SYNTAX_KEYWORD
         elif variant == "warning":
-            bg_tint = "rgba(245, 158, 11, 0.12)"
-            border_color = "rgba(245, 158, 11, 0.45)"
-            text_color = "#fcd34d"
+            bg_tint = DesignTokens.COLOR_YELLOW_BG
+            border_color = DesignTokens.COLOR_YELLOW_BORDER
+            text_color = DesignTokens.COLOR_YELLOW_TEXT
         elif variant == "success":
-            bg_tint = "rgba(16, 185, 129, 0.12)"
-            border_color = "rgba(16, 185, 129, 0.45)"
-            text_color = "#6ee7b7"
+            bg_tint = DesignTokens.COLOR_GREEN_BG
+            border_color = DesignTokens.COLOR_GREEN_BORDER
+            text_color = DesignTokens.COLOR_GREEN_TEXT
         elif variant == "info":
-            bg_tint = "rgba(6, 182, 212, 0.12)"
-            border_color = "rgba(6, 182, 212, 0.45)"
-            text_color = "#67e8f9"
+            bg_tint = DesignTokens.BRANCH_B_BG
+            border_color = DesignTokens.BRANCH_B_BORDER
+            text_color = DesignTokens.SYNTAX_NUMBER
         else:  # field
-            bg_tint = "rgba(99, 102, 241, 0.10)"
-            border_color = "rgba(99, 102, 241, 0.40)"
-            text_color = "#a5b4fc"
+            bg_tint = DesignTokens.ACCENT_BG
+            border_color = DesignTokens.ACCENT_BORDER
+            text_color = DesignTokens.COLOR_PURPLE_TEXT
 
         self.setStyleSheet(f"""
             QPushButton {{
@@ -107,9 +107,9 @@ class StatusPillBadge(QFrame):
         self.set_status(is_valid=True, message="DAG Valide", tooltip="Le graphe DAG est cohérent et valide.")
 
     def set_status(self, is_valid: bool, message: str, tooltip: str = "") -> None:
-        color = DesignTokens.COLOR_GREEN if is_valid else "#f59e0b"
-        bg_alpha = "rgba(16, 185, 129, 0.15)" if is_valid else "rgba(245, 158, 11, 0.15)"
-        border_alpha = "rgba(16, 185, 129, 0.35)" if is_valid else "rgba(245, 158, 11, 0.35)"
+        color = DesignTokens.COLOR_GREEN if is_valid else DesignTokens.COLOR_YELLOW
+        bg_alpha = DesignTokens.COLOR_GREEN_BG if is_valid else DesignTokens.COLOR_YELLOW_BG
+        border_alpha = DesignTokens.COLOR_GREEN_BORDER if is_valid else DesignTokens.COLOR_YELLOW_BORDER
         icon_name = "ph.check-circle" if is_valid else "ph.warning-circle"
 
         self.lbl_icon.setPixmap(load_phosphor_icon(icon_name, color=color).pixmap(14, 14))
@@ -232,7 +232,7 @@ class DagFlowOverviewWidget(QFrame):
             btn_node.setIcon(load_phosphor_icon(meta["icon"], color=meta["badge_color"]))
             btn_node.setIconSize(QSize(14, 14))
             border_color = meta["badge_color"] if is_active else DesignTokens.BORDER_COLOR
-            bg_color = "rgba(99, 102, 241, 0.15)" if is_active else DesignTokens.BG_INPUT
+            bg_color = DesignTokens.ACCENT_BG if is_active else DesignTokens.BG_INPUT
 
             btn_node.setStyleSheet(f"""
                 QPushButton {{

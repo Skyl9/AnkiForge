@@ -31,13 +31,13 @@ class PersonaItemWidget(QWidget):
 
         if p_type == "mcp":
             icon_name = "ph.handshake"
-            icon_color = "#10b981"
+            icon_color = DesignTokens.COLOR_GREEN
         elif p_type == "universal":
             icon_name = "ph.globe"
-            icon_color = "#f59e0b"
+            icon_color = DesignTokens.COLOR_YELLOW
         else:  # pipeline
             icon_name = "ph.lightning"
-            icon_color = "#818cf8"
+            icon_color = DesignTokens.COLOR_PURPLE_TEXT
 
         icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(15, 15))
         layout.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)

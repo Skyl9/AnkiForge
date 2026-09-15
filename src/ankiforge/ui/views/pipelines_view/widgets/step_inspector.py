@@ -73,7 +73,7 @@ class PersonaIdentityCard(QFrame):
         self.lbl_persona_icon = QLabel()
         self.lbl_persona_icon.setFixedSize(18, 18)
         self.lbl_persona_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_persona_icon.setPixmap(load_phosphor_icon("ph.sparkle", color="#8b5cf6").pixmap(16, 16))
+        self.lbl_persona_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.BRANCH_A).pixmap(16, 16))
         h_row.addWidget(self.lbl_persona_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.lbl_title = QLabel("<b>Agent : Non défini</b>")
@@ -81,7 +81,7 @@ class PersonaIdentityCard(QFrame):
         h_row.addWidget(self.lbl_title, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.badge_role = Badge("Agent IA", variant="status")
-        apply_pill_style(self.badge_role, "#8b5cf6")
+        apply_pill_style(self.badge_role, DesignTokens.BRANCH_A)
         self.badge_role.setFixedHeight(18)
         h_row.addWidget(self.badge_role, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout.addLayout(h_row)
@@ -111,12 +111,12 @@ class PersonaIdentityCard(QFrame):
                 desc = desc[:92] + "..."
             self.lbl_desc.setText(f"« {desc} »")
             self.badge_role.setText("Agent IA")
-            apply_pill_style(self.badge_role, "#8b5cf6")
+            apply_pill_style(self.badge_role, DesignTokens.BRANCH_A)
         else:
             self.lbl_title.setText("<b>Aucun Agent IA (Prompt Pur)</b>")
             self.lbl_desc.setText("L'étape s'exécutera avec le prompt personnalisé ci-dessous sans persona de base.")
             self.badge_role.setText("Prompt Pur")
-            apply_pill_style(self.badge_role, "#64748b")
+            apply_pill_style(self.badge_role, DesignTokens.TEXT_MUTED)
 
 
 class PromptPreviewDialog(QDialog):
@@ -184,21 +184,21 @@ class PromptPreviewDialog(QDialog):
         # Badges de source
         if result.source_type == "persona":
             badge_src = Badge(f"Agent : {result.persona_name or 'Défaut'}", variant="status")
-            apply_pill_style(badge_src, "#8b5cf6")
+            apply_pill_style(badge_src, DesignTokens.BRANCH_A)
             row_header.addWidget(badge_src)
         elif result.source_type == "override":
             badge_src = Badge("Surcharge d'étape", variant="warning")
-            apply_pill_style(badge_src, "#f59e0b")
+            apply_pill_style(badge_src, DesignTokens.COLOR_YELLOW)
             row_header.addWidget(badge_src)
         elif result.source_type == "query":
             badge_src = Badge("Requête Sémantique RAG", variant="info")
-            apply_pill_style(badge_src, "#06b6d4")
+            apply_pill_style(badge_src, DesignTokens.BRANCH_B)
             row_header.addWidget(badge_src)
 
         # Badge d'estimation des tokens
         tot_tokens = result.estimated_system_tokens + result.estimated_user_tokens
         badge_tokens = Badge(f"~{tot_tokens} tokens", variant="neutral")
-        apply_pill_style(badge_tokens, "#64748b")
+        apply_pill_style(badge_tokens, DesignTokens.TEXT_MUTED)
         badge_tokens.setToolTip(f"Estimation : ~{result.estimated_system_tokens} tokens (Système) + ~{result.estimated_user_tokens} tokens (Entrée)")
         row_header.addWidget(badge_tokens)
 
@@ -223,17 +223,17 @@ class PromptPreviewDialog(QDialog):
         # Message d'erreur Jinja2 éventuel
         if not result.is_valid and result.error_message:
             error_frame = QFrame()
-            error_frame.setStyleSheet("""
-                QFrame {
-                    background-color: rgba(239, 68, 68, 0.15);
-                    border: 1px solid #ef4444;
+            error_frame.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.COLOR_RED_BG};
+                    border: 1px solid {DesignTokens.COLOR_RED};
                     border-radius: 6px;
-                }
+                }}
             """)
             err_layout = QHBoxLayout(error_frame)
             err_layout.setContentsMargins(10, 8, 10, 8)
             err_lbl = QLabel(f"⚠️ <b>Erreur de syntaxe Jinja2 :</b> {result.error_message}")
-            err_lbl.setStyleSheet("color: #fca5a5; font-size: 11px;")
+            err_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_RED_TEXT}; font-size: 11px;")
             err_lbl.setWordWrap(True)
             err_layout.addWidget(err_lbl)
             layout.addWidget(error_frame)
@@ -250,7 +250,7 @@ class PromptPreviewDialog(QDialog):
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: #38bdf8;
+                color: {DesignTokens.SYNTAX_TAG};
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.4;
@@ -274,7 +274,7 @@ class PromptPreviewDialog(QDialog):
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: #a7f3d0;
+                color: {DesignTokens.COLOR_GREEN_TEXT};
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 11px;
                 line-height: 1.3;
@@ -339,7 +339,7 @@ class StepInspectorPanel(QFrame):
         header_layout.addWidget(self.edit_step_title, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.role_badge = Badge("LLM", variant="status")
-        apply_pill_style(self.role_badge, "#8b5cf6")
+        apply_pill_style(self.role_badge, DesignTokens.BRANCH_A)
         self.role_badge.setFixedHeight(20)
         header_layout.addWidget(self.role_badge, alignment=Qt.AlignmentFlag.AlignVCenter)
 
@@ -457,7 +457,7 @@ class StepInspectorPanel(QFrame):
         layout_fail.setSpacing(6)
 
         lbl_fail_title = QLabel("⚠️ EN CAS D'ERREUR OU ÉCHEC")
-        lbl_fail_title.setStyleSheet("color: #f59e0b; font-size: 11px; font-weight: bold;")
+        lbl_fail_title.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold;")
         layout_fail.addWidget(lbl_fail_title)
 
         lbl_fail_beh = QLabel("Comportement d'interruption :")

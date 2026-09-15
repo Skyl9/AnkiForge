@@ -437,7 +437,9 @@ class DuplicateMergeInspector(QFrame):
         h_cols.addWidget(self.col_fusion, 1)
 
         # Col 3: Card B
-        self.col_b, self.lbl_title_b, self.layout_b, self.stack_b, self.btn_keep_b, self.srs_b = self._create_card_col("CARTE #2", "#c084fc", "⬅ Injecter", "Conserver Carte #2 (Duplicata)", "B")
+        self.col_b, self.lbl_title_b, self.layout_b, self.stack_b, self.btn_keep_b, self.srs_b = self._create_card_col(
+            "CARTE #2", DesignTokens.SYNTAX_KEYWORD, "⬅ Injecter", "Conserver Carte #2 (Duplicata)", "B"
+        )
         h_cols.addWidget(self.col_b, 1)
 
         layout.addLayout(h_cols, 1)
@@ -744,7 +746,7 @@ class DuplicateMergeInspector(QFrame):
             layout = self.layout_a
         elif source == "B":
             content = self.current_conflict["content_b"]
-            color = "#c084fc"
+            color = DesignTokens.SYNTAX_KEYWORD
             btn_text = "⬅ Injecter"
             stack = self.stack_b
             layout = self.layout_b

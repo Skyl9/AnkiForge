@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QLabel
 from ankiforge.services.ai.tools_catalog import (
     TOOLS_CATALOG,
 )
+from ankiforge.ui.theme import DesignTokens
 
 
 def apply_pill_style(badge: QLabel, color_hex: str) -> None:
@@ -28,21 +29,21 @@ PERSONA_TYPE_SPECS: dict[str, dict[str, str]] = {
     "pipeline": {
         "label": "⚡ Pipeline de Forge (DAG)",
         "badge_text": "Pipeline",
-        "badge_color": "#6366f1",
+        "badge_color": DesignTokens.COLOR_PURPLE,
         "badge_variant": "primary",
         "desc": "Conçu pour les étapes de workflow d'ingestion et de création de cartes flashcards.",
     },
     "mcp": {
         "label": "🤝 Consultant IA (Serveur MCP)",
         "badge_text": "Consultant MCP",
-        "badge_color": "#10b981",
+        "badge_color": DesignTokens.COLOR_GREEN,
         "badge_variant": "success",
         "desc": "Conçu pour les diagnostics conversationnels, la boucle autonome ReAct et l'appel d'outils.",
     },
     "universal": {
         "label": "🌐 Universel (Forge & MCP)",
         "badge_text": "Universel",
-        "badge_color": "#f59e0b",
+        "badge_color": DesignTokens.COLOR_YELLOW,
         "badge_variant": "warning",
         "desc": "Polyvalent : disponible aussi bien dans les étapes de pipelines que pour le Consultant.",
     },

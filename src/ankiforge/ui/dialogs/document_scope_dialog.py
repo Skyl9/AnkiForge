@@ -331,7 +331,8 @@ class DocumentScopeDialog(QDialog):
         title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         badge_lbl = QLabel("PORTÉE DE GÉNÉRATION (NON DESTRUCTIF)")
         badge_lbl.setStyleSheet(
-            "background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;"
+            f"background: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT};"
+            f" border: 1px solid {DesignTokens.COLOR_BLUE_BORDER}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;"
         )
         header_top.addWidget(icon_lbl)
         header_top.addWidget(title_lbl, 1)
@@ -623,8 +624,8 @@ class DocumentScopeDialog(QDialog):
         hero_banner = QFrame()
         hero_banner.setStyleSheet(f"""
             QFrame {{
-                background-color: rgba(34, 197, 94, 0.08);
-                border: 1px solid rgba(34, 197, 94, 0.25);
+                background-color: {DesignTokens.COLOR_GREEN_BG};
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
                 border-radius: {DesignTokens.RADIUS_SM}px;
             }}
         """)
@@ -632,7 +633,7 @@ class DocumentScopeDialog(QDialog):
         hero_layout.setContentsMargins(10, 8, 10, 8)
         hero_layout.setSpacing(10)
         hero_icon = QLabel()
-        hero_icon.setPixmap(load_phosphor_icon("ph.check-circle", color="#22c55e").pixmap(24, 24))
+        hero_icon.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(24, 24))
         hero_layout.addWidget(hero_icon)
         hero_text_col = QVBoxLayout()
         hero_text_col.setSpacing(2)
@@ -1294,7 +1295,8 @@ class DocumentScopeDialog(QDialog):
 
             ch_badge = QLabel(f"Ch. {idx + 1}")
             ch_badge.setStyleSheet(
-                "background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+                f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT};"
+                f" border: 1px solid {DesignTokens.ACCENT_BORDER}; border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
             )
             or_layout.addWidget(ch_badge)
 

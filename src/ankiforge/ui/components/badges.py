@@ -54,13 +54,13 @@ class Badge(QLabel):
         elif variant == "glass":
             style += f"background-color: {bg_hover}; color: {text_primary}; border: 1px solid {border_col};"
         elif variant == "success":
-            style += f"background-color: rgba(16, 185, 129, 0.15); color: {color_green};"
+            style += f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {color_green};"
         elif variant == "warning":
-            style += f"background-color: rgba(245, 158, 11, 0.15); color: {color_yellow};"
+            style += f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {color_yellow};"
         elif variant == "info":
-            style += f"background-color: rgba(59, 130, 246, 0.15); color: {color_blue};"
+            style += f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {color_blue};"
         elif variant == "danger":
-            style += f"background-color: rgba(239, 68, 68, 0.15); color: {color_red};"
+            style += f"background-color: {DesignTokens.COLOR_RED_BG}; color: {color_red};"
         elif variant == "neutral":
             style += f"background-color: {bg_panel}; color: {text_muted}; border: 1px solid {border_col};"
 
@@ -119,16 +119,16 @@ class StatusBadge(QWidget):
         fg_color = text_muted
 
         if variant == "success":
-            bg_style = "background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3);"
+            bg_style = f"background-color: {DesignTokens.COLOR_GREEN_BG}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
             fg_color = color_green
         elif variant == "warning":
-            bg_style = "background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3);"
+            bg_style = f"background-color: {DesignTokens.COLOR_YELLOW_BG}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};"
             fg_color = color_yellow
         elif variant == "info":
-            bg_style = "background-color: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3);"
+            bg_style = f"background-color: {DesignTokens.COLOR_BLUE_BG}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER};"
             fg_color = color_blue
         elif variant in ("danger", "error"):
-            bg_style = "background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);"
+            bg_style = f"background-color: {DesignTokens.COLOR_RED_BG}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
             fg_color = color_red
         else:
             bg_style = f"background-color: {bg_panel}; border: 1px solid {border_col};"

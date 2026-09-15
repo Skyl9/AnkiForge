@@ -119,7 +119,9 @@ def compute_word_diff_html(original: str, modified: str, show_deletions: bool = 
                 result.append(html.escape("".join(mod_tokens[j1:j2])))
             elif tag in ("insert", "replace"):
                 ins_text = html.escape("".join(mod_tokens[j1:j2]))
-                result.append(f"<span style='background-color: rgba(34, 197, 94, 0.18); color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>")
+                result.append(
+                    f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+                )
         return "".join(result).replace("\n", "<br>")
 
     orig_tokens = re.findall(r"\S+|\s+", original)
@@ -134,18 +136,22 @@ def compute_word_diff_html(original: str, modified: str, show_deletions: bool = 
         elif tag == "delete":
             del_text = html.escape("".join(orig_tokens[i1:i2]))
             result_diff.append(
-                f"<span style='background-color: rgba(239, 68, 68, 0.2); color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span>"
+                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span>"
             )
         elif tag == "insert":
             ins_text = html.escape("".join(mod_tokens[j1:j2]))
-            result_diff.append(f"<span style='background-color: rgba(34, 197, 94, 0.22); color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>")
+            result_diff.append(
+                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+            )
         elif tag == "replace":
             del_text = html.escape("".join(orig_tokens[i1:i2]))
             ins_text = html.escape("".join(mod_tokens[j1:j2]))
             result_diff.append(
-                f"<span style='background-color: rgba(239, 68, 68, 0.2); color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span> "
+                f"<span style='background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; text-decoration: line-through; border-radius: 2px; padding: 1px 2px;'>{del_text}</span> "
             )
-            result_diff.append(f"<span style='background-color: rgba(34, 197, 94, 0.22); color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>")
+            result_diff.append(
+                f"<span style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; font-weight: 600; border-radius: 2px; padding: 1px 2px;'>{ins_text}</span>"
+            )
 
     return "".join(result_diff).replace("\n", "<br>")
 
@@ -225,7 +231,7 @@ class FieldDiffWidget(QFrame):
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
             QPushButton[active="true"] {{
-                background-color: rgba(239, 68, 68, 0.15);
+                background-color: {DesignTokens.COLOR_RED_BG};
                 border-color: {DesignTokens.COLOR_RED};
                 color: {DesignTokens.COLOR_RED};
                 font-weight: 600;

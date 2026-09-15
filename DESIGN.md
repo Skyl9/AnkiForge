@@ -31,6 +31,31 @@ Le moteur de style centralisé (`StyleEngine`) et la classe `DesignTokens` (`src
 
 ---
 
+## 1.0 Tokens de Teintes Sémantiques (Alpha) & Branches A/B
+
+Pour toute surface « teintée » (badge, pastille, fond de statut, diff, hover sémantique), **aucun `rgba(...)` ni hexadécimal ne doit être codé en dur** : utiliser les tokens dérivés ci-dessous (définis dans `DesignTokens`, dérivés à chaud via `_with_alpha` et les champs optionnels du `ThemeProfile` dans `apply_theme_profile`).
+
+| Token | Rôle | Valeur (Sombre 🌙) | Valeur (Clair ☀️) |
+| :--- | :--- | :--- | :--- |
+| `ACCENT_BG` / `ACCENT_BORDER` | teinte accent (fond / bordure) | `rgba(99, 102, 241, 0.15)` / `rgba(99, 102, 241, 0.3)` | dérivé de `color_accent` |
+| `COLOR_RED_BG` / `COLOR_RED_BORDER` | erreur, danger, suppressions diff | `rgba(239, 68, 68, 0.15)` / `rgba(239, 68, 68, 0.3)` | dérivé de `color_red` |
+| `COLOR_GREEN_BG` / `COLOR_GREEN_BORDER` | succès, validations, insertions diff | `rgba(16, 185, 129, 0.15)` / `rgba(16, 185, 129, 0.3)` | dérivé de `color_green` |
+| `COLOR_YELLOW_BG` / `COLOR_YELLOW_BORDER` | avertissement, état intermédiaire | `rgba(245, 158, 11, 0.15)` / `rgba(245, 158, 11, 0.3)` | dérivé de `color_yellow` |
+| `COLOR_BLUE_BG` / `COLOR_BLUE_BORDER` | information, focus explicite | `rgba(59, 130, 246, 0.15)` / `rgba(59, 130, 246, 0.3)` | dérivé de `color_blue` |
+| `COLOR_PURPLE_BG` / `COLOR_PURPLE_BORDER` | lien « branche A », variantes `cloze` | `rgba(99, 102, 241, 0.12)` / `rgba(99, 102, 241, 0.3)` | dérivé de `color_purple` |
+| `COLOR_RED_TEXT` | texte sur teinte rouge | `#f87171` | `color_red` de base |
+| `COLOR_GREEN_TEXT` | texte sur teinte verte | `#6ee7b7` | `color_green` de base |
+| `COLOR_YELLOW_TEXT` | texte sur teinte jaune | `#fcd34d` | `color_yellow` de base |
+| `COLOR_BLUE_TEXT` | texte sur teinte bleue | `#93c5fd` | `color_blue` de base |
+| `COLOR_PURPLE_TEXT` | texte sur teinte violette | `#a5b4fc` | `color_purple` de base |
+| `BRANCH_A_BG` / `BRANCH_A_BORDER` | variante violette rôle/étape A | `rgba(139, 92, 246, 0.12)` / `rgba(139, 92, 246, 0.45)` | dérivé de `color_purple` |
+| `BRANCH_B_BG` / `BRANCH_B_BORDER` | variante cyan rôle/étape B | `rgba(6, 182, 212, 0.12)` / `rgba(6, 182, 212, 0.45)` | dérivé de `color_cyan` |
+
+> [!NOTE]
+> Les couleurs de marque des fournisseurs IA (`#4285F4` Google, `#10a37f` OpenAI, `#d97706` Gemini) et les blancs de texte inversés (`#ffffff`) sur fond accent/coloré sont des exceptions volontaires (identité / contraste), non converties en tokens.
+
+---
+
 ## 1.1 Matrice de Correspondance : Composants ➔ Tokens Sémantiques
 
 | Famille de Composant | Classe / Sélecteur Qt | Propriété Visuelle | Variable de Style / Token Requis | Description & Règle Métier |

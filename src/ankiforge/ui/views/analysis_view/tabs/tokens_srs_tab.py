@@ -56,7 +56,9 @@ class AITokensSrsTab(QWidget):
 
         self.lbl_spent = QLabel("Dépenses : 0.0000 $")
         self.lbl_spent.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
-        self.lbl_spent.setStyleSheet(f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 3px 10px;")
+        self.lbl_spent.setStyleSheet(
+            f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 3px 10px;"
+        )
 
         self.lbl_cost = QLabel("~0.00000 $ / carte")
         self.lbl_cost.setFont(QFont(DesignTokens.FONT_MAIN, 9))
@@ -249,7 +251,7 @@ class AITokensSrsTab(QWidget):
                 "Cartes Mûres (>21j)",
                 f"{summary['maturing_cards']:,} / {summary['total_cards']:,}",
                 f"{mat_pct} · Ancrage fort",
-                "#c084fc",
+                DesignTokens.SYNTAX_KEYWORD,
             ),
             (
                 "ph.clock",
@@ -303,9 +305,9 @@ class AITokensSrsTab(QWidget):
         if tot > 0:
             eq_data.append(("NOUVELLES", str(summary["maturity_distribution"]["new"]), f"{summary['maturity_distribution']['new'] / tot * 100:.1f}%", DesignTokens.COLOR_BLUE))
             eq_data.append(("APPRENTISSAGE", str(summary["maturity_distribution"]["learning"]), f"{summary['maturity_distribution']['learning'] / tot * 100:.1f}%", DesignTokens.COLOR_YELLOW))
-            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing'] / tot * 100:.1f}%", "#c084fc"))
+            eq_data.append(("MÛRES (>21j)", str(summary["maturity_distribution"]["maturing"]), f"{summary['maturity_distribution']['maturing'] / tot * 100:.1f}%", DesignTokens.SYNTAX_KEYWORD))
         else:
-            eq_data = [("NOUVELLES", "0", "0%", DesignTokens.COLOR_BLUE), ("APPRENTISSAGE", "0", "0%", DesignTokens.COLOR_YELLOW), ("MÛRES (>21j)", "0", "0%", "#c084fc")]
+            eq_data = [("NOUVELLES", "0", "0%", DesignTokens.COLOR_BLUE), ("APPRENTISSAGE", "0", "0%", DesignTokens.COLOR_YELLOW), ("MÛRES (>21j)", "0", "0%", DesignTokens.SYNTAX_KEYWORD)]
 
         for lbl, val, sub, col in eq_data:
             bx = QFrame()

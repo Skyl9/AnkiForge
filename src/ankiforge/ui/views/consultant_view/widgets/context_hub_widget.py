@@ -123,7 +123,7 @@ class ContextAssetCard(QFrame):
             token_est=token_est,
             icon_name=icon_name,
             icon_color=icon_color or DesignTokens.ACCENT_PRIMARY,
-            bg_tint=bg_tint or "rgba(99, 102, 241, 0.12)",
+            bg_tint=bg_tint or DesignTokens.ACCENT_BG,
             is_committed=is_committed,
         )
 
@@ -661,7 +661,7 @@ class ContextHubWidget(QWidget):
             tok = 0
             icon = "ph.file"
             icon_color = DesignTokens.ACCENT_PRIMARY
-            bg_tint = "rgba(99, 102, 241, 0.15)"
+            bg_tint = DesignTokens.ACCENT_BG
             is_comm = ctx_id in committed_set
 
             if ctx_id.startswith("deck_"):
@@ -675,7 +675,7 @@ class ContextHubWidget(QWidget):
                         tok = card_cnt * 25
                         icon = "ph.cards"
                         icon_color = DesignTokens.ACCENT_PRIMARY
-                        bg_tint = "rgba(99, 102, 241, 0.15)"
+                        bg_tint = DesignTokens.ACCENT_BG
                 except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
@@ -690,7 +690,7 @@ class ContextHubWidget(QWidget):
                         subtitle = f"{doc_len:,} caractères • 🟢 Index RAG"
                         icon = "ph.file-text"
                         icon_color = DesignTokens.COLOR_BLUE
-                        bg_tint = "rgba(59, 130, 246, 0.15)"
+                        bg_tint = DesignTokens.COLOR_BLUE_BG
                 except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
@@ -712,7 +712,7 @@ class ContextHubWidget(QWidget):
                         tok = 60
                         icon = "ph.cardholder"
                         icon_color = DesignTokens.COLOR_GREEN
-                        bg_tint = "rgba(16, 185, 129, 0.15)"
+                        bg_tint = DesignTokens.COLOR_GREEN_BG
                 except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 
@@ -726,7 +726,7 @@ class ContextHubWidget(QWidget):
                         tok = 150
                         icon = "ph.paint-brush"
                         icon_color = DesignTokens.COLOR_YELLOW
-                        bg_tint = "rgba(245, 158, 11, 0.15)"
+                        bg_tint = DesignTokens.COLOR_YELLOW_BG
                 except (ValueError, IndexError, TypeError, peewee.PeeweeException):
                     pass
 

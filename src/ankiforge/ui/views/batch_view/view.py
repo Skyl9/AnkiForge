@@ -118,10 +118,10 @@ class BatchView(QWidget):
         metrics_row.setContentsMargins(12, 10, 12, 10)
         metrics_row.setSpacing(12)
 
-        self.card_status = CicdMetricCard("STATUT GLOBAL", "En attente", "ph.check-circle", color="#10b981")
-        self.card_time = CicdMetricCard("TEMPS RESTANT", "--:--:--", "ph.timer", color="#3b82f6")
-        self.card_cards = CicdMetricCard("CARTES GÉNÉRÉES", "0 / 0", "ph.cards", color="#6366f1")
-        self.card_cost = CicdMetricCard("COÛT ESTIMÉ", "$0.00", "ph.coin", color="#eab308")
+        self.card_status = CicdMetricCard("STATUT GLOBAL", "En attente", "ph.check-circle", color=DesignTokens.COLOR_GREEN)
+        self.card_time = CicdMetricCard("TEMPS RESTANT", "--:--:--", "ph.timer", color=DesignTokens.COLOR_BLUE)
+        self.card_cards = CicdMetricCard("CARTES GÉNÉRÉES", "0 / 0", "ph.cards", color=DesignTokens.COLOR_PURPLE)
+        self.card_cost = CicdMetricCard("COÛT ESTIMÉ", "$0.00", "ph.coin", color=DesignTokens.COLOR_YELLOW)
 
         metrics_row.addWidget(self.card_status, 1)
         metrics_row.addWidget(self.card_time, 1)
@@ -495,8 +495,8 @@ class BatchView(QWidget):
                 font-size: 12px;
             }}
             QPushButton:hover {{
-                background-color: #059669;
-                border-color: #34d399;
+                background-color: {DesignTokens.COLOR_GREEN_TEXT};
+                border-color: {DesignTokens.COLOR_GREEN_TEXT};
             }}
         """)
         apply_shadow(self.btn_start_pipeline, blur=16, offset_y=0, color="rgba(16, 185, 129, 0.45)")
@@ -1032,13 +1032,13 @@ class BatchView(QWidget):
     def _log_formatted_line(self, level: str, msg: str) -> None:
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        level_color = "#3b82f6"
+        level_color = DesignTokens.COLOR_BLUE
         if level == "WARN":
-            level_color = "#eab308"
+            level_color = DesignTokens.COLOR_YELLOW
         elif level == "SUCCESS":
-            level_color = "#10b981"
+            level_color = DesignTokens.COLOR_GREEN
         elif level == "ERROR":
-            level_color = "#ef4444"
+            level_color = DesignTokens.COLOR_RED
 
         formatted_html = f"<span style='color: {DesignTokens.TEXT_MUTED}'>[{now_str}]</span> <span style='color: {level_color}; font-weight: bold;'>{level}</span> {msg}"
         self.console_output.appendHtml(formatted_html)
@@ -1366,7 +1366,7 @@ class BatchView(QWidget):
                     font-size: 12px;
                 }}
                 QPushButton:hover {{
-                    background-color: #dc2626;
+                    background-color: {DesignTokens.COLOR_RED_TEXT};
                 }}
             """)
             self.card_status.val_lbl.setText("En cours")

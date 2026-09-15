@@ -124,7 +124,7 @@ class WozniakIssueWidget(QFrame):
         lbl_title.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;")
 
         lbl_badge = QLabel(badge_text)
-        lbl_badge.setStyleSheet(f"background-color: rgba(248, 113, 113, 0.15); color: {badge_color}; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 4px;")
+        lbl_badge.setStyleSheet(f"background-color: {DesignTokens.COLOR_RED_BG}; color: {badge_color}; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 4px;")
 
         btn_inspect = SecondaryButton("Inspecter (Live Preview)")
         btn_inspect.setFixedHeight(24)
@@ -160,7 +160,7 @@ class WozniakIssueWidget(QFrame):
         left_layout = QVBoxLayout(left_panel)
 
         lbl_source = QLabel("CODE SOURCE (MODIFIABLE) :")
-        lbl_source.setStyleSheet("font-size: 10px; font-weight: bold; color: #c084fc;")
+        lbl_source.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.SYNTAX_KEYWORD};")
 
         # L'éditeur de texte enrichi pour le KaTeX ou la nouvelle question
         from PySide6.QtWidgets import QPlainTextEdit
@@ -181,7 +181,7 @@ class WozniakIssueWidget(QFrame):
         right_layout = QVBoxLayout(right_panel)
 
         lbl_preview = QLabel("RENDU LIVE KATEX :")
-        lbl_preview.setStyleSheet("font-size: 10px; font-weight: bold; color: #c084fc;")
+        lbl_preview.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.SYNTAX_KEYWORD};")
 
         # Utilisation de TON composant CardPreviewWidget
         self.preview_widget = CardPreviewWidget()
@@ -277,7 +277,8 @@ class AIWozniakLinterTab(QWidget):
 
         score_badge = QLabel("Score : 88 / 100")
         score_badge.setStyleSheet(
-            f"background-color: rgba(245,158,11,0.12); color: {DesignTokens.COLOR_YELLOW}; font-weight: bold; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(245,158,11,0.3);"
+            f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; font-weight: bold;"
+            f" padding: 4px 8px; border-radius: 4px; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};"
         )
 
         h_layout.addWidget(search)
@@ -294,8 +295,8 @@ class AIWozniakLinterTab(QWidget):
 
         # Création des 4 KPIs basés sur ta maquette
         kpi_data = [
-            ("cat_atomicite", "Atomicité & Listes", "72%", "squares-four", "#f87171", "4 cartes complexes"),
-            ("cat_katex", "Formules & Clarté", "85%", "function", "#c084fc", "3 corrections KaTeX"),
+            ("cat_atomicite", "Atomicité & Listes", "72%", "squares-four", DesignTokens.COLOR_RED_TEXT, "4 cartes complexes"),
+            ("cat_katex", "Formules & Clarté", "85%", "function", DesignTokens.SYNTAX_KEYWORD, "3 corrections KaTeX"),
             ("cat_interference", "Non-Interférence", "90%", "intersect", DesignTokens.COLOR_BLUE, "3 désambiguïsations"),
             ("cat_cloze", "Questions Univoques", "84%", "question", DesignTokens.COLOR_YELLOW, "3 conversions Cloze"),
         ]
@@ -313,18 +314,21 @@ class AIWozniakLinterTab(QWidget):
 
         # Page 1: Atomicité
         page_atom = self._create_category_page(
-            title="Catégorie 1 : Découpage & Restructuration Atomicité", color="#f87171", desc="Types de problèmes : Multi-Questions, Énumération Complexe...", count_text="4 Cartes"
+            title="Catégorie 1 : Découpage & Restructuration Atomicité", color=DesignTokens.COLOR_RED_TEXT, desc="Types de problèmes : Multi-Questions, Énumération Complexe...", count_text="4 Cartes"
         )
         self.stacked_widget.addWidget(page_atom)
 
         # Page 2: KaTeX
         page_katex = self._create_category_page(
-            title="Catégorie 2 : Formules Mathématiques & Rendu KaTeX", color="#c084fc", desc="Types de problèmes : Formule Texte Brut, Syntaxe LaTeX Cassée...", count_text="3 Cartes"
+            title="Catégorie 2 : Formules Mathématiques & Rendu KaTeX",
+            color=DesignTokens.SYNTAX_KEYWORD,
+            desc="Types de problèmes : Formule Texte Brut, Syntaxe LaTeX Cassée...",
+            count_text="3 Cartes",
         )
         # Ajout d'un faux problème KaTeX pour la démo
         scroll_area = page_katex.findChild(QScrollArea)
         scroll_content = scroll_area.widget()
-        scroll_content.layout().addWidget(WozniakIssueWidget("Carte #1088 · Égalité de Parseval", "Problème 1 : Texte brut non formaté", "#f87171"))
+        scroll_content.layout().addWidget(WozniakIssueWidget("Carte #1088 · Égalité de Parseval", "Problème 1 : Texte brut non formaté", DesignTokens.COLOR_RED_TEXT))
         scroll_content.layout().addStretch()
 
         self.stacked_widget.addWidget(page_katex)
@@ -350,7 +354,7 @@ class AIWozniakLinterTab(QWidget):
         lbl_title.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; font-size: 13px;")
 
         lbl_count = QLabel(count_text)
-        lbl_count.setStyleSheet(f"background-color: rgba(248, 113, 113, 0.15); color: {color}; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 4px;")
+        lbl_count.setStyleSheet(f"background-color: {DesignTokens.COLOR_RED_BG}; color: {color}; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 4px;")
 
         top_h.addWidget(lbl_title)
         top_h.addStretch()

@@ -314,7 +314,7 @@ class ChatMessageWidget(QWidget):
         """Affiche un indicateur élégant d'interruption par l'utilisateur."""
         self.is_streaming = False
         banner = QLabel("⏹ <i>Génération interrompue par l'utilisateur.</i>")
-        banner.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; padding: 4px 8px; background: rgba(234, 179, 8, 0.1); border-radius: 4px;")
+        banner.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; padding: 4px 8px; background: {DesignTokens.COLOR_YELLOW_BG}; border-radius: 4px;")
         self.content_layout.addWidget(banner)
         self._render_action_buttons()
 

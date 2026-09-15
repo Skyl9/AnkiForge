@@ -88,11 +88,11 @@ class DaemonStatusWidget(QWidget):
         if status == "active":
             color = DesignTokens.COLOR_YELLOW
             icon = "⚙"
-            bg = "rgba(245, 158, 11, 0.1)"
+            bg = DesignTokens.COLOR_YELLOW_BG
         elif status == "pending":
             color = DesignTokens.COLOR_BLUE
             icon = "◷"
-            bg = "rgba(59, 130, 246, 0.1)"
+            bg = DesignTokens.COLOR_BLUE_BG
         else:
             color = DesignTokens.TEXT_MUTED
             icon = "✓"

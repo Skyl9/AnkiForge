@@ -303,15 +303,15 @@ class DocumentInspectorPanel(QWidget):
         self.lbl_doc_summary.setText(f"Couverture : {percent:.0f}% ({covered_units}/{total_units} {unit_label}{excl_str} · {total_cards} cartes)")
         if percent >= 90:
             self.lbl_doc_summary.setStyleSheet(
-                f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 10px;"
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 4px 10px;"
             )
         elif percent >= 50:
             self.lbl_doc_summary.setStyleSheet(
-                f"background-color: rgba(245,158,11,0.15); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 9999px; padding: 4px 10px;"
+                f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER}; border-radius: 9999px; padding: 4px 10px;"
             )
         else:
             self.lbl_doc_summary.setStyleSheet(
-                f"background-color: rgba(239,68,68,0.15); color: {DesignTokens.COLOR_RED}; border: 1px solid rgba(239,68,68,0.3); border-radius: 9999px; padding: 4px 10px;"
+                f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; border: 1px solid {DesignTokens.COLOR_RED_BORDER}; border-radius: 9999px; padding: 4px 10px;"
             )
 
         if self.chapters_list.count() > 0:

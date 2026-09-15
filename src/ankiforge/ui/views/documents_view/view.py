@@ -277,7 +277,7 @@ class DocumentsView(QWidget):
         row1.addWidget(self.lbl_word_count)
 
         self.rag_status_pill = Badge("Non indexé", variant="status")
-        apply_pill_style(self.rag_status_pill, "#94a3b8")
+        apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
         row1.addWidget(self.rag_status_pill)
 
         self.btn_save = PrimaryButton("Sauvegarder", tooltip="Enregistrer les modifications textuelles du document (Ctrl+S)")
@@ -362,7 +362,7 @@ class DocumentsView(QWidget):
         row2.addWidget(self.btn_ai_structure)
 
         self.btn_delimit = SecondaryButton("Délimiter les pages")
-        self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color="#38bdf8"))
+        self.btn_delimit.setIcon(load_phosphor_icon("ph.scissors", color=DesignTokens.SYNTAX_TAG))
         self.btn_delimit.setToolTip("Sélectionner les pages et chapitres utiles avant la forge et le RAG")
         self.btn_delimit.setFixedHeight(26)
         self.btn_delimit.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
@@ -379,7 +379,7 @@ class DocumentsView(QWidget):
         row2.addWidget(self.btn_marker)
 
         self.btn_rag = SecondaryButton("Indexer (RAG)")
-        self.btn_rag.setIcon(load_phosphor_icon("ph.database", color="#10b981"))
+        self.btn_rag.setIcon(load_phosphor_icon("ph.database", color=DesignTokens.COLOR_GREEN))
         self.btn_rag.setToolTip("Indexer ce document pour la recherche sémantique IA (FAISS & BM25)")
         self.btn_rag.setFixedHeight(26)
         self.btn_rag.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
@@ -735,7 +735,7 @@ class DocumentsView(QWidget):
                 elif getattr(doc, "file_type", "") in ("audio", "mp3", "m4a", "wav", "ogg", "flac", "aac") or title_lower.endswith((".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac")):
                     item.setIcon(0, load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN))
                 elif getattr(doc, "file_type", "") == "md" or title_lower.endswith(".md"):
-                    item.setIcon(0, load_phosphor_icon("ph.file-code", color="#eab308"))
+                    item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW))
                 elif getattr(doc, "file_type", "") == "web":
                     item.setIcon(0, load_phosphor_icon("ph.globe", color=DesignTokens.ACCENT_PRIMARY))
                 elif getattr(doc, "file_type", "") == "youtube":
@@ -841,7 +841,7 @@ class DocumentsView(QWidget):
     def _update_rag_status_pill(self) -> None:
         if not self._current_doc_id:
             self.rag_status_pill.setText("Non indexé")
-            apply_pill_style(self.rag_status_pill, "#94a3b8")
+            apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
             return
 
         rag = RAGService()
@@ -850,13 +850,13 @@ class DocumentsView(QWidget):
 
         if is_rag_ready:
             self.rag_status_pill.setText(f"RAG Prêt ({chunk_count} chunks)")
-            apply_pill_style(self.rag_status_pill, "#10b981")
+            apply_pill_style(self.rag_status_pill, DesignTokens.COLOR_GREEN)
         elif chunk_count > 0:
             self.rag_status_pill.setText(f"Structuré ({chunk_count} chunks)")
-            apply_pill_style(self.rag_status_pill, "#eab308")
+            apply_pill_style(self.rag_status_pill, DesignTokens.COLOR_YELLOW)
         else:
             self.rag_status_pill.setText("Non structuré")
-            apply_pill_style(self.rag_status_pill, "#94a3b8")
+            apply_pill_style(self.rag_status_pill, DesignTokens.TEXT_MUTED)
 
     @Slot()
     def _on_document_text_changed(self) -> None:

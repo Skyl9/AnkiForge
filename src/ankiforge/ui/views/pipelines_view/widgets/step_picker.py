@@ -150,7 +150,7 @@ class StepPickerDialog(QDialog):
             title="Agent IA (Prompt Libre)",
             subtitle="Étape LLM sans persona prédéfini avec prompt personnalisé à rédiger.",
             badge_text="PROMPT",
-            badge_color="#8b5cf6",
+            badge_color=DesignTokens.BRANCH_A,
         )
         card_prompt_pure.clicked.connect(self._on_item_selected)
         self.col1_cards_layout.addWidget(card_prompt_pure)
@@ -169,7 +169,7 @@ class StepPickerDialog(QDialog):
                 p_desc = p_desc[:82] + "..."
             p_type = getattr(p, "persona_type", "pipeline")
             badge_txt = "UNIVERSEL" if p_type == "universal" else "LLM"
-            badge_col = "#f59e0b" if p_type == "universal" else "#8b5cf6"
+            badge_col = DesignTokens.COLOR_YELLOW if p_type == "universal" else DesignTokens.BRANCH_A
 
             card = StepPickerCard(
                 payload={"type": "LLM_PROMPT", "persona": p},
@@ -220,7 +220,7 @@ class StepPickerDialog(QDialog):
                 "Recherche RAG Vectorielle",
                 "Extraction sémantique FAISS des documents indexés pour injecter du contexte documentaire précis.",
                 "RAG",
-                "#06b6d4",
+                DesignTokens.BRANCH_B,
             ),
             (
                 {"type": "MAP_REDUCE"},
@@ -228,7 +228,7 @@ class StepPickerDialog(QDialog):
                 "Forge Parallèle (Map-Reduce)",
                 "Découpe les documents volumineux par pages ou sections et génère les cartes par lots.",
                 "PARALLÈLE",
-                "#10b981",
+                DesignTokens.COLOR_GREEN,
             ),
             (
                 {"type": "HUMAN_VALIDATION"},
@@ -236,7 +236,7 @@ class StepPickerDialog(QDialog):
                 "Pause Copilote (Validation)",
                 "Interrompt l'exécution du workflow pour permettre à l'utilisateur de réviser ou valider les données.",
                 "PAUSE",
-                "#f59e0b",
+                DesignTokens.COLOR_YELLOW,
             ),
             (
                 {"type": "PYTHON_TOOL"},
@@ -244,7 +244,7 @@ class StepPickerDialog(QDialog):
                 "Outil Python Déterministe",
                 "Exécute un script ou outil utilitaire (nettoyage LaTeX/HTML, déduplication Levenshtein).",
                 "OUTIL",
-                "#f97316",
+                DesignTokens.SYNTAX_VARIABLE,
             ),
         ]
 
@@ -308,7 +308,7 @@ class PersonaSelectorDialog(QDialog):
             title="Aucun Agent (Prompt Pur)",
             subtitle="Utiliser uniquement le prompt personnalisé défini dans l'étape sans persona de base.",
             badge_text="PROMPT",
-            badge_color="#64748b",
+            badge_color=DesignTokens.TEXT_MUTED,
         )
         card_none.clicked.connect(self._on_selected)
         layout.addWidget(card_none)
@@ -337,7 +337,7 @@ class PersonaSelectorDialog(QDialog):
                 title=str(p.name),
                 subtitle=p_desc,
                 badge_text="PERSONA",
-                badge_color="#8b5cf6",
+                badge_color=DesignTokens.BRANCH_A,
             )
             card.clicked.connect(self._on_selected)
             inner_layout.addWidget(card)

@@ -93,14 +93,14 @@ class ToolCallWidget(QFrame):
 
     def _setup_style(self) -> None:
         if self.is_running:
-            border_color = "rgba(234, 179, 8, 0.4)"
-            bg_color = "rgba(234, 179, 8, 0.08)"
+            border_color = DesignTokens.COLOR_YELLOW_BORDER
+            bg_color = DesignTokens.COLOR_YELLOW_BG
         elif self.is_error:
-            border_color = "rgba(239, 68, 68, 0.4)"
-            bg_color = "rgba(239, 68, 68, 0.08)"
+            border_color = DesignTokens.COLOR_RED_BORDER
+            bg_color = DesignTokens.COLOR_RED_BG
         else:
-            border_color = "rgba(16, 185, 129, 0.35)"
-            bg_color = "rgba(16, 185, 129, 0.08)"
+            border_color = DesignTokens.COLOR_GREEN_BORDER
+            bg_color = DesignTokens.COLOR_GREEN_BG
 
         self.setStyleSheet(f"""
             ToolCallWidget {{

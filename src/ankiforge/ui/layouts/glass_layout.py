@@ -158,9 +158,9 @@ class GlassmorphismLayout(BaseLayout):
         self.token_lbl = QLabel("0.00 $")
         self.token_lbl.setStyleSheet(f"""
             QLabel {{
-                background-color: rgba(16, 185, 129, 0.12);
+                background-color: {DesignTokens.COLOR_GREEN_BG};
                 color: {DesignTokens.COLOR_GREEN};
-                border: 1px solid rgba(16, 185, 129, 0.3);
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
                 border-radius: 8px;
                 padding: 4px 8px;
                 font-family: {DesignTokens.FONT_CODE};

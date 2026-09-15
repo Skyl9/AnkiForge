@@ -228,13 +228,15 @@ class SectionRowWidget(QWidget):
         if level == 1:
             h_badge = QLabel("H1")
             h_badge.setStyleSheet(
-                "background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 4px; padding: 1px 5px; font-weight: bold; font-size: 10px;"
+                f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; border: 1px solid {DesignTokens.ACCENT_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-weight: bold; font-size: 10px;"
             )
             layout.addWidget(h_badge)
         elif level == 2:
             h_badge = QLabel("H2")
             h_badge.setStyleSheet(
-                "background-color: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 4px; padding: 1px 5px; font-weight: bold; font-size: 10px;"
+                f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-weight: bold; font-size: 10px;"
             )
             layout.addWidget(h_badge)
         elif level >= 3:
@@ -282,18 +284,23 @@ class SectionRowWidget(QWidget):
         if cards_count > 0:
             diag_badge = QLabel("Utile (Cartes)")
             diag_badge.setStyleSheet(
-                "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
             )
             layout.addWidget(diag_badge)
         elif is_noise:
             diag_badge = QLabel("Exclu")
             diag_badge.setStyleSheet(
-                "background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+                f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
             )
             layout.addWidget(diag_badge)
         elif word_count < 25 and is_leaf:
             diag_badge = QLabel("Quasi vide")
-            diag_badge.setStyleSheet("background-color: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px;")
+            diag_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT};"
+                f" border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER}; border-radius: 4px; padding: 1px 5px; font-size: 10px;"
+            )
             layout.addWidget(diag_badge)
 
     def _on_check_state_changed(self, state: Qt.CheckState) -> None:
@@ -350,7 +357,7 @@ class ChapterCardWidget(QFrame):
             QFrame#{self.objectName()} {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius:  {DesignTokens.RADIUS_MD}px;
             }}
             QFrame#{self.objectName()}:hover {{
                 border-color: {DesignTokens.ACCENT_PRIMARY};
@@ -367,7 +374,8 @@ class ChapterCardWidget(QFrame):
 
         badge_h1 = QLabel(f"Ch. {chapter_index + 1}")
         badge_h1.setStyleSheet(
-            "background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+            f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; border: 1px solid {DesignTokens.ACCENT_BORDER};"
+            f" border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
         )
         layout.addWidget(badge_h1)
 
@@ -495,7 +503,7 @@ class DocumentPreviewWidget(QWidget):
             QFrame#previewCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius:  {DesignTokens.RADIUS_MD}px;
             }}
         """)
         inner_layout = QVBoxLayout(self.card)
@@ -755,7 +763,7 @@ class DocumentPreviewWidget(QWidget):
                 f'<div id="page-{p_num}" style="margin: 28px 0 14px 0; border-top: 2px dashed #475569; padding-top: 6px;">'
                 f'<a name="page-{p_num}"></a>'
                 f'<span style="background-color: #312e81; color: #c7d2fe; font-size: 11px; font-weight: bold; '
-                f'padding: 3px 10px; border-radius: 12px; border: 1px solid #4338ca;">Page {p_num}</span>'
+                f'padding: 3px 10px; border-radius:  12px; border: 1px solid #4338ca;">Page {p_num}</span>'
                 f"</div>"
             )
 
@@ -809,7 +817,7 @@ class DocumentPreviewWidget(QWidget):
             pre {{
                 background-color: #1e293b;
                 padding: 10px;
-                border-radius: 6px;
+                border-radius:  6px;
                 border: 1px solid #334155;
             }}
             blockquote {{
@@ -948,12 +956,14 @@ class DocumentPreviewWidget(QWidget):
         if is_included:
             self.lbl_scope_status.setText(f"Page {self._current_page} INCLUSE (portée {self._scope_start}–{self._scope_end})")
             self.lbl_scope_status.setStyleSheet(
-                "background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
+                f" border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
         else:
             self.lbl_scope_status.setText(f"Page {self._current_page} EXCLUE (portée {self._scope_start}–{self._scope_end})")
             self.lbl_scope_status.setStyleSheet(
-                "background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+                f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+                f" border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
         self.lbl_scope_status.show()
 
@@ -1082,12 +1092,12 @@ class DocumentDelimitationDialog(QDialog):
             QFrame#headerCard, QFrame#pagesCard, QFrame#sectionsCard, QFrame#allCard, QFrame#chaptersCard {{
                 background-color: {DesignTokens.BG_PANEL};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
+                border-radius:  {DesignTokens.RADIUS_MD}px;
             }}
             QSplitter::handle:horizontal {{
                 background-color: {DesignTokens.BORDER_COLOR};
                 width: 3px;
-                border-radius: 1px;
+                border-radius:  1px;
             }}
             QSplitter::handle:horizontal:hover {{
                 background-color: {DesignTokens.ACCENT_PRIMARY};
@@ -1153,7 +1163,8 @@ class DocumentDelimitationDialog(QDialog):
 
         badge_global = QLabel("DÉLIMITATION GLOBALE (STRUCTURE DU DOCUMENT)")
         badge_global.setStyleSheet(
-            "background-color: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: bold;"
+            f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};"
+            f" border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: bold;"
         )
         header_top.addWidget(badge_global)
         header_top.addStretch()
@@ -1266,11 +1277,11 @@ class DocumentDelimitationDialog(QDialog):
             QSlider::groove:horizontal {{
                 height: 4px;
                 background: {DesignTokens.BORDER_COLOR};
-                border-radius: 2px;
+                border-radius:  2px;
             }}
             QSlider::sub-page:horizontal {{
                 background: {DesignTokens.ACCENT_PRIMARY};
-                border-radius: 2px;
+                border-radius:  2px;
             }}
             QSlider::handle:horizontal {{
                 background: {DesignTokens.ACCENT_PRIMARY};
@@ -1278,7 +1289,7 @@ class DocumentDelimitationDialog(QDialog):
                 height: 14px;
                 margin-top: -5px;
                 margin-bottom: -5px;
-                border-radius: 7px;
+                border-radius:  7px;
                 border: 2px solid white;
             }}
             QSlider::handle:horizontal:hover {{
@@ -1407,7 +1418,7 @@ class DocumentDelimitationDialog(QDialog):
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius:  {DesignTokens.RADIUS_SM}px;
             }}
         """)
         ric_layout = QVBoxLayout(self.range_info_card)
@@ -1445,14 +1456,14 @@ class DocumentDelimitationDialog(QDialog):
             QFrame {{
                 background-color: rgba(34, 197, 94, 0.08);
                 border: 1px solid rgba(34, 197, 94, 0.25);
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius:  {DesignTokens.RADIUS_SM}px;
             }}
         """)
         hero_layout = QHBoxLayout(hero_banner)
         hero_layout.setContentsMargins(10, 8, 10, 8)
         hero_layout.setSpacing(10)
         hero_icon = QLabel()
-        hero_icon.setPixmap(load_phosphor_icon("ph.check-circle", color="#22c55e").pixmap(24, 24))
+        hero_icon.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(24, 24))
         hero_layout.addWidget(hero_icon)
         hero_text_col = QVBoxLayout()
         hero_text_col.setSpacing(2)
@@ -1474,7 +1485,7 @@ class DocumentDelimitationDialog(QDialog):
                 QFrame {{
                     background-color: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    border-radius:  {DesignTokens.RADIUS_SM}px;
                 }}
             """)
             b_layout = QVBoxLayout(box)
@@ -1511,7 +1522,7 @@ class DocumentDelimitationDialog(QDialog):
             QScrollArea {{
                 background-color: transparent;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius:  {DesignTokens.RADIUS_SM}px;
             }}
         """)
         self.all_outline_container = QWidget()
@@ -1605,7 +1616,7 @@ class DocumentDelimitationDialog(QDialog):
             QScrollArea {{
                 background-color: transparent;
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_SM}px;
+                border-radius:  {DesignTokens.RADIUS_SM}px;
             }}
         """)
         self.chapters_list_container = QWidget()
@@ -1691,7 +1702,7 @@ class DocumentDelimitationDialog(QDialog):
         self.filter_input.setFixedHeight(28)
         self.filter_input.setStyleSheet(
             f"QLineEdit {{ background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; "
-            f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 4px 8px; }}"
+            f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius:  6px; padding: 4px 8px; }}"
             f"QLineEdit:focus {{ border-color: {DesignTokens.ACCENT_PRIMARY}; }}"
         )
         self.filter_input.textChanged.connect(self._on_filter_changed)
@@ -1707,7 +1718,7 @@ class DocumentDelimitationDialog(QDialog):
             QTreeWidget {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: 6px;
+                border-radius:  6px;
                 padding: 4px;
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
@@ -1776,7 +1787,7 @@ class DocumentDelimitationDialog(QDialog):
         self.final_preview_card = QFrame()
         self.final_preview_card.setObjectName("finalPreviewCard")
         self.final_preview_card.setStyleSheet(
-            f"QFrame#finalPreviewCard {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: {DesignTokens.RADIUS_MD}px; }}"
+            f"QFrame#finalPreviewCard {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius:  {DesignTokens.RADIUS_MD}px; }}"
         )
         final_layout = QVBoxLayout(self.final_preview_card)
         final_layout.setContentsMargins(12, 10, 12, 10)
@@ -1787,7 +1798,7 @@ class DocumentDelimitationDialog(QDialog):
         self.final_preview_browser = QTextBrowser()
         self.final_preview_browser.setStyleSheet(
             f"QTextBrowser {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; "
-            f"border-radius: 6px; padding: 12px; color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_MAIN}; font-size: 12px; }}"
+            f"border-radius:  6px; padding: 12px; color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_MAIN}; font-size: 12px; }}"
         )
         final_layout.addWidget(self.final_preview_browser, 1)
         self.preview_stack.addWidget(self.final_preview_card)
@@ -1977,7 +1988,7 @@ class DocumentDelimitationDialog(QDialog):
             content = html.escape(str(chunk.get("content") or ""))
             html_blocks.append(
                 f'<div style="background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; '
-                f'border-radius: 6px; padding: 12px; margin-bottom: 12px;">'
+                f'border-radius:  6px; padding: 12px; margin-bottom: 12px;">'
                 f'<div style="color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; margin-bottom: 8px;">'
                 f"{title}{page_info}</div>"
                 f'<div style="color: {DesignTokens.TEXT_PRIMARY}; white-space: pre-wrap;">{content}</div></div>'
@@ -2585,7 +2596,7 @@ class DocumentDelimitationDialog(QDialog):
                 QFrame {{
                     background-color: {DesignTokens.BG_INPUT};
                     border: 1px solid {DesignTokens.BORDER_COLOR};
-                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    border-radius:  {DesignTokens.RADIUS_SM}px;
                 }}
             """)
             or_layout = QHBoxLayout(outline_row)
@@ -2594,7 +2605,8 @@ class DocumentDelimitationDialog(QDialog):
 
             ch_badge = QLabel(f"Ch. {idx + 1}")
             ch_badge.setStyleSheet(
-                "background-color: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+                f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; border: 1px solid {DesignTokens.ACCENT_BORDER};"
+                f" border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
             )
             or_layout.addWidget(ch_badge)
 

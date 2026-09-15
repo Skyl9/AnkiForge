@@ -2,13 +2,15 @@ from typing import Any
 
 from PySide6.QtWidgets import QLabel
 
+from ankiforge.ui.theme import DesignTokens
+
 # Métadonnées des types d'étapes DAG
 STEP_TYPES_META: dict[str, dict[str, Any]] = {
     "LLM_PROMPT": {
         "label": "Agent IA (LLM)",
         "badge": "LLM",
         "badge_variant": "status",
-        "badge_color": "#8b5cf6",
+        "badge_color": DesignTokens.BRANCH_A,
         "icon": "ph.sparkle",
         "default_title": "Exécution d'un Agent IA",
         "requires_persona": True,
@@ -19,7 +21,7 @@ STEP_TYPES_META: dict[str, dict[str, Any]] = {
         "label": "Pause Copilote (Validation)",
         "badge": "PAUSE",
         "badge_variant": "warning",
-        "badge_color": "#f59e0b",
+        "badge_color": DesignTokens.COLOR_YELLOW,
         "icon": "ph.pause-circle",
         "default_title": "Pause Copilote (Validation Humaine)",
         "requires_persona": False,
@@ -30,7 +32,7 @@ STEP_TYPES_META: dict[str, dict[str, Any]] = {
         "label": "Recherche RAG Vectorielle",
         "badge": "RAG",
         "badge_variant": "info",
-        "badge_color": "#06b6d4",
+        "badge_color": DesignTokens.BRANCH_B,
         "icon": "ph.database",
         "default_title": "Recherche Sémantique Documentaire",
         "requires_persona": False,
@@ -41,7 +43,7 @@ STEP_TYPES_META: dict[str, dict[str, Any]] = {
         "label": "Génération Parallèle (par lots)",
         "badge": "PARALLÈLE",
         "badge_variant": "success",
-        "badge_color": "#10b981",
+        "badge_color": DesignTokens.COLOR_GREEN,
         "icon": "ph.stack",
         "default_title": "Génération Parallèle par Lots",
         "requires_persona": True,
@@ -52,7 +54,7 @@ STEP_TYPES_META: dict[str, dict[str, Any]] = {
         "label": "Outil Python Déterministe",
         "badge": "OUTIL",
         "badge_variant": "neutral",
-        "badge_color": "#f97316",
+        "badge_color": DesignTokens.SYNTAX_VARIABLE,
         "icon": "ph.code",
         "default_title": "Exécution d'un Script / Outil",
         "requires_persona": False,
@@ -63,7 +65,7 @@ STEP_TYPES_META: dict[str, dict[str, Any]] = {
         "label": "Génération Audio (TTS)",
         "badge": "TTS",
         "badge_variant": "status",
-        "badge_color": "#ec4899",
+        "badge_color": DesignTokens.FLAG_PINK,
         "icon": "ph.speaker-high",
         "default_title": "Synthèse Vocale des Cartes",
         "requires_persona": False,

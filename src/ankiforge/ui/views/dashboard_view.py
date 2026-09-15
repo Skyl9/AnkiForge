@@ -875,7 +875,7 @@ class DashboardView(QWidget):
                     "title": f"Note #{f['note_id']} v{f['version']}",
                     "subtitle": f"{f.get('source', 'manual')} • {f['created_at']}",
                     "icon": "ph.sparkle" if f.get("source") in ["ai_generator", "dag_pipeline"] else "ph.pencil-simple",
-                    "bg_color": "rgba(99, 102, 241, 0.15)" if f.get("source") in ["ai_generator", "dag_pipeline"] else "rgba(59, 130, 246, 0.15)",
+                    "bg_color": DesignTokens.ACCENT_BG if f.get("source") in ["ai_generator", "dag_pipeline"] else DesignTokens.COLOR_BLUE_BG,
                     "sample_note_id": f["note_id"],
                 }
                 for f in feed_items
@@ -895,7 +895,7 @@ class DashboardView(QWidget):
                     title=m.get("title", "Action"),
                     subtitle=m.get("subtitle", ""),
                     icon_name=m.get("icon", "ph.sparkle"),
-                    bg_color=m.get("bg_color", "rgba(99, 102, 241, 0.15)"),
+                    bg_color=m.get("bg_color", DesignTokens.ACCENT_BG),
                 )
                 nid = m.get("sample_note_id")
                 if nid:

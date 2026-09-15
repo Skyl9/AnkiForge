@@ -61,6 +61,29 @@ class DesignTokens:
     COLOR_RED = "#ef4444"
     COLOR_PURPLE = "#6366f1"
 
+    # Semantic tinted backgrounds (alpha variants dérivés de color_* à l'application du profil)
+    ACCENT_BG = "rgba(99, 102, 241, 0.15)"
+    COLOR_RED_BG = "rgba(239, 68, 68, 0.15)"
+    COLOR_GREEN_BG = "rgba(16, 185, 129, 0.15)"
+    COLOR_YELLOW_BG = "rgba(245, 158, 11, 0.15)"
+    COLOR_BLUE_BG = "rgba(59, 130, 246, 0.15)"
+    COLOR_PURPLE_BG = "rgba(99, 102, 241, 0.12)"
+
+    # Semantic tinted borders (bordure teintée par alpha, dérivées comme les *_BG)
+    ACCENT_BORDER = "rgba(99, 102, 241, 0.3)"
+    COLOR_RED_BORDER = "rgba(239, 68, 68, 0.3)"
+    COLOR_GREEN_BORDER = "rgba(16, 185, 129, 0.3)"
+    COLOR_YELLOW_BORDER = "rgba(245, 158, 11, 0.3)"
+    COLOR_BLUE_BORDER = "rgba(59, 130, 246, 0.3)"
+    COLOR_PURPLE_BORDER = "rgba(168, 85, 247, 0.3)"
+
+    # Semantic text-on-tint (texte lisible sur fond teinté ; sombre → teinte claire, claire → couleur de base)
+    COLOR_RED_TEXT = "#f87171"
+    COLOR_GREEN_TEXT = "#6ee7b7"
+    COLOR_YELLOW_TEXT = "#fcd34d"
+    COLOR_BLUE_TEXT = "#93c5fd"
+    COLOR_PURPLE_TEXT = "#a5b4fc"
+
     # Anki Card Flags (1..7)
     FLAG_NONE = 0
     FLAG_RED = "#ef4444"
@@ -74,6 +97,10 @@ class DesignTokens:
     # A/B Testing branches
     BRANCH_A = "#8b5cf6"
     BRANCH_B = "#06b6d4"
+    BRANCH_A_BG = "rgba(139, 92, 246, 0.12)"
+    BRANCH_B_BG = "rgba(6, 182, 212, 0.12)"
+    BRANCH_A_BORDER = "rgba(139, 92, 246, 0.45)"
+    BRANCH_B_BORDER = "rgba(6, 182, 212, 0.45)"
 
     FLAG_COLORS: dict[int, str] = {
         1: "#ef4444",
@@ -190,6 +217,35 @@ class DesignTokens:
         cls.COLOR_RED = profile.color_red
         cls.COLOR_PURPLE = profile.color_purple
 
+        # Semantic tinted backgrounds — dérivés des couleurs sémantiques actives (réassignés à chaud)
+        cls.ACCENT_BG = profile.accent_bg or cls._with_alpha(profile.accent_primary, 0.15)
+        cls.COLOR_RED_BG = profile.color_red_bg or cls._with_alpha(profile.color_red, 0.15)
+        cls.COLOR_GREEN_BG = profile.color_green_bg or cls._with_alpha(profile.color_green, 0.15)
+        cls.COLOR_YELLOW_BG = profile.color_yellow_bg or cls._with_alpha(profile.color_yellow, 0.15)
+        cls.COLOR_BLUE_BG = profile.color_blue_bg or cls._with_alpha(profile.color_blue, 0.15)
+        cls.COLOR_PURPLE_BG = profile.color_purple_bg or cls._with_alpha(profile.color_purple, 0.12)
+
+        # Semantic tinted borders — dérivées des couleurs sémantiques actives
+        cls.ACCENT_BORDER = profile.accent_border or cls._with_alpha(profile.accent_primary, 0.3)
+        cls.COLOR_RED_BORDER = profile.color_red_border or cls._with_alpha(profile.color_red, 0.3)
+        cls.COLOR_GREEN_BORDER = profile.color_green_border or cls._with_alpha(profile.color_green, 0.3)
+        cls.COLOR_YELLOW_BORDER = profile.color_yellow_border or cls._with_alpha(profile.color_yellow, 0.3)
+        cls.COLOR_BLUE_BORDER = profile.color_blue_border or cls._with_alpha(profile.color_blue, 0.3)
+        cls.COLOR_PURPLE_BORDER = profile.color_purple_border or cls._with_alpha(profile.color_purple, 0.3)
+
+        # Branch A/B — couleurs fixes du design system, teintes alpha dérivées
+        cls.BRANCH_A_BG = cls._with_alpha(cls.BRANCH_A, 0.12)
+        cls.BRANCH_B_BG = cls._with_alpha(cls.BRANCH_B, 0.12)
+        cls.BRANCH_A_BORDER = cls._with_alpha(cls.BRANCH_A, 0.45)
+        cls.BRANCH_B_BORDER = cls._with_alpha(cls.BRANCH_B, 0.45)
+
+        # Semantic text-on-tint — teinte claire en mode sombre, couleur de base en clair
+        cls.COLOR_RED_TEXT = profile.color_red_text or ("#f87171" if cls.IS_DARK else profile.color_red)
+        cls.COLOR_GREEN_TEXT = profile.color_green_text or ("#6ee7b7" if cls.IS_DARK else profile.color_green)
+        cls.COLOR_YELLOW_TEXT = profile.color_yellow_text or ("#fcd34d" if cls.IS_DARK else profile.color_yellow)
+        cls.COLOR_BLUE_TEXT = profile.color_blue_text or ("#93c5fd" if cls.IS_DARK else profile.color_blue)
+        cls.COLOR_PURPLE_TEXT = profile.color_purple_text or ("#a5b4fc" if cls.IS_DARK else profile.color_purple)
+
         # Syntax Highlighting Tokens
         cls.SYNTAX_TAG = getattr(profile, "syntax_tag", "#38bdf8" if cls.IS_DARK else "#0284c7")
         cls.SYNTAX_ATTR = getattr(profile, "syntax_attr", "#fbbf24" if cls.IS_DARK else "#d97706")
@@ -218,6 +274,14 @@ class DesignTokens:
 
         theme = BUILTIN_THEMES.get(layout_or_theme_id, JETBRAINS_DARK)
         cls.apply_theme_profile(theme)
+
+    @classmethod
+    def _with_alpha(cls, color: str, alpha: float) -> str:
+        """Convertit une couleur hex (ou rgba existante) en rgba avec l'alpha demandée."""
+        c = QColor(color)
+        if not c.isValid():
+            return color
+        return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha})"
 
     @classmethod
     def is_dark_mode(cls) -> bool:

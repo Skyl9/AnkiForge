@@ -448,7 +448,7 @@ class AIWozniakLinterTab(QWidget):
                 "note_id": nid,
                 "title": f"Note #{nid} · {recto[:35]}...",
                 "badge": rule_name,
-                "badge_color": self.kpi_cards[cat_id].color if cat_id in self.kpi_cards else "#f87171",
+                "badge_color": self.kpi_cards[cat_id].color if cat_id in self.kpi_cards else DesignTokens.COLOR_RED_TEXT,
                 "rule": f"{rule_name}: {reason}",
                 "original": {"NoteType": note.note_type.name if note.note_type else "AnkiForge-Basic", "Recto": recto, "Verso": verso, "Champ Annexe Extra": extra, "Tags": note.tags or "#general"},
                 "proposal": normalized_sug,
@@ -472,7 +472,7 @@ class AIWozniakLinterTab(QWidget):
         score_global = int(total_score / cat_count)
         self.score_badge.setText(f"Score : {score_global} / 100")
         self.score_badge.setStyleSheet(
-            f"background-color: rgba(245,158,11,0.12); color: {DesignTokens.COLOR_YELLOW}; border: 1px solid rgba(245,158,11,0.3); border-radius: 9999px; padding: 4px 14px;"
+            f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER}; border-radius: 9999px; padding: 4px 14px;"
         )
 
         self._cached_categories_data = categories_dict

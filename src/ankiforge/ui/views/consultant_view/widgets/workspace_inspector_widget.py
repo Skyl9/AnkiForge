@@ -132,13 +132,13 @@ class WorkspaceInspectorWidget(QWidget):
 
         # Bannière Garde-Fou
         self.banner_guard = QFrame()
-        self.banner_guard.setStyleSheet("""
-            QFrame {
-                background-color: rgba(234, 179, 8, 0.1);
-                border: 1px solid rgba(234, 179, 8, 0.4);
+        self.banner_guard.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
                 border-radius: 6px;
                 padding: 6px;
-            }
+            }}
         """)
         banner_layout = QHBoxLayout(self.banner_guard)
         banner_layout.setContentsMargins(6, 4, 6, 4)
@@ -388,9 +388,9 @@ class WorkspaceInspectorWidget(QWidget):
                 line = raw_line.rstrip("\n")
                 escaped = html.escape(line)
                 if line.startswith("+") and not line.startswith("+++"):
-                    html_lines.append(f"<div style='background-color: rgba(34, 197, 94, 0.15); color: {DesignTokens.COLOR_GREEN}; padding: 2px 4px; font-weight: 500;'>{escaped}</div>")
+                    html_lines.append(f"<div style='background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 4px; font-weight: 500;'>{escaped}</div>")
                 elif line.startswith("-") and not line.startswith("---"):
-                    html_lines.append(f"<div style='background-color: rgba(239, 68, 68, 0.15); color: {DesignTokens.COLOR_RED}; padding: 2px 4px; text-decoration: line-through;'>{escaped}</div>")
+                    html_lines.append(f"<div style='background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 2px 4px; text-decoration: line-through;'>{escaped}</div>")
                 elif line.startswith("@@"):
                     html_lines.append(f"<div style='color: {DesignTokens.COLOR_BLUE}; font-weight: bold; margin-top: 4px; padding: 2px 4px;'>{escaped}</div>")
                 else:

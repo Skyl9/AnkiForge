@@ -79,11 +79,11 @@ class PersonaPromptDiffViewer(QTextBrowser):
                     f"<td style='color: {DesignTokens.TEXT_PRIMARY}; padding: 2px 6px;'>{escaped_text}</td></tr>"
                 )
             elif code == "- ":
-                del_style = f"background-color: rgba(239, 68, 68, 0.15); color: {DesignTokens.COLOR_RED};"
+                del_style = f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED};"
                 del_td = f"<td style='width: 25px; user-select: none; font-weight: bold; color: {DesignTokens.COLOR_RED};'>-</td>"
                 html.append(f"<tr style='{del_style}'>{del_td}<td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
             elif code == "+ ":
-                add_style = f"background-color: rgba(16, 185, 129, 0.15); color: {DesignTokens.COLOR_GREEN};"
+                add_style = f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN};"
                 add_td = f"<td style='width: 25px; user-select: none; font-weight: bold; color: {DesignTokens.COLOR_GREEN};'>+</td>"
                 html.append(f"<tr style='{add_style}'>{add_td}<td style='padding: 2px 6px;'>{escaped_text}</td></tr>")
 
@@ -119,14 +119,14 @@ class PersonaVersionItemWidget(QWidget):
 
         if version.is_active:
             badge_active = QLabel("Actif")
-            badge_active.setStyleSheet("""
-                background-color: rgba(16, 185, 129, 0.2);
-                color: #10b981;
+            badge_active.setStyleSheet(f"""
+                background-color: {DesignTokens.COLOR_GREEN_BG};
+                color: {DesignTokens.COLOR_GREEN};
                 font-weight: bold;
                 font-size: 10px;
                 padding: 2px 6px;
                 border-radius: 4px;
-                border: 1px solid rgba(16, 185, 129, 0.4);
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
             """)
             top_row.addWidget(badge_active)
 

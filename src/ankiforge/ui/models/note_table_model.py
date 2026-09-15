@@ -295,7 +295,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 if role == Qt.ItemDataRole.DisplayRole:
                     return row_data.deck_name
                 if role == BADGE_BG_COLOR_ROLE:
-                    return "rgba(99, 102, 241, 0.15)"
+                    return DesignTokens.ACCENT_BG
                 if role == BADGE_TEXT_COLOR_ROLE:
                     return DesignTokens.ACCENT_PRIMARY
 
@@ -341,7 +341,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 if role == Qt.ItemDataRole.DisplayRole:
                     return row_data.deck_name
                 if role == BADGE_BG_COLOR_ROLE:
-                    return "rgba(99, 102, 241, 0.15)"
+                    return DesignTokens.ACCENT_BG
                 if role == BADGE_TEXT_COLOR_ROLE:
                     return DesignTokens.ACCENT_PRIMARY
 
@@ -386,7 +386,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
                 if role == Qt.ItemDataRole.DisplayRole:
                     return row_data.deck_name
                 if role == BADGE_BG_COLOR_ROLE:
-                    return "rgba(99, 102, 241, 0.15)"
+                    return DesignTokens.ACCENT_BG
                 if role == BADGE_TEXT_COLOR_ROLE:
                     return DesignTokens.ACCENT_PRIMARY
 
