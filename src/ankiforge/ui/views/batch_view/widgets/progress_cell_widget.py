@@ -9,7 +9,7 @@ from ankiforge.ui.theme import DesignTokens
 class ProgressTableCellWidget(QWidget):
     """Widget de cellule affichant la barre de progression et l'état textuel (%) sous la barre."""
 
-    def __init__(self, progress_pct: int = 0, status_text: str = "En attente...", color: str = "#6366f1", parent: QWidget | None = None) -> None:
+    def __init__(self, progress_pct: int = 0, status_text: str = "En attente...", color: str = DesignTokens.ACCENT_PRIMARY, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -61,7 +61,7 @@ class ProgressTableCellWidget(QWidget):
         if hasattr(self, "lbl_pct"):
             self.lbl_pct.setStyleSheet(f"color: {profile.text_muted}; font-size: 10px; font-family: '{profile.font_code}'; font-weight: bold;")
 
-    def update_progress(self, progress_pct: int, status_text: str, color: str = "#10b981") -> None:
+    def update_progress(self, progress_pct: int, status_text: str, color: str = DesignTokens.COLOR_GREEN) -> None:
         self.progress_pct = progress_pct
         self.status_text = status_text
         self.color = color

@@ -916,6 +916,19 @@ class StyleEngine(QObject):
             border: 1px solid {p.border_color};
             border-radius: {p.radius_sm}px;
         }}
+
+        /* --- Composants à décorants QPainter (thème-aware) ---
+           Widgets qui dessinent en QPainter (paintEvent / QtCharts) et doivent
+           consommer les DesignTokens pour rester conformes en clair et sombre :
+           DonutChartWidget, RetentionCurveCanvas, ScopeRangeBarWidget,
+           ProgressTableCellWidget, ImageOcclusionEditor, ActivityChartWidget. */
+        QChartView, DonutChartWidget {{
+            background: transparent;
+        }}
+        QChartView QLabel, DonutChartWidget QLabel {{
+            background: transparent;
+            color: {p.text_primary};
+        }}
         """
 
     def apply_theme(self, theme_or_id: str | ThemeProfile, app: QApplication | None = None) -> None:

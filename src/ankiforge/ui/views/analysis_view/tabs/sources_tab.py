@@ -133,7 +133,7 @@ class DocumentInspectorPanel(QWidget):
         self.lbl_doc_summary = QLabel("Couverture : 0%")
         self.lbl_doc_summary.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
         self.lbl_doc_summary.setStyleSheet(
-            f"background-color: rgba(16,185,129,0.15); color: {DesignTokens.COLOR_GREEN}; border: 1px solid rgba(16,185,129,0.3); border-radius: 9999px; padding: 4px 10px;"
+            f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER}; border-radius: 9999px; padding: 4px 10px;"
         )
 
         self.btn_fill_orphans = PrimaryButton("Générer les cartes manquantes", tooltip="Générer automatiquement des flashcards pour les sections non couvertes")
@@ -264,7 +264,7 @@ class DocumentInspectorPanel(QWidget):
 
         if not chunks:
             self.lbl_doc_summary.setText("Non indexé (0 section)")
-            self.text_preview.setHtml("<p style='color: #9ca3af;'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
+            self.text_preview.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED};'>Ce document n'a pas encore été fragmenté. Cliquez sur 'Ré-indexer FAISS'.</p>")
             return
 
         covered_count = 0

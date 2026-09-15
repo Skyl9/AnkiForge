@@ -112,7 +112,7 @@ class SegmentItemWidget(QWidget):
         header_layout.addWidget(self.checkbox)
 
         idx_badge = QLabel(f"#{index + 1}")
-        idx_badge.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY}; background: rgba(99, 102, 241, 0.15); border-radius: 3px; padding: 1px 4px;")
+        idx_badge.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.ACCENT_PRIMARY}; background: {DesignTokens.ACCENT_BG}; border-radius: 3px; padding: 1px 4px;")
         header_layout.addWidget(idx_badge)
 
         self.title_lbl = QLabel(title)
