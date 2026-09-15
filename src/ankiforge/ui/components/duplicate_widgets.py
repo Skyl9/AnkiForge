@@ -223,6 +223,13 @@ class DuplicateMatrixTable(QFrame):
 
         layout.addWidget(self.table)
 
+        self.empty_state = QLabel("Aucun doublon détecté dans ce paquet")
+        self.empty_state.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.empty_state.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent; padding: 18px;")
+        self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state.setVisible(False)
+        layout.addWidget(self.empty_state)
+
         # 4. Global "Check All" CheckBox in the Header
         self.check_all = QCheckBox(self.table.horizontalHeader())
         self.check_all.setFixedSize(16, 16)

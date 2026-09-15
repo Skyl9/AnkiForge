@@ -16,6 +16,7 @@ from ankiforge.ui.components.duplicate_widgets import (
 )
 from ankiforge.ui.components.linter_widgets import WozniakCardItemWidget
 from ankiforge.ui.views.analysis_view import (
+    AIDuplicatesMergeTab,
     AISourcesDiagnosticTab,
     AITokensSrsTab,
     AIWozniakLinterTab,
@@ -245,6 +246,68 @@ def test_ai_duplicates_merge_tab_and_inspector(qtbot):
     }
     inspector.on_swap()
     assert inspector.current_conflict["content_a"]["Recto"] == "Question B"
+
+
+def test_ai_duplicates_merge_tab_empty_state(qtbot):
+    """Vérifie le retour visuel (badge + état vide) quand aucun doublon n'est détecté."""
+    tab = AIDuplicatesMergeTab()
+    qtbot.addWidget(tab)
+
+    # Aucun doublon généré → badge 0 + état vide visible + table vide
+    tab.on_scan_finished([])
+    assert tab.matrix_table.badge_count.text() == "0 paire à examiner"
+    assert tab.matrix_table.empty_state.isVisibleTo(tab)
+    assert tab.matrix_table.table.rowCount() == 0
+    assert tab.merge_inspector.isHidden()
+
+    # Un doublon détecté → badge 1 + état vide masqué + ligne ajoutée
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name="Model Dup Empty",
+        fields_schema='["Front", "Back"]',
+        templates="[]",
+        css_style="",
+    )
+    note_a = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note_b = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+
+    tab.on_scan_finished(
+        [
+            (note_a, {"Recto": "Question A", "Verso": "Réponse A"}, note_b, {"Recto": "Question B", "Verso": "Réponse B"}, 0.96),
+        ]
+    )
+    assert tab.matrix_table.badge_count.text() == "1 paire à examiner"
+    assert not tab.matrix_table.empty_state.isVisibleTo(tab)
+    assert tab.matrix_table.table.rowCount() == 1
+
+
+def test_ai_duplicates_merge_tab_badge_plural(qtbot):
+    """Vérifie la gestion singulier/pluriel du badge après suppression du dernier doublon."""
+    tab = AIDuplicatesMergeTab()
+    qtbot.addWidget(tab)
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(
+        name="Model Dup Plural",
+        fields_schema='["Front", "Back"]',
+        templates="[]",
+        css_style="",
+    )
+    notes = [NoteModel.create(guid=uuid.uuid4().hex, note_type=nt) for _ in range(2)]
+
+    tab.on_scan_finished([(notes[0], {"Recto": f"A{i}", "Verso": "R"}, notes[1], {"Recto": f"B{i}", "Verso": "R"}, 0.9) for i in range(2)])
+    assert tab.matrix_table.badge_count.text() == "2 paires à examiner"
+    assert tab.matrix_table.table.rowCount() == 2
+
+    # Suppression successive → retour à l'état vide après la dernière paire
+    tab.matrix_table.table.selectRow(1)
+    tab.remove_current_conflict()
+    assert tab.matrix_table.badge_count.text() == "1 paire à examiner"
+    assert not tab.matrix_table.empty_state.isVisibleTo(tab)
+
+    tab.matrix_table.table.selectRow(0)
+    tab.remove_current_conflict()
+    assert tab.matrix_table.badge_count.text() == "0 paire à examiner"
+    assert tab.matrix_table.empty_state.isVisibleTo(tab)
+    assert tab.matrix_table.table.rowCount() == 0
 
 
 def test_analysis_view_main_container(qtbot):

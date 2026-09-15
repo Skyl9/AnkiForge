@@ -2,12 +2,13 @@ import json
 import logging
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ankiforge.database.models import IgnoredDuplicateModel, NoteVersionModel, db
 from ankiforge.services.workers.duplicate_worker import DuplicateWorker
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.duplicate_widgets import DuplicateMatrixTable, DuplicateMergeInspector
+from ankiforge.ui.widgets.toast import show_toast
 
 logger = logging.getLogger(__name__)
 
@@ -72,12 +73,18 @@ class AIDuplicatesMergeTab(QWidget):
         self.matrix_table.btn_reanalyze.setEnabled(True)
         self.matrix_table.btn_reanalyze.setText("Relancer l'analyse")
         self.conflicts = conflicts
-
-        for child in self.matrix_table.findChildren(QLabel):
-            if "paires à examiner" in child.text() or "0" in child.text():
-                child.setText(f"{len(conflicts)} paires à examiner")
+        self.merge_inspector.reset_inspector()
+        self.merge_inspector.hide()
 
         self.matrix_table.table.setRowCount(0)
+        if not conflicts:
+            self._update_badge(0)
+            self.matrix_table.empty_state.setVisible(True)
+            show_toast(self, "Aucun doublon détecté dans ce paquet.")
+            return
+
+        self.matrix_table.empty_state.setVisible(False)
+        self._update_badge(len(conflicts))
         for idx, (note_a, content_a, note_b, content_b, sim) in enumerate(conflicts):
             row_data = {
                 "idx": idx,
@@ -88,6 +95,10 @@ class AIDuplicatesMergeTab(QWidget):
                 "sim": sim,
             }
             self.matrix_table.add_row(note_a, content_a, note_b, content_b, sim, row_data)
+
+    def _update_badge(self, count: int) -> None:
+        label = "paire à examiner" if count <= 1 else "paires à examiner"
+        self.matrix_table.badge_count.setText(f"{count} {label}")
 
     def on_scan_error(self, err: str) -> None:
         self.matrix_table.btn_reanalyze.setEnabled(True)
@@ -154,9 +165,9 @@ class AIDuplicatesMergeTab(QWidget):
             self.merge_inspector.reset_inspector()
             self.merge_inspector.hide()
 
-            for child in self.matrix_table.findChildren(QLabel):
-                if "paires à examiner" in child.text() or "0" in child.text():
-                    child.setText(f"{self.matrix_table.table.rowCount()} paires à examiner")
+            remaining = self.matrix_table.table.rowCount()
+            self._update_badge(remaining)
+            self.matrix_table.empty_state.setVisible(remaining == 0)
 
     def hideEvent(self, event: object) -> None:
         """Décharge les ressources WebEngine lorsque l'onglet est masqué."""
