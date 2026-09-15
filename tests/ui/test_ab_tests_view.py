@@ -213,13 +213,17 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     assert view._adv_collapsed
     assert view.adv_drawer.isHidden()
 
-    # 4. Winner badging
-    view.kpi_a.set_results(elapsed=1.0, cards_count=2, tokens=300, cost_usd=0.001, is_success=True)
-    view.kpi_b.set_results(elapsed=3.0, cards_count=2, tokens=350, cost_usd=0.002, is_success=True)
-    view._evaluate_winner()
-    assert not view.kpi_a.badge_winner.isHidden()
-    assert "rapide" in view.kpi_a.badge_winner.text()
-    assert view.kpi_b.badge_winner.isHidden()
+    # 4. État initial idle des KPI : aucune métrique trompeuse (spéc #3)
+    assert view.kpi_a.lbl_time.text() == "—"
+    assert view.kpi_a.lbl_cards.text() == "—"
+    assert view.kpi_b.lbl_time.text() == "—"
+    assert view.kpi_b.lbl_cards.text() == "—"
+    assert "Prêt" in view.kpi_a.lbl_status.text()
+
+    # Aucun mécanisme de gagnant : badge et boutons supprimés (décision "tout retirer")
+    assert not hasattr(view, "btn_adopt_winner")
+    assert not hasattr(view.kpi_a, "badge_winner")
+    assert not hasattr(view, "_evaluate_winner")
 
     # 5. Flip & Device mode
     view._on_flip_both_cards()
@@ -265,31 +269,26 @@ def test_ab_tests_view_inference_sliders_independent(qtbot):
 
 
 @pytest.mark.ui
-def test_ab_tests_view_evaluate_winner_and_adopt(qtbot):
-    """Vérifie le multi-critère (temps/cartes/coût) et le bouton 'Adopter le Gagnant'."""
-    from ankiforge.services.settings_service import SettingsService
+def test_ab_tests_view_no_winner_or_adopt_mechanism(qtbot):
+    """Vérifie que le mécanisme 'gagnant' (badge + Adopter) et la copie config A→B ont été supprimés."""
 
     view = ABTestsView(ai_manager=None)
     qtbot.addWidget(view)
 
-    # Branch A plus rapide, B plus coûteuse -> A gagne sur la rapidité
+    # KPIs démarrés en idle : pas d'état vide troublant
+    assert view.kpi_a.lbl_time.text() == "—"
+    assert view.kpi_b.lbl_time.text() == "—"
+
+    # Plus de badge gagnant : aucune référence au mécanisme
+    assert not hasattr(view, "btn_adopt_winner")
+    assert not hasattr(view.kpi_a, "badge_winner")
+    assert not hasattr(view, "_evaluate_winner")
+
+    # Les deux branches restent indépendantes : résultats A sans impacter B
     view.kpi_a.set_results(elapsed=1.0, cards_count=2, tokens=300, cost_usd=0.001, is_success=True)
     view.kpi_b.set_results(elapsed=3.0, cards_count=2, tokens=350, cost_usd=0.002, is_success=True)
-    view._evaluate_winner()
-    assert view._winner_branch == "A"
-    assert not view.kpi_a.badge_winner.isHidden()
-    assert "rapide" in view.kpi_a.badge_winner.text()
-    assert view.kpi_b.badge_winner.isHidden()
-
-    # Mode 0 : adopt le gagnant -> écrit creation/engine_id
-    view.mode_combo.setCurrentIndex(0)
-    view._mode_at_run = 0
-    cfg_a = LLMConfigModel.create(provider="mock_adopt", model_id="model_adopt", display_name="Model Adopt")
-    view._engine_cfg_a = cfg_a
-    view._engine_cfg_b = LLMConfigModel.create(provider="mock_adopt2", model_id="model_adopt2", display_name="Model Adopt 2")
-    view._winner_branch = "A"
-    view._on_adopt_winner()
-    assert SettingsService.get("creation/engine_id") == cfg_a.id
+    assert view.kpi_a.lbl_time.text() == "1.00s"
+    assert view.kpi_b.lbl_time.text() == "3.00s"
 
 
 @pytest.mark.ui
@@ -312,16 +311,17 @@ def test_ab_tests_view_diff_and_copy_config(qtbot):
     assert view.stack_a.currentIndex() == 3
     assert view.stack_b.currentIndex() == 3
 
-    # Copie config A -> B
-    view.temp_slider_a.setValue(55)
-    view.tok_slider_a.setValue(3072)
-    view._on_copy_config_a_to_b()
-    assert view.temp_slider_b.value() == 55
-    assert view.tok_slider_b.value() == 3072
+    # Copie config A -> B : mécanisme supprimé — chaque branche garde ses réglages indépendants
+    assert not hasattr(view, "btn_copy_a_to_b")
+    assert not hasattr(view, "_on_copy_config_a_to_b")
 
-
-@pytest.mark.ui
-def test_ab_tests_view_partial_import_current_card(qtbot):
+    # Indépendance conservée : régler A ne touche pas B
+    view.temp_slider_a.setValue(88)
+    view.tok_slider_a.setValue(600)
+    assert view.temp_slider_b.value() == 70
+    assert view.tok_slider_b.value() == 4096
+    assert view.temp_slider_b.value() == 70  # inchangé
+    assert view.tok_slider_b.value() == 4096
     """Vérifie l'import sélectif de la carte visible dans la Forge."""
     uid = uuid.uuid4().hex[:6]
     nt = NoteTypeModel.create(

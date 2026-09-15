@@ -35,12 +35,6 @@ class BranchKpiWidget(QFrame):
         apply_pill_style(self.lbl_branch, color_hex)
         top_row.addWidget(self.lbl_branch, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.badge_winner = QLabel("Plus rapide")
-        self.badge_winner.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        apply_pill_style(self.badge_winner, DesignTokens.COLOR_GREEN)
-        self.badge_winner.hide()
-        top_row.addWidget(self.badge_winner, alignment=Qt.AlignmentFlag.AlignVCenter)
-
         top_row.addStretch()
 
         self.lbl_status = QLabel("Prêt")
@@ -49,11 +43,11 @@ class BranchKpiWidget(QFrame):
         top_row.addWidget(self.lbl_status, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout.addLayout(top_row)
 
-        metrics_row = QHBoxLayout()
-        metrics_row.setContentsMargins(0, 0, 0, 0)
-        metrics_row.setSpacing(16)
+        self.metrics_row = QHBoxLayout()
+        self.metrics_row.setContentsMargins(0, 0, 0, 0)
+        self.metrics_row.setSpacing(16)
 
-        self.lbl_time = QLabel("0.00s")
+        self.lbl_time = QLabel("—")
         self.lbl_time.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent;")
         ico_time = QLabel()
         ico_time.setFixedSize(14, 14)
@@ -63,9 +57,9 @@ class BranchKpiWidget(QFrame):
         row_time.setSpacing(4)
         row_time.addWidget(ico_time)
         row_time.addWidget(self.lbl_time)
-        metrics_row.addLayout(row_time)
+        self.metrics_row.addLayout(row_time)
 
-        self.lbl_cards = QLabel("0 cartes")
+        self.lbl_cards = QLabel("—")
         self.lbl_cards.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent;")
         ico_cards = QLabel()
         ico_cards.setFixedSize(14, 14)
@@ -75,9 +69,9 @@ class BranchKpiWidget(QFrame):
         row_cards.setSpacing(4)
         row_cards.addWidget(ico_cards)
         row_cards.addWidget(self.lbl_cards)
-        metrics_row.addLayout(row_cards)
+        self.metrics_row.addLayout(row_cards)
 
-        self.lbl_tokens = QLabel("~0 tok")
+        self.lbl_tokens = QLabel("—")
         self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
         ico_tokens = QLabel()
         ico_tokens.setFixedSize(14, 14)
@@ -87,9 +81,9 @@ class BranchKpiWidget(QFrame):
         row_tokens.setSpacing(4)
         row_tokens.addWidget(ico_tokens)
         row_tokens.addWidget(self.lbl_tokens)
-        metrics_row.addLayout(row_tokens)
+        self.metrics_row.addLayout(row_tokens)
 
-        self.lbl_cost = QLabel("$0.000")
+        self.lbl_cost = QLabel("—")
         self.lbl_cost.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent;")
         ico_cost = QLabel()
         ico_cost.setFixedSize(14, 14)
@@ -99,10 +93,10 @@ class BranchKpiWidget(QFrame):
         row_cost.setSpacing(4)
         row_cost.addWidget(ico_cost)
         row_cost.addWidget(self.lbl_cost)
-        metrics_row.addLayout(row_cost)
+        self.metrics_row.addLayout(row_cost)
 
-        metrics_row.addStretch()
-        layout.addLayout(metrics_row)
+        self.metrics_row.addStretch()
+        layout.addLayout(self.metrics_row)
 
     def _apply_style(self) -> None:
         self.setStyleSheet(f"""
@@ -113,11 +107,35 @@ class BranchKpiWidget(QFrame):
             }}
         """)
 
+    def set_idle(self) -> None:
+        """État vide : masque les métriques pour éviter d'afficher des zéros trompeurs."""
+        self._running = False
+        self.lbl_status.setText("Prêt")
+        apply_pill_style(self.lbl_status, DesignTokens.TEXT_MUTED)
+        self.lbl_time.setText("—")
+        self.lbl_cards.setText("—")
+        self.lbl_tokens.setText("—")
+        self.lbl_cost.setText("—")
+        self.metrics_row.setEnabled(False)
+        self._set_metrics_dimmed(True)
+
+    def _set_metrics_dimmed(self, dimmed: bool) -> None:
+        opacity = 0.4 if dimmed else 1.0
+        for lbl in (self.lbl_time, self.lbl_cards):
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: bold; background: transparent; opacity: {opacity}%;")
+        for lbl in (self.lbl_tokens, self.lbl_cost):
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; opacity: {opacity}%;")
+
     def set_running(self) -> None:
-        self.badge_winner.hide()
         self._running = True
         self.lbl_status.setText("En cours...")
         apply_pill_style(self.lbl_status, DesignTokens.COLOR_BLUE)
+        self.metrics_row.setEnabled(True)
+        self._set_metrics_dimmed(False)
+        self.lbl_time.setText("0.00s")
+        self.lbl_cards.setText("—")
+        self.lbl_tokens.setText("—")
+        self.lbl_cost.setText("—")
 
     def set_running_elapsed(self, elapsed: float) -> None:
         self.lbl_time.setText(f"{elapsed:.2f}s")
@@ -129,6 +147,8 @@ class BranchKpiWidget(QFrame):
         self._last_tokens = tokens
         self._last_cost = cost_usd
 
+        self.metrics_row.setEnabled(True)
+        self._set_metrics_dimmed(False)
         self.lbl_time.setText(f"{elapsed:.2f}s")
         self.lbl_cards.setText(f"{cards_count} carte{'s' if cards_count > 1 else ''}")
         self.lbl_tokens.setText(f"~{tokens} tok")
@@ -141,10 +161,3 @@ class BranchKpiWidget(QFrame):
             self.lbl_status.setText("Erreur")
             self.lbl_status.setToolTip(err_msg)
             apply_pill_style(self.lbl_status, DesignTokens.COLOR_RED)
-
-    def set_winner(self, text: str = "Plus rapide") -> None:
-        self.badge_winner.setText(text)
-        self.badge_winner.show()
-
-    def clear_winner(self) -> None:
-        self.badge_winner.hide()

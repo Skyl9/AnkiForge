@@ -5,7 +5,7 @@ import time
 import uuid
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer, Slot
+from PySide6.QtCore import QPoint, QSize, Qt, QThreadPool, QTimer, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
+    DocumentModel,
     NoteModel,
     NoteTypeModel,
     PersonaModel,
@@ -46,7 +47,7 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledTextEdit,
 )
-from ankiforge.ui.theme import DesignTokens, apply_shadow
+from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
 from ankiforge.ui.views.ab_tests_view.constants import PRESET_SAMPLES
 from ankiforge.ui.views.ab_tests_view.widgets import (
     BranchKpiWidget,
@@ -94,8 +95,6 @@ class ABTestsView(QWidget):
         self._persona_cfg_b: Any = None
         self._pipeline_cfg_a: Any = None
         self._pipeline_cfg_b: Any = None
-        self._winner_branch: str | None = None
-        self._mode_at_run: int = 0
 
         self._setup_ui()
         self._connect_signals()
@@ -244,17 +243,33 @@ class ABTestsView(QWidget):
         row1.setContentsMargins(0, 0, 0, 0)
         row1.setSpacing(12)
 
-        lbl_mode = QLabel("MODE :")
-        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;")
-        row1.addWidget(lbl_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
+        # Bloc 1 : Configuration du test (Mode + Paquet Cible)
+        block_test, box_test = self._build_config_block("CONFIGURATION DU TEST")
+
+        lbl_mode = QLabel("Mode :")
+        lbl_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        box_test.addWidget(lbl_mode, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.mode_combo = StyledComboBox()
-        self.mode_combo.setMinimumWidth(220)
+        self.mode_combo.setMinimumWidth(190)
         self.mode_combo.setFixedHeight(30)
         self.mode_combo.addItem(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY), "Comparer deux Moteurs IA")
         self.mode_combo.addItem(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_YELLOW), "Comparer deux Prompts / Personas")
         self.mode_combo.addItem(load_phosphor_icon("ph.git-branch", color=DesignTokens.COLOR_GREEN), "Comparer deux Pipelines DAG")
-        row1.addWidget(self.mode_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_test.addWidget(self.mode_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        lbl_deck = QLabel("Paquet Cible :")
+        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
+        box_test.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.deck_combo = StyledComboBox()
+        self.deck_combo.setMinimumWidth(130)
+        self.deck_combo.setFixedHeight(30)
+        box_test.addWidget(self.deck_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        row1.addWidget(block_test, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        # Bloc 2 : Paramètres d'évaluation (Agent/Moteur Commun + Modèle Cible + Inférence)
+        block_eval, box_eval = self._build_config_block("PARAMÈTRES D'ÉVALUATION")
 
         # Agent Commun
         self.global_persona_widget = QWidget()
@@ -268,7 +283,7 @@ class ABTestsView(QWidget):
         self.persona_combo.setFixedHeight(30)
         gp_layout.addWidget(lbl_gp)
         gp_layout.addWidget(self.persona_combo)
-        row1.addWidget(self.global_persona_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_eval.addWidget(self.global_persona_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Moteur Commun
         self.global_engine_widget = QWidget()
@@ -278,42 +293,26 @@ class ABTestsView(QWidget):
         lbl_ge = QLabel("Moteur Commun :")
         lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
         self.global_engine_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.global_engine_combo.setMinimumWidth(200)
+        self.global_engine_combo.setMinimumWidth(180)
         ge_layout.addWidget(lbl_ge)
         ge_layout.addWidget(self.global_engine_combo)
-        row1.addWidget(self.global_engine_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_eval.addWidget(self.global_engine_widget, alignment=Qt.AlignmentFlag.AlignVCenter)
         self.global_engine_widget.hide()
 
         # Modèle NoteType cible
         lbl_nt = QLabel("Modèle Cible :")
         lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        row1.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_eval.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
         self.model_combo = StyledComboBox()
-        self.model_combo.setMinimumWidth(160)
+        self.model_combo.setMinimumWidth(150)
         self.model_combo.setFixedHeight(30)
-        row1.addWidget(self.model_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        row1.addStretch()
-        config_bar_layout.addLayout(row1)
-
-        # Ligne 2 : Paquet Cible, Actions, Options et Lancement
-        row2 = QHBoxLayout()
-        row2.setContentsMargins(0, 0, 0, 0)
-        row2.setSpacing(12)
-
-        lbl_deck = QLabel("Paquet Cible :")
-        lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        row2.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
-        self.deck_combo = StyledComboBox()
-        self.deck_combo.setMinimumWidth(140)
-        self.deck_combo.setFixedHeight(30)
-        row2.addWidget(self.deck_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_eval.addWidget(self.model_combo, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_adv_toggle = SecondaryButton("Réglages Inférence")
         self.btn_adv_toggle.setIcon(load_phosphor_icon("ph.sliders", color=DesignTokens.TEXT_PRIMARY))
         self.btn_adv_toggle.setFixedHeight(28)
         self.btn_adv_toggle.clicked.connect(self._toggle_advanced_drawer)
-        row2.addWidget(self.btn_adv_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_eval.addWidget(self.btn_adv_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         saved_sync = bool(SettingsService.get("ab_test/sync_nav", True))
         self.chk_sync_nav = QCheckBox("Synchronisation Navigation A ↔ B")
@@ -321,9 +320,11 @@ class ABTestsView(QWidget):
         self.chk_sync_nav.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
         self.chk_sync_nav.stateChanged.connect(lambda s: SettingsService.set("ab_test/sync_nav", s == Qt.CheckState.Checked.value, category="ab_test"))
-        row2.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
+        box_eval.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        row2.addStretch()
+        row1.addWidget(block_eval, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        row1.addStretch()
 
         self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip="Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)")
         self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
@@ -331,16 +332,9 @@ class ABTestsView(QWidget):
         self.btn_run.setFixedHeight(32)
         self.btn_run.setMinimumWidth(200)
         apply_shadow(self.btn_run, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
-        row2.addWidget(self.btn_run, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row1.addWidget(self.btn_run, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        self.btn_adopt_winner = SecondaryButton("Adopter le Gagnant", tooltip="Enregistre la config de la branche gagnante comme configuration de création par défaut (F4)")
-        self.btn_adopt_winner.setIcon(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN))
-        self.btn_adopt_winner.setFixedHeight(30)
-        self.btn_adopt_winner.setEnabled(False)
-        self.btn_adopt_winner.clicked.connect(self._on_adopt_winner)
-        row2.addWidget(self.btn_adopt_winner, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        config_bar_layout.addLayout(row2)
+        config_bar_layout.addLayout(row1)
         ab_layout.addWidget(self.config_bar_widget)
 
         # ── 2. TIROIR PARAMÈTRES AVANCÉS (Inférence) ──────────────────────────
@@ -392,10 +386,22 @@ class ABTestsView(QWidget):
         lbl_src_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         src_header.addWidget(lbl_src_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+        lbl_presets = QLabel("Charger un exemple :")
+        lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: 500;")
+        src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        lbl_presets = QLabel("Charger un exemple :")
+        lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold;")
+        src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
+
         for label, text_content, var_style in PRESET_SAMPLES:
             btn_preset = TagPillButton(f"+ {label}", text_content, tooltip=f"Insère un exemple : {label}", variant=var_style)
             btn_preset.clicked.connect(lambda _, txt=text_content: self.source_text_edit.setPlainText(txt))
             src_header.addWidget(btn_preset, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        btn_doc = TagPillButton("+ Document", "", tooltip="Importer le contenu d'un document existant de la Forge", variant="info")
+        btn_doc.clicked.connect(self._on_import_document)
+        src_header.addWidget(btn_doc, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         src_header.addStretch()
 
@@ -512,21 +518,16 @@ class ABTestsView(QWidget):
         self.chk_import_current_a.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
         self.chk_import_current_a.setChecked(bool(SettingsService.get("ab_test/import_current_only", False)))
 
-        self.btn_copy_a_to_b = SecondaryButton("Copier config A→B", tooltip="Copier les réglages inférence de la Branche A vers la Branche B")
-        self.btn_copy_a_to_b.setIcon(load_phosphor_icon("ph.copy", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_copy_a_to_b.setFixedHeight(28)
-        self.btn_copy_a_to_b.clicked.connect(self._on_copy_config_a_to_b)
-
         toolbar_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.engine_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.persona_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.pipeline_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_a.addWidget(self.btn_copy_a_to_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.chk_import_current_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.btn_import_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_a.addLayout(toolbar_a)
 
         self.kpi_a = BranchKpiWidget("BRANCHE A", color_hex=DesignTokens.BRANCH_A)
+        self.kpi_a.set_idle()
         layout_a.addWidget(self.kpi_a)
 
         self.stack_a = QStackedWidget()
@@ -594,6 +595,7 @@ class ABTestsView(QWidget):
         layout_b.addLayout(toolbar_b)
 
         self.kpi_b = BranchKpiWidget("BRANCHE B", color_hex=DesignTokens.BRANCH_B)
+        self.kpi_b.set_idle()
         layout_b.addWidget(self.kpi_b)
 
         self.stack_b = QStackedWidget()
@@ -675,6 +677,34 @@ class ABTestsView(QWidget):
 
         shortcut_run = QShortcut(QKeySequence("Ctrl+Return"), self)
         shortcut_run.activated.connect(self._on_run_ab_test)
+
+    def _build_config_block(self, title: str) -> tuple[QFrame, QHBoxLayout]:
+        """Construit un bloc de configuration labelisé (fond bg_input, en-tête muted)."""
+        frame = QFrame()
+        frame.setObjectName("ConfigBlock")
+        frame.setStyleSheet(f"""
+            QFrame#ConfigBlock {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QFrame#ConfigBlock QLabel {{
+                background: transparent;
+            }}
+        """)
+        block_v = QVBoxLayout(frame)
+        block_v.setContentsMargins(10, 6, 10, 6)
+        block_v.setSpacing(4)
+
+        lbl_title = QLabel(title)
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        block_v.addWidget(lbl_title)
+
+        box = QHBoxLayout()
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(8)
+        block_v.addLayout(box)
+        return frame, box
 
     def _apply_config_bar_style(self) -> None:
         self.config_bar_widget.setStyleSheet(f"""
@@ -804,6 +834,44 @@ class ABTestsView(QWidget):
 
         for chk_import in (self.chk_import_current_a, self.chk_import_current_b):
             chk_import.stateChanged.connect(lambda s, k="ab_test/import_current_only": self._persist_slider(k, 1 if s == Qt.CheckState.Checked.value else 0))
+
+    def _on_import_document(self) -> None:
+        """Ouvre un menu listant les documents existants de la Forge et insère leur contenu."""
+        documents = list(DocumentModel.select().order_by(DocumentModel.title.asc()))
+
+        if not documents:
+            show_toast(self, "Aucun document dans la Forge. Créez-en un depuis la vue Documents.", is_error=True)
+            return
+
+        menu = StyledMenu(self)
+        for doc in documents:
+            title = doc.title or "Document sans titre"
+            action = menu.addAction(
+                load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE),
+                f"{title[:38]}{'…' if len(title) > 38 else ''}",
+            )
+            action.setToolTip(title)
+            action.triggered.connect(lambda _, d=doc: self._apply_document_to_source(d))
+
+        menu.addSeparator()
+
+        act_clear = menu.addAction(
+            load_phosphor_icon("ph.trash", color=DesignTokens.TEXT_MUTED),
+            "Effacer le texte source",
+        )
+        act_clear.triggered.connect(lambda: self.source_text_edit.clear())
+
+        pos = self.btn_doc.mapToGlobal(QPoint(0, self.btn_doc.height()))
+        menu.exec(pos)
+
+    def _apply_document_to_source(self, doc: DocumentModel) -> None:
+        """Envoie le contenu du document sélectionné dans le texte source."""
+        content = getattr(doc, "content", "") or getattr(doc, "text_content", "") or ""
+        if not content:
+            show_toast(self, f"Le document « {doc.title} » est vide.", is_error=True)
+            return
+        self.source_text_edit.setPlainText(content)
+        show_toast(self, f"Document « {doc.title} » importé dans le texte source.")
 
     def _on_source_text_changed(self) -> None:
         cnt = len(self.source_text_edit.toPlainText())
@@ -1139,8 +1207,6 @@ class ABTestsView(QWidget):
             pipe_id_a = pipe_a.id if pipe_a else None
             pipe_id_b = pipe_b.id if pipe_b else None
 
-        self._mode_at_run = mode_idx
-
         show_toast(self, "Lancement du test A/B en parallèle via le Moteur DAG...")
         self.btn_run.setEnabled(False)
         self._completed_a = False
@@ -1262,120 +1328,11 @@ class ABTestsView(QWidget):
         show_toast(self, f"Erreur Branche B: {err}", is_error=True)
         self._check_test_complete()
 
-    def _evaluate_winner(self) -> None:
-        time_a = self.kpi_a._last_elapsed
-        time_b = self.kpi_b._last_elapsed
-        cost_a = self.kpi_a._last_cost
-        cost_b = self.kpi_b._last_cost
-        cards_a = self.kpi_a._last_cards
-        cards_b = self.kpi_b._last_cards
-        tokens_a = self.kpi_a._last_tokens
-        tokens_b = self.kpi_b._last_tokens
-
-        self.kpi_a.clear_winner()
-        self.kpi_b.clear_winner()
-        self._winner_branch = None
-
-        if time_a <= 0 or time_b <= 0 or (cards_a <= 0 and cards_b <= 0):
-            return
-
-        if cards_a <= 0:
-            self._winner_branch = "B"
-            self.kpi_b.set_winner("Plus de cartes générées")
-            return
-        if cards_b <= 0:
-            self._winner_branch = "A"
-            self.kpi_a.set_winner("Plus de cartes générées")
-            return
-
-        def score(elapsed: float, cards: int, tokens: int, cost: float) -> float:
-            tps = cards / elapsed if elapsed > 0 else 0.0
-            tokens_per_card = tokens / cards if cards > 0 else 0.0
-            cost_per_card = cost / cards if cards > 0 else 0.0
-            return (tps * 10.0) - (tokens_per_card * 0.005) - (cost_per_card * 100_000.0)
-
-        score_a = score(time_a, cards_a, tokens_a, cost_a)
-        score_b = score(time_b, cards_b, tokens_b, cost_b)
-
-        delta_time = time_a - time_b
-        delta_cards = cards_a - cards_b
-        delta_cost = cost_a - cost_b
-
-        if score_a > score_b:
-            self._winner_branch = "A"
-            faster_a = delta_time <= -0.5 and time_b / time_a >= 1.25 if time_a > 0 else False
-            if faster_a:
-                ratio = time_b / time_a
-                self.kpi_a.set_winner(f"{ratio:.1f}x plus rapide")
-            elif delta_cards > 0 and abs(delta_time) < 0.5:
-                self.kpi_a.set_winner(f"+{delta_cards} cartes")
-            elif delta_cost < 0 and abs(delta_cost) > 0.0001:
-                self.kpi_a.set_winner("Meilleur coût / carte")
-            else:
-                self.kpi_a.set_winner("Score global supérieur")
-        elif score_b > score_a:
-            self._winner_branch = "B"
-            faster_b = delta_time >= 0.5 and time_a / time_b >= 1.25 if time_b > 0 else False
-            if faster_b:
-                ratio = time_a / time_b
-                self.kpi_b.set_winner(f"{ratio:.1f}x plus rapide")
-            elif delta_cards < 0 and abs(delta_time) < 0.5:
-                self.kpi_b.set_winner(f"{-delta_cards} cartes de plus")
-            elif delta_cost > 0 and abs(delta_cost) > 0.0001:
-                self.kpi_b.set_winner("Meilleur coût / carte")
-            else:
-                self.kpi_b.set_winner("Score global supérieur")
-
     def _check_test_complete(self) -> None:
         if self._completed_a and self._completed_b:
             self.btn_run.setEnabled(True)
-            self._evaluate_winner()
-            if self._winner_branch:
-                self.btn_adopt_winner.setEnabled(True)
             self._update_views()
             show_toast(self, "Test A/B terminé avec succès !")
-
-    def _on_copy_config_a_to_b(self) -> None:
-        """Copie les réglages inférence (et le moteur en mode 0) de la Branche A vers la Branche B."""
-        self.temp_slider_b.setValue(self.temp_slider_a.value())
-        self.tok_slider_b.setValue(self.tok_slider_a.value())
-        if self.mode_combo.currentIndex() == 0:
-            self.engine_b_combo.setCurrentIndex(self.engine_a_combo.currentIndex())
-        show_toast(self, "Configuration de la Branche A copiée vers la Branche B.")
-
-    def _on_adopt_winner(self) -> None:
-        """F4 : enregistre la configuration de la branche gagnante comme configuration de création par défaut."""
-        if not self._winner_branch:
-            show_toast(self, "Aucun gagnant à adopter pour le moment.", is_error=True)
-            return
-
-        mode_idx = getattr(self, "_mode_at_run", self.mode_combo.currentIndex())
-
-        if mode_idx == 0:
-            engine = self._engine_cfg_a if self._winner_branch == "A" else self._engine_cfg_b
-            if engine is not None:
-                SettingsService.set("creation/engine_id", engine.id, category="creation")
-        elif mode_idx == 1:
-            persona = self._persona_cfg_a if self._winner_branch == "A" else self._persona_cfg_b
-            if persona is not None:
-                SettingsService.set("creation/persona_id", persona.id, category="creation")
-        elif mode_idx == 2:
-            pipeline = self._pipeline_cfg_a if self._winner_branch == "A" else self._pipeline_cfg_b
-            if pipeline is not None:
-                SettingsService.set("creation/pipeline_id", pipeline.id, category="creation")
-
-        if self.chk_independent.isChecked():
-            temp = self._effective_temperature(self._winner_branch)
-            tok = self._effective_max_tokens(self._winner_branch)
-        else:
-            temp = self._effective_temperature("A")
-            tok = self._effective_max_tokens("A")
-        if temp is not None:
-            SettingsService.set("ab_test/winner_temperature", float(temp), category="ab_test")
-        if tok is not None:
-            SettingsService.set("ab_test/winner_max_tokens", int(tok), category="ab_test")
-
-        show_toast(self, f"Configuration de la Branche {self._winner_branch} adoptée comme création par défaut.")
 
     def _on_import_branch_to_forge(self, branch: str) -> None:
         cards = self.cards_a if branch == "A" else self.cards_b

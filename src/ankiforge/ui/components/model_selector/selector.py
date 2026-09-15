@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
@@ -92,7 +92,9 @@ class ModelSelectorWidget(QWidget):
 
         if self.allow_inherit:
             inherit_icon = load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED)
+            inherit_tip = f"Réglage global de l'application\n{self.inherit_label}"
             self.combo.addItem(inherit_icon, self.inherit_label, userData=None)
+            self.combo.setItemData(self.combo.count() - 1, inherit_tip, Qt.ItemDataRole.ToolTipRole)
 
         try:
             self._models = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
@@ -113,7 +115,11 @@ class ModelSelectorWidget(QWidget):
 
                 icon = load_phosphor_icon(prov_icon_name, color=icon_color)
                 label = f"{display}  ·  {pricing_tag}"
+                tooltip_parts = [m.display_name or m.model_id, f"Fournisseur : {m.provider}"]
+                if m.formatted_context_window:
+                    tooltip_parts.append(f"Fenêtre de contexte : {m.formatted_context_window}")
                 self.combo.addItem(icon, label, userData=m)
+                self.combo.setItemData(self.combo.count() - 1, "\n".join(tooltip_parts), Qt.ItemDataRole.ToolTipRole)
         except Exception as e:
             logger.warning("Erreur chargement modèles dans ModelSelectorWidget: %s", e)
 
