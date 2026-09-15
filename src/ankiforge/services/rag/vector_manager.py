@@ -2,6 +2,9 @@
 Gestionnaire d'Indexation et de Recherche RAG Hybride (FAISS Dense + BM25 Sparse + RRF).
 Fournit une recherche sémantique et lexicale 100% locale, sans fuite de données,
 et compatible avec les contraintes d'exécutable autonome Nuitka.
+
+Note : `faiss` et `numpy` sont importés à la demande (lazy) dans les méthodes qui les utilisent,
+afin d'éviter un délai de ~300-600ms au démarrage de l'application lié au chargement de BLAS.
 """
 
 from __future__ import annotations
@@ -10,10 +13,11 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import faiss
-import numpy as np
+if TYPE_CHECKING:
+    import numpy as np
+
 from openai import OpenAI
 
 from ankiforge.database.base import db
@@ -68,7 +72,10 @@ class VectorManager:
         Récupère les embeddings pour une liste de textes avec vérification de cache persistant.
         Pour tout texte déjà en base (EmbeddingCacheModel), le vecteur est immédiatement rechargé.
         Les nouveaux textes sont calculés puis enregistrés dans le cache.
+        Retourne un tableau numpy float32 (compatible avec les API FAISS).
         """
+        import numpy as np  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+
         if not texts:
             return np.empty((0, 0), dtype=np.float32)
 
@@ -134,7 +141,7 @@ class VectorManager:
                 for idx_in_miss, orig_idx in enumerate(miss_indices):
                     results[orig_idx] = new_embeddings[idx_in_miss]
 
-        return np.array(results, dtype=np.float32)
+        return np.array([r for r in results if r is not None], dtype=np.float32)
 
     def clear_embedding_cache(self) -> int:
         """Vide le cache des embeddings pour le modèle actif ou globalement."""
@@ -164,6 +171,8 @@ class VectorManager:
 
         if stats["has_faiss"]:
             try:
+                import faiss  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+
                 index = faiss.read_index(str(doc_dir / "index.faiss"))
                 stats["chunk_count"] = index.ntotal
                 stats["embedding_dimension"] = index.d
@@ -227,6 +236,8 @@ class VectorManager:
             embeddings = self._get_embeddings(chunk_texts)
 
             dimension = embeddings.shape[1]
+            import faiss  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+
             index = faiss.IndexFlatL2(dimension)
             index.add(embeddings)
 
@@ -289,6 +300,8 @@ class VectorManager:
 
         if mode in ("hybrid", "dense") and index_path.exists() and map_path.exists():
             try:
+                import faiss  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+
                 faiss_index = faiss.read_index(str(index_path))
                 with open(map_path, encoding="utf-8") as f:
                     chunk_ids = json.load(f)
