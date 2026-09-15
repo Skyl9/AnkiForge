@@ -2,10 +2,9 @@ import json
 import logging
 import os
 import time
-import uuid
 from typing import Any
 
-from PySide6.QtCore import QPoint, QSize, Qt, QThreadPool, QTimer, Slot
+from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -23,15 +22,12 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import (
-    CardModel,
     DeckModel,
     DocumentModel,
-    NoteModel,
     NoteTypeModel,
     PersonaModel,
     PipelineModel,
     PipelineStepModel,
-    db,
 )
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.pricing_service import estimate_run_cost
@@ -39,6 +35,7 @@ from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
+    DocumentPickerButton,
     IconButton,
     IdePanel,
     ModelSelectorWidget,
@@ -47,12 +44,12 @@ from ankiforge.ui.components import (
     StyledComboBox,
     StyledTextEdit,
 )
-from ankiforge.ui.theme import DesignTokens, StyledMenu, apply_shadow
+from ankiforge.ui.theme import DesignTokens, apply_shadow
 from ankiforge.ui.views.ab_tests_view.constants import PRESET_SAMPLES
+from ankiforge.ui.views.ab_tests_view.dialogs import SampleSelectWindow
 from ankiforge.ui.views.ab_tests_view.widgets import (
     BranchKpiWidget,
     SubTabButton,
-    TagPillButton,
 )
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
@@ -229,6 +226,18 @@ class ABTestsView(QWidget):
         ab_layout.setContentsMargins(12, 12, 12, 12)
         ab_layout.setSpacing(10)
 
+        # ── ÉCRANS 1 & 2 (Config → Résultats) via progressive disclosure ────────
+        self.phase_stack = QStackedWidget()
+        self.config_page = QWidget()
+        config_layout = QVBoxLayout(self.config_page)
+        config_layout.setContentsMargins(0, 0, 0, 0)
+        config_layout.setSpacing(10)
+
+        self.results_page = QWidget()
+        results_layout = QVBoxLayout(self.results_page)
+        results_layout.setContentsMargins(0, 0, 0, 0)
+        results_layout.setSpacing(10)
+
         # ── 1. BARRE DE CONFIGURATION SUPÉRIEURE ───────────────────────────────
         self.config_bar_widget = QWidget()
         self.config_bar_widget.setObjectName("ConfigBarWidget")
@@ -315,14 +324,6 @@ class ABTestsView(QWidget):
         self.btn_adv_toggle.clicked.connect(self._toggle_advanced_drawer)
         box_eval.addWidget(self.btn_adv_toggle, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        saved_sync = bool(SettingsService.get("ab_test/sync_nav", True))
-        self.chk_sync_nav = QCheckBox("Synchronisation Navigation A ↔ B")
-        self.chk_sync_nav.setChecked(saved_sync)
-        self.chk_sync_nav.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px; font-weight: 500;")
-        self.chk_sync_nav.stateChanged.connect(lambda s: SettingsService.set("ab_test/sync_nav", s == Qt.CheckState.Checked.value, category="ab_test"))
-        box_eval.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
-
         row1.addWidget(block_eval, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         row1.addStretch()
@@ -336,7 +337,7 @@ class ABTestsView(QWidget):
         row1.addWidget(self.btn_run, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         config_bar_layout.addLayout(row1)
-        ab_layout.addWidget(self.config_bar_widget)
+        config_layout.addWidget(self.config_bar_widget)
 
         # ── 2. TIROIR PARAMÈTRES AVANCÉS (Inférence) ──────────────────────────
         self.adv_drawer = QFrame()
@@ -364,7 +365,7 @@ class ABTestsView(QWidget):
         self._load_ab_settings()
         self._on_independent_settings_changed()
         self.adv_drawer.hide()
-        ab_layout.addWidget(self.adv_drawer)
+        config_layout.addWidget(self.adv_drawer)
 
         # ── 3. TIROIR TEXTE SOURCE REPLIABLE ──────────────────────────────────
         self.source_box = QFrame()
@@ -387,18 +388,19 @@ class ABTestsView(QWidget):
         lbl_src_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
         src_header.addWidget(lbl_src_title, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        lbl_presets = QLabel("Charger un exemple :")
+        lbl_presets = QLabel("Source :")
         lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: 500;")
         src_header.addWidget(lbl_presets, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        for label, text_content, var_style in PRESET_SAMPLES:
-            btn_preset = TagPillButton(f"+ {label}", text_content, tooltip=f"Insère un exemple : {label}", variant=var_style)
-            btn_preset.clicked.connect(lambda _, txt=text_content: self.source_text_edit.setPlainText(txt))
-            src_header.addWidget(btn_preset, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.btn_samples = SecondaryButton("Exemples")
+        self.btn_samples.setIcon(load_phosphor_icon("ph.stack", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_samples.setFixedHeight(26)
+        self.btn_samples.setToolTip("Insérer un texte d'exemple prédéfini dans le laboratoire")
+        src_header.addWidget(self.btn_samples, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        btn_doc = TagPillButton("+ Document", "", tooltip="Importer le contenu d'un document existant de la Forge", variant="info")
-        btn_doc.clicked.connect(self._on_import_document)
-        src_header.addWidget(btn_doc, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.doc_picker = DocumentPickerButton(allow_clear=True)
+        self.doc_picker.setFixedHeight(30)
+        src_header.addWidget(self.doc_picker, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         src_header.addStretch()
 
@@ -421,11 +423,18 @@ class ABTestsView(QWidget):
         self.source_text_edit.textChanged.connect(self._on_source_text_changed)
         source_layout.addWidget(self.source_text_edit)
 
-        ab_layout.addWidget(self.source_box)
+        config_layout.addWidget(self.source_box)
+        config_layout.addStretch(1)
 
         # ── 4. BARRE CENTRALE DE COMMUTATION DE REPRÉSENTATION ─────────────────
         switcher_bar = QHBoxLayout()
         switcher_bar.setSpacing(6)
+
+        self.btn_back = SecondaryButton("Modifier la configuration")
+        self.btn_back.setIcon(load_phosphor_icon("ph.arrow-left", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_back.setFixedHeight(28)
+        self.btn_back.clicked.connect(self._show_config_page)
+        switcher_bar.addWidget(self.btn_back, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         lbl_view_mode = QLabel("VUE COMPARATIVE :")
         lbl_view_mode.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
@@ -449,11 +458,12 @@ class ABTestsView(QWidget):
 
         switcher_bar.addStretch()
 
-        self.btn_flip_both = SecondaryButton("Retourner (Verso)")
-        self.btn_flip_both.setIcon(load_phosphor_icon("ph.arrow-clockwise", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_flip_both.setFixedHeight(28)
-        self.btn_flip_both.clicked.connect(self._on_flip_both_cards)
-        switcher_bar.addWidget(self.btn_flip_both, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.chk_sync_nav = QCheckBox("Synchronisation Navigation A ↔ B")
+        self.chk_sync_nav.setChecked(bool(SettingsService.get("ab_test/sync_nav", True)))
+        self.chk_sync_nav.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_sync_nav.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.chk_sync_nav.stateChanged.connect(lambda s: SettingsService.set("ab_test/sync_nav", s == Qt.CheckState.Checked.value, category="ab_test"))
+        switcher_bar.addWidget(self.chk_sync_nav, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_device_desktop = IconButton("ph.monitor", tooltip="Mode Bureau (100% largeur)", size=24)
         self.btn_device_desktop.clicked.connect(lambda: self._set_both_device_mode("desktop"))
@@ -467,7 +477,7 @@ class ABTestsView(QWidget):
         self.btn_device_mobile.clicked.connect(lambda: self._set_both_device_mode("mobile"))
         switcher_bar.addWidget(self.btn_device_mobile, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        ab_layout.addLayout(switcher_bar)
+        results_layout.addLayout(switcher_bar)
 
         # ── 5. COMPARATIF CÔTE-À-CÔTE (BRANCHE A VS BRANCHE B) ─────────────────
         self.compare_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -481,7 +491,7 @@ class ABTestsView(QWidget):
                 background-color: {DesignTokens.ACCENT_PRIMARY};
             }}
         """)
-        ab_layout.addWidget(self.compare_splitter, 1)
+        results_layout.addWidget(self.compare_splitter, 1)
 
         # ── PANNEAU A ──
         self.panel_a = QFrame()
@@ -504,23 +514,16 @@ class ABTestsView(QWidget):
         self.pipeline_a_combo.setFixedHeight(30)
         self.pipeline_a_combo.hide()
 
-        self.btn_import_a = SecondaryButton("Importer dans la Forge", tooltip="Importer les cartes de la Branche A dans la collection Anki active")
-        self.btn_import_a.setIcon(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_a.setFixedHeight(28)
-        self.btn_import_a.clicked.connect(lambda: self._on_import_branch_to_forge("A"))
-
-        self.chk_import_current_a = QCheckBox("Carte visible")
-        self.chk_import_current_a.setToolTip("Importer uniquement la carte actuellement affichée de la Branche A")
-        self.chk_import_current_a.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_import_current_a.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        self.chk_import_current_a.setChecked(bool(SettingsService.get("ab_test/import_current_only", False)))
+        self.btn_flip_a = SecondaryButton("Voir Verso")
+        self.btn_flip_a.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_flip_a.setFixedHeight(26)
+        self.btn_flip_a.setToolTip("Basculer Recto/Verso de la Branche A")
 
         toolbar_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.engine_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.persona_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_a.addWidget(self.pipeline_a_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_a.addWidget(self.chk_import_current_a, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_a.addWidget(self.btn_import_a, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_a.addWidget(self.btn_flip_a, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_a.addLayout(toolbar_a)
 
         self.kpi_a = BranchKpiWidget("BRANCHE A", color_hex=DesignTokens.BRANCH_A)
@@ -572,23 +575,16 @@ class ABTestsView(QWidget):
         self.pipeline_b_combo.setFixedHeight(30)
         self.pipeline_b_combo.hide()
 
-        self.btn_import_b = SecondaryButton("Importer dans la Forge", tooltip="Importer les cartes de la Branche B dans la collection Anki active")
-        self.btn_import_b.setIcon(load_phosphor_icon("ph.arrow-down", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_import_b.setFixedHeight(28)
-        self.btn_import_b.clicked.connect(lambda: self._on_import_branch_to_forge("B"))
-
-        self.chk_import_current_b = QCheckBox("Carte visible")
-        self.chk_import_current_b.setToolTip("Importer uniquement la carte actuellement affichée de la Branche B")
-        self.chk_import_current_b.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_import_current_b.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
-        self.chk_import_current_b.setChecked(bool(SettingsService.get("ab_test/import_current_only", False)))
+        self.btn_flip_b = SecondaryButton("Voir Verso")
+        self.btn_flip_b.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_flip_b.setFixedHeight(26)
+        self.btn_flip_b.setToolTip("Basculer Recto/Verso de la Branche B")
 
         toolbar_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.engine_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.persona_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
         toolbar_b.addWidget(self.pipeline_b_combo, 1, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_b.addWidget(self.chk_import_current_b, alignment=Qt.AlignmentFlag.AlignVCenter)
-        toolbar_b.addWidget(self.btn_import_b, alignment=Qt.AlignmentFlag.AlignVCenter)
+        toolbar_b.addWidget(self.btn_flip_b, alignment=Qt.AlignmentFlag.AlignVCenter)
         layout_b.addLayout(toolbar_b)
 
         self.kpi_b = BranchKpiWidget("BRANCHE B", color_hex=DesignTokens.BRANCH_B)
@@ -662,7 +658,12 @@ class ABTestsView(QWidget):
         nav_b_box.addWidget(self.btn_next_b)
         pagination_bar.addLayout(nav_b_box)
 
-        ab_layout.addLayout(pagination_bar)
+        results_layout.addLayout(pagination_bar)
+
+        # ── EMPILEMENT DES 2 PHASES ─────────────────────────────────────────────
+        self.phase_stack.addWidget(self.config_page)
+        self.phase_stack.addWidget(self.results_page)
+        ab_layout.addWidget(self.phase_stack, 1)
 
         self._apply_theme_to_widgets()
 
@@ -829,37 +830,22 @@ class ABTestsView(QWidget):
 
         self.chk_independent.stateChanged.connect(self._on_independent_settings_changed)
 
-        for chk_import in (self.chk_import_current_a, self.chk_import_current_b):
-            chk_import.stateChanged.connect(lambda s, k="ab_test/import_current_only": self._persist_slider(k, 1 if s == Qt.CheckState.Checked.value else 0))
+        self.btn_back.clicked.connect(self._show_config_page)
+        self.btn_flip_a.clicked.connect(lambda: self.preview_a.flip_card())
+        self.btn_flip_b.clicked.connect(lambda: self.preview_b.flip_card())
+        self.btn_samples.clicked.connect(self._on_open_samples_modal)
+        self.doc_picker.document_changed.connect(self._on_document_changed)
 
-    def _on_import_document(self) -> None:
-        """Ouvre un menu listant les documents existants de la Forge et insère leur contenu."""
-        documents = list(DocumentModel.select().order_by(DocumentModel.title.asc()))
+    def _on_open_samples_modal(self) -> None:
+        """Ouvre la modale de sélection d'un texte d'exemple prédéfini."""
+        modal = SampleSelectWindow(parent=self)
+        modal.sample_picked.connect(self.source_text_edit.setPlainText)
+        modal.show()
 
-        if not documents:
-            show_toast(self, "Aucun document dans la Forge. Créez-en un depuis la vue Documents.", is_error=True)
-            return
-
-        menu = StyledMenu(self)
-        for doc in documents:
-            title = doc.title or "Document sans titre"
-            action = menu.addAction(
-                load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE),
-                f"{title[:38]}{'…' if len(title) > 38 else ''}",
-            )
-            action.setToolTip(title)
-            action.triggered.connect(lambda _, d=doc: self._apply_document_to_source(d))
-
-        menu.addSeparator()
-
-        act_clear = menu.addAction(
-            load_phosphor_icon("ph.trash", color=DesignTokens.TEXT_MUTED),
-            "Effacer le texte source",
-        )
-        act_clear.triggered.connect(lambda: self.source_text_edit.clear())
-
-        pos = self.btn_doc.mapToGlobal(QPoint(0, self.btn_doc.height()))
-        menu.exec(pos)
+    def _on_document_changed(self, doc: DocumentModel | None) -> None:
+        """Réagit au changement de document source sélectionné via DocumentPickerButton."""
+        if doc is not None:
+            self._apply_document_to_source(doc)
 
     def _apply_document_to_source(self, doc: DocumentModel) -> None:
         """Envoie le contenu du document sélectionné dans le texte source."""
@@ -896,11 +882,18 @@ class ABTestsView(QWidget):
         self.stack_a.setCurrentIndex(mode_idx)
         self.stack_b.setCurrentIndex(mode_idx)
 
-    def _on_flip_both_cards(self) -> None:
-        if hasattr(self.preview_a, "flip_card"):
-            self.preview_a.flip_card()
-        if hasattr(self.preview_b, "flip_card"):
-            self.preview_b.flip_card()
+        # Le flip Recto/Verso n'a de sens qu'en Rendu Visuel
+        is_preview = mode_idx == 0
+        self.btn_flip_a.setVisible(is_preview)
+        self.btn_flip_b.setVisible(is_preview)
+
+    def _show_config_page(self) -> None:
+        """Retour à l'écran de configuration (les résultats sont préservés)."""
+        self.phase_stack.setCurrentWidget(self.config_page)
+
+    def _show_results_page(self) -> None:
+        """Bascule sur l'écran de résultats (lancé automatiquement en fin de config)."""
+        self.phase_stack.setCurrentWidget(self.results_page)
 
     def _set_both_device_mode(self, mode: str) -> None:
         if hasattr(self.preview_a, "set_device_mode"):
@@ -1205,9 +1198,12 @@ class ABTestsView(QWidget):
             pipe_id_b = pipe_b.id if pipe_b else None
 
         show_toast(self, "Lancement du test A/B en parallèle via le Moteur DAG...")
+        self._show_results_page()
         self.btn_run.setEnabled(False)
         self._completed_a = False
         self._completed_b = False
+        self.preview_a.set_empty_state("Branche A : test en cours... Les résultats s'afficheront ici.")
+        self.preview_b.set_empty_state("Branche B : test en cours... Les résultats s'afficheront ici.")
         self.kpi_a.set_running()
         self.kpi_b.set_running()
         self._elapsed_timer.start()
@@ -1330,54 +1326,6 @@ class ABTestsView(QWidget):
             self.btn_run.setEnabled(True)
             self._update_views()
             show_toast(self, "Test A/B terminé avec succès !")
-
-    def _on_import_branch_to_forge(self, branch: str) -> None:
-        cards = self.cards_a if branch == "A" else self.cards_b
-        if not cards:
-            show_toast(self, f"Aucune carte à importer depuis la Branche {branch}.", is_error=True)
-            return
-
-        only_current = (self.chk_import_current_a if branch == "A" else self.chk_import_current_b).isChecked()
-        if only_current:
-            index = self.index_a if branch == "A" else self.index_b
-            if 0 <= index < len(cards):
-                cards = [cards[index]]
-            else:
-                show_toast(self, f"Position de carte invalide pour la Branche {branch}.", is_error=True)
-                return
-
-        selected_nt = self.model_combo.currentData()
-        if not selected_nt:
-            selected_nt = NoteTypeModel.select().first()
-
-        selected_deck = self.deck_combo.currentData()
-        if not selected_deck:
-            selected_deck = DeckModel.get_or_none(DeckModel.name == "Défaut")
-            if not selected_deck:
-                selected_deck = DeckModel.create(name="Défaut")
-
-        try:
-            imported_count = 0
-            with db.atomic():
-                for card_dict in cards:
-                    note = NoteModel.create(
-                        guid=uuid.uuid4().hex,
-                        note_type=selected_nt,
-                        tags="ab_test",
-                    )
-                    note.add_version(card_dict, source="ai_ab_test")
-                    CardModel.create(note=note, deck=selected_deck, template_index=0)
-                    imported_count += 1
-
-            btn = self.btn_import_a if branch == "A" else self.btn_import_b
-            btn.setText(f"✓ {imported_count} Importées")
-            btn.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
-
-            detail = "carte visible" if only_current else f"{imported_count} cartes"
-            show_toast(self, f"{detail} de la Branche {branch} importée(s) dans le paquet '{selected_deck.name}' !")
-        except Exception as e:
-            logger.exception("Erreur lors de l'import des cartes A/B dans la Forge")
-            show_toast(self, f"Erreur lors de l'import : {e}", is_error=True)
 
     def refresh_theme(self, profile: Any) -> None:
         self._apply_theme_to_widgets()

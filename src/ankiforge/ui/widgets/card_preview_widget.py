@@ -190,13 +190,22 @@ class CardPreviewWidget(QWidget):
     @Slot()
     def _on_toggle_side(self) -> None:
         self.is_recto = not self.is_recto
+        self._sync_toggle_side()
+        self._render()
+
+    def flip_card(self) -> None:
+        """Bascule Recto/Verso (équivalent public du bouton 'Voir Verso')."""
+        self.is_recto = not self.is_recto
+        self._sync_toggle_side()
+        self._render()
+
+    def _sync_toggle_side(self) -> None:
         if self.is_recto:
             self.btn_toggle_side.setText("Voir Verso")
             self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
         else:
             self.btn_toggle_side.setText("Masquer Verso")
             self.btn_toggle_side.setIcon(load_phosphor_icon("ph.eye-slash", color=DesignTokens.TEXT_PRIMARY))
-        self._render()
 
     def set_device_mode(self, mode: str) -> None:
         """Ajuste uniquement la largeur du conteneur selon l'appareil choisi."""

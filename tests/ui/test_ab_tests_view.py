@@ -7,7 +7,6 @@ import pytest
 from ankiforge.database.models import (
     DeckModel,
     LLMConfigModel,
-    NoteModel,
     NoteTypeModel,
     PersonaModel,
     PipelineModel,
@@ -57,9 +56,9 @@ class DummySingleABManager:
 @pytest.mark.slow
 @pytest.mark.ui
 def test_ab_tests_view_engine_comparison(qtbot):
-    """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA et importer les cartes."""
+    """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA et affichage des résultats."""
     uid = uuid.uuid4().hex[:6]
-    nt = NoteTypeModel.create(
+    NoteTypeModel.create(
         name=f"NoteType AB {uid}",
         fields_schema='["Front", "Back"]',
         templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
@@ -117,11 +116,8 @@ def test_ab_tests_view_engine_comparison(qtbot):
     assert "s" in view.kpi_a.lbl_time.text()
     assert "1 carte" in view.kpi_a.lbl_cards.text()
 
-    # Tester l'import dans la forge
-    view.model_combo.setCurrentIndex(view.model_combo.findText(nt.name))
-    initial_notes = NoteModel.select().count()
-    view._on_import_branch_to_forge("A")
-    assert NoteModel.select().count() == initial_notes + 1
+    # L'exécution bascule automatiquement sur l'écran Résultats
+    assert view.phase_stack.currentWidget() is view.results_page
 
 
 @pytest.mark.ui
@@ -181,6 +177,7 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     """Vérifie le commutateur de vue, les tiroirs repliables, le winner badging et la réactivité du thème."""
     view = ABTestsView(ai_manager=None)
     qtbot.addWidget(view)
+    view.show()
 
     # 1. Commutateur de vue
     view._switch_view_mode(1)  # Tableau des Champs
@@ -225,13 +222,50 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     assert not hasattr(view.kpi_a, "badge_winner")
     assert not hasattr(view, "_evaluate_winner")
 
-    # 5. Flip & Device mode
-    view._on_flip_both_cards()
+    # Aucun import de cartes depuis le Laboratoire A/B (progressive disclosure '2 écrans')
+    assert not hasattr(view, "btn_import_a")
+    assert not hasattr(view, "btn_import_b")
+    assert not hasattr(view, "chk_import_current_a")
+    assert not hasattr(view, "chk_import_current_b")
+    assert not hasattr(view, "_on_import_branch_to_forge")
+    assert not hasattr(view, "btn_flip_both")
+
+    # 5. Progressive disclosure : 2 écrans (Configuration → Résultats)
+    assert view.phase_stack.currentWidget() is view.config_page
+    view._show_results_page()
+    assert view.phase_stack.currentWidget() is view.results_page
+    view._show_config_page()
+    assert view.phase_stack.currentWidget() is view.config_page
+
+    # Rendre les aperçus visibles pour tester l'état des flips
+    view._show_results_page()
+    view.results_page.show()
+    from PySide6.QtWidgets import QApplication
+
+    QApplication.processEvents()
+
+    # 6. Flip par panneau (visible seulement en Rendu Visuel) & Device mode
+    view._switch_view_mode(1)  # Tableau : flips masqués
+    assert not view.btn_flip_a.isVisibleTo(view)
+    assert not view.btn_flip_b.isVisibleTo(view)
+
+    view._switch_view_mode(0)  # Rendu Visuel : flips visibles
+    assert view.btn_flip_a.isVisibleTo(view)
+    assert view.btn_flip_b.isVisibleTo(view)
+
+    assert view.preview_a.is_recto is True
+    view.btn_flip_a.click()
+    assert view.preview_a.is_recto is False
+    view.btn_flip_a.click()
+    assert view.preview_a.is_recto is True
+
+    view.btn_flip_b.click()
+    assert view.preview_b.is_recto is False
     view._set_both_device_mode("mobile")
     assert view.preview_a._device_mode == "mobile"
     assert view.preview_b._device_mode == "mobile"
 
-    # 6. Theme reactivity
+    # 7. Theme reactivity
     engine = get_style_engine()
     light_profile = engine.get_theme("jetbrains_light")
     if light_profile:
@@ -322,36 +356,36 @@ def test_ab_tests_view_diff_and_copy_config(qtbot):
     assert view.tok_slider_b.value() == 4096
     assert view.temp_slider_b.value() == 70  # inchangé
     assert view.tok_slider_b.value() == 4096
-    """Vérifie l'import sélectif de la carte visible dans la Forge."""
-    uid = uuid.uuid4().hex[:6]
-    nt = NoteTypeModel.create(
-        name=f"NoteType Partial Import {uid}",
-        fields_schema='["Front", "Back"]',
-        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]',
-        css_style=".card { font-family: arial; }",
-    )
-    deck = DeckModel.create(name=f"Deck Partial Import {uid}")
 
+
+@pytest.mark.ui
+def test_ab_tests_view_source_modal_imports(qtbot):
+    """Vérifie le remplacement des pills par des imports modaux (Exemples + Document)."""
     view = ABTestsView(ai_manager=None)
     qtbot.addWidget(view)
-    view.refresh_data()
 
-    view.model_combo.setCurrentIndex(view.model_combo.findText(nt.name))
-    view.deck_combo.setCurrentIndex(view.deck_combo.findText(deck.name))
+    # Bouton modale d'exemples présent (plus de TagPillButton dans le header source)
+    from ankiforge.ui.components import DocumentPickerButton
 
-    view.cards_a = [{"Front": "Carte 1", "Back": "Back 1"}, {"Front": "Carte 2", "Back": "Back 2"}]
-    view.index_a = 1  # Carte 2 affichée
-    view._update_views()
+    assert hasattr(view, "btn_samples")
+    assert hasattr(view, "doc_picker")
+    assert isinstance(view.doc_picker, DocumentPickerButton)
 
-    # Import partiel : seulement la carte visible (index 1)
-    view.chk_import_current_a.setChecked(True)
-    initial_notes = NoteModel.select().count()
-    view._on_import_branch_to_forge("A")
-    assert NoteModel.select().count() == initial_notes + 1
+    # L'import d'un exemple prédéfini peuple le texte source sans interaction directe
+    from ankiforge.ui.views.ab_tests_view.constants import PRESET_SAMPLES
+    from ankiforge.ui.views.ab_tests_view.dialogs import SampleSelectWindow
 
-    from ankiforge.database.models import NoteVersionModel
+    modal = SampleSelectWindow(parent=view)
+    qtbot.addWidget(modal)
+    assert modal.list.count() == len(PRESET_SAMPLES)
 
-    last_note = NoteModel.select().order_by(NoteModel.id.desc()).get()
-    version = NoteVersionModel.get_or_none(note=last_note, is_active=True)
-    assert version is not None
-    assert "Carte 2" in version.content
+    picked: list[str] = []
+    modal.sample_picked.connect(picked.append)
+    modal.list.setCurrentRow(0)
+    modal._on_confirm()
+    assert len(picked) == 1
+    assert picked[0] == PRESET_SAMPLES[0][1]
+
+    # L'injection de l'exemple peuple le texte source
+    view.source_text_edit.setPlainText(PRESET_SAMPLES[1][1])
+    assert view.source_text_edit.toPlainText() == PRESET_SAMPLES[1][1]

@@ -37,12 +37,17 @@ for _ in range(8):
 out_dir = Path("temp/screens")
 out_dir.mkdir(parents=True, exist_ok=True)
 
-# 1. Mode 0 : Moteur vs Moteur (Rendu Cartes)
-out_mode0 = out_dir / "ab_tests_overview_mode0.png"
+# 1. Écran 1 : Configuration (progressive disclosure)
+out_mode0 = out_dir / "ab_tests_config_screen.png"
 window.grab().save(str(out_mode0))
-print("✅ Saved AB Tests Mode 0 to", out_mode0)
+print("✅ Saved AB Tests Config Screen to", out_mode0)
 
 if view:
+    # Basculer sur l'écran Résultats pour capturer les vues comparatives
+    view._show_results_page()
+    for _ in range(8):
+        app.processEvents()
+
     # 2. Mode 1 : Prompts / Personas
     view.mode_combo.setCurrentIndex(1)
     for _ in range(8):
@@ -76,18 +81,26 @@ if view:
     window.grab().save(str(out_json))
     print("✅ Saved AB Tests JSON to", out_json)
 
-    # 6. Mode 0 avec Winner State (Résultats simulés)
+    # 6. Mode 0 - Rendu avec flip par panneau (Verso Branche A)
     view._switch_view_mode(0)
-    view.kpi_a.set_results(elapsed=1.12, cards_count=3, tokens=520, cost_usd=0.0012, is_success=True)
-    view.kpi_b.set_results(elapsed=2.85, cards_count=3, tokens=610, cost_usd=0.0018, is_success=True)
-    view._evaluate_winner()
+    view.btn_flip_a.click()
     for _ in range(8):
         app.processEvents()
-    out_winner = out_dir / "ab_tests_winner_state.png"
-    window.grab().save(str(out_winner))
-    print("✅ Saved AB Tests Winner State to", out_winner)
+    out_flip = out_dir / "ab_tests_flip_panel_a.png"
+    window.grab().save(str(out_flip))
+    print("✅ Saved AB Tests Flip Panel A to", out_flip)
+    view.btn_flip_a.click()
 
-    # 7. Thème Clair (JetBrains Light)
+    # 7. Mode 0 avec Winner State (Résultats simulés)
+    view.kpi_a.set_results(elapsed=1.12, cards_count=3, tokens=520, cost_usd=0.0012, is_success=True)
+    view.kpi_b.set_results(elapsed=2.85, cards_count=3, tokens=610, cost_usd=0.0018, is_success=True)
+    for _ in range(8):
+        app.processEvents()
+    out_winner = out_dir / "ab_tests_results_state.png"
+    window.grab().save(str(out_winner))
+    print("✅ Saved AB Tests Results State to", out_winner)
+
+    # 8. Thème Clair (JetBrains Light)
     engine.apply_theme("jetbrains_light", app)
     for _ in range(8):
         app.processEvents()

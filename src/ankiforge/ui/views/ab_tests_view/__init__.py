@@ -11,14 +11,12 @@ from ankiforge.ui.views.ab_tests_view.view import ABTestsTab, ABTestsView
 from ankiforge.ui.views.ab_tests_view.widgets import (
     BranchKpiWidget,
     SubTabButton,
-    TagPillButton,
 )
 
 __all__ = [
     "ABTestsView",
     "ABTestsTab",
     "BranchKpiWidget",
-    "TagPillButton",
     "SubTabButton",
     "PRESET_SAMPLES",
     "apply_pill_style",
