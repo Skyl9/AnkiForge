@@ -73,10 +73,10 @@ class NotificationItemWidget(QFrame):
         # 3. Bouton d'action proactif
         action_label = notif_data.get("action_label", "Voir")
         self.btn_action = SecondaryButton(action_label)
-        self.btn_action.setFixedHeight(24)
-        self.btn_action.setFont(QFont(DesignTokens.FONT_MAIN, 10, QFont.Weight.Bold))
+        self.btn_action.setFixedHeight(30)
+        self.btn_action.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
         self.btn_action.clicked.connect(self._on_action)
-        layout.addWidget(self.btn_action, 0, Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.btn_action)
 
     def _apply_style(self) -> None:
         self.setStyleSheet(f"""
