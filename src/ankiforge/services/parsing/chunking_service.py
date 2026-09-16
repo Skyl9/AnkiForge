@@ -35,7 +35,7 @@ class ChunkingService:
     # v3 = PDFs Marker détectés par contenu → découpage AST avec conservation des pages
     CHUNKING_VERSION: int = 3
 
-    CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt")
+    CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt", "ipynb", "py")
 
     # Regex pour détecter les titres avec page-span HTML residuels (Marker)
     _SPAN_PAGE_HEADING_RE = re.compile(r'<span\s+id="page-\d+-\d+"></span>', re.IGNORECASE)

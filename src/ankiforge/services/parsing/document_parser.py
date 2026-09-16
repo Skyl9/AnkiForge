@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import os
@@ -90,6 +91,14 @@ class DocumentParser:
 
         if ext == ".pdf":
             res = self._parse_pdf_with_marker(file_path, progress_callback, check_cancel) if self.is_marker_available() else self._parse_pdf_with_pypdf(file_path, progress_callback, check_cancel)
+        elif ext == ".ipynb":
+            if progress_callback:
+                progress_callback("Lecture du notebook Jupyter en cours...")
+            res = self._parse_ipynb(file_path)
+        elif ext == ".py":
+            if progress_callback:
+                progress_callback("Structuration du code Python en cours...")
+            res = self._parse_python(file_path)
         elif ext in [".txt", ".md"]:
             if progress_callback:
                 progress_callback("Lecture du fichier texte immédiate...")
@@ -447,3 +456,181 @@ class DocumentParser:
             str: Le contenu du fichier.
         """
         return file_path.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _nb_source(cell_source: Any) -> str:
+        """Normalise le champ 'source' d'une cellule Jupyter (str ou liste de lignes)."""
+        if isinstance(cell_source, str):
+            return cell_source
+        if isinstance(cell_source, list):
+            return "".join(str(part) for part in cell_source)
+        return str(cell_source or "")
+
+    @classmethod
+    def _nb_cell_outputs_text(cls, cell: dict[str, Any]) -> list[str]:
+        """Extrait les sorties textuelles pédagogiquement utiles d'une cellule de code Jupyter."""
+        outputs: list[str] = []
+        for output in cell.get("outputs", []) or []:
+            if not isinstance(output, dict):
+                continue
+            otype = output.get("output_type")
+            if otype == "stream":
+                text = output.get("text", "")
+            elif otype == "execute_result":
+                data = output.get("data", {})
+                text = data.get("text/plain", "")
+            elif otype == "error":
+                text = "\n".join(str(part) for part in [output.get("ename", ""), output.get("evalue", "")] if part)
+            else:
+                continue
+            if isinstance(text, list):
+                text = "".join(str(part) for part in text)
+            if text and str(text).strip():
+                outputs.append(str(text).rstrip())
+        return outputs
+
+    def _parse_ipynb(self, file_path: Path) -> str:
+        """
+        Convertit un notebook Jupyter (.ipynb) en Markdown structuré.
+
+        Les cellules Markdown sont conservées telles quelles, les cellules de code
+        sont embarquées dans des blocs ```python précédés d'un titre, et leurs
+        sorties texte (stdout / résultat / erreurs) sont restituées en blockquote
+        pour donner du contexte à l'IA. Aucune dépendance externe (json stdlib).
+        """
+        try:
+            notebook = json.loads(file_path.read_text(encoding="utf-8", errors="ignore"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.exception("Le fichier notebook %s n'est pas un JSON valide :", file_path)
+            raise ValueError(f"Le notebook {file_path.name} est invalide ou corrompu (JSON invalide).") from e
+
+        if not isinstance(notebook, dict) or not isinstance(notebook.get("cells"), list):
+            raise ValueError(f"Le fichier {file_path.name} n'est pas un notebook Jupyter valide (liste de cellules absente).")
+
+        parts: list[str] = []
+        for idx, cell in enumerate(notebook.get("cells", []), start=1):
+            if not isinstance(cell, dict):
+                continue
+            cell_type = str(cell.get("cell_type") or "code")
+            source = self._nb_source(cell.get("source"))
+
+            if cell_type == "markdown":
+                if source.strip():
+                    parts.append(source.rstrip())
+                    parts.append("")
+            elif cell_type == "code":
+                header_parts = [f"## Cellule {idx}"]
+                exec_count = cell.get("execution_count")
+                if exec_count is not None:
+                    header_parts[0] += f" (exécution #{exec_count})"
+                parts.append(header_parts[0])
+                parts.append("")
+                parts.append(f"```python\n{source.rstrip()}\n```")
+                outputs = self._nb_cell_outputs_text(cell)
+                if outputs:
+                    rendered = "\n\n".join(outputs)
+                    parts.append("")
+                    parts.append("### Résultat")
+                    parts.append("")
+                    for line in rendered.splitlines():
+                        parts.append(f"> {line}")
+                parts.append("")
+            else:
+                if source.strip():
+                    parts.append(source.rstrip())
+                    parts.append("")
+
+        return "\n".join(parts).strip()
+
+    @staticmethod
+    def _python_docstring(node: Any) -> str:
+        """Retourne la docstring d'un nœud ast (module, classe, fonction) sous forme de texte."""
+        try:
+            doc = node.body[0] if node.body else None
+            if isinstance(node, ast.Module):
+                if isinstance(doc, ast.Expr) and isinstance(doc.value, ast.Constant) and isinstance(doc.value.value, str):
+                    return doc.value.value.strip()
+            elif isinstance(doc, ast.Expr) and isinstance(doc.value, ast.Constant) and isinstance(doc.value.value, str):
+                return doc.value.value.strip()
+        except Exception:
+            pass
+        return ""
+
+    def _parse_python(self, file_path: Path) -> str:
+        """
+        Convertit un fichier source Python (.py) en Markdown structuré par AST.
+
+        Le code est préservé intégralement dans des blocs ```python, avec un titre
+        et la docstring en tête de chaque classe et fonction (dans l'ordre du fichier).
+        En cas de syntaxe invalide, le fichier brut est conservé dans un seul bloc.
+        """
+        source = file_path.read_text(encoding="utf-8", errors="replace")
+        if not source.strip():
+            return ""
+
+        try:
+            tree = ast.parse(source)
+        except SyntaxError as e:
+            logger.warning("Syntaxe Python invalide dans %s (%s) : repli sur le code brut.", file_path.name, e)
+            return f"```python\n{source.rstrip()}\n```"
+
+        if not tree.body:
+            return f"```python\n{source.rstrip()}\n```"
+
+        lines = source.splitlines()
+        parts: list[str] = []
+
+        def slice_between(start: int, end: int) -> str:
+            """Découpe les lignes source [lineno..end_lineno] en préservant l'indentation."""
+            return "\n".join(lines[start - 1 : end])
+
+        module_doc = self._python_docstring(tree)
+        if module_doc:
+            parts.append(module_doc)
+            parts.append("")
+
+        def render_body(body: list[Any], heading_level: int) -> None:
+            """Rend les membres d'un bloc en insérant titres + docstrings + code."""
+            for item in body:
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.lineno and item.end_lineno:
+                    parts.append(f"{'#' * heading_level} def {item.name}")
+                    doc = self._python_docstring(item)
+                    if doc:
+                        parts.append("")
+                        parts.append(doc)
+                    parts.append("")
+                    parts.append(f"```python\n{slice_between(item.lineno, item.end_lineno)}\n```")
+                    parts.append("")
+
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                parts.append(f"## class {node.name}")
+                doc = self._python_docstring(node)
+                if doc:
+                    parts.append("")
+                    parts.append(doc)
+                parts.append("")
+                if node.lineno and node.end_lineno:
+                    class_code = slice_between(node.lineno, node.end_lineno)
+                    parts.append(f"```python\n{class_code}\n```")
+                else:
+                    parts.append(f"```python\n{ast.unparse(node)}\n```")
+                parts.append("")
+                render_body(node.body, 3)
+            elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                parts.append(f"### def {node.name}")
+                doc = self._python_docstring(node)
+                if doc:
+                    parts.append("")
+                    parts.append(doc)
+                parts.append("")
+                if node.lineno and node.end_lineno:
+                    parts.append(f"```python\n{slice_between(node.lineno, node.end_lineno)}\n```")
+                else:
+                    parts.append(f"```python\n{ast.unparse(node)}\n```")
+                parts.append("")
+
+        if not parts:
+            return f"```python\n{source.rstrip()}\n```"
+
+        return "\n".join(parts).strip()

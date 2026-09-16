@@ -1050,7 +1050,7 @@ class BatchView(QWidget):
 
     @Slot()
     def _on_browse_local_file(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un document source", "", "Documents (*.pdf *.txt *.md *.docx);;Tous (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un document source", "", "Documents (*.pdf *.txt *.md *.docx *.ipynb *.py);;Tous (*)")
         if file_path:
             import os
 

@@ -113,8 +113,8 @@ def test_chunking_empty_or_too_short():
 
 
 def test_preferred_strategy_selects_markdown_ast_for_continuous_types():
-    """Les documents continus (Markdown, Web, texte) privilégient la stratégie AST la plus fine."""
-    for ft in ("md", "markdown", "txt", "text", "web", "youtube", "yt"):
+    """Les documents continus (Markdown, Web, texte, notebooks, code) privilégient la stratégie AST la plus fine."""
+    for ft in ("md", "markdown", "txt", "text", "web", "youtube", "yt", "ipynb", "py"):
         assert ChunkingService.preferred_strategy(ft) == ChunkingService.STRATEGY_MARKDOWN_AST
 
     # Les documents paginés et audio conservent leur découpage natif
@@ -149,6 +149,31 @@ Texte de la lamina.
 
     # Chaque fragment porte un fil d'Ariane complet descendant jusqu'au titre feuille
     assert all(" > " in p for p in heading_paths[1:])
+
+
+def test_chunking_code_fence_headings_not_split():
+    """Les titres Markdown présents À L'INTÉRIEUR d'un bloc de code ne découpent pas de sections."""
+    content = """# MonModule
+
+Module docstring.
+
+```python
+# Ceci est un commentaire avec #
+## Ceci ressemble à un titre
+def f():
+    # Et encore un heading
+    return 42
+```
+
+## Autre section
+Contenu de l'autre section.
+"""
+    chunks = ChunkingService.extract_chunks(content, file_type="py", strategy=ChunkingService.preferred_strategy("py"))
+
+    paths = [c["heading_path"] for c in chunks]
+    assert len(chunks) == 2
+    assert paths[0] == "MonModule"
+    assert paths[1].endswith("Autre section")
 
 
 def test_extract_by_section_flushes_h5_h6_leaf_headings():

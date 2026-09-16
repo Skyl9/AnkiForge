@@ -816,6 +816,10 @@ class DocumentsView(QWidget):
                     item.setIcon(0, load_phosphor_icon("ph.waveform", color=DesignTokens.COLOR_GREEN))
                 elif getattr(doc, "file_type", "") == "md" or title_lower.endswith(".md"):
                     item.setIcon(0, load_phosphor_icon("ph.file-code", color=DesignTokens.COLOR_YELLOW))
+                elif getattr(doc, "file_type", "") == "ipynb" or title_lower.endswith(".ipynb"):
+                    item.setIcon(0, load_phosphor_icon("ph.notebook", color=DesignTokens.COLOR_PURPLE))
+                elif getattr(doc, "file_type", "") == "py" or title_lower.endswith(".py"):
+                    item.setIcon(0, load_phosphor_icon("ph.file-py", color=DesignTokens.COLOR_BLUE))
                 elif getattr(doc, "file_type", "") == "web":
                     item.setIcon(0, load_phosphor_icon("ph.globe", color=DesignTokens.ACCENT_PRIMARY))
                 elif getattr(doc, "file_type", "") == "youtube":
@@ -1214,7 +1218,7 @@ class DocumentsView(QWidget):
             self,
             "Importer un document",
             "",
-            "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx *.mp3 *.m4a *.wav *.ogg *.flac *.aac);;Tous les fichiers (*.*)",
+            "Documents (*.pdf *.epub *.txt *.md *.docx *.pptx *.ipynb *.py *.mp3 *.m4a *.wav *.ogg *.flac *.aac);;Tous les fichiers (*.*)",
         )
         if file_path:
             ext = pathlib.Path(file_path).suffix.lower()

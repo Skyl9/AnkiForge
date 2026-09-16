@@ -1,3 +1,4 @@
+import json
 import stat
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -290,3 +291,171 @@ def test_parse_pdf_pypdf_fallback_success(mock_reader_cls, mock_get_marker, tmp_
     assert "## Page 2" in result
     assert "Deuxième page de cours" in result
     mock_callback.assert_any_call("Extraction PDF native en cours (pypdf)...")
+
+
+# ==========================================
+# TESTS NOTEBOOKS JUPYTER (.ipynb)
+# ==========================================
+
+
+def _build_notebook(cells):
+    """Construit un dictionnaire notebook Jupyter v4 minimal."""
+    return {
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {},
+        "cells": cells,
+    }
+
+
+def test_parse_ipynb_success(tmp_path):
+    """Un notebook mixte (markdown + code) est converti en Markdown structuré."""
+    notebook = _build_notebook(
+        [
+            {"cell_type": "markdown", "metadata": {}, "source": "# Les boucles Python\n\nLe `for` en Python."},
+            {
+                "cell_type": "code",
+                "metadata": {},
+                "execution_count": 3,
+                "source": ["total = 0\n", "for i in range(4):\n", "    total += i\n", "print(total)"],
+                "outputs": [
+                    {"output_type": "stream", "name": "stdout", "text": ["6\n"]},
+                    {"output_type": "execute_result", "data": {"text/plain": ["6"]}, "metadata": {}, "execution_count": 3},
+                ],
+            },
+            {"cell_type": "code", "metadata": {}, "execution_count": None, "source": "def carre(x):\n    return x**2", "outputs": []},
+        ]
+    )
+
+    fake_ipynb = tmp_path / "cours.ipynb"
+    fake_ipynb.write_text(json.dumps(notebook), encoding="utf-8")
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_ipynb))
+
+    assert "# Les boucles Python" in result
+    assert "## Cellule 2 (exécution #3)" in result
+    assert "```python" in result
+    assert "for i in range(4):" in result
+    assert "### Résultat" in result
+    assert "> 6" in result
+    assert "## Cellule 3" in result
+    assert "def carre(x):" in result
+
+
+def test_parse_ipynb_invalid_json(tmp_path):
+    """Un notebook non-JSON doit lever une erreur claire."""
+    fake_ipynb = tmp_path / "casse.ipynb"
+    fake_ipynb.write_text("{pas du json", encoding="utf-8")
+
+    parser = DocumentParser()
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse_document(str(fake_ipynb))
+
+    assert "JSON invalide" in str(exc_info.value)
+
+
+def test_parse_ipynb_non_notebook_json(tmp_path):
+    """Un JSON valide mais sans liste de cellules n'est pas un notebook."""
+    fake_ipynb = tmp_path / "faux.ipynb"
+    fake_ipynb.write_text('{"title": "nimporte quoi"}', encoding="utf-8")
+
+    parser = DocumentParser()
+    with pytest.raises(ValueError) as exc_info:
+        parser.parse_document(str(fake_ipynb))
+
+    assert "notebook Jupyter valide" in str(exc_info.value)
+
+
+def test_parse_ipynb_skips_images_and_errors(tmp_path):
+    """Les sorties non textuelles sont ignorées, les erreurs sont restituées."""
+    notebook = _build_notebook(
+        [
+            {
+                "cell_type": "code",
+                "metadata": {},
+                "execution_count": 1,
+                "source": "1/0",
+                "outputs": [
+                    {"output_type": "display_data", "data": {"image/png": "fake", "text/plain": ["IGNOREE"]}, "metadata": {}},
+                    {"output_type": "error", "ename": "ZeroDivisionError", "evalue": "division by zero", "traceback": [], "metadata": {}},
+                ],
+            }
+        ]
+    )
+
+    fake_ipynb = tmp_path / "erreur.ipynb"
+    fake_ipynb.write_text(json.dumps(notebook), encoding="utf-8")
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_ipynb))
+
+    assert "ZeroDivisionError" in result
+    assert "division by zero" in result
+    assert "IGNOREE" not in result
+
+
+# ==========================================
+# TESTS CODE PYTHON (.py)
+# ==========================================
+
+
+def test_parse_python_success(tmp_path):
+    """Un fichier .py structuré est converti en Markdown organisé par AST, code préservé."""
+    fake_py = tmp_path / "collections.py"
+    fake_py.write_text(
+        '"""Outils de statistiques."""\n'
+        "\n"
+        "def moyenne(valeurs):\n"
+        '    """Calcule la moyenne."""\n'
+        "    return sum(valeurs) / len(valeurs)\n"
+        "\n"
+        "class Statistiques:\n"
+        '    """Agrégateur statistique."""\n'
+        "\n"
+        "    def __init__(self, valeurs):\n"
+        "        self.valeurs = valeurs\n"
+        "\n"
+        "    async def etendue(self):\n"
+        '        """Retourne l\'étendue."""\n'
+        "        return max(self.valeurs) - min(self.valeurs)\n",
+        encoding="utf-8",
+    )
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_py))
+
+    assert "Outils de statistiques." in result
+    assert "### def moyenne" in result
+    assert "Calcule la moyenne." in result
+    assert "return sum(valeurs) / len(valeurs)" in result
+    assert "## class Statistiques" in result
+    assert "Agrégateur statistique." in result
+    assert "### def __init__" in result
+    assert "async def etendue" in result
+    assert "return max(self.valeurs) - min(self.valeurs)" in result
+
+
+def test_parse_python_syntax_error_fallback(tmp_path):
+    """Un .py invalide est conservé en un seul bloc de code sans crasher."""
+    fake_py = tmp_path / "corrompu.py"
+    fake_py.write_text("def casse(:\n    pass", encoding="utf-8")
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_py))
+
+    assert "```python" in result
+    assert "def casse(:" in result
+
+
+def test_parse_python_plain_module_keeps_code(tmp_path):
+    """Un module sans classe ni fonction reste disponible en bloc de code."""
+    fake_py = tmp_path / "script.py"
+    fake_py.write_text("IMPORT_MATHS = True\n\nprint('hello')\n", encoding="utf-8")
+
+    parser = DocumentParser()
+    result = parser.parse_document(str(fake_py))
+
+    assert "```python" in result
+    assert "IMPORT_MATHS = True" in result
+    assert "print('hello')" in result

@@ -37,6 +37,7 @@ gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c
 
 ## Architecture Highlights
 - **Multi-profile isolation**: Each profile = separate SQLite DB + media dir under `~/.ankiforge/profiles/<name>/`
+- **Document Scope & Selection Persistence**: `DocumentScopeDialog` preserves fine-grained selections (`selection_mode="sections"`, `selected_headings`, `selected_chunk_indices`) across successive generation runs in `CreationView` and `BatchView`
 - **DAG Orchestration**: 5 step types (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`) with conditional jumps
 - **MCP Server**: In-process, exposes tools (`query_peewee`, `get_deck_stats`, `update_card_model_css`, etc.)
 - **Local RAG**: FAISS/ChromaDB vector search, semantic chunking, coverage tracking

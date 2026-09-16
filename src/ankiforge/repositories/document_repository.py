@@ -304,7 +304,7 @@ class DocumentRepository(BaseRepository):
         file_type = (doc.file_type or "").lower() if doc else ""
         pages_in_chunks = {c.page_number for c in chunks if c.page_number is not None and c.page_number > 0}
         is_paginated = file_type in ("pdf", "album", "pptx", "epub") or bool(pages_in_chunks)
-        if not is_paginated and file_type not in ("md", "markdown", "txt", "text", "web", "youtube", "yt", "audio", "mp3", "wav", "m4a"):
+        if not is_paginated and file_type not in ("md", "markdown", "txt", "text", "web", "youtube", "yt", "audio", "mp3", "wav", "m4a", "ipynb", "py"):
             is_paginated = bool(doc and doc.total_pages and doc.total_pages > 1)
 
         start_p = getattr(doc, "start_page", None)
