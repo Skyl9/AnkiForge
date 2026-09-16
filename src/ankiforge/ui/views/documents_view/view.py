@@ -53,6 +53,7 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
 )
+from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
 from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.documents_view.dialogs import (
@@ -1224,9 +1225,20 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_import_url(self) -> None:
-        url, ok = QInputDialog.getText(self, "Importer depuis le Web", "Entrez l'URL de la page web ou de la vidéo YouTube :")
-        if ok and url.strip():
-            self._start_document_worker(url.strip())
+        dialog = UrlImportDialog(self)
+        dialog.import_completed.connect(self._on_web_import_completed)
+        dialog.cards_requested.connect(self._on_web_import_cards_requested)
+        dialog.exec()
+
+    @Slot(list)
+    def _on_web_import_completed(self, doc_ids: list[int]) -> None:
+        self.refresh_data()
+        if doc_ids:
+            self._select_doc_id_in_tree(doc_ids[0])
+
+    @Slot(int)
+    def _on_web_import_cards_requested(self, doc_id: int) -> None:
+        self.request_navigation.emit("creation", {"doc_id": doc_id})
 
     @Slot()
     def _on_new_album(self) -> None:
@@ -1355,54 +1367,31 @@ class DocumentsView(QWidget):
         try:
             doc_id_to_update = getattr(self.worker, "doc_id_to_update", None)
             file_type = "md"
+            original_media = None
+            source_url = None
 
             if doc_id_to_update:
-                doc = DocumentModel.get_by_id(doc_id_to_update)
-                doc.content = content
-                doc.save()
-                file_type = doc.file_type or "md"
-            else:
-                from ankiforge.services.cards.media_manager import MediaManager
+                file_type = self.doc_repo.get_document_by_id(doc_id_to_update).file_type or "md"
+            elif self.worker and self.worker.file_path:
+                path_or_url = self.worker.file_path
+                if path_or_url.startswith("http"):
+                    source_url = path_or_url
+                    file_type = "web"
+                else:
+                    from ankiforge.services.cards.media_manager import MediaManager
 
-                original_media_id = None
-                source_url = None
+                    original_media = MediaManager().store_document_source(path_or_url)
+                    ext_clean = pathlib.Path(path_or_url).suffix.replace(".", "").lower()
+                    file_type = "audio" if ext_clean in ("mp3", "m4a", "wav", "ogg", "flac", "aac", "wma") else ext_clean or "txt"
 
-                if self.worker and self.worker.file_path:
-                    path_or_url = self.worker.file_path
-                    if path_or_url.startswith("http"):
-                        source_url = path_or_url
-                        file_type = "web"
-                    else:
-                        media_manager = MediaManager()
-                        media = media_manager.store_document_source(path_or_url)
-                        if media:
-                            original_media_id = media.id
-                        ext_clean = pathlib.Path(path_or_url).suffix.replace(".", "").lower()
-                        file_type = "audio" if ext_clean in ("mp3", "m4a", "wav", "ogg", "flac", "aac", "wma") else ext_clean or "txt"
-
-                doc = DocumentModel.create(
-                    title=title,
-                    content=content,
-                    original_media_id=original_media_id,
-                    file_type=file_type,
-                    source_url=source_url,
-                )
-
-            extracted_chunks = ChunkingService.extract_chunks(content, file_type=file_type, strategy=ChunkingService.preferred_strategy(file_type))
-            with DocumentChunkModel._meta.database.atomic():
-                DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
-                for idx, chunk_data in enumerate(extracted_chunks):
-                    DocumentChunkModel.create(
-                        document=doc,
-                        chunk_index=idx,
-                        content=chunk_data["content"],
-                        page_number=chunk_data.get("page_number"),
-                        heading_path=chunk_data.get("heading_path"),
-                        start_time=chunk_data.get("start_time"),
-                        end_time=chunk_data.get("end_time"),
-                        content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
-                    )
-            mark_document_version(doc)
+            doc = self.doc_repo.save_imported_document(
+                title=title,
+                content=content,
+                file_type=file_type,
+                source_url=source_url,
+                doc_id_to_update=doc_id_to_update,
+                original_media=original_media,
+            )
 
             self.refresh_data()
             self._current_doc_id = doc.id

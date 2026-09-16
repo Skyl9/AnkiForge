@@ -188,6 +188,7 @@ class SegmentInspectorWidget(QFrame):
         self._doc: DocumentModel | None = None
         self._fallback_text: str = ""
         self._chunks: list[dict[str, Any]] = []
+        self._last_scope_result: dict[str, Any] | None = None
 
         self._current_doc_total_units: int = 1
         self._current_doc_start_unit: int = 1
@@ -443,6 +444,8 @@ class SegmentInspectorWidget(QFrame):
                 doc = DocumentModel.get_by_id(doc.id)
             except Exception:
                 pass
+        if self._doc is None or doc is None or getattr(self._doc, "id", None) != getattr(doc, "id", None):
+            self._last_scope_result = None
         self._doc = doc
         self._fallback_text = fallback_text
 
@@ -901,6 +904,7 @@ class SegmentInspectorWidget(QFrame):
 
     def apply_scope_result(self, result: dict[str, Any]) -> None:
         """Applique les résultats du DocumentScopeDialog (titre, stats, fragments)."""
+        self._last_scope_result = dict(result)
         chunks = result.get("chunks", [])
         scope_title = result.get("scope_title", "Portée personnalisée")
         scope_stats = result.get("scope_stats", "")
@@ -920,6 +924,10 @@ class SegmentInspectorWidget(QFrame):
             self.input_page_scope.blockSignals(False)
 
         self.scope_changed.emit(range_str)
+
+    def get_last_scope_result(self) -> dict[str, Any] | None:
+        """Retourne la dernière sélection de portée appliquée."""
+        return self._last_scope_result
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if hasattr(self, "scope_trigger_card") and self.scope_trigger_card.isVisible():

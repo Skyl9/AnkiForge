@@ -3,6 +3,7 @@ import uuid
 from typing import Any
 
 import pytest
+from PySide6.QtCore import Qt
 
 from ankiforge.database.models import (
     DeckModel,
@@ -745,3 +746,170 @@ def test_creation_view_load_context_retains_chunk_and_page(qtbot: Any, mock_db: 
     assert view.current_source_doc_id == doc.id
     assert view.current_source_chunk_id == chunk.id
     assert view.input_page_scope.text() == "4"
+
+
+@pytest.mark.ui
+def test_document_scope_dialog_sections_restoration(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que DocumentScopeDialog restaure fidèlement le mode sections et l'état des cases cochées."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Structure {uid}",
+        content="# Chapitre 1\n\nIntro\n\n## Section 1.1\n\nContenu A\n\n## Section 1.2\n\nContenu B\n\n# Chapitre 2\n\nContenu C",
+        file_type="pdf",
+        total_pages=5,
+    )
+    DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Chapitre 1 / Section 1.1", content="Contenu A")
+    DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Chapitre 1 / Section 1.2", content="Contenu B")
+    DocumentChunkModel.create(document=doc, chunk_index=2, page_number=3, heading_path="Chapitre 2", content="Contenu C")
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Basculer en mode sections
+    dlg.btn_mode_sections.click()
+    assert dlg.selection_mode == "sections"
+
+    # Trouver l'item correspondant à Section 1.2 et le décocher
+    items = dlg.sections_list.all_items()
+    target_item = None
+    for it in items:
+        row = dlg.sections_list.row(it)
+        meta = dlg._section_meta.get(row, {})
+        if "1.2" in meta.get("title", ""):
+            target_item = it
+            break
+
+    assert target_item is not None
+    dlg._on_tree_item_state_changed(target_item, Qt.CheckState.Unchecked)
+
+    # Valider le dialogue
+    dlg._on_apply()
+    res = dlg.get_result()
+    assert res["selection_mode"] == "sections"
+    assert len(res["chunks"]) == 2
+    assert "Chapitre 1 / Section 1.2" not in [c.get("heading_path") for c in res["chunks"]]
+
+    # Réouverture avec initial_scope_result=res
+    dlg2 = DocumentScopeDialog(doc, initial_scope_str=res["range_str"], initial_scope_result=res)
+    qtbot.addWidget(dlg2)
+
+    # Vérification que le mode sections et les sélections sont restaurés
+    assert dlg2.selection_mode == "sections"
+    assert dlg2.btn_mode_sections.isChecked()
+    selected2 = dlg2._selected_chunks_for_mode()
+    assert len(selected2) == 2
+    assert all("1.2" not in (c.get("heading_path") or "") for c in selected2)
+
+
+@pytest.mark.ui
+def test_creation_view_second_generation_with_sections_selection(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie qu'une deuxième génération dans CreationView conserve fidèlement la sélection par section."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    deck = DeckModel.create(name=f"Deck Test {uid}")
+    nt = NoteTypeModel.create(
+        name=f"Modèle Test {uid}",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+    )
+    pipe = PipelineModel.create(name=f"Pipeline Test {uid}")
+    persona = PersonaModel.create(name=f"Persona {uid}", system_prompt="Test prompt", output_format="json")
+    PipelineStepModel.create(pipeline=pipe, persona=persona, step_type="LLM_PROMPT", step_order=1)
+    LLMConfigModel.create(provider="mock", model_id=f"dummy_{uid}", display_name=f"Mock IA {uid}")
+
+    doc = DocumentModel.create(
+        title=f"Doc Neuro {uid}",
+        content="# Neuro\n\nIntro\n\n## Cortex\n\nLe cortex cérébral.\n\n## Cervelet\n\nLe cervelet coordonne.",
+        file_type="pdf",
+        total_pages=4,
+    )
+    DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Neuro / Cortex", content="Le cortex cérébral.")
+    DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Neuro / Cervelet", content="Le cervelet coordonne.")
+
+    ai_mgr = DummyCreationAIManager()
+    view = CreationView(ai_manager=ai_mgr)
+    qtbot.addWidget(view)
+
+    view.current_deck = deck
+    view.current_model = nt
+    view.refresh_data()
+
+    # Charger le document dans la vue
+    view._current_selected_doc = doc
+    view.segment_inspector.set_document(doc)
+
+    # 1. Première sélection : uniquement la section "Cortex"
+    scope_result = {
+        "chunks": [{"index": 0, "title": "Neuro / Cortex", "heading_path": "Neuro / Cortex", "page_number": 1, "content": "Le cortex cérébral.", "tokens": 10}],
+        "scope_title": "Portée : 1 section(s) utile(s)",
+        "scope_stats": "4 mots • 1 carte estimée",
+        "range_str": "",
+        "start_page": 1,
+        "end_page": 4,
+        "selection_mode": "sections",
+        "selected_headings": ["Neuro / Cortex"],
+        "selected_chunk_indices": [0],
+    }
+    view.segment_inspector.apply_scope_result(scope_result)
+
+    # Vérification du badge de portée (doit indiquer '1 section' et non '0 pages')
+    assert "1 section" in view.scope_badge.text()
+    assert view.scope_badge.current_variant == "success"
+
+    # Lancement 1ère génération
+    view._on_generate()
+    assert view.orchestrator is not None
+    assert view.orchestrator.state is not None
+    text_source_gen1 = view.orchestrator.state.get_variable("text_source")
+    assert "Le cortex cérébral." in text_source_gen1
+    assert "Le cervelet coordonne." not in text_source_gen1
+
+    # Fin de la 1ère génération
+    cards_gen1 = [{"Front": "Qu'est-ce que le cortex ?", "Back": "Le cortex cérébral."}]
+    view._on_generation_finished(cards_gen1)
+    assert len(view.generated_cards) == 1
+
+    # 2. Deuxième génération directe (sans réouvrir le dialogue)
+    view._on_generate()
+    assert view.orchestrator is not None
+    assert view.orchestrator.state is not None
+    text_source_gen2 = view.orchestrator.state.get_variable("text_source")
+    assert "Le cortex cérébral." in text_source_gen2
+    assert "Le cervelet coordonne." not in text_source_gen2
+
+    # 3. Réouverture de DocumentScopeDialog : vérification que la boîte de dialogue mémorise la sélection
+    last_res = view.segment_inspector.get_last_scope_result()
+    assert last_res is not None
+    assert last_res["selection_mode"] == "sections"
+
+    dlg = DocumentScopeDialog(doc, initial_scope_str=view.segment_inspector.input_page_scope.text().strip(), initial_scope_result=last_res)
+    qtbot.addWidget(dlg)
+    assert dlg.selection_mode == "sections"
+    assert dlg.btn_mode_sections.isChecked()
+    chunks_in_dlg = dlg._selected_chunks_for_mode()
+    assert len(chunks_in_dlg) == 1
+    assert chunks_in_dlg[0]["heading_path"] == "Neuro / Cortex"
+
+    # Cocher également la section Cervelet
+    items = dlg.sections_list.all_items()
+    cervelet_item = next((it for it in items if "Cervelet" in dlg._section_meta.get(dlg.sections_list.row(it), {}).get("title", "")), None)
+    assert cervelet_item is not None
+    dlg._on_tree_item_state_changed(cervelet_item, Qt.CheckState.Checked)
+
+    dlg._on_apply()
+    res_mod = dlg.get_result()
+    assert len(res_mod["chunks"]) == 2
+
+    # Appliquer le nouveau choix à l'inspecteur
+    view.segment_inspector.apply_scope_result(res_mod)
+    assert "2 sections" in view.scope_badge.text()
+
+    # 4. Troisième génération avec la sélection mise à jour
+    view._on_generate()
+    assert view.orchestrator is not None
+    text_source_gen3 = view.orchestrator.state.get_variable("text_source")
+    assert "Le cortex cérébral." in text_source_gen3
+    assert "Le cervelet coordonne." in text_source_gen3

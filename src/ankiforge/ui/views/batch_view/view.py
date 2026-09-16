@@ -727,7 +727,8 @@ class BatchView(QWidget):
         from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
         initial_scope = self.segment_inspector.input_page_scope.text().strip()
-        dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, parent=self)
+        last_scope_result = self._batch_scope_results.get(int(doc.id)) if getattr(doc, "id", None) else None
+        dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, initial_scope_result=last_scope_result, parent=self)
         if dlg.exec():
             res = dlg.get_result()
             self._batch_scope_results[int(doc.id)] = res
@@ -1105,7 +1106,10 @@ class BatchView(QWidget):
             persisted_chunks = self._resolve_batch_chunks(doc)
             selected_chunks: list[dict[str, Any]] = []
 
-            if self._segment_inspector_doc and getattr(self._segment_inspector_doc, "id", None) == doc.id and hasattr(self, "segment_inspector"):
+            scope_res = self._batch_scope_results.get(int(doc.id)) if getattr(doc, "id", None) else None
+            if scope_res and scope_res.get("chunks"):
+                selected_chunks = list(scope_res["chunks"])
+            elif self._segment_inspector_doc and getattr(self._segment_inspector_doc, "id", None) == doc.id and hasattr(self, "segment_inspector"):
                 active_segs = self.segment_inspector.get_active_segments()
                 # Si l'utilisateur a des segments actifs qui ne sont pas le fallback 'Document Complet'
                 if active_segs and any(s.get("title") != "Document Complet" for s in active_segs):

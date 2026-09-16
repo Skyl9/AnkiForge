@@ -489,3 +489,60 @@ def test_batch_view_full_execution_persists_notes_in_db(qtbot: Any, monkeypatch:
     assert linked_chunks == sorted([c1.id, c2.id])
     cards = list(CardModel.select().where(CardModel.deck == deck))
     assert len(cards) == 2
+
+
+def test_batch_view_sections_scope_restoration_and_queue(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que BatchView mémorise la portée par section par document et l'injecte dans la queue."""
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    deck = DeckModel.create(name="Deck Batch Sections")
+    nt = NoteTypeModel.create(name="Model Batch Sections", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    doc = DocumentModel.create(title="Manuel.pdf", file_type="pdf", total_pages=5)
+    DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Intro", content="Contenu intro")
+    DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Exercices", content="Contenu exercices")
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    view.current_deck = deck
+    view.current_model = nt
+
+    # Enregistrer un scope_result ciblant uniquement la section 'Intro' pour ce document
+    scope_res = {
+        "chunks": [{"index": 0, "title": "Intro", "heading_path": "Intro", "page_number": 1, "content": "Contenu intro", "tokens": 12}],
+        "scope_title": "Portée : 1 section(s) utile(s)",
+        "scope_stats": "2 mots",
+        "range_str": "",
+        "start_page": 1,
+        "end_page": 5,
+        "selection_mode": "sections",
+        "selected_headings": ["Intro"],
+        "selected_chunk_indices": [0],
+    }
+    view._batch_scope_results[int(doc.id)] = scope_res
+
+    # Coche le document dans la liste
+    for i in range(view.docs_list.count()):
+        it = view.docs_list.item(i)
+        doc_obj = it.data(Qt.ItemDataRole.UserRole)
+        if doc_obj and getattr(doc_obj, "id", None) == doc.id:
+            it.setCheckState(Qt.CheckState.Checked)
+            break
+
+    # Ajout à la file d'attente
+    view._on_add_to_queue_clicked()
+
+    # Vérification que seule la section 'Intro' a été ajoutée à la file d'attente
+    assert len(view.queue_tasks_data) == 1
+    assert view.queue_tasks_data[0]["chunk_label"] == "Intro"
+    assert view.queue_tasks_data[0]["doc_content"] == "Contenu intro"
+
+    # Vérification de la réouverture de la boîte de dialogue avec ce résultat mémorisé
+    dlg = DocumentScopeDialog(doc, initial_scope_str="", initial_scope_result=view._batch_scope_results[int(doc.id)])
+    qtbot.addWidget(dlg)
+    assert dlg.selection_mode == "sections"
+    assert dlg.btn_mode_sections.isChecked()
+    chunks = dlg._selected_chunks_for_mode()
+    assert len(chunks) == 1
+    assert chunks[0]["heading_path"] == "Intro"

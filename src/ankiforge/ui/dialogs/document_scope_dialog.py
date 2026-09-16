@@ -82,6 +82,7 @@ class DocumentScopeDialog(QDialog):
         self,
         doc: DocumentModel,
         initial_scope_str: str = "",
+        initial_scope_result: dict[str, Any] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -92,6 +93,7 @@ class DocumentScopeDialog(QDialog):
                 pass
         self.doc = doc
         self.initial_scope_str = initial_scope_str.strip()
+        self.initial_scope_result = initial_scope_result
 
         file_type = (getattr(self.doc, "file_type", "") or "").lower()
         if not file_type and getattr(self.doc, "title", "").lower().endswith(".pdf"):
@@ -1112,8 +1114,38 @@ class DocumentScopeDialog(QDialog):
         self.btn_mode_sections.setEnabled(has_headings)
         self.btn_mode_all.setEnabled(self.is_paginated)
         self.btn_mode_range.setEnabled(self.is_paginated)
+
+        saved_mode = self.initial_scope_result.get("selection_mode") if self.initial_scope_result else None
         if has_headings:
-            if self.is_paginated:
+            if saved_mode == "sections":
+                self.selection_mode = "sections"
+                self.btn_mode_sections.setChecked(True)
+                self.all_card.hide()
+                self.chapters_card.hide()
+                if self.is_paginated:
+                    self.pages_card.show()
+                    self.slider_scope_container.hide()
+                    self.range_presets_container.hide()
+                    self.range_info_card.hide()
+                    self.left_layout.setStretchFactor(self.pages_card, 0)
+                if hasattr(self, "structure_scope_container"):
+                    self.structure_scope_container.hide()
+                self._set_section_controls_visible(True)
+            elif saved_mode == "chapters":
+                self.selection_mode = "chapters"
+                self.btn_mode_structure.setChecked(True)
+                self.all_card.hide()
+                self.chapters_card.show()
+                if self.is_paginated:
+                    self.pages_card.show()
+                    self.slider_scope_container.hide()
+                    self.range_presets_container.hide()
+                    self.range_info_card.hide()
+                    self.left_layout.setStretchFactor(self.pages_card, 0)
+                if hasattr(self, "structure_scope_container"):
+                    self.structure_scope_container.show()
+                self._set_section_controls_visible(False)
+            elif self.is_paginated:
                 self.selection_mode = "pages"
                 self.btn_mode_all.setChecked(True)
                 self.all_card.show()
@@ -1153,6 +1185,34 @@ class DocumentScopeDialog(QDialog):
                 self._set_section_controls_visible(False)
             else:
                 self._set_section_controls_visible(False)
+
+        # Préparation de la restauration fine des sections cochées si saved_mode == "sections"
+        saved_headings: set[str] = set()
+        saved_indices: set[int] = set()
+        saved_contents_sample: set[str] = set()
+        is_sections_restore = False
+        if self.initial_scope_result and self.initial_scope_result.get("selection_mode") == "sections":
+            is_sections_restore = True
+            for h in self.initial_scope_result.get("selected_headings") or []:
+                if h:
+                    saved_headings.add(str(h).strip().lower())
+            for idx in self.initial_scope_result.get("selected_chunk_indices") or []:
+                try:
+                    saved_indices.add(int(idx))
+                except (ValueError, TypeError):
+                    pass
+            for c in self.initial_scope_result.get("chunks") or []:
+                ch_h = c.get("heading_path") or c.get("title")
+                if ch_h:
+                    saved_headings.add(str(ch_h).strip().lower())
+                if c.get("index") is not None:
+                    try:
+                        saved_indices.add(int(c["index"]))
+                    except (ValueError, TypeError):
+                        pass
+                content_prefix = str(c.get("content", ""))[:80].strip()
+                if content_prefix:
+                    saved_contents_sample.add(content_prefix)
 
         # 2. Peuplement récursif du QTreeWidget
         def _add_node_recursive(node: HeadingTreeNode, parent_item: QTreeWidgetItem | None = None, root_index: int = -1) -> None:
@@ -1203,10 +1263,26 @@ class DocumentScopeDialog(QDialog):
                 "item": item,
             }
 
-            in_range = True
-            if self.is_paginated and p_num is not None and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
-                in_range = self.spin_p_start.value() <= p_num <= self.spin_p_end.value()
-            is_checked = in_range and (flat_idx not in self._manually_deselected_indices)
+            if is_sections_restore:
+                ch_idx = chunk_dict.get("index") if isinstance(chunk_dict, dict) else None
+                node_h = (node.heading_path or "").strip().lower()
+                node_t = (title or "").strip().lower()
+                ch_prefix = str(chunk_dict.get("content", "") if isinstance(chunk_dict, dict) else "")[:80].strip()
+
+                matches_idx = ch_idx is not None and ch_idx in saved_indices
+                matches_h = (bool(node_h) and node_h in saved_headings) or (bool(node_t) and node_t in saved_headings)
+                matches_c = bool(ch_prefix) and ch_prefix in saved_contents_sample
+
+                is_checked = matches_idx or matches_h or matches_c
+                if not is_checked:
+                    self._manually_deselected_indices.add(flat_idx)
+                else:
+                    self._manually_deselected_indices.discard(flat_idx)
+            else:
+                in_range = True
+                if self.is_paginated and p_num is not None and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
+                    in_range = self.spin_p_start.value() <= p_num <= self.spin_p_end.value()
+                is_checked = in_range and (flat_idx not in self._manually_deselected_indices)
 
             item.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
             item.setData(0, Qt.ItemDataRole.UserRole, flat_idx)
@@ -1265,8 +1341,13 @@ class DocumentScopeDialog(QDialog):
                 words += w
             return sub_c, words
 
+        saved_chapters: set[int] = set()
+        if self.initial_scope_result and self.initial_scope_result.get("selection_mode") == "chapters":
+            saved_chapters = set(self.initial_scope_result.get("selected_chapters") or [])
+
         for idx, root_n in enumerate(tree_nodes):
             subsections_count, chapter_words = _gather_chapter_stats(root_n)
+            is_ch_checked = (idx in saved_chapters) if saved_chapters else True
             ch_card = ChapterCardWidget(
                 chapter_index=idx,
                 title=root_n.title,
@@ -1274,7 +1355,7 @@ class DocumentScopeDialog(QDialog):
                 end_page=root_n.end_page,
                 subsections_count=subsections_count,
                 word_count=chapter_words,
-                is_checked=True,
+                is_checked=is_ch_checked,
                 is_paginated=self.is_paginated,
             )
             ch_card.toggled.connect(self._on_chapter_card_toggled)
@@ -1321,9 +1402,8 @@ class DocumentScopeDialog(QDialog):
         self.chapters_list_layout.addStretch()
         self.all_outline_layout.addStretch()
 
-        for i in range(self.sections_list.count()):
-            it = self.sections_list.item(i)
-            if it and it.childCount() > 0:
+        for it in reversed(self.sections_list.all_items()):
+            if it.childCount() > 0:
                 self._update_parent_from_children(it)
 
         self.sections_list.blockSignals(False)
@@ -1375,7 +1455,29 @@ class DocumentScopeDialog(QDialog):
         self._refresh_final_preview()
 
     def _apply_initial_scope(self) -> None:
-        """Initialise la portée à partir de la chaîne passée (ex: '3-8')."""
+        """Initialise la portée à partir de initial_scope_result ou de la chaîne passée (ex: '3-8')."""
+        if self.initial_scope_result:
+            mode = self.initial_scope_result.get("selection_mode")
+            if mode == "sections":
+                self.btn_mode_sections.setChecked(True)
+                self._on_mode_sections_clicked()
+                return
+            elif mode == "chapters":
+                self.btn_mode_structure.setChecked(True)
+                self._on_mode_structure_clicked()
+                return
+            elif mode == "pages" and self.is_paginated:
+                sp = self.initial_scope_result.get("start_page")
+                ep = self.initial_scope_result.get("end_page")
+                if sp is not None and ep is not None:
+                    if sp > self._delimited_start_page or ep < self._delimited_end_page:
+                        self._apply_page_preset(sp, ep)
+                        return
+                    else:
+                        self.btn_mode_all.setChecked(True)
+                        self._on_mode_all_clicked()
+                        return
+
         if not self.is_paginated or not self.initial_scope_str:
             return
 
@@ -1671,6 +1773,12 @@ class DocumentScopeDialog(QDialog):
         if not self._syncing_selection:
             self._syncing_selection = True
             try:
+                if item.checkState(0) != state:
+                    item.setCheckState(0, state)
+                w = self.sections_list.itemWidget(item, 0)
+                if isinstance(w, SectionRowWidget) and w.is_checked() != (state == Qt.CheckState.Checked):
+                    w.set_check_state(state)
+
                 if state in (Qt.CheckState.Checked, Qt.CheckState.Unchecked):
                     self._cascade_down(item, state)
                 self._cascade_up(item)
@@ -1955,6 +2063,22 @@ class DocumentScopeDialog(QDialog):
         approx_cards = max(1, total_words // 180) if total_words > 0 else 0
         stats_str = f"~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " ")
 
+        selected_headings: list[str] = []
+        selected_chunk_indices: list[int] = []
+        for c in checked_chunks:
+            h = c.get("heading_path") or c.get("title")
+            if h:
+                selected_headings.append(str(h))
+            if c.get("index") is not None:
+                try:
+                    selected_chunk_indices.append(int(c["index"]))
+                except (ValueError, TypeError):
+                    pass
+
+        selected_chapters: list[int] = []
+        if hasattr(self, "_chapter_cards"):
+            selected_chapters = [card.chapter_index for card in self._chapter_cards if card.is_checked()]
+
         self._result = {
             "chunks": checked_chunks,
             "scope_title": scope_title,
@@ -1963,6 +2087,9 @@ class DocumentScopeDialog(QDialog):
             "start_page": sp,
             "end_page": ep,
             "selection_mode": self.selection_mode,
+            "selected_headings": selected_headings,
+            "selected_chunk_indices": selected_chunk_indices,
+            "selected_chapters": selected_chapters,
         }
 
         self.accept()

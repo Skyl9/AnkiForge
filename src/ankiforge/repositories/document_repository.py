@@ -18,6 +18,7 @@ from ankiforge.database.models import (
     NoteModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.reindex_service import mark_document_version
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,83 @@ class DocumentRepository(BaseRepository):
     def get_chunks_for_document(self, doc_id: int) -> list[DocumentChunkModel]:
         """Retrieve chunks for a document ordered by index."""
         return list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index.asc()))
+
+    def get_document_by_source_url(self, source_url: str) -> DocumentModel | None:
+        """Retrieve the most recent document associated with a source URL (dédoublonnage web)."""
+        try:
+            return DocumentModel.select().where(DocumentModel.source_url == source_url).order_by(DocumentModel.created_at.desc()).first()
+        except Exception as e:
+            logger.error("Failed to get document by source_url '%s': %s", source_url, e)
+            return None
+
+    def save_imported_document(
+        self,
+        title: str,
+        content: str,
+        file_type: str = "md",
+        source_url: str | None = None,
+        doc_id_to_update: int | None = None,
+        folder: FolderModel | None = None,
+        original_media: MediaModel | None = None,
+    ) -> DocumentModel:
+        """Crée (ou met à jour) un document importé et régénère ses chunks RAG.
+
+        Garantit l'unicité du titre (contrainte DB) et préserve le titre original
+        lors d'une mise à jour d'un document existant.
+        """
+        if doc_id_to_update:
+            doc = self.get_document_by_id(doc_id_to_update)
+            if doc is None:
+                doc = DocumentModel()
+                doc.title = self._unique_title(title, source_url)
+        else:
+            doc = DocumentModel()
+            doc.title = self._unique_title(title, source_url)
+
+        doc.content = content
+        doc.file_type = file_type
+        if source_url:
+            doc.source_url = source_url
+        if folder is not None:
+            doc.folder = folder
+        if original_media is not None:
+            doc.original_media = original_media
+
+        with self.atomic():
+            doc.save(force_insert=not doc.id)
+        self._regenerate_chunks(doc, content, file_type)
+        return doc
+
+    def _unique_title(self, base_title: str, source_url: str | None = None) -> str:
+        """Retourne un titre unique en suffixant « (N) » en cas de collision (title unique=True)."""
+        candidate = (base_title or "Document importé").strip() or "Document importé"
+        if not DocumentModel.select().where(DocumentModel.title == candidate).exists():
+            return candidate
+        n = 2
+        while n < 1000:
+            suffixed = f"{candidate} ({n})"
+            if not DocumentModel.select().where(DocumentModel.title == suffixed).exists():
+                return suffixed
+            n += 1
+        return f"{candidate} ({n})"
+
+    def _regenerate_chunks(self, doc: DocumentModel, content: str, file_type: str) -> None:
+        """Recalcule les fragments RAG du document et marque sa version d'indexation."""
+        extracted_chunks = ChunkingService.extract_chunks(content, file_type=file_type, strategy=ChunkingService.preferred_strategy(file_type))
+        with self.atomic():
+            DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
+            for idx, chunk_data in enumerate(extracted_chunks):
+                DocumentChunkModel.create(
+                    document=doc,
+                    chunk_index=idx,
+                    content=chunk_data["content"],
+                    page_number=chunk_data.get("page_number"),
+                    heading_path=chunk_data.get("heading_path"),
+                    start_time=chunk_data.get("start_time"),
+                    end_time=chunk_data.get("end_time"),
+                    content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
+                )
+        mark_document_version(doc)
 
     def create_chunks(self, doc: DocumentModel, chunks_data: list[dict[str, Any]]) -> list[DocumentChunkModel]:
         """Batch create document chunks."""

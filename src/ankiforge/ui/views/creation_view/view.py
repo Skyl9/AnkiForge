@@ -859,7 +859,8 @@ class CreationView(QWidget):
         from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
         initial_scope = self.segment_inspector.input_page_scope.text().strip()
-        dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, parent=self)
+        last_result = self.segment_inspector.get_last_scope_result()
+        dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, initial_scope_result=last_result, parent=self)
         if dlg.exec():
             res = dlg.get_result()
             self.segment_inspector.apply_scope_result(res)
@@ -1414,6 +1415,17 @@ class CreationView(QWidget):
         unit_pl = getattr(self, "_current_doc_unit_plural", "pages")
 
         if not pages:
+            active_segs = self.segment_inspector.get_active_segments() if hasattr(self, "segment_inspector") else []
+            if active_segs:
+                count = len(active_segs)
+                unit_name = "section" if count == 1 else "sections"
+                self.scope_badge.setText(f"{count} {unit_name}")
+                self.scope_badge.set_variant("success")
+                total_words = sum(len(str(s.get("content", "")).split()) for s in active_segs)
+                approx_cards = max(1, total_words // 180) if total_words > 0 else 0
+                self.lbl_scope_stats.setText(f"~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+                return
+
             self.scope_badge.setText(f"0 {unit_pl}")
             self.scope_badge.set_variant("danger")
             self.lbl_scope_stats.setText(f"Aucune sélection ({unit_pl})")
