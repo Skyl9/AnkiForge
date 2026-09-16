@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 import json
 import logging
 from pathlib import Path

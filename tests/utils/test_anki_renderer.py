@@ -1,4 +1,3 @@
-# ruff: noqa: SLF001
 # noinspection PyProtectedMember
 
 import pytest

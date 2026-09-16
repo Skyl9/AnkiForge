@@ -1070,7 +1070,7 @@ class DocumentDelimitationDialog(QDialog):
                     }
                     for c in existing_recs
                 ]
-            page_numbers = [int(chunk["page_number"]) for chunk in self._all_chunks if chunk.get("page_number") is not None]
+            page_numbers = [int(p) for p in (chunk.get("page_number") for chunk in self._all_chunks) if p is not None and isinstance(p, int | float | str)]
             self._max_page = max(page_numbers, default=int(doc.total_pages or 1))
             if doc.total_pages and doc.total_pages > self._max_page:
                 self._max_page = int(doc.total_pages)

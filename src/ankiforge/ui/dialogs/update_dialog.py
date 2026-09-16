@@ -183,7 +183,7 @@ class UpdateDialog(QDialog):
 
     def _on_start_download(self) -> None:
         """Démarre le téléchargement asynchrone du binaire de mise à jour."""
-        from ankiforge.services.auto_updater import _validate_download_url  # noqa: PLC0415
+        from ankiforge.services.auto_updater import _validate_download_url
 
         asset = find_asset_for_current_platform(self.update_info.assets)
 

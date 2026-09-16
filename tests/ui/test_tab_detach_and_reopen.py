@@ -327,3 +327,78 @@ class TestTransverseNavigationRouting:
         # Vérifier que la vue a bien reçu la sélection de doc_id
         mock_doc_view._select_doc_id_in_tree.assert_called_once_with("doc_42")
         window.stacked_widget.setCurrentWidget.assert_called_once_with(mock_doc_view)
+
+
+class TestTabIconColors:
+    """Vérifie la gestion et la persistance des couleurs sémantiques des icônes d'onglets."""
+
+    def test_tab_icon_color_persistence_and_detach(self, qtbot: Any) -> None:
+        """Vérifie qu'un onglet conserve sa couleur d'icône personnalisée après détachement et rattachement."""
+        from ankiforge.ui.theme import DesignTokens
+
+        splitter = QSplitter()
+        panel = IdePanel(parent=splitter)
+        splitter.addWidget(panel)
+        qtbot.addWidget(splitter)
+        splitter.show()
+
+        widget = QLabel("Test Content")
+        panel.add_tab("Onglet Coloré", widget, icon_name="sparkle", icon_color=DesignTokens.COLOR_YELLOW, closable=True)
+
+        assert panel.tabs_bar.count() == 1
+        btn = panel.tabs_bar.tabs[0]
+        assert btn.property("icon_color") == DesignTokens.COLOR_YELLOW
+
+        # Modification dynamique via set_tab_icon_color
+        panel.set_tab_icon_color(0, DesignTokens.COLOR_BLUE)
+        assert btn.property("icon_color") == DesignTokens.COLOR_BLUE
+
+        # Détachement
+        float_win = panel.detach_panel(0)
+        assert float_win is not None
+        qtbot.addWidget(float_win)
+
+        float_btn = float_win.tabs_bar.tabs[0]
+        assert float_btn.property("icon_color") == DesignTokens.COLOR_BLUE
+
+        # Fermeture de la fenêtre flottante -> rattachement au panneau d'origine
+        close_evt = QCloseEvent()
+        float_win.closeEvent(close_evt)
+
+        assert panel.tabs_bar.count() == 1
+        restored_btn = panel.tabs_bar.tabs[0]
+        assert restored_btn.property("icon_color") == DesignTokens.COLOR_BLUE
+
+    def test_analysis_view_tab_icon_colors(self, qtbot: Any) -> None:
+        """Vérifie que la vue Analyse initialise ses 4 sous-onglets avec les accents sémantiques Or, Bleu, Vert, Violet."""
+        from ankiforge.ui.theme import DesignTokens
+        from ankiforge.ui.views.analysis_view.view import AnalysisView
+
+        view = AnalysisView()
+        qtbot.addWidget(view)
+
+        tabs = view.main_panel.tabs_bar.tabs
+        assert len(tabs) == 4
+
+        # 0: Audit & Linter Wozniak -> Yellow / Gold
+        assert tabs[0].property("icon_color") == DesignTokens.COLOR_YELLOW
+        # 1: Documents -> Blue
+        assert tabs[1].property("icon_color") == DesignTokens.COLOR_BLUE
+        # 2: Jetons & SRS -> Green
+        assert tabs[2].property("icon_color") == DesignTokens.COLOR_GREEN
+        # 3: Fusions & Doublons -> Purple
+        assert tabs[3].property("icon_color") == DesignTokens.COLOR_PURPLE
+
+        # Test refresh_theme
+        mock_profile = MagicMock()
+        mock_profile.color_yellow = "#ffbb00"
+        mock_profile.color_blue = "#0088ff"
+        mock_profile.color_green = "#00ee88"
+        mock_profile.color_purple = "#8800ff"
+
+        view.refresh_theme(mock_profile)
+
+        assert tabs[0].property("icon_color") == "#ffbb00"
+        assert tabs[1].property("icon_color") == "#0088ff"
+        assert tabs[2].property("icon_color") == "#00ee88"
+        assert tabs[3].property("icon_color") == "#8800ff"

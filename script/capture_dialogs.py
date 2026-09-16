@@ -8,7 +8,7 @@ os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 os.environ["ANKIFORGE_MOCK_WEBENGINE"] = "1"
 os.environ["ANKIFORGE_ENV"] = "testing"
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication
 
 app = QApplication.instance() or QApplication(sys.argv)
 

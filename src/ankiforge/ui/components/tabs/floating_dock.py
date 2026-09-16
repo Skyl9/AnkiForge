@@ -91,8 +91,8 @@ class FloatingDockWindow(QWidget):
 
         return widget, title, closable
 
-    def insert_tab_widget(self, index: int, title: str, widget: QWidget, icon_name: str = "", closable: bool = True):
-        self.tabs_bar.insert_tab(index, title, icon_name, closable)
+    def insert_tab_widget(self, index: int, title: str, widget: QWidget, icon_name: str = "", closable: bool = True, icon_color: str = ""):
+        self.tabs_bar.insert_tab(index, title, icon_name, closable, icon_color)
         self.content_stack.insertWidget(index, widget)
         widget.show()
         self.set_active_tab(index)
@@ -136,13 +136,14 @@ class FloatingDockWindow(QWidget):
                 orig_title = getattr(w, "original_title", None)
                 orig_icon_name = getattr(w, "original_icon_name", "")
                 orig_closable = getattr(w, "original_closable", True)
+                orig_icon_color = getattr(w, "original_icon_color", "")
 
                 reinserted = False
                 if orig_panel:
                     try:
                         # Vérifier que le panneau hôte d'origine est toujours accessible
                         target_idx = min(orig_idx, len(orig_panel.tabs_bar.tabs)) if orig_idx is not None else len(orig_panel.tabs_bar.tabs)
-                        orig_panel.insert_tab_widget(target_idx, orig_title or "Onglet", w, orig_icon_name, orig_closable)
+                        orig_panel.insert_tab_widget(target_idx, orig_title or "Onglet", w, orig_icon_name, orig_closable, icon_color=orig_icon_color)
                         orig_panel.set_active_tab(target_idx)
                         reinserted = True
                     except (RuntimeError, AttributeError):
@@ -159,7 +160,7 @@ class FloatingDockWindow(QWidget):
                             panels = win.findChildren(IdePanel)
                             if panels:
                                 target_panel = panels[0]
-                                target_panel.insert_tab_widget(len(target_panel.tabs_bar.tabs), orig_title or "Onglet", w, orig_icon_name, orig_closable)
+                                target_panel.insert_tab_widget(len(target_panel.tabs_bar.tabs), orig_title or "Onglet", w, orig_icon_name, orig_closable, icon_color=orig_icon_color)
                                 target_panel.set_active_tab(len(target_panel.tabs_bar.tabs) - 1)
                                 reinserted = True
                                 break

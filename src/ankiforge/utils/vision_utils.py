@@ -45,21 +45,6 @@ def _encode_image_base64(image_path: Path) -> str | None:
         return None
 
 
-def count_images(text: str) -> int:
-    """
-    Compte le nombre total d'images (Markdown + HTML) présentes dans un texte.
-    """
-    # 1. Compte Markdown
-    count = len(re.findall(MD_IMAGE_REGEX, text))
-
-    # 2. Compte HTML via BeautifulSoup
-    if "<img" in text.lower():
-        soup = BeautifulSoup(text, "html.parser")
-        count += len(soup.find_all("img"))
-
-    return count
-
-
 def prepare_multimodal_payload(text: str, media_dir: Path) -> list[dict[str, Any]]:
     """
     Prépare un payload compatible avec les APIs de vision (OpenAI, Gemini).

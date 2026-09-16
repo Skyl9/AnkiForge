@@ -77,7 +77,7 @@ class ActivityChartWidget(QWidget):
         self._data = data or []
         self.update()
 
-    def paintEvent(self, event) -> None:  # noqa: N802
+    def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -195,7 +195,7 @@ class ActivityChartWidget(QWidget):
                 day_abbr,
             )
 
-    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+    def mouseMoveEvent(self, event) -> None:
         w = self.width()
         chart_width = max(10, w - 20)
         num_items = len(self._data)
@@ -226,7 +226,7 @@ class ActivityChartWidget(QWidget):
             self.update()
             QToolTip.hideText()
 
-    def leaveEvent(self, event) -> None:  # noqa: N802
+    def leaveEvent(self, event) -> None:
         if self._hovered_index != -1:
             self._hovered_index = -1
             self.update()

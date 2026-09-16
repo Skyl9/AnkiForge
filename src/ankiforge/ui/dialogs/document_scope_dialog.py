@@ -1966,17 +1966,7 @@ class DocumentScopeDialog(QDialog):
         total = self.sections_list.count()
         selected_chunks = self._selected_chunks_for_mode()
         selected_ids = {id(chunk) for chunk in selected_chunks}
-        checked_count = sum(
-            1
-            for i in range(total)
-            if self.sections_list.item(i).childCount() == 0
-            and (
-                id(self._section_meta.get(i, {}).get("chunk")) in selected_ids
-                or self.selection_mode == "pages"
-                and self._section_meta.get(i, {}).get("page_number") is not None
-                and self.spin_p_start.value() <= self._section_meta.get(i, {}).get("page_number") <= self.spin_p_end.value()
-            )
-        )
+        checked_count = len([i for i in range(total) if self.sections_list.item(i).childCount() == 0 and (id(self._section_meta.get(i, {}).get("chunk")) in selected_ids or self._page_in_range(i))])
         total_tokens = sum(ContextCompactor.estimate_tokens(str(chunk.get("content", ""))) for chunk in selected_chunks)
         total_words = sum(len(str(chunk.get("content", "")).split()) for chunk in selected_chunks)
 
@@ -2014,6 +2004,15 @@ class DocumentScopeDialog(QDialog):
             self.lbl_chapters_kpi.setText(f"{len(checked_chs)} / {len(self._chapter_cards)} chapitres sélectionnés")
             ch_plural = "s" if len(checked_chs) > 1 else ""
             self.lbl_chapters_summary.setText(f"{len(checked_chs)} chapitre{ch_plural} actif{ch_plural} • {total_words:,} mots sélectionnés".replace(",", " "))
+
+    def _page_in_range(self, index: int) -> bool:
+        """Vrai si l'élément à l'index est une page entière dans la plage [spin_p_start, spin_p_end]."""
+        if self.selection_mode != "pages":
+            return False
+        page_number = self._section_meta.get(index, {}).get("page_number")
+        if not isinstance(page_number, int | float):
+            return False
+        return self.spin_p_start.value() <= page_number <= self.spin_p_end.value()
 
     def _update_context_progress(self, selected_tokens: int) -> None:
         """Actualise la jauge de contexte lorsque la limite active est valide."""

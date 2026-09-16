@@ -112,13 +112,3 @@ def render_page_to_html(url: str, timeout_ms: int = DEFAULT_RENDER_TIMEOUT_MS) -
         html = html[: MAX_RENDER_BYTES // 4]
         logger.warning("HTML rendu tronqué pour %s (cap taille atteint)", url)
     return html, final_url
-
-
-def is_webengine_available() -> bool:
-    """Vérifie que les modules QtWebEngine sont importables (sans crash)."""
-    try:
-        from PySide6.QtWebEngineWidgets import QWebEngineView  # noqa: F401
-
-        return True
-    except Exception:
-        return False

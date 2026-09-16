@@ -22,11 +22,6 @@ def set_dragged_tab_info(val: Any) -> None:
     _dragged_tab_info = val
 
 
-def get_floating_windows() -> list[Any]:
-    global _floating_windows
-    return _floating_windows
-
-
 class TabButton(QPushButton):
     """Bouton d'onglet draggable."""
 
@@ -42,6 +37,8 @@ class TabButton(QPushButton):
 
         if icon_name:
             self.setProperty("icon_name", icon_name)
+            if icon_color:
+                self.setProperty("icon_color", icon_color)
             color = icon_color if icon_color else DesignTokens.TEXT_SECONDARY
             self.setIcon(load_phosphor_icon(icon_name, color=color))
 
@@ -136,11 +133,20 @@ class TabButton(QPushButton):
                 }}
             """)
 
+    def set_icon_color(self, color: str) -> None:
+        """Définit la couleur d'accent de l'icône."""
+        self.setProperty("icon_color", color)
+        icon_name = self.property("icon_name")
+        if icon_name:
+            c = color if color else (DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY)
+            self.setIcon(load_phosphor_icon(icon_name, color=c))
+
     def refresh_theme(self, profile: Any = None) -> None:
         self._apply_style()
         icon_name = self.property("icon_name")
         if icon_name:
-            c = DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY
+            custom_color = self.property("icon_color")
+            c = custom_color if custom_color else (DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY)
             self.setIcon(load_phosphor_icon(icon_name, color=c))
         if hasattr(self, "close_btn"):
             self.close_btn.setStyleSheet(f"""
@@ -158,7 +164,8 @@ class TabButton(QPushButton):
     def _on_toggled(self, checked: bool) -> None:
         icon_name = self.property("icon_name")
         if icon_name:
-            c = DesignTokens.ACCENT_PRIMARY if checked else DesignTokens.TEXT_SECONDARY
+            custom_color = self.property("icon_color")
+            c = custom_color if custom_color else (DesignTokens.ACCENT_PRIMARY if checked else DesignTokens.TEXT_SECONDARY)
             self.setIcon(load_phosphor_icon(icon_name, color=c))
 
     def resizeEvent(self, event):

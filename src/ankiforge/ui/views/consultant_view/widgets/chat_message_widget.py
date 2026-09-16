@@ -417,6 +417,6 @@ class ChatMessageWidget(QWidget):
                 }}
             """)
         self.msg_body.setStyleSheet(f"color: {profile.text_primary}; border: none; font-size: 13px; line-height: 1.5;")
-        for child in self.findChildren((ThoughtStepWidget, ToolCallWidget)):
-            if hasattr(child, "refresh_theme"):
+        for child in self.findChildren(QWidget):
+            if isinstance(child, ThoughtStepWidget | ToolCallWidget) and hasattr(child, "refresh_theme"):
                 child.refresh_theme(profile)

@@ -40,10 +40,10 @@ class AnalysisView(QWidget):
 
         self.tab_sources.request_navigation.connect(self.request_navigation)
 
-        self.main_panel.add_tab("Audit && Linter Wozniak", self.tab_wozniak, icon_name="sparkle")
-        self.main_panel.add_tab("Documents", self.tab_sources, icon_name="file-text")
-        self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar")
-        self.main_panel.add_tab("Fusions && Doublons", self.tab_duplicates, icon_name="git-merge")
+        self.main_panel.add_tab("Audit && Linter Wozniak", self.tab_wozniak, icon_name="sparkle", icon_color=DesignTokens.COLOR_YELLOW)
+        self.main_panel.add_tab("Documents", self.tab_sources, icon_name="file-text", icon_color=DesignTokens.COLOR_BLUE)
+        self.main_panel.add_tab("Jetons && SRS", self.tab_tokens, icon_name="currency-dollar", icon_color=DesignTokens.COLOR_GREEN)
+        self.main_panel.add_tab("Fusions && Doublons", self.tab_duplicates, icon_name="git-merge", icon_color=DesignTokens.COLOR_PURPLE)
 
         # Bouton de paramètres ajouté au header
         self.btn_settings = IconButton("gear", "Paramètres de l'Analyse", 24)
@@ -66,6 +66,15 @@ class AnalysisView(QWidget):
         """Adapte les onglets et composants lors d'un switch de thème."""
         if hasattr(self, "main_panel") and hasattr(self.main_panel, "refresh_theme"):
             self.main_panel.refresh_theme(profile)
+            color_map = {
+                0: getattr(profile, "color_yellow", DesignTokens.COLOR_YELLOW),
+                1: getattr(profile, "color_blue", DesignTokens.COLOR_BLUE),
+                2: getattr(profile, "color_green", DesignTokens.COLOR_GREEN),
+                3: getattr(profile, "color_purple", DesignTokens.COLOR_PURPLE),
+            }
+            for idx, color in color_map.items():
+                if hasattr(self.main_panel, "set_tab_icon_color"):
+                    self.main_panel.set_tab_icon_color(idx, color)
         if hasattr(self, "btn_settings") and hasattr(self.btn_settings, "refresh_theme"):
             self.btn_settings.refresh_theme(profile)
         for tab in [getattr(self, "tab_wozniak", None), getattr(self, "tab_sources", None), getattr(self, "tab_tokens", None), getattr(self, "tab_duplicates", None)]:

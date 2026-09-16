@@ -452,7 +452,8 @@ class IdePanel(QFrame):
             else:
                 widget, tab_title, closable = owner.remove_tab_widget(idx)
                 icon_name = getattr(widget, "original_icon_name", "") or getattr(owner, "_registered_tabs", {}).get(tab_title, {}).get("icon_name", "")
-                self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, icon_name=icon_name, closable=closable)
+                icon_color = getattr(widget, "original_icon_color", "") or getattr(owner, "_registered_tabs", {}).get(tab_title, {}).get("icon_color", "")
+                self.insert_tab_widget(len(self.tabs_bar.tabs), title, widget, icon_name=icon_name, closable=closable, icon_color=icon_color)
                 self.set_active_tab(len(self.tabs_bar.tabs) - 1)
             return
 
@@ -513,7 +514,6 @@ class IdePanel(QFrame):
 
     def _show_tabs_menu_at_button(self, button: QPushButton) -> None:
         from PySide6.QtCore import QPoint
-        from PySide6.QtGui import QIcon
 
         from ankiforge.ui.theme import StyledMenu
 
@@ -608,15 +608,17 @@ class IdePanel(QFrame):
             if 0 <= index < len(self.tabs_bar.tabs):
                 btn = self.tabs_bar.tabs[index]
                 icon_name = btn.property("icon_name") or ""
+                icon_color = btn.property("icon_color") or ""
                 widget, title, closable = self.remove_tab_widget(index)
                 widget.original_panel = self
                 widget.original_index = index
                 widget.original_title = title
                 widget.original_icon_name = icon_name
                 widget.original_closable = closable
+                widget.original_icon_color = icon_color
 
                 fw = FloatingDockWindow()
-                fw.insert_tab_widget(0, title, widget, icon_name, closable)
+                fw.insert_tab_widget(0, title, widget, icon_name, closable, icon_color=icon_color)
                 fw.move(QCursor.pos())
                 tabs_mod._floating_windows.append(fw)
                 fw.show()
@@ -632,6 +634,7 @@ class IdePanel(QFrame):
         for btn in reversed(active_tabs):
             idx = self.tabs_bar.tabs.index(btn)
             icon_name = btn.property("icon_name") or ""
+            icon_color = btn.property("icon_color") or ""
             widget, title, closable = self.remove_tab_widget(idx)
 
             widget.original_panel = self
@@ -639,8 +642,9 @@ class IdePanel(QFrame):
             widget.original_title = title
             widget.original_icon_name = icon_name
             widget.original_closable = closable
+            widget.original_icon_color = icon_color
 
-            fw.insert_tab_widget(0, title, widget, icon_name, closable)
+            fw.insert_tab_widget(0, title, widget, icon_name, closable, icon_color=icon_color)
 
         fw.move(QCursor.pos())
         tabs_mod._floating_windows.append(fw)
@@ -669,16 +673,25 @@ class IdePanel(QFrame):
         self._toggle_placeholder()
         return widget, title, closable
 
-    def insert_tab_widget(self, index: int, title: str, widget: QWidget, icon_name: str = "", closable: bool = True) -> int:
+    def insert_tab_widget(self, index: int, title: str, widget: QWidget, icon_name: str = "", closable: bool = True, icon_color: str = "") -> int:
         """Insère un onglet à un index spécifique."""
         title = title.strip()
-        self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": True}
-        self.tabs_bar.insert_tab(index, title, icon_name)
+        self._registered_tabs[title] = {"widget": widget, "icon_name": icon_name, "closable": closable, "active": True, "icon_color": icon_color}
+        self.tabs_bar.insert_tab(index, title, icon_name, closable=closable, icon_color=icon_color)
         self.content_stack.insertWidget(index, widget)
         widget.show()
         self.set_active_tab(index)
         self._toggle_placeholder()
         return index
+
+    def set_tab_icon_color(self, index: int, color: str) -> None:
+        """Met à jour la couleur sémantique de l'icône d'un onglet."""
+        if hasattr(self, "tabs_bar") and hasattr(self.tabs_bar, "set_tab_icon_color"):
+            self.tabs_bar.set_tab_icon_color(index, color)
+        if 0 <= index < len(self.tabs_bar.tabs):
+            title = self.tabs_bar.tabs[index].text().strip()
+            if title in self._registered_tabs:
+                self._registered_tabs[title]["icon_color"] = color
 
     def set_active_tab(self, index: int) -> None:
         """Active un onglet par son index."""
@@ -715,10 +728,16 @@ class IdePanel(QFrame):
         self.content_stack.setCurrentIndex(idx)
         # Update icons for active/inactive state
         for i, btn in enumerate(self.tabs_bar.tabs):
-            if i == idx:
-                btn.setIcon(load_phosphor_icon(btn.property("icon_name") or "", color=DesignTokens.TEXT_PRIMARY) if btn.property("icon_name") else QIcon())
+            icon_name = btn.property("icon_name") or ""
+            if not icon_name:
+                continue
+            custom_color = btn.property("icon_color")
+            if custom_color:
+                btn.setIcon(load_phosphor_icon(icon_name, color=custom_color))
+            elif i == idx:
+                btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
             else:
-                btn.setIcon(load_phosphor_icon(btn.property("icon_name") or "", color=DesignTokens.TEXT_SECONDARY) if btn.property("icon_name") else QIcon())
+                btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
         self.tab_changed.emit(idx)
 
     def _on_tab_reordered(self, from_idx: int, to_idx: int) -> None:

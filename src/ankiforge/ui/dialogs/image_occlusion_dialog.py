@@ -126,7 +126,7 @@ class ImageOcclusionDialog(QDialog):
         # Sauvegarde temporaire pour traitement
         temp_dir = Path(tempfile.gettempdir())
         temp_path = temp_dir / f"pasted_occlusion_{len(self._temp_files)}.png"
-        image.save(str(temp_path), "PNG")
+        image.save(str(temp_path), b"PNG")
         self._temp_files.append(temp_path)
 
         self.editor.load_image(temp_path)

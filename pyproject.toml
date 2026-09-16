@@ -77,8 +77,8 @@ target-version = "py312"
 extend-exclude = ["script/tools", "script/ui_rebuild"]
 
 [tool.ruff.lint]
-# E/F/B: PEP8 & bugs, I: isort, UP: pyupgrade 3.12, T20: zero print, PT: pytest style, SIM: simplify
-select = ["E", "F", "B", "I", "UP", "T20", "PT", "SIM"]
+# E/F/B: PEP8 & bugs, I: isort, UP: pyupgrade 3.12, T20: zero print, PT: pytest style, SIM: simplify, RUF100: noqa morte
+select = ["E", "F", "B", "I", "UP", "T20", "PT", "SIM", "RUF100"]
 ignore = ["SIM105"]
 
 
@@ -122,6 +122,8 @@ disallow_untyped_defs = false
 module = "ankiforge.ui.*"
 disallow_untyped_defs = false
 disable_error_code = [
+    # Codes réellement requis par le dynamisme PySide6/Peewee de l'UI (vérifiés : attrs Qt, slots, chaining composé).
+    # Codes retirés car gérables en pleine conformité : return-value (0 occurrence), call-overload, misc (corrigés en source).
     "attr-defined",
     "assignment",
     "method-assign",
@@ -130,9 +132,6 @@ disable_error_code = [
     "operator",
     "call-arg",
     "index",
-    "misc",
-    "return-value",
-    "call-overload",
 ]
 
 

@@ -8,7 +8,7 @@ import sys
 from typing import Any
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QMenu, QWidget
 
 if sys.platform == "darwin":
@@ -289,51 +289,6 @@ class DesignTokens:
         return cls.IS_DARK
 
 
-def create_dark_palette() -> QPalette:
-    """Creates the dark theme QPalette based on DesignTokens."""
-    palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(DesignTokens.BG_MAIN))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Base, QColor(DesignTokens.BG_INPUT))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Text, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Button, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.BrightText, QColor(DesignTokens.COLOR_RED))
-    palette.setColor(QPalette.ColorRole.Link, QColor(DesignTokens.ACCENT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(DesignTokens.ACCENT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
-    return palette
-
-
-def create_light_palette() -> QPalette:
-    """Creates the light theme QPalette based on DesignTokens."""
-    palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(DesignTokens.BG_MAIN))
-    palette.setColor(QPalette.ColorRole.WindowText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Base, QColor(DesignTokens.BG_INPUT))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Text, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Button, QColor(DesignTokens.BG_PANEL))
-    palette.setColor(QPalette.ColorRole.ButtonText, QColor(DesignTokens.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.BrightText, QColor(DesignTokens.COLOR_RED))
-    palette.setColor(QPalette.ColorRole.Link, QColor(DesignTokens.ACCENT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(DesignTokens.ACCENT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
-    return palette
-
-
-def get_global_stylesheet(is_dark: bool = True) -> str:
-    """Génère la feuille de style QSS globale alignée sur les DesignTokens actifs via le StyleEngine."""
-    from ankiforge.ui.style_engine.engine import StyleEngine
-
-    return StyleEngine.instance().generate_stylesheet()
-
-
 def setup_dynamic_theme(app: QApplication) -> None:
     """Configures the theme, fonts, and palette for the given QApplication."""
     from ankiforge.ui.style_engine.engine import StyleEngine
@@ -344,21 +299,9 @@ def setup_dynamic_theme(app: QApplication) -> None:
     StyleEngine.instance().apply_theme(DesignTokens.ACTIVE_THEME_ID, app)
 
 
-def refresh_theme_live() -> None:
-    """Refreshes the theme for the currently running QApplication."""
-    from ankiforge.ui.style_engine.engine import StyleEngine
-
-    StyleEngine.instance().apply_theme(DesignTokens.ACTIVE_THEME_ID)
-
-
 def is_dark_mode() -> bool:
     """Returns whether the application is in dark mode."""
     return True
-
-
-def get_icon_color() -> str:
-    """Returns the default color for icons based on the current theme."""
-    return DesignTokens.TEXT_PRIMARY
 
 
 def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str | QColor = "rgba(0,0,0,0.5)") -> None:

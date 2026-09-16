@@ -58,18 +58,6 @@ def load_secret(namespace: str, key: str) -> str | None:
         return None
 
 
-def delete_secret(namespace: str, key: str) -> None:
-    """Supprime un secret du trousseau (best-effort)."""
-    if not _HAS_KEYRING or not keyring:
-        return
-    try:
-        keyring.delete_password(SERVICE_NAME, _account(namespace, key))
-    except KeyringError:
-        pass  # secret absent du trousseau : rien à supprimer
-    except Exception as e:  # pragma: no cover - backend exotique
-        logger.debug("keyring.delete_password indisponible (%s)", e)
-
-
 # ----------------------------------------------------------------------------
 # Raccourcis dédiés aux clés LLM (namespaces "llm")
 # ----------------------------------------------------------------------------
@@ -89,7 +77,3 @@ def load_llm_key(model_id: str, provider: str) -> str | None:
     if not key:
         key = load_secret("llm", f"{provider}:{provider}")
     return key or None
-
-
-def delete_llm_key(model_id: str, provider: str) -> None:
-    delete_secret("llm", f"{provider}:{model_id}")

@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """
 Package des modèles Peewee d'AnkiForge.
 Re-exporte l'ensemble des schémas de données, de la connexion et des fonctions d'initialisation

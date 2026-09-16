@@ -25,13 +25,16 @@ class IdeTabBar(QWidget):
         self.tabs: list[QPushButton] = []
         self.layout_h.addStretch()
 
-    def add_tab(self, title: str, icon_name: str = "", closable: bool = False) -> int:
+    def add_tab(self, title: str, icon_name: str = "", closable: bool = False, icon_color: str = "") -> int:
         idx = len(self.tabs)
         btn = QPushButton(f" {title}" if icon_name else title)
 
         if icon_name:
             btn.setProperty("icon_name", icon_name)
-            btn.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_SECONDARY))
+            if icon_color:
+                btn.setProperty("icon_color", icon_color)
+            color = icon_color if icon_color else DesignTokens.TEXT_SECONDARY
+            btn.setIcon(load_phosphor_icon(icon_name, color=color))
 
         btn.setCheckable(True)
         btn.setFixedHeight(36)
@@ -74,11 +77,22 @@ class IdeTabBar(QWidget):
             self.tabs[index].setChecked(True)
             self.tab_changed.emit(index)
 
+    def set_tab_icon_color(self, index: int, color: str) -> None:
+        """Met à jour la couleur personnalisée de l'icône d'un onglet."""
+        if 0 <= index < len(self.tabs):
+            btn = self.tabs[index]
+            btn.setProperty("icon_color", color)
+            icon_name = btn.property("icon_name")
+            if icon_name:
+                c = color if color else (DesignTokens.ACCENT_PRIMARY if btn.isChecked() else DesignTokens.TEXT_SECONDARY)
+                btn.setIcon(load_phosphor_icon(icon_name, color=c))
+
     def refresh_theme(self, profile: Any = None) -> None:
         for btn in self.tabs:
             icon_name = btn.property("icon_name")
             if icon_name:
-                c = DesignTokens.ACCENT_PRIMARY if btn.isChecked() else DesignTokens.TEXT_SECONDARY
+                custom_color = btn.property("icon_color")
+                c = custom_color if custom_color else (DesignTokens.ACCENT_PRIMARY if btn.isChecked() else DesignTokens.TEXT_SECONDARY)
                 btn.setIcon(load_phosphor_icon(icon_name, color=c))
             btn.setStyleSheet(f"""
                 QPushButton {{

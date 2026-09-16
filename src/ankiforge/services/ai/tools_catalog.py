@@ -197,13 +197,6 @@ TOOLS_CATALOG: list[ToolSpec] = [
     ),
 ]
 
-_TOOLS_BY_KEY: dict[str, ToolSpec] = {t.key: t for t in TOOLS_CATALOG}
-
-
-def get_tool_spec(key: str) -> ToolSpec | None:
-    """Retourne la spécification d'un outil d'après sa clé unique."""
-    return _TOOLS_BY_KEY.get(key)
-
 
 def get_tools_by_category() -> dict[str, list[ToolSpec]]:
     """Retourne l'ensemble des outils indexés par catégorie ordonnée."""

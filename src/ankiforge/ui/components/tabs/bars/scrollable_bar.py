@@ -83,6 +83,11 @@ class ScrollableTabBarWidget(QWidget):
             display_text = f" {text}" if icon_name else text
             btn.setText(display_text)
 
+    def set_tab_icon_color(self, index: int, color: str) -> None:
+        """Met à jour la couleur personnalisée de l'icône d'un onglet."""
+        if 0 <= index < len(self.tabs):
+            self.tabs[index].set_icon_color(color)
+
     def insert_tab(self, index: int, title: str, icon_name: str = "", closable: bool = False, icon_color: str = "") -> int:
         index = max(0, min(index, len(self.tabs)))
         btn = TabButton(title, icon_name, closable, self.variant, icon_color)

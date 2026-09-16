@@ -74,7 +74,7 @@ class VectorManager:
         Les nouveaux textes sont calculés puis enregistrés dans le cache.
         Retourne un tableau numpy float32 (compatible avec les API FAISS).
         """
-        import numpy as np  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+        import numpy as np  # lazy import intentionnel (évite chargement BLAS au boot)
 
         if not texts:
             return np.empty((0, 0), dtype=np.float32)
@@ -171,7 +171,7 @@ class VectorManager:
 
         if stats["has_faiss"]:
             try:
-                import faiss  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+                import faiss  # lazy import intentionnel (évite chargement BLAS au boot)
 
                 index = faiss.read_index(str(doc_dir / "index.faiss"))
                 stats["chunk_count"] = index.ntotal
@@ -240,7 +240,7 @@ class VectorManager:
             embeddings = self._get_embeddings(chunk_texts)
 
             dimension = embeddings.shape[1]
-            import faiss  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+            import faiss  # lazy import intentionnel (évite chargement BLAS au boot)
 
             index = faiss.IndexFlatL2(dimension)
             index.add(embeddings)
@@ -304,7 +304,7 @@ class VectorManager:
 
         if mode in ("hybrid", "dense") and index_path.exists() and map_path.exists():
             try:
-                import faiss  # noqa: PLC0415 — lazy import intentionnel (évite chargement BLAS au boot)
+                import faiss  # lazy import intentionnel (évite chargement BLAS au boot)
 
                 faiss_index = faiss.read_index(str(index_path))
                 with open(map_path, encoding="utf-8") as f:
