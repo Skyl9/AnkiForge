@@ -49,6 +49,7 @@ from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
 )
+from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.documents_view.dialogs import (
     AIDocumentStructureDialog,
@@ -64,6 +65,7 @@ from ankiforge.ui.views.documents_view.widgets import (
 from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -614,6 +616,14 @@ class DocumentsView(QWidget):
         self.outline_widget.heading_selected.connect(self._on_outline_heading_selected)
         self.outline_widget.repair_requested.connect(self._on_repair_document_headings)
         self.outline_widget.toc_requested.connect(self._on_insert_document_toc)
+        self._on_coverage_synced = self._handle_coverage_synced
+        event_bus.subscribe(CoverageSyncedEvent, self._on_coverage_synced)
+        self.destroyed.connect(lambda: event_bus.unsubscribe(CoverageSyncedEvent, self._on_coverage_synced))
+
+    def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
+        if event.doc_id is not None and event.doc_id != self._current_doc_id:
+            return
+        run_on_owner_thread(self, self._refresh_chapters_list)
 
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)

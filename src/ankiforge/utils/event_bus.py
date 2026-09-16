@@ -156,6 +156,12 @@ class DocumentIndexedEvent(AppEvent):
     chunks_count: int = 0
 
 
+@dataclass(frozen=True)
+class CoverageSyncedEvent(AppEvent):
+    doc_id: int | None = None
+    scope: str = "document"  # "document" | "all"
+
+
 # Audit & Linter Events
 @dataclass(frozen=True)
 class AuditStartedEvent(AppEvent):
@@ -243,6 +249,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "document_updated": DocumentUpdatedEvent,
     "document_deleted": DocumentDeletedEvent,
     "document_indexed": DocumentIndexedEvent,
+    "coverage_synced": CoverageSyncedEvent,
     "audit_started": AuditStartedEvent,
     "audit_completed": AuditCompletedEvent,
     "linter_rule_toggled": LinterRuleToggledEvent,

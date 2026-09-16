@@ -1,6 +1,6 @@
 import logging
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -26,8 +26,10 @@ from ankiforge.database.models import (
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit
+from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,10 @@ class DocumentInspectorPanel(QWidget):
 
         if not self.doc:
             return
+
+        self._on_coverage_synced = self._handle_coverage_synced
+        event_bus.subscribe(CoverageSyncedEvent, self._on_coverage_synced)
+        self.destroyed.connect(lambda: event_bus.unsubscribe(CoverageSyncedEvent, self._on_coverage_synced))
 
         self.setStyleSheet(f"background-color: {DesignTokens.BG_MAIN};")
 
@@ -256,6 +262,11 @@ class DocumentInspectorPanel(QWidget):
         layout.addWidget(self.splitter, 1)
 
         self.load_chunks()
+
+    def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
+        if event.doc_id is not None and event.doc_id != self.doc_id:
+            return
+        run_on_owner_thread(self, self.load_chunks)
 
     def load_chunks(self) -> None:
         self.chapters_list.clear()
@@ -692,6 +703,19 @@ class AISourcesDiagnosticTab(QWidget):
         grid_page_layout.addWidget(self.scroll_area, 1)
 
         self.refresh_data()
+
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.timeout.connect(self.refresh_data)
+        self._on_coverage_synced = self._handle_coverage_synced
+        event_bus.subscribe(CoverageSyncedEvent, self._on_coverage_synced)
+        self.destroyed.connect(lambda: event_bus.unsubscribe(CoverageSyncedEvent, self._on_coverage_synced))
+
+    def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
+        def _schedule() -> None:
+            self._refresh_timer.start(250)
+
+        run_on_owner_thread(self, _schedule)
 
     def _set_format_filter(self, fmt: str) -> None:
         self.current_format_filter = fmt

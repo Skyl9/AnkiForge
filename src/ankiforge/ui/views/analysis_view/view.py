@@ -73,6 +73,12 @@ class AnalysisView(QWidget):
                 with contextlib.suppress(Exception):
                     tab.refresh_theme(profile)
 
+    def refresh_data(self) -> None:
+        """Recalcule les données de l'onglet actif (appelé à chaque navigation)."""
+        if hasattr(self, "tab_sources") and hasattr(self.tab_sources, "refresh_data"):
+            with contextlib.suppress(Exception):
+                self.tab_sources.refresh_data()
+
     def set_active_tab_by_name(self, tab_name: str) -> None:
         """Active l'onglet spécifié par son nom ou alias."""
         tab_lower = tab_name.lower().strip()

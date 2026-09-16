@@ -11,6 +11,7 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
+from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.ui.components.duplicate_widgets import (
     DuplicateMatrixTable,
     DuplicateMergeInspector,
@@ -220,6 +221,71 @@ def test_ai_tokens_srs_tab(qtbot):
     assert "carte" in tab.lbl_cost.text()
     tab.refresh_stats()
     assert tab.kpi_grid.count() == 4
+
+
+def test_ai_sources_tab_refreshes_when_coverage_synced(qtbot):
+    """La grille Analyse > Documents se rafraîchit après un alignement qui émet CoverageSyncedEvent."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Sync UI {uid}",
+        content="# Section 1\nContenu A",
+        file_type="md",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Section 1",
+        content="Contenu A",
+        content_hash=f"hs_{uid}",
+    )
+
+    tab = AISourcesDiagnosticTab()
+    qtbot.addWidget(tab)
+    tab.refresh_data()
+    assert tab.lbl_kpi_coverage_val.text() == "0%"
+
+    deck = DeckModel.create(name=f"Deck Sync UI {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Sync UI {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(build_document_tags(doc_id=doc.id, section_name="Section 1")))
+    note.add_version({"Front": "Question ?", "Back": "Réponse."}, source="manual")
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    CoverageAlignmentService.align_document(doc.id)
+
+    qtbot.waitUntil(lambda: tab.lbl_kpi_coverage_val.text() != "0%", timeout=3000)
+    assert tab.lbl_kpi_coverage_val.text() == "100%"
+
+
+def test_document_inspector_reloads_when_coverage_synced(qtbot):
+    """L'inspecteur de document recharge son sommaire après un alignement ciblé."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Inspecteur Sync {uid}",
+        content="# Article 1\nContenu.",
+        file_type="md",
+    )
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Article 1",
+        content="Contenu.",
+        content_hash=f"hi_{uid}",
+    )
+
+    panel = DocumentInspectorPanel(doc)
+    qtbot.addWidget(panel)
+    panel.load_chunks()
+    assert "0 carte" in panel.chapters_list.item(0).text()
+
+    deck = DeckModel.create(name=f"Deck Insp Sync {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Insp Sync {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)))
+    note.add_version({"Front": "Question ?", "Back": "Réponse."}, source="manual")
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    CoverageAlignmentService.align_document(doc.id)
+
+    qtbot.waitUntil(lambda: "1 carte" in panel.chapters_list.item(0).text(), timeout=3000)
 
 
 def test_ai_duplicates_merge_tab_and_inspector(qtbot):

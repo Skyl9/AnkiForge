@@ -210,6 +210,65 @@ def test_find_matching_chunk_for_note_without_tags_returns_none():
     assert matched_chunk is None
 
 
+def test_align_document_publishes_coverage_synced_event():
+    """Une modification de couverture émet un CoverageSyncedEvent pour notifier l'UI."""
+    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Event {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Introduction",
+        content="Contenu.",
+        content_hash=f"hash_{uid}",
+    )
+
+    captured: list[CoverageSyncedEvent] = []
+
+    def handler(event: CoverageSyncedEvent) -> None:
+        captured.append(event)
+
+    event_bus.subscribe(CoverageSyncedEvent, handler)
+    try:
+        CoverageAlignmentService.align_document(doc.id)
+    finally:
+        event_bus.unsubscribe(CoverageSyncedEvent, handler)
+
+    assert len(captured) == 1
+    assert captured[0].doc_id == doc.id
+    assert captured[0].scope == "document"
+
+
+def test_sync_coverage_from_tags_global_publishes_all_event():
+    """Un alignement global émet un CoverageSyncedEvent sans doc ciblé."""
+    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Global Event {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        content="Contenu.",
+        content_hash=f"hash_global_{uid}",
+    )
+
+    captured: list[CoverageSyncedEvent] = []
+
+    def handler(event: CoverageSyncedEvent) -> None:
+        captured.append(event)
+
+    event_bus.subscribe(CoverageSyncedEvent, handler)
+    try:
+        CoverageAlignmentService.sync_coverage_from_tags()
+    finally:
+        event_bus.unsubscribe(CoverageSyncedEvent, handler)
+
+    assert len(captured) == 1
+    assert captured[0].doc_id is None
+    assert captured[0].scope == "all"
+
+
 def test_resolve_media_path_bidirectional(tmp_path):
     media_dir = get_media_dir()
     media_dir.mkdir(parents=True, exist_ok=True)

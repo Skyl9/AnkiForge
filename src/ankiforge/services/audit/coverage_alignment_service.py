@@ -114,6 +114,7 @@ class CoverageAlignmentService:
 
         if doc_id is not None:
             stats = doc_repo.get_coverage_stats(doc_id)
+            cls._notify_coverage_synced(doc_id=doc_id, scope="document")
             return {
                 "matched_notes": matched_notes,
                 "newly_linked": newly_linked,
@@ -126,11 +127,22 @@ class CoverageAlignmentService:
                 "covered_units": stats.get("covered_units", 0),
             }
 
+        cls._notify_coverage_synced(doc_id=None, scope="all")
         return {
             "matched_notes": matched_notes,
             "newly_linked": newly_linked,
             "total_documents": len(docs_by_id),
         }
+
+    @staticmethod
+    def _notify_coverage_synced(doc_id: int | None, scope: str) -> None:
+        """Notifie l'UI (via l'event bus) que la couverture documentaire a été modifiée."""
+        try:
+            from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+
+            event_bus.publish(CoverageSyncedEvent(doc_id=doc_id, scope=scope))
+        except Exception as e:
+            logger.debug("Émission de l'événement CoverageSyncedEvent ignorée : %s", e)
 
     @staticmethod
     def _remove_stale_links(
