@@ -10,6 +10,7 @@ from ankiforge.services.parsing.web_importer import (
     WebImporter,
     WebImportError,
     WebImportRequest,
+    WebImportResult,
     payload_to_result,
     result_to_payload,
 )
@@ -293,3 +294,107 @@ def test_webimporterror_carries_category_and_status() -> None:
     assert err.message == "msg"
     assert err.category == "http"
     assert err.http_status == 503
+
+
+# ── Tableaux ignorés par trafilatura (cas Oracle-like) ───────────────────────
+
+
+def test_analyze_html_recovers_tables_dropped_by_trafilatura(importer, monkeypatch) -> None:
+    from ankiforge.services.parsing.web_importer import trafilatura
+
+    trafilatura.extract = lambda *a, **k: "Java Software uses the following file suffixes:\n\nFrequently used file names include:"
+    html = (
+        "<html><body>"
+        "<h4>2.1 File Suffixes</h4>"
+        "<table><thead><tr><th>File Type</th><th>Suffix</th></tr></thead><tbody>"
+        "<tr><td>Java source</td><td><code>.java</code></td></tr>"
+        "<tr><td>Java bytecode</td><td><code>.class</code></td></tr>"
+        "</tbody></table>"
+        "</body></html>"
+    )
+    result = importer.analyze_html(html, WebImportRequest(url="https://example.com/oracle"))
+    assert "| File Type | Suffix |" in result.content
+    assert "| Java source | .java |" in result.content
+    assert "| Java bytecode | .class |" in result.content
+
+
+def test_analyze_html_inserts_tables_in_reading_order(importer, monkeypatch) -> None:
+    from ankiforge.services.parsing.web_importer import trafilatura
+
+    trafilatura.extract = lambda *a, **k: "This section lists commonly used file suffixes and names.\n\nJava Software uses the following file suffixes:\n\nFrequently used file names include:"
+    html = (
+        "<html><body>"
+        "<h4>2.1 File Suffixes</h4>"
+        "<p>This section lists commonly used file suffixes and names.</p>"
+        "<p>Java Software uses the following file suffixes:</p>"
+        "<table><thead><tr><th>File Type</th><th>Suffix</th></tr></thead><tbody>"
+        "<tr><td>Java source</td><td>.java</td></tr>"
+        "</tbody></table>"
+        "<p>Frequently used file names include:</p>"
+        "<table><thead><tr><th>File Name</th><th>Use</th></tr></thead><tbody>"
+        "<tr><td>GNUmakefile</td><td>The preferred name for makefiles.</td></tr>"
+        "</tbody></table>"
+        "</body></html>"
+    )
+    result = importer.analyze_html(html, WebImportRequest(url="https://example.com"))
+
+    assert (
+        result.content.index("This section lists commonly used file suffixes and names.")
+        < result.content.index("Java Software uses the following file suffixes:")
+        < result.content.index("| File Type | Suffix |")
+        < result.content.index("Frequently used file names include:")
+        < result.content.index("| File Name | Use |")
+    )
+
+
+def test_analyze_html_does_not_duplicate_tables_already_extracted(importer, monkeypatch) -> None:
+    from ankiforge.services.parsing.web_importer import trafilatura
+
+    trafilatura.extract = lambda *a, **k: "| File Type | Suffix |\n| --- | --- |\n| Java source | .java |"
+    html = "<html><body><table><thead><tr><th>File Type</th><th>Suffix</th></tr></thead><tbody><tr><td>Java source</td><td>.java</td></tr></tbody></table></body></html>"
+    result = importer.analyze_html(html, WebImportRequest(url="https://example.com"))
+    assert result.content.count("File Type") == 1
+    assert result.content.count(".java") == 1
+
+
+# ── Détection des murs (éviter les faux positifs du chrome des sites) ────────
+
+
+def test_walls_no_false_positive_on_site_chrome() -> None:
+    result = WebImportResult(url="https://example.com")
+    html = (
+        "<html><body>"
+        "<header><button>Sign in</button><form><input name='q' placeholder='search'></form></header>"
+        "<div>Le contenu de l'article.</div>"
+        "<footer>Subscribe to our newsletter · Premium support</footer>"
+        "<script>var u = 'login'; document.write('signin');</script>"
+        "</body></html>"
+    )
+    WebImporter._detect_walls(html, result)
+    assert not result.flags.get("paywall")
+    assert not result.flags.get("login")
+    assert not result.flags.get("cookie_wall")
+    assert result.warnings == []
+
+
+def test_walls_detects_password_field() -> None:
+    result = WebImportResult(url="https://example.com")
+    html = "<html><body><form><input type='password' name='p'></form></body></html>"
+    WebImporter._detect_walls(html, result)
+    assert result.flags.get("login")
+    assert any("connexion" in w for w in result.warnings)
+
+
+def test_walls_detects_strong_paywall_signal() -> None:
+    result = WebImportResult(url="https://example.com")
+    html = "<html><body><p>Continue reading: subscription required for this article.</p></body></html>"
+    WebImporter._detect_walls(html, result)
+    assert result.flags.get("paywall")
+
+
+def test_walls_ignores_subscribe_in_footer() -> None:
+    result = WebImportResult(url="https://example.com")
+    html = "<html><body><footer>Subscribe to updates and premium support</footer></body></html>"
+    WebImporter._detect_walls(html, result)
+    assert not result.flags.get("paywall")
+    assert not result.flags.get("login")

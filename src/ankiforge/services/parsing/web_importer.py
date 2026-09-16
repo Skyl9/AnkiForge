@@ -45,8 +45,10 @@ _DYNAMIC_HINTS_RE = re.compile(
     r"|data-reactroot|ng-app|vite|webpack|bundle\.js|_nuxt|__NEXT_DATA__|data-nuxt-route",
     re.IGNORECASE,
 )
-_PAYWALL_HINTS_RE = re.compile(r"paywall|opinion-paywall|subscribe|abonnement|premium", re.IGNORECASE)
-_LOGIN_HINTS_RE = re.compile(r'type=["\']password["\']|</form>|login|signin|connexion|se connecter', re.IGNORECASE)
+_PAYWALL_HINTS_RE = re.compile(
+    r"\bpaywall\b|\bsubscription required\b|\bsubscriber-only\b|\bfor subscribers\b|\bmetered\b|\bpremium content\b|\b(?:article|content) behind\b",
+    re.IGNORECASE,
+)
 _ROBOTS_NOINDEX_RE = re.compile(r"<meta[^>]+robots[^>]+noindex", re.IGNORECASE)
 _COOKIE_WALL_RE = re.compile(r"onetrust|qc-cmp2|sp_message|cookieconsent", re.IGNORECASE)
 _MATHML_ANNOTATION_RE = re.compile(
@@ -377,7 +379,73 @@ class WebImporter:
         except Exception as e:
             logger.warning("Échec de trafilatura.extract : %s", e)
             extracted = None
-        return str(extracted or "")
+        markdown = str(extracted or "")
+        return WebImporter._merge_tables_into_markdown(markdown, html)
+
+    @staticmethod
+    def _merge_tables_into_markdown(markdown: str, html: str) -> str:
+        """Réinsère les <table> à la position lue (après le bloc qui les précède).
+
+        trafilatura ignore parfois les tableaux : on les convertit en tables
+        Markdown et on les insère dans l'ordre de lecture, après le paragraphe
+        ou le titre précédent. Une table déjà présente dans le Markdown n'est
+        pas dupliquée.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        for table in soup.find_all("table"):
+            block = WebImporter._table_to_markdown(table)
+            if not block:
+                continue
+            first_cell = WebImporter._first_table_cell(block)
+            if first_cell and first_cell in markdown:
+                continue
+            anchor = table.find_previous(["p", "li", "h1", "h2", "h3", "h4", "h5", "h6"])
+            anchor_text = anchor.get_text(" ", strip=True) if anchor else ""
+            markdown = WebImporter._insert_table(markdown, block, anchor_text)
+        return markdown
+
+    @staticmethod
+    def _insert_table(markdown: str, block: str, anchor: str) -> str:
+        """Insère une table après le paragraphe qui lui correspond (dans l'ordre de lecture)."""
+        target = WebImporter._normalized(anchor)
+        if target:
+            paragraphs = markdown.split("\n\n")
+            for i, paragraph in enumerate(paragraphs):
+                normalized = WebImporter._normalized(paragraph)
+                if normalized == target or normalized.startswith(target):
+                    paragraphs.insert(i + 1, block)
+                    return "\n\n".join(paragraphs)
+        return f"{markdown}\n\n{block}" if markdown.strip() else block
+
+    @staticmethod
+    def _normalized(text: str) -> str:
+        return re.sub(r"\s+", " ", text).strip()
+
+    @staticmethod
+    def _table_to_markdown(table: Any) -> str:
+        """Convertit un élément <table> de BeautifulSoup en table Markdown."""
+        rows: list[list[str]] = []
+        for row in table.find_all("tr"):
+            cells = [cell.get_text(" ", strip=True).replace("|", "\\|") for cell in row.find_all(["th", "td"])]
+            if any(cells):
+                rows.append(cells)
+        if not rows:
+            return ""
+        width = max(len(r) for r in rows)
+        rows = [r + [""] * (width - len(r)) for r in rows]
+        header = rows[0]
+        lines = ["| " + " | ".join(header) + " |"]
+        lines.append("| " + " | ".join("---" for _ in header) + " |")
+        lines.extend("| " + " | ".join(row) + " |" for row in rows[1:])
+        return "\n".join(lines)
+
+    @staticmethod
+    def _first_table_cell(block: str) -> str:
+        """Première cellule d'une table Markdown (utilisée pour détecter les doublons)."""
+        if not block:
+            return ""
+        first = block.splitlines()[0].strip()
+        return first.lstrip("|").strip().split("|")[0].strip()
 
     @staticmethod
     def _extract_title(html: str, url: str) -> str:
@@ -397,15 +465,26 @@ class WebImporter:
 
     @staticmethod
     def _detect_walls(html: str, result: WebImportResult) -> None:
+        soup: BeautifulSoup | None = None
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            for tag in soup(["script", "style", "noscript", "template"]):
+                tag.decompose()
+            visible = " " + soup.get_text(" ", strip=True).lower() + " "
+        except Exception:
+            visible = html
+
         if _ROBOTS_NOINDEX_RE.search(html):
             result.flags["paywall"] = True
             result.warnings.append("La page interdit son indexation (meta robots noindex).")
-        elif _PAYWALL_HINTS_RE.search(html):
+        elif _PAYWALL_HINTS_RE.search(visible):
             result.flags["paywall"] = True
             result.warnings.append("Cette page semble être derrière un paywall : le contenu extrait peut être partiel.")
-        if _LOGIN_HINTS_RE.search(html):
+
+        if soup is not None and soup.find("input", attrs={"type": "password"}) is not None:
             result.flags["login"] = True
             result.warnings.append("Un formulaire de connexion a été détecté : le contenu peut être restreint.")
+
         if _COOKIE_WALL_RE.search(html):
             result.flags["cookie_wall"] = True
             result.warnings.append("Un bandeau de consentement (cookie wall) a été détecté.")
