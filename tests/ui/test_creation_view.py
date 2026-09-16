@@ -657,8 +657,8 @@ def test_creation_view_on_edit_card_flow(qtbot: Any, mock_db: Any, monkeypatch: 
 
 
 @pytest.mark.ui
-def test_creation_view_save_anki_creates_note_chunk_link_and_tags(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie que la sauvegarde d'une note dans CreationView crée les tags déterministes et le lien NoteChunkLinkModel."""
+def test_creation_view_save_anki_creates_tags_without_chunk_link(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la sauvegarde d'une note dans CreationView crée les tags déterministes mais plus de lien forge NoteChunkLinkModel."""
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
         title=f"Cours Bio {uid}",
@@ -706,9 +706,9 @@ def test_creation_view_save_anki_creates_note_chunk_link_and_tags(qtbot: Any, mo
     assert f"doc:{doc.id}" in note.tags
     assert "page:2" in note.tags
 
+    # Le lien n'est plus créé à la forge : il est pris en charge par la synchronisation par tags
     link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
-    assert link is not None
-    assert link.chunk_id == chunk.id
+    assert link is None
 
 
 @pytest.mark.ui

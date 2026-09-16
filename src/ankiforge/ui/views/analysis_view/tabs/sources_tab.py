@@ -47,7 +47,6 @@ class ClickableChunkWidget(QFrame):
             "unprofiled": "transparent",
             "gap": DesignTokens.COLOR_YELLOW,
             "covered": DesignTokens.COLOR_GREEN,
-            "hallucination": DesignTokens.COLOR_RED,
         }
         border_color = color_map.get(status, "transparent")
 
@@ -144,9 +143,9 @@ class DocumentInspectorPanel(QWidget):
         self.btn_reindex.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
         self.btn_reindex.clicked.connect(self._on_reindex_faiss)
 
-        self.btn_align_cards = SecondaryButton("Aligner les fiches")
+        self.btn_align_cards = SecondaryButton("Synchroniser les fiches")
         self.btn_align_cards.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
-        self.btn_align_cards.setToolTip("Associer automatiquement les fiches existantes de la collection aux sections de ce cours")
+        self.btn_align_cards.setToolTip("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce cours")
         self.btn_align_cards.clicked.connect(self._on_align_cards)
 
         h_layout.addWidget(btn_back)
@@ -433,11 +432,6 @@ class DocumentInspectorPanel(QWidget):
                     lbl_back.setWordWrap(True)
                     c_layout.addWidget(lbl_back)
 
-                if link.is_hallucinating:
-                    lbl_bad = QLabel("Alerte : Incohérence sémantique détectée face au document source")
-                    lbl_bad.setStyleSheet(f"color: {DesignTokens.COLOR_RED}; font-size: 10px; font-weight: bold;")
-                    c_layout.addWidget(lbl_bad)
-
                 self.cards_layout.addWidget(card_box)
 
             btn_more = SecondaryButton("+ Générer plus de cartes pour ce chapitre")
@@ -488,12 +482,12 @@ class DocumentInspectorPanel(QWidget):
             return
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-        show_toast(self, "Alignement des fiches Anki en cours...")
+        show_toast(self, "Synchronisation des fiches Anki via les tags en cours...")
         res = CoverageAlignmentService.align_document(self.doc.id)
         matched = res.get("matched_notes", 0)
         cov_pct = res.get("coverage_pct", 0.0)
         self.load_chunks()
-        show_toast(self, f"✅ {matched} fiches Anki associées ! Couverture : {cov_pct:.0f}%")
+        show_toast(self, f"✅ {matched} fiches Anki synchronisées via les tags ! Couverture : {cov_pct:.0f}%")
 
 
 class AISourcesDiagnosticTab(QWidget):
@@ -669,11 +663,11 @@ class AISourcesDiagnosticTab(QWidget):
 
         row2.addStretch()
 
-        self.btn_align_all = SecondaryButton("Aligner toutes les fiches")
+        self.btn_align_all = SecondaryButton("Synchroniser toutes les fiches")
         self.btn_align_all.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
         self.btn_align_all.setFixedHeight(26)
         self.btn_align_all.setStyleSheet(f"font-size: 11px; padding: 2px 8px; border: 1px solid {DesignTokens.BORDER_COLOR};")
-        self.btn_align_all.setToolTip("Lier automatiquement les fiches Anki à l'ensemble des cours importés")
+        self.btn_align_all.setToolTip("Associer via les tags de traçabilité les fiches Anki à l'ensemble des cours importés")
         self.btn_align_all.clicked.connect(self._on_align_all_sources)
         row2.addWidget(self.btn_align_all)
 
@@ -844,11 +838,11 @@ class AISourcesDiagnosticTab(QWidget):
     def _on_align_all_sources(self) -> None:
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-        show_toast(self, "Alignement des fiches Anki pour l'ensemble des cours...")
+        show_toast(self, "Synchronisation des fiches Anki pour l'ensemble des cours...")
         res = CoverageAlignmentService.align_all_documents()
         total_matched = res.get("total_matched_links", 0)
         self.refresh_data()
-        show_toast(self, f"✅ {total_matched} fiches Anki liées à l'ensemble des cours !")
+        show_toast(self, f"✅ {total_matched} fiches Anki synchronisées via les tags sur l'ensemble des cours !")
 
     def show_inspector(self, doc_id: int) -> None:
         while self.page_inspector.layout().count():

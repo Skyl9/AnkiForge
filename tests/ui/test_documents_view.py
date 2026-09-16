@@ -306,7 +306,11 @@ def test_rag_test_dialog_modes(qtbot, tmp_path, monkeypatch):
 
 
 def test_documents_view_smart_align_button(qtbot):
-    """Vérifie le déclenchement de l'alignement intelligent depuis le bouton de DocumentsView."""
+    """Vérifie le déclenchement de la synchronisation par tags depuis le bouton de DocumentsView."""
+    import json
+
+    from ankiforge.utils.tags import build_document_tags
+
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
         title=f"Cours Réseaux Test {uid}",
@@ -325,6 +329,8 @@ def test_documents_view_smart_align_button(qtbot):
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model IP {uid}")
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
     note.add_version({"Front": "Rôle du protocole TCP ?", "Back": "Fiabilité des paquets réseau."}, source="manual")
+    note.tags = json.dumps(build_document_tags(doc_id=doc.id, section_name=chunk1.heading_path))
+    note.save()
     from ankiforge.database.models import CardModel
 
     CardModel.create(note=note, deck=deck, template_index=0)
@@ -339,10 +345,10 @@ def test_documents_view_smart_align_button(qtbot):
     assert "Non couvert" in view.chapters_list.item(0).text()
     assert "0%" in view.lbl_coverage_summary.text()
 
-    # Clic sur le bouton d'alignement intelligent
+    # Clic sur le bouton de synchronisation par tags
     view.btn_align_cards.click()
 
-    # Après alignement : couvert à 100%
+    # Après synchronisation : couvert à 100%
     assert "Couvert" in view.chapters_list.item(0).text()
     assert "100%" in view.lbl_coverage_summary.text()
     assert NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk1).count() == 1

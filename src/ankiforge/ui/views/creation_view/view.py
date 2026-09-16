@@ -35,7 +35,6 @@ from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
-    NoteChunkLinkModel,
     NoteTypeModel,
 )
 from ankiforge.repositories import (
@@ -2437,51 +2436,7 @@ class CreationView(QWidget):
                     for c in self.note_repo.get_cards_by_note(note.id):
                         event_bus.publish(CardCreatedEvent(card_id=c.id, note_id=note.id, deck_name=deck_name))
 
-                    # Liaison déterministe au chunk / page du document
-                    target_chunk: DocumentChunkModel | None = None
-                    target_chunk_id = card.get("chunk_id") or getattr(self, "current_source_chunk_id", None)
-                    if target_chunk_id:
-                        try:
-                            target_chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == int(target_chunk_id))
-                        except Exception:
-                            target_chunk = None
-
-                    if not target_chunk and active_doc:
-                        num_p = card_page if isinstance(card_page, int) else (int(card_page) if str(card_page).isdigit() else (scope_pages[0] if scope_pages else None))
-                        if num_p is not None and num_p > 0:
-                            target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == active_doc, DocumentChunkModel.page_number == num_p).first()
-                            if not target_chunk:
-                                max_idx = DocumentChunkModel.select(fn.MAX(DocumentChunkModel.chunk_index)).where(DocumentChunkModel.document == active_doc).scalar() or 0
-                                target_chunk = DocumentChunkModel.create(
-                                    document=active_doc,
-                                    chunk_index=max_idx + 1,
-                                    content=f"Page {num_p}",
-                                    page_number=num_p,
-                                    heading_path=f"Page {num_p}",
-                                )
-                        elif card_section:
-                            candidates = list(DocumentChunkModel.select().where(DocumentChunkModel.document == active_doc))
-                            for c in candidates:
-                                if c.heading_path and str(card_section).lower() in c.heading_path.lower():
-                                    target_chunk = c
-                                    break
-                        if not target_chunk:
-                            target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == active_doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
-                            if not target_chunk:
-                                target_chunk = DocumentChunkModel.create(
-                                    document=active_doc,
-                                    chunk_index=0,
-                                    content=f"Document {active_doc.title}",
-                                    heading_path="Section Principale",
-                                )
-
-                    if target_chunk:
-                        try:
-                            NoteChunkLinkModel.get_or_create(note=note, chunk=target_chunk)
-                        except Exception as e:
-                            logger.warning("Erreur lors de la création du lien NoteChunkLink: %s", e)
-
-                card["status"] = "Enregistrée"
+                    card["status"] = "Enregistrée"
                 saved_count += 1
 
             self._populate_results_table()

@@ -35,7 +35,6 @@ from ankiforge.database.models import (
     DocumentChunkModel,
     DocumentModel,
     LLMConfigModel,
-    NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
@@ -1602,10 +1601,6 @@ class BatchView(QWidget):
             templates = json.loads(note_type.templates) if note_type.templates else []
             is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
-            target_chunk: DocumentChunkModel | None = None
-            if doc:
-                target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
-
             tags_list = build_document_tags(
                 doc_id=doc.id if doc else None,
                 doc_title=doc.title if doc else None,
@@ -1615,14 +1610,7 @@ class BatchView(QWidget):
             created_cards_count = 0
             with db.atomic():
                 for raw_fields in notes_data:
-                    source_chunk_id = raw_fields.get("_source_chunk_id")
-                    source_chunk_hash = raw_fields.get("_source_chunk_hash")
                     cleaned_fields = {key: value for key, value in raw_fields.items() if not key.startswith("_source_")}
-                    note_chunk = target_chunk
-                    if doc and source_chunk_id:
-                        note_chunk = DocumentChunkModel.get_or_none((DocumentChunkModel.id == source_chunk_id) & (DocumentChunkModel.document == doc))
-                    if doc and note_chunk is None and source_chunk_hash:
-                        note_chunk = DocumentChunkModel.get_or_none((DocumentChunkModel.document == doc) & (DocumentChunkModel.content_hash == source_chunk_hash))
                     note = NoteModel.create(
                         guid=str(uuid.uuid4())[:10],
                         note_type=note_type,
@@ -1636,12 +1624,6 @@ class BatchView(QWidget):
                         source="ai_batch",
                         is_active=True,
                     )
-
-                    if note_chunk:
-                        try:
-                            NoteChunkLinkModel.get_or_create(note=note, chunk=note_chunk)
-                        except Exception as e:
-                            logger.warning("Erreur lien chunk batch : %s", e)
 
                     if is_cloze:
                         max_cloze = get_max_cloze_index(cleaned_fields)

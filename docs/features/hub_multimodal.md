@@ -39,8 +39,8 @@ Pour éviter de surcharger vos modèles de langage ou de générer des cartes su
 ## 📊 4. Couverture Intelligente (*Smart Coverage*) & Gap Analysis
 
 L'une des innovations majeures d'AnkiForge est la traçabilité continue entre les flashcards créées et leurs sources documentaires d'origine :
-- **Liaison `NoteChunkLinkModel`** : Chaque carte générée ou validée conserve un pointeur vers le fragment (*chunk*) précis du document source.
-- **Jauge de Smart Coverage** : Pour chaque document de votre bibliothèque, un indicateur de pourcentage affiche la proportion du cours effectivement couverte par des flashcards.
+- **Liaison déterministe `NoteChunkLinkModel`** : Chaque carte porte des tags de traçabilité (`doc:<id>`, `source:<slug>`, `page:<num>`, `section:<slug>`) ; une synchronisation par tags (`CoverageAlignmentService`) les associe au fragment (*chunk*) précis du document source — aucun matching lexical instable n'est utilisé.
+- **Jauge de Smart Coverage** : Pour chaque document de votre bibliothèque, un indicateur de pourcentage affiche la proportion du cours effectivement couverte par des flashcards. Le KPI global du Tableau de Bord est une **moyenne pondérée** par unités (pages/sections), le ratio brut chunks liés étant exposé séparément.
 - **Analyse des Lacunes (*Gap Analysis*)** : Un surlignage coloré dans la liseuse de documents met en valeur les passages du cours qui n'ont encore donné lieu à aucune carte, vous garantissant de ne laisser aucune impasse dans vos révisions.
 
 ---

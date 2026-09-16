@@ -10,6 +10,7 @@ from ankiforge.database.models import (
     DocumentModel,
     LLMConfigModel,
     NoteChunkLinkModel,
+    NoteModel,
     NoteTypeModel,
     NoteVersionModel,
     PipelineModel,
@@ -194,13 +195,14 @@ def test_batch_worker_run_success(qtbot: Any, monkeypatch: Any) -> None:
     qtbot.addWidget(view)
     view._save_extracted_notes_to_db(completed_payloads[0][1], deck.id, nt.id, doc.id)
 
-    # Vérification des liens de chunks RAG créés
+    # Plus aucun lien de chunks RAG créé à la forge (pris en charge par la synchronisation par tags)
     links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk == chunk))
-    assert len(links) == 2
+    assert len(links) == 0
 
-    for link in links:
-        note = link.note
-        # Vérification des cartes enfants
+    # Vérification des cartes enfants et de l'historique Time Machine
+    saved_notes = list(NoteModel.select())
+    assert len(saved_notes) == 2
+    for note in saved_notes:
         cards = list(CardModel.select().where(CardModel.note == note))
         assert len(cards) == 1
         # Vérification de l'historique Time Machine
@@ -480,8 +482,8 @@ def test_batch_view_full_execution_persists_notes_in_db(qtbot: Any, monkeypatch:
     assert view.queue_tasks_data[0]["cards_count"] == 1
     assert view.queue_tasks_data[1]["cards_count"] == 1
 
-    # Cartes et liens de chunks persistés en BDD
+    # Plus aucun lien de chunks RAG créé à la forge
     links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk.in_([c1, c2])))
-    assert len(links) == 2
+    assert len(links) == 0
     cards = list(CardModel.select().where(CardModel.deck == deck))
     assert len(cards) == 2

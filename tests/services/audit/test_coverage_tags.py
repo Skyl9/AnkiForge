@@ -118,7 +118,7 @@ def test_sync_coverage_from_tags_paginated() -> None:
     )
     CardModel.create(note=note1, deck=deck, template_index=0)
 
-    # Note avec tag page:3 (chunk inexistant, doit être créé à la volée)
+    # Note avec tag page:3 (chunk inexistant : ignore, aucun chunk factice créé)
     note2 = NoteModel.create(
         guid=uuid.uuid4().hex,
         note_type=nt,
@@ -128,8 +128,11 @@ def test_sync_coverage_from_tags_paginated() -> None:
 
     # Synchronisation déterministe
     res = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
-    assert res["matched_notes"] == 2
-    assert res["newly_linked"] == 2
+    assert res["matched_notes"] == 1
+    assert res["newly_linked"] == 1
+
+    # Aucun chunk factice pour la page 3 ne doit être créé
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == 2
 
     # Vérification des liens NoteChunkLinkModel
     link1 = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note1)
@@ -137,17 +140,17 @@ def test_sync_coverage_from_tags_paginated() -> None:
     assert link1.chunk_id == chunk_p1.id
 
     link2 = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note2)
-    assert link2 is not None
-    assert link2.chunk.page_number == 3
+    assert link2 is None
 
     # Vérification du calcul coarse-grained
     doc_repo = DocumentRepository()
     stats = doc_repo.get_coverage_stats(doc.id)
     assert stats["unit_type"] == "pages"
     assert stats["total_units"] == 5
-    assert stats["covered_units"] == 2  # Pages 1 et 3
-    assert stats["coverage_pct"] == 40.0  # 2/5 = 40%
+    assert stats["covered_units"] == 1  # Page 1 uniquement
+    assert stats["coverage_pct"] == 20.0  # 1/5 = 20%
     assert 2 in stats["orphan_units"]
+    assert 3 in stats["orphan_units"]
     assert 4 in stats["orphan_units"]
     assert 5 in stats["orphan_units"]
 

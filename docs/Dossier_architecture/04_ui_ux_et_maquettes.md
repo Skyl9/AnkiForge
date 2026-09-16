@@ -36,7 +36,7 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 * **Rôle :** Maintenance, audit cognitif et réparation des paquets (Divisée en 4 onglets interactifs).
 * **Onglets & Actions Clés :**
   * *Audit Wozniak & Règles Custom :* Sélecteur de paquet, gestionnaire de règles (`linter_rules_dialog.py`), catégories (`cat-atomicite`, `cat-interferences`, etc.), inspecteur comparatif 5 champs SQLite vs proposition IA, boutons *Scinder la carte*, *Appliquer la mutation*, *Ignorer*.
-  * *Diagnostic Sources & Smart Coverage :* Analyse de traçabilité via `NoteChunkLinkModel`, détection des lacunes (Gap Analysis) et génération ciblée des cartes manquantes.
+  * *Diagnostic Sources & Smart Coverage :* Analyse de traçabilité déterministe via `NoteChunkLinkModel` (tags `doc:ID`/`source:SLUG`/`page:NUM`/`section:SLUG`), détection des lacunes (Gap Analysis) et génération ciblée des cartes manquantes.
   * *Fusions & Doublons :* Matrice de similitude hybride (C-Levenshtein + FAISS vectoriel), inspecteur 3 colonnes avec permutation A ↔ B et injection sélective de champs.
   * *Suivi Financier & FSRS :* Suivi des dépenses en jetons IA par modèle/fournisseur, courbe de rétention FSRS-4.5 et détection des cartes sangsues (Leeches).
 

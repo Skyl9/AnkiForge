@@ -2,6 +2,7 @@
 Tests unitaires pour CoverageAlignmentService et la résolution bidirectionnelle des médias.
 """
 
+import json
 import uuid
 
 from ankiforge.database.models import (
@@ -16,22 +17,13 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
+from ankiforge.utils.tags import build_document_tags
 
 
-def test_clean_text_and_extract_keywords():
-    raw_html = "<p>Qu'est-ce que la <b>cyber sécurité</b> en réseau ? &nbsp; \\( \\alpha \\)</p>"
-    cleaned = CoverageAlignmentService.clean_text_for_matching(raw_html)
-    assert "<p>" not in cleaned
-    assert "<b>" not in cleaned
-    assert "&nbsp;" not in cleaned
-    assert "cyber" in cleaned
-    assert "sécurité" in cleaned
-
-    kws = CoverageAlignmentService.extract_keywords(raw_html, min_len=4)
-    assert "cyber" in kws
-    assert "sécurité" in kws
-    # Les stopwords comme "dans", "avec" ne doivent pas y être
-    assert "dans" not in kws
+def _make_note_with_tags(nt: NoteTypeModel, tags: list[str]) -> NoteModel:
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(tags))
+    note.add_version({"Front": "Q", "Back": "R"}, source="manual")
+    return note
 
 
 def test_align_document_matching_and_coverage():
@@ -65,23 +57,22 @@ def test_align_document_matching_and_coverage():
         css_style="",
     )
 
-    # Note 1 : correspond à chunk 1
-    note1 = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
-    note1.add_version({"Front": "Quel est le rôle du protocole TCP ?", "Back": "Fiabilité du transfert de paquets."}, source="manual")
+    # Note 1 : traçabilité -> chunk 1 via section:<slug>
+    tags1 = build_document_tags(doc_id=doc.id, section_name=chunk1.heading_path)
+    note1 = _make_note_with_tags(nt, tags1)
     CardModel.create(note=note1, deck=deck, template_index=0)
 
-    # Note 2 : correspond à chunk 2
-    note2 = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
-    note2.add_version({"Front": "Comment fonctionne RSA ?", "Back": "Chiffrement asymétrique avec paire de clés publique et privée."}, source="manual")
+    # Note 2 : traçabilité -> chunk 2 via section:<slug>
+    tags2 = build_document_tags(doc_id=doc.id, section_name=chunk2.heading_path)
+    note2 = _make_note_with_tags(nt, tags2)
     CardModel.create(note=note2, deck=deck, template_index=0)
 
-    # Note 3 : hors sujet (médecine)
-    note3 = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
-    note3.add_version({"Front": "Qu'est ce que l'hypertension artérielle ?", "Back": "Élévation anormale de la pression sanguine."}, source="manual")
+    # Note 3 : aucun tag de traçabilité (contenu similaire, ne doit PAS être liée)
+    note3 = _make_note_with_tags(nt, ["manuel"])
     CardModel.create(note=note3, deck=deck, template_index=0)
 
     # Exécution de l'alignement
-    stats = CoverageAlignmentService.align_document(doc.id, min_overlap=2)
+    stats = CoverageAlignmentService.align_document(doc.id)
     assert stats["matched_notes"] == 2
     assert stats["covered_chunks"] == 2
     assert stats["total_chunks"] == 2
@@ -100,6 +91,87 @@ def test_align_document_matching_and_coverage():
     assert len(links3) == 0
 
 
+def test_align_document_ignores_lexical_overlap_without_tags():
+    """Une forte similarité lexicale sans tags de traçabilité ne doit générer aucun lien."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Médical {uid}",
+        content="L'hypertension artérielle est une élévation anormale de la pression sanguine.",
+        file_type="md",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Cardiologie > Hypertension",
+        content="L'hypertension artérielle est une élévation anormale de la pression sanguine.",
+        content_hash=f"hash_{uid}",
+    )
+
+    deck = DeckModel.create(name=f"Deck Médical {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model {uid}")
+
+    note = _make_note_with_tags(nt, ["révision"])
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    stats = CoverageAlignmentService.align_document(doc.id, min_overlap=2)
+    assert stats["matched_notes"] == 0
+    assert stats["covered_chunks"] == 0
+    assert stats["coverage_pct"] == 0.0
+    assert NoteChunkLinkModel.select().count() == 0
+
+
+def test_align_document_does_not_create_fake_chunks():
+    """La synchronisation ne doit plus créer de chunks factices pour couvrir une page non découpée."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Paginé {uid}",
+        content="Contenu du document.",
+        file_type="pdf",
+        total_pages=5,
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        content="Page une",
+        page_number=1,
+        content_hash=f"hash_{uid}",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model {uid}")
+    tags = build_document_tags(doc_id=doc.id, page_number=3)
+    note = _make_note_with_tags(nt, tags)
+
+    stats = CoverageAlignmentService.align_document(doc.id)
+    assert stats["matched_notes"] == 0
+    # Aucun chunk factice "Page 3" ne doit exister
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() == 1
+    assert not NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note).exists()
+
+
+def test_stale_links_removed_when_tags_no_longer_match():
+    """Un lien résiduel vers un document dont la note n'a plus de tags concordants est retiré."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours College {uid}", file_type="md")
+    chunk = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Introduction",
+        content="Contenu.",
+        content_hash=f"hash_{uid}",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model {uid}")
+    # La note portait un tag doc:<id> mais son tag a changé vers un autre document inexistant
+    other_doc = DocumentModel.create(title=f"Autre Doc {uid}", file_type="md")
+    note = _make_note_with_tags(nt, [f"doc:{other_doc.id}"])
+    NoteChunkLinkModel.create(note=note, chunk=chunk)
+
+    CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+
+    remaining = NoteChunkLinkModel.select().where(NoteChunkLinkModel.note == note)
+    assert remaining.count() == 0
+
+
 def test_find_matching_chunk_for_note():
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Cours Algorithmique {uid}", file_type="md")
@@ -112,12 +184,30 @@ def test_find_matching_chunk_for_note():
     )
 
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
-    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
-    note.add_version({"Front": "Principe de l'algorithme de Dijkstra ?", "Back": "Calcul du plus court chemin sur un graphe pondéré positif."}, source="manual")
+    tags = build_document_tags(doc_id=doc.id, section_name=chunk.heading_path)
+    note = _make_note_with_tags(nt, tags)
 
-    matched_chunk = CoverageAlignmentService.find_matching_chunk_for_note(note.id, min_overlap=2)
+    matched_chunk = CoverageAlignmentService.find_matching_chunk_for_note(note.id)
     assert matched_chunk is not None
     assert matched_chunk.id == chunk.id
+
+
+def test_find_matching_chunk_for_note_without_tags_returns_none():
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Sans Tag {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Sans importance",
+        content="Contenu.",
+        content_hash=f"hash_{uid}",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Type {uid}")
+    note = _make_note_with_tags(nt, [])
+
+    matched_chunk = CoverageAlignmentService.find_matching_chunk_for_note(note.id)
+    assert matched_chunk is None
 
 
 def test_resolve_media_path_bidirectional(tmp_path):

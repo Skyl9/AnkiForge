@@ -496,9 +496,9 @@ class DocumentsView(QWidget):
         self.lbl_coverage_details.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
         cov_card_layout.addWidget(self.lbl_coverage_details)
 
-        self.btn_align_cards = SecondaryButton("Aligner les cartes")
+        self.btn_align_cards = SecondaryButton("Synchroniser les cartes")
         self.btn_align_cards.setIcon(load_phosphor_icon("ph.link", color=DesignTokens.COLOR_BLUE))
-        self.btn_align_cards.setToolTip("Associer automatiquement les fiches existantes de la collection aux sections de ce document")
+        self.btn_align_cards.setToolTip("Associer les fiches portant les tags de traçabilité (doc:/source:/page:/section:) aux sections de ce document")
         self.btn_align_cards.setFixedHeight(24)
         self.btn_align_cards.setStyleSheet(f"font-size: 10px; padding: 2px 6px; border: 1px solid {DesignTokens.BORDER_COLOR};")
         self.btn_align_cards.clicked.connect(self._on_smart_align_document)
@@ -1675,12 +1675,12 @@ class DocumentsView(QWidget):
 
         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
-        show_toast(self, "Alignement des fiches Anki en cours...")
+        show_toast(self, "Synchronisation des fiches Anki via les tags en cours...")
         res = CoverageAlignmentService.align_document(self._current_doc_id)
         matched = res.get("matched_notes", 0)
         cov_pct = res.get("coverage_pct", 0.0)
         self._refresh_chapters_list()
-        show_toast(self, f"✅ {matched} cartes liées au document ! Couverture : {cov_pct:.0f}%")
+        show_toast(self, f"✅ {matched} cartes synchronisées via les tags ! Couverture : {cov_pct:.0f}%")
 
     @Slot()
     def _on_import_from_other_profile(self) -> None:

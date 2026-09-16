@@ -12,8 +12,7 @@ from ankiforge.database.models import (
     AuditRecordModel,
     CardModel,
     DeckModel,
-    DocumentChunkModel,
-    NoteChunkLinkModel,
+    DocumentModel,
     NoteModel,
     NoteVersionModel,
     TokenUsageModel,
@@ -62,31 +61,51 @@ class MetricsService:
 
     @classmethod
     def get_smart_coverage_rate(cls) -> dict[str, Any]:
-        """Calcule le taux de couverture documentaire RAG (Smart Coverage)."""
+        """Calcule le taux de couverture documentaire RAG (Smart Coverage).
+
+        Le KPI est une moyenne pondérée par document : les unités couvertes et totales
+        (pages ou sections) sont agrégées sur toute la bibliothèque avant division.
+        Le ratio brut chunks liés / chunks totaux est exposé séparément (raw_ratio)
+        pour la transparence.
+        """
         try:
-            total_chunks = DocumentChunkModel.select().count()
-            if total_chunks == 0:
+            from ankiforge.repositories.document_repository import DocumentRepository
+
+            docs = list(DocumentModel.select())
+            if not docs:
                 return {
                     "coverage": 0,
                     "linked_chunks": 0,
                     "total_chunks": 0,
                     "unlinked_chunks": 0,
+                    "raw_ratio": 0,
                 }
 
-            # Nombre de chunks ayant au moins une carte liée
-            linked_chunks = DocumentChunkModel.select(fn.COUNT(fn.DISTINCT(DocumentChunkModel.id))).join(NoteChunkLinkModel, on=(NoteChunkLinkModel.chunk == DocumentChunkModel.id)).scalar() or 0
+            doc_repo = DocumentRepository()
+            total_units = 0
+            covered_units = 0
+            linked_chunks = 0
+            total_chunks = 0
 
-            unlinked_chunks = max(0, total_chunks - linked_chunks)
-            coverage = int(round((linked_chunks / total_chunks) * 100))
+            for doc in docs:
+                stats = doc_repo.get_coverage_stats(doc.id)
+                linked_chunks += stats.get("covered_chunks", 0)
+                total_chunks += stats.get("total_chunks", 0)
+                covered_units += stats.get("covered_units", 0)
+                total_units += stats.get("total_units", 0)
+
+            coverage = round((covered_units / total_units) * 100) if total_units else 0
+            raw_ratio = round((linked_chunks / total_chunks) * 100) if total_chunks else 0
             return {
                 "coverage": coverage,
                 "linked_chunks": linked_chunks,
                 "total_chunks": total_chunks,
-                "unlinked_chunks": unlinked_chunks,
+                "unlinked_chunks": max(0, total_chunks - linked_chunks),
+                "raw_ratio": raw_ratio,
             }
         except Exception as e:
             logger.warning("Erreur lors du calcul de couverture documentaire : %s", e)
-            return {"coverage": 100, "linked_chunks": 0, "total_chunks": 0, "unlinked_chunks": 0}
+            return {"coverage": 0, "linked_chunks": 0, "total_chunks": 0, "unlinked_chunks": 0, "raw_ratio": 0}
 
     @classmethod
     def get_ai_telemetry(cls) -> dict[str, Any]:

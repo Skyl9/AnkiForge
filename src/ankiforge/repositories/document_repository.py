@@ -281,3 +281,16 @@ class DocumentRepository(BaseRepository):
             "covered_units": covered_count,
             "orphan_units": orphan_chunks,
         }
+
+    def normalize_orphan_units(self, stats: dict[str, Any]) -> list[dict[str, Any]]:
+        """Normalise la liste des unités non couvertes en entrées homogènes {kind, label, unit_id}."""
+        orphan_units = stats.get("orphan_units", [])
+        normalized: list[dict[str, Any]] = []
+        for unit in orphan_units:
+            if isinstance(unit, dict):
+                normalized.append(unit)
+            elif isinstance(unit, int):
+                normalized.append({"kind": "page", "label": f"Page {unit}", "unit_id": unit})
+            elif isinstance(unit, str):
+                normalized.append({"kind": "section", "label": unit, "unit_id": unit})
+        return normalized

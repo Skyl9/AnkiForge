@@ -148,7 +148,7 @@ TOOLS_CATALOG: list[ToolSpec] = [
     ToolSpec(
         key="analyze_coverage_gaps",
         label="Smart Coverage & Détection Lacunes",
-        description="Compare un paquet avec un document source pour identifier les notions non encore créées.",
+        description="Compare un paquet avec un document source sur des données de couverture déterministes pour identifier les notions non encore créées.",
         category="RAG & Documentation",
         color="#06b6d4",
     ),

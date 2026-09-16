@@ -30,6 +30,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     PersonaModel,
 )
+from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.ai.flexible_service import AIManager, OpenAICompatibleProvider
@@ -842,31 +843,27 @@ class ConsultantToolRegistry:
             if not doc:
                 return "Erreur : Document source introuvable pour l'analyse de couverture."
 
-            card_texts = []
-            for c in CardModel.select().where(CardModel.deck == deck):
-                note = c.note
-                v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
-                if v and v.content:
-                    card_texts.append(v.content.lower())
+            doc_repo = DocumentRepository()
+            stats = doc_repo.get_coverage_stats(doc.id)
 
-            deck_vocab = " ".join(card_texts)
-            doc_content = getattr(doc, "content", "") or ""
-            doc_paragraphs = [p.strip() for p in doc_content.split("\n\n") if len(p.strip()) > 40]
+            units_label = "pages" if stats.get("unit_type") == "pages" else "sections"
+            covered = stats.get("covered_units", 0)
+            total = stats.get("total_units", 0)
+            orphans = doc_repo.normalize_orphan_units(stats)[:6]
 
-            missing_sections = []
-            for p in doc_paragraphs[:20]:
-                words = [w for w in re.findall(r"\b\w{5,}\b", p.lower()) if w not in ["cette", "après", "comme", "avoir", "faire", "entre"]]
-                matched = sum(1 for w in words if w in deck_vocab)
-                coverage = matched / len(words) if words else 1.0
-                if coverage < 0.35:
-                    missing_sections.append(f"  • Notion peu/non couverte : {p[:110]}...")
+            if orphans:
+                formatted = [f"  • {o.get('label', o.get('kind', str(o)))[:110]}..." for o in orphans]
+                gaps_block = "\n".join(formatted)
+            else:
+                gaps_block = "  ✅ Le paquet semble couvrir exhaustivement les concepts du document."
 
             return (
                 f"📊 Rapport de Couverture Smart Coverage :\n"
                 f"- Paquet : '{deck.name}'\n"
                 f"- Document source : '{doc.title}'\n"
-                f"- Paragraphes analysés : {len(doc_paragraphs)}\n"
-                f"- Lacunes identifiées :\n" + ("\n".join(missing_sections[:6]) if missing_sections else "  ✅ Le paquet semble couvrir exhaustivement les concepts du document.")
+                f"- Couverture : {stats.get('coverage_pct', 0.0)}% ({covered}/{total} {units_label})\n"
+                f"- Cartes liées : {stats.get('total_cards', 0)}\n"
+                f"- Lacunes identifiées :\n{gaps_block}"
             )
         except Exception as e:
             logger.error("Erreur analyze_coverage_gaps : %s", e)

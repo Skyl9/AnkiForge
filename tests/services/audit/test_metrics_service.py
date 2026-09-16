@@ -57,9 +57,9 @@ def test_wozniak_health_score_with_issues():
 
 
 def test_smart_coverage_rate():
-    doc = DocumentModel.create(title="Doc 1", file_type="pdf")
-    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, content="Chunk 1", content_hash="h1")
-    _c2 = DocumentChunkModel.create(document=doc, chunk_index=1, content="Chunk 2", content_hash="h2")
+    doc = DocumentModel.create(title="Doc 1", file_type="pdf", total_pages=2)
+    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, content="Chunk 1", content_hash="h1", page_number=1)
+    _c2 = DocumentChunkModel.create(document=doc, chunk_index=1, content="Chunk 2", content_hash="h2", page_number=2)
 
     deck = DeckModel.create(name="Default")
     nt = NoteTypeModel.create(name="Basic", fields_schema=["Front", "Back"])
@@ -72,7 +72,8 @@ def test_smart_coverage_rate():
     assert res["total_chunks"] == 2
     assert res["linked_chunks"] == 1
     assert res["unlinked_chunks"] == 1
-    assert res["coverage"] == 50
+    assert res["coverage"] == 50  # Moyenne pondérée : 1 page couverte / 2 pages
+    assert res["raw_ratio"] == 50
 
 
 def test_ai_telemetry():

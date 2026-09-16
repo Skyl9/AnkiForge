@@ -1,3 +1,4 @@
+import json
 import uuid
 from typing import Any
 
@@ -23,6 +24,7 @@ from ankiforge.ui.views.analysis_view import (
     AnalysisView,
     DocumentInspectorPanel,
 )
+from ankiforge.utils.tags import build_document_tags
 
 
 def test_document_inspector_panel_chapter_coverage(qtbot):
@@ -154,6 +156,8 @@ def test_ai_sources_align_buttons(qtbot):
         {"Front": "Comment fonctionne le handshake TCP ?", "Back": "Il utilise syn syn-ack ack pour établir la connexion."},
         source="manual",
     )
+    note_tcp.tags = json.dumps(build_document_tags(doc_id=doc.id, section_name=chunk1.heading_path))
+    note_tcp.save()
     CardModel.create(note=note_tcp, deck=deck, template_index=0)
 
     # 1. Test DocumentInspectorPanel btn_align_cards

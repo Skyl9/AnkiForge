@@ -463,7 +463,7 @@ class AppDocumentationService:
             "rag": (
                 "RAG Hybride & Smart Coverage",
                 "features/dag_et_rag.md",
-                "Recherche vectorielle locale (FAISS/ChromaDB), découpage sémantique des documents sources et traçabilité NoteChunkLinkModel pour le calcul de couverture (Smart Coverage).",
+                "Recherche vectorielle locale (FAISS/ChromaDB), découpage sémantique et traçabilité déterministe NoteChunkLinkModel par tags pour le calcul de couverture (Smart Coverage).",
             ),
             "katex": (
                 "Éditeur de Notes KaTeX Live",

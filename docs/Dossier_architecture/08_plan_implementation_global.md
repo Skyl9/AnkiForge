@@ -61,7 +61,7 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
 ## 8. L'Hôpital : Analyse & Audit (`analysis_view.py`)
 * **État Actuel :** ✅ **Linter Wozniak, Règles Personnalisées, Diagnostic Sources RAG, Tokens/SRS & Matrice de Doublons 3 Panneaux.**
   - **Audit & Linter Wozniak :** Catégories interactives (Atomicité, KaTeX, Non-interférence, Questions univoques), règles personnalisables (`LinterRuleModel`, migration 017), badges pills (`border-radius: 9999px`), inspecteur déroulant des 5 champs SQLite vs proposition IA et scission/mutation 1-clic.
-  - **Diagnostic des Sources & Anti-Hallucination :** Grille des documents de cours, liens `NoteChunkLinkModel` et calcul de couverture en direct avec routage immédiat vers l'Usine de Création.
+  - **Diagnostic des Sources & Couverture :** Grille des documents de cours, liens déterministes `NoteChunkLinkModel` (par tags de traçabilité) et calcul de couverture en direct avec routage immédiat vers l'Usine de Création.
   - **Simulateur Économique & FSRS-4.5 :** Dépenses cumulées en jetons IA par fournisseur/modèle (`TokenUsageModel`), détection des cartes sangsues et canvas QPainter de courbe de rétention.
   - **Matrice de Doublons & Fusion 3 Panneaux :** Détection hybride (Levenshtein natif C + Vectoriel FAISS), boîte de dialogue de fusion (Merge Dialog) à 3 colonnes avec permutation A ↔ B et injection sélective de champs.
 
