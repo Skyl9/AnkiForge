@@ -706,9 +706,10 @@ def test_creation_view_save_anki_creates_tags_without_chunk_link(qtbot: Any, moc
     assert f"doc:{doc.id}" in note.tags
     assert "page:2" in note.tags
 
-    # Le lien n'est plus créé à la forge : il est pris en charge par la synchronisation par tags
+    # La synchronisation automatique post-sauvegarde lie désormais la note au chunk résolu (page:2)
     link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
-    assert link is None
+    assert link is not None
+    assert link.chunk_id == chunk.id
 
 
 @pytest.mark.ui

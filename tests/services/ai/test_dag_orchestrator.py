@@ -4,7 +4,12 @@ from typing import Any
 
 from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+from ankiforge.services.ai.orchestrator import (
+    CARD_SECTION_DOCUMENTATION_RULE,
+    PipelineOrchestrator,
+    _source_context_metadata,
+    _stamp_card_source_metadata,
+)
 from ankiforge.services.ai.state import PipelineRunState
 
 
@@ -490,3 +495,114 @@ def test_call_provider_generate_falls_back_for_legacy_providers():
     orchestrator.run()
 
     assert len(finished_states) == 1
+
+
+def test_source_context_metadata_and_stamp_provenance():
+    """_source_context_metadata extrait les clés de provenance, _stamp_card_source_metadata les écrit sur les cartes."""
+    from ankiforge.services.ai.state import PipelineRunState as PRS
+
+    state = PRS(document_id=7, initial_prompt="test")
+    state.set_variable("source_chunk_id", 12)
+    state.set_variable("source_heading_path", "Chapitre 1 > Cellule")
+    state.set_variable("source_page_number", 4)
+
+    ctx = _source_context_metadata(state)
+    assert ctx["chunk_id"] == 12
+    assert ctx["heading_path"] == "Chapitre 1 > Cellule"
+    assert ctx["page_number"] == 4
+
+    cards: list[dict[str, Any]] = [{"Front": "Q", "Back": "A"}]
+    _stamp_card_source_metadata(cards, ctx, documentation=True)
+    assert cards[0]["_source_chunk_id"] == 12
+    assert cards[0]["_source_heading_path"] == "Chapitre 1 > Cellule"
+    assert cards[0]["_source_page_number"] == 4
+    assert cards[0]["_documentation_enabled"] is True
+
+    # Documenté=False propage False, sans écraser si déjà présent
+    cards2: list[dict[str, Any]] = [{"Front": "X", "_source_chunk_id": 99}]
+    _stamp_card_source_metadata(cards2, ctx, documentation=False)
+    assert cards2[0]["_source_chunk_id"] == 99
+    assert cards2[0]["_documentation_enabled"] is False
+
+
+def test_llm_prompt_documentation_rule_prepended(qtbot: Any) -> None:
+    """Avec document_id et declasser_sections_dans_tags True (défaut), la règle de section est préfixée dans le prompt système."""
+    pipeline = PipelineModel.create(name="Pipeline Documentation ON")
+    persona = PersonaModel.create(name="Générateur", system_prompt="Créer des cartes JSON.", output_format="json")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({}),
+    )
+
+    provider = DummyProvider()
+    initial_state = PipelineRunState(document_id=42, initial_prompt="Contenu source.")
+    initial_state.set_variable("source_chunk_id", 5)
+    initial_state.set_variable("source_heading_path", "Chapitre A")
+    initial_state.set_variable("source_page_number", 2)
+
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    system_prompt = provider.calls[0]["system"]
+    assert CARD_SECTION_DOCUMENTATION_RULE in system_prompt
+
+    cards = finished_states[0].get_variable("generated_cards", [])
+    assert len(cards) >= 1
+    assert cards[0].get("_source_chunk_id") == 5
+    assert cards[0].get("_source_heading_path") == "Chapitre A"
+    assert cards[0].get("_documentation_enabled") is True
+
+
+def test_llm_prompt_documentation_off_suppresses_rule_and_metadata(qtbot: Any) -> None:
+    """Avec declasser_sections_dans_tags False, la règle de section n'est pas injectée et documentation_enabled=False."""
+    pipeline = PipelineModel.create(name="Pipeline Documentation OFF")
+    persona = PersonaModel.create(name="Générateur", system_prompt="Créer des cartes.", output_format="json")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"declasser_sections_dans_tags": False}),
+    )
+
+    provider = DummyProvider()
+    initial_state = PipelineRunState(document_id=42, initial_prompt="Contenu.")
+    initial_state.set_variable("source_chunk_id", 7)
+
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    system_prompt = provider.calls[0]["system"]
+    assert CARD_SECTION_DOCUMENTATION_RULE not in system_prompt
+
+    cards = finished_states[0].get_variable("generated_cards", [])
+    assert cards[0].get("_documentation_enabled") is False
+
+
+def test_llm_prompt_no_document_id_skips_documentation_rule(qtbot: Any) -> None:
+    """Sans document_id, même avec declasser_sections_dans_tags True, la règle de documentation n'est pas préfixée."""
+    pipeline = PipelineModel.create(name="Pipeline No Doc")
+    persona = PersonaModel.create(name="Générateur", system_prompt="Créer des cartes.", output_format="json")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+
+    provider = DummyProvider()
+    initial_state = PipelineRunState(document_id=None, initial_prompt="Contenu orphelin.")
+
+    orchestrator = PipelineOrchestrator(pipeline_id=pipeline.id, initial_state=initial_state, ai_provider=provider)
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    system_prompt = provider.calls[0]["system"]
+    assert CARD_SECTION_DOCUMENTATION_RULE not in system_prompt
+    cards = finished_states[0].get_variable("generated_cards", [])
+    assert cards[0].get("_documentation_enabled") is True

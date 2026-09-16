@@ -172,6 +172,10 @@ class VisualRAGService:
             document.total_pages = total_pages
             document.save()
 
+        from ankiforge.services.reindex_service import mark_document_version
+
+        mark_document_version(document)
+
         logger.info(
             "VisualRAGService: %d fragments visuels préparés pour le document '%s' (ID %d)",
             len(chunks),

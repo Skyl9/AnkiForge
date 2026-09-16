@@ -28,6 +28,35 @@ class ChunkingService:
     STRATEGY_DEFAULT = "default"
     STRATEGY_MARKDOWN_AST = "markdown_ast"
 
+    # Version de la stratégie de structuration. Incrémentée à chaque changement
+    # de découpage pour détecter les documents indexés avec une ancienne version
+    # et déclencher une re-indexation automatique.
+    # v1 = ancien (H3 seul, pas de markdown_ast), v2 = nouveau (H1→H6 AST)
+    # v3 = PDFs Marker détectés par contenu → découpage AST avec conservation des pages
+    CHUNKING_VERSION: int = 3
+
+    CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt")
+
+    # Regex pour détecter les titres avec page-span HTML residuels (Marker)
+    _SPAN_PAGE_HEADING_RE = re.compile(r'<span\s+id="page-\d+-\d+"></span>', re.IGNORECASE)
+
+    # Regex pour extraire les balises de page Marker numérotées {N}
+    _MARKER_PAGE_RE = re.compile(r"\{(\d+)\}-{5,}")
+
+    @classmethod
+    def preferred_strategy(cls, file_type: str | None) -> str | None:
+        """Retourne la stratégie de découpage la plus fine pour un type de document.
+
+        Les documents continus (Markdown, Web, texte) sont découpés via l'AST
+        MarkdownStructurer (un fragment par titre H1→H6, fil d'Ariane complet).
+        Les documents paginés et audio conservent leur découpage natif
+        (pages / marqueurs temporels).
+        """
+        ft = (file_type or "").lower().strip()
+        if ft in cls.CONTINUOUS_FILE_TYPES:
+            return cls.STRATEGY_MARKDOWN_AST
+        return None
+
     @classmethod
     def hash_content(cls, text: str) -> str:
         """Génère un hash MD5 du texte pour la déduplication et le suivi."""
@@ -67,12 +96,25 @@ class ChunkingService:
 
         markers = list(cls.PAGE_MARKER_REGEX.finditer(content))
         is_paginated = bool(markers) or (file_type is not None and file_type.lower() in ("pdf", "pptx", "epub", "audio", "mp3", "m4a", "wav", "ogg", "flac", "aac"))
+        ft = (file_type or "").lower().strip()
+
+        # Les PDFs traités par Marker possèdent un Markdown riche (titres, tables,
+        # LaTeX, images) plus fin que le simple découpage page par page.
+        # On le détecte au contenu : au moins un marqueur {N}--- ET une structure
+        # de titres réelle (headings autres que "## Page N" de PyMuPDF natif).
+        if ft in ("pdf",) and markers:
+            marker_nums = [int(mm.group(1)) for m in markers if (mm := cls._MARKER_PAGE_RE.match(m.group(0)))]
+            num_heading_matches = list(cls.HEADING_REGEX.finditer(content))
+            has_real_headings = any(not re.match(r"^##\s+Page\s+\d+$", m.group(2).strip()) for m in num_heading_matches)
+            if marker_nums and has_real_headings and strategy is None:
+                strategy = cls.STRATEGY_MARKDOWN_AST
 
         logger.debug(
-            "Extraction de chunks pour document (%d caractères, file_type=%s, paginé=%s)",
+            "Extraction de chunks pour document (%d caractères, file_type=%s, paginé=%s, strategy=%s)",
             len(content),
             file_type,
             is_paginated,
+            strategy,
         )
 
         if strategy == cls.STRATEGY_MARKDOWN_AST:
@@ -86,26 +128,74 @@ class ChunkingService:
         return result
 
     @classmethod
+    def _clean_heading_text(cls, text: str) -> str:
+        """Nettoie un titre de heading : retire les spans HTML de page (Marker),
+        les résidus de balisage gras/italique et les liens."""
+        cleaned = cls._SPAN_PAGE_HEADING_RE.sub("", text)
+        cleaned = re.sub(r"(?<!\*)\*\*(?!\*)(.*?)\*\*(?!\*)", r"\1", cleaned)
+        cleaned = re.sub(r"(?<!\*)\*(?!\*)(.*?)\*(?!\*)", r"\1", cleaned)
+        cleaned = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", cleaned)
+        return cleaned.strip()
+
+    @classmethod
+    def _build_line_to_page_map(cls, content: str) -> dict[int, int | None]:
+        """Construit {numero_ligne: page} à partir des marqueurs de page du contenu."""
+        line_to_page: dict[int, int | None] = {}
+        lines = content.split("\n")
+        explicit_pages: list[int] = []
+        for m in cls._MARKER_PAGE_RE.finditer(content):
+            explicit_pages.append(int(m.group(1)))
+        offset = 1 if explicit_pages and min(explicit_pages) == 0 else 0
+
+        current_page: int | None = None
+        for i, line in enumerate(lines, start=1):
+            hit = cls._MARKER_PAGE_RE.search(line)
+            if hit:
+                current_page = int(hit.group(1)) + offset
+            line_to_page[i] = current_page
+        return line_to_page if any(p is not None for p in line_to_page.values()) else {}
+
+    @classmethod
+    def _assign_pages_to_sections(cls, sections: list[Any], line_to_page: dict[int, int | None]) -> list[int | None]:
+        """Attribue une page à chaque section à partir de sa ligne de début."""
+        pages: list[int | None] = []
+        for sec in sections:
+            start_line = getattr(sec, "start_line", None) or 1
+            page = None
+            for line_no in range(start_line, 0, -1):
+                if line_no in line_to_page and line_to_page[line_no] is not None:
+                    page = line_to_page[line_no]
+                    break
+            pages.append(page)
+        return pages
+
+    @classmethod
     def extract_chunks_markdown_ast(cls, content: str, max_tokens: int | None = None) -> list[dict[str, Any]]:
         """Découpe un document Markdown en utilisant l'analyseur structurel AST MarkdownStructurer.
 
         Garantit la préservation rigoureuse du fil d'Ariane (heading_path) pour chaque section,
         idéal pour le RAG vectoriel et la Forge documentaire.
+
+        Quand des marqueurs de page Marker ({N}---) sont présents, chaque section conserve
+        son numéro de page d'origine (utile pour la couverture des PDF paginés).
         """
         from ankiforge.services.markdown.structurer import MarkdownStructurer
 
         if not content or not content.strip():
             return []
 
+        line_to_page = cls._build_line_to_page_map(content)
         sections = MarkdownStructurer.extract_sections(content, max_tokens=max_tokens)
+        sec_pages = cls._assign_pages_to_sections(sections, line_to_page)
         chunks: list[dict[str, Any]] = []
         for idx, sec in enumerate(sections):
+            clean_path = " > ".join(cls._clean_heading_text(part) for part in sec.heading_path.split(" > "))
             chunks.append(
                 {
                     "index": idx,
                     "content": sec.content,
-                    "page_number": None,
-                    "heading_path": sec.heading_path,
+                    "page_number": sec_pages[idx],
+                    "heading_path": clean_path,
                     "start_time": None,
                     "end_time": None,
                     "content_hash": cls.hash_content(sec.content),
@@ -222,7 +312,7 @@ class ChunkingService:
 
                 has_substantive_text = any(line_item.strip() and not cls.HEADING_REGEX.match(line_item) for line_item in current_section_lines)
 
-                if has_substantive_text and level <= 3:
+                if has_substantive_text and level <= 6:
                     flush_section()
 
                 current_heading_stack = current_heading_stack[: level - 1]

@@ -209,7 +209,8 @@ class VectorManager:
                     visual_rag = VisualRAGService(llm_config=self.llm_config)
                     chunks = visual_rag.prepare_visual_chunks(document)
                 else:
-                    extracted = ChunkingService.extract_chunks(str(document.content or ""), file_type=str(document.file_type or ""))
+                    strategy = ChunkingService.preferred_strategy(str(document.file_type or ""))
+                    extracted = ChunkingService.extract_chunks(str(document.content or ""), file_type=str(document.file_type or ""), strategy=strategy)
                     from ankiforge.database.base import db
 
                     with db.atomic():
@@ -223,6 +224,9 @@ class VectorManager:
                                 content_hash=item["content_hash"],
                             )
                             chunks.append(c)
+                    from ankiforge.services.reindex_service import mark_document_version
+
+                    mark_document_version(document)
 
             if not chunks:
                 logger.warning("Aucun fragment à indexer pour le document %s", document.id)

@@ -201,6 +201,27 @@ def main() -> None:
     window = MainWindow(ai_manager, selected_profile)
     window.show()
 
+    # Re-indexation migratoire en arrière-plan des documents indexés avec une ancienne
+    # stratégie de structuration (nécessite chunk_strategy_version == 0 ou absent).
+    from ankiforge.services.reindex_service import get_stale_documents
+
+    stale_docs = get_stale_documents()
+    if stale_docs:
+        from ankiforge.services.workers.migration_reindex_worker import MigrationReindexWorker
+
+        reindex_worker = MigrationReindexWorker(stale_docs, parent=window)
+
+        def _on_reindex_finished(processed: int, errors: int) -> None:
+            logger.info(
+                "Re-indexation migratoire terminée : %d document(s) traité(s), %d erreur(s).",
+                processed,
+                errors,
+            )
+
+        reindex_worker.finished_processing.connect(_on_reindex_finished)
+        logger.info("Démarrage de la re-indexation migratoire de %d document(s)...", len(stale_docs))
+        reindex_worker.start()
+
     exit_code = app.exec()
     shutdown_logging()
     sys.exit(exit_code)

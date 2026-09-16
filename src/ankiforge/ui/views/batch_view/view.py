@@ -1195,7 +1195,7 @@ class BatchView(QWidget):
                 for chunk in persisted
             ]
         else:
-            raw_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md")
+            raw_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md", strategy=ChunkingService.preferred_strategy(doc.file_type))
 
         start_page = getattr(doc, "start_page", None)
         end_page = getattr(doc, "end_page", None)
@@ -1601,15 +1601,49 @@ class BatchView(QWidget):
             templates = json.loads(note_type.templates) if note_type.templates else []
             is_cloze = any("{{cloze:" in t.get("qfmt", "") or "{{cloze:" in t.get("afmt", "") for t in templates)
 
-            tags_list = build_document_tags(
-                doc_id=doc.id if doc else None,
-                doc_title=doc.title if doc else None,
-                extra_tags=["AnkiForge_Batch"],
-            )
+            from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+            def _build_note_tags(raw: dict[str, Any]) -> list[str]:
+                """Construit les tags de traçabilité fins pour une note de la file batch."""
+                common_tags = ["AnkiForge_Batch"]
+                if not doc:
+                    return build_document_tags(extra_tags=common_tags)
+                documentation_enabled = raw.get("_documentation_enabled", True)
+                if not documentation_enabled:
+                    return build_document_tags(doc_id=doc.id, doc_title=doc.title, extra_tags=common_tags)
+
+                chunk_id = raw.get("_source_chunk_id")
+                heading_path = raw.get("_source_heading_path")
+                page_number = raw.get("_source_page_number")
+                card_text = " ".join(str(v) for k, v in raw.items() if not str(k).startswith("_source_") and str(v).strip()).strip()
+                resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
+                    card_text=card_text,
+                    doc_id=doc.id,
+                    llm_section=str(heading_path) if heading_path else None,
+                    source_chunk_id=int(chunk_id) if isinstance(chunk_id, int) else (int(chunk_id) if str(chunk_id).isdigit() else None),
+                    page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
+                )
+                if resolved:
+                    return build_document_tags(
+                        doc_id=doc.id,
+                        doc_title=doc.title,
+                        page_number=resolved.page_number,
+                        section_name=resolved.heading_path,
+                        chunk_id=resolved.id,
+                        extra_tags=common_tags,
+                    )
+                return build_document_tags(
+                    doc_id=doc.id,
+                    doc_title=doc.title,
+                    page_number=int(page_number) if page_number is not None and str(page_number).isdigit() else None,
+                    section_name=str(heading_path) if heading_path else None,
+                    extra_tags=common_tags,
+                )
 
             created_cards_count = 0
             with db.atomic():
                 for raw_fields in notes_data:
+                    tags_list = _build_note_tags(raw_fields)
                     cleaned_fields = {key: value for key, value in raw_fields.items() if not key.startswith("_source_")}
                     note = NoteModel.create(
                         guid=str(uuid.uuid4())[:10],
@@ -1635,6 +1669,14 @@ class BatchView(QWidget):
                         for idx, _ in enumerate(templates):
                             CardModel.create(note=note, deck=deck, template_index=idx)
                             created_cards_count += 1
+
+            if created_cards_count and doc:
+                try:
+                    from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                    CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+                except Exception:
+                    pass
 
             self._log_formatted_line("SUCCESS", f"Enregistrement BDD : {len(notes_data)} note(s) ({created_cards_count} carte(s)) dans '{deck.name}'.")
         except Exception as e:

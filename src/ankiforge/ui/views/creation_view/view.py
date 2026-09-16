@@ -2408,18 +2408,43 @@ class CreationView(QWidget):
                             val = ""
                     fields[f_name] = str(val) if val is not None else ""
 
+                # Résolution des métadonnées de provenance (page, section, chunk)
                 card_page = card.get("page_number")
                 if card_page is None and len(scope_pages) == 1:
                     card_page = scope_pages[0]
-
                 card_section = card.get("section") or card.get("heading_path")
 
+                resolved_chunk_id = None
+                resolved_heading = None
+                resolved_page = None
+
+                documentation_enabled = card.get("_documentation_enabled", True)
+                if documentation_enabled and active_doc and active_doc.id:
+                    from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                    card_text = " ".join(str(v) for v in fields.values() if v).strip()
+                    source_chunk_id = card.get("_source_chunk_id") or getattr(self, "current_source_chunk_id", None)
+                    resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
+                        card_text=card_text,
+                        doc_id=active_doc.id,
+                        llm_section=str(card_section) if card_section else None,
+                        source_chunk_id=source_chunk_id if isinstance(source_chunk_id, int) else (int(source_chunk_id) if str(source_chunk_id).isdigit() else None),
+                        page_number=int(card_page) if card_page is not None and str(card_page).isdigit() else None,
+                    )
+                    if resolved:
+                        resolved_chunk_id = resolved.id
+                        resolved_heading = resolved.heading_path
+                        resolved_page = resolved.page_number
+
                 # Construction déterministe des tags
+                final_page = resolved_page if resolved_page is not None else (int(card_page) if card_page is not None and str(card_page).isdigit() else None)
+                final_section = resolved_heading or (str(card_section) if card_section else None)
                 tags = build_document_tags(
                     doc_id=active_doc.id if active_doc else None,
                     doc_title=active_doc.title if active_doc else getattr(self, "current_source_title", None),
-                    page_number=card_page if isinstance(card_page, int) else (int(card_page) if str(card_page).isdigit() else None),
-                    section_name=str(card_section) if card_section else None,
+                    page_number=final_page,
+                    section_name=final_section,
+                    chunk_id=resolved_chunk_id,
                 )
 
                 deck_obj = self.deck_repo.get_or_create_deck(name=deck_name)
@@ -2440,6 +2465,13 @@ class CreationView(QWidget):
                 saved_count += 1
 
             self._populate_results_table()
+            if saved_count and active_doc and active_doc.id:
+                try:
+                    from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+
+                    CoverageAlignmentService.sync_coverage_from_tags(doc_id=active_doc.id)
+                except Exception:
+                    pass
             show_toast(self, f"{saved_count} carte(s) enregistrée(s) dans la Forge !", is_error=False)
             self._check_completion()
 

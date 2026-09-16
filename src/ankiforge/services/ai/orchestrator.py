@@ -25,6 +25,36 @@ from ankiforge.services.plugins.event_bus import event_bus
 logger = logging.getLogger(__name__)
 
 
+CARD_SECTION_DOCUMENTATION_RULE = (
+    "RÈGLE D'ANCRAGE PAR SECTION : Pour chaque carte générée, localise dans le texte source le "
+    "titre Markdown le plus spécifique dont provient le contenu (ex. « Chapitre 1 > La cellule > "
+    "Noyau > Ribosomes »). Ajoute à l'objet JSON de la carte les clés suivantes, uniquement si "
+    "elles existent dans la source fournie :\n"
+    '- "section": "<fil d\'Ariane complet du titre le plus spécifique>"\n'
+    '- "page_number": <numéro de page si un marqueur de page (<!-- PAGE: N -->) est présent>\n'
+    "Interdiction stricte : n'invente aucun titre — réutilise uniquement des titres présents "
+    "textuellement dans la source. Si aucun titre ne correspond, omet la clé section."
+)
+
+
+def _source_context_metadata(state: PipelineRunState) -> dict[str, Any]:
+    """Extraite la métadonnée de provenance source (chunk, section, page) de l'état partagé."""
+    return {
+        "chunk_id": state.get_variable("source_chunk_id"),
+        "heading_path": state.get_variable("source_heading_path"),
+        "page_number": state.get_variable("source_page_number"),
+    }
+
+
+def _stamp_card_source_metadata(cards: list[dict[str, Any]], ctx: dict[str, Any], documentation: bool) -> None:
+    """Étiquette chaque carte générée avec la provenance source pour une traçabilité déterministe."""
+    for card in cards:
+        card.setdefault("_source_chunk_id", ctx["chunk_id"])
+        card.setdefault("_source_heading_path", ctx["heading_path"])
+        card.setdefault("_source_page_number", ctx["page_number"])
+        card.setdefault("_documentation_enabled", documentation)
+
+
 class PipelineWorkerSignals(QObject):
     """Signaux Qt émis par le Worker (Orchestrateur DAG) vers l'UI."""
 
@@ -339,6 +369,11 @@ class PipelineOrchestrator(QRunnable):
                 "Ne complète pas les données manquantes par hypothèse.\n\n" + rendered_sys
             )
 
+        # Documentation de la couverture (finesse section) : activable/désactivable par étape de pipeline
+        documentation_enabled = bool(cfg.get("declasser_sections_dans_tags", True))
+        if documentation_enabled and self.state.document_id is not None:
+            rendered_sys = CARD_SECTION_DOCUMENTATION_RULE + "\n\n" + rendered_sys
+
         # Préparation du prompt utilisateur à partir du contexte courant
         input_var = cfg.get("input_variable")
         if input_var:
@@ -413,6 +448,7 @@ class PipelineOrchestrator(QRunnable):
         # Si l'étape a généré des cartes, on les extrait dans generated_cards
         extracted_cards = extract_cards_from_data(parsed_output)
         if extracted_cards:
+            _stamp_card_source_metadata(extracted_cards, _source_context_metadata(self.state), documentation_enabled)
             self.state.set_variable("generated_cards", extracted_cards)
 
     def _execute_rag_retrieval(self, step: PipelineStepModel) -> None:
@@ -501,6 +537,15 @@ class PipelineOrchestrator(QRunnable):
         raw_system_prompt = step.persona.system_prompt if step.persona else "Analyser et traiter le contenu."
         output_format = getattr(step.persona, "output_format", "json") if step.persona else "json"
 
+        step_cfg: dict[str, Any] = {}
+        if step.config_data:
+            try:
+                step_cfg = json.loads(str(step.config_data))
+            except Exception:
+                step_cfg = {}
+        documentation_enabled = bool(step_cfg.get("declasser_sections_dans_tags", True))
+        source_ctx = _source_context_metadata(self.state)
+
         results: list[Any] = []
         completed_count = 0
 
@@ -514,6 +559,9 @@ class PipelineOrchestrator(QRunnable):
             rendered_sys = self._render_prompt_template(raw_system_prompt, extra_context={"item": item_content, "index": index})
             if self.state.get_variable("strict_source_grounding", False):
                 rendered_sys = "RÈGLE DE GROUNDING STRICTE : utilise exclusivement cet élément source. N'ajoute aucune information externe et omets toute carte non démontrable.\n\n" + rendered_sys
+
+            if documentation_enabled and self.state.document_id is not None:
+                rendered_sys = CARD_SECTION_DOCUMENTATION_RULE + "\n\n" + rendered_sys
 
             max_tokens_val = self.state.get_variable("max_tokens")
             step_max_tokens = int(max_tokens_val) if max_tokens_val else None
@@ -580,6 +628,7 @@ class PipelineOrchestrator(QRunnable):
 
         self.state.set_variable("map_reduce_results", results)
         if aggregated_cards:
+            _stamp_card_source_metadata(aggregated_cards, source_ctx, documentation_enabled)
             self.state.set_variable("generated_cards", aggregated_cards)
         self.state.set_variable("last_output", aggregated_cards if aggregated_cards else results)
 

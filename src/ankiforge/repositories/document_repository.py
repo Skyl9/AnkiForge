@@ -16,6 +16,7 @@ from ankiforge.database.models import (
     NoteModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.services.reindex_service import mark_document_version
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ class DocumentRepository(BaseRepository):
                     is_profiled=data.get("is_profiled", False),
                 )
                 created_chunks.append(chunk)
+        mark_document_version(doc)
         return created_chunks
 
     def delete_chunks_by_document(self, doc_id: int) -> int:

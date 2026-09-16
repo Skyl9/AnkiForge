@@ -280,7 +280,7 @@ class DocumentScopeDialog(QDialog):
                         }
                     )
             else:
-                raw_chunks = ChunkingService.extract_chunks(self.doc.content or "", file_type=self.doc.file_type or "md")
+                raw_chunks = ChunkingService.extract_chunks(self.doc.content or "", file_type=self.doc.file_type or "md", strategy=ChunkingService.preferred_strategy(self.doc.file_type))
                 for c in raw_chunks:
                     p_num = c.get("page_number")
                     if self.is_paginated and p_num is not None and (p_num < self._delimited_start_page or p_num > self._delimited_end_page):

@@ -294,3 +294,26 @@ def test_step_inspector_preview_button_triggers(qtbot):
 
     # Le formulaire LLM_PROMPT a été construit
     assert inspector.step_data is not None
+
+
+def test_add_step_includes_documentation_toggle_default(qtbot: Any) -> None:
+    """L'ajout d'une étape LLM_PROMPT active la documentation de section par défaut."""
+    p = PersonaModel.create(name="Agent Toggle", system_prompt="Agent", output_format="json")
+    PipelineModel.create(name="Pipeline Toggle")
+
+    view = PipelinesView()
+    qtbot.addWidget(view)
+    idx = view.pipeline_combo.findText("Pipeline Toggle")
+    if idx >= 0:
+        view.pipeline_combo.setCurrentIndex(idx)
+
+    view.add_step({"type": "LLM_PROMPT", "persona": p})
+
+    step = view.current_steps[0]
+    assert step["type"] == "LLM_PROMPT"
+    assert step["config"]["declasser_sections_dans_tags"] is True
+
+    # Désactivation explicite dans le payload → respectée
+    view.add_step({"type": "LLM_PROMPT", "persona": p, "config": {"declasser_sections_dans_tags": False}})
+    step_off = view.current_steps[1]
+    assert step_off["config"]["declasser_sections_dans_tags"] is False

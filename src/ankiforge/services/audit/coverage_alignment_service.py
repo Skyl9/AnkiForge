@@ -21,6 +21,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.repositories.document_repository import DocumentRepository
+from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.utils.paths import get_profile_dir
 from ankiforge.utils.tags import clean_source_slug, extract_tag_metadata
 
@@ -55,6 +56,15 @@ class CoverageAlignmentService:
             target_doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
             if not target_doc:
                 return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
+            from ankiforge.services.parsing.chunking_service import ChunkingService
+
+            if target_doc.chunk_strategy_version != ChunkingService.CHUNKING_VERSION:
+                logger.debug(
+                    "sync_coverage_from_tags : document %d est stale (v%s), synchronisation différée après re-indexation.",
+                    doc_id,
+                    target_doc.chunk_strategy_version,
+                )
+                return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
             docs_by_id = {target_doc.id: target_doc}
             docs_by_slug = {clean_source_slug(target_doc.title): target_doc}
         else:
@@ -63,6 +73,17 @@ class CoverageAlignmentService:
                 return {"matched_notes": 0, "newly_linked": 0, "covered_chunks": 0, "total_chunks": 0, "coverage_pct": 0.0}
             docs_by_id = {d.id: d for d in all_docs}
             docs_by_slug = {clean_source_slug(d.title): d for d in all_docs}
+
+        # Porte de sécurité : les documents stale (ancienne stratégie de structuration)
+        # sont exclus de la synchronisation pour éviter des appariements incorrects.
+        stale_doc_ids: set[int] = set()
+        from ankiforge.services.parsing.chunking_service import ChunkingService
+
+        for d in docs_by_id.values():
+            if d.chunk_strategy_version != ChunkingService.CHUNKING_VERSION:
+                stale_doc_ids.add(d.id)
+        if stale_doc_ids:
+            logger.debug("sync_coverage_from_tags : %d document(s) stale ignoré(s) (re-indexation requise).", len(stale_doc_ids))
 
         # Seules les notes portant des tags de traçabilité sont concernées : évite le scan O(N*M)
         all_notes = list(NoteModel.select().where((NoteModel.tags.contains("doc:")) | (NoteModel.tags.contains("source:"))))
@@ -83,19 +104,27 @@ class CoverageAlignmentService:
                 if not matched_doc:
                     continue
 
+                if matched_doc.id in stale_doc_ids:
+                    continue
+
                 target_chunk: DocumentChunkModel | None = None
                 page_num = meta["page_number"]
                 section_slug = meta["section_slug"]
+                chunk_id = meta["chunk_id"]
 
-                if page_num is not None and page_num > 0:
+                if chunk_id is not None and chunk_id > 0:
+                    target_chunk = (
+                        DocumentChunkModel.select()
+                        .where(
+                            DocumentChunkModel.id == chunk_id,
+                            DocumentChunkModel.document == matched_doc,
+                        )
+                        .first()
+                    )
+                elif page_num is not None and page_num > 0:
                     target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc, DocumentChunkModel.page_number == page_num).first()
                 elif section_slug:
-                    for c in DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc):
-                        if c.heading_path and clean_source_slug(c.heading_path) == section_slug:
-                            target_chunk = c
-                            break
-                else:
-                    target_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == matched_doc).order_by(DocumentChunkModel.chunk_index.asc()).first()
+                    target_chunk = cls._find_chunk_by_section_suffix(matched_doc.id, section_slug)
 
                 if target_chunk:
                     matched_notes += 1
@@ -264,6 +293,186 @@ class CoverageAlignmentService:
 
         return summary
 
+    @staticmethod
+    def _find_chunk_by_section_suffix(doc_id: int, section_slug: str) -> DocumentChunkModel | None:
+        """Retrouve le chunk dont le fil d'Ariane se termine par le slug de section fourni.
+
+        Le matching est tolérant : le slug peut correspondre au breadcrumb entier
+        ("chapitre_1_la_cellule_noyau") ou seulement à un titre feuille situé en fin
+        de fil ("noyau"). Si plusieurs chunks matchent (titre répété), on privilégie
+        le plus profond (granularité la plus fine).
+        """
+        if not section_slug:
+            return None
+        best: DocumentChunkModel | None = None
+        best_depth = 0
+        for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id):
+            if not c.heading_path:
+                continue
+            slug = clean_source_slug(c.heading_path)
+            parts = [p for p in c.heading_path.split(" > ") if p.strip()]
+            if (slug == section_slug or slug.endswith(f"_{section_slug}") or any(clean_source_slug(p) == section_slug for p in parts)) and len(parts) >= best_depth:
+                best = c
+                best_depth = len(parts)
+        return best
+
+    @classmethod
+    def resolve_finest_chunk_for_card(
+        cls,
+        card_text: str,
+        doc_id: int,
+        llm_section: str | None = None,
+        source_chunk_id: int | None = None,
+        page_number: int | None = None,
+    ) -> DocumentChunkModel | None:
+        """Résout le fragment le plus fin d'un document correspondant à une carte générée.
+
+        L'utilisateur fournit généralement une grande partie du document à l'IA
+        (chapitre, scope entier) ; cette méthode retrouve, pour chaque carte, la
+        sous-section précise (jusqu'au niveau H5/H6) dont le contenu provient.
+
+        Priorité de résolution :
+        1. source_chunk_id : fragment source connu (le scope fourni == un seul chunk) ;
+        2. llm_section : fil d'Ariane déclaré par l'IA (suffix-match tolérant) ;
+        3. page_number : fragment de la page correspondante ;
+        4. overlap lexical : meilleur fragment par mots communs pondérés (profondeur = tie-break).
+
+        Args:
+            card_text: Texte de la carte (recto + verso) à localiser.
+            doc_id: ID du document source.
+            llm_section: Section/fil d'Ariane éventuellement déclaré par l'IA.
+            source_chunk_id: ID du fragment source connu (le cas échéant).
+            page_number: Numéro de page déclaré (le cas échéant).
+
+        Returns:
+            DocumentChunkModel | None : le fragment le plus pertinent, ou None si aucun match.
+        """
+        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id))
+        if not chunks:
+            return None
+
+        if source_chunk_id is not None and source_chunk_id > 0:
+            exact = next((c for c in chunks if c.id == source_chunk_id), None)
+            if exact:
+                return exact
+
+        if llm_section and str(llm_section).strip():
+            by_section = cls._find_chunk_by_section_suffix(doc_id, clean_source_slug(str(llm_section)))
+            if by_section:
+                return by_section
+
+        if page_number is not None and page_number > 0:
+            by_page = next((c for c in chunks if c.page_number is not None and c.page_number == page_number), None)
+            if by_page:
+                return by_page
+
+        if not card_text or not card_text.strip():
+            return None
+
+        return cls._best_chunk_by_lexical_overlap(card_text, chunks)
+
+    @staticmethod
+    def _best_chunk_by_lexical_overlap(card_text: str, chunks: list[DocumentChunkModel]) -> DocumentChunkModel | None:
+        """Sélectionne le fragment le plus proche lexicalement d'un texte de carte.
+
+        Score = somme sur les tokens du texte de la carte du nombre d'occurrences
+        dans le fragment, pondéré par la rareté globale (idf). Les tokens courts et
+        les mots vides sont ignorés. En cas d'égalité, on privilégie le fragment le
+        plus profond (granularité la plus fine).
+        """
+        import math
+        import re
+
+        if not chunks:
+            return None
+
+        stopwords = {
+            "le",
+            "la",
+            "les",
+            "un",
+            "une",
+            "des",
+            "du",
+            "de",
+            "et",
+            "ou",
+            "mais",
+            "donc",
+            "or",
+            "ni",
+            "car",
+            "est",
+            "sont",
+            "qui",
+            "que",
+            "dans",
+            "pour",
+            "sur",
+            "avec",
+            "ce",
+            "cette",
+            "ces",
+            "au",
+            "aux",
+            "à",
+            "l",
+            "d",
+            "n",
+            "en",
+            "se",
+            "sa",
+            "son",
+            "ses",
+            "par",
+            "plus",
+            "pas",
+            "ne",
+            "the",
+            "a",
+            "an",
+            "of",
+            "to",
+            "in",
+            "on",
+            "with",
+            "for",
+            "and",
+            "is",
+            "are",
+        }
+        tokens = [t.lower() for t in re.findall(r"\b\w{3,}\b", card_text) if t.lower() not in stopwords]
+        if not tokens:
+            return None
+
+        doc_freq: dict[str, int] = {}
+        chunk_token_sets: list[set[str]] = []
+        for c in chunks:
+            c_tokens = {t.lower() for t in re.findall(r"\b\w{3,}\b", c.content or "")}
+            chunk_token_sets.append(c_tokens)
+            for t in c_tokens:
+                doc_freq[t] = doc_freq.get(t, 0) + 1
+
+        n_docs = max(1, len(chunks))
+        idf = {t: math.log(1.0 + n_docs / (1.0 + df)) for t, df in doc_freq.items()}
+
+        best: DocumentChunkModel | None = None
+        best_score = 0.0
+        best_depth = -1
+        for idx, c in enumerate(chunks):
+            score = 0.0
+            for t in tokens:
+                if t in chunk_token_sets[idx]:
+                    score += idf.get(t, 1.0)
+            if score <= 0:
+                continue
+            depth = len([p for p in (c.heading_path or "").split(" > ") if p.strip()])
+            if score > best_score or (score == best_score and depth > best_depth):
+                best = c
+                best_score = score
+                best_depth = depth
+        return best
+
     @classmethod
     def find_matching_chunk_for_note(cls, note_id: int, min_overlap: int = 2) -> DocumentChunkModel | None:
         """Trouve le fragment de document le plus pertinent pour une note donnée via sa traçabilité par tags."""
@@ -288,6 +497,17 @@ class CoverageAlignmentService:
                         break
 
             if doc_target:
+                if meta["chunk_id"] is not None:
+                    chunk = (
+                        DocumentChunkModel.select()
+                        .where(
+                            DocumentChunkModel.id == meta["chunk_id"],
+                            DocumentChunkModel.document == doc_target,
+                        )
+                        .first()
+                    )
+                    if chunk:
+                        return chunk
                 if meta["page_number"] is not None:
                     chunk = (
                         DocumentChunkModel.select()
@@ -300,12 +520,9 @@ class CoverageAlignmentService:
                     if chunk:
                         return chunk
                 if meta["section_slug"]:
-                    for c in DocumentChunkModel.select().where(DocumentChunkModel.document == doc_target):
-                        if c.heading_path and clean_source_slug(c.heading_path) == meta["section_slug"]:
-                            return c
-                first_chunk = DocumentChunkModel.select().where(DocumentChunkModel.document == doc_target).order_by(DocumentChunkModel.chunk_index.asc()).first()
-                if first_chunk:
-                    return first_chunk
+                    chunk = cls._find_chunk_by_section_suffix(doc_target.id, meta["section_slug"])
+                    if chunk:
+                        return chunk
 
         return None
 
@@ -402,6 +619,8 @@ class CoverageAlignmentService:
                     start_time=r_dict.get("start_time"),
                     end_time=r_dict.get("end_time"),
                 )
+
+        mark_document_version(new_doc)
 
         logger.info(
             "Document '%s' et %d chunks copiés avec succès de '%s' vers '%s'.",

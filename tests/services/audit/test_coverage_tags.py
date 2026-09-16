@@ -20,6 +20,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.utils.tags import (
     build_document_tags,
     clean_source_slug,
@@ -205,3 +206,94 @@ def test_sync_coverage_from_tags_continuous() -> None:
     assert stats["total_units"] == 2
     assert stats["covered_units"] == 1
     assert stats["coverage_pct"] == 50.0
+
+
+def test_build_and_parse_chunk_tag():
+    """Le tag chunk:<id> est généré puis ré-extrai par extract_tag_metadata."""
+    tags = build_document_tags(doc_id=7, section_name="Noyau > Ribosomes", chunk_id=123, extra_tags=["forge"])
+    assert "chunk:123" in tags
+    assert "section:noyau_ribosomes" in tags
+
+    meta = extract_tag_metadata(tags)
+    assert meta["chunk_id"] == 123
+    assert meta["doc_id"] == 7
+    assert meta["section_slug"] == "noyau_ribosomes"
+
+    # chunk_id ignoré si invalide (négatif / non numérique)
+    assert extract_tag_metadata(["chunk:-5"])["chunk_id"] is None
+    assert extract_tag_metadata(["chunk:abc"])["chunk_id"] is None
+
+    # chunk_id absent par défaut
+    assert extract_tag_metadata([f"doc:{9}"])["chunk_id"] is None
+
+
+def test_extract_tag_metadata_chunk_priority_order() -> None:
+    """chunk_id est bien exposé à côté de page et section pour une résolution hiérarchique."""
+    meta = extract_tag_metadata(["doc:5", "chunk:88", "page:3", "section:foo"])
+    assert meta["chunk_id"] == 88
+    assert meta["page_number"] == 3
+    assert meta["section_slug"] == "foo"
+    assert meta["doc_id"] == 5
+
+
+def test_sync_coverage_from_tags_chunk_tag_takes_precedence() -> None:
+    """Avec chunk:<id>, la synchro lie directement le fragment sans ambiguïté."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Priorité {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Partie 1",
+        content="Contenu partie 1",
+    )
+    c2 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Partie 1 > Sous-sujet",
+        content="Contenu sous-sujet",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model {uid}")
+    deck = DeckModel.create(name=f"Deck {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps([f"doc:{doc.id}", f"chunk:{c2.id}"]))
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    res = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+    assert res["matched_notes"] == 1
+
+    link = NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note)
+    assert link is not None
+    assert link.chunk_id == c2.id
+
+
+def test_sync_coverage_from_tags_defers_stale_document() -> None:
+    """Un document stale (ancienne stratégie de structuration) n'est pas synchronisé."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Stale {uid}", content="Contenu", file_type="md")
+    doc.chunk_strategy_version = 0  # stratégie v1 (pré-033)
+    doc.save()
+
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Partie 1",
+        content="Contenu partie 1",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Stale {uid}")
+    deck = DeckModel.create(name=f"Deck Stale {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps([f"doc:{doc.id}", "section:partie_1"]))
+    CardModel.create(note=note, deck=deck, template_index=0)
+
+    res = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+
+    # Le rapport est vide : la synchronisation est différée après re-indexation
+    assert res["matched_notes"] == 0
+    assert NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note) is None
+
+    # Après re-indexation (marquage version courante), la synchro fonctionne
+    doc.chunk_strategy_version = ChunkingService.CHUNKING_VERSION
+    doc.save()
+    res2 = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
+    assert res2["matched_notes"] == 1
+    assert NoteChunkLinkModel.get_or_none(NoteChunkLinkModel.note == note) is not None

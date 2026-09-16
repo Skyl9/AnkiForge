@@ -25,6 +25,7 @@ from ankiforge.ui.components import (
     Badge,
     FlowWidget,
     ModelSelectorWidget,
+    OptionToggleRow,
     SecondaryButton,
     StyledComboBox,
     StyledLineEdit,
@@ -632,6 +633,15 @@ class StepInspectorPanel(QFrame):
             vars_row.addLayout(col_fmt, 1)
 
             layout_params.addLayout(vars_row)
+
+            row_doc = OptionToggleRow(
+                "Tagguer les cartes avec leur section source",
+                icon_name="ph.tags",
+                checked=bool(cfg.get("declasser_sections_dans_tags", True)),
+            )
+            row_doc.setToolTip("Active la documentation de couverture : l'IA localise et renseigne la section (H1→H6) d'origine de chaque carte ; désactiver coupe le suivi documentaire.")
+            row_doc.toggled.connect(lambda chk: self._on_config_changed("declasser_sections_dans_tags", chk))
+            layout_params.addWidget(row_doc)
 
             row_prompt_header = QHBoxLayout()
             lbl_prompt = QLabel("Surcharge Prompt Système / Template Jinja2 :")

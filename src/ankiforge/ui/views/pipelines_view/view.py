@@ -427,6 +427,7 @@ class PipelinesView(QWidget):
             "config": {
                 "input_variable": meta.get("default_input", "text_source"),
                 "output_variable": meta.get("default_output", "generated_cards"),
+                "declasser_sections_dans_tags": True,
             },
         }
         if "config" in step_payload:

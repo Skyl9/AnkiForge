@@ -176,7 +176,7 @@ class BatchWorker(QThread):
                 fields_str = ", ".join(f'"{f}"' for f in task.note_type_fields)
                 first_f = task.note_type_fields[0] if task.note_type_fields else "Front"
                 second_f = task.note_type_fields[1] if len(task.note_type_fields) > 1 else "Back"
-                source_chunks = task.source_chunks if task.process_full_document and task.source_chunks else [{"content": task.doc_content, "index": 0}]
+                source_chunks = task.source_chunks if task.source_chunks else [{"content": task.doc_content, "index": 0}]
                 prepared_notes: list[dict[str, Any]] = []
 
                 for chunk_index, chunk in enumerate(source_chunks):
@@ -244,6 +244,9 @@ class BatchWorker(QThread):
                         for note in self._normalize_notes(extracted_cards, task.note_type_fields):
                             note["_source_chunk_id"] = chunk.get("id")
                             note["_source_chunk_hash"] = chunk.get("content_hash")
+                            note["_source_heading_path"] = chunk.get("heading_path")
+                            note["_source_page_number"] = chunk.get("page_number")
+                            note["_documentation_enabled"] = True
                             prepared_notes.append(note)
                     except Exception as chunk_error:
                         task_errors += 1
@@ -358,6 +361,13 @@ class BatchWorker(QThread):
                     raise RuntimeError("; ".join(state.errors))
                 raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
                 task.cards = self._deduplicate_notes(self._normalize_notes(extract_cards_from_data(raw_cards), list(config.note_type_fields)), list(config.note_type_fields))
+                scope_heading_path = ", ".join(filter(None, (block.heading_path for block in getattr(task.scope, "blocks", []))))
+                scope_page = next((int(b.page_number) for b in getattr(task.scope, "blocks", []) if b.page_number is not None), None)
+                for card in task.cards:
+                    card.setdefault("_source_heading_path", scope_heading_path)
+                    card.setdefault("_source_page_number", scope_page)
+                    card.setdefault("_source_chunk_id", None)
+                    card.setdefault("_documentation_enabled", True)
                 task.status = BatchTaskStatus.REVIEW
                 success_count += 1
                 total_cards += len(task.cards)

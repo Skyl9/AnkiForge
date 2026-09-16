@@ -22,7 +22,22 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class CardEditDialog(QDialog):
     """Dialogue d'édition dynamique d'une carte générée supportant tous ses champs."""
 
-    METADATA_KEYS: set[str] = {"model", "note_type", "status", "chunk_id", "source_doc_id", "tags"}
+    METADATA_KEYS: set[str] = {
+        "model",
+        "note_type",
+        "status",
+        "chunk_id",
+        "source_doc_id",
+        "tags",
+        "section",
+        "heading_path",
+        "page_number",
+        "_source_chunk_id",
+        "_source_heading_path",
+        "_source_page_number",
+        "_source_chunk_hash",
+        "_documentation_enabled",
+    }
 
     def __init__(
         self,

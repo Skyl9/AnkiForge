@@ -193,6 +193,13 @@ def run_migrations() -> None:
                 router.model.create(name="025_document_chunk_pages_and_headings")
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 025_document_chunk_pages_and_headings.")
 
+        # Si chunk_strategy_version existe déjà, la migration 033 est déjà appliquée
+        if "033_chunk_strategy_version" not in done_migrations and db.table_exists("documentmodel"):
+            doc_cols = [col.name for col in db.get_columns("documentmodel")]
+            if "chunk_strategy_version" in doc_cols:
+                router.model.create(name="033_chunk_strategy_version")
+                logger.info("Base legacy détectée : enregistrement rétroactif de la migration 033_chunk_strategy_version.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:
@@ -219,6 +226,16 @@ def run_migrations() -> None:
                     logger.info("Colonne 'llm_config_id' ajoutée post-migration à la table 'personas'.")
                 except Exception as e:
                     logger.debug("Remarque sur l'ajout post-migration de llm_config_id sur personas : %s", e)
+
+        # Vérification post-migration : auto-guérison de la table documentmodel
+        if db.table_exists("documentmodel"):
+            doc_cols = [col.name for col in db.get_columns("documentmodel")]
+            if "chunk_strategy_version" not in doc_cols:
+                try:
+                    db.execute_sql("ALTER TABLE documentmodel ADD COLUMN chunk_strategy_version INTEGER DEFAULT 0;")
+                    logger.info("Colonne 'chunk_strategy_version' ajoutée post-migration à la table 'documentmodel'.")
+                except Exception as e:
+                    logger.debug("Remarque sur l'ajout post-migration de chunk_strategy_version sur documentmodel : %s", e)
 
         # Vérification post-migration : auto-guérison de la table document_chunks
         if db.table_exists("document_chunks"):

@@ -17,7 +17,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
-from ankiforge.utils.tags import build_document_tags
+from ankiforge.utils.tags import build_document_tags, clean_source_slug
 
 
 def _make_note_with_tags(nt: NoteTypeModel, tags: list[str]) -> NoteModel:
@@ -208,6 +208,139 @@ def test_find_matching_chunk_for_note_without_tags_returns_none():
 
     matched_chunk = CoverageAlignmentService.find_matching_chunk_for_note(note.id)
     assert matched_chunk is None
+
+
+def test_resolve_finest_chunk_prefers_source_chunk_id():
+    """source_chunk_id (provenance exacte) est prioritaire dans la résolution fine."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Source {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Chapitre 1 > Intro",
+        content="Introduction générale.",
+        content_hash=f"h1_{uid}",
+    )
+    c2 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Chapitre 1 > Définition",
+        content="Définition précise d'un concept.",
+        content_hash=f"h2_{uid}",
+    )
+
+    resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
+        card_text="Définition précise d'un concept.",
+        doc_id=doc.id,
+        llm_section="Chapitre 1 > Intro",
+        source_chunk_id=c2.id,
+        page_number=None,
+    )
+    assert resolved is not None
+    assert resolved.id == c2.id
+
+
+def test_find_chunk_by_section_suffix_tolerant_leaf():
+    """Le suffix-match tolère une section annoncée en titre feuille ou en breadcrumb complet."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Suffix {uid}", file_type="md")
+    c1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Chapitre 1 > La cellule > Noyau > Ribosomes",
+        content="Les ribosomes synthétisent les protéines.",
+        content_hash=f"hs_{uid}",
+    )
+
+    # Titre feuille seul
+    assert CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, "ribosomes").id == c1.id
+    # Breadcrumb complet (sluggé)
+    assert CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, clean_source_slug("Chapitre 1 > La cellule > Noyau > Ribosomes")).id == c1.id
+    # Niveau intermédiaire sans ambiguïté
+    assert CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, clean_source_slug("La cellule > Noyau > Ribosomes")).id == c1.id
+    # Slug propre attendu
+    assert CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, clean_source_slug("Ribosomes")).id == c1.id
+    # Inconnu -> None
+    assert CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, "inexistant") is None
+    assert CoverageAlignmentService._find_chunk_by_section_suffix(doc.id, "") is None
+
+
+def test_resolve_finest_chunk_page_and_lexical_overlap():
+    """page_number puis overlap lexical résolvent la section fine par défaut."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Resolve {uid}", file_type="md")
+    c_page = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=4,
+        content="Contenu de la page quatre.",
+        content_hash=f"hp_{uid}",
+    )
+    c_deep = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Recherche > Approfondissement > Comparaison",
+        content="Mitochondrie chloroplastes et comparaison des deux organites.",
+        content_hash=f"hd_{uid}",
+    )
+
+    # Résolution par numéro de page
+    by_page = CoverageAlignmentService.resolve_finest_chunk_for_card(
+        card_text="Contenu de la page quatre.",
+        doc_id=doc.id,
+        llm_section=None,
+        source_chunk_id=None,
+        page_number=4,
+    )
+    assert by_page is not None
+    assert by_page.id == c_page.id
+
+    # Résolution par overlap lexical fin (chunk profond)
+    by_overlap = CoverageAlignmentService.resolve_finest_chunk_for_card(
+        card_text="Mitochondrie et chloroplastes, comparaison des organites.",
+        doc_id=doc.id,
+    )
+    assert by_overlap is not None
+    assert by_overlap.id == c_deep.id
+
+    # Aucune correspondance paramétrique ni lexicale -> None
+    unmatched = CoverageAlignmentService.resolve_finest_chunk_for_card(
+        card_text="Sujet totalement hors sujet sans liens de vocabulaire.",
+        doc_id=doc.id,
+        page_number=99,
+    )
+    assert unmatched is None
+
+    # Document sans chunks -> None
+    empty_doc = DocumentModel.create(title=f"Cours Vide {uid}", file_type="md")
+    assert CoverageAlignmentService.resolve_finest_chunk_for_card("n'importe quoi", empty_doc.id) is None
+
+
+def test_resolve_finest_chunk_deepest_on_tie():
+    """À égalité lexicale, le fragment le plus profond (granularité fine) est retenu."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Cours Profondeur {uid}", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Thème",
+        content="Concepts clés communs partagés.",
+        content_hash=f"ht1_{uid}",
+    )
+    c_deep = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Thème > Sous-thème > Précision",
+        content="Concepts clés communs partagés.",
+        content_hash=f"ht2_{uid}",
+    )
+
+    resolved = CoverageAlignmentService.resolve_finest_chunk_for_card(
+        card_text="Concepts clés communs partagés.",
+        doc_id=doc.id,
+    )
+    assert resolved is not None
+    assert resolved.id == c_deep.id
 
 
 def test_align_document_publishes_coverage_synced_event():

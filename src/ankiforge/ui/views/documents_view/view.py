@@ -39,6 +39,7 @@ from ankiforge.services.markdown import FormatOptions, MarkdownFormatter, Markdo
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
 from ankiforge.services.parsing.marker_service import MarkerService
+from ankiforge.services.reindex_service import mark_document_version
 from ankiforge.services.workers.coverage_worker import CoverageWorker
 from ankiforge.services.workers.document_worker import DocumentWorker
 from ankiforge.ui.components import (
@@ -1274,7 +1275,7 @@ class DocumentsView(QWidget):
                     source_url=source_url,
                 )
 
-            extracted_chunks = ChunkingService.extract_chunks(content, file_type=file_type)
+            extracted_chunks = ChunkingService.extract_chunks(content, file_type=file_type, strategy=ChunkingService.preferred_strategy(file_type))
             with DocumentChunkModel._meta.database.atomic():
                 DocumentChunkModel.delete().where(DocumentChunkModel.document == doc).execute()
                 for idx, chunk_data in enumerate(extracted_chunks):
@@ -1288,6 +1289,7 @@ class DocumentsView(QWidget):
                         end_time=chunk_data.get("end_time"),
                         content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                     )
+            mark_document_version(doc)
 
             self.refresh_data()
             self._current_doc_id = doc.id
@@ -1497,7 +1499,7 @@ class DocumentsView(QWidget):
                 doc.save()
 
                 if getattr(doc, "file_type", "") != "album" and not DocumentPageModel.select().where(DocumentPageModel.document == doc).exists():
-                    extracted = ChunkingService.extract_chunks(content, file_type=doc.file_type)
+                    extracted = ChunkingService.extract_chunks(content, file_type=doc.file_type, strategy=ChunkingService.preferred_strategy(doc.file_type))
                     if extracted:
                         start_p = getattr(doc, "start_page", None)
                         end_p = getattr(doc, "end_page", None)
@@ -1539,6 +1541,7 @@ class DocumentsView(QWidget):
                                     end_time=chunk_data.get("end_time"),
                                     content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                                 )
+                        mark_document_version(doc)
                         from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
                         CoverageAlignmentService.sync_coverage_from_tags(doc.id)
@@ -1575,9 +1578,10 @@ class DocumentsView(QWidget):
                                 heading_path=f"Page {p.page_number}",
                                 content_hash=ChunkingService.hash_content(p.ocr_text or f"Page {p.page_number}"),
                             )
+                    mark_document_version(doc)
                     chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
                 elif doc.content and doc.content.strip():
-                    extracted = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type)
+                    extracted = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type, strategy=ChunkingService.preferred_strategy(doc.file_type))
                     if extracted:
                         with DocumentChunkModel._meta.database.atomic():
                             for chunk_data in extracted:
@@ -1591,6 +1595,7 @@ class DocumentsView(QWidget):
                                     end_time=chunk_data.get("end_time"),
                                     content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
                                 )
+                        mark_document_version(doc)
                         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
 
         if not chunks:

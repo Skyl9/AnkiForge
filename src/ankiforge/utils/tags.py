@@ -101,6 +101,7 @@ def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
     - `source:<slug>` -> source_slug (str)
     - `page:<num>` -> page_number (int)
     - `section:<slug>` -> section_slug (str)
+    - `chunk:<id>` -> chunk_id (int, résolution la plus fine)
 
     Args:
         tags: Tags bruts ou liste de tags.
@@ -111,6 +112,7 @@ def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
         - source_slug: str | None
         - page_number: int | None
         - section_slug: str | None
+        - chunk_id: int | None
     """
     parsed = parse_note_tags(tags)
     metadata: dict[str, Any] = {
@@ -118,6 +120,7 @@ def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
         "source_slug": None,
         "page_number": None,
         "section_slug": None,
+        "chunk_id": None,
     }
 
     for tag in parsed:
@@ -126,6 +129,10 @@ def extract_tag_metadata(tags: str | list[str] | None) -> dict[str, Any]:
             val_str = tag[4:].strip()
             if val_str.isdigit():
                 metadata["doc_id"] = int(val_str)
+        elif tag_lower.startswith("chunk:"):
+            val_str = tag[6:].strip()
+            if val_str.isdigit():
+                metadata["chunk_id"] = int(val_str)
         elif tag_lower.startswith("source:"):
             metadata["source_slug"] = tag[7:].strip().lower()
         elif tag_lower.startswith("page:"):
@@ -143,6 +150,7 @@ def build_document_tags(
     doc_title: str | None = None,
     page_number: int | None = None,
     section_name: str | None = None,
+    chunk_id: int | None = None,
     extra_tags: list[str] | None = None,
 ) -> list[str]:
     """
@@ -153,6 +161,7 @@ def build_document_tags(
         doc_title: Titre du document.
         page_number: Numéro de la page ou diapositive (pour documents paginés).
         section_name: Nom ou slug de la section (pour documents continus).
+        chunk_id: ID du fragment de document (DocumentChunkModel) le plus fin correspondant.
         extra_tags: Tags additionnels optionnels.
 
     Returns:
@@ -175,6 +184,9 @@ def build_document_tags(
         slug = clean_source_slug(section_name)
         if slug:
             tags.append(f"section:{slug}")
+
+    if chunk_id is not None and chunk_id > 0:
+        tags.append(f"chunk:{chunk_id}")
 
     if extra_tags:
         for t in extra_tags:

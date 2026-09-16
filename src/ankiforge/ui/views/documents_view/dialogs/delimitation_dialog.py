@@ -1057,7 +1057,7 @@ class DocumentDelimitationDialog(QDialog):
             ]
             self._max_page = max([int(p.page_number) for p in pages_query], default=int(doc.total_pages or 1))
         else:
-            self._all_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md")
+            self._all_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md", strategy=ChunkingService.preferred_strategy(doc.file_type))
             if not self._all_chunks and getattr(doc, "id", None):
                 existing_recs = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
                 self._all_chunks = [
@@ -2858,6 +2858,10 @@ class DocumentDelimitationDialog(QDialog):
             chunks_to_delete = [c.id for c in existing_chunks if c.id not in matched_chunk_ids]
             if chunks_to_delete:
                 DocumentChunkModel.delete().where(DocumentChunkModel.id.in_(chunks_to_delete)).execute()
+
+        from ankiforge.services.reindex_service import mark_document_version
+
+        mark_document_version(self.doc)
 
         # 3. Réindexation RAG si demandée
         if self.chk_revectorize.isChecked():

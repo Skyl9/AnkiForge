@@ -482,8 +482,10 @@ def test_batch_view_full_execution_persists_notes_in_db(qtbot: Any, monkeypatch:
     assert view.queue_tasks_data[0]["cards_count"] == 1
     assert view.queue_tasks_data[1]["cards_count"] == 1
 
-    # Plus aucun lien de chunks RAG créé à la forge
+    # Les liens notes→chunks sont créés par la sauvegarde batch (traçabilité documentaire)
     links = list(NoteChunkLinkModel.select().where(NoteChunkLinkModel.chunk.in_([c1, c2])))
-    assert len(links) == 0
+    assert len(links) == 2
+    linked_chunks = sorted([link.chunk_id for link in links])
+    assert linked_chunks == sorted([c1.id, c2.id])
     cards = list(CardModel.select().where(CardModel.deck == deck))
     assert len(cards) == 2

@@ -1,5 +1,4 @@
 import datetime
-import logging
 from typing import Any
 
 from peewee import (
@@ -14,8 +13,7 @@ from peewee import (
 
 from ankiforge.database.base import BaseModel
 from ankiforge.database.models.cards import MediaModel, NoteModel
-
-logger = logging.getLogger(__name__)
+from ankiforge.services.parsing.chunking_service import ChunkingService
 
 
 class FolderModel(BaseModel):
@@ -39,6 +37,7 @@ class DocumentModel(BaseModel):
     start_page = IntegerField(null=True)
     end_page = IntegerField(null=True)
     excluded_headings = TextField(null=True)
+    chunk_strategy_version = IntegerField(default=ChunkingService.CHUNKING_VERSION)
 
 
 class DocumentPageModel(BaseModel):
