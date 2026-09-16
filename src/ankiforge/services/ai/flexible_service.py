@@ -9,10 +9,32 @@ from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, 
 
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
-from ankiforge.services.ai.gemini_service import GeminiService
+from ankiforge.services.ai.retry import is_retryable_status, with_retry
 from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_OLLAMA_URL = "http://localhost:11434"
+_DEFAULT_TIMEOUT_SECONDS = 30.0
+_DEFAULT_MAX_RETRIES = 2
+
+
+def _ollama_base_url() -> str:
+    """Retourne l'URL locale d'Ollama configurée (validée anti-SSRF, repli sur localhost)."""
+    from ankiforge.services.ai.model_catalog import _is_loopback_url
+
+    url = _DEFAULT_OLLAMA_URL
+    try:
+        from ankiforge.services.settings_service import SettingsService
+
+        configured = str(SettingsService.get("ollama/url", _DEFAULT_OLLAMA_URL) or _DEFAULT_OLLAMA_URL).rstrip("/")
+        if configured and _is_loopback_url(configured):
+            url = configured
+        elif configured:
+            logger.warning("URL Ollama non locale refusée (anti-SSRF) : %s. Repli sur %s.", configured, _DEFAULT_OLLAMA_URL)
+    except Exception as e:
+        logger.debug("Lecture du réglage ollama/url impossible, repli sur %s : %s", _DEFAULT_OLLAMA_URL, e)
+    return url
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -23,7 +45,15 @@ class OpenAICompatibleProvider(LLMProvider):
     exposant un endpoint compatible ChatCompletion.
     """
 
-    def __init__(self, base_url: str, model_name: str, api_key: str | None = "dummy_key", max_tokens: int = 16384):
+    def __init__(
+        self,
+        base_url: str,
+        model_name: str,
+        api_key: str | None = "dummy_key",
+        max_tokens: int = 16384,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = _DEFAULT_MAX_RETRIES,
+    ):
         """
         Initialise le client OpenAI avec l'URL de base et le modèle cible.
 
@@ -32,10 +62,26 @@ class OpenAICompatibleProvider(LLMProvider):
             model_name (str): Nom du modèle à invoquer (ex: 'llama3').
             api_key (str | None): Clé API nécessaire. Par défaut "dummy_key".
             max_tokens (int): Nombre maximal de tokens de réponse.
+            timeout (float): Délai maximal (secondes) par requête réseau.
+            max_retries (int): Nombre de tentatives automatiques du SDK OpenAI.
         """
-        self.client = OpenAI(base_url=base_url, api_key=api_key)
+        self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=max_retries)
         self.model_name = model_name
         self.max_tokens = max_tokens
+
+    @property
+    def provider_name(self) -> str:
+        """Déduit le nom du fournisseur à partir de l'URL de base du client."""
+        base = str(getattr(self.client, "base_url", "") or "")
+        if "groq" in base:
+            return "groq"
+        if "openrouter" in base:
+            return "openrouter"
+        if "anthropic" in base:
+            return "anthropic"
+        if "localhost" in base or "127.0.0.1" in base:
+            return "ollama"
+        return "openai"
 
     def generate(
         self,
@@ -90,14 +136,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 p_tokens = response.usage.prompt_tokens or 0
                 c_tokens = response.usage.completion_tokens or 0
 
-                # Petite astuce pour retrouver le nom du provider
-                provider_name = "openai"
-                if "groq" in str(self.client.base_url):
-                    provider_name = "groq"
-                elif "localhost" in str(self.client.base_url):
-                    provider_name = "ollama"
-
-                log_token_usage(provider_name, self.model_name, p_tokens, c_tokens)
+                log_token_usage(self.provider_name, self.model_name, p_tokens, c_tokens)
 
             content = response.choices[0].message.content or ""
             return content
@@ -114,13 +153,13 @@ class OllamaProvider(OpenAICompatibleProvider):
 
     def __init__(self, model_name: str = "llama3", max_tokens: int = 16384):
         """
-        Initialise le service Ollama sur l'URL locale par défaut.
+        Initialise le service Ollama sur l'URL locale configurée (repli localhost).
 
         Args:
             model_name (str): Nom du modèle local à utiliser.
             max_tokens (int): Nombre maximal de tokens de réponse.
         """
-        super().__init__(base_url="http://localhost:11434/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens)
+        super().__init__(base_url=f"{_ollama_base_url()}/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens)
 
     @staticmethod
     def get_available_models() -> list[str]:
@@ -132,7 +171,7 @@ class OllamaProvider(OpenAICompatibleProvider):
         """
         try:
             # Appel à l'API locale d'Ollama (timeout court pour ne pas bloquer l'UI si Ollama est éteint)
-            response = requests.get("http://localhost:11434/api/tags", timeout=2)
+            response = requests.get(f"{_ollama_base_url()}/api/tags", timeout=2)
             if response.status_code == 200:
                 data = response.json()
                 return [model.get("name") for model in data.get("models", [])]
@@ -262,9 +301,27 @@ class AnthropicProvider(LLMProvider):
 
         payload["max_tokens"] = effective_max
 
+        def _post_message() -> requests.Response:
+            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=60)
+            if is_retryable_status(resp.status_code):
+                raise requests.HTTPError(f"HTTP {resp.status_code}", response=resp)
+            resp.raise_for_status()
+            return resp
+
+        def _should_retry(exc: BaseException) -> bool:
+            if isinstance(exc, requests.Timeout | requests.ConnectionError):
+                return True
+            if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                return is_retryable_status(exc.response.status_code)
+            return False
+
         try:
-            response = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=60)
-            response.raise_for_status()
+            response = with_retry(
+                _post_message,
+                max_attempts=3,
+                should_retry=_should_retry,
+                description=f"Anthropic {self.model_name}",
+            )
             data = response.json()
 
             # Enregistrement des tokens consommés
@@ -357,6 +414,8 @@ class AIManager:
                 if not key:
                     logger.warning("Clé API Gemini absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
+                from ankiforge.services.ai.gemini_service import GeminiService
+
                 return GeminiService(api_key=key, model_name=model_id, max_tokens=max_tokens)
             elif p_name == "groq":
                 if not key and not os.environ.get("GROQ_API_KEY"):

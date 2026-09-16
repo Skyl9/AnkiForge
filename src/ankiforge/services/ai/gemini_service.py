@@ -6,10 +6,24 @@ from google import genai
 from google.genai import types
 
 from ankiforge.services.ai.base import LLMProvider
+from ankiforge.services.ai.retry import RETRYABLE_STATUS_CODES, with_retry
 from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
 from ankiforge.utils.ssl_certificates import setup_ssl_certificates
 
 logger = logging.getLogger(__name__)
+
+
+def _is_retryable_gemini_error(exc: BaseException) -> bool:
+    """Détecte les erreurs Gemini transitoires (quota/surcharge/timeout réseau)."""
+    if isinstance(exc, ConnectionError | TimeoutError):
+        return True
+    if not isinstance(exc, genai.errors.APIError):
+        return False
+    code = getattr(exc, "code", None)
+    if isinstance(code, int) and code in RETRYABLE_STATUS_CODES:
+        return True
+    text = str(exc).lower()
+    return any(token in text for token in ("429", "500", "502", "503", "504", "timeout", "unavailable", "overloaded"))
 
 
 class GeminiService(LLMProvider):
@@ -104,7 +118,12 @@ class GeminiService(LLMProvider):
             # ---------------------------------
 
             # On envoie la liste transformée
-            response = self.client.models.generate_content(model=self.model_name, contents=contents_to_send, config=config)
+            response = with_retry(
+                lambda: self.client.models.generate_content(model=self.model_name, contents=contents_to_send, config=config),
+                max_attempts=3,
+                should_retry=_is_retryable_gemini_error,
+                description=f"Gemini {self.model_name}",
+            )
 
             if hasattr(response, "usage_metadata") and response.usage_metadata:
                 p_tokens = response.usage_metadata.prompt_token_count or 0

@@ -46,7 +46,7 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
 ## 6. Vue Consultant IA & MCP (`consultant_view.py`)
 * **État Actuel :** ✅ **Moteur Autonome ReAct, Outils In-Process MCP & Blocs Interactifs.**
   - **Moteur ReAct Multi-Étapes :** Boucle (*Thought ➔ Action ➔ Observation ➔ Response*) avec émission structurée d'événements et détection automatique des tool calls natifs et JSON manuels.
-  - **Registre d'Outils In-Process & MCP :** Interrogation SQL sécurisée en lecture seule (`query_peewee`), calcul de statistiques SRS et cartes sangsues (`get_deck_stats`), recherche de cartes (`get_cards_by_deck_or_tag`), injection CSS dynamique (`update_card_model_css`) et exécution d'outils Python déterministes (`execute_python_tool`).
+  - **Registre d'Outils In-Process & MCP :** Interrogation SQL sécurisée en lecture seule (`query_peewee`), calcul de statistiques SRS et cartes sangsues (`get_deck_stats`), recherche de cartes (`get_cards_by_deck_or_tag`), proposition d'ajustement CSS avec aperçu (`propose_css_tune`) et exécution d'outils Python déterministes (`execute_python_tool`).
   - **Widgets Visuels Riches :** `ThoughtStepWidget` (cartouche repliable de raisonnement), `ToolCallWidget` (carte d'appel d'outil avec inspection du JSON d'entrée et observation retournée) et `ChatMessageWidget` (avec détection automatique de CSS et cartes avec boutons d'application/import en 1-clic).
   - **Quick Prompts & Filtre Personas :** Suggestions rapides en capsules arrondies et filtrage ciblé des personas de type `mcp` et `universal`.
 

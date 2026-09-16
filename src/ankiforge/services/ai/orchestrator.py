@@ -1,4 +1,5 @@
 import concurrent.futures
+import contextvars
 import json
 import logging
 import threading
@@ -6,7 +7,6 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from jinja2 import Template
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
 from ankiforge.database.models import LLMConfigModel, PipelineStepModel
@@ -18,11 +18,15 @@ from ankiforge.services.ai.utils import (
     AIReponseParser,
     extract_cards_from_data,
     format_available_card_models_prompt,
+    telemetry_context,
 )
 from ankiforge.services.plugins.api import PipelineHooksAPI
 from ankiforge.services.plugins.event_bus import event_bus
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
+
+_PROMPT_ENV = create_prompt_environment()
 
 
 CARD_SECTION_DOCUMENTATION_RULE = (
@@ -83,6 +87,7 @@ class PipelineOrchestrator(QRunnable):
         tool_registry: dict[str, Callable[[PipelineRunState], Any]] | None = None,
         max_steps: int = 50,
         max_map_workers: int = 4,
+        ab_run_id: str | None = None,
     ) -> None:
         super().__init__()
         self.pipeline_id = pipeline_id
@@ -92,6 +97,7 @@ class PipelineOrchestrator(QRunnable):
         self.tool_registry: dict[str, Callable[[PipelineRunState], Any]] = tool_registry or {}
         self.max_steps = max_steps
         self.max_map_workers = max_map_workers
+        self.ab_run_id = ab_run_id
 
         self.signals = PipelineWorkerSignals()
         self._pause_event = threading.Event()
@@ -173,7 +179,7 @@ class PipelineOrchestrator(QRunnable):
             context.update(extra_context)
 
         try:
-            template = Template(template_str)
+            template = _PROMPT_ENV.from_string(template_str)
             return template.render(**context)
         except Exception as e:
             logger.warning("Erreur de rendu Jinja2 sur prompt: %s. Utilisation du texte brut.", e)
@@ -181,7 +187,12 @@ class PipelineOrchestrator(QRunnable):
 
     @Slot()
     def run(self) -> None:
-        """Point d'entrée de l'exécution asynchrone du DAG."""
+        """Point d'entrée de l'exécution asynchrone du DAG (applique le contexte de télémétrie)."""
+        with telemetry_context(pipeline_id=self.pipeline_id, ab_run_id=self.ab_run_id):
+            self._execute_dag()
+
+    def _execute_dag(self) -> None:
+        """Exécute effectivement le graphe d'étapes du DAG."""
         logger.info("[Orchestrateur DAG] Démarrage du pipeline (id=%s)", self.pipeline_id)
         steps = self._load_steps()
         if not steps:
@@ -596,7 +607,7 @@ class PipelineOrchestrator(QRunnable):
         # Exécution parallèle avec ThreadPoolExecutor
         workers = min(self.max_map_workers, max(1, total_items))
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-            future_to_index = {executor.submit(_process_item, i, item): i for i, item in enumerate(items)}
+            future_to_index = {executor.submit(contextvars.copy_context().run, _process_item, i, item): i for i, item in enumerate(items)}
             ordered_results: dict[int, Any] = {}
             for future in concurrent.futures.as_completed(future_to_index):
                 if self._is_cancelled:

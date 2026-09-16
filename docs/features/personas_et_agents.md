@@ -48,7 +48,7 @@ Pour garantir la sécurité et la pertinence des interventions de l'IA, chaque p
 Les outils sont répartis en 5 grandes familles fonctionnelles :
 1. **Consultation & Statistiques** : `get_deck_stats`, `inspect_deck_deep_scan`, `get_collection_panorama_360`, `get_cards_by_deck_or_tag`, `find_cards_by_content`, `get_note_full_profile_360`.
 2. **Audit & Optimisation Wozniak** : `audit_deck_wozniak`, `audit_card_wozniak`, `find_duplicate_cards`, `propose_card_refactor`, `propose_card_split`.
-3. **Modèles & Rendu Visuel** : `list_note_types`, `get_note_type_details`, `update_card_model_css`, `preview_rendered_card`, `propose_note_type_refactor`, `propose_css_tune`.
+3. **Modèles & Rendu Visuel** : `list_note_types`, `get_note_type_details`, `propose_note_type_refactor`, `propose_css_tune`.
 4. **Documentation & Aide** : `search_app_documentation`, `read_app_doc_page`, `list_app_doc_topics`, `get_feature_quick_help`.
 5. **Données & Scripts** : `query_peewee`, `search_document`, `search_attached_documents`, `analyze_coverage_gaps`, `execute_python_tool`.
 

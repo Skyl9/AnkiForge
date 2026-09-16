@@ -61,8 +61,11 @@ class SettingRepository(BaseRepository):
         completion_tokens: int,
         estimated_cost_usd: float = 0.0,
         task_type: str = "1. Reformulation & Génération Wozniak",
+        pipeline_id: int | None = None,
+        persona_id: int | None = None,
+        ab_run_id: str | None = None,
     ) -> TokenUsageModel:
-        """Record token consumption and estimated cost."""
+        """Record token consumption and estimated cost, linked to its execution context."""
         total = prompt_tokens + completion_tokens
         with self.atomic():
             return TokenUsageModel.create(
@@ -73,7 +76,30 @@ class SettingRepository(BaseRepository):
                 total_tokens=total,
                 estimated_cost_usd=estimated_cost_usd,
                 task_type=task_type,
+                pipeline_id=pipeline_id,
+                persona_id=persona_id,
+                ab_run_id=ab_run_id,
             )
+
+    def get_usage_for_ab_run(self, ab_run_id: str) -> dict[str, Any]:
+        """Aggregate measured token consumption and cost for a given A/B run branch."""
+        query = (
+            TokenUsageModel.select(
+                fn.SUM(TokenUsageModel.total_tokens).alias("total_tokens"),
+                fn.SUM(TokenUsageModel.estimated_cost_usd).alias("total_cost"),
+                fn.COUNT(TokenUsageModel.id).alias("total_calls"),
+            )
+            .where(TokenUsageModel.ab_run_id == ab_run_id)
+            .dicts()
+            .first()
+        )
+        if not query or query.get("total_tokens") is None:
+            return {"total_tokens": 0, "total_cost_usd": 0.0, "total_calls": 0}
+        return {
+            "total_tokens": query.get("total_tokens") or 0,
+            "total_cost_usd": query.get("total_cost") or 0.0,
+            "total_calls": query.get("total_calls") or 0,
+        }
 
     def get_total_token_usage_stats(self) -> dict[str, Any]:
         """Calculate aggregate telemetry metrics for tokens and costs."""

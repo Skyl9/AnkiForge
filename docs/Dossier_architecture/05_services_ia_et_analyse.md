@@ -22,7 +22,7 @@ L'application adopte une stratégie **Agnostique et Local-First** pour protéger
 * **Philosophie :** Exploration dynamique, raisonnement autonome et assistance conversationnelle avancée.
 * **Mécanique :**
   * Boucle ReAct (*Thought ➔ Action ➔ Observation ➔ Response*) avec auto-correction d'erreurs.
-  * Serveur MCP in-process (`mcp_server.py`, `MCPToolService`) exposant des outils sécurisés : `query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `update_card_model_css`, `execute_python_tool`.
+  * Serveur MCP in-process (`mcp_server.py`, `ConsultantToolRegistry`) exposant des outils sécurisés : `query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `propose_css_tune`, `execute_python_tool`.
   * Rendu visuel interactif dans le chat (cartouches de pensée repliables, widgets d'appels d'outils, injection directe de CSS et cartes Anki).
 
 ## 3. Cartographie des Fonctionnalités d'Analyse

@@ -1,19 +1,58 @@
 import ast
+import contextvars
 import dataclasses
 import json
 import logging
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, TypeVar, cast, get_args, get_origin
 
-from jinja2 import Template
 from PySide6.QtCore import QCoreApplication, QTimer
 
 from ankiforge.database.models import LLMConfigModel, TokenUsageModel
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
 
+# Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
+_PROMPT_ENV = create_prompt_environment()
 
-def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int, task_type: str) -> None:
+# --- Contexte de télémétrie (propagé par pipeline, persona et test A/B) ---
+_telemetry_pipeline_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("ankiforge_pipeline_id", default=None)
+_telemetry_persona_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("ankiforge_persona_id", default=None)
+_telemetry_ab_run_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("ankiforge_ab_run_id", default=None)
+
+
+@contextmanager
+def telemetry_context(
+    *,
+    pipeline_id: int | None = None,
+    persona_id: int | None = None,
+    ab_run_id: str | None = None,
+) -> Iterator[None]:
+    """Associe un contexte de télémétrie aux appels LLM du thread courant (pipeline, persona, test A/B)."""
+    token_pipeline = _telemetry_pipeline_id.set(pipeline_id)
+    token_persona = _telemetry_persona_id.set(persona_id)
+    token_ab = _telemetry_ab_run_id.set(ab_run_id)
+    try:
+        yield
+    finally:
+        _telemetry_pipeline_id.reset(token_pipeline)
+        _telemetry_persona_id.reset(token_persona)
+        _telemetry_ab_run_id.reset(token_ab)
+
+
+def _db_log_token_usage(
+    provider: str,
+    model_id: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    task_type: str,
+    pipeline_id: int | None = None,
+    persona_id: int | None = None,
+    ab_run_id: str | None = None,
+) -> None:
     """Fonction interne qui écrit réellement dans la BDD (strictement sur le Main Thread)."""
     cost = 0.0
 
@@ -30,19 +69,35 @@ def _db_log_token_usage(provider: str, model_id: str, prompt_tokens: int, comple
         total_tokens=prompt_tokens + completion_tokens,
         estimated_cost_usd=cost,
         task_type=task_type,
+        pipeline_id=pipeline_id,
+        persona_id=persona_id,
+        ab_run_id=ab_run_id,
     )
     logger.debug(
-        "Télémétrie Tokens BDD : %s (%s) - Prompt: %d, Completion: %d (Coût: $%.5f, Tâche: '%s')",
+        "Télémétrie Tokens BDD : %s (%s) - Prompt: %d, Completion: %d (Coût: $%.5f, Tâche: '%s', Pipeline: %s, Persona: %s, A/B: %s)",
         provider,
         model_id,
         prompt_tokens,
         completion_tokens,
         cost,
         task_type,
+        pipeline_id,
+        persona_id,
+        ab_run_id,
     )
 
 
-def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion_tokens: int, task_type: str = "1. Reformulation & Génération Wozniak") -> None:
+def log_token_usage(
+    provider: str,
+    model_id: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    task_type: str = "1. Reformulation & Génération Wozniak",
+    *,
+    pipeline_id: int | None = None,
+    persona_id: int | None = None,
+    ab_run_id: str | None = None,
+) -> None:
     """
     Enregistre la consommation de jetons (tokens) en base de données et calcule le coût estimé.
 
@@ -52,7 +107,14 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
         prompt_tokens (int): Nombre de jetons envoyés en entrée.
         completion_tokens (int): Nombre de jetons générés en sortie.
         task_type (str): Type de tâche IA pour répartition dans le suivi.
+        pipeline_id (int | None): Pipeline DAG émetteur (défaut: contexte de télémétrie).
+        persona_id (int | None): Persona/agent émetteur (défaut: contexte de télémétrie).
+        ab_run_id (str | None): Identifiant d'exécution du test A/B (défaut: contexte de télémétrie).
     """
+    eff_pipeline = pipeline_id if pipeline_id is not None else _telemetry_pipeline_id.get()
+    eff_persona = persona_id if persona_id is not None else _telemetry_persona_id.get()
+    eff_ab_run = ab_run_id if ab_run_id is not None else _telemetry_ab_run_id.get()
+
     logger.info(
         "Consommation tokens : %s / %s - %d tokens (tâche: '%s')",
         provider,
@@ -63,10 +125,14 @@ def log_token_usage(provider: str, model_id: str, prompt_tokens: int, completion
     app = QCoreApplication.instance()
     if app:
         # Téléportation vers l'Event Loop du thread principal de l'UI
-        QTimer.singleShot(0, app, lambda: _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens, task_type))
+        QTimer.singleShot(
+            0,
+            app,
+            lambda: _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens, task_type, eff_pipeline, eff_persona, eff_ab_run),
+        )
     else:
         # Fallback si pas d'interface graphique (ex: pendant les tests unitaires via pytest)
-        _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens, task_type)
+        _db_log_token_usage(provider, model_id, prompt_tokens, completion_tokens, task_type, eff_pipeline, eff_persona, eff_ab_run)
 
 
 T = TypeVar("T")
@@ -232,7 +298,7 @@ def format_system_prompt(system_prompt_template: str, fields_schema_json: str | 
     first_field = fields[0] if len(fields) > 0 else "Field1"
     second_field = fields[1] if len(fields) > 1 else "Field2"
 
-    jinja_template = Template(system_prompt_template)
+    jinja_template = _PROMPT_ENV.from_string(system_prompt_template)
     return jinja_template.render(
         fields_str=fields_str,
         first_field=first_field,

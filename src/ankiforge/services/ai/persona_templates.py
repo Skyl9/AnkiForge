@@ -322,8 +322,6 @@ PERSONA_TEMPLATES: list[PersonaTemplate] = [
         recommended_tools=[
             "list_note_types",
             "get_note_type_details",
-            "update_card_model_css",
-            "preview_rendered_card",
             "propose_note_type_refactor",
             "propose_css_tune",
             "search_app_documentation",
@@ -337,7 +335,7 @@ PERSONA_TEMPLATES: list[PersonaTemplate] = [
             "3. Typographie lisible : Utilise des polices modernes sans-serif avec un interligne aéré (`line-height: 1.6`).\n"
             "4. Cartes et bordures : Adopte une esthétique épurée avec coins arrondis doux, ombres légères et contrastes WCAG AA.\n\n"
             "### OUTILS :\n"
-            "Utilise `list_note_types`, `get_note_type_details`, `update_card_model_css` et `preview_rendered_card`."
+            "Utilise `list_note_types`, `get_note_type_details`, `propose_note_type_refactor` et `propose_css_tune`."
         ),
     ),
 ]

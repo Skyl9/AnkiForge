@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer, Slot
@@ -81,6 +82,7 @@ class ABTestsView(QWidget):
         self._start_time_b: float = 0.0
         self._completed_a: bool = False
         self._completed_b: bool = False
+        self._ab_run_id: str = ""
 
         self.summary_labels: dict[str, QLabel] = {}
 
@@ -1350,12 +1352,14 @@ class ABTestsView(QWidget):
         self._engine_cfg_b = engine_b
         self._start_time_a = time.perf_counter()
         self._start_time_b = time.perf_counter()
+        self._ab_run_id = uuid.uuid4().hex
 
         self.orchestrator_a = PipelineOrchestrator(
             pipeline_id=pipe_id_a,
             initial_state=state_a,
             steps=steps_a,
             ai_provider=provider_a,
+            ab_run_id=f"{self._ab_run_id}:A",
         )
         self.orchestrator_a.signals.pipeline_finished.connect(self._on_finished_a)
         self.orchestrator_a.signals.error_occurred.connect(lambda err: self._on_error_a(err))
@@ -1365,6 +1369,7 @@ class ABTestsView(QWidget):
             initial_state=state_b,
             steps=steps_b,
             ai_provider=provider_b,
+            ab_run_id=f"{self._ab_run_id}:B",
         )
         self.orchestrator_b.signals.pipeline_finished.connect(self._on_finished_b)
         self.orchestrator_b.signals.error_occurred.connect(lambda err: self._on_error_b(err))
@@ -1382,6 +1387,20 @@ class ABTestsView(QWidget):
         raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
         return extract_cards_from_data(raw_cards)
 
+    def _prefer_measured_usage(self, ab_run_id: str, tokens_est: int, cost_est: float) -> tuple[int, float]:
+        """Remplace l'estimation par la consommation réelle mesurée si elle est disponible."""
+        if not self._ab_run_id:
+            return tokens_est, cost_est
+        try:
+            from ankiforge.repositories.setting_repository import SettingRepository
+
+            usage = SettingRepository().get_usage_for_ab_run(ab_run_id)
+            if usage.get("total_calls"):
+                return int(usage.get("total_tokens") or tokens_est), float(usage.get("total_cost_usd") or cost_est)
+        except Exception as e:
+            logger.debug("Lecture de la consommation réelle A/B impossible (%s) : %s", ab_run_id, e)
+        return tokens_est, cost_est
+
     @Slot(object)
     def _on_finished_a(self, state: PipelineRunState) -> None:
         elapsed = time.perf_counter() - self._start_time_a
@@ -1391,6 +1410,7 @@ class ABTestsView(QWidget):
 
         tokens_est = len(str(self.cards_a)) // 4
         _, cost_est = estimate_run_cost(tokens_est, tokens_est, self._engine_cfg_a)
+        tokens_est, cost_est = self._prefer_measured_usage(f"{self._ab_run_id}:A", tokens_est, cost_est)
         self.kpi_a.set_results(elapsed=elapsed, cards_count=len(self.cards_a), tokens=tokens_est, cost_usd=cost_est, is_success=True)
 
         if self._completed_b:
@@ -1406,6 +1426,7 @@ class ABTestsView(QWidget):
 
         tokens_est = len(str(self.cards_b)) // 4
         _, cost_est = estimate_run_cost(tokens_est, tokens_est, self._engine_cfg_b)
+        tokens_est, cost_est = self._prefer_measured_usage(f"{self._ab_run_id}:B", tokens_est, cost_est)
         self.kpi_b.set_results(elapsed=elapsed, cards_count=len(self.cards_b), tokens=tokens_est, cost_usd=cost_est, is_success=True)
 
         if self._completed_a:

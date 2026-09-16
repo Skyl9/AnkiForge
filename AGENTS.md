@@ -32,16 +32,16 @@ uv run zensical serve           # live at http://127.0.0.1:8000
 uv run zensical build
 
 # C Extension (Levenshtein distance - optional, auto-fallback to Python)
-gcc -shared -o src/ankiforge/c_ext/levenshtein_distance.so -fPIC src/ankiforge/c_ext/levenshtein_distance.c  # Linux/macOS
+gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c  # Linux/macOS
 ```
 
 ## Architecture Highlights
 - **Multi-profile isolation**: Each profile = separate SQLite DB + media dir under `~/.ankiforge/profiles/<name>/`
 - **Document Scope & Selection Persistence**: `DocumentScopeDialog` preserves fine-grained selections (`selection_mode="sections"`, `selected_headings`, `selected_chunk_indices`) across successive generation runs in `CreationView` and `BatchView`
 - **DAG Orchestration**: 5 step types (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`) with conditional jumps
-- **MCP Server**: In-process, exposes tools (`query_peewee`, `get_deck_stats`, `update_card_model_css`, etc.)
+- **MCP Server**: In-process, exposes tools (`query_peewee`, `get_deck_stats`, `propose_css_tune`, etc.)
 - **Local RAG**: FAISS/ChromaDB vector search, semantic chunking, coverage tracking
-- **C Extension**: `src/ankiforge/c_ext/levenshtein_distance.c` → `.so`/`.dll` for fast diff; transparent Python fallback in `utils/c_bridge.py`
+- **C Extension**: `c_ext/levenshtein_distance.c` → `.so`/`.dll` for fast diff; transparent Python fallback in `utils/c_bridge.py`
 - **Async Logging**: `QueueHandler`/`QueueListener` pipeline, `SecretRedactionFilter` masks API keys, crash dumps to `~/.ankiforge/logs/crash.log`
 
 ## Testing Constraints (Critical)

@@ -50,8 +50,8 @@ AnkiForge intègre un serveur MCP local (`ankiforge.services.ai.mcp_server`) exp
 | :--- | :--- | :--- |
 | `get_deck_stats` | Récupère le nombre de cartes, paquets, tags et modèles actifs. | Lecture seule. |
 | `get_cards_by_deck_or_tag` | Recherche filtrée par paquet, tag ou texte partiel. | Lecture seule, pagination automatique. |
-| `query_peewee` | Exécute des requêtes de consultation ou de modification de la base SQLite. | Transactionnelle avec rollback automatique en cas d'erreur. |
-| `update_card_model_css` | Modifie le style CSS d'un modèle de carte en direct. | Validation syntaxique du CSS avant enregistrement. |
+| `query_peewee` | Exécute des requêtes SQL `SELECT` de consultation sur la base SQLite. | Lecture seule stricte via authorizer SQLite : refus des secrets (clés API) et des tables sensibles. |
+| `propose_css_tune` | Propose un ajustement CSS d'un modèle de carte avec aperçu live avant enregistrement. | Garde-fou : proposition de Diff, aucun enregistrement direct. |
 | `execute_python_tool` | Lance des calculs ou des transformations Python sur mesure. | Environnement isolé. |
 | `search_app_documentation` | Recherche plein-texte BM25 avec extraits dans toute la doc Zensical. | SQLite FTS5 en mémoire, zéro dépendance réseau. |
 | `read_app_doc_page` | Lit l'intégralité d'une page de documentation ou une section ciblée par ancre. | Lecture seule des sources `docs/`. |

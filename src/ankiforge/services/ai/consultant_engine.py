@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import re
+import sqlite3
 import threading
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -36,6 +37,7 @@ from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.ai.flexible_service import AIManager, OpenAICompatibleProvider
 from ankiforge.services.ai.linter import WozniakLinterEngine
 from ankiforge.services.ai.state import PipelineRunState
+from ankiforge.services.ai.utils import log_token_usage, telemetry_context
 from ankiforge.services.plugins.api import MCPHooksAPI
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.utils.c_bridge import get_similarity
@@ -99,6 +101,39 @@ def robust_json_loads(text: Any) -> Any:
         pass
 
     raise ValueError(f"Impossible de parser le JSON : {clean[:120]}...")
+
+
+# =====================================================================
+# GARDE-FOUS SQL POUR L'OUTIL query_peewee (LECTURE SEULE, ZÉRO SECRET)
+# =====================================================================
+
+_SQL_COMMENT_RE = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
+_SQL_START_RE = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
+_SQL_SENSITIVE_COLUMN_RE = re.compile(
+    r"(api[_-]?key|secret|password|passwd|credential|bearer|auth[_-]?token|access[_-]?token|private[_-]?key)",
+    re.IGNORECASE,
+)
+_SQL_SENSITIVE_TABLES = frozenset({"llm_configs", "app_settings", "settings", "settingmodel"})
+_SQL_AUTHORIZED_ACTIONS = frozenset(
+    {
+        sqlite3.SQLITE_SELECT,
+        sqlite3.SQLITE_READ,
+        sqlite3.SQLITE_FUNCTION,
+        sqlite3.SQLITE_RECURSIVE,
+    }
+)
+
+
+def _sql_authorizer(action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None) -> int:
+    """Authorizer SQLite : n'autorise que la lecture et refuse les secrets/colonnes sensibles."""
+    if action == sqlite3.SQLITE_READ:
+        if arg1 and str(arg1).lower() in _SQL_SENSITIVE_TABLES:
+            return sqlite3.SQLITE_DENY
+        if arg2 and _SQL_SENSITIVE_COLUMN_RE.search(str(arg2)):
+            return sqlite3.SQLITE_DENY
+    if action in _SQL_AUTHORIZED_ACTIONS:
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
 
 
 # =====================================================================
@@ -571,22 +606,31 @@ class ConsultantToolRegistry:
 
     @staticmethod
     def query_peewee(sql_query: str) -> str:
-        """Exécute une requête SQL SELECT en lecture seule sur la base SQLite."""
-        sql_clean = sql_query.strip()
-        forbidden = ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "ATTACH", "DETACH"]
-        if any(re.search(rf"\b{kw}\b", sql_clean, re.IGNORECASE) for kw in forbidden):
+        """Exécute une requête SQL SELECT en lecture seule (hors secrets) sur la base SQLite."""
+        sql_clean = _SQL_COMMENT_RE.sub(" ", sql_query).strip().rstrip(";").strip()
+
+        if not sql_clean:
+            return "Erreur : requête vide."
+        if ";" in sql_clean:
+            return "Erreur : une seule instruction SQL SELECT est autorisée par mesure de sécurité."
+        if not _SQL_START_RE.match(sql_clean):
             return "Erreur : Seules les requêtes SELECT (lecture seule) sont autorisées par mesure de sécurité."
 
         try:
             from ankiforge.database.base import db
 
-            cursor = db.execute_sql(sql_clean)
-            results = cursor.fetchall()
+            connection = db.connection()
+            connection.set_authorizer(_sql_authorizer)
+            try:
+                cursor = connection.execute(sql_clean)
+                results = cursor.fetchall()
+                columns = [col[0] for col in cursor.description] if cursor.description else []
+            finally:
+                connection.set_authorizer(None)
 
             if not results:
                 return "Aucun résultat trouvé."
 
-            columns = [col[0] for col in cursor.description] if cursor.description else []
             formatted_lines = [f"Colonnes : {', '.join(columns)}"]
             for row in results[:40]:
                 formatted_lines.append(f"- {row}")
@@ -595,6 +639,11 @@ class ConsultantToolRegistry:
                 formatted_lines.append(f"... ({len(results) - 40} résultats supplémentaires masqués)")
 
             return "\n".join(formatted_lines)
+        except sqlite3.DatabaseError as e:
+            message = str(e).lower()
+            if any(k in message for k in ("prohibited", "not authorized", "authorization", "access to")):
+                return "Erreur : accès refusé — seules les requêtes SELECT de données publiques sont autorisées (les clés API et secrets sont protégés)."
+            return f"Erreur SQL : {e}"
         except Exception as e:
             return f"Erreur SQL : {e}"
 
@@ -1814,6 +1863,18 @@ class ConsultantEngine:
         history: list[dict[str, Any]] | None = None,
         cancel_event: threading.Event | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
+        """Expose le flux de l'agent en attribuant les tokens consommés au persona actif."""
+        persona_id = getattr(self.persona, "id", None)
+        with telemetry_context(persona_id=persona_id if isinstance(persona_id, int) else None):
+            async for event in self._chat_stream_impl(user_query, history, cancel_event):
+                yield event
+
+    async def _chat_stream_impl(
+        self,
+        user_query: str,
+        history: list[dict[str, Any]] | None = None,
+        cancel_event: threading.Event | None = None,
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Générateur asynchrone exécutant l'agent avec streaming fluide token-by-token et mémoire multi-tours.
         """
@@ -1895,6 +1956,18 @@ Tu es connecté aux outils de la base de données AnkiForge selon tes permission
                         create_kwargs["tools"] = active_tools
 
                     response = self.ai_provider.client.chat.completions.create(**create_kwargs)
+
+                    usage = getattr(response, "usage", None)
+                    if usage is not None:
+                        provider_label = getattr(self.ai_provider, "provider_name", type(self.ai_provider).__name__)
+                        log_token_usage(
+                            str(provider_label),
+                            getattr(self.ai_provider, "model_name", "unknown"),
+                            int(getattr(usage, "prompt_tokens", 0) or 0),
+                            int(getattr(usage, "completion_tokens", 0) or 0),
+                            task_type="Consultant IA (Agent ReAct)",
+                        )
+
                     resp_msg = response.choices[0].message
                     content_text = resp_msg.content or ""
 

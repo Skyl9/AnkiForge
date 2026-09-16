@@ -100,7 +100,7 @@ classDiagram
 
 ### 🤖 D. Module Consultant (Agent ReAct Autonome)
 * **Moteur ReAct :** Boucle autonome (*Thought ➔ Action ➔ Observation ➔ Response*).
-* **Serveur MCP In-Process :** Registre d'outils sécurisés (`query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `update_card_model_css`, `execute_python_tool`).
+* **Serveur MCP In-Process :** Registre d'outils sécurisés (`query_peewee`, `get_deck_stats`, `get_cards_by_deck_or_tag`, `propose_css_tune`, `execute_python_tool`).
 * **Widgets Riches :** `ThoughtStepWidget`, `ToolCallWidget`, `ChatMessageWidget` avec prévisualisation et application directe.
 
 ### 🎨 E. Module Modèles de Cartes (Atelier & Tests A/B)

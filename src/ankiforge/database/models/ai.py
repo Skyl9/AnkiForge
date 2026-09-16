@@ -117,10 +117,14 @@ class TokenUsageModel(BaseModel):
     total_tokens = IntegerField(default=0)
     estimated_cost_usd = FloatField(default=0.0)
     task_type = CharField(default="1. Reformulation & Génération Wozniak")
+    pipeline_id = IntegerField(null=True)  # Pipeline DAG ayant généré la consommation
+    persona_id = IntegerField(null=True)  # Persona/agent IA à l'origine de l'appel
+    ab_run_id = CharField(null=True)  # Identifiant de run A/B (comparaison de modèles)
     created_at = DateTimeField(default=datetime.datetime.now)
 
     class Meta:
         table_name = "token_usage"
+        indexes = ((("pipeline_id", "persona_id", "ab_run_id"), False),)
 
 
 class PersonaFolderModel(BaseModel):
