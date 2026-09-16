@@ -43,7 +43,7 @@ def test_insert_normal_text(editor):
     assert editor.toPlainText() == "Ceci est un texte normal."
 
 
-def test_insert_image_file_url(editor, tmp_path, mock_media_dir):
+def test_insert_image_file_url(editor, tmp_path, mock_media_dir, qtbot):
     """Simule le Glisser-Déposer d'un fichier image (ex: depuis le Finder/Explorateur)."""
 
     # 1. On crée un faux fichier image dans notre dossier temporaire
@@ -54,8 +54,9 @@ def test_insert_image_file_url(editor, tmp_path, mock_media_dir):
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(source_img_path))])
 
-    # 3. On déclenche le drop
-    editor.insertFromMimeData(mime)
+    # 3. On déclenche le drop et on attend la fin du traitement asynchrone
+    with qtbot.waitSignal(editor.image_inserted, timeout=2000):
+        editor.insertFromMimeData(mime)
 
     # 4. Vérifications de l'UI
     inserted_text = editor.toPlainText()
@@ -71,7 +72,7 @@ def test_insert_image_file_url(editor, tmp_path, mock_media_dir):
     assert len(copied_files) == 1  # Un fichier a bien été copié !
 
 
-def test_insert_raw_image_data(editor, mock_media_dir):
+def test_insert_raw_image_data(editor, mock_media_dir, qtbot):
     """Simule le collage (Ctrl+V) d'une image brute depuis le presse-papier (ex: Capture d'écran)."""
 
     # 1. On dessine une vraie QImage en mémoire (un carré rouge de 10x10 pixels)
@@ -82,8 +83,9 @@ def test_insert_raw_image_data(editor, mock_media_dir):
     mime = QMimeData()
     mime.setImageData(image)
 
-    # 3. On déclenche le collage
-    editor.insertFromMimeData(mime)
+    # 3. On déclenche le collage et on attend la fin du traitement asynchrone
+    with qtbot.waitSignal(editor.image_inserted, timeout=2000):
+        editor.insertFromMimeData(mime)
 
     # 4. Vérifications de l'UI
     inserted_text = editor.toPlainText()
@@ -94,3 +96,15 @@ def test_insert_raw_image_data(editor, mock_media_dir):
     media_folder = mock_media_dir
     saved_files = list(media_folder.glob("img_*.png"))
     assert len(saved_files) == 1
+
+
+def test_insert_image_copy_failure(editor, tmp_path, mock_media_dir, qtbot):
+    """Vérifie que l'échec de copie émet image_failed sans insérer de balise dans l'éditeur."""
+    missing_img_path = tmp_path / "fichier_inexistant.png"
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(missing_img_path))])
+
+    with qtbot.waitSignal(editor.image_failed, timeout=2000):
+        editor.insertFromMimeData(mime)
+
+    assert editor.toPlainText() == ""

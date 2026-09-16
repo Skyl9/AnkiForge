@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QMimeData, QObject, QRunnable, QThreadPool, Signal, Slot
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QTextEdit
+from PySide6.QtWidgets import QTextEdit, QWidget
 
 from ankiforge.utils.paths import get_media_dir
 
@@ -74,12 +74,25 @@ class DropImageTextEdit(QTextEdit):
     La copie/sauvegarde de fichier est déportée dans QThreadPool (non-bloquante).
     """
 
-    def _insert_img_tag(self, new_name: str) -> None:
-        """Insère la balise <img> dans le curseur courant — appelé depuis le thread Qt."""
-        self.textCursor().insertText(f'<img src="{new_name}">\n')
+    image_inserted = Signal(str)
+    image_failed = Signal(str, str)
 
-    def _on_copy_failed(self, new_name: str, err: str) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._active_workers: list[QRunnable] = []
+
+    def _insert_img_tag(self, new_name: str, worker: QRunnable | None = None) -> None:
+        """Insère la balise <img> dans le curseur courant — appelé depuis le thread Qt."""
+        if worker is not None and worker in self._active_workers:
+            self._active_workers.remove(worker)
+        self.textCursor().insertText(f'<img src="{new_name}">\n')
+        self.image_inserted.emit(new_name)
+
+    def _on_copy_failed(self, new_name: str, err: str, worker: QRunnable | None = None) -> None:
+        if worker is not None and worker in self._active_workers:
+            self._active_workers.remove(worker)
         logger.error("Impossible de copier l'image '%s' dans le répertoire média : %s", new_name, err)
+        self.image_failed.emit(new_name, err)
 
     def insertFromMimeData(self, source: QMimeData) -> None:
         media_dir = get_media_dir()
@@ -99,8 +112,9 @@ class DropImageTextEdit(QTextEdit):
                         dest_path = media_dir / new_name
 
                         worker = _ImageCopyWorker(file_path, dest_path, new_name)
-                        worker.signals.done.connect(self._insert_img_tag)
-                        worker.signals.failed.connect(self._on_copy_failed)
+                        worker.signals.done.connect(lambda name, w=worker: self._insert_img_tag(name, w))
+                        worker.signals.failed.connect(lambda name, err, w=worker: self._on_copy_failed(name, err, w))
+                        self._active_workers.append(worker)
                         QThreadPool.globalInstance().start(worker)
                         inserted_image = True
 
@@ -115,8 +129,9 @@ class DropImageTextEdit(QTextEdit):
                 dest_path = media_dir / new_name
 
                 worker_save = _ImageSaveWorker(image, dest_path, new_name)
-                worker_save.signals.done.connect(self._insert_img_tag)
-                worker_save.signals.failed.connect(self._on_copy_failed)
+                worker_save.signals.done.connect(lambda name, w=worker_save: self._insert_img_tag(name, w))
+                worker_save.signals.failed.connect(lambda name, err, w=worker_save: self._on_copy_failed(name, err, w))
+                self._active_workers.append(worker_save)
                 QThreadPool.globalInstance().start(worker_save)
                 return
 
