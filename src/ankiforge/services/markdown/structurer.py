@@ -8,6 +8,7 @@ from markdown_it import MarkdownIt
 from ankiforge.services.markdown.models import (
     DocumentSection,
     HeadingNode,
+    HeadingRepairItem,
     OutlineItem,
 )
 
@@ -34,12 +35,26 @@ class MarkdownStructurer:
         return cls._parser
 
     @classmethod
-    def slugify(cls, text: str) -> str:
-        """Génère un slug d'ancre standardisé compatible GitHub Markdown."""
-        # Supprime le balisage inline résiduel (gras, italique, code, liens)
-        cleaned = re.sub(r"[*_`]", "", text)
+    def clean_heading_title(cls, text: str) -> str:
+        """Nettoie un titre de ses balises HTML, ancres, formatages Markdown et KaTeX."""
+        if not text:
+            return ""
+        # 1. Supprime les balises HTML (<span id="...">...</span>, <span ...>, <br>, etc.)
+        cleaned = re.sub(r"<[^>]+>", "", text)
+        # 2. Supprime les liens Markdown [texte](url) -> texte
         cleaned = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", cleaned)
-        cleaned = cleaned.strip().lower()
+        # 3. Supprime les délimiteurs Markdown inline (gras, italique, code: *, _, `)
+        cleaned = re.sub(r"[*_`]", "", cleaned)
+        # 4. Supprime les délimiteurs mathématiques inline ($...$)
+        cleaned = re.sub(r"\$([^$]+)\$", r"\1", cleaned)
+        # 5. Normalise les espaces
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
+
+    @classmethod
+    def slugify(cls, text: str) -> str:
+        """Génère un slug d'ancre standardisé compatible GitHub Markdown sans balises HTML résiduelles."""
+        cleaned = cls.clean_heading_title(text).lower()
         # Conserve les lettres, chiffres, tirets et espaces (supporte l'unicode/accents)
         cleaned = re.sub(r"[^\w\s\-]", "", cleaned)
         # Remplace les espaces et underscores par des tirets
@@ -140,107 +155,218 @@ class MarkdownStructurer:
 
         return root_nodes
 
+    @staticmethod
+    def _get_code_fence_lines(lines: list[str]) -> set[int]:
+        """Identifie les index de lignes (0-indexés) situés à l'intérieur de blocs de code."""
+        fence_lines: set[int] = set()
+        in_fence = False
+        fence_char = ""
+        fence_len = 0
+
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            m = re.match(r"^(`{3,}|~{3,})", stripped)
+            if m:
+                char = m.group(1)[0]
+                length = len(m.group(1))
+                if not in_fence:
+                    in_fence = True
+                    fence_char = char
+                    fence_len = length
+                    fence_lines.add(idx)
+                elif char == fence_char and length >= fence_len:
+                    in_fence = False
+                    fence_lines.add(idx)
+                else:
+                    fence_lines.add(idx)
+            elif in_fence:
+                fence_lines.add(idx)
+
+        return fence_lines
+
     @classmethod
-    def repair_heading_hierarchy(cls, text: str) -> tuple[str, list[str]]:
-        """Détecte et répare les sauts de niveau illégaux (ex: H1 -> H3).
-
-        Ajuste les niveaux relatifs pour rétablir une progression logique continue
-        sans rompre la subordination des sous-sections.
-
-        Returns:
-            Tuple (texte_modifié, liste_des_modifications_effectuées).
-        """
+    def detect_heading_hierarchy_issues(cls, text: str) -> list[HeadingRepairItem]:
+        """Détecte les sauts anormaux de hiérarchie (ex: H1 -> H3) en ignorant les blocs de code."""
         if not text or not text.strip():
-            return text, []
-
-        changes: list[str] = []
-        # Normalise les éventuels `#Titre` sans espace avant analyse CommonMark
-        missing_spaces = re.compile(r"^(#{1,6})([^# \t\n].*)$", re.MULTILINE)
-        if missing_spaces.search(text):
-            text = missing_spaces.sub(r"\1 \2", text)
-            changes.append("Espaces ajoutés après '#' sur les titres ATX")
-
-        outline = cls.get_outline(text)
-        if not outline:
-            return text, changes
+            return []
 
         lines = text.split("\n")
-        replacements: dict[int, str] = {}  # 0-indexed line -> new line string
+        fence_lines = cls._get_code_fence_lines(lines)
+        outline = cls.get_outline(text)
+        if not outline:
+            return []
 
-        # Algorithme d'ajustement hiérarchique
-        current_max_depth = 0
-        target_levels: list[int] = []
+        repairs: list[HeadingRepairItem] = []
+        current_depth = 0
 
         for item in outline:
-            current_level = item.level
-            corrected_level = current_max_depth + 1 if current_level > current_max_depth + 1 else current_level
-            current_max_depth = corrected_level
-            target_levels.append(corrected_level)
+            line_idx = item.line_number - 1
+            if line_idx in fence_lines:
+                continue
 
-        # Applique les corrections si des niveaux ont été modifiés
-        for item, corrected_level in zip(outline, target_levels, strict=False):
-            if corrected_level != item.level:
-                line_idx = item.line_number - 1
-                if 0 <= line_idx < len(lines):
-                    old_line = lines[line_idx]
-                    # Remplacement des '#' au début de la ligne
-                    m = re.match(r"^(#{1,6})\s*(.*)$", old_line)
-                    if m:
-                        content_part = m.group(2)
-                        new_line = f"{'#' * corrected_level} {content_part}"
-                        replacements[line_idx] = new_line
-                        changes.append(f"Ligne {item.line_number}: Titre '{item.title}' ajusté de H{item.level} à H{corrected_level}")
+            if current_depth == 0:
+                # Premier titre : tolère un démarrage en H1 ou H2
+                current_depth = item.level
+                continue
 
-        if not replacements:
+            if item.level > current_depth + 1:
+                target_level = current_depth + 1
+                reason = f"Saut de niveau anormal (H{current_depth} ➔ H{item.level})"
+                raw_line = lines[line_idx] if 0 <= line_idx < len(lines) else f"{'#' * item.level} {item.title}"
+                clean_title = cls.clean_heading_title(item.title)
+                repairs.append(
+                    HeadingRepairItem(
+                        line_number=item.line_number,
+                        raw_line=raw_line,
+                        title=clean_title,
+                        old_level=item.level,
+                        new_level=target_level,
+                        reason=reason,
+                    )
+                )
+                current_depth = target_level
+            else:
+                current_depth = item.level
+
+        return repairs
+
+    @classmethod
+    def apply_heading_repairs(cls, text: str, repairs: list[HeadingRepairItem]) -> str:
+        """Applique les corrections sélectionnées sur les titres du document."""
+        if not repairs or not text:
+            return text
+
+        lines = text.split("\n")
+        repair_map = {r.line_number - 1: r.new_level for r in repairs}
+
+        for idx, new_level in repair_map.items():
+            if 0 <= idx < len(lines):
+                old_line = lines[idx]
+                m = re.match(r"^(#{1,6})\s*(.*)$", old_line)
+                if m:
+                    content_part = m.group(2)
+                    lines[idx] = f"{'#' * new_level} {content_part}"
+
+        return "\n".join(lines)
+
+    @classmethod
+    def repair_heading_hierarchy(cls, text: str) -> tuple[str, list[str]]:
+        """Détecte et répare automatiquement tous les sauts de niveau illégaux."""
+        repairs = cls.detect_heading_hierarchy_issues(text)
+        if not repairs:
             return text, []
 
-        for line_idx, new_line in replacements.items():
-            lines[line_idx] = new_line
-
-        return "\n".join(lines), changes
+        repaired_text = cls.apply_heading_repairs(text, repairs)
+        changes = [f"Ligne {r.line_number}: Titre '{r.title}' ajusté de H{r.old_level} à H{r.new_level} ({r.reason})" for r in repairs]
+        return repaired_text, changes
 
     @classmethod
     def generate_toc(cls, text: str, max_depth: int = 3, ordered: bool = False) -> str:
-        """Génère une Table des Matières (TOC) Markdown avec liens ancrés.
-
-        Args:
-            text: Contenu Markdown source.
-            max_depth: Profondeur maximale des titres inclus (1 à 6).
-            ordered: Si True, numérotation ordonnée (1., 1.1...), sinon puces '-'
-
-        Returns:
-            Chaîne Markdown représentant le sommaire formaté.
-        """
+        """Génère une Table des Matières (TOC) standardisée, délimitée et propre."""
         outline = cls.get_outline(text)
         if not outline:
             return ""
 
-        filtered = [item for item in outline if item.level <= max_depth]
+        ignored_names = {"table des matières", "table des matieres", "sommaire", "table of contents", "toc"}
+
+        filtered: list[tuple[int, str, str]] = []
+        for item in outline:
+            clean_title = cls.clean_heading_title(item.title)
+            if clean_title.lower() in ignored_names:
+                continue
+            if item.level <= max_depth:
+                filtered.append((item.level, clean_title, item.slug or cls.slugify(clean_title)))
+
         if not filtered:
             return ""
 
-        min_level = min(item.level for item in filtered)
-        toc_lines: list[str] = ["## Table des Matières\n"]
+        min_level = min(level for level, _, _ in filtered)
+        toc_lines: list[str] = [
+            "<!-- toc -->",
+            "## Table des Matières",
+            "",
+        ]
 
-        # Suivi de la numérotation ordonnée
         counters = [0] * 7
 
-        for item in filtered:
-            indent_level = item.level - min_level
+        for level, title, slug in filtered:
+            indent_level = level - min_level
             indent = "  " * indent_level
 
             if ordered:
-                counters[item.level] += 1
-                # Réinitialise les compteurs plus profonds
-                for deeper in range(item.level + 1, 7):
+                counters[level] += 1
+                for deeper in range(level + 1, 7):
                     counters[deeper] = 0
-                prefix = f"{counters[item.level]}."
+                prefix = f"{counters[level]}."
             else:
                 prefix = "-"
 
-            toc_lines.append(f"{indent}{prefix} [{item.title}](#{item.slug})")
+            toc_lines.append(f"{indent}{prefix} [{title}](#{slug})")
 
-        return "\n".join(toc_lines) + "\n"
+        toc_lines.append("<!-- /toc -->")
+        return "\n".join(toc_lines)
+
+    @classmethod
+    def insert_or_update_toc(cls, text: str, max_depth: int = 3, ordered: bool = False) -> tuple[str, bool]:
+        """Insère ou met à jour in-place la Table des Matières dans le document Markdown.
+
+        Returns:
+            Tuple (nouveau_texte, modifie_ou_non)
+        """
+        if not text or not text.strip():
+            return text, False
+
+        toc_block = cls.generate_toc(text, max_depth=max_depth, ordered=ordered)
+        if not toc_block:
+            return text, False
+
+        # 1. Remplacement si un bloc <!-- toc --> ... <!-- /toc --> existe déjà
+        toc_marker_pattern = re.compile(r"<!--\s*toc\s*-->[\s\S]*?<!--\s*/toc\s*-->\n*", re.IGNORECASE)
+        if toc_marker_pattern.search(text):
+            updated = toc_marker_pattern.sub(f"{toc_block}\n\n", text, count=1)
+            return updated, True
+
+        # 2. Remplacement si une section '## Table des Matières' non balisée existe
+        existing_toc_pattern = re.compile(
+            r"^#{1,3}\s+(?:Table des Matières|Table des matieres|Sommaire|TOC|Table of contents)\b[\s\S]*?(?=\n#{1,3}\s|\Z)",
+            re.MULTILINE | re.IGNORECASE,
+        )
+        if existing_toc_pattern.search(text):
+            updated = existing_toc_pattern.sub(f"{toc_block}\n\n", text, count=1)
+            return updated, True
+
+        # 3. Insertion intelligente si aucun sommaire n'existe
+        # A. Après frontmatter YAML si présent
+        frontmatter_pattern = re.compile(r"^---\n[\s\S]*?\n---\n*", re.MULTILINE)
+        fm_match = frontmatter_pattern.match(text)
+        if fm_match:
+            insert_pos = fm_match.end()
+            remainder = text[insert_pos:].lstrip("\n")
+            new_text = f"{text[:insert_pos].rstrip()}\n\n{toc_block}\n\n{remainder}"
+            return new_text, True
+
+        # B. Après premier séparateur de page OCR {0}-------- si au tout début
+        page_pattern = re.compile(r"^(?:\{\d+\}-+\s*\n*)", re.MULTILINE)
+        page_match = page_pattern.match(text)
+        prefix_len = page_match.end() if page_match else 0
+
+        # C. Après le premier titre H1 du document
+        h1_pattern = re.compile(r"^(#\s+[^\n]+(?:\n\n[^\n#][^\n]*)?)", re.MULTILINE)
+        h1_match = h1_pattern.search(text[prefix_len:])
+        if h1_match:
+            insert_pos = prefix_len + h1_match.end()
+            remainder = text[insert_pos:].lstrip("\n")
+            new_text = f"{text[:insert_pos].rstrip()}\n\n{toc_block}\n\n{remainder}"
+            return new_text, True
+
+        # D. Sinon, insère après le séparateur de page initial ou en début
+        if prefix_len > 0:
+            remainder = text[prefix_len:].lstrip("\n")
+            new_text = f"{text[:prefix_len].rstrip()}\n\n{toc_block}\n\n{remainder}"
+        else:
+            remainder = text.lstrip("\n")
+            new_text = f"{toc_block}\n\n{remainder}"
+        return new_text, True
 
     @classmethod
     def extract_sections(cls, text: str, max_tokens: int | None = None) -> list[DocumentSection]:

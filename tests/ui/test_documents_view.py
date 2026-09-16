@@ -135,6 +135,44 @@ def test_documents_view_shows_marker_ocr_only_for_pdf(qtbot):
     assert not view.btn_marker.isHidden()
 
 
+def test_documents_view_progressive_disclosure_panel(qtbot):
+    """Le panneau droit (Sommaire/RAG/Plan) n'apparaît que lorsqu'un document est sélectionné."""
+    from ankiforge.database.models import FolderModel
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Progressive {uid}",
+        content="# Chapitre\n\nContenu.",
+        file_type="md",
+    )
+    folder = FolderModel.create(name=f"Dossier {uid}")
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Initialement : aucun document sélectionné → panneau masqué
+    assert view.coverage_panel.isHidden()
+
+    # Sélection d'un document → panneau visible
+    doc_item = QTreeWidgetItem(view.tree_explorer)
+    doc_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id})
+    view.tree_explorer.setCurrentItem(doc_item)
+    view._on_document_selected()
+    assert not view.coverage_panel.isHidden()
+
+    # Désélection → panneau masqué
+    view.tree_explorer.clearSelection()
+    view._on_document_selected()
+    assert view.coverage_panel.isHidden()
+
+    # Sélection d'un dossier → panneau masqué
+    folder_item = QTreeWidgetItem(view.tree_explorer)
+    folder_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": folder.id})
+    view.tree_explorer.setCurrentItem(folder_item)
+    view._on_document_selected()
+    assert view.coverage_panel.isHidden()
+
+
 def test_document_delimitation_dialog(qtbot):
     """Vérifie la modale de délimitation de pages et de filtrage des chapitres."""
     uid = uuid.uuid4().hex[:6]

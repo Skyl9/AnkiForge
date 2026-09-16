@@ -96,3 +96,99 @@ def test_extract_sections_fallback_no_headings() -> None:
     assert sections[0].heading_path == "Document"
     assert sections[0].title == "Document"
     assert sections[0].content == md
+
+
+def test_clean_heading_title() -> None:
+    # Tags HTML (ex: scans OCR)
+    assert MarkdownStructurer.clean_heading_title('<span id="page-1-0"></span>1. Variables aléatoires') == "1. Variables aléatoires"
+    # Liens Markdown
+    assert MarkdownStructurer.clean_heading_title("Voir [La documentation](https://example.com)") == "Voir La documentation"
+    # Gras, italique, code inline
+    assert MarkdownStructurer.clean_heading_title("**Important** et *notable* avec `code`") == "Important et notable avec code"
+    # Math inline KaTeX
+    assert MarkdownStructurer.clean_heading_title("Formule $E = mc^2$ et espace") == "Formule E = mc^2 et espace"
+
+
+def test_slugify_with_html_tags() -> None:
+    raw = '<span id="page-1-0"></span>Chapitre 1 : Introduction'
+    slug = MarkdownStructurer.slugify(raw)
+    assert "span" not in slug
+    assert "page-1-0" not in slug
+    assert slug == "chapitre-1-introduction"
+
+
+def test_detect_heading_hierarchy_issues_and_apply() -> None:
+    md = "# Chapitre 1\n\nContenu.\n\n### Sous-partie H3 directe\n\nDétail.\n\n##### Sous-sous H5 directe\n\nFin."
+    repairs = MarkdownStructurer.detect_heading_hierarchy_issues(md)
+    assert len(repairs) == 2
+
+    # Première anomalie : Ligne 5 (H3 -> H2)
+    assert repairs[0].line_number == 5
+    assert repairs[0].old_level == 3
+    assert repairs[0].new_level == 2
+    assert "H1 ➔ H3" in repairs[0].reason
+
+    # Deuxième anomalie : Ligne 9 (H5 -> H3)
+    assert repairs[1].line_number == 9
+    assert repairs[1].old_level == 5
+    assert repairs[1].new_level == 3
+
+    # Application sélective : réparer uniquement la première anomalie
+    repaired_partial = MarkdownStructurer.apply_heading_repairs(md, [repairs[0]])
+    assert "## Sous-partie H3 directe" in repaired_partial
+    assert "##### Sous-sous H5 directe" in repaired_partial
+
+    # Application totale
+    repaired_all = MarkdownStructurer.apply_heading_repairs(md, repairs)
+    assert "## Sous-partie H3 directe" in repaired_all
+    assert "### Sous-sous H5 directe" in repaired_all
+
+
+def test_detect_heading_hierarchy_skips_code_fences() -> None:
+    md = "# Titre Valide\n\n```python\n# Commentaire python avec dièse\n### Autre commentaire qui ne doit pas être un titre\n```\n\n## Sous-titre normal\n"
+    repairs = MarkdownStructurer.detect_heading_hierarchy_issues(md)
+    assert len(repairs) == 0
+
+
+def test_detect_heading_hierarchy_does_not_force_h1() -> None:
+    # Un document qui démarre avec H2 ne doit pas être forcé en H1
+    md = "## Section Principale (H2)\n\nContenu.\n\n### Sous-section (H3)\n\nContenu."
+    repairs = MarkdownStructurer.detect_heading_hierarchy_issues(md)
+    assert len(repairs) == 0
+
+
+def test_insert_or_update_toc_in_place_no_duplication() -> None:
+    md = "# Manuel AnkiForge\n\nIntroduction au projet.\n\n## Installation\n\nuv sync\n\n## Configuration\n\nVariables d'environnement."
+    # Première insertion
+    with_toc, changed1 = MarkdownStructurer.insert_or_update_toc(md)
+    assert changed1 is True
+    assert "<!-- toc -->" in with_toc
+    assert "<!-- /toc -->" in with_toc
+    assert "## Table des Matières" in with_toc
+    assert "- [Installation](#installation)" in with_toc
+    assert "- [Configuration](#configuration)" in with_toc
+
+    # Deuxième insertion (mise à jour in-place)
+    updated_toc, changed2 = MarkdownStructurer.insert_or_update_toc(with_toc)
+    assert changed2 is True
+    # Vérifie qu'il n'y a AUCUNE duplication des balises ni du titre de sommaire
+    assert with_toc.count("<!-- toc -->") == 1
+    assert with_toc.count("<!-- /toc -->") == 1
+    assert with_toc.count("## Table des Matières") == 1
+    assert updated_toc == with_toc
+
+
+def test_insert_or_update_toc_with_ocr_header() -> None:
+    md = "{0}------------------------------------------------\n\n# 1 - Variables aléatoires\n\nContenu de la première page.\n\n## 1.1 Définitions\n\nUne variable aléatoire est une fonction..."
+    with_toc, changed = MarkdownStructurer.insert_or_update_toc(md)
+    assert changed is True
+    lines = with_toc.splitlines()
+    # La première ligne doit rester le marqueur OCR {0}--------
+    assert lines[0].startswith("{0}-")
+    # Le H1 doit venir après le marqueur OCR
+    assert "# 1 - Variables aléatoires" in lines[2]
+    # Le sommaire doit être inséré après le premier H1, pas tout en haut
+    assert "<!-- toc -->" in with_toc
+    h1_idx = with_toc.find("# 1 - Variables aléatoires")
+    toc_idx = with_toc.find("<!-- toc -->")
+    assert toc_idx > h1_idx

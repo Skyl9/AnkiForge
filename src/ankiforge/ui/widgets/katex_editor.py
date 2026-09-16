@@ -344,6 +344,15 @@ class KaTeXEditor(QWidget):
         self.editor.setPlainText(html)
         self._update_preview()
 
+    def replace_all_text_with_undo(self, new_text: str) -> None:
+        """Remplace tout le contenu de l'éditeur en préservant la pile d'Undo Qt (Ctrl+Z possible)."""
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.SelectionType.Document)
+        cursor.insertText(new_text)
+        cursor.endEditBlock()
+        self._update_preview()
+
     def _render_math(self, math_str: str) -> str:
         return f"\\({math_str}\\)"
 

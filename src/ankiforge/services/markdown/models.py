@@ -103,3 +103,15 @@ class FormatResult:
             "changed": self.changed,
             "changes_summary": list(self.changes_summary),
         }
+
+
+@dataclass(frozen=True)
+class HeadingRepairItem:
+    """Proposition individuelle de correction de niveau d'un titre."""
+
+    line_number: int  # 1-indexé
+    raw_line: str
+    title: str
+    old_level: int
+    new_level: int
+    reason: str

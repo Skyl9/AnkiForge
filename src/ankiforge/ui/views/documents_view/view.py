@@ -3,7 +3,7 @@ import pathlib
 from typing import Any
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QTextCursor
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -108,6 +108,11 @@ class DocumentsView(QWidget):
         self._outline_debounce_timer.setSingleShot(True)
         self._outline_debounce_timer.setInterval(400)
         self._outline_debounce_timer.timeout.connect(self._update_outline)
+
+        self._cursor_spy_timer = QTimer(self)
+        self._cursor_spy_timer.setSingleShot(True)
+        self._cursor_spy_timer.setInterval(100)
+        self._cursor_spy_timer.timeout.connect(self._sync_active_line_to_outline)
 
         self._setup_ui()
         self._connect_signals()
@@ -588,11 +593,6 @@ class DocumentsView(QWidget):
         """)
         rag_layout.addWidget(self.rag_sandbox_results, 1)
 
-        self.btn_forge_rag_result = SecondaryButton("⚡ Forger ce fragment")
-        self.btn_forge_rag_result.setIcon(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW))
-        self.btn_forge_rag_result.clicked.connect(self._on_forge_sandbox_result)
-        rag_layout.addWidget(self.btn_forge_rag_result)
-
         self.coverage_panel.add_tab("RAG", rag_sandbox_content, "ph.database", closable=False)
 
         # --- TAB 3: Plan & Arborescence (Outline) ---
@@ -608,15 +608,20 @@ class DocumentsView(QWidget):
         self.main_splitter.setStretchFactor(1, 1)
         self.main_splitter.setStretchFactor(2, 0)
         self.main_splitter.setSizes([230, 600, 270])
+        self.coverage_panel.hide()
         self.editor_stack.setCurrentIndex(0)
 
     def _connect_signals(self) -> None:
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
         self.tree_explorer.itemMoved.connect(self._on_item_moved)
+        self.editor_stack.currentChanged.connect(self._on_editor_page_changed)
         self.text_editor.content_changed.connect(self._on_document_text_changed)
         self.outline_widget.heading_selected.connect(self._on_outline_heading_selected)
+        self.outline_widget.forge_section_requested.connect(self._on_forge_outline_section)
         self.outline_widget.repair_requested.connect(self._on_repair_document_headings)
         self.outline_widget.toc_requested.connect(self._on_insert_document_toc)
+        if hasattr(self.text_editor, "editor") and self.text_editor.editor:
+            self.text_editor.editor.cursorPositionChanged.connect(self._cursor_spy_timer.start)
         self._on_coverage_synced = self._handle_coverage_synced
         event_bus.subscribe(CoverageSyncedEvent, self._on_coverage_synced)
         self.destroyed.connect(lambda: event_bus.unsubscribe(CoverageSyncedEvent, self._on_coverage_synced))
@@ -625,6 +630,16 @@ class DocumentsView(QWidget):
         if event.doc_id is not None and event.doc_id != self._current_doc_id:
             return
         run_on_owner_thread(self, self._refresh_chapters_list)
+
+    @Slot(int)
+    def _on_editor_page_changed(self, index: int) -> None:
+        if index > 0:
+            self.coverage_panel.show()
+            sizes = self.main_splitter.sizes()
+            sizes[2] = max(sizes[2] or 270, self.coverage_panel.minimumWidth())
+            self.main_splitter.setSizes(sizes)
+        else:
+            self.coverage_panel.hide()
 
     def _on_search_filter_changed(self, text: str) -> None:
         self.tree_explorer.filter_text(text)
@@ -1038,7 +1053,7 @@ class DocumentsView(QWidget):
 
     @Slot(int)
     def _on_outline_heading_selected(self, line_number: int) -> None:
-        """Déplace le curseur dans l'éditeur vers la ligne sélectionnée."""
+        """Déplace le curseur dans l'éditeur vers la ligne sélectionnée et active visuellement la section."""
         if hasattr(self.text_editor, "editor") and self.text_editor.editor:
             editor = self.text_editor.editor
             doc = editor.document()
@@ -1046,42 +1061,85 @@ class DocumentsView(QWidget):
             if block.isValid():
                 cursor = editor.textCursor()
                 cursor.setPosition(block.position())
+                cursor.select(QTextCursor.SelectionType.LineUnderCursor)
                 editor.setTextCursor(cursor)
                 editor.centerCursor()
                 editor.setFocus()
+                if hasattr(self, "outline_widget"):
+                    self.outline_widget.set_active_line(line_number)
+
+    def _sync_active_line_to_outline(self) -> None:
+        """Transmet la position courante du curseur au plan pour mise en valeur (Scroll Spy)."""
+        if hasattr(self, "outline_widget") and hasattr(self.text_editor, "editor") and self.text_editor.editor:
+            cursor = self.text_editor.editor.textCursor()
+            line_number = cursor.blockNumber() + 1
+            self.outline_widget.set_active_line(line_number)
+
+    @Slot(str, str, int, int)
+    def _on_forge_outline_section(self, title: str, content: str, start_line: int, end_line: int) -> None:
+        """Envoie directement le contenu d'une section du plan vers le Studio de Création de cartes."""
+        if not content.strip():
+            show_toast(self, "La section sélectionnée est vide.", is_error=True)
+            return
+
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        doc_title = doc.title if doc else "Document"
+
+        self.request_navigation.emit(
+            "creation",
+            {
+                "doc_id": self._current_doc_id,
+                "text_source": content,
+                "source_title": f"{doc_title} - {title}",
+            },
+        )
+        show_toast(self, f"Section '{title}' envoyée au Studio de Création", level="success")
 
     @Slot()
     def _on_repair_document_headings(self) -> None:
-        """Harmonise la hiérarchie des titres (corrige les sauts de niveau)."""
+        """Harmonise la hiérarchie des titres après validation interactive de l'utilisateur."""
         content = self.text_editor.get_content()
         if not content.strip():
             return
-        repaired, changes = MarkdownStructurer.repair_heading_hierarchy(content)
-        if changes:
-            self.text_editor.set_content(repaired)
+
+        repairs = MarkdownStructurer.detect_heading_hierarchy_issues(content)
+        if not repairs:
+            show_toast(self, "La hiérarchie des titres est déjà optimale", level="info")
+            return
+
+        from ankiforge.ui.dialogs.repair_headings_dialog import RepairHeadingsDialog
+
+        dialog = RepairHeadingsDialog(repairs, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected = dialog.get_selected_repairs()
+            if not selected:
+                show_toast(self, "Aucune correction sélectionnée", level="info")
+                return
+
+            repaired = MarkdownStructurer.apply_heading_repairs(content, selected)
+            self.text_editor.replace_all_text_with_undo(repaired)
             self._dirty = True
             self.btn_save.setEnabled(True)
             self.outline_widget.set_document_content(repaired)
-            show_toast(self, f"Hiérarchie réparée : {len(changes)} titre(s) ajusté(s)", level="success")
-        else:
-            show_toast(self, "La hiérarchie des titres est déjà optimale", level="info")
+            show_toast(self, f"Hiérarchie réparée : {len(selected)} titre(s) ajusté(s) (Ctrl+Z pour annuler)", level="success")
 
     @Slot()
     def _on_insert_document_toc(self) -> None:
-        """Génère et insère une Table des Matières au début du document."""
+        """Génère et insère ou met à jour in-place une Table des Matières propre."""
         content = self.text_editor.get_content()
         if not content.strip():
             return
-        toc = MarkdownStructurer.generate_toc(content)
-        if not toc:
+
+        new_content, changed = MarkdownStructurer.insert_or_update_toc(content)
+        if not changed:
             show_toast(self, "Aucun titre trouvé pour générer le sommaire", level="warning")
             return
-        new_content = f"{toc}\n\n{content}"
-        self.text_editor.set_content(new_content)
+
+        self.text_editor.replace_all_text_with_undo(new_content)
         self._dirty = True
         self.btn_save.setEnabled(True)
         self.outline_widget.set_document_content(new_content)
-        show_toast(self, "Table des matières insérée avec succès", level="success")
+        show_toast(self, "Table des matières mise à jour (Ctrl+Z pour annuler)", level="success")
 
     def _update_outline(self) -> None:
         """Met à jour l'arborescence suite à une modification du texte."""
@@ -1630,6 +1688,17 @@ class DocumentsView(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, chunk.id)
             self.chapters_list.addItem(item)
 
+        coverage_by_heading: dict[str, int] = {}
+        for chunk in chunks:
+            card_count = chunk_card_counts.get(chunk.id, 0)
+            if chunk.heading_path:
+                coverage_by_heading[chunk.heading_path] = card_count
+                leaf = chunk.heading_path.split(" > ")[-1].strip()
+                coverage_by_heading[leaf] = card_count
+
+        if hasattr(self, "outline_widget"):
+            self.outline_widget.set_coverage_data(coverage_by_heading)
+
         percent = int(stats.get("coverage_pct", 0))
         unit_type = stats.get("unit_type", "sections")
         unit_label = "pages" if unit_type == "pages" else "sections"
@@ -1832,30 +1901,6 @@ class DocumentsView(QWidget):
 
         except Exception as e:
             self.rag_sandbox_results.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
-
-    @Slot()
-    def _on_forge_sandbox_result(self) -> None:
-        items = self.rag_sandbox_results.selectedItems()
-        if not items:
-            show_toast(self, "Veuillez sélectionner un fragment dans la liste des résultats.", is_error=True)
-            return
-
-        data = items[0].data(Qt.ItemDataRole.UserRole)
-        if not data or not isinstance(data, dict):
-            return
-
-        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
-        doc_title = doc.title if doc else "Document"
-        section_name = data.get("heading_path") or (f"Page {data.get('page_number')}" if data.get("page_number") else "Section RAG")
-
-        self.request_navigation.emit(
-            "creation",
-            {
-                "text_source": data.get("content", ""),
-                "source_title": f"{doc_title} - {section_name}",
-                "chunk_id": data.get("chunk_id"),
-            },
-        )
 
     def refresh_theme(self, profile: Any) -> None:
         if hasattr(self, "tree_explorer"):
