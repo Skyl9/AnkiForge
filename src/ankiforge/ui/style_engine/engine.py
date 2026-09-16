@@ -917,6 +917,66 @@ class StyleEngine(QObject):
             border-radius: {p.radius_sm}px;
         }}
 
+        /* --- LLM Discovery & Model Selector Modal --- */
+        ModelCardWidget, QFrame#ModelCard {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
+        }}
+        ModelCardWidget:hover, QFrame#ModelCard:hover {{
+            border-color: {p.accent_primary};
+            background-color: {p.bg_hover};
+        }}
+        ModelCardWidget[current="true"], QFrame#ModelCard[current="true"] {{
+            border: 1.5px solid {p.color_green};
+            background-color: {p.color_green_bg};
+        }}
+        ModelCardWidget[current="true"]:hover, QFrame#ModelCard[current="true"]:hover {{
+            border-color: {p.color_green};
+            background-color: {p.color_green_bg};
+        }}
+        QFrame#ModelCardUseCase {{
+            background-color: {p.bg_input};
+            border: 1px solid {p.border_light};
+            border-radius: {p.radius_sm}px;
+        }}
+        QFrame#FilterCard {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_md}px;
+        }}
+        QFrame#ComparePane {{
+            background-color: {p.bg_panel};
+            border: 1px solid {p.border_color};
+            border-top: 2px solid {p.accent_primary};
+            border-radius: {p.radius_md}px;
+        }}
+        QFrame#CompareModelColumn {{
+            background-color: {p.bg_input};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_sm}px;
+        }}
+        FilterChipButton {{
+            background-color: {p.bg_input};
+            color: {p.text_secondary};
+            border: 1px solid {p.border_color};
+            border-radius: {p.radius_sm}px;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 10px;
+        }}
+        FilterChipButton:hover {{
+            background-color: {p.bg_hover};
+            color: {p.text_primary};
+            border-color: {p.accent_primary};
+        }}
+        FilterChipButton:checked {{
+            background-color: {p.accent_bg};
+            color: {p.accent_primary};
+            border: 1px solid {p.accent_primary};
+            font-weight: 600;
+        }}
+
         /* --- Composants à décorants QPainter (thème-aware) ---
            Widgets qui dessinent en QPainter (paintEvent / QtCharts) et doivent
            consommer les DesignTokens pour rester conformes en clair et sombre :

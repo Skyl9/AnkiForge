@@ -4,7 +4,9 @@ Repository for Folders, Documents, Chunks, and Note-Chunk Traceability Links.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from typing import Any
 
 from ankiforge.database.models import (
@@ -23,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 class DocumentRepository(BaseRepository):
     """Data access repository for documents, folders, and RAG chunk linkages."""
+
+    _PAGE_LABEL_RE = re.compile(r"^\s*page\s*\d+\s*$", re.IGNORECASE)
 
     def get_all_folders(self) -> list[FolderModel]:
         """Retrieve all document library folders."""
@@ -173,6 +177,30 @@ class DocumentRepository(BaseRepository):
         """Retrieve notes linked to a specific chunk."""
         return list(NoteModel.select().join(NoteChunkLinkModel).where(NoteChunkLinkModel.chunk == chunk_id))
 
+    @staticmethod
+    def _parse_excluded_headings(doc: DocumentModel | None) -> list[str]:
+        """Parse la liste JSON des sections exclues (délimitation) persistée sur le document."""
+        if doc is None:
+            return []
+        raw_excl = getattr(doc, "excluded_headings", None)
+        if not raw_excl:
+            return []
+        try:
+            parsed = json.loads(raw_excl)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed if item]
+        except Exception:
+            return []
+        return []
+
+    @staticmethod
+    def _is_heading_excluded(heading_path: str, low_exclusions: set[str]) -> bool:
+        """Vérifie si une section correspond à une exclusion (titre exact ou sous-chaîne du fil d'Ariane)."""
+        low_path = heading_path.lower().strip()
+        if low_path in low_exclusions:
+            return True
+        return any(ex and ex in low_path for ex in low_exclusions)
+
     def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
         """Calculate coarse-grained coverage and gap metrics for a document (by page or section)."""
         doc = self.get_document_by_id(doc_id)
@@ -203,6 +231,36 @@ class DocumentRepository(BaseRepository):
 
         start_p = getattr(doc, "start_page", None)
         end_p = getattr(doc, "end_page", None)
+
+        # Sections fines : dès qu'un fragment porte un heading_path réel (≠ libellé
+        # générique "Page N" auto-généré), on privilégie la granularité section plutôt
+        # que la page — cas des PDF indexés par Marker et des Markdown structurés.
+        headings_in_chunks = [c.heading_path for c in chunks if c.heading_path]
+        fine_headings = [h for h in headings_in_chunks if not self._PAGE_LABEL_RE.match(h)]
+        use_section_units = bool(fine_headings) or (bool(headings_in_chunks) and not is_paginated)
+
+        if use_section_units:
+            distinct_headings = list(dict.fromkeys(headings_in_chunks))
+            covered_headings = {c.heading_path for c in chunks if c.id in linked_chunk_ids and c.heading_path}
+            low_exclusions = {e.lower().strip() for e in self._parse_excluded_headings(doc)}
+            active_headings = [h for h in distinct_headings if not self._is_heading_excluded(h, low_exclusions)]
+            covered_active = {h for h in covered_headings if not self._is_heading_excluded(h, low_exclusions)}
+            total_sections = len(active_headings)
+            covered_sections = len(covered_active & set(active_headings))
+            cov_pct = round((covered_sections / total_sections) * 100.0, 1) if total_sections > 0 else 0.0
+            orphan_headings = [h for h in active_headings if h not in covered_active]
+
+            return {
+                "total_chunks": total_chunks,
+                "covered_chunks": covered_count,
+                "coverage_pct": cov_pct,
+                "total_cards": total_cards,
+                "unit_type": "sections",
+                "total_units": total_sections,
+                "covered_units": covered_sections,
+                "orphan_units": orphan_headings,
+                "excluded_units": len(low_exclusions),
+            }
 
         if is_paginated:
             doc_total = doc.total_pages if doc and doc.total_pages else 0
@@ -235,40 +293,6 @@ class DocumentRepository(BaseRepository):
                 "excluded_units": excluded_pages_count,
                 "start_page": effective_start,
                 "end_page": effective_end,
-            }
-
-        # Document continu (Markdown, Web, texte, audio)
-        headings_in_chunks = [c.heading_path for c in chunks if c.heading_path]
-        if headings_in_chunks:
-            distinct_headings = list(dict.fromkeys(headings_in_chunks))
-            covered_headings = {c.heading_path for c in chunks if c.id in linked_chunk_ids and c.heading_path}
-            total_sections = len(distinct_headings)
-            covered_sections = len(covered_headings)
-            cov_pct = round((covered_sections / total_sections) * 100.0, 1) if total_sections > 0 else 0.0
-            orphan_headings = [h for h in distinct_headings if h not in covered_headings]
-
-            import json
-
-            raw_excl = getattr(doc, "excluded_headings", None)
-            excluded_count = 0
-            if raw_excl:
-                try:
-                    parsed_excl = json.loads(raw_excl)
-                    if isinstance(parsed_excl, list):
-                        excluded_count = len(parsed_excl)
-                except Exception:
-                    excluded_count = 0
-
-            return {
-                "total_chunks": total_chunks,
-                "covered_chunks": covered_count,
-                "coverage_pct": cov_pct,
-                "total_cards": total_cards,
-                "unit_type": "sections",
-                "total_units": total_sections,
-                "covered_units": covered_sections,
-                "orphan_units": orphan_headings,
-                "excluded_units": excluded_count,
             }
 
         cov_pct = round((covered_count / total_chunks) * 100.0, 1) if total_chunks > 0 else 0.0

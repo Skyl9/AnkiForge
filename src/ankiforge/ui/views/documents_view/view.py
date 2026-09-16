@@ -2,9 +2,12 @@ import logging
 import pathlib
 from typing import Any
 
+from peewee import fn
 from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QTextCursor
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
@@ -113,6 +116,12 @@ class DocumentsView(QWidget):
         self._cursor_spy_timer.setSingleShot(True)
         self._cursor_spy_timer.setInterval(100)
         self._cursor_spy_timer.timeout.connect(self._sync_active_line_to_outline)
+
+        self._coverage_refresh_timer = QTimer(self)
+        self._coverage_refresh_timer.setSingleShot(True)
+        self._coverage_refresh_timer.setInterval(250)
+        self._coverage_refresh_timer.timeout.connect(self._on_coverage_refresh_trigger)
+        self._coverage_fingerprint: tuple[int, int] | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -514,6 +523,34 @@ class DocumentsView(QWidget):
 
         cov_layout.addWidget(self.coverage_card)
 
+        self.chapters_filter = QComboBox()
+        self.chapters_filter.addItems(["Toutes les sections", "Couvertes", "Non couvertes"])
+        self.chapters_filter.setFixedHeight(24)
+        self.chapters_filter.setToolTip("Filtrer les sections selon leur état de couverture")
+        self.chapters_filter.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 8px;
+                font-size: 10px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 18px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                selection-background-color: {DesignTokens.BG_HOVER};
+                selection-color: {DesignTokens.TEXT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        self.chapters_filter.currentIndexChanged.connect(self._apply_chapters_filter)
+        cov_layout.addWidget(self.chapters_filter)
+
         self.chapters_list = QListWidget()
         self.chapters_list.setStyleSheet(f"""
             QListWidget {{
@@ -629,7 +666,23 @@ class DocumentsView(QWidget):
     def _handle_coverage_synced(self, event: CoverageSyncedEvent) -> None:
         if event.doc_id is not None and event.doc_id != self._current_doc_id:
             return
-        run_on_owner_thread(self, self._refresh_chapters_list)
+        run_on_owner_thread(self, self._coverage_refresh_timer.start)
+
+    @Slot()
+    def _on_coverage_refresh_trigger(self) -> None:
+        """Rafraîchit silencieusement la couverture après un évènement réactif (debounce)."""
+        if self.coverage_panel.isHidden() or not self._current_doc_id:
+            return
+        fingerprint = self._calc_coverage_fingerprint(self._current_doc_id)
+        if fingerprint == self._coverage_fingerprint:
+            return
+        self._refresh_chapters_list(allow_synthesis=False)
+
+    @staticmethod
+    def _calc_coverage_fingerprint(doc_id: int) -> tuple[int, int]:
+        chunk_count = DocumentChunkModel.select().where(DocumentChunkModel.document_id == doc_id).count()
+        link_count = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id).count()
+        return (chunk_count, link_count)
 
     @Slot(int)
     def _on_editor_page_changed(self, index: int) -> None:
@@ -783,6 +836,8 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_document_selected(self) -> None:
+        self._coverage_refresh_timer.stop()
+        self._coverage_fingerprint = None
         items = self.tree_explorer.selectedItems()
         if not items:
             self.btn_delete.setEnabled(False)
@@ -1612,49 +1667,22 @@ class DocumentsView(QWidget):
         except Exception as e:
             log_and_notify_error(e, context="Sauvegarde du document", parent=self, title="Erreur de sauvegarde")
 
-    def _refresh_chapters_list(self) -> None:
+    def _refresh_chapters_list(self, allow_synthesis: bool = True) -> None:
+        selected_key = self._current_selected_chapter_key()
         self.chapters_list.clear()
         if not self._current_doc_id:
+            self._coverage_fingerprint = None
             self.lbl_coverage_summary.setText("📊 Couverture : 0%")
             self.coverage_bar.setValue(0)
+            self._set_coverage_bar_color(0)
             self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
             return
 
+        self._coverage_fingerprint = self._calc_coverage_fingerprint(self._current_doc_id)
+
         chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
-        if not chunks and self._current_doc_id:
-            doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
-            if doc:
-                pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
-                if pages:
-                    with DocumentChunkModel._meta.database.atomic():
-                        for p in pages:
-                            DocumentChunkModel.create(
-                                document=doc,
-                                chunk_index=p.page_number - 1,
-                                content=p.ocr_text or f"Page {p.page_number}",
-                                page_number=p.page_number,
-                                heading_path=f"Page {p.page_number}",
-                                content_hash=ChunkingService.hash_content(p.ocr_text or f"Page {p.page_number}"),
-                            )
-                    mark_document_version(doc)
-                    chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
-                elif doc.content and doc.content.strip():
-                    extracted = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type, strategy=ChunkingService.preferred_strategy(doc.file_type))
-                    if extracted:
-                        with DocumentChunkModel._meta.database.atomic():
-                            for chunk_data in extracted:
-                                DocumentChunkModel.create(
-                                    document=doc,
-                                    chunk_index=chunk_data["index"],
-                                    content=chunk_data["content"],
-                                    page_number=chunk_data.get("page_number"),
-                                    heading_path=chunk_data.get("heading_path"),
-                                    start_time=chunk_data.get("start_time"),
-                                    end_time=chunk_data.get("end_time"),
-                                    content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
-                                )
-                        mark_document_version(doc)
-                        chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == self._current_doc_id).order_by(DocumentChunkModel.chunk_index))
+        if not chunks and allow_synthesis:
+            chunks = self._ensure_document_chunks(self._current_doc_id)
 
         if not chunks:
             item = QListWidgetItem("Aucun fragment structuré (document vide)")
@@ -1662,64 +1690,250 @@ class DocumentsView(QWidget):
             self.chapters_list.addItem(item)
             self.lbl_coverage_summary.setText("📊 Couverture : 0%")
             self.coverage_bar.setValue(0)
+            self._set_coverage_bar_color(0)
             self.lbl_coverage_details.setText("0 sections analysées • 0 cartes liées")
+            self._apply_chapters_filter()
             return
 
         doc_repo = DocumentRepository()
         stats = doc_repo.get_coverage_stats(self._current_doc_id)
+        chunk_card_counts = self._query_chunk_card_counts(self._current_doc_id)
 
-        links = list(NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == self._current_doc_id))
-        chunk_card_counts: dict[int, int] = {}
-        for link in links:
-            chunk_card_counts[link.chunk_id] = chunk_card_counts.get(link.chunk_id, 0) + 1
+        unit_type = stats.get("unit_type", "sections")
+        groups = self._group_chunks_by_unit(chunks, unit_type)
 
-        for chunk in chunks:
-            card_count = chunk_card_counts.get(chunk.id, 0)
-            if card_count > 0:
+        coverage_by_heading: dict[str, int] = {}
+        restore_item: QListWidgetItem | None = None
+        for label, chunk_ids in groups:
+            card_count = sum(chunk_card_counts.get(cid, 0) for cid in chunk_ids)
+            covered = card_count > 0
+            if covered:
                 badge = "🟢"
                 status_text = f"Couvert ({card_count} carte{'s' if card_count > 1 else ''})"
             else:
                 badge = "⚠️"
                 status_text = "Non couvert (0 carte)"
-
-            title_str = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
-            item_text = f"{badge} {title_str} ({status_text})"
+            frag_text = f", {len(chunk_ids)} fragment{'s' if len(chunk_ids) > 1 else ''}" if len(chunk_ids) > 1 else ""
+            item_text = f"{badge} {label} — {status_text}{frag_text}"
             item = QListWidgetItem(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, chunk.id)
+            item.setData(Qt.ItemDataRole.UserRole, chunk_ids)
+            item.setData(Qt.ItemDataRole.UserRole + 1, covered)
             self.chapters_list.addItem(item)
-
-        coverage_by_heading: dict[str, int] = {}
-        for chunk in chunks:
-            card_count = chunk_card_counts.get(chunk.id, 0)
-            if chunk.heading_path:
-                coverage_by_heading[chunk.heading_path] = card_count
-                leaf = chunk.heading_path.split(" > ")[-1].strip()
-                coverage_by_heading[leaf] = card_count
+            if chunk_ids == selected_key:
+                restore_item = item
+            if unit_type != "pages":
+                for key in self._heading_coverage_keys(label):
+                    coverage_by_heading[key] = max(coverage_by_heading.get(key, 0), card_count)
 
         if hasattr(self, "outline_widget"):
             self.outline_widget.set_coverage_data(coverage_by_heading)
 
         percent = int(stats.get("coverage_pct", 0))
-        unit_type = stats.get("unit_type", "sections")
         unit_label = "pages" if unit_type == "pages" else "sections"
         covered_units = stats.get("covered_units", 0)
-        total_units = stats.get("total_units", len(chunks))
-        total_cards = stats.get("total_cards", len(links))
+        total_units = stats.get("total_units", len(groups))
+        total_cards = stats.get("total_cards", 0)
         excluded_units = stats.get("excluded_units", 0)
 
         excl_suffix = f" • {excluded_units} exclu(e)s" if excluded_units > 0 else ""
         self.lbl_coverage_summary.setText(f"📊 Couverture : {percent}% ({covered_units}/{total_units} {unit_label}{excl_suffix})")
         self.coverage_bar.setValue(percent)
+        self._set_coverage_bar_color(percent)
         self.lbl_coverage_details.setText(f"{total_units} {unit_label} utiles • {covered_units} couvertes • {total_cards} cartes liées")
+
+        self._apply_chapters_filter()
+        if restore_item is not None:
+            self.chapters_list.setCurrentItem(restore_item)
+            self.chapters_list.scrollToItem(restore_item, QAbstractItemView.ScrollHint.EnsureVisible)
+
+    def _ensure_document_chunks(self, doc_id: int) -> list[Any]:
+        """Synthétise les fragments d'un document s'il n'en possède aucun (idempotent)."""
+        existing = list(DocumentChunkModel.select().where(DocumentChunkModel.document_id == doc_id).order_by(DocumentChunkModel.chunk_index))
+        if existing:
+            return existing
+        doc = DocumentModel.get_or_none(DocumentModel.id == doc_id)
+        if not doc:
+            return []
+        created: list[DocumentChunkModel] = []
+        pages = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
+        if pages:
+            with DocumentChunkModel._meta.database.atomic():
+                for p in pages:
+                    created.append(
+                        DocumentChunkModel.create(
+                            document=doc,
+                            chunk_index=p.page_number - 1,
+                            content=p.ocr_text or f"Page {p.page_number}",
+                            page_number=p.page_number,
+                            heading_path=f"Page {p.page_number}",
+                            content_hash=ChunkingService.hash_content(p.ocr_text or f"Page {p.page_number}"),
+                        )
+                    )
+            mark_document_version(doc)
+            return created
+        if doc.content and doc.content.strip():
+            extracted = ChunkingService.extract_chunks(doc.content, file_type=doc.file_type, strategy=ChunkingService.preferred_strategy(doc.file_type))
+            if extracted:
+                with DocumentChunkModel._meta.database.atomic():
+                    for chunk_data in extracted:
+                        created.append(
+                            DocumentChunkModel.create(
+                                document=doc,
+                                chunk_index=chunk_data["index"],
+                                content=chunk_data["content"],
+                                page_number=chunk_data.get("page_number"),
+                                heading_path=chunk_data.get("heading_path"),
+                                start_time=chunk_data.get("start_time"),
+                                end_time=chunk_data.get("end_time"),
+                                content_hash=chunk_data.get("content_hash") or ChunkingService.hash_content(chunk_data["content"]),
+                            )
+                        )
+                mark_document_version(doc)
+                return created
+        return []
+
+    @staticmethod
+    def _query_chunk_card_counts(doc_id: int) -> dict[int, int]:
+        """Compte les cartes liées par fragment en une seule requête GROUP BY."""
+        rows = (
+            NoteChunkLinkModel.select(
+                NoteChunkLinkModel.chunk_id,
+                fn.COUNT(NoteChunkLinkModel.id).alias("card_count"),
+            )
+            .join(DocumentChunkModel)
+            .where(DocumentChunkModel.document_id == doc_id)
+            .group_by(NoteChunkLinkModel.chunk_id)
+        )
+        return {int(r.chunk_id): int(r.card_count) for r in rows}
+
+    @staticmethod
+    def _group_chunks_by_unit(chunks: list[Any], unit_type: str) -> list[tuple[str, list[int]]]:
+        """Regroupe les fragments par unité réelle de couverture (section ou page)."""
+        groups: list[tuple[str, list[int]]] = []
+        index: dict[tuple[str, str | int | None], int] = {}
+        for chunk in chunks:
+            if unit_type == "pages":
+                key = ("page", chunk.page_number)
+                label = f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}"
+            else:
+                heading = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+                key = ("heading", heading)
+                label = heading
+            if key in index:
+                groups[index[key]][1].append(chunk.id)
+            else:
+                index[key] = len(groups)
+                groups.append((label, [chunk.id]))
+        return groups
+
+    @staticmethod
+    def _heading_coverage_keys(heading_path: str) -> list[str]:
+        """Génère les clés (chemin brut, slugs) indexant la couverture d'une section."""
+        parts = [p.strip() for p in heading_path.split(" > ") if p.strip()]
+        if not parts:
+            return []
+        full_slug = " > ".join(MarkdownStructurer.slugify(p) for p in parts)
+        leaf_raw = parts[-1]
+        leaf_slug = MarkdownStructurer.slugify(leaf_raw)
+        keys = [heading_path, full_slug, leaf_raw, leaf_slug]
+        return list(dict.fromkeys(keys))
+
+    def _current_selected_chapter_key(self) -> list[int] | None:
+        item = self.chapters_list.currentItem()
+        if item is None:
+            return None
+        data = item.data(Qt.ItemDataRole.UserRole)
+        return data if isinstance(data, list) else None
+
+    def _apply_chapters_filter(self) -> None:
+        mode = self.chapters_filter.currentIndex() if hasattr(self, "chapters_filter") else 0
+        for i in range(self.chapters_list.count()):
+            item = self.chapters_list.item(i)
+            covered = item.data(Qt.ItemDataRole.UserRole + 1)
+            if covered is None:
+                item.setHidden(False)
+                continue
+            if mode == 1:
+                item.setHidden(not covered)
+            elif mode == 2:
+                item.setHidden(covered)
+            else:
+                item.setHidden(False)
+
+    def _set_coverage_bar_color(self, percent: int) -> None:
+        if percent >= 100:
+            color = DesignTokens.COLOR_GREEN
+        elif percent >= 50:
+            color = DesignTokens.COLOR_YELLOW
+        else:
+            color = DesignTokens.COLOR_RED
+        self.coverage_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {color};
+                border-radius: 3px;
+            }}
+        """)
 
     @Slot(QListWidgetItem)
     def _on_chapter_clicked(self, item: QListWidgetItem) -> None:
-        chunk_id = item.data(Qt.ItemDataRole.UserRole)
-        if not chunk_id:
+        chunk_ids = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(chunk_ids, list) or not chunk_ids:
             return
-        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_ids[0])
         if chunk and chunk.start_time is not None and hasattr(self, "audio_player") and not self.audio_player.isHidden():
             self.audio_player.seek_seconds(chunk.start_time)
+            return
+        doc = DocumentModel.get_or_none(DocumentModel.id == self._current_doc_id)
+        if chunk and chunk.heading_path and doc and (doc.file_type or "").lower() in ("md", "markdown", "txt", "text", "web"):
+            self._navigate_editor_to_heading(chunk.heading_path)
+            return
+        if chunk and chunk.page_number and doc and doc.content:
+            self._scroll_editor_to_page(chunk.page_number)
+
+    def _navigate_editor_to_heading(self, heading_path: str) -> None:
+        """Déplace le curseur de l'éditeur vers le titre correspondant à la section cliquée."""
+        if not hasattr(self.text_editor, "editor") or not self.text_editor.editor:
+            return
+        content = self.text_editor.get_content() or ""
+        outline = MarkdownStructurer.get_outline(content)
+        target_parts = [MarkdownStructurer.slugify(p.strip()) for p in heading_path.split(" > ")]
+        line_number: int | None = None
+        for oi in outline:
+            oi_parts = [MarkdownStructurer.slugify(p.strip()) for p in oi.breadcrumb.split(" > ")]
+            if oi_parts == target_parts or (len(target_parts) == 1 and oi_parts and oi_parts[-1] == target_parts[0]):
+                line_number = oi.line_number
+                break
+        if line_number is not None:
+            self._on_outline_heading_selected(line_number)
+
+    def _scroll_editor_to_page(self, page_number: int) -> None:
+        """Fait défiler l'éditeur jusqu'au marqueur de page {N} correspondant."""
+        if not hasattr(self.text_editor, "editor") or not self.text_editor.editor:
+            return
+        editor = self.text_editor.editor
+        content = self.text_editor.get_content() or ""
+        if not content:
+            return
+        explicit_pages = [int(m.group(1)) for m in ChunkingService._MARKER_PAGE_RE.finditer(content)]
+        offset = 1 if explicit_pages and min(explicit_pages) == 0 else 0
+        target = page_number - offset
+        doc = editor.document()
+        for i, line in enumerate(content.split("\n")):
+            hit = ChunkingService._MARKER_PAGE_RE.search(line)
+            if hit and int(hit.group(1)) == target:
+                block = doc.findBlockByNumber(i)
+                if block.isValid():
+                    cursor = editor.textCursor()
+                    cursor.setPosition(block.position())
+                    editor.setTextCursor(cursor)
+                    editor.centerCursor()
+                    editor.setFocus()
+                return
 
     @Slot()
     def _on_forge_selected_chapter(self) -> None:
@@ -1728,11 +1942,11 @@ class DocumentsView(QWidget):
             show_toast(self, "Veuillez sélectionner un chapitre dans le sommaire.", is_error=True)
             return
 
-        chunk_id = items[0].data(Qt.ItemDataRole.UserRole)
-        if not chunk_id:
+        chunk_ids = items[0].data(Qt.ItemDataRole.UserRole)
+        if not isinstance(chunk_ids, list) or not chunk_ids:
             return
 
-        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_id)
+        chunk = DocumentChunkModel.get_or_none(DocumentChunkModel.id == chunk_ids[0])
         if not chunk:
             return
 

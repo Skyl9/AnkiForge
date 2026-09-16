@@ -140,3 +140,54 @@ def test_model_discovery_dialog_compare_drawer(qtbot, sample_llm_configs):
     # Le tiroir de comparaison doit s'afficher
     assert not dlg.compare_pane.isHidden()
     assert len(dlg._compared_models) == 2
+
+
+def test_model_discovery_provider_filter_and_current_model(qtbot, sample_llm_configs):
+    """Vérifie le filtrage par fournisseur, la détection du modèle actuel et la réinitialisation."""
+    dlg = ModelDiscoveryDialog(current_model_id="gemini-3.5-flash-lite", picker_mode=True)
+    qtbot.addWidget(dlg)
+    dlg.show()
+
+    # Vérifier que la carte courante a bien le flag is_current
+    cards = dlg.cards_container.findChildren(ModelCardWidget)
+    current_cards = [c for c in cards if c.is_current]
+    assert len(current_cards) == 1
+    assert "Gemini" in current_cards[0].title_lbl.text()
+
+    # Filtrer par Ollama
+    dlg.prov_buttons["ollama"].click()
+    ollama_cards = [c for c in dlg.cards_container.findChildren(ModelCardWidget) if not c.isHidden()]
+    assert len(ollama_cards) >= 1
+    assert all("ollama" in getattr(c.model, "provider", "").lower() for c in ollama_cards)
+
+    # Réinitialiser tous les filtres
+    dlg._reset_all_filters()
+    all_cards = [c for c in dlg.cards_container.findChildren(ModelCardWidget) if not c.isHidden()]
+    assert len(all_cards) >= 2
+
+
+def test_model_card_double_click_selection(qtbot, sample_llm_configs):
+    """Vérifie que le double-clic sur une carte sélectionne le modèle immédiatement."""
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtGui import QMouseEvent
+
+    m1, _ = sample_llm_configs
+    card = ModelCardWidget(model=m1, is_installed=True, picker_mode=True)
+    qtbot.addWidget(card)
+
+    selected_models = []
+    card.selected.connect(selected_models.append)
+
+    # Simuler un double clic
+    event = QMouseEvent(
+        QMouseEvent.Type.MouseButtonDblClick,
+        QPoint(10, 10),
+        QPoint(10, 10),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    card.mouseDoubleClickEvent(event)
+
+    assert len(selected_models) == 1
+    assert selected_models[0].id == m1.id

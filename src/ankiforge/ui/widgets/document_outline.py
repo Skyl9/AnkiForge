@@ -485,8 +485,21 @@ class DocumentOutlineWidget(QWidget):
             raw_title = str(item.data(0, ROLE_RAW_TITLE) or "")
             slug = str(item.data(0, ROLE_SLUG) or "")
 
+            # Fil d'Ariane des slugs (de la racine jusqu'à ce nœud) pour garantir la
+            # correspondance même en présence de titres dupliqués.
+            chain_parts: list[str] = []
+            node = item
+            while node is not None:
+                node_slug = str(node.data(0, ROLE_SLUG) or "")
+                if node_slug:
+                    chain_parts.insert(0, node_slug)
+                node = node.parent()
+            breadcrumb_slug = " > ".join(chain_parts)
+
             count: int | None = None
-            if raw_title in self._coverage_data:
+            if breadcrumb_slug in self._coverage_data:
+                count = self._coverage_data[breadcrumb_slug]
+            elif raw_title in self._coverage_data:
                 count = self._coverage_data[raw_title]
             elif slug in self._coverage_data:
                 count = self._coverage_data[slug]

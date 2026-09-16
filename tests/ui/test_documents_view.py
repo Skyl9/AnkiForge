@@ -431,3 +431,250 @@ def test_documents_view_marker_installation_switches_to_console(qtbot, monkeypat
     # Simuler des logs reçus en temps réel
     view._on_worker_log("Downloading torch-2.1.0-cp312-none-any.whl (750 MB)")
     assert "Downloading torch" in view.terminal_view.toPlainText()
+
+
+def test_documents_view_coverage_aggregates_duplicate_headings(qtbot):
+    """Le Sommaire agrège les fragments d'une même section et reste cohérent avec le %."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Dupliqué {uid}",
+        content="# Anatomie > Le Cœur\n\nTexte.",
+        file_type="md",
+    )
+    chunk1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Anatomie > Le Cœur",
+        content="Le cœur pompe le sang.",
+        content_hash=f"hash_c1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Anatomie > Le Cœur",
+        content="Le cœur pompe le sang (suite).",
+        content_hash=f"hash_c2_{uid}",
+    )
+
+    deck = DeckModel.create(name=f"Deck Dup {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Dup {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note.add_version({"Front": "Rôle du cœur ?", "Back": "Pompe sanguine"}, source="manual")
+    from ankiforge.database.models import CardModel
+
+    CardModel.create(note=note, deck=deck, template_index=0)
+    NoteChunkLinkModel.create(note=note, chunk=chunk1)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+
+    assert view.chapters_list.count() == 1
+    row = view.chapters_list.item(0)
+    assert "🟢" in row.text()
+    assert "Couvert" in row.text()
+    assert "2 fragments" in row.text()
+    assert "100%" in view.lbl_coverage_summary.text()
+    # L'unité de couverture est la section, pas le fragment
+    assert view.chapters_list.item(0).data(Qt.ItemDataRole.UserRole + 1) is True
+
+
+def test_documents_view_coverage_filter(qtbot):
+    """Le filtre couvert/non-couvert masque les lignes selon leur état."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Filtre {uid}",
+        content="# A\n\nAA.\n\n# B\n\nBB.",
+        file_type="md",
+    )
+    chunk_a = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="A",
+        content="AA.",
+        content_hash=f"hash_a_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="B",
+        content="BB.",
+        content_hash=f"hash_b_{uid}",
+    )
+    deck = DeckModel.create(name=f"Deck Filtre {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Filtre {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note.add_version({"Front": "A ?", "Back": "AA"}, source="manual")
+    from ankiforge.database.models import CardModel
+
+    CardModel.create(note=note, deck=deck, template_index=0)
+    NoteChunkLinkModel.create(note=note, chunk=chunk_a)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+    assert view.chapters_list.count() == 2
+
+    # Couvertes uniquement
+    view.chapters_filter.setCurrentIndex(1)
+    assert not view.chapters_list.item(0).isHidden()
+    assert view.chapters_list.item(1).isHidden()
+
+    # Non couvertes uniquement
+    view.chapters_filter.setCurrentIndex(2)
+    assert view.chapters_list.item(0).isHidden()
+    assert not view.chapters_list.item(1).isHidden()
+
+    # Toutes
+    view.chapters_filter.setCurrentIndex(0)
+    assert not view.chapters_list.item(0).isHidden()
+    assert not view.chapters_list.item(1).isHidden()
+
+
+def test_documents_view_refresh_does_not_write_db(qtbot, monkeypatch):
+    """Un simple rafraîchissement de couverture n'écrit jamais en base quand des chunks existent."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Doc NoWrite {uid}", content="# X\n\nXX.", file_type="md")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="X",
+        content="XX.",
+        content_hash=f"hash_x_{uid}",
+    )
+
+    def raise_if_created(*args, **kwargs):
+        raise AssertionError("Un rafraîchissement ne doit pas écrire de chunks")
+
+    monkeypatch.setattr(DocumentChunkModel, "create", raise_if_created)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+    view._refresh_chapters_list(allow_synthesis=False)
+    assert view.chapters_list.count() == 1
+
+
+def test_documents_view_coverage_paginated_groups_by_page(qtbot):
+    """Pour un document paginé, une ligne = une page et le % suit la couverture par page."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Pages {uid}",
+        content="{1}---\nP1\n{2}---\nP2",
+        file_type="pdf",
+    )
+    chunk_p1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Page 1",
+        content="P1",
+        content_hash=f"hash_p1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Page 2",
+        content="P2",
+        content_hash=f"hash_p2_{uid}",
+    )
+
+    deck = DeckModel.create(name=f"Deck Pages {uid}")
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Pages {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
+    note.add_version({"Front": "P1 ?", "Back": "P1"}, source="manual")
+    from ankiforge.database.models import CardModel
+
+    CardModel.create(note=note, deck=deck, template_index=0)
+    NoteChunkLinkModel.create(note=note, chunk=chunk_p1)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+
+    assert view.chapters_list.count() == 2
+    assert "Page 1" in view.chapters_list.item(0).text()
+    assert "Couvert" in view.chapters_list.item(0).text()
+    assert "Page 2" in view.chapters_list.item(1).text()
+    assert "Non couvert" in view.chapters_list.item(1).text()
+    assert "pages" in view.lbl_coverage_details.text()
+    assert "50%" in view.lbl_coverage_summary.text()
+
+
+def test_documents_view_selection_preserved_across_reactive_refresh(qtbot):
+    """Le rafraîchissement réactif préserve la sélection de l'utilisateur dans le Sommaire."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Sélection {uid}",
+        content="# A\n\nAA.\n\n# B\n\nBB.",
+        file_type="md",
+    )
+    DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="A", content="AA.", content_hash=f"h1_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="B", content="BB.", content_hash=f"h2_{uid}")
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view.coverage_panel.show()
+    view._refresh_chapters_list()
+    view.chapters_list.setCurrentRow(1)
+    assert view.chapters_list.currentRow() == 1
+
+    view._coverage_fingerprint = None
+    view._on_coverage_refresh_trigger()
+    assert view.chapters_list.currentRow() == 1
+
+    # Un évènement sans changement d'empreinte ne doit pas rafraîchir (debounce/fermeture)
+    view.chapters_list.setCurrentRow(0)
+    view._on_coverage_refresh_trigger()
+    assert view.chapters_list.currentRow() == 0
+
+
+def test_documents_view_pdf_marker_coverage_uses_sections(qtbot):
+    """Pour un PDF indexé par Marker, le Sommaire affiche le détail fin des sections, pas les pages."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"PDF Marker UI {uid}",
+        content="{1}---\n# Anatomie > Le Cœur\nLe cœur.\n{2}---\n# Anatomie > Les Poumons\nRespirer.",
+        file_type="pdf",
+        total_pages=2,
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Anatomie > Le Cœur",
+        content="Le cœur.",
+        content_hash=f"u1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Anatomie > Les Poumons",
+        content="Respirer.",
+        content_hash=f"u2_{uid}",
+    )
+    chunk_covered = DocumentChunkModel.get(chunk_index=0, document=doc)
+    nt = NoteModel.create(
+        guid=uuid.uuid4().hex,
+        note_type=NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Marker UI {uid}"),
+        raw_content="Q",
+    )
+    NoteChunkLinkModel.create(note=nt, chunk=chunk_covered)
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view._current_doc_id = doc.id
+    view._refresh_chapters_list()
+
+    assert view.chapters_list.count() == 2
+    assert "Anatomie > Le Cœur" in view.chapters_list.item(0).text()
+    assert "Anatomie > Les Poumons" in view.chapters_list.item(1).text()
+    assert "sections" in view.lbl_coverage_details.text()
+    assert "50%" in view.lbl_coverage_summary.text()

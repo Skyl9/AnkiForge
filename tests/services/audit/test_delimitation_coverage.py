@@ -158,3 +158,106 @@ def test_delimitation_dialog_markdown_document_without_pages(qtbot):
     assert reloaded_doc.excluded_headings is not None
     excl = json.loads(reloaded_doc.excluded_headings)
     assert any("Chapitre 1" in s for s in excl)
+
+
+def test_coverage_stats_pdf_marker_uses_fine_sections():
+    """Un PDF indexé par Marker (sections fines) est couvert par section, pas par page."""
+    from ankiforge.database.models import NoteTypeModel
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"PDF Marker {uid}",
+        content="{1}---\n# Anatomie > Le Cœur\nLe cœur pompe le sang.\n{2}---\n# Anatomie > Les Poumons\nRespirer.",
+        file_type="pdf",
+        total_pages=2,
+    )
+    chunk_c = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Anatomie > Le Cœur",
+        content="Le cœur pompe le sang.",
+        content_hash=f"h_c_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Anatomie > Les Poumons",
+        content="Respirer.",
+        content_hash=f"h_p_{uid}",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Marker {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, raw_content="Q")
+    NoteChunkLinkModel.create(note=note, chunk=chunk_c)
+
+    stats = DocumentRepository().get_coverage_stats(doc.id)
+    assert stats["unit_type"] == "sections"
+    assert stats["total_units"] == 2
+    assert stats["covered_units"] == 1
+    assert stats["coverage_pct"] == 50.0
+    assert stats["orphan_units"] == ["Anatomie > Les Poumons"]
+
+
+def test_coverage_stats_native_pdf_with_page_labels_stays_paginated():
+    """Un PDF natif (fragments 'Page N' uniquement) conserve une couverture par pages."""
+    from ankiforge.database.models import NoteTypeModel
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"PDF Natif {uid}", file_type="pdf", total_pages=3)
+    chunk_p1 = DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Page 1",
+        content="P1",
+        content_hash=f"hp1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Page 2",
+        content="P2",
+        content_hash=f"hp2_{uid}",
+    )
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Natif {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, raw_content="Q")
+    NoteChunkLinkModel.create(note=note, chunk=chunk_p1)
+
+    stats = DocumentRepository().get_coverage_stats(doc.id)
+    assert stats["unit_type"] == "pages"
+    assert stats["total_units"] == 3
+    assert stats["covered_units"] == 1
+    assert stats["coverage_pct"] == round(1 / 3 * 100, 1)
+
+
+def test_coverage_stats_fine_sections_respect_excluded_headings():
+    """Les sections exclues (délimitation) sont retirées du dénominateur de couverture."""
+    from ankiforge.database.models import NoteTypeModel
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"PDF Marker Exclu {uid}",
+        content="# Intro\n..\n# Partie 1\n..\n# Partie 2\n..",
+        file_type="pdf",
+        total_pages=3,
+        excluded_headings=json.dumps(["Partie 2"], ensure_ascii=False),
+    )
+    chunk1 = DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Intro", content="Intro", content_hash=f"e1_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Partie 1", content="P1", content_hash=f"e2_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=2, page_number=3, heading_path="Partie 2", content="P2", content_hash=f"e3_{uid}")
+
+    nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Exclu {uid}")
+    note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, raw_content="Q")
+    NoteChunkLinkModel.create(note=note, chunk=chunk1)
+
+    stats = DocumentRepository().get_coverage_stats(doc.id)
+    assert stats["unit_type"] == "sections"
+    assert stats["total_units"] == 2
+    assert stats["covered_units"] == 1
+    assert stats["coverage_pct"] == 50.0
+    assert stats["excluded_units"] == 1
+    assert stats["orphan_units"] == ["Partie 1"]
