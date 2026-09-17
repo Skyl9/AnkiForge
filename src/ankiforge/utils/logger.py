@@ -33,6 +33,7 @@ from ankiforge.utils.paths import get_active_profile, get_app_data_dir
 _RE_ANTHROPIC_KEY = re.compile(r"sk-ant-[a-zA-Z0-9_\-]{15,}")
 _RE_OPENAI_KEY = re.compile(r"sk-[a-zA-Z0-9_\-]{20,}")
 _RE_GOOGLE_KEY = re.compile(r"AIza[0-9A-Za-z\-_]{35}")
+_RE_GROQ_KEY = re.compile(r"gsk_[a-zA-Z0-9_\-]{20,}")
 _RE_BEARER_TOKEN = re.compile(r"(Bearer\s+)[a-zA-Z0-9_\-\.]{15,}", re.IGNORECASE)
 _RE_PASSWORD_PARAM = re.compile(
     r"(password|api_key|secret|token|auth_token)\s*([:=])\s*['\"]?([^\s'\",]+)['\"]?",
@@ -49,6 +50,7 @@ def redact_secrets(text: str) -> str:
     sanitized = _RE_ANTHROPIC_KEY.sub("[REDACTED_ANTHROPIC_KEY]", text)
     sanitized = _RE_OPENAI_KEY.sub("[REDACTED_OPENAI_KEY]", sanitized)
     sanitized = _RE_GOOGLE_KEY.sub("[REDACTED_GEMINI_KEY]", sanitized)
+    sanitized = _RE_GROQ_KEY.sub("[REDACTED_GROQ_KEY]", sanitized)
 
     # 2. Tokens d'authentification Bearer
     sanitized = _RE_BEARER_TOKEN.sub(r"\1[REDACTED_TOKEN]", sanitized)

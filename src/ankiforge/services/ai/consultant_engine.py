@@ -96,6 +96,8 @@ def robust_json_loads(text: Any) -> Any:
     try:
         import ast
 
+        if len(clean) > 100_000:
+            raise ValueError("Chaîne trop longue pour le parse littéral.")
         return ast.literal_eval(clean)
     except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
         pass

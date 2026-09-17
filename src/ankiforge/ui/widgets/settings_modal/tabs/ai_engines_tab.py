@@ -653,8 +653,13 @@ class AIEnginesTab(QWidget):
                     # Clé dans le trousseau OS : ne plus la persister en clair en BDD
                     LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == provider_id).execute()
                 else:
-                    SettingsService.set(f"keys/{provider_id}", key_val, category="api_keys")
-                    LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == provider_id).execute()
+                    # Pas de repli en clair : si le trousseau OS est indisponible, la clé n'est pas enregistrée
+                    logger.error(
+                        "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
+                        provider_id,
+                    )
+                    show_toast(self, f"Trousseau OS indisponible : clé {provider_name} non enregistrée (sécurité).", is_error=True)
+                    return
             except Exception as e:
                 logger.error("Échec de sauvegarde de la clé %s : %s", provider_id, e)
                 show_toast(self, f"Impossible d'enregistrer la clé {provider_name}.", is_error=True)
@@ -860,11 +865,18 @@ class AIEnginesTab(QWidget):
             spec = ModelCatalog.get_model_spec(provider, model_id)
             api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
 
-            # Stockage du secret dans le trousseau OS si possible (jamais en clair en BDD)
+            # Stockage du secret dans le trousseau OS uniquement : jamais en clair en BDD
             if api_key:
                 from ankiforge.utils.secret_store import store_llm_key
 
                 if store_llm_key(model_id, provider, api_key):
+                    api_key = ""
+                else:
+                    logger.error(
+                        "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
+                        provider,
+                    )
+                    show_toast(self, f"Trousseau OS indisponible : clé {provider} non enregistrée (sécurité).", is_error=True)
                     api_key = ""
 
             effective_context_limit = context_limit if context_limit is not None else (spec.context_window if spec else (1048576 if provider == "gemini" else 128000))
@@ -1028,11 +1040,11 @@ class AIEnginesTab(QWidget):
                 except Exception as e:
                     logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
             else:
-                SettingsService.set(f"keys/{p_id}", key_val, category="api_keys")
-                try:
-                    LLMConfigModel.update(api_key=key_val).where(LLMConfigModel.provider == p_id).execute()
-                except Exception as e:
-                    logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
+                # Pas de repli en clair : le trousseau OS est indisponible, la clé n'est pas enregistrée
+                logger.error(
+                    "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
+                    p_id,
+                )
 
         SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
 

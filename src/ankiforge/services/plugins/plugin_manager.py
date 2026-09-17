@@ -16,12 +16,12 @@ import subprocess  # nosec B404
 import sys
 import tempfile
 import traceback
-import zipfile
 from pathlib import Path
 from typing import Any
 
 from ankiforge.services.plugins.api import AnkiForgeAPI
 from ankiforge.services.plugins.manifest_schema import AddonInfo, AddonManifest, AddonStatus
+from ankiforge.utils.archive_utils import safe_extract_zip
 
 logger = logging.getLogger(__name__)
 
@@ -314,8 +314,8 @@ class PluginManager:
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
-                with zipfile.ZipFile(zip_file, "r") as zf:
-                    zf.extractall(tmp_path)
+                # Extraction sécurisée anti Zip-Slip (chemins absolus/remontées refusés)
+                safe_extract_zip(zip_file, tmp_path, max_total_size=50 * 1024 * 1024)
 
                 # Recherche du manifest.json
                 manifest_location = None

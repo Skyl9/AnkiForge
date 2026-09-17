@@ -187,20 +187,25 @@ def test_ai_engines_tab_key_validation_and_crud(qtbot):
 
     # 3. Sauvegarde des clés
     tab.save_tab()
-    assert SettingsService.get("keys/openai") == "sk-proj-1234567890abcdef1234567890"
+    # Trousseau OS neutralisé en test : la clé ne doit jamais être persistée en clair
+    assert SettingsService.get("keys/openai") is None
+    openai_cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "openai").first()
+    assert openai_cfg is None or openai_cfg.api_key in (None, "")
 
 
 def test_ai_engines_tab_key_test_surfaces_save_failure_without_crashing(qtbot):
-    """Le bouton de test ne doit pas faire tomber l'onglet si la persistance échoue."""
+    """Le bouton de test ne doit pas faire tomber l'onglet si le trousseau OS est indisponible."""
     tab = AIEnginesTab()
     qtbot.addWidget(tab)
     tab.key_edits["openai"].setText("sk-proj-1234567890abcdef1234567890")
 
-    with patch.object(SettingsService, "set", side_effect=RuntimeError("database unavailable")), patch("ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab.show_toast") as toast:
+    with patch("ankiforge.utils.secret_store.store_llm_key", return_value=False), patch("ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab.show_toast") as toast:
         tab._test_cloud_key("openai", "OpenAI")
 
     toast.assert_called_once()
-    assert "Impossible d'enregistrer" in toast.call_args.args[1]
+    assert "non enregistrée" in toast.call_args.args[1]
+    # La clé n'est jamais écrite en clair quand le keyring est indisponible
+    assert SettingsService.get("keys/openai") is None
 
 
 def test_ai_engines_tab_ollama_scan_mocked(qtbot):
@@ -340,10 +345,10 @@ def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):
     tab.key_edits["openai"].setText(new_key)
     tab.save_tab()
 
-    # Vérification BDD SettingModel et LLMConfigModel
-    assert SettingsService.get("keys/openai") == new_key
+    # Trousseau neutralisé : la clé n'est JAMAIS persistée en clair (BDD / Settings)
+    assert SettingsService.get("keys/openai") is None
     updated_cfg = LLMConfigModel.get_by_id(cfg.id)
-    assert updated_cfg.api_key == new_key
+    assert updated_cfg.api_key in (None, "")
 
     # Vérification notification reload_provider
     mock_ai_manager.reload_provider.assert_called()

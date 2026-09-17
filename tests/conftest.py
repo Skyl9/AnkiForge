@@ -6,7 +6,7 @@ import pytest
 from peewee import SqliteDatabase
 
 # Neutralise le trousseau OS durant les tests : aucun accès au Keychain/Credential
-# Manager CI, et le code tombe proprement sur son repli (colonne api_key en BDD).
+# Manager CI, et le code refuse alors toute persistance de clé en clair (sécurité).
 with contextlib.suppress(Exception):
     import keyring
     from keyring.backends import fail

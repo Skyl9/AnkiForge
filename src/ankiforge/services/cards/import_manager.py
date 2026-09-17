@@ -37,6 +37,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
+from ankiforge.utils.archive_utils import safe_extract_zip
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.paths import get_media_dir
 
@@ -490,8 +491,8 @@ class ImportManager:
         temp_path = Path(temp_dir)
 
         try:
-            with zipfile.ZipFile(apkg_path, "r") as zf:
-                zf.extractall(temp_path)
+            # Extraction sécurisée anti Zip-Slip (chemins absolus/remontées refusés)
+            safe_extract_zip(apkg_path, temp_path, max_total_size=512 * 1024 * 1024)
         except zipfile.BadZipFile as e:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise ValueError(f"Le fichier {apkg_path.name} n'est pas une archive ZIP/APKG valide.") from e

@@ -198,10 +198,13 @@ class AIReponseParser:
             data = json.loads(cleaned_text)
         except json.JSONDecodeError:
             # Fallback 1 : structure dictionnaire Python native
-            try:
-                data = ast.literal_eval(cleaned_text)
-            except (ValueError, SyntaxError, TypeError, MemoryError):
+            if len(cleaned_text) > 100_000:
                 data = None
+            else:
+                try:
+                    data = ast.literal_eval(cleaned_text)
+                except (ValueError, SyntaxError, TypeError, MemoryError):
+                    data = None
 
         if data is None:
             # Fallback 2 : Extraction individuelle d'objets {...} pour JSON partiel
