@@ -200,6 +200,11 @@ def run_migrations() -> None:
                 router.model.create(name="033_chunk_strategy_version")
                 logger.info("Base legacy détectée : enregistrement rétroactif de la migration 033_chunk_strategy_version.")
 
+        # Si embedding_cache existe déjà, la migration 036 est déjà appliquée
+        if "036_embedding_cache_and_missing_indexes" not in done_migrations and db.table_exists("embedding_cache"):
+            router.model.create(name="036_embedding_cache_and_missing_indexes")
+            logger.info("Base legacy détectée : enregistrement rétroactif de la migration 036_embedding_cache_and_missing_indexes.")
+
         # Nettoyage et synchronisation de la table note_chunk_links
         if db.table_exists("note_chunk_links"):
             try:

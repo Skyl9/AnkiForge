@@ -25,6 +25,7 @@ from ankiforge.database.models import (
     PersonaModel,
     PipelineModel,
     PipelineStepModel,
+    db,
 )
 from ankiforge.repositories import PersonaRepository, PipelineRepository
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer
@@ -622,16 +623,17 @@ class PipelinesView(QWidget):
         """Applique un modèle prédéfini sous forme d'un nouveau pipeline."""
         pipe_name = f"{tpl['name']} (Instancié)"
         try:
-            new_pipe = PipelineModel.create(name=pipe_name, description=tpl["description"])
-            for idx, s in enumerate(tpl["steps"], start=1):
-                p_obj = self._cached_personas[0] if self._cached_personas else None
-                PipelineStepModel.create(
-                    pipeline=new_pipe,
-                    persona=p_obj if s["type"] in ("LLM_PROMPT", "MAP_REDUCE") else None,
-                    step_type=s["type"],
-                    step_order=idx,
-                    config_data=json.dumps(s.get("config", {})),
-                )
+            with db.atomic():
+                new_pipe = PipelineModel.create(name=pipe_name, description=tpl["description"])
+                for idx, s in enumerate(tpl["steps"], start=1):
+                    p_obj = self._cached_personas[0] if self._cached_personas else None
+                    PipelineStepModel.create(
+                        pipeline=new_pipe,
+                        persona=p_obj if s["type"] in ("LLM_PROMPT", "MAP_REDUCE") else None,
+                        step_type=s["type"],
+                        step_order=idx,
+                        config_data=json.dumps(s.get("config", {})),
+                    )
             show_toast(self, f"Modèle '{tpl['name']}' instancié !", is_error=False)
             self.refresh_data()
             for i in range(self.pipeline_combo.count()):
@@ -684,21 +686,22 @@ class PipelinesView(QWidget):
                 name = f"{base_name} ({cnt})"
                 cnt += 1
 
-            new_pipe = PipelineModel.create(name=name, description=data.get("description", "Importé"))
-            for idx, s in enumerate(data.get("steps", []), start=1):
-                p_match = None
-                p_name = s.get("persona_name")
-                if p_name:
-                    p_match = PersonaModel.get_or_none(PersonaModel.name == p_name)
+            with db.atomic():
+                new_pipe = PipelineModel.create(name=name, description=data.get("description", "Importé"))
+                for idx, s in enumerate(data.get("steps", []), start=1):
+                    p_match = None
+                    p_name = s.get("persona_name")
+                    if p_name:
+                        p_match = PersonaModel.get_or_none(PersonaModel.name == p_name)
 
-                PipelineStepModel.create(
-                    pipeline=new_pipe,
-                    persona=p_match,
-                    step_type=s.get("type", "LLM_PROMPT"),
-                    step_order=idx,
-                    failure_behavior=s.get("failure_behavior", "stop"),
-                    config_data=json.dumps(s.get("config", {})),
-                )
+                    PipelineStepModel.create(
+                        pipeline=new_pipe,
+                        persona=p_match,
+                        step_type=s.get("type", "LLM_PROMPT"),
+                        step_order=idx,
+                        failure_behavior=s.get("failure_behavior", "stop"),
+                        config_data=json.dumps(s.get("config", {})),
+                    )
 
             show_toast(self, f"Pipeline '{name}' importé avec succès !", is_error=False)
             self.refresh_data()

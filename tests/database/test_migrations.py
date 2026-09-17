@@ -48,9 +48,11 @@ def test_run_migrations_idempotency(mock_db):
     assert "030_fts5_and_perf_indexes" in router.done, "La migration 030 devrait être marquée comme terminée."
     assert "031_seed_dedicated_mcp_agents" in router.done, "La migration 031 devrait être marquée comme terminée."
     assert "033_chunk_strategy_version" in router.done, "La migration 033 devrait être marquée comme terminée."
+    assert "036_embedding_cache_and_missing_indexes" in router.done, "La migration 036 devrait être marquée comme terminée."
     assert db.table_exists("settings"), "La table settings devrait exister."
     assert db.table_exists("consultant_sessions"), "La table consultant_sessions devrait exister."
     assert db.table_exists("consultant_messages"), "La table consultant_messages devrait exister."
+    assert db.table_exists("embedding_cache"), "La table embedding_cache devrait exister."
 
     llm_cols = [c.name for c in db.get_columns("llm_configs")]
     assert "max_tokens" in llm_cols, "La colonne max_tokens est manquante sur llm_configs."
@@ -82,3 +84,4 @@ def test_run_migrations_idempotency(mock_db):
     assert "030_fts5_and_perf_indexes" in router.done
     assert "031_seed_dedicated_mcp_agents" in router.done
     assert "033_chunk_strategy_version" in router.done
+    assert "036_embedding_cache_and_missing_indexes" in router.done

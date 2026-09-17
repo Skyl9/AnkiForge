@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ankiforge.database.models import LLMConfigModel
+from ankiforge.database.models import LLMConfigModel, db
 from ankiforge.services.ai.model_catalog import ModelCatalog, _is_loopback_url
 from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
 from ankiforge.services.settings_service import SettingsService
@@ -722,25 +722,26 @@ class AIEnginesTab(QWidget):
                     self.badge_ollama_status.show()
 
                     added_count = 0
-                    for m_name in models:
-                        if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
-                            caps = ModelCatalog.detect_ollama_model_capabilities(url, m_name)
-                            LLMConfigModel.create(
-                                display_name=f"Ollama {m_name}",
-                                provider="ollama",
-                                model_id=m_name,
-                                context_limit=caps.context_window,
-                                api_key="",
-                                is_free=True,
-                                supports_vision=caps.supports_vision,
-                                supports_thinking=caps.supports_thinking,
-                                supports_json=caps.supports_json,
-                                speed_rating=caps.speed_rating,
-                                quality_tier=caps.quality_tier,
-                                recommended_tasks=",".join(caps.recommended_tasks),
-                                description=f"Modèle local Ollama {m_name}",
-                            )
-                            added_count += 1
+                    with db.atomic():
+                        for m_name in models:
+                            if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
+                                caps = ModelCatalog.detect_ollama_model_capabilities(url, m_name)
+                                LLMConfigModel.create(
+                                    display_name=f"Ollama {m_name}",
+                                    provider="ollama",
+                                    model_id=m_name,
+                                    context_limit=caps.context_window,
+                                    api_key="",
+                                    is_free=True,
+                                    supports_vision=caps.supports_vision,
+                                    supports_thinking=caps.supports_thinking,
+                                    supports_json=caps.supports_json,
+                                    speed_rating=caps.speed_rating,
+                                    quality_tier=caps.quality_tier,
+                                    recommended_tasks=",".join(caps.recommended_tasks),
+                                    description=f"Modèle local Ollama {m_name}",
+                                )
+                                added_count += 1
                     self.refresh_data()
                     show_toast(self, f"Ollama en ligne : {len(models)} modèles scannés (+{added_count} importés) !")
                 else:

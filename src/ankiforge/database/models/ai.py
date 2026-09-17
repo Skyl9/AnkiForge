@@ -160,7 +160,7 @@ class PersonaModel(BaseModel):
     folder = ForeignKeyField(PersonaFolderModel, backref="personas", null=True, on_delete="SET NULL")
     allowed_tools = TextField(default="[]")  # JSON: ["query_peewee", "rag_retrieval"]
     llm_config = ForeignKeyField(LLMConfigModel, null=True, on_delete="SET NULL")
-    created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+    created_at = DateTimeField(default=datetime.datetime.now, constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
     class Meta:
         table_name = "personas"
