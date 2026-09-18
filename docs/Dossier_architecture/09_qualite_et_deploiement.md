@@ -17,8 +17,8 @@ Les tests sont séparés en trois strates distinctes :
 ## 3. Revue Continue Agentique & Arsenal de Skills (`.agents/skills/`)
 C'est une exclusivité du projet. L'application dispose d'un catalogue structuré de compétences agentiques spécialisées (`.agents/skills/`) opérant selon le principe de divulgation progressive (Progressive Disclosure) :
 * **Gouvernance & Méta-outils :**
-  * `amelioration-skills` : Méta-skill d'audit, de scoring de maturité et de synchronisation globale (`GEMINI.md`, `AGENTS.md`, Copilot).
-  * `mise-a-jour-metadonnees` : Maintien en cohérence de l'ensemble des 15 fichiers de documentation et d'architecture.
+  * `mise-a-jour-metadonnees` : Méta-skill de synchronisation des 15 fichiers de documentation/d'architecture ET d'audit/amélioration du catalogue de skills (scoring de maturité, `GEMINI.md`, `AGENTS.md`, Copilot).
+  * `documentation-zensical` : Audit technique, enrichissement visuel Mermaid et proposition proactive d'améliorations de la documentation Zensical.
   * `audit-ankiforge` : Audit global de conformité aux 20 règles d'ingénierie de `GEMINI.md`.
 * **Audits Techniques Spécialisés :** Huit auditeurs chirurgicaux ciblant les dépendances (`audit-dependances`), le design system (`audit-design-ui`), l'intégrité BDD (`audit-donnees`), le moteur DAG/MCP (`audit-ia-pipeline`), la réactivité Qt (`audit-performance`), la qualité du code (`audit-qualite-code`), la sécurité (`audit-securite`), et la rigueur des tests (`audit-tests-ci`).
 * **Expertises Métier :** Conception Peewee avancée (`peewee-expert`) et inspection visuelle headless (`ui-screenshot`).

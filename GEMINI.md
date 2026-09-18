@@ -20,8 +20,8 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 💾 **Base de Données (Peewee ORM)** : `~/.gemini/skills/technologies/peewee-orm-standards.md` ou `.agents/skills/peewee-expert/SKILL.md`
 - 🧪 **Tests & QA (pytest-qt)** : `~/.gemini/skills/technologies/pytest-qt-headless.md`
 - 🔍 **Audit de Conformité AnkiForge** : `.agents/skills/audit-ankiforge/SKILL.md`
-- 📋 **Mise à jour des Métadonnées** : `.agents/skills/mise-a-jour-metadonnees/SKILL.md`
-- 🛠️ **Amélioration & Synchronisation des Skills** : `.agents/skills/amelioration-skills/SKILL.md`
+- 📋 **Métadonnées & Cohérence des Skills (audit + amélioration)** : `.agents/skills/mise-a-jour-metadonnees/SKILL.md`
+- 📚 **Documentation Zensical (Qualité, Build & Proactivité)** : `.agents/skills/documentation-zensical/SKILL.md`
 
 *Audits spécialisés (utiliser directement sans passer par `audit-ankiforge` pour un périmètre ciblé) :*
 - 📦 **Audit Dépendances & Supply Chain** : `.agents/skills/audit-dependances/SKILL.md`

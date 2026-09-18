@@ -42,7 +42,7 @@ grep -cE "^\d+\. \*\*" GEMINI.md
 - `## Key Files / Entry Points` — fichiers clés `src/ankiforge/`
 - `## CI/CD Pipeline` — jobs GitHub Actions
 - `## Environment Variables` — `.env`, flags CLI
-- `## Agent Skills Catalog (.agents/skills/)` — catalogue des 13 compétences spécialisées
+- `## Agent Skills Catalog (.agents/skills/)` — catalogue des 14 compétences spécialisées
 - `## Documentation References` — liens vers GEMINI.md, AGENTS.md, copilot-instructions, skills, DESIGN.md, docs/
 
 **Détection de désync :**
@@ -175,8 +175,11 @@ grep -rInE "^class \w+Model\(BaseModel\)" src/ankiforge/database/ --include="*.p
 **Détection de désync :**
 ```bash
 # Vérification globale automatisée de l'ensemble du parc de skills et des fichiers de référence
-uv run python .agents/skills/amelioration-skills/scripts/auditer_coherence_skills.py
+uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
 ```
+
+**Scoring de maturité & rédaction :** `grille_evaluation.md` (5 axes /20, rangs A-D) et
+`guide_redaction_skills.md` (modèle canonique de SKILL.md) dans `references/` de ce skill.
 
 # Vérification frontmatter YAML de chaque skill
 for skill in .agents/skills/*/SKILL.md; do

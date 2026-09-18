@@ -28,7 +28,7 @@ uv run mypy src/ankiforge       # strict 100% typing required
 uv run bandit -c pyproject.toml -r src/
 
 # Skills audit & consistency check
-uv run python .agents/skills/amelioration-skills/scripts/auditer_coherence_skills.py
+uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
 
 # Documentation
 uv run zensical serve           # live at http://127.0.0.1:8000
@@ -85,8 +85,8 @@ gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c 
 ## Agent Skills Catalog (`.agents/skills/`)
 Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
 - **Meta & Maintenance**:
-  - `amelioration-skills`: Meta-skill to audit, optimize, and synchronize all skills + `GEMINI.md` + `AGENTS.md`
-  - `mise-a-jour-metadonnees`: Metadata and documentation synchronizer across 15 project files
+  - `mise-a-jour-metadonnees`: Meta-skill: syncs the 15 metadata/doc files and audits/improves the skills catalog (maturity grid, triggers, progressive disclosure)
+  - `documentation-zensical`: Proactive Zensical documentation auditor, enhancer, and build validator
   - `audit-ankiforge`: Global architecture and compliance auditor against `GEMINI.md` rules
 - **Architecture & Foundation**:
   - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
