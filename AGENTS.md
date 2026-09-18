@@ -91,6 +91,9 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
 - **Architecture & Foundation**:
   - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
   - `ui-screenshot`: Offscreen/headless Qt view capture and visual inspection
+- **Domain Pipelines**:
+  - `ingestion-multimedia`: Parses PDF/DOCX/PPTX/EPUB/audio/YouTube/web into Markdown + RAG chunks (Marker OCR, media handling, chunking)
+  - `export-synchro-anki`: Import/merge/export of `.apkg`/`.colpkg`, stable IDs, media dedup (MD5, zstd) and duplicate detection
 - **Specialized Audits** (targeted, non-blocking):
   - `audit-dependances`: Supply chain, licenses, outdated packages, `pip-audit`
   - `audit-design-ui`: Design system token adherence, WCAG accessibility, hardcoded colors
@@ -105,6 +108,6 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
 - `GEMINI.md` - agentic system prompt, core engineering rules
 - `AGENTS.md` - quick reference guide and developer cheat-sheet
 - `.github/copilot-instructions.md` - GitHub Copilot rules and reference contracts
-- `.agents/skills/` - directory of 13 agent skills with progressive disclosure
+- `.agents/skills/` - directory of 15 agent skills with progressive disclosure
 - `docs/Dossier_architecture/` - 9 architecture docs (data model, UI inventory, DAG engine, quality/deploy)
 - `DESIGN.md` - design system, semantic tokens, 12 themes, 4 layouts; all new widgets must be documented here

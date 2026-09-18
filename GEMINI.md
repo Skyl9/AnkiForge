@@ -22,6 +22,8 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 🔍 **Audit de Conformité AnkiForge** : `.agents/skills/audit-ankiforge/SKILL.md`
 - 📋 **Métadonnées & Cohérence des Skills (audit + amélioration)** : `.agents/skills/mise-a-jour-metadonnees/SKILL.md`
 - 📚 **Documentation Zensical (Qualité, Build & Proactivité)** : `.agents/skills/documentation-zensical/SKILL.md`
+- 🎬 **Ingestion Multimédia (Parseeing PDF/DOCX/PPTX/EPUB/audio/YouTube/Web → Markdown + chunks RAG)** : `.agents/skills/ingestion-multimedia/SKILL.md`
+- 🔁 **Export & Synchronisation Anki (.apkg/.colpkg, médias, merge, IDs stables)** : `.agents/skills/export-synchro-anki/SKILL.md`
 
 *Audits spécialisés (utiliser directement sans passer par `audit-ankiforge` pour un périmètre ciblé) :*
 - 📦 **Audit Dépendances & Supply Chain** : `.agents/skills/audit-dependances/SKILL.md`

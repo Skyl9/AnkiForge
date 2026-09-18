@@ -21,7 +21,7 @@ C'est une exclusivité du projet. L'application dispose d'un catalogue structur�
   * `documentation-zensical` : Audit technique, enrichissement visuel Mermaid et proposition proactive d'améliorations de la documentation Zensical.
   * `audit-ankiforge` : Audit global de conformité aux 20 règles d'ingénierie de `GEMINI.md`.
 * **Audits Techniques Spécialisés :** Huit auditeurs chirurgicaux ciblant les dépendances (`audit-dependances`), le design system (`audit-design-ui`), l'intégrité BDD (`audit-donnees`), le moteur DAG/MCP (`audit-ia-pipeline`), la réactivité Qt (`audit-performance`), la qualité du code (`audit-qualite-code`), la sécurité (`audit-securite`), et la rigueur des tests (`audit-tests-ci`).
-* **Expertises Métier :** Conception Peewee avancée (`peewee-expert`) et inspection visuelle headless (`ui-screenshot`).
+* **Expertises Métier :** Conception Peewee avancée (`peewee-expert`), inspection visuelle headless (`ui-screenshot`), pipelines d'ingestion multimédia PDF/DOCX/PPTX/EPUB/audio/YouTube/Web → Markdown + chunks RAG avec OCR Marker (`ingestion-multimedia`) et synchronisation Anki `.apkg`/`.colpkg` (import/merge/export, médias MD5/zstd, IDs stables, `export-synchro-anki`).
 * *Workflow :* Avant toute PR ou merge majeur, les agents d'audit sont invoqués pour vérifier l'absence de régression architecturale (ex: appel bloquant sur le thread GUI, N+1 SQL, ou violation du typage strict).
 
 ## 4. Intégration et Déploiement Continu (CI/CD via GitHub Actions)

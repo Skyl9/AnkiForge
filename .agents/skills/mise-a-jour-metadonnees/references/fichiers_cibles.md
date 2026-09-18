@@ -42,7 +42,7 @@ grep -cE "^\d+\. \*\*" GEMINI.md
 - `## Key Files / Entry Points` — fichiers clés `src/ankiforge/`
 - `## CI/CD Pipeline` — jobs GitHub Actions
 - `## Environment Variables` — `.env`, flags CLI
-- `## Agent Skills Catalog (.agents/skills/)` — catalogue des 14 compétences spécialisées
+- `## Agent Skills Catalog (.agents/skills/)` — catalogue des 15 compétences spécialisées
 - `## Documentation References` — liens vers GEMINI.md, AGENTS.md, copilot-instructions, skills, DESIGN.md, docs/
 
 **Détection de désync :**

@@ -23,6 +23,7 @@ Aucune étape de validation intermédiaire n'est requise.
 > - `references/fichiers_cibles.md` : Structure des 15 fichiers cibles + patterns de détection de désync.
 > - `references/grille_evaluation.md` : Grille de maturité des skills (5 axes /20, rangs A-D).
 > - `references/guide_redaction_skills.md` : Modèle canonique de rédaction d'un SKILL.md.
+> - `references/analyse_besoins_skills.md` : Gap analysis — analyse réelle + fiche candidat pour proposer de nouveaux skills.
 > - `scripts/auditer_coherence_skills.py` : Audit statique automatisé du parc de skills.
 
 ## 1. Périmètre — Les 15 Fichiers de Métadonnées
@@ -79,29 +80,30 @@ utilisateur comme source de vérité.
 
 ## 4. Audit & Amélioration du Parc de Skills
 
-À exécuter dès que la demande touche `.agents/skills/` (“mettre à jour/améliorer/auditer les
-skills”, “cohérence skills”, création d'un skill).
+À exécuter dès que la demande touche `.agents/skills/` (“auditer/mettre à jour/améliorer les skills”, création d'un skill).
 
 ### 4.1 Audit statique automatisé
 ```bash
 uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py
 uv run python .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py --json
 ```
-Le script vérifie : frontmatter YAML (kebab-case), synchronisation bidirectionnelle
-`GEMINI.md`/`AGENTS.md`/Copilot, liens des profils yaml, taille (`≤ 150` lignes), garde-fous
-`## ⛔ Ne PAS utiliser`, fichiers référencés existants, absence de `print()`, collisions de triggers.
+Le script vérifie : frontmatter (kebab-case), sync GEMINI/AGENTS/Copilot, profils yaml, taille
+`≤ 150` lignes, garde-fous ⛔, fichiers référencés, absence de `print()`, collisions de triggers.
 
 ### 4.2 Scoring de maturité (grille 5 axes)
 Pour chaque skill ciblé, attribuer une note /20 avec `references/grille_evaluation.md` :
 Triggering, Progressive Disclosure, Rigueur procédurale (`uv run`), Conformité AnkiForge, Garde-fous.
 Rang : **A** 18-20 (Production Ready) · **B** 14-17 (Opérationnel) · **C** 10-13 (Perfectible) ·
 **D** <10 (À refondre).
+**Analyser le fond, pas le frontmatter** : lire `references/`+`scripts/`, confronter commandes/paths/
+inventaires au code réel (`pyproject.toml`, `src/`, `DESIGN.md`) et au `git log`.
 
-### 4.3 Recommandations sur-mesure
-- Enrichir description/triggers ; lever les ambiguïtés entre skills voisins.
-- Suggérer un script `scripts/` ou une référence `references/` pour alléger un SKILL.md dense.
-- Identifier les nouveaux skills manquants (gap analysis) et les créer selon
-  `references/guide_redaction_skills.md`.
+### 4.3 Recommandations & proposition de nouveaux skills
+- Enrichir description/triggers ; lever les ambiguïtés entre skills voisins ; suggérer `scripts/`/`references/` si dense.
+- Appliquer `references/analyse_besoins_skills.md` : sources de signaux (historique git, demandes
+  récurrentes, procédures manuelles), critères d'admission (preuves ≥ 3, complexité, non-couverture).
+- Présenter chaque candidat (`RECOMMANDÉ`/`EN ATTENTE`/`REJETÉ` + score /7) pour validation
+  utilisateur **avant** création, puis appliquer §4.4.
 
 ### 4.4 Application des modifications skills
 Mettre à jour les `SKILL.md` cibles (triggers, section ⛔, déports `references/`/`scripts/`),
