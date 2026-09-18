@@ -76,7 +76,7 @@ class SegmentedTabButton(QPushButton):
             return
         is_active = self.isChecked()
         bg_color = DesignTokens.ACCENT_PRIMARY if not is_active else DesignTokens.BG_ACTIVE
-        text_color = "#ffffff" if not is_active else DesignTokens.TEXT_PRIMARY
+        text_color = DesignTokens.TEXT_ON_ACCENT if not is_active else DesignTokens.TEXT_PRIMARY
         self._badge_label.setText(self.badge_text)
         self._badge_label.setStyleSheet(f"""
             QLabel {{
@@ -124,7 +124,7 @@ class SegmentedTabButton(QPushButton):
                 self.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {DesignTokens.ACCENT_PRIMARY};
-                        color: #ffffff;
+                        color: {DesignTokens.TEXT_ON_ACCENT};
                         border: none;
                         border-radius: {DesignTokens.RADIUS_SM}px;
                         padding: 0 12px;

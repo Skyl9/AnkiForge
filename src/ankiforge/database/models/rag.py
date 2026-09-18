@@ -29,7 +29,7 @@ class DocumentModel(BaseModel):
     content = TextField(default="")
     chroma_collection_name = CharField(null=True)  # Nom de la collection ChromaDB pour le RAG
     created_at = DateTimeField(default=datetime.datetime.now)
-    folder = ForeignKeyField(FolderModel, backref="documents", null=True, on_delete="CASCADE")
+    folder = ForeignKeyField(FolderModel, backref="documents", null=True, on_delete="SET NULL")
     original_media = ForeignKeyField(MediaModel, backref="parsed_documents", null=True, on_delete="SET NULL")
     file_type = CharField(default="md")  # pdf, md, png, youtube, web, album, epub, audio
     source_url = CharField(null=True)

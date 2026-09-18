@@ -46,7 +46,7 @@ class Badge(QLabel):
         """
 
         if variant == "filled":
-            style += f"background-color: {base_color}; color: #ffffff;"
+            style += f"background-color: {base_color}; color: {DesignTokens.TEXT_ON_ACCENT};"
         elif variant == "outline":
             style += f"background-color: transparent; border: 1px solid {base_color}; color: {base_color};"
         elif variant == "status":

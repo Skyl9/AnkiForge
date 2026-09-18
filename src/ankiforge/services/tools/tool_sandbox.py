@@ -70,7 +70,6 @@ _SAFE_BUILTINS: dict[str, Any] = {
         "float",
         "format",
         "frozenset",
-        "getattr",
         "hasattr",
         "hash",
         "hex",
@@ -99,8 +98,6 @@ _SAFE_BUILTINS: dict[str, Any] = {
         "str",
         "sum",
         "tuple",
-        "type",
-        "vars",
         "zip",
     )
     if name

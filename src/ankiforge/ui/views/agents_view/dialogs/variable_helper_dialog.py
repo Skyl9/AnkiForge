@@ -50,7 +50,7 @@ class VariableCard(QFrame):
 
         lbl_var = QLabel(doc.variable)
         lbl_var.setStyleSheet(f"""
-            color: #38bdf8;
+            color: {DesignTokens.SYNTAX_TAG};
             font-family: '{DesignTokens.FONT_CODE}';
             font-size: 12.5px;
             font-weight: bold;

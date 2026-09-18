@@ -111,12 +111,11 @@ class DuplicateResolverDialog(QDialog):
         matcher = difflib.SequenceMatcher(None, text_a, text_b)
         html_a, html_b = "", ""
 
-        # Couleurs dynamiques selon le thème (Clair/Sombre)
-        dark = is_dark_mode()
-        del_bg = "rgba(244, 67, 54, 0.2)" if dark else "rgba(244, 67, 54, 0.15)"
-        del_color = "#ff8a80" if dark else "#d32f2f"
-        ins_bg = "rgba(76, 175, 80, 0.2)" if dark else "rgba(76, 175, 80, 0.15)"
-        ins_color = "#b9f6ca" if dark else "#2e7d32"
+        # Couleurs dynamiques selon le thème (tokens sémantiques recalculés par le StyleEngine)
+        del_bg = DesignTokens.COLOR_RED_BG
+        del_color = DesignTokens.COLOR_RED_TEXT
+        ins_bg = DesignTokens.COLOR_GREEN_BG
+        ins_color = DesignTokens.COLOR_GREEN_TEXT
 
         for opcode, a0, a1, b0, b1 in matcher.get_opcodes():
             part_a = text_a[a0:a1].replace("\n", "<br>")

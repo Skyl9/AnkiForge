@@ -30,7 +30,7 @@ class PipelineStepModel(BaseModel):
     """Table de liaison : Associe une Persona ou une Action à un Pipeline avec un ordre précis."""
 
     pipeline = ForeignKeyField(PipelineModel, backref="steps", on_delete="CASCADE")
-    persona = ForeignKeyField(PersonaModel, backref="pipeline_steps", null=True, on_delete="CASCADE")
+    persona = ForeignKeyField(PersonaModel, backref="pipeline_steps", null=True, on_delete="SET NULL")
     step_order = IntegerField()  # 1, 2, 3... l'ordre d'exécution
     step_type = CharField(default="LLM_PROMPT")  # LLM_PROMPT, RAG_RETRIEVAL, MAP_REDUCE, HUMAN_VALIDATION, PYTHON_TOOL
     on_success_step = ForeignKeyField("self", null=True, backref="success_successors", on_delete="SET NULL")

@@ -67,7 +67,7 @@ class AgentPromptPreviewDialog(QDialog):
             QPlainTextEdit {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
-                color: #38bdf8;
+                color: {DesignTokens.SYNTAX_TAG};
                 font-family: '{DesignTokens.FONT_CODE}';
                 font-size: 12px;
                 line-height: 1.4;

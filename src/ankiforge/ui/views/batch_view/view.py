@@ -433,7 +433,7 @@ class BatchView(QWidget):
 
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue", tooltip="Ajouter la sélection actuelle à la file d'attente du lot")
         self.btn_add_to_queue.setIcon(load_on_accent_icon("ph.plus"))
-        apply_shadow(self.btn_add_to_queue, blur=10, offset_y=2, color="rgba(99, 102, 241, 0.45)")
+        apply_shadow(self.btn_add_to_queue, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
         self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
 
         btn_container = QWidget()
@@ -460,7 +460,7 @@ class BatchView(QWidget):
             QPushButton {{
                 background-color: {DesignTokens.COLOR_GREEN};
                 border: 1px solid {DesignTokens.COLOR_GREEN};
-                color: #ffffff;
+                color: {DesignTokens.TEXT_ON_ACCENT};
                 font-weight: bold;
                 padding: 6px 18px;
                 border-radius: 6px;
@@ -1336,7 +1336,7 @@ class BatchView(QWidget):
                 QPushButton {{
                     background-color: {DesignTokens.COLOR_RED};
                     border: 1px solid {DesignTokens.COLOR_RED};
-                    color: #ffffff;
+                    color: {DesignTokens.TEXT_ON_ACCENT};
                     font-weight: bold;
                     padding: 6px 18px;
                     border-radius: 6px;
@@ -1355,7 +1355,7 @@ class BatchView(QWidget):
                 QPushButton {{
                     background-color: {DesignTokens.COLOR_GREEN};
                     border: 1px solid {DesignTokens.COLOR_GREEN};
-                    color: #ffffff;
+                    color: {DesignTokens.TEXT_ON_ACCENT};
                     font-weight: bold;
                     padding: 6px 18px;
                     border-radius: 6px;

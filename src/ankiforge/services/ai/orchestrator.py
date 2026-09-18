@@ -116,6 +116,7 @@ class PipelineOrchestrator(QRunnable):
                 if config:
                     self._ai_provider = AIManager.create_provider_from_config(config)
                 else:
+                    logger.warning("Aucune configuration LLM trouvée : repli sur MockProvider (contenu simulé).")
                     self._ai_provider = MockProvider()
             except Exception as e:
                 logger.warning("Impossible d'instancier le provider LLM, fallback Mock: %s", e)

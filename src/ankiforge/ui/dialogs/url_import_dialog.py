@@ -116,7 +116,10 @@ class UrlImportDialog(QDialog):
         self.spin_max_pages.setValue(3)
         self.spin_max_pages.setEnabled(False)
         self.spin_max_pages.setToolTip("Nombre maximum de pages à fusionner.")
-        self.spin_max_pages.setStyleSheet("QSpinBox { background:#1a1d24; color:#f8fafc; border:1px solid #2d313a; border-radius:4px; padding:2px 4px; }")
+        self.spin_max_pages.setStyleSheet(
+            f"QSpinBox {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
+            f" border:1px solid {DesignTokens.BORDER_COLOR}; border-radius:{DesignTokens.RADIUS_SM}px; padding:2px 4px; }}"
+        )
 
         self.chk_js = QCheckBox("Rendu JavaScript si page dynamique (SPA)")
         self.chk_js.setToolTip("Tente un rendu via le moteur Web intégré lorsque le contenu statique est vide (sites générés côté client).")
@@ -168,7 +171,10 @@ class UrlImportDialog(QDialog):
 
         self.txt_title = QLineEdit()
         self.txt_title.setPlaceholderText("Titre du document importé (modifiable)")
-        self.txt_title.setStyleSheet("QLineEdit { background:#1a1d24; color:#f8fafc; border:1px solid #2d313a; border-radius:6px; padding:6px 8px; }")
+        self.txt_title.setStyleSheet(
+            f"QLineEdit {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
+            f" border:1px solid {DesignTokens.BORDER_COLOR}; border-radius:{DesignTokens.RADIUS_SM}px; padding:6px 8px; }}"
+        )
         preview_layout.addWidget(self.txt_title)
 
         self.lbl_warnings = QLabel("")
@@ -247,7 +253,9 @@ class UrlImportDialog(QDialog):
     @staticmethod
     def _editor_style() -> str:
         return (
-            f"QPlainTextEdit {{ background:#1a1d24; color:#f8fafc; border:1px solid #2d313a;border-radius:{DesignTokens.RADIUS_MD}px; padding:8px; selection-background-color:rgba(99,102,241,0.4); }}"
+            f"QPlainTextEdit {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
+            f" border:1px solid {DesignTokens.BORDER_COLOR};border-radius:{DesignTokens.RADIUS_MD}px;"
+            f" padding:8px; selection-background-color:{DesignTokens.ACCENT_BORDER}; }}"
         )
 
     def _checkbox_style(self) -> str:
@@ -255,15 +263,17 @@ class UrlImportDialog(QDialog):
 
     def _combo_style(self) -> str:
         return (
-            "QComboBox { background:#1a1d24; color:#f8fafc; border:1px solid #2d313a; border-radius:6px; padding:4px 8px; }"
-            "QComboBox QAbstractItemView { background:#1e2128; color:#f8fafc; selection-background-color:#6366f1; }"
+            f"QComboBox {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY};"
+            f" border:1px solid {DesignTokens.BORDER_COLOR}; border-radius:{DesignTokens.RADIUS_SM}px; padding:4px 8px; }}"
+            f"QComboBox QAbstractItemView {{ background:{DesignTokens.BG_PANEL}; color:{DesignTokens.TEXT_PRIMARY};"
+            f" selection-background-color:{DesignTokens.ACCENT_PRIMARY}; }}"
         )
 
     def _table_style(self) -> str:
         return (
-            "QTableWidget { background:#1a1d24; color:#f8fafc; border:1px solid #2d313a;"
-            "border-radius:8px; gridline-color:#2d313a; selection-background-color:rgba(99,102,241,0.25); }"
-            "QHeaderView::section { background:#1e2128; color:#94a3b8; border:none; padding:6px; font-weight:600; }"
+            f"QTableWidget {{ background:{DesignTokens.BG_INPUT}; color:{DesignTokens.TEXT_PRIMARY}; border:1px solid {DesignTokens.BORDER_COLOR};"
+            f"border-radius:8px; gridline-color:{DesignTokens.BORDER_COLOR}; selection-background-color:{DesignTokens.ACCENT_BG}; }}"
+            f"QHeaderView::section {{ background:{DesignTokens.BG_PANEL}; color:{DesignTokens.TEXT_SECONDARY}; border:none; padding:6px; font-weight:600; }}"
         )
 
     def _populate_folders(self) -> None:

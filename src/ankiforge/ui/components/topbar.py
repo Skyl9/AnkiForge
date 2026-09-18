@@ -162,7 +162,8 @@ class TopBar(QWidget):
         self.update_btn.setObjectName("TopBarUpdateBtn")
         self.update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_btn.setStyleSheet(
-            f"background-color: {DesignTokens.ACCENT_PRIMARY};color: #ffffff;font-weight: 600;font-size: 12px;border-radius: {DesignTokens.RADIUS_SM};padding: 0 10px;border: none;"
+            f"background-color: {DesignTokens.ACCENT_PRIMARY};color: {DesignTokens.TEXT_ON_ACCENT};"
+            f"font-weight: 600;font-size: 12px;border-radius: {DesignTokens.RADIUS_SM};padding: 0 10px;border: none;"
         )
         self.update_btn.setVisible(False)
         self.update_btn.clicked.connect(self._on_update_clicked)

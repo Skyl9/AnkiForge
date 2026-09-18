@@ -88,15 +88,15 @@ class DocumentPickerButton(QFrame):
         self.btn_clear.setIcon(load_phosphor_icon("ph.x", color=DesignTokens.TEXT_MUTED))
         self.btn_clear.setToolTip("Désélectionner le document (revenir en saisie libre)")
         self.btn_clear.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_clear.setStyleSheet("""
-            QPushButton {
+        self.btn_clear.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
                 border: none;
                 border-radius: 12px;
-            }
-            QPushButton:hover {
-                background-color: rgba(239, 68, 68, 0.15);
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.COLOR_RED_BG};
+            }}
         """)
         self.btn_clear.clicked.connect(self.clear_document)
         self.btn_clear.setVisible(False)
@@ -119,8 +119,8 @@ class DocumentPickerButton(QFrame):
                 background-color: {DesignTokens.BG_HOVER};
             }}
             QFrame#iconBadge {{
-                background-color: rgba(99, 102, 241, 0.1);
-                border: 1px solid rgba(99, 102, 241, 0.2);
+                background-color: {DesignTokens.ACCENT_BG};
+                border: 1px solid {DesignTokens.ACCENT_BORDER};
                 border-radius: 6px;
             }}
         """)

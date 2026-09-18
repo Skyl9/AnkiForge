@@ -15,8 +15,10 @@ robuste qui prend en charge un large éventail de cas utilisateur :
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
+import socket
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -301,20 +303,70 @@ class WebImporter:
 
     # ── Téléchargement statique ───────────────────────────────────────────────
 
+    @staticmethod
+    def _is_private_host(url: str) -> bool:
+        """Refuse les hôtes de réseaux privés/internes — anti-SSRF.
+
+        Bloque les IP littérales privées (RFC1918, loopback, link-local, CGNAT,
+        multicast) et les hôtes DNS qui résolvent vers ces plages, afin qu'un
+        import web ne puisse pas être détourné pour sonder l'environnement interne.
+        """
+        parsed = urlparse(url)
+        host = parsed.hostname
+        if not host:
+            return False
+        try:
+            ip = ipaddress.ip_address(host.split("%")[0])
+        except ValueError:
+            ip = None
+        if ip is not None and (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved):
+            return True
+        try:
+            infos = socket.getaddrinfo(host, None)
+        except socket.gaierror:
+            return False
+        for _family, _, _, _, sockaddr in infos:
+            addr = str(sockaddr[0]).split("%")[0]
+            try:
+                resolved = ipaddress.ip_address(addr)
+            except ValueError:
+                continue
+            if resolved.is_private or resolved.is_loopback or resolved.is_link_local or resolved.is_multicast or resolved.is_reserved:
+                return True
+        return False
+
     def _fetch_static(self, url: str, request: WebImportRequest) -> FetchResult:
         headers = {"User-Agent": DEFAULT_USER_AGENT, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "fr,en-US;q=0.9,en;q=0.8"}
-        try:
-            resp = requests.get(url, headers=headers, timeout=request.timeout, stream=True, allow_redirects=True)
-        except requests.exceptions.Timeout:
-            raise WebImportError("Le site met trop de temps à répondre (délai dépassé). Réessayez ou vérifiez votre connexion.", category="timeout") from None
-        except requests.exceptions.TooManyRedirects:
-            raise WebImportError("Trop de redirections enchaînées : le site boucle probablement sur des liens.", category="network") from None
-        except requests.exceptions.SSLError:
-            raise WebImportError("Connexion sécurisée (TLS/SSL) impossible avec ce site.", category="network") from None
-        except requests.exceptions.ConnectionError:
-            raise WebImportError("Site injoignable : nom de domaine introuvable (DNS) ou connexion refusée.", category="network") from None
-        except requests.exceptions.RequestException:
-            raise WebImportError("Erreur réseau inattendue pendant le téléchargement.", category="network") from None
+        current_url = url
+        resp: requests.Response | None = None
+        for _redirect in range(5):
+            if self._is_private_host(current_url):
+                raise WebImportError("Adresse réseau privé (environnement interne) refusée pour l'import web.", category="network")
+            try:
+                resp = requests.get(current_url, headers=headers, timeout=request.timeout, stream=True, allow_redirects=False)
+            except requests.exceptions.Timeout:
+                raise WebImportError("Le site met trop de temps à répondre (délai dépassé). Réessayez ou vérifiez votre connexion.", category="timeout") from None
+            except requests.exceptions.SSLError:
+                raise WebImportError("Connexion sécurisée (TLS/SSL) impossible avec ce site.", category="network") from None
+            except requests.exceptions.ConnectionError:
+                raise WebImportError("Site injoignable : nom de domaine introuvable (DNS) ou connexion refusée.", category="network") from None
+            except requests.exceptions.RequestException:
+                raise WebImportError("Erreur réseau inattendue pendant le téléchargement.", category="network") from None
+
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get("Location")
+                resp.close()
+                resp = None
+                if not location:
+                    raise WebImportError("Redirection sans destination (en-tête Location manquant).", category="network") from None
+                current_url = urljoin(current_url, location)
+                continue
+            break
+        else:
+            raise WebImportError("Trop de redirections enchaînées : le site boucle probablement sur des liens.", category="network")
+
+        if resp is None:
+            raise WebImportError("Page vide : le serveur n'a renvoyé aucun contenu.", category="empty", http_status=None)
 
         status = resp.status_code
         if status in _STATUS_MESSAGES:
@@ -508,6 +560,8 @@ class WebImporter:
             if src.startswith("data:"):
                 return match.group(0)
             absolute = src if re.match(r"^https?://", src) else urljoin(base_url, src)
+            if self._is_private_host(absolute):
+                return match.group(0)
             content_type = ""
             data: bytes = b""
             image_timeout: float = min(request.timeout, 10.0)

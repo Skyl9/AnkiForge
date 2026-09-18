@@ -133,7 +133,7 @@ def test_document_can_be_orphan():
 
 
 def test_cascade_deletion_folder_documents():
-    """Vérifie que la suppression d'un dossier détruit bien tous les documents à l'intérieur."""
+    """Vérifie que la suppression d'un dossier désassocie les documents (ON DELETE SET NULL) sans les détruire."""
 
     # 1. PRÉPARATION
     folder = FolderModel.create(name="Mathématiques Ensimag")
@@ -146,10 +146,10 @@ def test_cascade_deletion_folder_documents():
     # 2. ACTION - On détruit le dossier
     folder.delete_instance()
 
-    # 3. VÉRIFICATION - SQLite doit avoir fait le ménage automatiquement
-    assert not DocumentModel.select().where(DocumentModel.title == doc2.title)
-    assert not DocumentModel.select().where(DocumentModel.title == doc1.title)
-    assert DocumentModel.select().count() == 0, "Les documents orphelins n'ont pas été supprimés en cascade !"
+    # 3. VÉRIFICATION - SET NULL : les documents survivent mais se retrouvent sans dossier
+    assert DocumentModel.select().count() == 2, "Les documents doivent survivre à la suppression du dossier (SET NULL)."
+    assert DocumentModel.get_by_id(doc1.id).folder is None
+    assert DocumentModel.get_by_id(doc2.id).folder is None
 
 
 def test_cascade_deletion_note_versions():
@@ -171,16 +171,17 @@ def test_cascade_deletion_note_versions():
 
 
 def test_cascade_deletion_agent_pipeline_step():
-    """Vérifie que la suppression d'un Agent supprime ses étapes dans le pipeline."""
+    """Vérifie que la suppression d'un Agent désassocie ses étapes de pipeline (SET NULL) sans les détruire."""
     pipeline = PipelineModel.create(name="Pipe Test Agent Cascade")
     agent = PersonaModel.create(name="Agent à supprimer", system_prompt="Prompt")
-    PipelineStepModel.create(pipeline=pipeline, persona=agent, step_order=1)
+    step = PipelineStepModel.create(pipeline=pipeline, persona=agent, step_order=1)
 
     assert PipelineStepModel.select().count() == 1
 
     agent.delete_instance()
 
-    assert PipelineStepModel.select().count() == 0, "L'étape du pipeline n'a pas été supprimée en cascade !"
+    assert PipelineStepModel.select().count() == 1, "L'étape du pipeline doit survivre à la suppression de l'Agent (SET NULL)."
+    assert PipelineStepModel.get_by_id(step.id).persona is None
 
 
 def test_cascade_deletion_pipeline_steps():

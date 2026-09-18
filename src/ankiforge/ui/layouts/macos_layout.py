@@ -54,7 +54,7 @@ class MacosSegmentButton(QPushButton):
             self.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.ACCENT_PRIMARY};
-                    color: #ffffff;
+                    color: {DesignTokens.TEXT_ON_ACCENT};
                     border: none;
                     border-radius: 6px;
                     padding: 0 12px;

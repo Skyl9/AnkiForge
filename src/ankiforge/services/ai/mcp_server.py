@@ -1,3 +1,4 @@
+import json
 import logging
 
 from mcp.server.mcpserver import MCPServer
@@ -323,20 +324,38 @@ def create_or_update_mcp_agent(
     """Crée ou met à jour la configuration d'un agent dédié dans la collection."""
     from ankiforge.database.models import PersonaModel
 
+    # Garde-fou anti-escalade : ce tool est exposé au client MCP (donc atteignable
+    # par une chaîne d'agents LLM). On refuse l'accès universel ('*'/'all') et
+    # l'outil d'exécution Python arbitraire, qui couplés à un system_prompt libre
+    # permettraient une exécution persistante non maîtrisée via invoke_mcp_agent.
+    try:
+        requested_tools = json.loads(allowed_tools_json.strip() or "[]")
+    except json.JSONDecodeError:
+        return "Erreur : allowed_tools_json doit être une liste JSON valide."
+    if not isinstance(requested_tools, list) or not all(isinstance(t, str) for t in requested_tools):
+        return "Erreur : allowed_tools_json doit être une liste JSON de noms d'outils."
+    if any(t in {"*", "all"} for t in requested_tools) or "execute_python_tool" in requested_tools:
+        logger.warning(
+            "Refus d'accorder des autorisations dangereuses via create_or_update_mcp_agent : %s",
+            requested_tools,
+        )
+        return "Erreur : l'accès universel ('*') ou l'outil 'execute_python_tool' ne peuvent pas être accordés via MCP."
+
+    allowed_tools = json.dumps(sorted(set(requested_tools)))
     try:
         agent, created = PersonaModel.get_or_create(
             name=name.strip(),
             defaults={
                 "description": description.strip(),
                 "system_prompt": system_prompt.strip(),
-                "allowed_tools": allowed_tools_json.strip() or "[]",
+                "allowed_tools": allowed_tools,
                 "persona_type": persona_type.strip(),
             },
         )
         if not created:
             agent.description = description.strip()
             agent.system_prompt = system_prompt.strip()
-            agent.allowed_tools = allowed_tools_json.strip() or "[]"
+            agent.allowed_tools = allowed_tools
             agent.persona_type = persona_type.strip()
             agent.save()
             action_str = "mis à jour"

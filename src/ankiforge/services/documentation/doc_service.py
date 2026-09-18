@@ -410,6 +410,13 @@ class AppDocumentationService:
         if not matched_file or not matched_file.is_file():
             return None
 
+        # Garde anti path traversal : toute page lue doit résider sous docs_dir,
+        # sinon un doc_path du type "../../fichier_sensible" exfiltre des fichiers
+        # hors du périmètre documentaire (surface exposée via l'outil MCP).
+        if not matched_file.resolve().is_relative_to(self.docs_dir.resolve()):
+            logger.warning("Chemin documentation refusé hors périmètre : %s", target_path)
+            return None
+
         raw_text = matched_file.read_text(encoding="utf-8", errors="replace")
         if not section_anchor.strip():
             return raw_text
