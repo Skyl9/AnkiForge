@@ -25,7 +25,7 @@ def normalize_linter_suggestion(
         try:
             parsed = json.loads(raw_sug)
             raw_sug = parsed if isinstance(parsed, dict) else {"Recto": str(raw_sug), "Verso": ""}
-        except Exception:
+        except json.JSONDecodeError:
             raw_sug = {"Recto": str(raw_sug), "Verso": ""}
 
     if not isinstance(raw_sug, dict):

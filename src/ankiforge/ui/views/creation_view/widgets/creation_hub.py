@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class CreationHubWidget(QWidget):
@@ -97,7 +97,7 @@ class CreationHubWidget(QWidget):
         doc_l.addStretch()
 
         btn_doc = PrimaryButton("Parcourir les Documents")
-        btn_doc.setIcon(load_phosphor_icon("ph.folder-open", color="white"))
+        btn_doc.setIcon(load_on_accent_icon("ph.folder-open"))
         btn_doc.clicked.connect(self.open_documents_requested.emit)
         doc_l.addWidget(btn_doc)
 

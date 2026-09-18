@@ -24,7 +24,7 @@ from ankiforge.services.cards.card_model_io import CardModelIO
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class StarterModelCardWidget(QFrame):
@@ -105,7 +105,7 @@ class StarterModelCardWidget(QFrame):
 
         # Bouton Installer
         btn_install = PrimaryButton("Installer ce Modèle")
-        btn_install.setIcon(load_phosphor_icon("ph.plus-circle", color="white"))
+        btn_install.setIcon(load_on_accent_icon("ph.plus-circle"))
         btn_install.clicked.connect(lambda: self.on_install_callback(self.pack))
         layout.addWidget(btn_install)
 

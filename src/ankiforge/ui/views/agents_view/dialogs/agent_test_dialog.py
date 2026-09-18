@@ -15,7 +15,7 @@ from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.ai.persona_templates import SAMPLE_TEST_INPUTS
 from ankiforge.ui.components import PrimaryButton, SecondaryButton, StyledComboBox
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class AgentTestDialog(QDialog):
 
         h_btn = QHBoxLayout()
         self.btn_run = PrimaryButton("Exécuter le Test")
-        self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_run.setIcon(load_on_accent_icon("ph.play"))
         self.btn_run.clicked.connect(self._run_test)
         btn_close = SecondaryButton("Fermer")
         btn_close.clicked.connect(self.accept)

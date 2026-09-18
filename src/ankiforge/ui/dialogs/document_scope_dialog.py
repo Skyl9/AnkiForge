@@ -52,7 +52,7 @@ from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
     has_structured_heading_nodes,
 )
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -451,31 +451,6 @@ class DocumentScopeDialog(QDialog):
         slider_scope_layout.setContentsMargins(0, 4, 0, 0)
         slider_scope_layout.setSpacing(6)
 
-        slider_style = f"""
-            QSlider::groove:horizontal {{
-                height: 4px;
-                background: {DesignTokens.BORDER_COLOR};
-                border-radius: 2px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {DesignTokens.ACCENT_PRIMARY};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {DesignTokens.ACCENT_PRIMARY};
-                width: 14px;
-                height: 14px;
-                margin-top: -5px;
-                margin-bottom: -5px;
-                border-radius: 7px;
-                border: 2px solid white;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: white;
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """
-
         # Ligne début : SpinBox + Slider début (restreints au périmètre utile [start, end])
         start_row = QHBoxLayout()
         start_row.setContentsMargins(0, 0, 0, 0)
@@ -500,7 +475,6 @@ class DocumentScopeDialog(QDialog):
         self.slider_p_start = QSlider(Qt.Orientation.Horizontal)
         self.slider_p_start.setRange(self._delimited_start_page, self._delimited_end_page)
         self.slider_p_start.setValue(self._delimited_start_page)
-        self.slider_p_start.setStyleSheet(slider_style)
         self.slider_p_start.valueChanged.connect(self._on_slider_start_changed)
 
         start_row.addWidget(lbl_p_start)
@@ -532,7 +506,6 @@ class DocumentScopeDialog(QDialog):
         self.slider_p_end = QSlider(Qt.Orientation.Horizontal)
         self.slider_p_end.setRange(self._delimited_start_page, self._delimited_end_page)
         self.slider_p_end.setValue(self._delimited_end_page)
-        self.slider_p_end.setStyleSheet(slider_style)
         self.slider_p_end.valueChanged.connect(self._on_slider_end_changed)
 
         end_row.addWidget(lbl_p_end)
@@ -1018,7 +991,7 @@ class DocumentScopeDialog(QDialog):
         footer.addWidget(btn_cancel)
 
         btn_apply = PrimaryButton("Valider la sélection pour la génération")
-        btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
+        btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
         btn_apply.clicked.connect(self._on_apply)
         footer.addWidget(btn_apply)
 

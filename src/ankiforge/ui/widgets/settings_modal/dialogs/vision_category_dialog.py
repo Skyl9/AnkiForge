@@ -22,7 +22,7 @@ from ankiforge.ui.components import (
     StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ class VisionCategoryDialog(QDialog):
         btn_layout.addWidget(self.btn_cancel)
 
         self.btn_save = PrimaryButton("Enregistrer")
-        self.btn_save.setIcon(load_phosphor_icon("ph.check", color="#ffffff"))
+        self.btn_save.setIcon(load_on_accent_icon("ph.check"))
         self.btn_save.clicked.connect(self._on_save)
         btn_layout.addWidget(self.btn_save)
 

@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QSpinBox,
 
 from ankiforge.database.models import LLMConfigModel, PersonaModel
 from ankiforge.ui.components import ActionButton, PrimaryButton
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class BatchEditDialog(QDialog):
@@ -58,7 +58,7 @@ class BatchEditDialog(QDialog):
         self.btn_cancel.clicked.connect(self.reject)
 
         self.btn_start = PrimaryButton("Lancer le traitement")
-        self.btn_start.setIcon(load_phosphor_icon("sparkle", color="white"))
+        self.btn_start.setIcon(load_on_accent_icon("sparkle"))
         self.btn_start.clicked.connect(self.accept)
 
         btn_layout.addStretch()

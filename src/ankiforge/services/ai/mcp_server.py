@@ -5,8 +5,12 @@ from mcp.server.mcpserver import MCPServer
 from ankiforge.database.models import LLMConfigModel, db
 from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.services.ai.rag_service import RAGService
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
+
+# Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
+_PROMPT_ENV = create_prompt_environment()
 
 # Initialisation du serveur MCP AnkiForge
 mcp = MCPServer("AnkiForge")
@@ -265,22 +269,24 @@ def get_doc_page_resource(doc_path: str) -> str:
 def prompt_explain_feature(feature_name: str) -> str:
     """Prompt guidé pour expliquer pas à pas une fonctionnalité d'AnkiForge avec extraits officiels."""
     doc_summary = ConsultantToolRegistry.get_feature_quick_help(feature_name)
-    return (
-        f"Tu es un expert d'AnkiForge. Explique la fonctionnalité '{feature_name}' en t'appuyant sur la documentation officielle ci-dessous :\n\n"
-        f"{doc_summary}\n\n"
+    return _PROMPT_ENV.from_string(
+        "Tu es un expert d'AnkiForge. Explique la fonctionnalité '{{ feature_name }}' en t'appuyant sur la documentation officielle ci-dessous :\n\n"
+        "<<< CONTENU UTILISATEUR (FONCTIONNALITÉ) >>>\n{{ feature_name }}\n<<< FIN >>>\n\n"
+        "<<< CONTENU DOCUMENTATION OFFICIELLE >>>\n{{ doc_summary }}\n<<< FIN >>>\n\n"
         "Donne des exemples concrets d'utilisation et les bonnes pratiques recommandées."
-    )
+    ).render(feature_name=feature_name, doc_summary=doc_summary)
 
 
 @mcp.prompt("audit_architecture_compliance")
 def prompt_audit_architecture(target_code_or_rule: str) -> str:
     """Prompt guidé pour vérifier la conformité d'un code ou d'une conception avec les 9 dossiers d'architecture AnkiForge."""
     arch_doc = ConsultantToolRegistry.read_app_doc_page("Dossier_architecture/02_architecture_technique.md")
-    return (
+    return _PROMPT_ENV.from_string(
         "Tu es l'architecte en chef d'AnkiForge. Vérifie que le code ou la proposition suivante respecte les principes architecturaux "
-        f"décrits dans la documentation :\n\n{arch_doc[:2500]}...\n\n"
-        f"Élément à auditer :\n{target_code_or_rule}"
-    )
+        "décrits dans la documentation :\n\n"
+        "<<< CONTENU DOCUMENTATION ARCHITECTURE >>>\n{{ arch_doc }}...\n<<< FIN >>>\n\n"
+        "Élément à auditer :\n<<< CONTENU UTILISATEUR >>>\n{{ target_code_or_rule }}\n<<< FIN >>>"
+    ).render(arch_doc=arch_doc[:2500], target_code_or_rule=target_code_or_rule)
 
 
 # =====================================================================
@@ -359,12 +365,12 @@ def get_agent_profile_resource(agent_name: str) -> str:
 def prompt_run_with_agent(agent_name: str, task: str) -> str:
     """Prompt guidé pour exécuter une tâche en adoptant la posture et les outils d'un agent dédié."""
     agent_info = ConsultantToolRegistry.get_mcp_agent_details(agent_name)
-    return (
-        f"Tu incarnes l'agent spécialisé '{agent_name}'. Voici ton profil et tes consignes strictes :\n\n"
-        f"{agent_info}\n\n"
-        f"### Mission à accomplir :\n{task}\n\n"
+    return _PROMPT_ENV.from_string(
+        "Tu incarnes l'agent spécialisé '{{ agent_name }}'. Voici ton profil et tes consignes strictes :\n\n"
+        "<<< CONTENU BDD (PROFIL AGENT) >>>\n{{ agent_info }}\n<<< FIN >>>\n\n"
+        "### Mission à accomplir :\n<<< CONTENU UTILISATEUR >>>\n{{ task }}\n<<< FIN >>>\n\n"
         "Respecte strictement tes compétences et ton périmètre d'action."
-    )
+    ).render(agent_name=agent_name, agent_info=agent_info, task=task)
 
 
 def run_server() -> None:

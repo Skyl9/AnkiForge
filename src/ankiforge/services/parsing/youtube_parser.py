@@ -4,7 +4,7 @@ import json
 import logging
 import urllib.parse
 import urllib.request
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs, urlparse
 
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -96,7 +96,7 @@ class YouTubeParser:
             language,
         )
         try:
-            data = YouTubeTranscriptApi.get_transcript(video_id, languages=[language, "en"])  # type: ignore[attr-defined]
+            data = cast(Any, YouTubeTranscriptApi).get_transcript(video_id, languages=[language, "en"])
             if not data:
                 return None
 

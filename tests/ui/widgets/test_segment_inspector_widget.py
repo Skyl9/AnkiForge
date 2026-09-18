@@ -13,12 +13,13 @@ Couverture :
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 
+from ankiforge.database.models import DocumentModel
 from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 
 # ---------------------------------------------------------------------------
@@ -41,20 +42,15 @@ def inspector(qtbot, parent_widget) -> SegmentInspectorWidget:
     return widget
 
 
-def _make_doc(file_type: str = "md", content: str = "") -> MagicMock:
-    """Crée un mock de DocumentModel léger sans appel BDD.
-
-    Note: On n'utilise PAS spec=DocumentModel car cela génère des MagicMock
-    pour tous les attributs non explicitement assignés, ce qui casse Qt
-    (QLabel reçoit un MagicMock au lieu d'une str).
-    """
-    doc = MagicMock()
-    doc.file_type = file_type
-    doc.content = content
-    doc.content_markdown = content  # alias défensif
-    doc.total_pages = content.count("--- PAGE") or 1
-    doc.title = f"Document de test ({file_type})"
-    return doc
+def _make_doc(file_type: str = "md", content: str = "") -> DocumentModel:
+    """Crée un vrai DocumentModel en base mémoire (fixture autouse mock_db)."""
+    total_pages = content.count("--- PAGE") or 1
+    return DocumentModel.create(
+        title=f"Document de test ({file_type})",
+        content=content,
+        file_type=file_type,
+        total_pages=total_pages,
+    )
 
 
 # ---------------------------------------------------------------------------

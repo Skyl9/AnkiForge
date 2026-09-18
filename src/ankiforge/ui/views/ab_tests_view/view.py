@@ -55,7 +55,7 @@ from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEdi
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -121,28 +121,6 @@ class ABTestsView(QWidget):
         temp_slider.setValue(70)
         temp_slider.setFixedWidth(110)
 
-        slider_style = f"""
-            QSlider::groove:horizontal {{
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                height: 4px;
-                background: {DesignTokens.BG_MAIN};
-                margin: 0px 0;
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {accent_color};
-                border: 1px solid {accent_color};
-                width: 12px;
-                height: 12px;
-                margin: -4px 0;
-                border-radius: 6px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {accent_color};
-            }}
-        """
-        temp_slider.setStyleSheet(slider_style)
-
         lbl_temp_val = QLabel("0.70")
         lbl_temp_val.setStyleSheet(f"color: {accent_color}; font-size: 11px; font-weight: bold;")
         temp_slider.valueChanged.connect(lambda v, lbl=lbl_temp_val: lbl.setText(f"{v / 100:.2f}"))
@@ -158,7 +136,6 @@ class ABTestsView(QWidget):
         tok_slider.setRange(256, 8192)
         tok_slider.setValue(4096)
         tok_slider.setFixedWidth(110)
-        tok_slider.setStyleSheet(slider_style)
 
         lbl_tok_val = QLabel("4096")
         lbl_tok_val.setStyleSheet(f"color: {accent_color}; font-size: 11px; font-weight: bold;")
@@ -461,7 +438,7 @@ class ABTestsView(QWidget):
         config_panel_layout.addStretch(1)
 
         self.btn_run = PrimaryButton("Lancer le Test A/B", tooltip="Lancer le test comparatif A/B sur les deux configurations (Ctrl+Entrée)")
-        self.btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_run.setIcon(load_on_accent_icon("ph.play"))
         self.btn_run.setIconSize(QSize(15, 15))
         self.btn_run.setFixedHeight(34)
         self.btn_run.setMinimumWidth(200)

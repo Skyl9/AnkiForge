@@ -15,8 +15,8 @@ try:
 
     HAS_QTMULTIMEDIA = True
 except (ImportError, OSError):
-    QAudioOutput = None  # type: ignore[assignment, misc]
-    QMediaPlayer = None  # type: ignore[assignment, misc]
+    QAudioOutput = None  # type: ignore[misc]  # PySide6 QtMultimedia indisponible : repli sur None
+    QMediaPlayer = None  # type: ignore[misc]
     HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
     QComboBox,
@@ -170,27 +170,6 @@ class AudioPlayerWidget(QFrame):
                 border-radius: {DesignTokens.RADIUS_SM}px;
                 padding: 2px 6px;
                 font-size: 11px;
-            }}
-            QSlider::groove:horizontal {{
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                height: 4px;
-                background: {DesignTokens.BG_INPUT};
-                border-radius: 2px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {DesignTokens.COLOR_GREEN};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {DesignTokens.TEXT_PRIMARY};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                width: 12px;
-                margin-top: -4px;
-                margin-bottom: -4px;
-                border-radius: 6px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: {DesignTokens.COLOR_GREEN};
             }}
         """)
 

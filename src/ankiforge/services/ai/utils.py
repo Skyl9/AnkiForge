@@ -18,6 +18,30 @@ logger = logging.getLogger(__name__)
 # Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
 _PROMPT_ENV = create_prompt_environment()
 
+# Gabarit du bloc « MODÈLES DE CARTES AUTORISÉS » pour la balise {{ available_card_models }}.
+_CARD_MODELS_PROMPT_TEMPLATE = (
+    "### 📋 MODÈLES DE CARTES AUTORISÉS & DIRECTIVES DE SÉLECTION :\n"
+    "Pour chaque notion ou concept extrait, CHOISIS le modèle de carte le plus pertinent parmi les modèles autorisés ci-dessous :\n"
+    "{% for m in models %}\n"
+    '{{ loop.index }}. Modèle : "{{ m.name }}"{% if m.desc %}\n'
+    "   - Rôle & Heuristique : {{ m.desc }}{% endif %}\n"
+    "   - Champs attendus : {{ m.fields_text }}\n"
+    "{% endfor %}\n"
+    "### 📦 FORMAT JSON DE SORTIE :\n"
+    'Retourne un objet JSON avec la clé "notes" contenant la liste des cartes avec la clé "model" et leurs champs respectifs :\n'
+    "{\n"
+    '  "notes": [\n'
+    "    {\n"
+    '      "model": "<Nom du Modèle>",\n'
+    '      "fields": {\n'
+    '        "<Champ 1>": "...",\n'
+    '        "<Champ 2>": "..."\n'
+    "      }\n"
+    "    }\n"
+    "  ]\n"
+    "}"
+)
+
 # --- Contexte de télémétrie (propagé par pipeline, persona et test A/B) ---
 _telemetry_pipeline_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("ankiforge_pipeline_id", default=None)
 _telemetry_persona_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("ankiforge_persona_id", default=None)
@@ -240,9 +264,9 @@ class AIReponseParser:
             if not isinstance(data, list):
                 raise ValueError("L'IA n'a pas renvoyé une liste JSON.")
             if args and dataclasses.is_dataclass(args[0]):
-                item_type = args[0]
-                return [cls._instantiate_dataclass(item, item_type) for item in data]  # type: ignore
-            return data  # type: ignore
+                item_type = cast(type[T], args[0])
+                return cast(T, [cls._instantiate_dataclass(item, item_type) for item in data])
+            return cast(T, data)
 
         elif dataclasses.is_dataclass(target_model):
             if not isinstance(data, dict):
@@ -257,7 +281,7 @@ class AIReponseParser:
             raise ValueError(f"Données invalides pour instancier {target_model.__name__}. Un dictionnaire était attendu.")
 
         init_kwargs = {}
-        for field in dataclasses.fields(target_model):  # type: ignore
+        for field in dataclasses.fields(cast(Any, target_model)):
             if field.name in data:
                 val = data[field.name]
                 field_origin = get_origin(field.type)
@@ -324,12 +348,8 @@ def format_available_card_models_prompt(models: list[Any] | None = None) -> str:
     if not models:
         return ""
 
-    lines = [
-        "### 📋 MODÈLES DE CARTES AUTORISÉS & DIRECTIVES DE SÉLECTION :",
-        "Pour chaque notion ou concept extrait, CHOISIS le modèle de carte le plus pertinent parmi les modèles autorisés ci-dessous :\n",
-    ]
-
-    for idx, m in enumerate(models, 1):
+    model_entries = []
+    for m in models:
         if isinstance(m, dict):
             name = m.get("name", "")
             desc = m.get("description", "")
@@ -342,7 +362,7 @@ def format_available_card_models_prompt(models: list[Any] | None = None) -> str:
         if isinstance(fields_schema, str):
             try:
                 fields_list = json.loads(fields_schema)
-            except Exception:
+            except json.JSONDecodeError:
                 fields_list = ["Front", "Back"]
         elif isinstance(fields_schema, list):
             fields_list = fields_schema
@@ -350,16 +370,9 @@ def format_available_card_models_prompt(models: list[Any] | None = None) -> str:
             fields_list = ["Front", "Back"]
 
         fields_sample = ", ".join([f'"{f}": "..."' for f in fields_list])
-        lines.append(f'{idx}. Modèle : "{name}"')
-        if desc:
-            lines.append(f"   - Rôle & Heuristique : {desc}")
-        lines.append(f"   - Champs attendus : {{{fields_sample}}}\n")
+        model_entries.append({"name": name, "desc": desc, "fields_text": "{" + fields_sample + "}"})
 
-    lines.append("### 📦 FORMAT JSON DE SORTIE :")
-    lines.append('Retourne un objet JSON avec la clé "notes" contenant la liste des cartes avec la clé "model" et leurs champs respectifs :')
-    lines.append('{\n  "notes": [\n    {\n      "model": "<Nom du Modèle>",\n      "fields": {\n        "<Champ 1>": "...",\n        "<Champ 2>": "..."\n      }\n    }\n  ]\n}')
-
-    return "\n".join(lines)
+    return _PROMPT_ENV.from_string(_CARD_MODELS_PROMPT_TEMPLATE).render(models=model_entries)
 
 
 def _normalize_card_item(item: dict[str, Any]) -> dict[str, Any]:

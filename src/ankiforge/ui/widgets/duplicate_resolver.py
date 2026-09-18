@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgre
 from ankiforge.database.models import IgnoredDuplicateModel, NoteModel, db
 from ankiforge.ui.components import ActionButton, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import DesignTokens, is_dark_mode
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class DuplicateResolverDialog(QDialog):
@@ -64,7 +64,7 @@ class DuplicateResolverDialog(QDialog):
         left_layout.addWidget(self.text_left)
 
         self.btn_keep_a = PrimaryButton(" Garder l'Originale (Supprime B)")
-        self.btn_keep_a.setIcon(load_phosphor_icon("arrow-left", color="white"))
+        self.btn_keep_a.setIcon(load_on_accent_icon("arrow-left"))
         self.btn_keep_a.clicked.connect(self.keep_a)
         left_layout.addWidget(self.btn_keep_a)
 
@@ -85,7 +85,7 @@ class DuplicateResolverDialog(QDialog):
         right_layout.addWidget(self.text_right)
 
         self.btn_keep_b = PrimaryButton(" Garder la Nouvelle (Supprime A)")
-        self.btn_keep_b.setIcon(load_phosphor_icon("arrow-right", color="white"))
+        self.btn_keep_b.setIcon(load_on_accent_icon("arrow-right"))
         self.btn_keep_b.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.btn_keep_b.clicked.connect(self.keep_b)
         right_layout.addWidget(self.btn_keep_b)

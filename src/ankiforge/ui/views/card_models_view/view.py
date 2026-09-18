@@ -54,7 +54,7 @@ from ankiforge.ui.views.card_models_view.widgets import (
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.cloze_manager import is_template_cloze
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ class CardModelsView(QWidget):
         search_row.addWidget(self.model_search_input, 1)
 
         self.btn_new = PrimaryButton("Nouveau Modèle", tooltip="Créer un nouveau modèle de cartes Anki")
-        self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         self.btn_new.setFixedHeight(28)
         search_row.addWidget(self.btn_new)
 

@@ -14,7 +14,7 @@ from ankiforge.database.models import DocumentModel
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.ui.components import GlowLineEdit, PrimaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class RAGTestDialog(QDialog):
@@ -79,7 +79,7 @@ class RAGTestDialog(QDialog):
         self.search_input.returnPressed.connect(self._on_search)
 
         btn_search = PrimaryButton("Rechercher")
-        btn_search.setIcon(load_phosphor_icon("ph.magnifying-glass", color="white"))
+        btn_search.setIcon(load_on_accent_icon("ph.magnifying-glass"))
         btn_search.clicked.connect(self._on_search)
 
         search_row.addWidget(self.search_input, 1)

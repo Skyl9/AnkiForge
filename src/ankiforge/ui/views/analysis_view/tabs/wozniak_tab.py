@@ -40,7 +40,7 @@ from ankiforge.ui.components.linter_widgets import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ class AIWozniakLinterTab(QWidget):
         self.btn_rules.clicked.connect(self.open_rules_dialog)
 
         self.btn_analyze = PrimaryButton("Lancer l'audit", tooltip="Lancer l'audit de conformité Wozniak sur le paquet sélectionné")
-        self.btn_analyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="#ffffff"))
+        self.btn_analyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         self.btn_analyze.clicked.connect(lambda checked=False: self.refresh_audit(force=True))
 
         self.score_badge = QLabel("Score : --")

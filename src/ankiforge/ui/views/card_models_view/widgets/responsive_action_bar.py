@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from ankiforge.ui.components import Badge, IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class ResponsiveTopActionBar(QFrame):
@@ -60,7 +60,7 @@ class ResponsiveTopActionBar(QFrame):
         self.btn_refresh = IconButton("ph.arrows-clockwise", tooltip="Actualiser la prévisualisation temps réel", size=24)
 
         self.btn_save = PrimaryButton("Sauvegarder")
-        self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.setFixedHeight(28)
         self.btn_save.setMinimumWidth(110)
         self.btn_save.setToolTip("Sauvegarder les modifications du modèle")

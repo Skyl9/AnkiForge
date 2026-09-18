@@ -13,7 +13,7 @@ def test_normalize_text():
     assert normalize_text("Électron & Protéine") == "electron & proteine"
     assert normalize_text("À l'Hôpital Général") == "a l'hopital general"
     assert normalize_text("") == ""
-    assert normalize_text(None) == ""  # type: ignore
+    assert normalize_text(None) == ""  # type: ignore[arg-type]  # test volontaire : tolérance None (normalisé en chaîne vide)
 
 
 def test_tokenize_and_stop_words():

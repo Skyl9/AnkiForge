@@ -167,4 +167,4 @@ class BasePaginatedPeeweeModel[T](QAbstractTableModel):
         Hook de conversion et de préchargement des relations en lot.
         Par défaut, renvoie la liste brute.
         """
-        return raw_items  # type: ignore[return-value]
+        return raw_items

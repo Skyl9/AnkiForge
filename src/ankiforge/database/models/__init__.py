@@ -20,7 +20,6 @@ from ankiforge.database.models.ai import (
     PersonaModel,
     PersonaVersionModel,
     PromptModel,
-    TokenUsageModel,
 )
 from ankiforge.database.models.audit import (
     AuditRecordModel,
@@ -54,6 +53,7 @@ from ankiforge.database.models.system import (
     JobModel,
     SettingModel,
 )
+from ankiforge.database.models.usage import TokenUsageModel
 from ankiforge.database.seeds import (
     seed_default_linter_rules,
     seed_initial_data,

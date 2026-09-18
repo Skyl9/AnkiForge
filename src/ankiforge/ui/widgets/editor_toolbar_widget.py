@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
 
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, StyledMenu
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class EditorToolbarWidget(QWidget):
         self.main_layout.addWidget(self.btn_history)
 
         self.btn_save = PrimaryButton("Sauvegarder")
-        self.btn_save.setIcon(load_phosphor_icon("floppy-disk", color="white"))
+        self.btn_save.setIcon(load_on_accent_icon("floppy-disk"))
         self.btn_save.setToolTip("Sauvegarder les modifications (Ctrl+S)")
         self.btn_save.setFixedHeight(26)
         self.btn_save.setStyleSheet("""

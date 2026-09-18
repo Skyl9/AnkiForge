@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class CSSConflictDialog(QDialog):
@@ -104,7 +104,7 @@ class CSSConflictDialog(QDialog):
 
         # Option 1 : Créer une variante unique (Recommandé)
         self.btn_rename = PrimaryButton("✨ Créer une variante unique (Recommandé)")
-        self.btn_rename.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
+        self.btn_rename.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_rename.setToolTip("Renomme automatiquement les classes pour éviter toute perturbation du style existant.")
         self.btn_rename.clicked.connect(self._on_rename_clicked)
         btn_layout.addWidget(self.btn_rename)

@@ -28,7 +28,7 @@ from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +204,7 @@ class ModelExportDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
 
         self.btn_export = PrimaryButton("Exporter le Modèle")
-        self.btn_export.setIcon(load_phosphor_icon("ph.export", color="white"))
+        self.btn_export.setIcon(load_on_accent_icon("ph.export"))
         self.btn_export.clicked.connect(self._on_confirm_export)
 
         btn_row.addStretch()

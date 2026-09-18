@@ -27,7 +27,7 @@ from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
+from ankiforge.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -351,7 +351,7 @@ class ProfileSelectorDialog(QDialog):
 
         self.btn_select = PrimaryButton("Basculer vers cet Espace", tooltip="Ouvrir le profil sélectionné et charger ses données")
         self.btn_select.setFixedHeight(36)
-        self.btn_select.setIcon(load_phosphor_icon("arrow-right", color="#ffffff"))
+        self.btn_select.setIcon(load_on_accent_icon("arrow-right"))
         self.btn_select.clicked.connect(self.accept)
         bottom_layout.addWidget(self.btn_select)
 

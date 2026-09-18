@@ -14,7 +14,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.linter_widgets import RetentionCurveCanvas
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class AITokensSrsTab(QWidget):
@@ -67,7 +67,7 @@ class AITokensSrsTab(QWidget):
         )
 
         btn_analyze = PrimaryButton("Analyser ce paquet", tooltip="Rafraîchir les métriques de tokens, dépenses IA et rétention SRS")
-        btn_analyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="white"))
+        btn_analyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         btn_analyze.setFixedHeight(28)
         btn_analyze.clicked.connect(self.refresh_stats)
 
@@ -193,7 +193,7 @@ class AITokensSrsTab(QWidget):
             "Optimiser FSRS-4.5 (ML Local)",
             tooltip="Calibrer les 17 paramètres FSRS-4.5 sur votre historique de révision via apprentissage automatique local",
         )
-        btn_opt.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
+        btn_opt.setIcon(load_on_accent_icon("ph.sparkle"))
         btn_opt.setFixedHeight(30)
         btn_opt.clicked.connect(self._on_optimize_fsrs)
         r_layout.addWidget(btn_opt)

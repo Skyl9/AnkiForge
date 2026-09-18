@@ -96,6 +96,15 @@ def load_phosphor_icon(name: str, color: str = DesignTokens.TEXT_SECONDARY, weig
         return QIcon()
 
 
+def load_on_accent_icon(name: str, weight: str = "regular") -> QIcon:
+    """Charge une icône Phosphor destinée à un fond accent (boutons primaires, badges, sliders).
+
+    La couleur est pilotée par le token DesignTokens.TEXT_ON_ACCENT : blanc en mode sombre,
+    sombre en mode clair. À utiliser à la place de `color="white"` / `"#ffffff"` codé en dur.
+    """
+    return load_phosphor_icon(name, color=DesignTokens.TEXT_ON_ACCENT, weight=weight)
+
+
 def load_logo_icon(color: str = DesignTokens.ACCENT_PRIMARY) -> QIcon:
     """Charge le logo AnkiForge SVG et lui applique la couleur spécifiée."""
     if color in _logo_cache:

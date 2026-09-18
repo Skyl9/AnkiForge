@@ -9,8 +9,63 @@ from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.markdown.formatter import MarkdownFormatter
 from ankiforge.services.markdown.models import FormatOptions
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
+
+# Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
+_PROMPT_ENV = create_prompt_environment()
+
+# Directives de forme communes à tous les profils de restructuration.
+_FORMAT_DIRECTIVES = (
+    "Tu es un expert en pédagogie cognitive, ingénierie de la connaissance et sciences de l'apprentissage.\n"
+    "Ta mission est de transformer une retranscription orale ou un texte brut non structuré en un document "
+    "Markdown de référence, hautement organisé, d'une clarté exemplaire et optimisé pour la révision espacée (SRS / Anki).\n\n"
+    "DIRECTIVES DE FORME ET DE SYNTAXE (OBLIGATOIRES) :\n"
+    "1. Sortie en pur Markdown GitHub / CommonMark uniquement. Pas de préambule ni d'explication méta.\n"
+    "2. Titres hiérarchiques stricts : # Titre Principal, ## Chapitre, ### Sous-section. Aucun saut de niveau illégal (jamais de H1 -> H3).\n"
+    "3. Règle absolue KaTeX : Toute formule mathématique ou symbole scientifique DOIT utiliser le délimiteur dollar : "
+    "$...$ pour les formules inline et $$\\n...\\n$$ pour les blocs display. Ne JAMAIS utiliser \\( \\) ni \\[ \\].\n"
+    "4. Richesse terminologique : Mettre en GRAS (**terme**) les concepts, dates, formules et vocabulaire clé pour "
+    "faciliter la création ultérieure de cartes mémoires (Q/R ou Cloze deletion).\n"
+)
+
+# Règle d'horodatage, insérée uniquement si la préservation des repères temporels est demandée.
+_TIMESTAMP_RULE = (
+    "5. Horodatage : Conserve rigoureusement les repères temporels présents (ex: [02:15] ou <!-- TIME: ... -->) au début des chapitres et sections pour permettre la navigation vidéo/audio.\n"
+)
+
+# Snippets de profil, rendus uniquement pour le profil actif de la restructuration.
+# Clés alignées sur les valeurs de StructuringProfile (StrEnum), évite un use-before-def au chargement.
+_PROFILE_BLOCKS: dict[str, str] = {
+    "didactic": (
+        "\nPROFIL : SYNTHÈSE DIDACTIQUE & PÉDAGOGIQUE (COURS D'ÉTUDE)\n"
+        "- Structure le document avec :\n"
+        "  • Un titre H1 explicite et descriptif.\n"
+        "  • Un chapeau introductif (Sujet, public cible, résumé exécutif en 3-4 phrases).\n"
+        "  • Des chapitres thématiques (H2) progressifs, découpés en sous-parties (H3).\n"
+        "  • Les définitions fondamentales encadrées en blockquotes : `> **Définition :** ...`\n"
+        "  • Des listes à puces ou tableaux comparatifs pour les classifications et étapes logiques.\n"
+        "  • En fin de document, une section obligatoire `## 📌 Points Clés à Retenir` récapitulant les 5 à 8 enseignements vitaux.\n"
+        "- Élimine tous les tics oraux (*euh*, *en fait*, répétitions, digressions inutiles) sans omettre aucune information technique de fond.\n"
+    ),
+    "polished_verbatim": (
+        "\nPROFIL : RETRANSCRIPTION POLIE & CHAPITRÉE (VERBATIM STRUCTURÉ)\n"
+        "- Conserve la totalité du propos de l'orateur et la fidélité mot-à-mot du contenu.\n"
+        "- Nettoie uniquement la forme : rétablis une ponctuation irréprochable, découpe en paragraphes aérés.\n"
+        "- Supprime les scories orales évidentes (*euh*, bafouillages, faux départs de phrases).\n"
+        "- Ajoute des titres H2 et H3 avec horodatage [MM:SS] pour découper la lecture sans altérer le texte source.\n"
+    ),
+    "executive_summary": (
+        "\nPROFIL : FICHE DE SYNTHÈSE & RÉSUMÉ EXÉCUTIF (CHEATSHEET)\n"
+        "- Produis un document ultra-condensé, direct et sans verbiage.\n"
+        "- Fiche d'identité synthétique, tableaux récapitulatifs, définitions concises et bullet points percutants.\n"
+        "- Idéal pour une révision éclair avant un examen ou une réunion.\n"
+    ),
+}
+
+# Gabarit de composition : directives communes puis règles optionnelles puis profil actif.
+_SYSTEM_PROMPT_TEMPLATE = "{{ directives }}{% if preserve_timestamps %}{{ timestamp_rule }}{% endif %}{{ profile_block }}"
 
 
 class StructuringProfile(StrEnum):
@@ -48,54 +103,12 @@ class AIDocumentStructurer:
     @classmethod
     def build_system_prompt(cls, options: StructuringOptions) -> str:
         """Construit un prompt système adapté au profil de structuration sélectionné."""
-        base_prompt = (
-            "Tu es un expert en pédagogie cognitive, ingénierie de la connaissance et sciences de l'apprentissage.\n"
-            "Ta mission est de transformer une retranscription orale ou un texte brut non structuré en un document "
-            "Markdown de référence, hautement organisé, d'une clarté exemplaire et optimisé pour la révision espacée (SRS / Anki).\n\n"
-            "DIRECTIVES DE FORME ET DE SYNTAXE (OBLIGATOIRES) :\n"
-            "1. Sortie en pur Markdown GitHub / CommonMark uniquement. Pas de préambule ni d'explication méta.\n"
-            "2. Titres hiérarchiques stricts : # Titre Principal, ## Chapitre, ### Sous-section. Aucun saut de niveau illégal (jamais de H1 -> H3).\n"
-            "3. Règle absolue KaTeX : Toute formule mathématique ou symbole scientifique DOIT utiliser le délimiteur dollar : "
-            "$...$ pour les formules inline et $$\\n...\\n$$ pour les blocs display. Ne JAMAIS utiliser \\( \\) ni \\[ \\].\n"
-            "4. Richesse terminologique : Mettre en GRAS (**terme**) les concepts, dates, formules et vocabulaire clé pour "
-            "faciliter la création ultérieure de cartes mémoires (Q/R ou Cloze deletion).\n"
+        return _PROMPT_ENV.from_string(_SYSTEM_PROMPT_TEMPLATE).render(
+            directives=_FORMAT_DIRECTIVES,
+            preserve_timestamps=options.preserve_timestamps,
+            timestamp_rule=_TIMESTAMP_RULE,
+            profile_block=_PROFILE_BLOCKS.get(options.profile.value, ""),
         )
-
-        if options.preserve_timestamps:
-            base_prompt += (
-                "5. Horodatage : Conserve rigoureusement les repères temporels présents (ex: [02:15] ou <!-- TIME: ... -->) "
-                "au début des chapitres et sections pour permettre la navigation vidéo/audio.\n"
-            )
-
-        if options.profile == StructuringProfile.DIDACTIC:
-            base_prompt += (
-                "\nPROFIL : SYNTHÈSE DIDACTIQUE & PÉDAGOGIQUE (COURS D'ÉTUDE)\n"
-                "- Structure le document avec :\n"
-                "  • Un titre H1 explicite et descriptif.\n"
-                "  • Un chapeau introductif (Sujet, public cible, résumé exécutif en 3-4 phrases).\n"
-                "  • Des chapitres thématiques (H2) progressifs, découpés en sous-parties (H3).\n"
-                "  • Les définitions fondamentales encadrées en blockquotes : `> **Définition :** ...`\n"
-                "  • Des listes à puces ou tableaux comparatifs pour les classifications et étapes logiques.\n"
-                "  • En fin de document, une section obligatoire `## 📌 Points Clés à Retenir` récapitulant les 5 à 8 enseignements vitaux.\n"
-                "- Élimine tous les tics oraux (*euh*, *en fait*, répétitions, digressions inutiles) sans omettre aucune information technique de fond.\n"
-            )
-        elif options.profile == StructuringProfile.POLISHED_VERBATIM:
-            base_prompt += (
-                "\nPROFIL : RETRANSCRIPTION POLIE & CHAPITRÉE (VERBATIM STRUCTURÉ)\n"
-                "- Conserve la totalité du propos de l'orateur et la fidélité mot-à-mot du contenu.\n"
-                "- Nettoie uniquement la forme : rétablis une ponctuation irréprochable, découpe en paragraphes aérés.\n"
-                "- Supprime les scories orales évidentes (*euh*, bafouillages, faux départs de phrases).\n"
-                "- Ajoute des titres H2 et H3 avec horodatage [MM:SS] pour découper la lecture sans altérer le texte source.\n"
-            )
-        elif options.profile == StructuringProfile.EXECUTIVE_SUMMARY:
-            base_prompt += (
-                "\nPROFIL : FICHE DE SYNTHÈSE & RÉSUMÉ EXÉCUTIF (CHEATSHEET)\n"
-                "- Produis un document ultra-condensé, direct et sans verbiage.\n"
-                "- Fiche d'identité synthétique, tableaux récapitulatifs, définitions concises et bullet points percutants.\n"
-                "- Idéal pour une révision éclair avant un examen ou une réunion.\n"
-            )
-
-        return base_prompt
 
     @classmethod
     def structure_document(

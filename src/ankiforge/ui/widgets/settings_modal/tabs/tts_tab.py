@@ -14,9 +14,9 @@ try:
 
     HAS_QTMULTIMEDIA = True
 except (ImportError, OSError):
-    QAudioOutput = None  # type: ignore[assignment, misc]
-    QMediaDevices = None  # type: ignore[assignment, misc]
-    QMediaPlayer = None  # type: ignore[assignment, misc]
+    QAudioOutput = None  # type: ignore[misc]  # PySide6 QtMultimedia indisponible : repli sur None
+    QMediaDevices = None  # type: ignore[misc]
+    QMediaPlayer = None  # type: ignore[misc]
     HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -35,7 +35,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_app_data_dir
 
 logger = logging.getLogger(__name__)
@@ -213,7 +213,7 @@ class TTSSettingsTab(QWidget):
         row_install.addWidget(self.lbl_install_progress, 1)
 
         self.btn_install_piper = PrimaryButton(" Télécharger Piper CLI (1-Clic)")
-        self.btn_install_piper.setIcon(load_phosphor_icon("ph.download-simple", color="white"))
+        self.btn_install_piper.setIcon(load_on_accent_icon("ph.download-simple"))
         self.btn_install_piper.setFixedHeight(30)
         self.btn_install_piper.clicked.connect(self._on_install_piper)
         row_install.addWidget(self.btn_install_piper)

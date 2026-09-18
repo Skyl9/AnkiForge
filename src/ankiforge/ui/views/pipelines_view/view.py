@@ -56,7 +56,7 @@ from ankiforge.ui.views.pipelines_view.widgets import (
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import event_bus
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -142,7 +142,7 @@ class PipelinesView(QWidget):
 
         # Action Secondaire : Sauvegarder
         self.btn_save_pipeline = PrimaryButton("Enregistrer", tooltip="Enregistrer la structure et la configuration du pipeline (Ctrl+S)")
-        self.btn_save_pipeline.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save_pipeline.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_pipeline.setIconSize(QSize(14, 14))
         self.btn_save_pipeline.setFixedHeight(30)
         apply_shadow(self.btn_save_pipeline, blur=14, offset_y=0, color="rgba(99, 102, 241, 0.7)")
@@ -195,7 +195,7 @@ class PipelinesView(QWidget):
         left_layout.addWidget(scroll, 1)
 
         self.btn_add_step = PrimaryButton("Ajouter une étape au workflow", tooltip="Ajouter une étape (LLM, RAG, Outil, Map-Reduce) à ce workflow")
-        self.btn_add_step.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        self.btn_add_step.setIcon(load_on_accent_icon("ph.plus"))
         self.btn_add_step.setIconSize(QSize(14, 14))
         self.btn_add_step.setFixedHeight(32)
         self.btn_add_step.clicked.connect(lambda: self._on_add_step_clicked(insert_at=None))

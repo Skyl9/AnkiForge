@@ -46,9 +46,12 @@ def test_no_zombie_thread_after_timeout() -> None:
     # Regression : au timeout, la thread sandbox doit SE TERMINER (interruption
     # coopérative via sys.settrace) et non rester zombie à 100% CPU — ce qui
     # provoquait un segfault natif pendant le teardown Qt en CI.
+    threads_before = {t for t in threading.enumerate() if t.name.startswith("tool-sandbox-")}
     with pytest.raises(TimeoutError):
         run_python_tool("while True: pass", {}, timeout=0.2)
-    time.sleep(0.1)
+    deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline and any(t.is_alive() for t in threads_before):
+        time.sleep(0.01)
     zombies = [t for t in threading.enumerate() if t.name.startswith("tool-sandbox-")]
     assert zombies == []
 

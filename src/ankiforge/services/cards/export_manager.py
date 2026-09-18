@@ -204,11 +204,12 @@ class ExportManager:
                 if not fields_list:
                     fields_list = ["Front", "Back"]
 
-                # Auto-guérison de la BDD pour ce modèle de note
+                # Auto-guérison de la BDD pour ce modèle de note (écriture transactionnelle : audit "writes-outside-atomic")
                 if not nt.fields_schema or nt.fields_schema.strip() in ("[]", ""):
                     try:
-                        nt.fields_schema = json.dumps(fields_list)
-                        nt.save()
+                        with db.atomic():
+                            nt.fields_schema = json.dumps(fields_list)
+                            nt.save()
                     except Exception as save_err:
                         logger.debug("Remarque sur la persistance de l'auto-healing pour nt ID=%d : %s", nt.id, save_err)
 

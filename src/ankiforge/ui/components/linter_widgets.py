@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class WozniakHubWidget(QWidget):
@@ -130,7 +130,7 @@ class WozniakHubWidget(QWidget):
         btn_box = QHBoxLayout()
         btn_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.btn_select_deck = PrimaryButton("Sélectionner un Paquet pour Lancer l'Audit")
-        self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color="#ffffff"))
+        self.btn_select_deck.setIcon(load_on_accent_icon("ph.folder-open"))
         self.btn_select_deck.clicked.connect(self.select_deck_requested.emit)
         btn_box.addWidget(self.btn_select_deck)
         layout.addLayout(btn_box)
@@ -517,7 +517,7 @@ class WozniakCardItemWidget(QFrame):
         self.btn_consult_ai.clicked.connect(self.on_consult_ai)
 
         self.btn_apply = PrimaryButton("Appliquer la Correction")
-        self.btn_apply.setIcon(load_phosphor_icon("ph.check", color="#ffffff"))
+        self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
         self.btn_apply.setFixedHeight(24)
         self.btn_apply.clicked.connect(self.on_apply)
 

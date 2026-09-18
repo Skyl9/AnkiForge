@@ -29,7 +29,7 @@ from ankiforge.services.cards.import_manager import ConflictItem
 from ankiforge.ui.components.badges import Badge
 from ankiforge.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens, StyledMenu
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ class SmartMergeDialog(QDialog):
     Dialogue de Fusion Interactive à 3 Panneaux pour résoudre les conflits d'importation.
     """
 
-    merge_completed = Signal(dict)  # Dict[guid, resolution_dict]
+    merge_completed = Signal(dict)  # dict[guid, resolution_dict]
 
     def __init__(self, conflicts: list[ConflictItem], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -295,7 +295,7 @@ class SmartMergeDialog(QDialog):
         footer_layout.addWidget(self.btn_batch_menu)
 
         self.btn_confirm = PrimaryButton("Valider la Fusion")
-        self.btn_confirm.setIcon(load_phosphor_icon("check", color="white"))
+        self.btn_confirm.setIcon(load_on_accent_icon("check"))
         self.btn_confirm.clicked.connect(self._on_confirm_merge)
         footer_layout.addWidget(self.btn_confirm)
 

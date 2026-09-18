@@ -21,7 +21,7 @@ from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.pipelines_view.constants import STEP_TYPES_META
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class StepTestDialog(QDialog):
@@ -60,7 +60,7 @@ class StepTestDialog(QDialog):
 
         h_btn = QHBoxLayout()
         btn_run = PrimaryButton("Lancer la simulation")
-        btn_run.setIcon(load_phosphor_icon("ph.play", color="white"))
+        btn_run.setIcon(load_on_accent_icon("ph.play"))
         btn_run.clicked.connect(self._run_simulation)
         btn_close = SecondaryButton("Fermer")
         btn_close.clicked.connect(self.accept)
@@ -136,7 +136,7 @@ class PipelineRunDialog(QDialog):
 
         h_btn = QHBoxLayout()
         self.btn_start = PrimaryButton("Démarrer l'exécution")
-        self.btn_start.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_start.setIcon(load_on_accent_icon("ph.play"))
         self.btn_start.clicked.connect(self._start_run)
         self.btn_close = SecondaryButton("Fermer")
         self.btn_close.clicked.connect(self.accept)

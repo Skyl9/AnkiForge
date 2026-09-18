@@ -1,5 +1,9 @@
 """Tests d'intégration pour le formatteur et structurateur Markdown (Chunking, Ingestion, MCP)."""
 
+from pathlib import Path
+
+import pytest
+
 from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
@@ -26,8 +30,8 @@ def test_chunking_service_markdown_ast_strategy() -> None:
     assert all("content_hash" in c for c in chunks)
 
 
-def test_document_parser_auto_format(tmp_path: object) -> None:
-    test_file = tmp_path / "test_doc.md"  # type: ignore[operator]
+def test_document_parser_auto_format(tmp_path: Path) -> None:
+    test_file = tmp_path / "test_doc.md"
     raw_content = "#Titre Sans Espace\n\nCette infor-\nmation est essen-\ntielle.\n\nFormule : \\[ E = mc^2 \\]"
     test_file.write_text(raw_content, encoding="utf-8")
 
@@ -67,7 +71,7 @@ def test_consultant_mcp_structure_document_sections_raw_content() -> None:
     assert "Section A" in res
 
 
-def test_consultant_mcp_structure_transcript_for_ai_raw_content(monkeypatch: object) -> None:
+def test_consultant_mcp_structure_transcript_for_ai_raw_content(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock
 
     from ankiforge.services.ai.base import LLMProvider
@@ -75,7 +79,7 @@ def test_consultant_mcp_structure_transcript_for_ai_raw_content(monkeypatch: obj
 
     mock_provider = MagicMock(spec=LLMProvider)
     mock_provider.generate.return_value = "# Cours de Biologie\n\n## [00:15] Introduction à la cellule\n\nLa cellule est l'unité de base du vivant.\n\nLa formule énergétique est $ATP = ADP + Pi$."
-    monkeypatch.setattr(AIDocumentStructurer, "_resolve_provider", lambda: mock_provider)  # type: ignore[attr-defined]
+    monkeypatch.setattr(AIDocumentStructurer, "_resolve_provider", lambda: mock_provider)
 
     raw = "00:15 alors bonjour à tous aujourd'hui on parle de la cellule et de l'ATP"
     res = ConsultantToolRegistry.structure_transcript_for_ai(content=raw, profile="didactic")

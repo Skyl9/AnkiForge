@@ -30,7 +30,7 @@ from ankiforge.ui.dispatch import run_on_owner_thread
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class DocumentInspectorPanel(QWidget):
         )
 
         self.btn_fill_orphans = PrimaryButton("Générer les cartes manquantes", tooltip="Générer automatiquement des flashcards pour les sections non couvertes")
-        self.btn_fill_orphans.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
+        self.btn_fill_orphans.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_fill_orphans.clicked.connect(self._on_fill_all_orphans)
 
         self.btn_reindex = SecondaryButton("Ré-indexer FAISS", tooltip="Recalculer les embeddings vectoriels et réindexer ce document dans FAISS")
@@ -373,7 +373,7 @@ class DocumentInspectorPanel(QWidget):
             b_layout.addWidget(lbl_desc)
 
             btn_gen = PrimaryButton("Forger cette section maintenant")
-            btn_gen.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
+            btn_gen.setIcon(load_on_accent_icon("ph.sparkle"))
             btn_gen.clicked.connect(lambda: self._on_forge_chunk(chunk.id))
             b_layout.addWidget(btn_gen)
 

@@ -103,7 +103,7 @@ class PersonaVersionService:
         if not target_version:
             raise ValueError(f"Version de persona introuvable (ID: {version_id})")
 
-        persona: PersonaModel = target_version.persona  # type: ignore[assignment]
+        persona: PersonaModel = target_version.persona
         if not persona:
             raise ValueError("Persona associé à cette version introuvable.")
 
@@ -120,7 +120,7 @@ class PersonaVersionService:
             # Bascule de l'indicateur is_active
             PersonaVersionModel.update(is_active=False).where(PersonaVersionModel.persona == persona).execute()
 
-            target_version.is_active = True  # type: ignore[assignment]
+            target_version.is_active = True
             target_version.save()
 
         logger.info(

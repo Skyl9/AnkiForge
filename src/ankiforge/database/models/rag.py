@@ -75,7 +75,9 @@ class DocumentChunkModel(BaseModel):
     content_hash = CharField(index=True, default="")
     page_number = IntegerField(null=True)
     heading_path = CharField(null=True)
-    is_profiled = BooleanField(default=False, null=True)
+    # Le booléen est non-nullable (default=False) : la couverture RAG dépend d'un état dichotomique clair.
+    # L'audit "fk-missing-cascade" (audits/raw/) relevait null=True qui autorisait des états ambigus.
+    is_profiled = BooleanField(default=False)
     start_time = FloatField(null=True)
     end_time = FloatField(null=True)
     media = ForeignKeyField(MediaModel, backref="chunks", null=True, on_delete="SET NULL")

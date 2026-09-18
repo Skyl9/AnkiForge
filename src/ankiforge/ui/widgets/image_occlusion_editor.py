@@ -60,7 +60,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -522,7 +522,7 @@ class ImageOcclusionEditor(QWidget):
 
         # Bouton principal de génération
         self.btn_generate = PrimaryButton("Créer les cartes d'occlusion")
-        self.btn_generate.setIcon(load_phosphor_icon("ph.check-circle", color="#ffffff"))
+        self.btn_generate.setIcon(load_on_accent_icon("ph.check-circle"))
         self.btn_generate.clicked.connect(self._generate_cards)
         side_layout.addWidget(self.btn_generate)
 

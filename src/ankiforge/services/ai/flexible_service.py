@@ -238,7 +238,7 @@ class AnthropicProvider(LLMProvider):
         thinking_budget: int = 0,
         max_tokens: int = 16384,
     ):
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy_key")
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.model_name = model_name
         self.thinking_budget = thinking_budget
         self.max_tokens = max_tokens
@@ -433,6 +433,9 @@ class AIManager:
                     max_tokens=max_tokens,
                 )
             elif p_name == "anthropic":
+                if not key and not os.environ.get("ANTHROPIC_API_KEY"):
+                    logger.warning("Clé API Anthropic absente pour le modèle %s, repli sur MockProvider.", model_id)
+                    return MockProvider()
                 return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget, max_tokens=max_tokens)
         except Exception as err:
             logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)

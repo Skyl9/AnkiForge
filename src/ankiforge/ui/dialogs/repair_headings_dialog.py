@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from ankiforge.services.markdown.models import HeadingRepairItem
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ class RepairHeadingsDialog(QDialog):
         btn_layout.addWidget(self.btn_cancel)
 
         self.btn_apply = PrimaryButton("Appliquer les corrections")
-        self.btn_apply.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
         self.btn_apply.clicked.connect(self._on_apply)
         btn_layout.addWidget(self.btn_apply)
 

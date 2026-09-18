@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from ankiforge.ui.components.buttons import IconButton
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_logo_icon, load_phosphor_icon
+from ankiforge.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
 
 
 class MacosSegmentButton(QPushButton):
@@ -44,7 +44,7 @@ class MacosSegmentButton(QPushButton):
 
     def _on_toggled(self, checked: bool) -> None:
         if checked:
-            self.setIcon(load_phosphor_icon(self.icon_name, color="#ffffff"))
+            self.setIcon(load_on_accent_icon(self.icon_name))
         else:
             self.setIcon(load_phosphor_icon(self.icon_name, color=DesignTokens.TEXT_SECONDARY))
         self._update_style(checked)

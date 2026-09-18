@@ -7,7 +7,7 @@ from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components import ActionButton, HeaderLabel, PrimaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class LinterDialog(QDialog):
@@ -98,7 +98,7 @@ class LinterDialog(QDialog):
                     p_layout.addWidget(sugg_lbl)
 
                     btn_apply = PrimaryButton("Appliquer la suggestion")
-                    btn_apply.setIcon(load_phosphor_icon("check", color="white"))
+                    btn_apply.setIcon(load_on_accent_icon("check"))
                     # Capture variable in closure safely
                     btn_apply.clicked.connect(lambda _, nid=note_id, sug=suggestion, pnl=panel: self._apply_suggestion(nid, sug, pnl))
                     p_layout.addWidget(btn_apply)

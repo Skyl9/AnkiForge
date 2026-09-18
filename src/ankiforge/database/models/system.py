@@ -32,7 +32,7 @@ class JobModel(BaseModel):
     updated_at = DateTimeField(default=datetime.datetime.now)
 
     def save(self, *args: Any, **kwargs: Any) -> int:
-        self.updated_at = datetime.datetime.now()  # type: ignore[assignment]
+        self.updated_at = datetime.datetime.now()
         return int(super().save(*args, **kwargs))
 
 

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class PersonaEmptyStateWidget(QWidget):
@@ -93,7 +93,7 @@ class PersonaEmptyStateWidget(QWidget):
         cta_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.btn_templates = PrimaryButton("✨ Parcourir les Modèles Prêts à l'Emploi")
-        self.btn_templates.setIcon(load_phosphor_icon("ph.sparkle", color="white"))
+        self.btn_templates.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_templates.setIconSize(QSize(16, 16))
         self.btn_templates.setFixedHeight(36)
         self.btn_templates.clicked.connect(self.create_from_template_requested.emit)

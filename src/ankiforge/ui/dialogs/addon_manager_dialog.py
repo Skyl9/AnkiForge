@@ -38,7 +38,7 @@ from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.components.tables import StyledTableWidget
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class AddonConfigForm(QWidget):
 
         # Bouton de sauvegarde
         btn_save = PrimaryButton("Enregistrer les réglages")
-        btn_save.setIcon(load_phosphor_icon("floppy-disk", color="white"))
+        btn_save.setIcon(load_on_accent_icon("floppy-disk"))
         btn_save.clicked.connect(self._on_save)
         layout.addWidget(btn_save, alignment=Qt.AlignmentFlag.AlignRight)
 
@@ -460,7 +460,7 @@ class AddonManagerWidget(QWidget):
         top_bar.addStretch()
 
         btn_install_zip = PrimaryButton("Installer (.zip)")
-        btn_install_zip.setIcon(load_phosphor_icon("file-arrow-up", color="white"))
+        btn_install_zip.setIcon(load_on_accent_icon("file-arrow-up"))
         btn_install_zip.clicked.connect(self._install_zip)
         top_bar.addWidget(btn_install_zip)
 

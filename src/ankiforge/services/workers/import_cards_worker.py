@@ -23,7 +23,7 @@ class ImportCardsWorker(QThread):
 
     progress = Signal(str)
     analysis_ready = Signal(object)  # ImportAnalysisResult
-    commit_finished = Signal(dict)  # Dict[str, int]
+    commit_finished = Signal(dict)  # dict[str, int]
     finished_signal = Signal()
     error_signal = Signal(str)
 

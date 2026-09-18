@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_ENV = create_prompt_environment()
 
+# Préfixage d'une règle système devant un prompt rendu, sans injection f-string.
+_RULE_PREFIX_TEMPLATE = "{{ rule }}\n\n{{ body }}"
+
 
 CARD_SECTION_DOCUMENTATION_RULE = (
     "RÈGLE D'ANCRAGE PAR SECTION : Pour chaque carte générée, localise dans le texte source le "
@@ -373,17 +376,23 @@ class PipelineOrchestrator(QRunnable):
         raw_system_prompt = cfg.get("prompt_override") or (step.persona.system_prompt if step.persona else "")
         rendered_sys = self._render_prompt_template(raw_system_prompt)
         if self.state.get_variable("strict_source_grounding", False):
-            rendered_sys = (
-                "RÈGLE DE GROUNDING STRICTE : utilise exclusivement le texte source du chunk courant. "
-                "N'ajoute aucune information issue de tes connaissances générales ou d'un autre chunk. "
-                "Si une information ne peut pas être démontrée par ce texte, omets la carte concernée. "
-                "Ne complète pas les données manquantes par hypothèse.\n\n" + rendered_sys
+            rendered_sys = _PROMPT_ENV.from_string(_RULE_PREFIX_TEMPLATE).render(
+                rule=(
+                    "RÈGLE DE GROUNDING STRICTE : utilise exclusivement le texte source du chunk courant. "
+                    "N'ajoute aucune information issue de tes connaissances générales ou d'un autre chunk. "
+                    "Si une information ne peut pas être démontrée par ce texte, omets la carte concernée. "
+                    "Ne complète pas les données manquantes par hypothèse."
+                ),
+                body=rendered_sys,
             )
 
         # Documentation de la couverture (finesse section) : activable/désactivable par étape de pipeline
         documentation_enabled = bool(cfg.get("declasser_sections_dans_tags", True))
         if documentation_enabled and self.state.document_id is not None:
-            rendered_sys = CARD_SECTION_DOCUMENTATION_RULE + "\n\n" + rendered_sys
+            rendered_sys = _PROMPT_ENV.from_string(_RULE_PREFIX_TEMPLATE).render(
+                rule=CARD_SECTION_DOCUMENTATION_RULE,
+                body=rendered_sys,
+            )
 
         # Préparation du prompt utilisateur à partir du contexte courant
         input_var = cfg.get("input_variable")

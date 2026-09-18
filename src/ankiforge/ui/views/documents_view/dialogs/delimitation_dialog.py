@@ -50,7 +50,7 @@ from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path, resolve_media_path
 
 logger = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ class DocumentStructureTreeWidget(QTreeWidget):
     def addItem(self, item: QTreeWidgetItem) -> None:
         self.addTopLevelItem(item)
 
-    def itemWidget(self, item: QTreeWidgetItem, column: int = 0) -> QWidget:  # type: ignore[override]
+    def itemWidget(self, item: QTreeWidgetItem, column: int = 0) -> QWidget:
         widget = super().itemWidget(item, column)
         if widget is None:
             raise RuntimeError("itemWidget returned None — item not registered in this tree")
@@ -1273,31 +1273,6 @@ class DocumentDelimitationDialog(QDialog):
         slider_scope_layout.setContentsMargins(0, 4, 0, 0)
         slider_scope_layout.setSpacing(6)
 
-        slider_style = f"""
-            QSlider::groove:horizontal {{
-                height: 4px;
-                background: {DesignTokens.BORDER_COLOR};
-                border-radius:  2px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {DesignTokens.ACCENT_PRIMARY};
-                border-radius:  2px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {DesignTokens.ACCENT_PRIMARY};
-                width: 14px;
-                height: 14px;
-                margin-top: -5px;
-                margin-bottom: -5px;
-                border-radius:  7px;
-                border: 2px solid white;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: white;
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """
-
         start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
         end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
 
@@ -1325,7 +1300,6 @@ class DocumentDelimitationDialog(QDialog):
         self.slider_p_start = QSlider(Qt.Orientation.Horizontal)
         self.slider_p_start.setRange(1, self._max_page)
         self.slider_p_start.setValue(self.spin_p_start.value())
-        self.slider_p_start.setStyleSheet(slider_style)
         self.slider_p_start.valueChanged.connect(self._on_slider_start_changed)
 
         start_row.addWidget(lbl_p_start)
@@ -1357,7 +1331,6 @@ class DocumentDelimitationDialog(QDialog):
         self.slider_p_end = QSlider(Qt.Orientation.Horizontal)
         self.slider_p_end.setRange(1, self._max_page)
         self.slider_p_end.setValue(self.spin_p_end.value())
-        self.slider_p_end.setStyleSheet(slider_style)
         self.slider_p_end.valueChanged.connect(self._on_slider_end_changed)
 
         end_row.addWidget(lbl_p_end)
@@ -1837,7 +1810,7 @@ class DocumentDelimitationDialog(QDialog):
 
         apply_text = "Valider le découpage pour le lot" if self.context == "batch" else "Enregistrer la délimitation globale"
         btn_apply = PrimaryButton(apply_text)
-        btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
+        btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
         btn_apply.clicked.connect(self._on_apply)
         footer.addWidget(btn_apply)
 

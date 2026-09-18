@@ -31,7 +31,7 @@ from ankiforge.ui.widgets.settings_modal.tabs import (
     TTSSettingsTab,
 )
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile
 
 
@@ -184,7 +184,7 @@ class SettingsModal(QDialog):
         footer_layout.addWidget(self.btn_cancel)
 
         self.btn_save_all = PrimaryButton("Enregistrer les paramètres")
-        self.btn_save_all.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save_all.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_all.setFixedHeight(30)
         self.btn_save_all.setMinimumWidth(200)
         apply_shadow(self.btn_save_all, blur=12, offset_y=0, color="rgba(99, 102, 241, 0.6)")

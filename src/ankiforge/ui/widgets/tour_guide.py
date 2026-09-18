@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.ui.components.buttons import ActionButton, PrimaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ class TourBubble(QWidget):
         btn_layout.addWidget(self.lbl_counter)
 
         self.btn_next = PrimaryButton("Suivant ", parent=self)
-        self.btn_next.setIcon(load_phosphor_icon("arrow-right", color="white"))
+        self.btn_next.setIcon(load_on_accent_icon("arrow-right"))
         self.btn_next.clicked.connect(self.next_step)
         btn_layout.addWidget(self.btn_next)
 
@@ -191,10 +191,10 @@ class TourBubble(QWidget):
 
         if self.current_step == len(self.steps) - 1:
             self.btn_next.setText(" Terminer")
-            self.btn_next.setIcon(load_phosphor_icon("check", color="white"))
+            self.btn_next.setIcon(load_on_accent_icon("check"))
         else:
             self.btn_next.setText(" Suivant")
-            self.btn_next.setIcon(load_phosphor_icon("arrow-right", color="white"))
+            self.btn_next.setIcon(load_on_accent_icon("arrow-right"))
 
         QApplication.processEvents()
 

@@ -124,7 +124,7 @@ def tool_validate_json_schema(state: PipelineRunState, args: dict[str, Any] | No
                 extracted_cards = [c for c in parsed["cards"] if isinstance(c, dict)]
             elif isinstance(parsed, list):
                 extracted_cards = [c for c in parsed if isinstance(c, dict)]
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.debug("Extraction JSON schema échouée: %s", e)
 
     if extracted_cards:

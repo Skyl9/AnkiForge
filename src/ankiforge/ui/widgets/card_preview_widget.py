@@ -153,7 +153,7 @@ class CardPreviewWidget(QWidget):
             mock_browser = QTextBrowser(self.flashcard_frame)
             mock_browser.setHtmlSafe = lambda html, base_url=None: mock_browser.setHtml(html)
             mock_browser.cleanup = lambda: None
-            self.web_view = mock_browser  # type: ignore[assignment]
+            self.web_view = mock_browser
         else:
             self.web_view = SafeWebEngineView(self.flashcard_frame)
 

@@ -28,9 +28,9 @@ try:
 
     HAS_QTMULTIMEDIA = True
 except (ImportError, OSError):
-    QAudioOutput = None  # type: ignore[assignment, misc]
-    QMediaDevices = None  # type: ignore[assignment, misc]
-    QMediaPlayer = None  # type: ignore[assignment, misc]
+    QAudioOutput = None  # type: ignore[misc]  # PySide6 QtMultimedia indisponible : repli sur None
+    QMediaDevices = None  # type: ignore[misc]
+    QMediaPlayer = None  # type: ignore[misc]
     HAS_QTMULTIMEDIA = False
 from PySide6.QtWidgets import (
     QComboBox,
@@ -56,7 +56,7 @@ from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -919,7 +919,7 @@ class NoteEditorWidget(QWidget):
         self.btn_history.setEnabled(False)
 
         self.btn_save_edits = PrimaryButton(" Sauvegarder modifications")
-        self.btn_save_edits.setIcon(load_phosphor_icon("floppy-disk", color="white"))
+        self.btn_save_edits.setIcon(load_on_accent_icon("floppy-disk"))
         self.btn_save_edits.setEnabled(False)
 
         buttons_layout.addWidget(self.btn_history)
@@ -964,11 +964,11 @@ class NoteEditorWidget(QWidget):
         if checked:
             self.preview_widget.setMaximumWidth(375)
             self.btn_toggle_mobile.setText(" Desktop")
-            self.btn_toggle_mobile.setIcon(load_phosphor_icon("monitor", color="white"))
+            self.btn_toggle_mobile.setIcon(load_on_accent_icon("monitor"))
         else:
             self.preview_widget.setMaximumWidth(16777215)
             self.btn_toggle_mobile.setText(" Mobile")
-            self.btn_toggle_mobile.setIcon(load_phosphor_icon("device-mobile", color="white"))
+            self.btn_toggle_mobile.setIcon(load_on_accent_icon("device-mobile"))
 
     def set_current_deck(self, deck_id: int | None) -> None:
         self.current_deck_id = deck_id

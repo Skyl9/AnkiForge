@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 
+from ankiforge.database.base import db
 from ankiforge.database.models.ai import LLMConfigModel, PersonaModel
 from ankiforge.database.models.cards import NoteTypeModel
 from ankiforge.database.models.pipelines import PipelineModel, PipelineStepModel
@@ -14,7 +15,17 @@ def seed_initial_data() -> None:
     """
     Peuple la base avec les données métier initiales (Modèles, Prompts, Personas, Pipelines).
     Utilise get_or_create pour être idempotent et permettre les mises à jour sans purger la BDD.
+
+    L'ensemble du seed est propagé dans UNE transaction (audit "writes-outside-atomic") : un échec
+    partiel ne laisse jamais un état hybride en BDD (ex: pipeline orphelin sans son persona).
     """
+    with db.atomic():
+        _seed_initial_data_inner()
+
+
+def _seed_initial_data_inner() -> None:
+    """Corps interne du seed (idempotent). Exécuté dans la transaction de seed_initial_data()."""
+
     juge_prompt = (
         "Tu es l'Agent Juge d'AnkiForge, un fact-checker impitoyable contre les hallucinations.\n"
         "Je vais te fournir le contenu d'une carte d'apprentissage (Anki) et le fragment de cours (Chunk) dont elle est issue.\n"

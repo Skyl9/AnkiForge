@@ -82,7 +82,7 @@ class ChunkingService:
             strategy (str | None): Stratégie optionnelle ('markdown_ast', etc.).
 
         Returns:
-            List[Dict[str, Any]]: Liste des fragments avec :
+            list[dict[str, Any]]: Liste des fragments avec :
             - index: int
             - content: str (texte complet de la page ou de la section)
             - page_number: int | None

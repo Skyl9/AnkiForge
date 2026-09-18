@@ -28,7 +28,7 @@ from ankiforge.services.markdown.ai_structurer import (
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.model_selector import ModelSelectorWidget
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +292,7 @@ class AIDocumentStructureDialog(QDialog):
         bottom_bar.addWidget(self.btn_save_copy)
 
         self.btn_apply_editor = PrimaryButton("💾 Remplacer dans l'éditeur")
-        self.btn_apply_editor.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_apply_editor.setIcon(load_on_accent_icon("ph.check"))
         self.btn_apply_editor.setToolTip("Remplace le contenu actuel de l'éditeur par le résultat structuré")
         self.btn_apply_editor.setEnabled(False)
         self.btn_apply_editor.clicked.connect(self._on_apply_to_editor)

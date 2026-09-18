@@ -29,7 +29,7 @@ from ankiforge.ui.components.flow_layout import FlowWidget
 from ankiforge.ui.components.inputs import GlowLineEdit, StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class SnippetCardWidget(QFrame):
@@ -153,7 +153,7 @@ class SnippetLibraryDrawer(QWidget):
         top_row.addStretch()
 
         btn_new = PrimaryButton("Nouveau")
-        btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        btn_new.setIcon(load_on_accent_icon("ph.plus"))
         btn_new.setFixedHeight(26)
         btn_new.setToolTip("Créer un nouveau snippet personnalisé")
         btn_new.clicked.connect(self._open_create_view)
@@ -488,7 +488,7 @@ class SnippetLibraryDrawer(QWidget):
         btn_actions_layout.setSpacing(6)
 
         btn_save = PrimaryButton("Enregistrer les modifications")
-        btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         btn_save.setFixedHeight(30)
         btn_save.clicked.connect(self._save_detail_snippet)
         btn_actions_layout.addWidget(btn_save)
@@ -718,7 +718,7 @@ class SnippetLibraryDrawer(QWidget):
 
         # Bouton Créer avec relief et glow
         btn_submit = PrimaryButton("Créer et Ajouter à la Bibliothèque")
-        btn_submit.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        btn_submit.setIcon(load_on_accent_icon("ph.plus"))
         btn_submit.setFixedHeight(30)
         btn_submit.clicked.connect(self._submit_create_snippet)
         layout.addWidget(btn_submit)

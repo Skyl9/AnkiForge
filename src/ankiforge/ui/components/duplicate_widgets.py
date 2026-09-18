@@ -25,7 +25,7 @@ from ankiforge.ui.models import SimilarityBadgeDelegate, SrsMasteryDelegate
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
 from ankiforge.utils.anki_renderer import get_mathjax_script
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +104,11 @@ class DuplicateMatrixTable(QFrame):
         self.btn_deck.setFixedHeight(28)
 
         self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%", tooltip="Fusionner automatiquement les doublons dont la similarité dépasse 95%")
-        self.btn_auto_merge.setIcon(load_phosphor_icon("ph.lightning", color="#ffffff"))
+        self.btn_auto_merge.setIcon(load_on_accent_icon("ph.lightning"))
         self.btn_auto_merge.setFixedHeight(28)
 
         self.btn_reanalyze = PrimaryButton("Relancer l'analyse", tooltip="Relancer le scan de détection vectorielle des doublons sur ce paquet")
-        self.btn_reanalyze.setIcon(load_phosphor_icon("ph.arrows-clockwise", color="#ffffff"))
+        self.btn_reanalyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
         self.btn_reanalyze.setFixedHeight(28)
 
         h_line1.addWidget(lbl_target)
@@ -426,7 +426,7 @@ class DuplicateMergeInspector(QFrame):
         f_actions = QHBoxLayout()
         f_actions.setSpacing(4)
         self.btn_valid = PrimaryButton("Valider")
-        self.btn_valid.setIcon(load_phosphor_icon("ph.check", color="#ffffff"))
+        self.btn_valid.setIcon(load_on_accent_icon("ph.check"))
         self.btn_valid.setFixedHeight(28)
         self.btn_ignore = SecondaryButton("Ignorer")
         self.btn_ignore.setFixedHeight(28)

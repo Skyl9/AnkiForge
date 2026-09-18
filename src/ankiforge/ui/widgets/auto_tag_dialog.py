@@ -10,7 +10,7 @@ from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.utils import AIReponseParser
 from ankiforge.ui.components import PrimaryButton
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class AutoTagDialog(QDialog):
         # Boutons
         btn_layout = QHBoxLayout()
         self.btn_start = PrimaryButton(" Démarrer le Tagging")
-        self.btn_start.setIcon(load_phosphor_icon("tag", color="white"))
+        self.btn_start.setIcon(load_on_accent_icon("tag"))
         self.btn_start.clicked.connect(self.start_tagging)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_start)
@@ -183,7 +183,7 @@ class AutoTagDialog(QDialog):
         # Action finale
         btn_layout = QHBoxLayout()
         btn_apply = PrimaryButton(" Appliquer la sélection")
-        btn_apply.setIcon(load_phosphor_icon("check", color="white"))
+        btn_apply.setIcon(load_on_accent_icon("check"))
         btn_apply.clicked.connect(self.apply_tags)
         btn_layout.addStretch()
         btn_layout.addWidget(btn_apply)

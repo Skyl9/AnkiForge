@@ -43,7 +43,7 @@ from ankiforge.database.models import (
 from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -747,7 +747,7 @@ class InlineDiffCardWidget(QFrame):
 
         self.btn_apply = PrimaryButton("Appliquer")
         self.btn_apply.setFixedHeight(26)
-        self.btn_apply.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
         self.btn_apply.clicked.connect(self._on_apply_clicked)
         actions_layout.addWidget(self.btn_apply)
 
@@ -972,7 +972,7 @@ class InlineDiffCardWidget(QFrame):
                 fw.set_applied(False)
             self.status_badge.setText("↩️ Annulé")
             self.btn_apply.setText("Appliquer")
-            self.btn_apply.setIcon(load_phosphor_icon("ph.check", color="white"))
+            self.btn_apply.setIcon(load_on_accent_icon("ph.check"))
             try:
                 self.btn_apply.clicked.disconnect()
             except RuntimeError:

@@ -14,17 +14,17 @@ historique (colonne ``api_key`` de la BDD), sans jamais faire planter l'app.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
+keyring: Any
 try:
     import keyring
-    from keyring.errors import KeyringError
 
     _HAS_KEYRING = True
 except Exception:  # pragma: no cover - dépendance/runtime manquant
-    keyring = None  # type: ignore[assignment]
-    KeyringError = Exception  # type: ignore[assignment,misc]
+    keyring = None
     _HAS_KEYRING = False
 
 SERVICE_NAME = "AnkiForge"

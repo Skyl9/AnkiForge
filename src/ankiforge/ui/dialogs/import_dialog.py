@@ -32,7 +32,7 @@ from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.dialogs.smart_merge_dialog import SmartMergeDialog
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_import_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +231,7 @@ class ImportDialog(QDialog):
         footer.addStretch()
 
         self.btn_import = PrimaryButton("Lancer l'Importation")
-        self.btn_import.setIcon(load_phosphor_icon("arrow-circle-down", color="white"))
+        self.btn_import.setIcon(load_on_accent_icon("arrow-circle-down"))
         self.btn_import.clicked.connect(self._start_import_analysis)
         footer.addWidget(self.btn_import)
 

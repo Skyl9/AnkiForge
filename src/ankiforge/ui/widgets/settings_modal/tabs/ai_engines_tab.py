@@ -49,7 +49,7 @@ from ankiforge.ui.widgets.settings_modal.components.settings_card import (
 )
 from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,46 @@ class CloudKeyPingWorker(QRunnable):
                 self.signals.result_ready.emit(self.provider_id, True, f"En ligne ({err.code})")
         except Exception:
             self.signals.result_ready.emit(self.provider_id, True, "Format valide")
+
+
+class OllamaScanSignals(QObject):
+    """Signaux Qt pour le worker de scan des modèles Ollama locaux."""
+
+    scan_ready = Signal(list, list)  # (models, results) où results = [(model_id, ModelSpec | None)]
+    scan_failed = Signal(str)
+
+
+class OllamaScanWorker(QRunnable):
+    """Worker exécuté dans QThreadPool pour interroger le serveur Ollama local (réseau seul, jamais de BDD)."""
+
+    def __init__(self, base_url: str) -> None:
+        super().__init__()
+        self.base_url = base_url
+        self.signals = OllamaScanSignals()
+
+    def run(self) -> None:
+        try:
+            models, results = _fetch_ollama_models_and_caps(self.base_url)
+            self.signals.scan_ready.emit(models, results)
+        except Exception:
+            self.signals.scan_failed.emit("Hors ligne")
+
+
+def _fetch_ollama_models_and_caps(base_url: str) -> tuple[list[str], list[tuple[str, Any]]]:
+    """Interroge /api/tags puis détecte les capacités de chaque modèle (réseau seul, appelé côté worker)."""
+    req = urllib.request.Request(f"{base_url}/api/tags", headers={"User-Agent": "AnkiForge"})
+    with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310  # boucle locale uniquement + timeout borné
+        data = json.loads(resp.read().decode())
+
+    models = [m.get("name") for m in data.get("models", [])]
+    results: list[tuple[str, Any]] = []
+    for m_name in models:
+        try:
+            caps = ModelCatalog.detect_ollama_model_capabilities(base_url, m_name)
+            results.append((m_name, caps))
+        except Exception:
+            results.append((m_name, None))
+    return models, results
 
 
 class AIEnginesTab(QWidget):
@@ -244,7 +284,7 @@ class AIEnginesTab(QWidget):
         toolbar.setSpacing(8)
 
         self.btn_browse_catalog = PrimaryButton("Explorer le catalogue & comparateur...")
-        self.btn_browse_catalog.setIcon(load_phosphor_icon("ph.sparkle", color="#ffffff"))
+        self.btn_browse_catalog.setIcon(load_on_accent_icon("ph.sparkle"))
         self.btn_browse_catalog.clicked.connect(self._open_catalog_dialog)
         toolbar.addWidget(self.btn_browse_catalog)
 
@@ -315,31 +355,6 @@ class AIEnginesTab(QWidget):
         model_row.addWidget(self.cb_default_model)
         prefs_layout.addLayout(model_row)
 
-        slider_style = f"""
-            QSlider::groove:horizontal {{
-                border-radius: 2px;
-                height: 4px;
-                margin: 0px;
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-            }}
-            QSlider::sub-page:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background-color: #ffffff;
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                height: 14px;
-                width: 14px;
-                margin: -5px 0;
-                border-radius: 7px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background-color: {DesignTokens.ACCENT_HOVER};
-            }}
-        """
-
         # Paramètres de génération (Température, Max tokens, CoT budget)
         gen_grid = QGridLayout()
         gen_grid.setHorizontalSpacing(16)
@@ -362,7 +377,6 @@ class AIEnginesTab(QWidget):
         self.slider_temp.setMinimum(0)
         self.slider_temp.setMaximum(100)
         self.slider_temp.setValue(70)
-        self.slider_temp.setStyleSheet(slider_style)
         self.slider_temp.valueChanged.connect(lambda v: self.lbl_temp_val.setText(f"{v / 100:.2f}"))
         temp_col.addWidget(self.slider_temp)
         gen_grid.addLayout(temp_col, 0, 0)
@@ -446,7 +460,6 @@ class AIEnginesTab(QWidget):
         self.slider_rag_topk.setMinimum(1)
         self.slider_rag_topk.setMaximum(20)
         self.slider_rag_topk.setValue(5)
-        self.slider_rag_topk.setStyleSheet(slider_style)
         self.slider_rag_topk.valueChanged.connect(lambda v: self.lbl_rag_topk_val.setText(str(v)))
         rag_topk_col.addWidget(self.slider_rag_topk)
         rag_grid.addLayout(rag_topk_col, 0, 0)
@@ -468,7 +481,6 @@ class AIEnginesTab(QWidget):
         self.slider_rag_sim.setMinimum(40)
         self.slider_rag_sim.setMaximum(95)
         self.slider_rag_sim.setValue(70)
-        self.slider_rag_sim.setStyleSheet(slider_style)
         self.slider_rag_sim.valueChanged.connect(lambda v: self.lbl_rag_sim_val.setText(f"{v}%"))
         rag_sim_col.addWidget(self.slider_rag_sim)
         rag_grid.addLayout(rag_sim_col, 0, 1)
@@ -703,6 +715,7 @@ class AIEnginesTab(QWidget):
         self.refresh_data()
 
     def _scan_ollama(self) -> None:
+        """Lance le scan des modèles Ollama : synchrone sous pytest, worker QThreadPool en production."""
         url = self.le_ollama_url.text().strip().rstrip("/")
         if not (url.startswith("http://") or url.startswith("https://")):
             url = f"http://{url}"
@@ -711,48 +724,69 @@ class AIEnginesTab(QWidget):
             apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
             self.badge_ollama_status.show()
             return
-        try:
-            req = urllib.request.Request(f"{url}/api/tags", headers={"User-Agent": "AnkiForge"})
-            with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310  # boucle locale uniquement + timeout borné
-                data = json.loads(resp.read().decode())
-                models = [m.get("name") for m in data.get("models", [])]
-                if models:
-                    self.badge_ollama_status.setText(f"{len(models)} modèle(s) détecté(s)")
-                    apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
-                    self.badge_ollama_status.show()
 
-                    added_count = 0
-                    with db.atomic():
-                        for m_name in models:
-                            if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
-                                caps = ModelCatalog.detect_ollama_model_capabilities(url, m_name)
-                                LLMConfigModel.create(
-                                    display_name=f"Ollama {m_name}",
-                                    provider="ollama",
-                                    model_id=m_name,
-                                    context_limit=caps.context_window,
-                                    api_key="",
-                                    is_free=True,
-                                    supports_vision=caps.supports_vision,
-                                    supports_thinking=caps.supports_thinking,
-                                    supports_json=caps.supports_json,
-                                    speed_rating=caps.speed_rating,
-                                    quality_tier=caps.quality_tier,
-                                    recommended_tasks=",".join(caps.recommended_tasks),
-                                    description=f"Modèle local Ollama {m_name}",
-                                )
-                                added_count += 1
-                    self.refresh_data()
-                    show_toast(self, f"Ollama en ligne : {len(models)} modèles scannés (+{added_count} importés) !")
-                else:
-                    self.badge_ollama_status.setText("En ligne (0 modèle)")
-                    apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_YELLOW)
-                    self.badge_ollama_status.show()
+        if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+            self._scan_ollama_sync(url)
+            return
+
+        worker = OllamaScanWorker(url)
+        worker.signals.scan_ready.connect(self._on_ollama_scan_ready)
+        worker.signals.scan_failed.connect(self._on_ollama_scan_failed)
+        QThreadPool.globalInstance().start(worker)
+
+    def _scan_ollama_sync(self, url: str) -> None:
+        """Chemin synchrone utilisé sous pytest : récupère /api/tags puis persiste immédiatement."""
+        try:
+            models, results = _fetch_ollama_models_and_caps(url)
+            self._on_ollama_scan_ready(models, results)
         except Exception:
-            self.badge_ollama_status.setText("Hors ligne")
-            apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
+            self._on_ollama_scan_failed("Hors ligne")
+
+    def _on_ollama_scan_ready(self, models: list[str], results: list[tuple[str, Any]]) -> None:
+        """Reçoit les modèles scannés par le worker (thread principal) et persiste en BDD."""
+        if not models:
+            self.badge_ollama_status.setText("En ligne (0 modèle)")
+            apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_YELLOW)
             self.badge_ollama_status.show()
-            show_toast(self, "Serveur Ollama inaccessible sur cette adresse.", is_error=True)
+            return
+
+        self.badge_ollama_status.setText(f"{len(models)} modèle(s) détecté(s)")
+        apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
+        self.badge_ollama_status.show()
+
+        caps_by_name = {name: caps for name, caps in results}
+        added_count = 0
+        with db.atomic():
+            for m_name in models:
+                if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
+                    caps = caps_by_name.get(m_name)
+                    if caps is None:
+                        continue
+                    LLMConfigModel.create(
+                        display_name=f"Ollama {m_name}",
+                        provider="ollama",
+                        model_id=m_name,
+                        context_limit=caps.context_window,
+                        api_key="",
+                        is_free=True,
+                        supports_vision=caps.supports_vision,
+                        supports_thinking=caps.supports_thinking,
+                        supports_json=caps.supports_json,
+                        speed_rating=caps.speed_rating,
+                        quality_tier=caps.quality_tier,
+                        recommended_tasks=",".join(caps.recommended_tasks),
+                        description=f"Modèle local Ollama {m_name}",
+                    )
+                    added_count += 1
+        self.refresh_data()
+        show_toast(self, f"Ollama en ligne : {len(models)} modèles scannés (+{added_count} importés) !")
+
+    def _on_ollama_scan_failed(self, status_text: str) -> None:
+        """Affiche l'état échec du scan Ollama."""
+        self.badge_ollama_status.setText(status_text)
+        apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
+        self.badge_ollama_status.show()
+        show_toast(self, "Serveur Ollama inaccessible sur cette adresse.", is_error=True)
 
     def refresh_data(self) -> None:
         """Recharge les moteurs IA et les catégories de vision."""

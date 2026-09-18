@@ -28,7 +28,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,7 @@ class AlbumImportDialog(QDialog):
         buttons_layout.addWidget(self.btn_cancel)
 
         self.btn_create = PrimaryButton("Créer l'Album")
-        self.btn_create.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_create.setIcon(load_on_accent_icon("ph.check"))
         self.btn_create.clicked.connect(self._on_create_album)
         buttons_layout.addWidget(self.btn_create)
 

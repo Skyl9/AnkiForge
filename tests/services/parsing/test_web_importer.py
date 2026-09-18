@@ -234,7 +234,7 @@ def test_analyze_html_download_images(importer, monkeypatch) -> None:
     img = FakeResp(html="", content_type="image/jpeg", body=b"\x89PNG\r\n\x1a\n fake data")
     _patch_get(monkeypatch, responses={"https://cdn.example.com/img.jpg": img})
 
-    importer.media_manager = FakeMediaManager()  # type: ignore[assignment]
+    importer.media_manager = FakeMediaManager()  # type: ignore[assignment]  # duck-typing : contrat MediaManager partiel volontaire
     request = WebImportRequest(url="https://example.com/article", download_images=True)
     result = importer.analyze_html("<html><p>x</p></html>", request, base_url="https://example.com/")
     assert 'src="web_image_1.png"' in result.content

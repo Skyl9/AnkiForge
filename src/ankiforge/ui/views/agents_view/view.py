@@ -70,7 +70,7 @@ from ankiforge.ui.views.agents_view.widgets import (
     ToolPermissionCard,
 )
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ class AgentsView(QWidget):
         search_row.addWidget(self.edit_search, 1)
 
         self.btn_new = PrimaryButton("Nouvel Agent", tooltip="Créer un nouveau persona d'agent IA")
-        self.btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
         self.btn_new.setIconSize(QSize(14, 14))
         self.btn_new.setFixedHeight(30)
         search_row.addWidget(self.btn_new)
@@ -1006,13 +1006,14 @@ class AgentsView(QWidget):
                 self._on_delete_selected()
 
     def _delete_folder_recursive(self, folder: PersonaFolderModel) -> None:
-        PersonaModel.update(folder=None).where(PersonaModel.folder == folder).execute()
+        with db.atomic():
+            PersonaModel.update(folder=None).where(PersonaModel.folder == folder).execute()
 
-        subfolders = list(PersonaFolderModel.select().where(PersonaFolderModel.parent == folder))
-        for sf in subfolders:
-            self._delete_folder_recursive(sf)
+            subfolders = list(PersonaFolderModel.select().where(PersonaFolderModel.parent == folder))
+            for sf in subfolders:
+                self._delete_folder_recursive(sf)
 
-        folder.delete_instance()
+            folder.delete_instance()
 
     @Slot()
     def _on_new_folder(self) -> None:

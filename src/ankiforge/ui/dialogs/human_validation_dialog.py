@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.ui.components import DangerButton, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ class HumanValidationDialog(QDialog):
         btn_layout.addWidget(self.btn_format_json)
 
         self.btn_validate = PrimaryButton("Valider & Reprendre le Pipeline")
-        self.btn_validate.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_validate.setIcon(load_on_accent_icon("ph.play"))
         self.btn_validate.clicked.connect(self._on_validate_clicked)
         btn_layout.addWidget(self.btn_validate)
 

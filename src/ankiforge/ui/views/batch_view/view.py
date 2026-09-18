@@ -71,7 +71,7 @@ from ankiforge.ui.views.batch_view.widgets import (
 from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 from ankiforge.utils.tags import build_document_tags
 
@@ -385,31 +385,6 @@ class BatchView(QWidget):
         advanced_layout.setContentsMargins(0, 0, 0, 0)
         advanced_layout.setSpacing(8)
 
-        slider_style = f"""
-            QSlider::groove:horizontal {{
-                border-radius: 2px;
-                height: 4px;
-                margin: 0px;
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-            }}
-            QSlider::sub-page:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background-color: #ffffff;
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                height: 14px;
-                width: 14px;
-                margin: -5px 0;
-                border-radius: 7px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background-color: {DesignTokens.ACCENT_HOVER};
-            }}
-        """
-
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
         self.temp_lbl = QLabel("Température")
@@ -425,7 +400,6 @@ class BatchView(QWidget):
         self.slider_temp.setMinimum(0)
         self.slider_temp.setMaximum(10)
         self.slider_temp.setValue(int(round(saved_temp * 10)))
-        self.slider_temp.setStyleSheet(slider_style)
         self.slider_temp.valueChanged.connect(self._on_temp_slider_changed)
 
         temp_layout.addLayout(temp_header)
@@ -448,7 +422,6 @@ class BatchView(QWidget):
         self.slider_tokens.setMinimum(1)
         self.slider_tokens.setMaximum(64)
         self.slider_tokens.setValue(tokens_step)
-        self.slider_tokens.setStyleSheet(slider_style)
         self.slider_tokens.valueChanged.connect(self._on_tokens_slider_changed)
 
         tokens_layout.addLayout(tokens_header)
@@ -459,7 +432,7 @@ class BatchView(QWidget):
         build_layout.addStretch()
 
         self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue", tooltip="Ajouter la sélection actuelle à la file d'attente du lot")
-        self.btn_add_to_queue.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        self.btn_add_to_queue.setIcon(load_on_accent_icon("ph.plus"))
         apply_shadow(self.btn_add_to_queue, blur=10, offset_y=2, color="rgba(99, 102, 241, 0.45)")
         self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
 
@@ -482,7 +455,7 @@ class BatchView(QWidget):
         self.queue_panel.add_header_widget(self.btn_clear_table)
 
         self.btn_start_pipeline = PrimaryButton("Démarrer Pipeline", tooltip="Démarrer l'exécution du traitement par lots en arrière-plan")
-        self.btn_start_pipeline.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.play"))
         self.btn_start_pipeline.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DesignTokens.COLOR_GREEN};
@@ -850,31 +823,32 @@ class BatchView(QWidget):
             self.engine_combo.clear()
             engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             if not engines:
-                LLMConfigModel.create(
-                    display_name="Google Gemini 3.5 Flash Lite",
-                    provider="gemini",
-                    model_id="gemini-3.5-flash-lite",
-                    context_limit=1048576,
-                    max_tokens=65536,
-                    sort_order=0,
-                    is_free=True,
-                )
-                LLMConfigModel.create(
-                    display_name="GPT-4o",
-                    provider="openai",
-                    model_id="gpt-4o",
-                    context_limit=128000,
-                    max_tokens=16384,
-                    sort_order=10,
-                )
-                LLMConfigModel.create(
-                    display_name="Claude 3.5 Sonnet",
-                    provider="anthropic",
-                    model_id="claude-3-5-sonnet-20240620",
-                    context_limit=200000,
-                    max_tokens=8192,
-                    sort_order=20,
-                )
+                with db.atomic():
+                    LLMConfigModel.create(
+                        display_name="Google Gemini 3.5 Flash Lite",
+                        provider="gemini",
+                        model_id="gemini-3.5-flash-lite",
+                        context_limit=1048576,
+                        max_tokens=65536,
+                        sort_order=0,
+                        is_free=True,
+                    )
+                    LLMConfigModel.create(
+                        display_name="GPT-4o",
+                        provider="openai",
+                        model_id="gpt-4o",
+                        context_limit=128000,
+                        max_tokens=16384,
+                        sort_order=10,
+                    )
+                    LLMConfigModel.create(
+                        display_name="Claude 3.5 Sonnet",
+                        provider="anthropic",
+                        model_id="claude-3-5-sonnet-20240620",
+                        context_limit=200000,
+                        max_tokens=8192,
+                        sort_order=20,
+                    )
                 engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
             if engines:
                 for eg in engines:
@@ -1357,7 +1331,7 @@ class BatchView(QWidget):
         """Met à jour l'apparence du bouton de lancement et des métriques."""
         if is_running:
             self.btn_start_pipeline.setText("Arrêter le Batch")
-            self.btn_start_pipeline.setIcon(load_phosphor_icon("ph.stop", color="white"))
+            self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.stop"))
             self.btn_start_pipeline.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.COLOR_RED};
@@ -1376,7 +1350,7 @@ class BatchView(QWidget):
             self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")
         else:
             self.btn_start_pipeline.setText("Démarrer Pipeline")
-            self.btn_start_pipeline.setIcon(load_phosphor_icon("ph.play", color="white"))
+            self.btn_start_pipeline.setIcon(load_on_accent_icon("ph.play"))
             self.btn_start_pipeline.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignTokens.COLOR_GREEN};
@@ -1768,37 +1742,6 @@ class BatchView(QWidget):
                     border: 1px solid {profile.border_color};
                 }}
             """)
-
-        slider_style = f"""
-            QSlider {{
-                min-height: 24px;
-            }}
-            QSlider::groove:horizontal {{
-                border-radius: 2px;
-                height: 4px;
-                margin: 0px;
-                background-color: {profile.bg_hover};
-            }}
-            QSlider::sub-page:horizontal {{
-                background-color: {profile.accent_primary};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background-color: {profile.accent_primary};
-                border: none;
-                height: 12px;
-                width: 12px;
-                margin: -4px 0;
-                border-radius: 6px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background-color: {profile.accent_hover};
-            }}
-        """
-        if hasattr(self, "slider_temp"):
-            self.slider_temp.setStyleSheet(slider_style)
-        if hasattr(self, "slider_tokens"):
-            self.slider_tokens.setStyleSheet(slider_style)
 
         if hasattr(self, "temp_lbl"):
             self.temp_lbl.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px;")

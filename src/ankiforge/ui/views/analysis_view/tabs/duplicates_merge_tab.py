@@ -173,4 +173,4 @@ class AIDuplicatesMergeTab(QWidget):
         """Décharge les ressources WebEngine lorsque l'onglet est masqué."""
         if hasattr(self, "merge_inspector"):
             self.merge_inspector.cleanup()
-        super().hideEvent(event)  # type: ignore[arg-type]
+        super().hideEvent(event)

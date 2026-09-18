@@ -67,14 +67,17 @@ class ProfileContentTransfer:
                 raise ValueError(f"Pipeline introuvable dans le profil '{profile_name}' : {pipeline_name}")
             payload = ProfileContentTransfer._pipeline_payload(source)
 
-        personas: dict[str, PersonaModel] = {}
-        for persona_payload in payload["personas"]:
-            persona_name = str(persona_payload["name"])
-            existing = PersonaModel.get_or_none(PersonaModel.name == persona_name)
-            personas[persona_name] = existing or ProfileContentTransfer._create_persona(persona_payload, force_copy=False)
-
-        name = ProfileContentTransfer._available_name(str(payload["name"]), PipelineModel)
+        # Personas, pipeline et steps : un SEUL bloc transactionnel (audit "writes-outside-atomic").
+        # L'import est all-or-nothing : une erreur sur un step ne laisse ni persona fantôme,
+        # ni pipeline partiel dans le profil de destination.
         with PipelineModel._meta.database.atomic():
+            personas: dict[str, PersonaModel] = {}
+            for persona_payload in payload["personas"]:
+                persona_name = str(persona_payload["name"])
+                existing = PersonaModel.get_or_none(PersonaModel.name == persona_name)
+                personas[persona_name] = existing or ProfileContentTransfer._create_persona(persona_payload, force_copy=False)
+
+            name = ProfileContentTransfer._available_name(str(payload["name"]), PipelineModel)
             pipeline = PipelineModel.create(name=name, description=payload["description"])
             created_steps: dict[int, PipelineStepModel] = {}
             for index, step in enumerate(payload["steps"], start=1):

@@ -63,7 +63,7 @@ from ankiforge.ui.views.consultant_view.widgets import (
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import event_bus
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -406,7 +406,7 @@ class ConsultantView(QWidget):
         box_footer.addWidget(self.tokens_badge)
 
         self.btn_send = PrimaryButton("")
-        self.btn_send.setIcon(load_phosphor_icon("ph.arrow-up", color="white"))
+        self.btn_send.setIcon(load_on_accent_icon("ph.arrow-up"))
         self.btn_send.setFixedSize(34, 34)
         self._set_send_button_mode(is_running=False)
         self.btn_send.clicked.connect(self._on_send_or_stop_clicked)
@@ -791,7 +791,7 @@ class ConsultantView(QWidget):
             self.progress_bar.setVisible(is_running)
 
         if is_running:
-            self.btn_send.setIcon(load_phosphor_icon("ph.stop", color="white"))
+            self.btn_send.setIcon(load_on_accent_icon("ph.stop"))
             self.btn_send.setToolTip("Interrompre la génération (Stop)")
             self.btn_send.setStyleSheet(f"""
                 QPushButton {{
@@ -805,7 +805,7 @@ class ConsultantView(QWidget):
                 }}
             """)
         else:
-            self.btn_send.setIcon(load_phosphor_icon("ph.arrow-up", color="white"))
+            self.btn_send.setIcon(load_on_accent_icon("ph.arrow-up"))
             self.btn_send.setToolTip("Envoyer la requête")
             self.btn_send.setStyleSheet(f"""
                 QPushButton {{

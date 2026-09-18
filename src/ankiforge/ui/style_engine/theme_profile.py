@@ -91,6 +91,9 @@ class ThemeProfile:
     color_blue_text: str = ""
     color_purple_text: str = ""
 
+    # Texte / icônes posés sur fond accent (optionnel — blanc en sombre, sombre en clair)
+    text_on_accent: str = ""
+
     # Semantic tinted borders (optionnel — dérivés des color_* par défaut)
     accent_border: str = ""
     color_red_border: str = ""

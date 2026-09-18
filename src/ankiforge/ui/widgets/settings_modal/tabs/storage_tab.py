@@ -30,7 +30,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
 from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import StorageMetricCard
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_active_profile, get_app_data_dir, get_media_dir
 
 logger = logging.getLogger(__name__)
@@ -155,7 +155,7 @@ class StorageMaintenanceTab(QWidget):
 
         top_bku_row = QHBoxLayout()
         self.btn_snapshot = PrimaryButton("Créer un instantané immédiat (Backup)")
-        self.btn_snapshot.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_snapshot.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_snapshot.setFixedHeight(28)
         self.btn_snapshot.clicked.connect(self._create_snapshot)
         top_bku_row.addWidget(self.btn_snapshot)

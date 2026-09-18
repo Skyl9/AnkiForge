@@ -43,6 +43,7 @@ class DesignTokens:
     ACCENT_PRIMARY = "#6366f1"  # Indigo-Violet
     ACCENT_HOVER = "#4f46e5"
     ACCENT_GLOW = "rgba(99, 102, 241, 0.4)"
+    TEXT_ON_ACCENT = "#ffffff"  # icônes / texte posés sur un fond accent (boutons primaires, badges, handles)
 
     # Text
     TEXT_PRIMARY = "#f8fafc"
@@ -202,6 +203,7 @@ class DesignTokens:
         cls.ACCENT_PRIMARY = profile.accent_primary
         cls.ACCENT_HOVER = profile.accent_hover
         cls.ACCENT_GLOW = getattr(profile, "accent_glow", "rgba(99, 102, 241, 0.4)")
+        cls.TEXT_ON_ACCENT = getattr(profile, "text_on_accent", "") or ("#ffffff" if cls.IS_DARK else "#0f1115")
 
         cls.TEXT_PRIMARY = profile.text_primary
         cls.TEXT_SECONDARY = profile.text_secondary

@@ -49,7 +49,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ class WorkspaceInspectorWidget(QWidget):
 
         self.btn_apply_all = PrimaryButton("Tout appliquer", tooltip="Appliquer toutes les modifications validées en base de données")
         self.btn_apply_all.setFixedHeight(24)
-        self.btn_apply_all.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
+        self.btn_apply_all.setIcon(load_on_accent_icon("ph.check-circle"))
         self.btn_apply_all.clicked.connect(self._on_apply_all_clicked)
         queue_layout.addWidget(self.btn_apply_all)
 
@@ -261,7 +261,7 @@ class WorkspaceInspectorWidget(QWidget):
         actions_layout.setSpacing(6)
 
         self.btn_apply = PrimaryButton("Appliquer", tooltip="Valider et appliquer cette modification individuelle sur la note")
-        self.btn_apply.setIcon(load_phosphor_icon("ph.check-circle", color="white"))
+        self.btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
         self.btn_apply.clicked.connect(self._on_apply_clicked)
         actions_layout.addWidget(self.btn_apply)
 

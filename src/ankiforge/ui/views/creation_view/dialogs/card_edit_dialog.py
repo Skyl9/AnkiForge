@@ -16,7 +16,7 @@ from ankiforge.ui.components import (
     StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class CardEditDialog(QDialog):
@@ -136,7 +136,7 @@ class CardEditDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
 
         btn_save = PrimaryButton("Enregistrer")
-        btn_save.setIcon(load_phosphor_icon("ph.check", color="white"))
+        btn_save.setIcon(load_on_accent_icon("ph.check"))
         btn_save.clicked.connect(self.accept)
 
         btn_box.addWidget(btn_cancel)

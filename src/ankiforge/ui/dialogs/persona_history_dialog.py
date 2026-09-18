@@ -28,7 +28,7 @@ from ankiforge.services.ai.persona_version_service import PersonaVersionService
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class PersonaPromptDiffViewer(QTextBrowser):
@@ -296,7 +296,7 @@ class PersonaHistoryDialog(QDialog):
         bottom_layout.addWidget(self.btn_close)
 
         self.btn_restore = PrimaryButton("Restaurer cette Version")
-        self.btn_restore.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color="white"))
+        self.btn_restore.setIcon(load_on_accent_icon("ph.arrow-counter-clockwise"))
         self.btn_restore.clicked.connect(self._on_restore_clicked)
         self.btn_restore.setEnabled(False)
         bottom_layout.addWidget(self.btn_restore)

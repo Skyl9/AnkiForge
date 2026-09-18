@@ -107,26 +107,6 @@ class LLMConfigModel(BaseModel):
         )
 
 
-class TokenUsageModel(BaseModel):
-    """Stocke l'historique de consommation pour calculer les coûts API."""
-
-    provider = CharField()  # ex: "openai", "gemini", "ollama"
-    model_id = CharField()  # ex: "gpt-4o", "gemini-2.0-flash"
-    prompt_tokens = IntegerField(default=0)
-    completion_tokens = IntegerField(default=0)
-    total_tokens = IntegerField(default=0)
-    estimated_cost_usd = FloatField(default=0.0)
-    task_type = CharField(default="1. Reformulation & Génération Wozniak")
-    pipeline_id = IntegerField(null=True)  # Pipeline DAG ayant généré la consommation
-    persona_id = IntegerField(null=True)  # Persona/agent IA à l'origine de l'appel
-    ab_run_id = CharField(null=True)  # Identifiant de run A/B (comparaison de modèles)
-    created_at = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        table_name = "token_usage"
-        indexes = ((("pipeline_id", "persona_id", "ab_run_id"), False),)
-
-
 class PersonaFolderModel(BaseModel):
     """Dossier et sous-dossier de classification pour organiser les Personas et Agents IA."""
 

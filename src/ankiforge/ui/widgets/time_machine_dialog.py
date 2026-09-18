@@ -29,7 +29,7 @@ from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon
 
 
 class DiffViewerWidget(QTextBrowser):
@@ -256,7 +256,7 @@ class TimeMachineDialog(QDialog):
         bottom_layout.addStretch()
 
         self.btn_restore = PrimaryButton("Restaurer cette version", tooltip="Rétablir cette révision historique comme version active de la note")
-        self.btn_restore.setIcon(load_phosphor_icon("arrow-counter-clockwise", color="white"))
+        self.btn_restore.setIcon(load_on_accent_icon("arrow-counter-clockwise"))
         self.btn_restore.clicked.connect(self._restore_selected_version)
         self.btn_restore.setEnabled(False)
         bottom_layout.addWidget(self.btn_restore)

@@ -35,7 +35,7 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.flow_layout import FlowLayout
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
 
 logger = logging.getLogger(__name__)
@@ -314,7 +314,7 @@ class PageInspectorWidget(QWidget):
         ocr_header.addStretch()
 
         self.btn_save_ocr = PrimaryButton("Enregistrer")
-        self.btn_save_ocr.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save_ocr.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_ocr.setFixedHeight(28)
         self.btn_save_ocr.setStyleSheet("font-size: 11px; padding: 4px 10px;")
         self.btn_save_ocr.clicked.connect(self._on_save_ocr)
@@ -527,7 +527,7 @@ class AlbumViewerWidget(QWidget):
         row1.addWidget(self.btn_add_pages)
 
         self.btn_forge = PrimaryButton("⚡ Forger des cartes")
-        self.btn_forge.setIcon(load_phosphor_icon("ph.cards", color="white"))
+        self.btn_forge.setIcon(load_on_accent_icon("ph.cards"))
         self.btn_forge.setFixedHeight(28)
         self.btn_forge.setStyleSheet("font-size: 11px; padding: 3px 12px;")
         self.btn_forge.clicked.connect(self._on_forge_clicked)

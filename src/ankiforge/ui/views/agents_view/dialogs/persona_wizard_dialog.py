@@ -39,7 +39,7 @@ from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.views.agents_view.constants import PERSONA_TYPE_SPECS
 from ankiforge.ui.views.agents_view.widgets.sub_tab_button import SubTabButton
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -307,7 +307,7 @@ class PersonaCreationWizardDialog(QDialog):
         btn_row.addWidget(btn_cancel_1)
 
         self.btn_create_from_template = PrimaryButton("✨ Créer cet Agent")
-        self.btn_create_from_template.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_create_from_template.setIcon(load_on_accent_icon("ph.check"))
         self.btn_create_from_template.setFixedHeight(34)
         self.btn_create_from_template.clicked.connect(self._on_create_from_template)
         btn_row.addWidget(self.btn_create_from_template)
@@ -407,7 +407,7 @@ class PersonaCreationWizardDialog(QDialog):
         btn_c_row.addWidget(btn_cancel_2)
 
         self.btn_create_custom = PrimaryButton("Créer l'Agent Vierge")
-        self.btn_create_custom.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_create_custom.setIcon(load_on_accent_icon("ph.check"))
         self.btn_create_custom.setFixedHeight(34)
         self.btn_create_custom.clicked.connect(self._on_create_custom_persona)
         btn_c_row.addWidget(self.btn_create_custom)

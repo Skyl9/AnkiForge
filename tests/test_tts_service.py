@@ -111,7 +111,7 @@ def test_tts_service_synthesize_caching(tmp_path: Path) -> None:
     assert path1.read_bytes().startswith(b"MOCK_AUDIO_DATA_FOR_Bonjour le monde")
 
     # Deuxième appel : doit réutiliser le cache média immédiatement sans ré-exécuter le provider
-    mock_provider.synthesize = MagicMock(side_effect=RuntimeError("Ne devrait pas être appelé"))  # type: ignore[assignment]
+    mock_provider.synthesize = MagicMock(side_effect=RuntimeError("Ne devrait pas être appelé"))
     tag2, path2 = service.synthesize("Bonjour le monde", engine="mock", voice="v1")
     assert tag1 == tag2
     assert path1 == path2

@@ -115,7 +115,7 @@ def get_version_info() -> AppVersionInfo:
 
     # 1. Tentative de lecture du fichier généré statiquement au build (_version.py)
     try:
-        from ankiforge import _version  # type: ignore[attr-defined]
+        from ankiforge import _version
 
         raw_ver = str(getattr(_version, "VERSION", DEFAULT_VERSION)).strip()
         clean_ver = raw_ver.lstrip("vV") or DEFAULT_VERSION

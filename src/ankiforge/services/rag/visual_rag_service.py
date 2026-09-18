@@ -104,41 +104,44 @@ class VisualRAGService:
         chunks: list[DocumentChunkModel] = []
         aggregated_pages_content: list[str] = []
 
-        for idx, page in enumerate(pages):
-            page_num = page.page_number
-            if progress_callback:
-                progress_callback(idx + 1, total_pages, f"Analyse sémantique de la page {page_num}/{total_pages}...")
+        # Audits "writes-outside-atomic" : les chunks de pages et le contenu agrégé du document sont
+        # propagés dans UNE seule transaction (all-or-nothing). En cas d'interruption, on ne laisse
+        # jamais un état incohérent (chunks écrits mais document agrégé obsolète, ou l'inverse).
+        with db.atomic():
+            for idx, page in enumerate(pages):
+                page_num = page.page_number
+                if progress_callback:
+                    progress_callback(idx + 1, total_pages, f"Analyse sémantique de la page {page_num}/{total_pages}...")
 
-            # 1. Vérifier si un chunk existe déjà pour cette page
-            existing_chunk = DocumentChunkModel.select().where((DocumentChunkModel.document == document) & (DocumentChunkModel.page_number == page_num)).first()
+                # 1. Vérifier si un chunk existe déjà pour cette page
+                existing_chunk = DocumentChunkModel.select().where((DocumentChunkModel.document == document) & (DocumentChunkModel.page_number == page_num)).first()
 
-            # 2. Déterminer si le texte dense doit être généré
-            has_dense_content = bool(existing_chunk and existing_chunk.content and len(existing_chunk.content.strip()) > 40)
-            chunk_content = ""
+                # 2. Déterminer si le texte dense doit être généré
+                has_dense_content = bool(existing_chunk and existing_chunk.content and len(existing_chunk.content.strip()) > 40)
+                chunk_content = ""
 
-            if has_dense_content and not force_recompute and existing_chunk:
-                chunk_content = existing_chunk.content
-                chunk_model = existing_chunk
-            else:
-                # Récupérer l'image sur disque
-                media_file = self.media_manager.media_dir / page.media.filename
-                dense_desc = ""
-                if media_file.exists():
-                    dense_desc = self.generate_dense_description(media_file, provider_override=provider_override)
+                if has_dense_content and not force_recompute and existing_chunk:
+                    chunk_content = existing_chunk.content
+                    chunk_model = existing_chunk
+                else:
+                    # Récupérer l'image sur disque
+                    media_file = self.media_manager.media_dir / page.media.filename
+                    dense_desc = ""
+                    if media_file.exists():
+                        dense_desc = self.generate_dense_description(media_file, provider_override=provider_override)
 
-                # Combiner avec l'OCR textuel préalable si existant
-                text_parts: list[str] = []
-                if page.ocr_text and page.ocr_text.strip():
-                    text_parts.append(f"#### Texte & Transcription :\n{page.ocr_text.strip()}")
-                if dense_desc and dense_desc != page.ocr_text:
-                    text_parts.append(f"#### Analyse Visuelle & Schémas :\n{dense_desc}")
+                    # Combiner avec l'OCR textuel préalable si existant
+                    text_parts: list[str] = []
+                    if page.ocr_text and page.ocr_text.strip():
+                        text_parts.append(f"#### Texte & Transcription :\n{page.ocr_text.strip()}")
+                    if dense_desc and dense_desc != page.ocr_text:
+                        text_parts.append(f"#### Analyse Visuelle & Schémas :\n{dense_desc}")
 
-                combined_body = "\n\n".join(text_parts) if text_parts else (dense_desc or f"Page {page_num}")
-                chunk_content = f"<!-- PAGE: {page_num} -->\n### Page {page_num}\n\n{combined_body}\n"
+                    combined_body = "\n\n".join(text_parts) if text_parts else (dense_desc or f"Page {page_num}")
+                    chunk_content = f"<!-- PAGE: {page_num} -->\n### Page {page_num}\n\n{combined_body}\n"
 
-                content_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
+                    content_hash = hashlib.sha256(chunk_content.encode("utf-8")).hexdigest()
 
-                with db.atomic():
                     if existing_chunk:
                         existing_chunk.content = chunk_content
                         existing_chunk.content_hash = content_hash
@@ -162,11 +165,10 @@ class VisualRAGService:
                         page.ocr_text = dense_desc
                         page.save()
 
-            chunks.append(chunk_model)
-            aggregated_pages_content.append(chunk_content)
+                chunks.append(chunk_model)
+                aggregated_pages_content.append(chunk_content)
 
-        # Mettre à jour le contenu global du document
-        with db.atomic():
+            # Mettre à jour le contenu global du document (dans la même transaction)
             full_markdown = "\n\n".join(aggregated_pages_content)
             document.content = full_markdown
             document.total_pages = total_pages

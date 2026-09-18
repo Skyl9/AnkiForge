@@ -41,8 +41,42 @@ from ankiforge.services.ai.utils import log_token_usage, telemetry_context
 from ankiforge.services.plugins.api import MCPHooksAPI
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.utils.c_bridge import get_similarity
+from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
+
+# Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
+_PROMPT_ENV = create_prompt_environment()
+
+# Template système ReAct du Consultant. Les contenus injectés (persona, liste d'outils)
+# sont des valeurs rendues littéralement par Jinja2 : jamais ré-interprétées comme du code.
+_SYSTEM_PROMPT_TEMPLATE = (
+    "{{ persona_prompt }}\n"
+    "Tu es connecté aux outils de la base de données AnkiForge selon tes permissions d'agent :\n"
+    "\n"
+    "### OUTILS DISPONIBLES & AUTORISÉS :\n"
+    "{{ tools_list_text }}\n"
+    "\n"
+    "### RÈGLES D'OR SUR L'ASSISTANCE & LA DOCUMENTATION INTERNE :\n"
+    "1. Tu as un accès direct à toute la documentation officielle d'AnkiForge via `search_app_documentation`, `read_app_doc_page` et `get_feature_quick_help` si autorisés.\n"
+    "2. Si l'utilisateur pose une question sur le fonctionnement d'AnkiForge, son architecture ou ses configurations (LLM, DAG, KaTeX, Smart Merge) :\n"
+    "   utilise ces outils de documentation pour vérifier les faits avant de répondre et cite les pages de référence.\n"
+    "\n"
+    "### RÈGLES D'OR SUR LES MODÈLES DE CARTES :\n"
+    "1. Les champs des cartes dépendent du modèle (`fields_schema`). Consulte `get_note_full_profile_360` ou `get_note_type_details`.\n"
+    "2. Tu peux consulter les modèles via `list_note_types` et `get_note_type_details`.\n"
+    "3. Tu peux faire évoluer un modèle (CSS, templates, nouveaux champs) via `propose_note_type_refactor` ou `propose_css_tune`.\n"
+    "\n"
+    "### MODE D'APPEL DES OUTILS :\n"
+    "1. Utilise les appels d'outils natifs (tool_calling) si ton API le supporte.\n"
+    "2. N'invoque STRICTEMENT QUE les outils listés ci-dessus comme disponibles et autorisés.\n"
+    "3. Sinon, écris un bloc JSON explicite :\n"
+    "```json\n"
+    '{% raw %}{"tool": "nom_outil", "args": {"arg1": "valeur1"}}{% endraw %}\n'
+    "```\n"
+    "4. N'hésite pas à appeler `find_cards_by_content` ou `get_cards_by_deck_or_tag` pour retrouver l'ID exact des cartes avant de les refactoriser.\n"
+    "5. Les formules et commandes LaTeX {% raw %}(`\\Sigma`, `\\delta`, `\\frac{...}{...}`, `\\[ ... \\]`, etc.){% endraw %} sont parfaitement supportées dans les champs.\n"
+)
 
 
 def robust_json_loads(text: Any) -> Any:
@@ -1953,32 +1987,13 @@ class ConsultantEngine:
         if self.persona and hasattr(self.persona, "system_prompt") and self.persona.system_prompt:
             persona_prompt = f"Tu es l'agent '{self.persona.name}'. Instructions système :\n{self.persona.system_prompt}\n"
 
-        system_prompt = f"""{persona_prompt}
-Tu es connecté aux outils de la base de données AnkiForge selon tes permissions d'agent :
-
-### OUTILS DISPONIBLES & AUTORISÉS :
-{tools_list_text}
-
-### RÈGLES D'OR SUR L'ASSISTANCE & LA DOCUMENTATION INTERNE :
-1. Tu as un accès direct à toute la documentation officielle d'AnkiForge via `search_app_documentation`, `read_app_doc_page` et `get_feature_quick_help` si autorisés.
-2. Si l'utilisateur pose une question sur le fonctionnement d'AnkiForge, son architecture ou ses configurations (LLM, DAG, KaTeX, Smart Merge) :
-   utilise ces outils de documentation pour vérifier les faits avant de répondre et cite les pages de référence.
-
-### RÈGLES D'OR SUR LES MODÈLES DE CARTES :
-1. Les champs des cartes dépendent du modèle (`fields_schema`). Consulte `get_note_full_profile_360` ou `get_note_type_details`.
-2. Tu peux consulter les modèles via `list_note_types` et `get_note_type_details`.
-3. Tu peux faire évoluer un modèle (CSS, templates, nouveaux champs) via `propose_note_type_refactor` ou `propose_css_tune`.
-
-### MODE D'APPEL DES OUTILS :
-1. Utilise les appels d'outils natifs (tool_calling) si ton API le supporte.
-2. N'invoque STRICTEMENT QUE les outils listés ci-dessus comme disponibles et autorisés.
-3. Sinon, écris un bloc JSON explicite :
-```json
-{{"tool": "nom_outil", "args": {{"arg1": "valeur1"}}}}
-```
-4. N'hésite pas à appeler `find_cards_by_content` ou `get_cards_by_deck_or_tag` pour retrouver l'ID exact des cartes avant de les refactoriser.
-5. Les formules et commandes LaTeX (`\\Sigma`, `\\delta`, `\\frac{...}{...}`, `\\[ ... \\]`, etc.) sont parfaitement supportées dans les champs.
-"""
+        system_prompt = (
+            _PROMPT_ENV.from_string(_SYSTEM_PROMPT_TEMPLATE).render(
+                persona_prompt=persona_prompt,
+                tools_list_text=tools_list_text,
+            )
+            + "\n"
+        )  # le sandbox Jinja retire le saut de ligne final du template
 
         # Construction de l'historique conversationnel multi-tours
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
@@ -2037,7 +2052,7 @@ Tu es connecté aux outils de la base de données AnkiForge selon tes permission
                         yield {"type": "thought", "step": step, "content": str(reasoning), "is_running": False}
 
                     if resp_msg.tool_calls:
-                        messages.append(resp_msg)  # type: ignore[arg-type]
+                        messages.append(resp_msg)
 
                         for tc in resp_msg.tool_calls:
                             tc_func = getattr(tc, "function", tc)

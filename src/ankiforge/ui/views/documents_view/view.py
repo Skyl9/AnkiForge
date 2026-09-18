@@ -71,7 +71,7 @@ from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
 logger = logging.getLogger(__name__)
@@ -246,7 +246,7 @@ class DocumentsView(QWidget):
         empty_actions = QHBoxLayout()
         empty_actions.setSpacing(10)
         btn_quick_import = PrimaryButton("Importer un fichier", tooltip="Parcourir vos fichiers locaux pour importer un document")
-        btn_quick_import.setIcon(load_phosphor_icon("ph.upload-simple", color="white"))
+        btn_quick_import.setIcon(load_on_accent_icon("ph.upload-simple"))
         btn_quick_import.clicked.connect(self._on_import_file)
 
         btn_quick_url = SecondaryButton("Importer depuis le Web", tooltip="Importer du contenu depuis une URL Web ou une vidéo YouTube")
@@ -299,7 +299,7 @@ class DocumentsView(QWidget):
         row1.addWidget(self.rag_status_pill)
 
         self.btn_save = PrimaryButton("Sauvegarder", tooltip="Enregistrer les modifications textuelles du document (Ctrl+S)")
-        self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.setFixedHeight(28)
         self.btn_save.setStyleSheet("font-size: 11px; padding: 4px 10px;")
         self.btn_save.clicked.connect(self._on_save_document)
@@ -600,7 +600,7 @@ class DocumentsView(QWidget):
         self.rag_sandbox_input.returnPressed.connect(self._on_sandbox_search)
 
         self.btn_sandbox_search = PrimaryButton("", tooltip="Lancer la recherche sémantique multimodale dans FAISS")
-        self.btn_sandbox_search.setIcon(load_phosphor_icon("ph.magnifying-glass", color="white"))
+        self.btn_sandbox_search.setIcon(load_on_accent_icon("ph.magnifying-glass"))
         self.btn_sandbox_search.setFixedWidth(36)
         self.btn_sandbox_search.clicked.connect(self._on_sandbox_search)
 

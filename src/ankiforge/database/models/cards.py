@@ -23,6 +23,9 @@ class DeckModel(BaseModel):
     """Représente un paquet Anki et sa hiérarchie (Subdecks)"""
 
     anki_id = BigIntegerField(unique=True, null=True)  # L'ID interne d'Anki (did)
+    # CASCADE choisi volontairement : un sous-deck et toutes ses cartes (via le FK carte->deck)
+    # doivent disparaître avec leur deck parent. C'est la sémantique native d'Anki et le seul
+    # comportement fiable au regard de l'import/export (les id Anki restent stables à travers Anki).
     parent_deck = ForeignKeyField("self", null=True, backref="subdecks", on_delete="CASCADE")
     name = CharField(unique=True)  # Ex: "Science::Physique"
     description = TextField(null=True)
@@ -49,6 +52,10 @@ class NoteModel(BaseModel):
 
     anki_id = BigIntegerField(unique=True, null=True)
     guid = CharField(unique=True, default=generate_guid)
+    # RESTRICT (et non CASCADE, bien que documenté comme contraire dans l'audit) : un type de note
+    # utilisé par des notes existantes ne doit JAMAIS être supprimé silencieusement, sinon les cartes
+    # générées perdraient leur gabarit. L'UI bloque cette suppression (card_models_view -> _on_delete_model)
+    # et, pour les DBs legacy, migration 037 matérialise "ON DELETE RESTRICT" au niveau du DDL SQLite réel.
     note_type = ForeignKeyField(NoteTypeModel, backref="notes", on_delete="RESTRICT")
     tags = TextField(null=True)
     status = CharField(default="new")
@@ -149,6 +156,9 @@ class NoteVersionMediaModel(BaseModel):
     """Table de liaison entre une version de note et ses médias associés"""
 
     note_version = ForeignKeyField(NoteVersionModel, backref="medias", on_delete="CASCADE")
+    # RESTRICT intentionnel : un média référencé par au moins une version de note ne doit jamais
+    # être supprimé (son checksum/fichier est réutilisé par la déduplication). Le nettoyage passe
+    # par le flux dédié (media_manager) qui désassocie d'abord, puis supprime en dernier recours.
     media = ForeignKeyField(MediaModel, backref="note_versions", on_delete="RESTRICT")
 
     class Meta:

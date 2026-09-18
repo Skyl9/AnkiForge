@@ -81,7 +81,7 @@ from ankiforge.utils.event_bus import (
     NoteCreatedEvent,
     event_bus,
 )
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 from ankiforge.utils.tags import build_document_tags
 
@@ -436,31 +436,6 @@ class CreationView(QWidget):
         advanced_layout.setContentsMargins(0, 0, 0, 0)
         advanced_layout.setSpacing(8)
 
-        slider_style = f"""
-            QSlider::groove:horizontal {{
-                border-radius: 2px;
-                height: 4px;
-                margin: 0px;
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-            }}
-            QSlider::sub-page:horizontal {{
-                background-color: {DesignTokens.ACCENT_PRIMARY};
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                background-color: #ffffff;
-                border: 2px solid {DesignTokens.ACCENT_PRIMARY};
-                height: 14px;
-                width: 14px;
-                margin: -5px 0;
-                border-radius: 7px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background-color: {DesignTokens.ACCENT_HOVER};
-            }}
-        """
-
         temp_layout = QVBoxLayout()
         temp_header = QHBoxLayout()
         temp_lbl = QLabel("Température")
@@ -475,7 +450,6 @@ class CreationView(QWidget):
         self.slider_temp.setMinimum(0)
         self.slider_temp.setMaximum(10)
         self.slider_temp.setValue(7)
-        self.slider_temp.setStyleSheet(slider_style)
         self.slider_temp.valueChanged.connect(lambda v: self.val_temp_lbl.setText(f"{v / 10:.1f}"))
 
         temp_layout.addLayout(temp_header)
@@ -496,7 +470,6 @@ class CreationView(QWidget):
         self.slider_tokens.setMinimum(1)
         self.slider_tokens.setMaximum(64)
         self.slider_tokens.setValue(64)
-        self.slider_tokens.setStyleSheet(slider_style)
         self.slider_tokens.valueChanged.connect(lambda v: self.val_tokens_lbl.setText(f"{v * 1024:,} tks".replace(",", " ")))
 
         tokens_layout.addLayout(tokens_header)
@@ -566,7 +539,7 @@ class CreationView(QWidget):
         main_bot_toolbar.setContentsMargins(10, 4, 10, 8)
 
         self.btn_save_anki = PrimaryButton("Enregistrer dans la Forge (0)")
-        self.btn_save_anki.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save_anki.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save_anki.setEnabled(False)
         self.btn_save_anki.setToolTip("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)")
         main_bot_toolbar.addWidget(self.btn_save_anki)
@@ -582,7 +555,7 @@ class CreationView(QWidget):
         self.btn_editer.setToolTip("Modifier le texte de la carte (Raccourci: E)")
 
         self.btn_valider = PrimaryButton("Valider la carte")
-        self.btn_valider.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_valider.setIcon(load_on_accent_icon("ph.check"))
         self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
 
         main_bot_toolbar.addWidget(self.btn_rejeter)

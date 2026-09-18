@@ -28,7 +28,7 @@ from ankiforge.ui.components import (
     StyledTextEdit,
 )
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
 
 logger = logging.getLogger(__name__)
@@ -354,7 +354,7 @@ class DocumentEditorWidget(QWidget):
         self.btn_paste.clicked.connect(self.raw_editor.paste)
 
         self.btn_generate = PrimaryButton("Générer (Ctrl+Enter)", tooltip="Lancer la forge des flashcards avec le modèle IA sélectionné (Ctrl+Entrée)")
-        self.btn_generate.setIcon(load_phosphor_icon("ph.play", color="white"))
+        self.btn_generate.setIcon(load_on_accent_icon("ph.play"))
         self.btn_generate.clicked.connect(self._on_generate_clicked)
 
         self.btn_cancel = DangerButton("Arrêter", ghost=True, tooltip="Interrompre la génération de cartes en cours")

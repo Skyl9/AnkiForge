@@ -1,6 +1,6 @@
 """Tests unitaires pour YouTubeParser avec préservation des timestamps."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from ankiforge.services.parsing.youtube_parser import YouTubeParser, format_timestamp
 
@@ -29,9 +29,9 @@ def test_group_transcript_segments() -> None:
 
 @patch("ankiforge.services.parsing.youtube_parser.YouTubeTranscriptApi")
 @patch.object(YouTubeParser, "fetch_video_metadata")
-def test_extract_subtitles_with_timestamps(mock_meta: object, mock_api: object) -> None:
-    mock_meta.return_value = {"title": "Physique Quantique 101", "author_name": "Dr. Smith"}  # type: ignore[attr-defined]
-    mock_api.get_transcript.return_value = [  # type: ignore[attr-defined]
+def test_extract_subtitles_with_timestamps(mock_meta: MagicMock, mock_api: MagicMock) -> None:
+    mock_meta.return_value = {"title": "Physique Quantique 101", "author_name": "Dr. Smith"}
+    mock_api.get_transcript.return_value = [
         {"text": "Bienvenue dans cette leçon.", "start": 0.0, "duration": 3.0},
         {"text": "Les particules se comportent comme des ondes.", "start": 3.0, "duration": 4.0},
     ]
@@ -49,9 +49,9 @@ def test_extract_subtitles_with_timestamps(mock_meta: object, mock_api: object) 
 
 @patch("ankiforge.services.parsing.youtube_parser.YouTubeTranscriptApi")
 @patch.object(YouTubeParser, "fetch_video_metadata")
-def test_extract_subtitles_without_timestamps(mock_meta: object, mock_api: object) -> None:
-    mock_meta.return_value = {}  # type: ignore[attr-defined]
-    mock_api.get_transcript.return_value = [  # type: ignore[attr-defined]
+def test_extract_subtitles_without_timestamps(mock_meta: MagicMock, mock_api: MagicMock) -> None:
+    mock_meta.return_value = {}
+    mock_api.get_transcript.return_value = [
         {"text": "Première phrase.", "start": 0.0, "duration": 2.0},
         {"text": "Seconde phrase.", "start": 2.0, "duration": 2.0},
     ]

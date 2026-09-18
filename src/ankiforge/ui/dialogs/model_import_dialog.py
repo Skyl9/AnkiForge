@@ -25,7 +25,7 @@ from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class ModelImportDialog(QDialog):
@@ -204,7 +204,7 @@ class ModelImportDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
 
         self.btn_import = PrimaryButton("Importer dans la Forge")
-        self.btn_import.setIcon(load_phosphor_icon("ph.check", color="white"))
+        self.btn_import.setIcon(load_on_accent_icon("ph.check"))
         self.btn_import.clicked.connect(self._on_confirm_import)
 
         bot_row.addStretch()

@@ -248,7 +248,7 @@ class MainWindow(QMainWindow):
         self._latest_update_info = info
         self._update_worker = None
         try:
-            import sip  # type: ignore[import-untyped]
+            import sip
 
             topbar = self.topbar
             if topbar is not None and not sip.isdeleted(topbar) and hasattr(topbar, "set_update_available"):

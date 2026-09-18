@@ -29,7 +29,7 @@ from ankiforge.database.models import LinterRuleModel, seed_default_linter_rules
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class LinterRulesManagerDialog(QDialog):
         # Actions gauche
         left_actions = QHBoxLayout()
         btn_new = PrimaryButton("Nouvelle Règle")
-        btn_new.setIcon(load_phosphor_icon("ph.plus", color="white"))
+        btn_new.setIcon(load_on_accent_icon("ph.plus"))
         btn_new.clicked.connect(self._on_new_rule)
 
         self.btn_delete = SecondaryButton("Supprimer")
@@ -245,7 +245,7 @@ class LinterRulesManagerDialog(QDialog):
 
         # Bouton Sauvegarder
         self.btn_save = PrimaryButton("Enregistrer la Règle")
-        self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.clicked.connect(self._on_save_rule)
         self.right_layout.addWidget(self.btn_save)
 

@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from ankiforge.ui.components import Badge, PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 
 class ResponsiveAgentTopActionBar(QFrame):
@@ -69,7 +69,7 @@ class ResponsiveAgentTopActionBar(QFrame):
         self.btn_import.setToolTip("Importer un agent depuis un autre profil")
 
         self.btn_save = PrimaryButton("Sauvegarder")
-        self.btn_save.setIcon(load_phosphor_icon("ph.floppy-disk", color="white"))
+        self.btn_save.setIcon(load_on_accent_icon("ph.floppy-disk"))
         self.btn_save.setIconSize(QSize(14, 14))
         self.btn_save.setFixedHeight(30)
         self.btn_save.setMinimumWidth(110)

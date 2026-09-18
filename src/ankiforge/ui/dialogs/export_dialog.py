@@ -31,7 +31,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +210,7 @@ class ExportDialog(QDialog):
 
         self.btn_export = PrimaryButton("Exporter le Paquet")
         self.btn_export.setDefault(True)
-        self.btn_export.setIcon(load_phosphor_icon("arrow-square-out", color="white"))
+        self.btn_export.setIcon(load_on_accent_icon("arrow-square-out"))
         self.btn_export.clicked.connect(self._start_export)
         footer.addWidget(self.btn_export)
 

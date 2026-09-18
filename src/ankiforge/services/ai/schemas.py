@@ -153,12 +153,12 @@ class SelfHealingValidator:
             cleaned = cls.clean_json_string(raw_output)
             try:
                 parsed_data = json.loads(cleaned)
-            except Exception as e:
+            except json.JSONDecodeError as e:
                 # Tente une réparation des guillemets simples en doubles
                 try:
                     repaired = re.sub(r"'([^']*)'", r'"\1"', cleaned)
                     parsed_data = json.loads(repaired)
-                except Exception:
-                    raise ValueError(f"JSON syntaxiquement invalide pour {schema_cls.__name__}: {e}") from e
+                except json.JSONDecodeError as repair_err:
+                    raise ValueError(f"JSON syntaxiquement invalide pour {schema_cls.__name__}: {e}") from repair_err
 
         return schema_cls.model_validate(parsed_data)

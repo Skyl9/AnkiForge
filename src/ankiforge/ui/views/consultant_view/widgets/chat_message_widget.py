@@ -36,7 +36,7 @@ from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import I
 from ankiforge.ui.views.consultant_view.widgets.thought_step_widget import ThoughtStepWidget
 from ankiforge.ui.views.consultant_view.widgets.tool_call_widget import ToolCallWidget
 from ankiforge.ui.widgets.toast import show_toast
-from ankiforge.utils.icon_loader import load_phosphor_icon
+from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class ChatMessageWidget(QWidget):
         self.avatar_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         if is_user:
-            self.avatar_lbl.setPixmap(load_phosphor_icon("ph.user", color="white").pixmap(18, 18))
+            self.avatar_lbl.setPixmap(load_on_accent_icon("ph.user").pixmap(18, 18))
             self.avatar_lbl.setStyleSheet(f"""
                 QLabel {{
                     background-color: {DesignTokens.ACCENT_PRIMARY};
@@ -84,7 +84,7 @@ class ChatMessageWidget(QWidget):
                 }}
             """)
         else:
-            self.avatar_lbl.setPixmap(load_phosphor_icon("ph.sparkle", color="white").pixmap(18, 18))
+            self.avatar_lbl.setPixmap(load_on_accent_icon("ph.sparkle").pixmap(18, 18))
             self.avatar_lbl.setStyleSheet(f"""
                 QLabel {{
                     background-color: {DesignTokens.ACCENT_PRIMARY};

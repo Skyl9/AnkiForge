@@ -52,7 +52,7 @@ def test_query_peewee_allows_public_select():
     assert "PublicDeck" in res
 
 
-def test_with_retry_async_uses_async_sleep():
+def test_with_retry_async_retries_without_blocking():
     """R3 : with_retry_async reprend après des erreurs transitoires sans bloquer l'event loop."""
 
     async def _run() -> None:
