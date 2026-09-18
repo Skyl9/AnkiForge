@@ -44,7 +44,7 @@ Dans l'interface du consultant, chaque étape est matérialisée par des widgets
 
 ## 🛠️ 2. Boîte à Outils MCP In-Process
 
-AnkiForge intègre un serveur MCP local (`ankiforge.services.ai.mcp_server`) exposant des outils outillés et sécurisés :
+AnkiForge intègre un serveur MCP local (`ankiforge.services.ai.mcp_server`) exposant **29 outils**, **4 ressources** et **3 prompts** sécurisés. Le tableau ci-dessous présente les outils phares ; la référence exhaustive avec signatures est disponible dans le **[Catalogue des Outils MCP](../guides/catalogue_outils_mcp.md)** :
 
 | Outil MCP | Rôle & Capacités | Sécurité & Garde-fous |
 | :--- | :--- | :--- |
@@ -52,11 +52,13 @@ AnkiForge intègre un serveur MCP local (`ankiforge.services.ai.mcp_server`) exp
 | `get_cards_by_deck_or_tag` | Recherche filtrée par paquet, tag ou texte partiel. | Lecture seule, pagination automatique. |
 | `query_peewee` | Exécute des requêtes SQL `SELECT` de consultation sur la base SQLite. | Lecture seule stricte via authorizer SQLite : refus des secrets (clés API) et des tables sensibles. |
 | `propose_css_tune` | Propose un ajustement CSS d'un modèle de carte avec aperçu live avant enregistrement. | Garde-fou : proposition de Diff, aucun enregistrement direct. |
-| `execute_python_tool` | Lance des calculs ou des transformations Python sur mesure. | Environnement isolé. |
 | `search_app_documentation` | Recherche plein-texte BM25 avec extraits dans toute la doc Zensical. | SQLite FTS5 en mémoire, zéro dépendance réseau. |
 | `read_app_doc_page` | Lit l'intégralité d'une page de documentation ou une section ciblée par ancre. | Lecture seule des sources `docs/`. |
 | `list_app_doc_topics` | Retourne le sommaire structuré classé par thèmes et chapitres Zensical. | Arborescence déduite de `zensical.toml`. |
 | `get_feature_quick_help` | Fiche synthétique d'une fonctionnalité clé (Ollama, KaTeX, DAG, Wozniak, etc.). | Extraction déterministe avec citation de source. |
+
+!!! note "Le cas `execute_python_tool`"
+    `execute_python_tool` est un outil du **registre du Consultant** (`ConsultantToolRegistry`) utilisé notamment par les étapes `PYTHON_TOOL` du DAG. Il n'est **pas exposé via le serveur MCP** : un client MCP externe ne peut pas l'atteindre directement, ce qui réduit la surface d'attaque de l'exécution de code arbitraire.
 
 ---
 

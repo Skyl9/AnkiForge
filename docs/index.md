@@ -4,6 +4,10 @@
 
 AnkiForge est un environnement de développement intégré (IDE) de bureau surpuissant, conçu pour transformer n'importe quelle source d'apprentissage brute (**PDFs scientifiques, documents Word, présentations PowerPoint, vidéos YouTube, articles web**) en flashcards Anki d'une qualité pédagogique irréprochable.
 
+[Télécharger la dernière version](https://github.com/Skyl9/AnkiForge/releases){ .md-button .md-button--primary }
+[Consulter le code source](https://github.com/Skyl9/AnkiForge){ .md-button }
+[Signaler un bug](https://github.com/Skyl9/AnkiForge/issues){ .md-button }
+
 ---
 
 ## 🏛️ Les Trois Piliers Fondamentaux

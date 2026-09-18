@@ -10,10 +10,10 @@ Pour éviter toute perte de données ou écrasement intempestif de vos révision
 
 Lors de la synchronisation entre AnkiForge et votre profil Anki, la politique de fusion repose sur un principe fondamental :
 
-> [!IMPORTANT]
-> **Règle d'Or :** Seules les modifications concurrentes du **contenu textuel brut** d'une note (Question ou Réponse) déclenchent un conflit nécessitant un arbitrage humain.
->
-> Les changements d'organisation (déplacement d'une carte vers un autre paquet, ajout de tags) et l'historique de révision (dates d'échéance, intervalles FSRS/SM-2, compteurs de répétition) sont **fusionnés silencieusement** pour ne jamais perturber votre progression d'apprentissage !
+!!! warning "Règle d'Or"
+    Seules les modifications concurrentes du **contenu textuel brut** d'une note (Question ou Réponse) déclenchent un conflit nécessitant un arbitrage humain.
+
+    Les changements d'organisation (déplacement d'une carte vers un autre paquet, ajout de tags) et l'historique de révision (dates d'échéance, intervalles FSRS/SM-2, compteurs de répétition) sont **fusionnés silencieusement** pour ne jamais perturber votre progression d'apprentissage !
 
 ---
 

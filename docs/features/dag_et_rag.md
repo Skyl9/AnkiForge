@@ -35,6 +35,26 @@ Chaque nœud du DAG peut définir une règle de branchement dynamique :
 - `on_success_step` : Nœud cible en cas d'exécution réussie.
 - `on_failure_step` : Nœud cible en cas d'erreur ou d'invalidation (permettant des boucles d'auto-critique et de self-healing).
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> execute: démarrage du pipeline
+    execute --> success: sortie valide
+    execute --> failure: erreur / rejet
+    success --> success_router: on_success_step
+    failure --> failure_router: on_failure_step
+    success_router --> execute_next: nœud suivant déclaré
+    success_router --> human: étape HUMAN_VALIDATION
+    success_router --> [*]: fin du DAG
+    failure_router --> repair: boucle d'auto-critique (PYTHON_TOOL / LLM_PROMPT)
+    failure_router --> [*]: épuisement des tentatives
+    repair --> execute: nouvelle itération
+    human --> resume: approbation / modification
+    human --> [*]: abandon utilisateur
+    resume --> execute_next
+    execute_next --> [*]: état final enregistré
+```
+
 ---
 
 ## 🔍 2. RAG Hybride (FAISS + BM25 avec RRF)

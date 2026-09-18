@@ -104,7 +104,7 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 ## Stack Technique
 
 * **Interface Graphique :** Python 3.12+ / PySide6 (Qt 6) / QtWebEngine
-* **Base de Données & Migrations :** SQLite / Peewee ORM / `peewee-migrate` (17 migrations)
+* **Base de Données & Migrations :** SQLite / Peewee ORM / `peewee-migrate` (37 migrations)
 * **Gestionnaire de Projet :** `uv` (Astral)
 * **Moteur Vectoriel & RAG :** FAISS CPU / ChromaDB / Embeddings locaux (Ollama) ou Cloud
 * **Protocole & Moteurs IA :** Model Context Protocol (MCP) in-process / Ollama / Google Gemini / OpenAI / Anthropic
@@ -341,7 +341,7 @@ Every tool serves a specific purpose in learning workflows. Here is an objective
 ## Technical Stack
 
 * **GUI Framework:** Python 3.12+ / PySide6 (Qt 6) / QtWebEngine
-* **Database & ORM:** SQLite / Peewee ORM / `peewee-migrate` (17 migrations)
+* **Database & ORM:** SQLite / Peewee ORM / `peewee-migrate` (37 migrations)
 * **Package Manager:** `uv` (Astral)
 * **Vector Store & RAG:** FAISS CPU / ChromaDB / Local (Ollama) or Cloud embeddings
 * **AI Protocol & Providers:** In-process Model Context Protocol (MCP) / Ollama / Google Gemini / OpenAI / Anthropic

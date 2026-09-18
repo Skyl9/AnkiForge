@@ -1,6 +1,6 @@
 # Tests Automatisés & Intégration Continue (CI/CD) 🧪
 
-AnkiForge dispose d'une suite de plus de 600 tests automatisés garantissant la non-régression, la stabilité sous charge et la compatibilité multi-systèmes.
+AnkiForge dispose d'une suite de plus de **1137 tests automatisés** garantissant la non-régression, la stabilité sous charge et la compatibilité multi-systèmes.
 
 ---
 
@@ -43,7 +43,7 @@ graph TD
 
 ## ⚡ 2. Exécution Rapide en Local (`pytest-xdist`)
 
-Grâce à la parallélisation native multi-cœurs via `pytest-xdist`, l'ensemble des 600+ tests s'exécute en une dizaine de secondes :
+Grâce à la parallélisation native multi-cœurs via `pytest-xdist`, l'ensemble des **1137 tests** s'exécute en une dizaine de secondes :
 
 ```bash
 # Lancer tous les tests en parallèle sur tous les cœurs CPU
@@ -68,3 +68,5 @@ Chaque commit et pull request déclenche un pipeline d'intégration continue mul
   2. `Typage` : `mypy src/ankiforge` (stricte conformité exigée).
   3. `Sécurité` : Audit des vulnérabilités statiques avec `bandit`.
   4. `Tests` : Suite `pytest` complète avec rapport de couverture.
+
+Le détail des pipelines est consultable directement dans les [workflows GitHub Actions](https://github.com/Skyl9/AnkiForge/tree/main/.github/workflows) et le suivi des exécutions sur [Actions](https://github.com/Skyl9/AnkiForge/actions).

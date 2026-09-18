@@ -127,16 +127,29 @@ def audit_zensical(repo_root: Path, skip_build: bool = False) -> dict[str, Any]:
                 )
                 results["errors"].append(f"Lien mort dans docs/{rel_md} vers '{target}'")
 
-        # Vérification des blocs de code non typés (``` sans identifiant de syntaxe)
-        untyped_matches = list(re.finditer(r"```[ \t]*\n", content))
-        if untyped_matches:
+        # Vérification des blocs de code non typés (ouverture ``` sans identifiant de syntaxe).
+        # Machine à états : ne comptabilise que les *ouvertures* sans info-string, jamais les clôtures.
+        untyped_count = 0
+        fence_len = 0
+        for line in content.splitlines():
+            m = re.match(r"^([ \t]*)(`{3,})[ \t]*(.*)$", line)
+            if not m:
+                continue
+            indent, ticks, info = m.group(1), m.group(2), m.group(3)
+            if fence_len == 0:
+                fence_len = len(ticks)
+                if not info.strip():
+                    untyped_count += 1
+            elif len(ticks) >= fence_len and indent.count(" ") + indent.count("\t") <= 3 and not info.strip():
+                fence_len = 0
+        if untyped_count:
             results["untyped_code_blocks"].append(
                 {
                     "source": rel_md,
-                    "count": len(untyped_matches),
+                    "count": untyped_count,
                 }
             )
-            results["warnings"].append(f"docs/{rel_md} : {len(untyped_matches)} bloc(s) de code sans langage spécifié (```).")
+            results["warnings"].append(f"docs/{rel_md} : {untyped_count} bloc(s) de code sans langage spécifié (```).")
 
     # 4. Exécution du build Zensical
     if not skip_build:

@@ -79,4 +79,4 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
   - Profils indépendants sous `~/.ankiforge/profiles/<profile_name>/`.
   - Base SQLite et répertoire de médias isolés par profil.
   - Sélecteur de profil instantané dans l'interface (`profile_selector.py`).
-  - Suite globale de **> 1120 tests** unitaires et UI au vert (1132 collectés).
+  - Suite globale de **> 1120 tests** unitaires et UI au vert (1137 collectés).

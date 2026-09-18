@@ -5,16 +5,16 @@ AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée
 
 * **Cartes, Notes & Médias (`models/cards.py`) :**
   * `NoteTypeModel` : Définition des gabarits HTML/CSS et schémas de champs (Recto, Verso, Extra).
-  * `NoteModel` : Contenu textuel et multimédia agnostique du paquet de destination.
+  * `NoteModel` : Contenu textuel et multimédia agnostique du paquet de destination. `note_type` en FK `ON DELETE RESTRICT` (un type de note utilisé ne se supprime jamais silencieusement).
   * `CardModel` : Instanciation physique d'une note dans un paquet avec état d'apprentissage.
-  * `DeckModel` : Arborescence hiérarchique des paquets Anki.
-  * `MediaModel` & `NoteVersionMediaModel` : Gestion dédupliquée des médias par checksum SHA-256.
+  * `DeckModel` : Arborescence hiérarchique des paquets Anki. `parent_deck` en FK `ON DELETE CASCADE` (sémantique native Anki : un sous-deck et ses cartes suivent leur parent).
+  * `MediaModel` & `NoteVersionMediaModel` : Gestion dédupliquée des médias par checksum SHA-256. La liaison média est en FK `ON DELETE RESTRICT` (un média référencé n'est jamais supprimé ; le nettoyage passe par le `media_manager` qui désassocie d'abord).
   * `NoteVersionModel` : Historique Time Machine des modifications de chaque note.
 * **Documents & RAG Local (`models/rag.py`) :**
   * `FolderModel` : Organisation arborescente des documents sources.
   * `DocumentModel` : Métadonnées du document source et chemin de l'index vectoriel.
   * `DocumentPageModel` : Pagination et métadonnées par page (numérotation, titres).
-  * `DocumentChunkModel` : Découpage sémantique avec préservation du chemin de titres (`heading_path`).
+  * `DocumentChunkModel` : Découpage sémantique avec préservation du chemin de titres (`heading_path`). `is_profiled` est un booléen non-nullable (état dichotomique clair pour la couverture RAG), `media` en FK `ON DELETE SET NULL`.
   * `NoteChunkLinkModel` : Ancrage déterministe entre notes générées et fragments documentaires.
   * `EmbeddingCacheModel` : Cache persistant des vecteurs d'embeddings par hash de contenu pour éviter les recalculs.
 * **Intelligence Artificielle & Personas (`models/ai.py`) :**
@@ -23,8 +23,9 @@ AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée
   * `PersonaVersionModel` : Versionnement et rollback des prompts et hyperparamètres des personas.
   * `PromptModel` : Bibliothèque de prompts modulaires réutilisables.
   * `LLMConfigModel` : Configurations d'inférence (fournisseur, température, context window).
-  * `TokenUsageModel` : Télémétrie granulaire des jetons, temps d'inférence, coûts USD et contexte d'exécution.
   * `ConsultantSessionModel` & `ConsultantMessageModel` : Sessions conversationnelles interactives avec le consultant MCP.
+* **Télémétrie & Coûts IA (`models/usage.py`) :**
+  * `TokenUsageModel` : Télémétrie granulaire des jetons, temps d'inférence, coûts USD et contexte d'exécution. Vraies clés étrangères vers `PipelineModel` et `PersonaModel` (`ON DELETE SET NULL` via `column_name="pipeline_id"`/`persona_id`) : la suppression d'un pipeline ou d'un persona conserve l'historique de coûts.
 * **Moteur d'Orchestration DAG (`models/pipelines.py`) :**
   * `PipelineModel` : Définition des graphes de génération et d'audit.
   * `PipelineStepModel` : Étapes typées (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`) et branchements.
@@ -103,6 +104,31 @@ classDiagram
     DocumentChunkModel "1" <-- "*" NoteChunkLinkModel : lie
     NoteModel "1" <-- "*" NoteChunkLinkModel : référence
     PersonaModel "1" --> "*" PipelineStepModel : exécute
+```
+
+### Cycle de Vie d'une Connaissance
+Du document source jusqu'à la flashcard Anki, une connaissance transite par 6 états tracés :
+
+```mermaid
+flowchart LR
+    classDef src fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff;
+    classDef link fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef note fill:#1e293b,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    classDef out fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff;
+
+    DOC["DocumentModel<br/>(source PDF / Web / ipynb)"]:::src
+    CHUNK["DocumentChunkModel<br/>(découpage sémantique)"]:::src
+    NOTE["NoteModel<br/>(contenu agnostique)"]:::note
+    VERSION["NoteVersionModel<br/>(historique versionné)"]:::note
+    CARD["CardModel<br/>(instance dans un Deck)"]:::note
+    APKG["Paquet .apkg<br/>(ID Anki stable)"]:::out
+
+    DOC -->|ingestion + chunking| CHUNK
+    CHUNK -->|RAG + DAG| NOTE
+    NOTE -->|Time Machine| VERSION
+    NOTE -->|forging| CARD
+    CARD -->|export Smart Merge| APKG
+    NOTE -.->|traçabilité<br/>NoteChunkLinkModel| CHUNK
 ```
 
 ## 2. Le Cycle de Synchronisation (Workflow `.apkg`)

@@ -12,8 +12,14 @@ AnkiForge supporte une grande diversité de formats bruts grâce à des moteurs 
 | :--- | :--- | :--- |
 | **Documents PDF** | **Marker OCR** (Deep Learning) | Restitution parfaite de la structure, des tableaux et conversion native des formules mathématiques en syntaxe **LaTeX**. Fallback rapide sur `pdfplumber`. |
 | **Vidéos YouTube** | **API Sous-titres + yt-dlp** | Récupération instantanée des sous-titres officiels/automatiques. En cas d'absence de sous-titres, téléchargement du flux audio et transcription locale par **Whisper**. |
-| **Pages Web** | **Trafilatura / BeautifulSoup** | Extraction épurée du corps d'article, suppression automatique des bannières, menus et publicités, préservation des balises de code et des titres. |
+| **Pages Web** | **Trafilatura / BeautifulSoup + Rendu JS** | Extraction épurée du corps d'article, suppression automatique des bannières, menus et publicités, préservation des balises de code et des titres. Le **Web Importer** sait déclencher un **rendu JavaScript headless** pour les pages dynamiques (SPA, contenus chargés après interaction), avec retombée automatique sur le HTML statique en cas d'échec. |
+
+!!! note "Formats récents"
+    Le support des **notebooks Jupyter (`.ipynb`)** et des **fichiers source Python (`.py`)** a été ajouté pour rapprocher AnkiForge de la documentation technique et scientifique vivante : vos notebooks d'expérimentation deviennent directement des sources de flashcards.
 | **Bureautique** | **python-docx / python-pptx** | Parsing structuré des documents Word (`.docx`) et présentations PowerPoint (`.pptx`), extraction des diapositives et des notes du présentateur. |
+| **Notebooks Jupyter (`.ipynb`)** | **Parser Natif** | Conversion des cellules Markdown, code et sorties textuelles en Markdown structuré, en préservant les blocs exécutables. |
+| **Code Source Python (`.py`)** | **Parser AST (`ast`)** | Génération d'une documentation Markdown structurée par arbre syntaxique (docstrings, fonctions, classes, constantes). |
+| **EPUB** | **`EpubParser`** | Extraction des chapitres EPUB 2/3 en Markdown paginé avec conversion MathML → LaTeX. Support `.epub`. |
 | **Fichiers Markdown & Texte** | **Parsers Natifs** | Traitement instantané des notes personnelles et documentations techniques brutes. |
 
 ---

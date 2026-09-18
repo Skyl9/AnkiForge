@@ -17,7 +17,7 @@ uv run ankiforge --smoke-test   # binary integrity check
 uv run ankiforge --clone-prod-to-dev
 
 # Tests
-uv run pytest                   # all 1132+ tests (headless Qt via pytest-qt)
+uv run pytest                   # all 1137+ tests (headless Qt via pytest-qt)
 uv run pytest -k "not slow"     # fast unit tests only (pre-push)
 uv run pytest tests/path/test_file.py::TestClass::test_method
 

@@ -55,5 +55,5 @@ Si la carte est valide mais formulée de manière trop lourde ou ambiguë :
 - L'IA propose une reformulation ultra-concise préservant la précision sémantique.
 - Un clic sur **Approuver la Mutation** met à jour la note dans la base SQLite locale.
 
-> [!TIP]
-> **Philosophie d'AnkiForge :** Le système ne supprime jamais aveuglément vos cartes. Chaque diagnostic vise à réparer, enrichir et élever la qualité pédagogique de vos connaissances.
+!!! tip "Philosophie d'AnkiForge"
+    Le système ne supprime jamais aveuglément vos cartes. Chaque diagnostic vise à réparer, enrichir et élever la qualité pédagogique de vos connaissances.

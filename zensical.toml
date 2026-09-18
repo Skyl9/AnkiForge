@@ -60,6 +60,8 @@ nav = [
   { "Guides & Prompts" = [
       { "Fournisseurs LLM & Agnosticisme" = "guides/ia_fournisseurs.md" },
       { "Ingénierie de Prompts & Jinja2" = "guides/guide_prompts_ia.md" },
+      { "Catalogue des Outils MCP" = "guides/catalogue_outils_mcp.md" },
+      { "FAQ & Dépannage" = "guides/faq_depannage.md" },
       { "Design System & Thèmes" = "guides/design_system.md" },
   ]},
   { "Développement" = [
@@ -322,9 +324,14 @@ toggle.name = "Switch to light mode"
 # ----------------------------------------------------------------------------
 # The "extra" section contains miscellaneous settings.
 # ----------------------------------------------------------------------------
-#[[project.extra.social]]
-#icon = "fontawesome/brands/github"
-#link = "https://github.com/user/repo"
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/Skyl9/AnkiForge"
+name = "Code source & releases"
+[[project.extra.social]]
+icon = "material/alert"
+link = "https://github.com/Skyl9/AnkiForge/issues"
+name = "Signaler un bug"
 
 # ----------------------------------------------------------------------------
 # In this section you can configure the Markdown extensions that are used when

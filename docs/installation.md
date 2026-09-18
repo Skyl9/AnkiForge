@@ -52,8 +52,8 @@ Pour compiler la bibliothèque partagée (`.so` sur macOS/Linux, `.pyd` sur Wind
 uv run python setup_c.py build_ext --inplace
 ```
 
-> [!TIP]
-> **Fallback Automatique :** Si vous ne disposez pas d'un compilateur C ou si la compilation échoue, AnkiForge bascule automatiquement et de manière transparente sur une implémentation pure Python (`ankiforge.utils.c_bridge`). Aucune interruption de service n'a lieu !
+!!! tip "Fallback Automatique"
+    Si vous ne disposez pas d'un compilateur C ou si la compilation échoue, AnkiForge bascule automatiquement et de manière transparente sur une implémentation pure Python (`ankiforge.utils.c_bridge`). Aucune interruption de service n'a lieu !
 
 ---
 
@@ -91,24 +91,42 @@ AnkiForge est **100% agnostique** vis-à-vis des modèles de langage (LLM). Vous
     GROQ_API_KEY="gsk_..."
     ```
 
-    > [!IMPORTANT]
-    > **Sécurité des secrets :** AnkiForge intègre un filtre de masquage asynchrone (`SecretRedactionFilter`). Vos clés d'API ne seront jamais enregistrées en clair dans les logs ou les traces d'erreurs.
+    !!! warning "Sécurité des secrets"
+        AnkiForge intègre un filtre de masquage asynchrone (`SecretRedactionFilter`). Vos clés d'API ne seront jamais enregistrées en clair dans les logs ou les traces d'erreurs. De plus, le stockage préféré des clés est le **trousseau de l'OS** (Keychain macOS, Credential Manager Windows, Secret Service Linux) via `ankiforge.utils.secret_store` : consultez la section [Stockage sécurisé des clés API](#stockage-securise-des-cles-api) ci-dessous.
 
 ---
 
-## 🎙️ 4. Configuration de la Synthèse Vocale (TTS)
+## 🔐 4. Stockage Sécurisé des Clés API (Trousseau OS) {#stockage-securise-des-cles-api}
+
+AnkiForge considère vos clés d'API comme de **vrais secrets** : les conserver en clair dans un fichier `.env` ou dans la base SQLite les rend récupérables par tout processus ayant accès à votre profil utilisateur. C'est pourquoi le module `ankiforge.utils.secret_store` confie automatiquement vos clés au **trousseau natif de la plateforme** :
+
+| Plateforme | Backend de Trousseau |
+| :--- | :--- |
+| macOS | **Keychain** |
+| Windows | **Credential Manager** |
+| Linux | **Secret Service** (libsecret) |
+
+- **Précédence de lecture** : trousseau OS → variable d'environnement / `.env` → base SQLite (stockage historique).
+- **Comportement dégradé** : si aucun backend de trousseau n'est disponible (CI headless, machine sans service *secrets*), AnkiForge retombe silencieusement sur le stockage historique **sans jamais faire planter l'application**.
+- **Masquage dans les logs** : même si une clé transite par les logs, le `SecretRedactionFilter` asynchrone la remplace par `***` avant écriture.
+
+> 💡 **Astuce** : Vous pouvez fournir vos clés via l'interface graphique (**Paramètres ➔ Fournisseurs IA**) ; AnkiForge les chiffrera dans le trousseau à la première utilisation.
+
+---
+
+## 🎙️ 5. Configuration de la Synthèse Vocale (TTS)
 
 AnkiForge propose deux moteurs de synthèse vocale pour oraliser vos flashcards :
 
 1. **Edge-TTS (Par défaut)** : Synthèse vocale neuronale haute qualité de Microsoft. Fonctionne immédiatement via Internet sans nécessiter de clé d'API.
 2. **Piper TTS (Local & Hors-ligne)** : Moteur ONNX ultra-léger et rapide. Le binaire et les voix sont téléchargés automatiquement dans `~/.ankiforge/sidecars/piper/` lors du premier choix de Piper dans les paramètres.
 
-> [!NOTE]
-> Dans **Paramètres ➔ Audio & TTS**, vous pouvez sélectionner précisément votre périphérique de sortie audio (ex. *Haut-parleurs MacBook Pro* ou *AirPods*) afin d'éviter tout conflit de routage audio avec le système d'exploitation.
+!!! note "Routage audio"
+    Dans **Paramètres ➔ Audio & TTS**, vous pouvez sélectionner précisément votre périphérique de sortie audio (ex. *Haut-parleurs MacBook Pro* ou *AirPods*) afin d'éviter tout conflit de routage audio avec le système d'exploitation.
 
 ---
 
-## 🚀 5. Lancement de l'Application
+## 🚀 6. Lancement de l'Application
 
 Une fois l'installation terminée, lancez AnkiForge d'une simple commande :
 
@@ -123,3 +141,12 @@ uv run zensical serve
 ```
 
 L'interface de documentation sera accessible à l'adresse `http://127.0.0.1:8000`.
+
+---
+
+## 🌍 7. Dépôt & Versions
+
+AnkiForge est un projet open-source hébergé sur GitHub :
+
+- **[Code source & tickets](https://github.com/Skyl9/AnkiForge)** : issues, discussions et gestion de projet.
+- **[Binaires & releases](https://github.com/Skyl9/AnkiForge/releases)** : exécutables natifs Nuitka (Windows `.exe`, macOS `.app`, Linux `.AppImage`).
