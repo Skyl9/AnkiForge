@@ -442,8 +442,8 @@ class SegmentInspectorWidget(QFrame):
         if doc is not None and getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document inspecteur ignoré : %s", err)
         if self._doc is None or doc is None or getattr(self._doc, "id", None) != getattr(doc, "id", None):
             self._last_scope_result = None
         self._doc = doc

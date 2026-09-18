@@ -1618,8 +1618,8 @@ class DocumentsView(QWidget):
                                 parsed = json.loads(raw_excl)
                                 if isinstance(parsed, list):
                                     excl_headings = [str(x).lower() for x in parsed]
-                            except Exception:
-                                pass
+                            except Exception as err:
+                                logger.debug("Parsing des titres exclus ignoré : %s", err)
 
                         retained = []
                         for c in extracted:

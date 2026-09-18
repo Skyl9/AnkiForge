@@ -810,8 +810,8 @@ class ImportManager:
         if local_version and local_version.content:
             try:
                 local_content = json.loads(local_version.content)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Parsing du contenu de version local ignoré : %s", err)
 
         local_text = " ".join(str(v).strip() for v in local_content.values())
         incoming_text = " ".join(str(v).strip() for v in incoming_content.values())
@@ -834,8 +834,8 @@ class ImportManager:
                     parsed = json.loads(str(existing_note.tags))
                     if isinstance(parsed, list):
                         local_tags = parsed
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Parsing des tags locaux ignoré : %s", err)
 
             conflicts.append(
                 ConflictItem(

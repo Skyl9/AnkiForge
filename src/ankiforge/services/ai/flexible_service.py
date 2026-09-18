@@ -396,16 +396,16 @@ class AIManager:
                 from ankiforge.utils.secret_store import load_llm_key
 
                 key = load_llm_key(model_id, p_name) or ""
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Échec du chargement de la clé via secret_store : %s", err)
 
         if not key:
             try:
                 from ankiforge.services.settings_service import SettingsService
 
                 key = str(SettingsService.get(f"keys/{p_name}", ""))
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Échec du chargement de la clé via SettingsService : %s", err)
 
         try:
             if p_name == "ollama":

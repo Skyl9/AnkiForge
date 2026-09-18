@@ -552,8 +552,8 @@ class DocumentParser:
                     return doc.value.value.strip()
             elif isinstance(doc, ast.Expr) and isinstance(doc.value, ast.Constant) and isinstance(doc.value.value, str):
                 return doc.value.value.strip()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Extraction de la docstring Python ignorée : %s", err)
         return ""
 
     def _parse_python(self, file_path: Path) -> str:

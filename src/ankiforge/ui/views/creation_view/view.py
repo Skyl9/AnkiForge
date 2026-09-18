@@ -800,8 +800,8 @@ class CreationView(QWidget):
         if getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document creation ignoré : %s", err)
         from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
         dlg = DocumentDelimitationDialog(doc, parent=self)
@@ -826,8 +826,8 @@ class CreationView(QWidget):
         if getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document courant de création ignoré : %s", err)
             self._current_selected_doc = doc
         from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
@@ -1959,8 +1959,8 @@ class CreationView(QWidget):
                         for f in m_fields:
                             if f not in excluded_keys and f not in ordered_fields:
                                 ordered_fields.append(f)
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        logger.debug("Parsing des champs du modèle ciblé ignoré : %s", err)
 
                 for k in card:
                     if k not in excluded_keys and k not in ordered_fields:
@@ -1972,8 +1972,8 @@ class CreationView(QWidget):
                     for f in m_fields:
                         if f not in excluded_keys and f not in ordered_fields:
                             ordered_fields.append(f)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Parsing des champs du modèle courant ignoré : %s", err)
 
         if not ordered_fields:
             ordered_fields = ["Front", "Back"]
@@ -2455,8 +2455,8 @@ class CreationView(QWidget):
                     from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
                     CoverageAlignmentService.sync_coverage_from_tags(doc_id=active_doc.id)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Synchronisation de la couverture ignorée : %s", err)
             show_toast(self, f"{saved_count} carte(s) enregistrée(s) dans la Forge !", is_error=False)
             self._check_completion()
 

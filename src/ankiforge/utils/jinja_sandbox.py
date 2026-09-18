@@ -26,5 +26,5 @@ def create_prompt_environment() -> SandboxedEnvironment:
     """
     return SandboxedEnvironment(
         loader=BaseLoader(),
-        autoescape=False,  # nosec B701  # sortie texte/JSON pour LLM, jamais de HTML
+        autoescape=False,  # B701 non applicable : SandboxedEnvironment n'est pas jinja2.Environment ; sortie texte/JSON pour un LLM
     )

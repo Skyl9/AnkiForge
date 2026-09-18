@@ -202,8 +202,8 @@ class EditorToolbarWidget(QWidget):
                             callback=act["callback"],
                             group=act.get("group", "custom"),
                         )
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Enregistrement des actions éditeur ignoré : %s", err)
 
     def register_action(
         self,

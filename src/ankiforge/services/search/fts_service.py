@@ -45,8 +45,8 @@ def extract_fields_text(content_str: str) -> str:
         if isinstance(data, list):
             parts = [clean_html(str(item)) for item in data if item is not None]
             return " ".join(p for p in parts if p)
-    except Exception:
-        pass
+    except Exception as err:
+        logger.debug("Fallback du texte FTS : %s", err)
     return clean_html(content_str)
 
 
@@ -61,8 +61,8 @@ def extract_tags_text(raw_tags: Any) -> str:
                 parsed = json.loads(raw_tags)
                 if isinstance(parsed, list):
                     return " ".join(str(t).strip() for t in parsed if t)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Fallback du parsing tags FTS : %s", err)
         return " ".join(raw_tags.split())
     if isinstance(raw_tags, list | set | tuple):
         return " ".join(str(t).strip() for t in raw_tags if t)

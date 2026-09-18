@@ -109,8 +109,8 @@ class MarkerService:
                 )  # argv fixe [python, -c, code métier constant], jamais de shell
                 if res.returncode != 0:
                     return False
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Vérification de la version marker-pdf ignorée : %s", err)
         return True
 
     @classmethod
@@ -177,8 +177,8 @@ class MarkerService:
                     found = res.stdout.strip()
                     if found and cls._is_python_compatible(found):
                         return found
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Découverte de l'interpréteur Python via uv ignorée : %s", err)
 
         # 3. Commandes versionnées dans le PATH
         for cmd in ("python3.12", "python3.11", "python3.10", "python3", "python"):

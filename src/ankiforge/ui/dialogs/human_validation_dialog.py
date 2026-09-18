@@ -134,9 +134,9 @@ class HumanValidationDialog(QDialog):
         try:
             parsed = json.loads(self.editor.toPlainText().strip())
             self.editor.setPlainText(json.dumps(parsed, ensure_ascii=False, indent=2))
-        except Exception:
+        except Exception as err:
             # Ne pas modifier si texte brut non-JSON
-            pass
+            logger.debug("Formatage JSON ignoré (texte non-JSON) : %s", err)
 
     def _on_validate_clicked(self) -> None:
         """Parse le contenu modifié et met à jour l'état avant de valider la boîte de dialogue."""

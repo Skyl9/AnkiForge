@@ -641,8 +641,8 @@ class CardModelsView(QWidget):
                             tmpl_count = len(t_list)
                             if is_template_cloze(t_list):
                                 is_m_cloze = True
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        logger.debug("Parsing des gabarits (cloze) ignoré : %s", err)
                 if not is_m_cloze and any(w in m.name.lower() for w in ("cloze", "trou", "texte à trou")):
                     is_m_cloze = True
 
@@ -755,8 +755,8 @@ class CardModelsView(QWidget):
                     parsed_tmpl = json.loads(model.templates)
                     if isinstance(parsed_tmpl, list) and parsed_tmpl:
                         self._templates_list = parsed_tmpl
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Parsing des gabarits du modèle ignoré : %s", err)
 
             if not self._templates_list:
                 self._templates_list = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": '{{FrontSide}}<br><hr id="answer"><br>{{Back}}'}]
@@ -902,8 +902,8 @@ class CardModelsView(QWidget):
                         first_val = next(iter(content_dict.values()), "")
                         if first_val:
                             summary += f" : {first_val[:28]}..."
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        logger.debug("Parsing du contenu témoin ignoré : %s", err)
                 self.note_witness_combo.addItem(summary, userData=v.note_id)
 
         self.note_witness_combo.blockSignals(False)

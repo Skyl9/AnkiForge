@@ -5,6 +5,7 @@ Miroir de `deck_select_window.py` pour les documents et la bibliothèque de cour
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
@@ -23,6 +24,8 @@ from ankiforge.database.models import DocumentModel, FolderModel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentSelectWindow(QWidget):
@@ -179,8 +182,8 @@ class DocumentSelectWindow(QWidget):
                 try:
                     if getattr(doc, "original_media", None):
                         title_to_display = doc.original_media.original_name
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Récupération du nom de média original ignorée : %s", err)
             title_to_display = title_to_display or "Document sans titre"
 
             item = QTreeWidgetItem(parent_item, [title_to_display])

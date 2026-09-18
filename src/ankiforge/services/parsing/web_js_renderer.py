@@ -93,16 +93,16 @@ def render_page_to_html(url: str, timeout_ms: int = DEFAULT_RENDER_TIMEOUT_MS) -
             html_timer.stop()
         try:
             view.stop()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Arrêt de la vue web ignoré : %s", err)
         try:
             view.close()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Fermeture de la vue web ignorée : %s", err)
         try:
             view.deleteLater()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Suppression de la vue web ignorée : %s", err)
 
     final_url = current_url["url"]
     html = html_holder["html"]

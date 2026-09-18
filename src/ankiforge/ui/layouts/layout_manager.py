@@ -3,12 +3,16 @@ Layout Manager pour l'Architecture UI Enfichable d'AnkiForge.
 Permet d'instancier, enregistrer et basculer à chaud entre les différents layouts et leurs thèmes visuels.
 """
 
+import logging
+
 from ankiforge.ui.layouts.base_layout import BaseLayout
 from ankiforge.ui.layouts.dashboard_layout import DashboardLayout
 from ankiforge.ui.layouts.glass_layout import GlassmorphismLayout
 from ankiforge.ui.layouts.ide_layout import IdeLayout
 from ankiforge.ui.layouts.macos_layout import MacosLayout
 from ankiforge.ui.theme import DesignTokens
+
+logger = logging.getLogger(__name__)
 
 
 class LayoutManager:
@@ -76,8 +80,8 @@ class LayoutManager:
             val = SettingModel.get_value(f"profiles/{profile_name}/layout_id")
             if val and str(val) in cls.LAYOUTS:
                 return str(val)
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Lecture du layout en BDD ignorée : %s", err)
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -95,8 +99,8 @@ class LayoutManager:
                 from ankiforge.database.models import SettingModel
 
                 SettingModel.set_value(f"profiles/{profile_name}/layout_id", layout_id, category="appearance")
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Sauvegarde du layout en BDD ignorée : %s", err)
 
             from ankiforge.utils.environment import get_app_qsettings
 

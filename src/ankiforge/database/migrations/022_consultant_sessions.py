@@ -1,7 +1,10 @@
 import datetime
+import logging
 
 import peewee as pw
 from peewee_migrate import Migrator
+
+logger = logging.getLogger(__name__)
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -37,8 +40,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
         try:
             database.execute_sql("CREATE INDEX IF NOT EXISTS idx_consultant_msg_session_created ON consultant_messages (session_id, created_at);")
             database.execute_sql("CREATE INDEX IF NOT EXISTS idx_consultant_session_updated ON consultant_sessions (updated_at DESC);")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Création des index consultant ignorée : %s", err)
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:

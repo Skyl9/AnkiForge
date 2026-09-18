@@ -164,8 +164,8 @@ class DocumentPickerButton(QFrame):
         if doc is not None and getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document ignoré : %s", err)
         self._current_doc = doc
         self._update_display()
         if emit_signal and not is_same:
@@ -176,8 +176,8 @@ class DocumentPickerButton(QFrame):
         if self._current_doc and getattr(self._current_doc, "id", None):
             try:
                 self._current_doc = DocumentModel.get_by_id(self._current_doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document courant ignoré : %s", err)
         return self._current_doc
 
     def clear_document(self) -> None:

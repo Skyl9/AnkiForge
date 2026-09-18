@@ -662,8 +662,8 @@ class BatchView(QWidget):
         if getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document batch ignoré : %s", err)
         from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
         dlg = DocumentDelimitationDialog(doc, context="batch", parent=self)
@@ -694,8 +694,8 @@ class BatchView(QWidget):
         if getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document de portée ignoré : %s", err)
             self._segment_inspector_doc = doc
         from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
@@ -1653,8 +1653,8 @@ class BatchView(QWidget):
                     from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 
                     CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Synchronisation de la couverture ignorée : %s", err)
 
             self._log_formatted_line("SUCCESS", f"Enregistrement BDD : {len(notes_data)} note(s) ({created_cards_count} carte(s)) dans '{deck.name}'.")
         except Exception as e:

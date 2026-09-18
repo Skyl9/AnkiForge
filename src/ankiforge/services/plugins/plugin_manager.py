@@ -170,8 +170,8 @@ class PluginManager:
                 if bool(modifiers & Qt.KeyboardModifier.ShiftModifier):
                     logger.warning("🛡️ Touche Shift détectée au boot : Activation du Safe Mode (Addons désactivés) !")
                     return True
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Détection du Safe Mode (Shift) ignorée : %s", err)
 
         return False
 
@@ -395,13 +395,14 @@ class PluginManager:
     def _open_folder_in_os(folder_path: Path) -> None:
         """Ouvre un dossier de manière multi-plateforme (macOS, Windows, Linux)."""
         system = platform.system()
+        folder_path_str = str(folder_path)
         try:
             if system == "Darwin":
-                subprocess.Popen(["open", str(folder_path)])  # nosec B603 B607  # argv fixe, pas de shell, chemins issus de la config utilisateur
+                subprocess.Popen(["open", folder_path_str])  # nosec B603 B607  # argv fixe, pas de shell, chemins issus de la config utilisateur
             elif system == "Windows":
-                os.startfile(str(folder_path))  # type: ignore[attr-defined] # nosec B606  # ouvre un dossier local sélectionné par l'utilisateur (comportement attendu, non un fichier arbitraire)
+                os.startfile(folder_path_str)  # type: ignore[attr-defined] # nosec B606  # ouvre un dossier local sélectionné par l'utilisateur (comportement attendu, non un fichier arbitraire)
             else:
-                subprocess.Popen(["xdg-open", str(folder_path)])  # nosec B603 B607  # argv fixe, pas de shell, chemins issus de la config utilisateur
+                subprocess.Popen(["xdg-open", folder_path_str])  # nosec B603 B607  # argv fixe, pas de shell, chemins issus de la config utilisateur
         except Exception as e:
             logger.error("Impossible d'ouvrir le dossier %s : %s", folder_path, e)
 

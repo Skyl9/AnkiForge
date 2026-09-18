@@ -1,5 +1,9 @@
+import logging
+
 import peewee as pw
 from peewee_migrate import Migrator
+
+logger = logging.getLogger(__name__)
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -16,8 +20,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
         for _idx_name, sql in indexes:
             try:
                 database.execute_sql(sql)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Création d'index ignorée (%s) : %s", _idx_name, err)
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -34,5 +38,5 @@ def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -
         for idx_name in indexes:
             try:
                 database.execute_sql(f"DROP INDEX IF EXISTS {idx_name};")
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Suppression d'index ignorée (%s) : %s", idx_name, err)

@@ -1242,8 +1242,8 @@ class ConsultantView(QWidget):
                     doc = DocumentModel.get_or_none(DocumentModel.id == d_id)
                     if doc:
                         data["documents"].append({"titre": doc.title, "contenu": getattr(doc, "content", "")})
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Sérialisation du contexte document ignorée : %s", err)
 
             elif ctx_id.startswith("model_"):
                 try:
@@ -1261,8 +1261,8 @@ class ConsultantView(QWidget):
                                 "css_style": nt.css_style or "",
                             }
                         )
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Sérialisation du contexte modèle ignorée : %s", err)
 
             elif ctx_id.startswith("deck_"):
                 try:
@@ -1287,8 +1287,8 @@ class ConsultantView(QWidget):
                                     }
                                 )
                         data["paquets"].append({"nom": deck.name, "cartes": notes_data})
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Sérialisation du contexte paquet (deck) ignorée : %s", err)
 
             elif ctx_id.startswith("card_"):
                 try:
@@ -1310,8 +1310,8 @@ class ConsultantView(QWidget):
                                 "fields": c_dict,
                             }
                         )
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Sérialisation du contexte carte ignorée : %s", err)
 
         return data
 

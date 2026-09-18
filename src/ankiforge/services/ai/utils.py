@@ -409,8 +409,8 @@ def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
                 result.append(card_dict)
             if result:
                 return result
-    except Exception:
-        pass
+    except Exception as err:
+        logger.debug("Parsing du schéma de cartes générées ignoré : %s", err)
 
     if isinstance(data, str):
         try:

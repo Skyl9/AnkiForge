@@ -105,8 +105,8 @@ def safe_extract_tar(
             total_size = sum(m.size for m in archive.getmembers() if m.isfile())
             if total_size > max_total_size:
                 raise ValueError(f"Archive rejetée pour sécurité : taille décompressée totale ({total_size} octets) dépasse le plafond de {max_total_size} octets.")
-        # nosec B202 : extraction tar avec filtre natif "data" (refuse chemins
-        # absolus, '..', devices et crée uniquement fichiers/répertoires sûrs).
+        # Le filtre natif "data" de tarfile (B202 satisfait) refuse les chemins
+        # absolus, '..', les devices et ne crée que fichiers/répertoires sûrs.
         archive.extractall(path=target, filter="data")
 
     return member_count

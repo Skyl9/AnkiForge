@@ -76,8 +76,8 @@ def reindex_document(
         if progress_cb is not None:
             try:
                 progress_cb(msg)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Callback de progression ignoré : %s", err)
 
     t0 = time.perf_counter()
     try:

@@ -457,8 +457,8 @@ class WebImporter:
             title_tag = soup.find("title")
             if title_tag and title_tag.text.strip():
                 return title_tag.text.strip()[:120]
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Extraction du titre web ignorée : %s", err)
         parsed = urlparse(url)
         last = parsed.path.strip("/").split("/")[-1] if parsed.path.strip("/") else ""
         return (last or parsed.netloc)[:120]

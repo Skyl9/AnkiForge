@@ -1,5 +1,9 @@
+import logging
+
 import peewee as pw
 from peewee_migrate import Migrator
+
+logger = logging.getLogger(__name__)
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -15,8 +19,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
             except Exception:
                 try:
                     database.execute_sql("ALTER TABLE notetypemodel ADD COLUMN description TEXT DEFAULT '';")
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("ALTER TABLE notetypemodel (description) ignoré : %s", err)
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -24,5 +28,5 @@ def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -
     if not fake and (database.table_exists("notetypemodel") or "notetypemodel" in migrator.orm):
         try:
             migrator.remove_fields("notetypemodel", "description")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Suppression du champ description ignorée : %s", err)

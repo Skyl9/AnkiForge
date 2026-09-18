@@ -1,5 +1,9 @@
+import logging
+
 import peewee as pw
 from peewee_migrate import Migrator
+
+logger = logging.getLogger(__name__)
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -28,8 +32,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
                 )
             else:
                 database.execute_sql("UPDATE llm_configs SET sort_order = 0, max_tokens = 65536 WHERE model_id = 'gemini-3.5-flash-lite'")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Backfill max_tokens / gemini-3.5-flash-lite ignoré : %s", err)
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:

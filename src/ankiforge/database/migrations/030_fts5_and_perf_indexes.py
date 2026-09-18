@@ -33,8 +33,8 @@ def _extract_fields_text(content_str: str) -> str:
         if isinstance(data, list):
             parts = [_clean_text(str(item)) for item in data if item is not None]
             return " ".join(p for p in parts if p)
-    except Exception:
-        pass
+    except Exception as err:
+        logger.debug("Fallback du nettoyage texte FTS : %s", err)
     return _clean_text(content_str)
 
 
@@ -49,8 +49,8 @@ def _extract_tags_text(raw_tags: Any) -> str:
                 parsed = json.loads(raw_tags)
                 if isinstance(parsed, list):
                     return " ".join(str(t).strip() for t in parsed if t)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Fallback du parsing des tags FTS : %s", err)
         return " ".join(raw_tags.split())
     if isinstance(raw_tags, list | set | tuple):
         return " ".join(str(t).strip() for t in raw_tags if t)
@@ -148,10 +148,10 @@ def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -
     for idx_name in indexes:
         try:
             database.execute_sql(f"DROP INDEX IF EXISTS {idx_name};")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Suppression d'index ignorée (%s) : %s", idx_name, err)
 
     try:
         database.execute_sql("DROP TABLE IF EXISTS note_fts;")
-    except Exception:
-        pass
+    except Exception as err:
+        logger.debug("Suppression de note_fts ignorée : %s", err)

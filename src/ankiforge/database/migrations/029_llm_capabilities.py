@@ -1,9 +1,12 @@
 import json
+import logging
 
 import peewee as pw
 from peewee_migrate import Migrator
 
 from ankiforge.services.ai.model_catalog import ModelCatalog
+
+logger = logging.getLogger(__name__)
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
@@ -47,8 +50,8 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
                         r_id,
                     ),
                 )
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Backfill des capacités LLM ignoré : %s", err)
 
 
 def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:

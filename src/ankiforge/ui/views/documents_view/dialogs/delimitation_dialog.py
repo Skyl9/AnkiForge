@@ -712,16 +712,16 @@ class DocumentPreviewWidget(QWidget):
                 cand_path = Path(self.doc.source_url)
                 if cand_path.exists():
                     pdf_path = cand_path
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Résolution du chemin source_url ignorée : %s", err)
 
         if not pdf_path and getattr(self.doc, "file_path", None):
             try:
                 cand_path = Path(self.doc.file_path)
                 if cand_path.exists():
                     pdf_path = cand_path
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Résolution du chemin file_path ignorée : %s", err)
 
         if file_type == "pdf" and pdf_path and HAVE_QTPDF and self.pdf_viewer:
             try:
@@ -1012,8 +1012,8 @@ class DocumentDelimitationDialog(QDialog):
         if getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document de délimitation ignoré : %s", err)
         self.doc = doc
         self.context = context
         self._chunk_cards: dict[int, int] = {}

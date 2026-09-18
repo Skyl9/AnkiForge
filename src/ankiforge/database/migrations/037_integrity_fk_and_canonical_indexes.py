@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 # Subtensions FK cibles (format exact du DDL émis par peewee create_tables / migrations antérieures)
 _FK_PARENT_DECK = 'FOREIGN KEY ("parent_deck_id") REFERENCES "deckmodel" ("id")'
 _FK_NOTE_TYPE = 'FOREIGN KEY ("note_type_id") REFERENCES "notetypemodel" ("id")'
-_TOKEN_COLS_LEGACY = '"pipeline_id" INTEGER, "persona_id" INTEGER,'
-_TOKEN_COLS_FK = '"pipeline_id" INTEGER REFERENCES "pipelines" ("id") ON DELETE SET NULL, "persona_id" INTEGER REFERENCES "personas" ("id") ON DELETE SET NULL,'
+_USAGE_COLS_LEGACY = '"pipeline_id" INTEGER, "persona_id" INTEGER,'
+_USAGE_COLS_FK = '"pipeline_id" INTEGER REFERENCES "pipelines" ("id") ON DELETE SET NULL, "persona_id" INTEGER REFERENCES "personas" ("id") ON DELETE SET NULL,'
 
 
 def _existing_columns(database: pw.Database, table: str) -> set[str]:
@@ -70,7 +70,7 @@ def _rebuild(database: pw.Database, table: str, transform) -> bool:
     tmp = f"{table}__migration037"
     database.execute_sql(f'DROP TABLE IF EXISTS "{tmp}";')
     database.execute_sql(new_sql.replace(f'CREATE TABLE "{table}"', f'CREATE TABLE "{tmp}"', 1))
-    database.execute_sql(f'INSERT INTO "{tmp}" SELECT * FROM "{table}";')
+    database.execute_sql('INSERT INTO "{tmp}" SELECT * FROM "{table}";'.format(tmp=tmp, table=table))  # noqa: UP032  # nosec B608  # .format() pour une seule constante bandit (B608) ; identifiants internes figés, SQLite ne lie pas d'identifiants
     database.execute_sql(f'DROP TABLE "{table}";')
     database.execute_sql(f'ALTER TABLE "{tmp}" RENAME TO "{table}";')
     for index_sql in saved_indexes:
@@ -109,16 +109,16 @@ def _note_rollback_transform(sql: str) -> str:
 
 def _token_transform(sql: str) -> str:
     """Transforme les colonnes pipeline_id/persona_id en véritables FKs ON DELETE SET NULL."""
-    if 'REFERENCES "pipelines"' in sql or _TOKEN_COLS_LEGACY not in sql:
+    if 'REFERENCES "pipelines"' in sql or _USAGE_COLS_LEGACY not in sql:
         return sql
-    return sql.replace(_TOKEN_COLS_LEGACY, _TOKEN_COLS_FK)
+    return sql.replace(_USAGE_COLS_LEGACY, _USAGE_COLS_FK)
 
 
 def _token_rollback_transform(sql: str) -> str:
     """Restaure des simples colonnes INTEGER sur token_usage."""
-    if _TOKEN_COLS_FK not in sql:
+    if _USAGE_COLS_FK not in sql:
         return sql
-    return sql.replace(_TOKEN_COLS_FK, _TOKEN_COLS_LEGACY)
+    return sql.replace(_USAGE_COLS_FK, _USAGE_COLS_LEGACY)
 
 
 def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:

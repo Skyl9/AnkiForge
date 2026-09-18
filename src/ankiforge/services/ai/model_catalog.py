@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
+_LOOPBACK_WILDCARD = "0.0.0.0"  # nosec B104  # wildcard local reconnu par l'anti-SSRF (pas un bind serveur)
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", _LOOPBACK_WILDCARD})
 
 
 def _is_loopback_url(url: str) -> bool:

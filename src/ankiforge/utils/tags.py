@@ -59,8 +59,8 @@ def parse_note_tags(tags: str | list[str] | None) -> list[str]:
                     if s and s not in result:
                         result.append(s)
                 return result
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Parsing des tags JSON ignoré : %s", err)
 
     # Découpage par espaces si pas JSON ou échec
     result_tokens: list[str] = []

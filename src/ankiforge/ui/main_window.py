@@ -395,21 +395,21 @@ class MainWindow(QMainWindow):
             if hasattr(view_widget, "refresh_theme"):
                 try:
                     view_widget.refresh_theme(profile)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Refresh du thème d'une vue ignoré : %s", err)
         from ankiforge.ui.components.panels import IdePanel
 
         for panel in self.findChildren(IdePanel):
             if hasattr(panel, "refresh_theme"):
                 try:
                     panel.refresh_theme(profile)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Refresh du thème d'un panneau ignoré : %s", err)
         if hasattr(self, "_settings_window") and self._settings_window is not None and hasattr(self._settings_window, "refresh_theme"):
             try:
                 self._settings_window.refresh_theme(profile)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Refresh du thème de la fenêtre de réglages ignoré : %s", err)
         theme_id = getattr(profile, "theme_id", "") if profile else ""
         event_bus.publish(ThemeChangedEvent(theme_name=str(theme_id)))
 

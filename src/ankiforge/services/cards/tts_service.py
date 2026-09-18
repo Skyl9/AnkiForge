@@ -579,8 +579,9 @@ class SystemSpeechProvider(TTSProvider):
 
         elif sys_name == "Linux":
             wav_path = temp_dir / f"sys_{h}.wav"
+            wav_path_str = str(wav_path)
             if shutil.which("espeak-ng"):
-                subprocess.run(["espeak-ng", "-w", str(wav_path), text], check=True)  # nosec B603 B607  # argv liste fixe, texte passé en argument (jamais shell)
+                subprocess.run(["espeak-ng", "-w", wav_path_str, text], check=True)  # nosec B603 B607  # argv liste fixe, texte passé en argument (jamais shell)
                 if wav_path.exists():
                     data = wav_path.read_bytes()
                     wav_path.unlink()

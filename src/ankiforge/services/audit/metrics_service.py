@@ -404,8 +404,8 @@ class MetricsService:
             notes_count = NoteModel.select().count()
             cards_count = CardModel.select().count()
             decks_count = DeckModel.select().count()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Comptage des KPI ignoré : %s", err)
 
         return {
             "kpis": {

@@ -1,3 +1,4 @@
+import logging
 import typing
 from typing import Any
 
@@ -6,6 +7,8 @@ from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
+
+logger = logging.getLogger(__name__)
 
 
 class StyledLineEdit(QLineEdit):
@@ -405,8 +408,8 @@ class DBComboBox(StyledComboBox):
                     if self.itemData(i) == prev_data:
                         self.setCurrentIndex(i)
                         break
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Rechargement du modèle dans le combo ignoré : %s", err)
 
     def refresh_data(self) -> None:
         """Alias pour refresh_from_model."""

@@ -1091,8 +1091,8 @@ class StyleEngine(QObject):
             from ankiforge.database.models import SettingModel
 
             SettingModel.set_value(f"profiles/{profile_name}/theme_id", theme_id, category="appearance")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Sauvegarde du thème en BDD ignorée : %s", err)
 
         from ankiforge.utils.environment import get_app_qsettings
 
@@ -1107,8 +1107,8 @@ class StyleEngine(QObject):
             val = SettingModel.get_value(f"profiles/{profile_name}/theme_id")
             if val:
                 return str(val)
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Lecture du thème en BDD ignorée : %s", err)
 
         from ankiforge.utils.environment import get_app_qsettings
 

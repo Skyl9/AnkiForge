@@ -57,8 +57,8 @@ class AnkiForgeWebProfile:
         try:
             QWebEngineProfile.defaultProfile().clearHttpCache()
             logger.debug("Cache mémoire AnkiForgeWebProfile vidé")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Vidage du cache mémoire WebEngine ignoré : %s", err)
 
 
 class SafeWebEnginePage(QWebEnginePage):
@@ -185,8 +185,8 @@ class SafeWebEngineView(QWebEngineView):
             p = self.page()
             if p is not None:
                 p.runJavaScript("if (document.body) { document.body.innerHTML = ''; }")
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Réinitialisation du DOM ignorée : %s", err)
 
     def setHtmlSafe(self, html: str, base_url: QUrl | None = None) -> None:
         """Remplace setHtml pour vider l'historique et optimiser l'empreinte mémoire."""
@@ -209,8 +209,8 @@ class SafeWebEngineView(QWebEngineView):
         try:
             self.stop()
             self.history().clear()
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Nettoyage de la vue WebEngine ignoré : %s", err)
 
     def closeEvent(self, event: Any) -> None:
         self.cleanup()

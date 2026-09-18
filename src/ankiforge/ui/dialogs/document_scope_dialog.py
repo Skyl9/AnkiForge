@@ -89,8 +89,8 @@ class DocumentScopeDialog(QDialog):
         if getattr(doc, "id", None):
             try:
                 doc = DocumentModel.get_by_id(doc.id)
-            except Exception:
-                pass
+            except Exception as err:
+                logger.debug("Rechargement du document ignoré : %s", err)
         self.doc = doc
         self.initial_scope_str = initial_scope_str.strip()
         self.initial_scope_result = initial_scope_result

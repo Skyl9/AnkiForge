@@ -294,7 +294,9 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
                 raise FileNotFoundError(f"AnkiForge.app introuvable dans le DMG monté ({mount_dir}).")
 
             logger.info("Copie sécurisée de l'application vers %s via ditto", dest_app)
-            subprocess.run(["/usr/bin/ditto", str(source_app), str(dest_app)], check=True)  # nosec: B603
+            source_app_str = str(source_app)
+            dest_app_str = str(dest_app)
+            subprocess.run(["/usr/bin/ditto", source_app_str, dest_app_str], check=True)  # nosec: B603
 
             # Démontage propre
             subprocess.run(["/usr/bin/hdiutil", "detach", mount_dir, "-quiet"], check=False)  # nosec: B603
@@ -306,7 +308,7 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
 
             # Relance de l'application mise à jour
             logger.info("Lancement de la nouvelle version : %s", dest_app)
-            subprocess.Popen(["/usr/bin/open", "-a", str(dest_app)], start_new_session=True)  # nosec: B603
+            subprocess.Popen(["/usr/bin/open", "-a", dest_app_str], start_new_session=True)  # nosec: B603
             return True, "Mise à jour macOS effectuée. Redémarrage en cours..."
         except Exception as err:
             logger.exception("Échec de la mise à jour macOS : %s", err)
@@ -338,10 +340,12 @@ def apply_update_and_restart(update_file: Path) -> tuple[bool, str]:
 
                 logger.info("Remplacement atomique de l'AppImage : %s -> %s", validated_file, target_path)
                 os.replace(validated_file, target_path)
-                subprocess.Popen([str(target_path)], start_new_session=True)  # nosec: B603
+                target_path_str = str(target_path)
+                subprocess.Popen([target_path_str], start_new_session=True)  # nosec: B603
                 return True, "AppImage mise à jour. Redémarrage..."
             else:
-                subprocess.Popen([str(validated_file)], start_new_session=True)  # nosec: B603
+                validated_file_str = str(validated_file)
+                subprocess.Popen([validated_file_str], start_new_session=True)  # nosec: B603
                 return True, "Nouvelle AppImage démarrée."
         except Exception as err:
             logger.exception("Échec de la mise à jour Linux : %s", err)
