@@ -63,7 +63,7 @@ gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c 
 
 ## Key Files / Entry Points
 - `src/ankiforge/__main__.py` - app entry, env setup, profile selection, migrations, plugin loading
-- `src/ankiforge/database/models.py` - all Peewee models (30+ tables)
+- `src/ankiforge/database/models/` - modular Peewee models package (30 tables across ai, audit, cards, pipelines, rag, system)
 - `src/ankiforge/services/ai/orchestrator.py` - `PipelineOrchestrator` DAG engine
 - `src/ankiforge/services/ai/mcp_server.py` - in-process MCP server
 - `src/ankiforge/ui/main_window.py` - `MainWindow` (JetBrains-style detachable panels)

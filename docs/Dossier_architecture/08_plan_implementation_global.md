@@ -51,10 +51,12 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
   - **Quick Prompts & Filtre Personas :** Suggestions rapides en capsules arrondies et filtrage ciblé des personas de type `mcp` et `universal`.
 
 ## 7. Hub Documentaire (`documents_view.py`) & RAG Local
-* **État Actuel :** ✅ **Modale de Délimitation, Vectorisation FAISS & Recherche Sémantique.**
+* **État Actuel :** ✅ **Parsing Multimodal, Délimitation, Vectorisation FAISS & Recherche Sémantique.**
+  - **Support Multimodal Étendu :** Ingestion native de PDF, Word (`.docx`), PowerPoint (`.pptx`), sous-titres YouTube (API + fallback transcription audio `yt-dlp`), pages Web (pipeline avec rendu JS et détection de murs), Notebooks Jupyter (`.ipynb`) et scripts Python (`.py`).
   - **Modale de Délimitation Intelligente :** `DocumentDelimitationDialog` permettant de définir les bornes de pagination, de filtrer les sections utiles et d'exclure le bruit documentaire.
+  - **Sélection de Portée & Persistance Fine :** `DocumentScopeDialog` restaurant fidèlement la sélection précédente (`sections`, `selected_headings`, `selected_chunk_indices`) sans écrasement par le mode par défaut.
   - **Gestion Lazy Loading Marker OCR :** Détection de la présence de Marker dans l'environnement local avec boîte de confirmation et fallback transparent vers les parseurs standards.
-  - **Vectorisation Locale FAISS/ChromaDB & Statut Live :** Stockage matriciel local (`RAGService`, `VectorManager`), badge de statut (`🟢 Indexé FAISS (N chunks)` / `⏳ Non indexé`).
+  - **Vectorisation Locale FAISS/ChromaDB & Cache d'Embeddings :** Stockage matriciel local (`RAGService`, `VectorManager`), cache persistant d'embeddings (`EmbeddingCacheModel`) et badge de statut (`🟢 Indexé FAISS (N chunks)` / `⏳ Non indexé`).
   - **Boîte de Test Sémantique RAG :** `RAGTestDialog` pour interroger instantanément l'index FAISS local avec score de pertinence et localisation des fragments.
   - **Indicateurs de Couverture SRS & Forging :** Sommaire avec statut (`🟢 Couvert` / `⚠️ Non couvert`), jauge de couverture globale et bouton *⚡ Forger la section* raccordé directement à la vue Création.
 
@@ -77,4 +79,4 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
   - Profils indépendants sous `~/.ankiforge/profiles/<profile_name>/`.
   - Base SQLite et répertoire de médias isolés par profil.
   - Sélecteur de profil instantané dans l'interface (`profile_selector.py`).
-  - Suite globale de **146/146 tests** unitaires et UI au vert.
+  - Suite globale de **> 1120 tests** unitaires et UI au vert (1132 collectés).

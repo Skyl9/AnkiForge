@@ -4,7 +4,8 @@
 L'application adopte une stratégie **Agnostique et Local-First** pour protéger les données de l'utilisateur tout en garantissant des performances maximales.
 * **Le Pattern Adapter :** Le code d'AnkiForge n'est pas lié à un SDK propriétaire. Il utilise une couche d'abstraction unifiée (`flexible_service.py`, `gemini_service.py`) permettant d'interfacer n'importe quel modèle local ou cloud.
 * **Ollama (Local) :** Par défaut, pour des raisons de confidentialité et d'autonomie hors-ligne, l'application pointe vers un daemon local Ollama sur `localhost:11434`.
-* **Cloud APIs & Suivi des Coûts :** Prise en charge des clés API (OpenAI, Anthropic, Gemini). Chaque appel est tracé par `pricing_service.py` et historisé dans `TokenUsageModel` (tokens d'entrée/sortie, coût en USD, temps d'inférence).
+* **Cloud APIs & Suivi des Coûts :** Prise en charge des clés API (OpenAI, Anthropic, Gemini). Chaque appel est tracé par `pricing_service.py` et historisé dans `TokenUsageModel` (tokens d'entrée/sortie, coût en USD, temps d'inférence, contexte d'exécution `feature_context`).
+* **Politique de Résilience & Retry (`retry.py`) :** Gestion unifiée des erreurs transitoires (rate-limits 429, timeouts réseau, indisponibilité API) avec repli exponentiel (exponential backoff & jitter), préservant la robustesse du moteur DAG et des agents conversationnels sans bloquer le thread graphique.
 
 ## 2. Deux Paradigmes IA Complémentaires
 

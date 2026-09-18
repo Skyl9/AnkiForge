@@ -3,15 +3,40 @@
 ## 1. Modélisation de la Base de Données (Peewee)
 AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée pour l'analyse et la forge. La base SQLite locale gérée par `peewee` repose sur les piliers suivants :
 
-* **NoteTypeModel (Les Modèles de Cartes) :** Définit la structure HTML/CSS et les champs disponibles (Recto, Verso, Extra, etc.). C'est l'ADN de la carte.
-* **NoteModel (Le Contenu brut) :** Contient les textes, images et formules. Une note est agnostique de son emplacement (paquet).
-* **CardModel (Le Rendu) :** Représente l'instanciation physique d'une Note dans un paquet spécifique, avec son historique de révision.
-* **DeckModel & FolderModel :** L'arborescence des paquets et dossiers sources.
-* **MediaModel & NoteVersionMediaModel :** Stockage des chemins et hash des images/audios pour éviter les doublons lors des exports.
-* **NoteVersionModel :** Versionnement natif assurant un historique absolu des modifications de chaque note.
-* **DocumentModel, DocumentChunkModel & NoteChunkLinkModel :** Traçabilité source, fragmentation sémantique et ancrage des flashcards générées aux fragments documentaires.
-* **PersonaFolderModel, PersonaModel, PipelineModel, PipelineStepModel & PythonToolModel :** Moteur d'orchestration DAG, hiérarchie de personas et outils déterministes.
-* **LinterRuleModel & AuditRecordModel :** Règles d'audit Wozniak et règles personnalisées avec historisation des audits.
+* **Cartes, Notes & Médias (`models/cards.py`) :**
+  * `NoteTypeModel` : Définition des gabarits HTML/CSS et schémas de champs (Recto, Verso, Extra).
+  * `NoteModel` : Contenu textuel et multimédia agnostique du paquet de destination.
+  * `CardModel` : Instanciation physique d'une note dans un paquet avec état d'apprentissage.
+  * `DeckModel` : Arborescence hiérarchique des paquets Anki.
+  * `MediaModel` & `NoteVersionMediaModel` : Gestion dédupliquée des médias par checksum SHA-256.
+  * `NoteVersionModel` : Historique Time Machine des modifications de chaque note.
+* **Documents & RAG Local (`models/rag.py`) :**
+  * `FolderModel` : Organisation arborescente des documents sources.
+  * `DocumentModel` : Métadonnées du document source et chemin de l'index vectoriel.
+  * `DocumentPageModel` : Pagination et métadonnées par page (numérotation, titres).
+  * `DocumentChunkModel` : Découpage sémantique avec préservation du chemin de titres (`heading_path`).
+  * `NoteChunkLinkModel` : Ancrage déterministe entre notes générées et fragments documentaires.
+  * `EmbeddingCacheModel` : Cache persistant des vecteurs d'embeddings par hash de contenu pour éviter les recalculs.
+* **Intelligence Artificielle & Personas (`models/ai.py`) :**
+  * `PersonaFolderModel` : Arborescence récursive de répertoires d'agents pédagogiques.
+  * `PersonaModel` : Profils spécialisés (`⚡ Pipeline`, `🤝 MCP`, `🌐 Universel`) avec prompts Jinja2 et permissions.
+  * `PersonaVersionModel` : Versionnement et rollback des prompts et hyperparamètres des personas.
+  * `PromptModel` : Bibliothèque de prompts modulaires réutilisables.
+  * `LLMConfigModel` : Configurations d'inférence (fournisseur, température, context window).
+  * `TokenUsageModel` : Télémétrie granulaire des jetons, temps d'inférence, coûts USD et contexte d'exécution.
+  * `ConsultantSessionModel` & `ConsultantMessageModel` : Sessions conversationnelles interactives avec le consultant MCP.
+* **Moteur d'Orchestration DAG (`models/pipelines.py`) :**
+  * `PipelineModel` : Définition des graphes de génération et d'audit.
+  * `PipelineStepModel` : Étapes typées (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`) et branchements.
+  * `PythonToolModel` : Outils déterministes et scripts Python persistés en sandbox.
+* **Audit Wozniak & Linter (`models/audit.py`) :**
+  * `LinterRuleModel` : Règles de formulation (20 règles de Wozniak + règles métier catégorisées).
+  * `AuditRecordModel` : Historique et traçabilité des anomalies détectées sur les cartes.
+  * `IgnoredDuplicateModel` : Faux positifs et paires de doublons expressément ignorés par l'utilisateur.
+* **Système, Tâches & Cache (`models/system.py`) :**
+  * `SettingModel` : Préférences et clés de configuration applicative persistées.
+  * `JobModel` : Suivi d'avancement des tâches asynchrones en arrière-plan (`QThreadPool`).
+  * `AICacheModel` : Cache déterministe clé/valeur des complétions LLM pour limiter les coûts API.
 
 ```mermaid
 classDiagram

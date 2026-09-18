@@ -54,7 +54,20 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 ## 3. Boîtes de Dialogue Métier (`src/ankiforge/ui/dialogs/`)
 
 * **Validation Humaine Copilote (`human_validation_dialog.py`) :** Modale interactive pour les étapes DAG `HUMAN_VALIDATION` (consultation de l'état, ajustement du plan, injection de variables, reprise fluide).
+* **Délimitation & Portée Documentaire :**
+  * `document_delimitation_dialog.py` : Délimitation interactive des bornes de pagination et filtrage des sections.
+  * `document_scope_dialog.py` : Sélection modale de portée documentaire avec persistance fine (`sections`, `selected_headings`, `selected_chunk_indices`) entre runs successifs.
 * **Éditeur d'Outils Python (`tool_editor_dialog.py`) :** IDE intégré pour écrire, sauvegarder et tester des scripts Python déterministes.
+* **Simulateurs & Tests IA :**
+  * `agent_test_dialog.py` : Simulateur interactif de personas avec injection de variables dynamiques.
+  * `prompt_preview_dialog.py` : Prévisualisation du rendu interpolé des templates Jinja2.
+  * `rag_test_dialog.py` : Banc de test sémantique vectoriel FAISS/ChromaDB avec scores de similarité.
+* **Résolution & Conflits :**
+  * `duplicate_resolver_dialog.py` : Modale de comparaison et arbitrage fin des doublons détectés.
+  * `css_conflict_dialog.py` : Boîte de résolution des collisions CSS entre modèles de cartes.
+* **Imports & Extensions :**
+  * `url_import_dialog.py` : Ingestion de pages Web et de vidéos YouTube avec parsing JS et sous-titres.
+  * `addon_manager_dialog.py` : Gestionnaire des addons et extensions modulaires.
 * **Historique & Sélections (`history_modal.py`, `selection_dialog.py`) :** Dialogues réutilisables pour la sélection et l'inspection de journaux d'actions.
 
 ---
