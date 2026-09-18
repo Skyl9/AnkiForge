@@ -178,7 +178,7 @@ jobs:
         run: uv sync --frozen --dev
 
       - name: Audit Dependencies for Known CVEs
-        run: uv run --with pip-audit pip-audit --local --skip-editable || true
+        run: uv run --with pip-audit pip-audit --local --skip-editable
 
   # ── 4. Multi-OS Parallel Test Matrix ──
   test:

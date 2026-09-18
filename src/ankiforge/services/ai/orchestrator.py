@@ -630,6 +630,10 @@ class PipelineOrchestrator(QRunnable):
                 except Exception as e:
                     logger.error("Erreur sur l'élément %d en Map-Reduce: %s", idx, e)
 
+        if self._is_cancelled:
+            logger.info("[Orchestrateur DAG] Map-Reduce annulé par l'utilisateur, état partiel non consolidé.")
+            return
+
         # Recomposer les résultats dans l'ordre
         for i in range(total_items):
             if i in ordered_results:

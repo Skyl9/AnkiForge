@@ -171,6 +171,24 @@ class FTSService:
             return False
 
     @classmethod
+    def delete_notes(cls, note_ids: list[int], database: Database | None = None) -> bool:
+        """Supprime un ensemble de notes de l'index FTS5 en une seule requête."""
+        if not note_ids:
+            return True
+        target_db = _get_target_db(database)
+        if not cls.is_available(target_db):
+            return False
+
+        try:
+            placeholders = ", ".join("?" for _ in note_ids)
+            with target_db.atomic():
+                target_db.execute_sql(f"DELETE FROM note_fts WHERE note_id IN ({placeholders});", tuple(note_ids))  # nosec B608
+            return True
+        except Exception as e:
+            logger.error("Erreur lors de la suppression FTS5 groupée: %s", e)
+            return False
+
+    @classmethod
     def search(
         cls,
         query: str,

@@ -145,7 +145,7 @@ def search_document(query: str, document_id: int) -> str:
 
     except Exception as e:
         logger.error("Erreur lors de la recherche RAG dans le serveur MCP : %s", e)
-        return f"Erreur lors de la recherche vectorielle : {e}"
+        return "Erreur lors de la recherche vectorielle : impossible de traiter la requête."
 
 
 # =====================================================================
@@ -365,7 +365,7 @@ def create_or_update_mcp_agent(
         return f"Succès : L'agent dédié '{agent.name}' a été {action_str} avec succès (portée: {agent.persona_type})."
     except Exception as e:
         logger.error("Erreur create_or_update_mcp_agent : %s", e)
-        return f"Erreur lors de l'enregistrement de l'agent : {e}"
+        return "Erreur lors de l'enregistrement de l'agent : échec du traitement des paramètres."
 
 
 @mcp.resource("agents://list")

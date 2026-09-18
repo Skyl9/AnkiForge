@@ -5,7 +5,7 @@ import logging
 from typing import Any, Literal
 
 import peewee
-from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
+from PySide6.QtCore import QModelIndex, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -132,6 +132,11 @@ class EditionView(QWidget):
 
         self._all_notes: list[NoteModel] = []
         self._displayed_count: int = 0
+
+        self._preview_debounce_timer = QTimer(self)
+        self._preview_debounce_timer.setSingleShot(True)
+        self._preview_debounce_timer.setInterval(250)
+        self._preview_debounce_timer.timeout.connect(self._update_preview)
 
         self._setup_ui()
         self._setup_shortcuts()
@@ -879,7 +884,7 @@ class EditionView(QWidget):
                 break
 
         self._dirty = is_modified
-        self._update_preview()
+        self._preview_debounce_timer.start()
         self._update_nav_ribbon_info()
 
     def _on_table_row_changed(self, current: QModelIndex, previous: QModelIndex) -> None:

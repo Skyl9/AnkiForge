@@ -80,8 +80,8 @@ def _db_log_token_usage(
     """Fonction interne qui écrit réellement dans la BDD (strictement sur le Main Thread)."""
     cost = 0.0
 
-    # On cherche la config du modèle pour obtenir les tarifs dynamiques
-    config = LLMConfigModel.get_or_none(LLMConfigModel.model_id == model_id)
+    # On cherche la config du modèle pour obtenir les tarifs dynamiques de manière déterministe
+    config = LLMConfigModel.select().where(LLMConfigModel.model_id == model_id).order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()).first()
     if config:
         cost = 0.0 if getattr(config, "is_free", False) else prompt_tokens / 1000000 * config.prompt_pricing + completion_tokens / 1000000 * config.completion_pricing
 

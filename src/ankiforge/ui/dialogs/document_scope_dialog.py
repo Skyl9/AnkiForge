@@ -967,7 +967,7 @@ class DocumentScopeDialog(QDialog):
         # 5. Pied de page & validation
         footer = QHBoxLayout()
         self.lbl_footer_summary = QLabel("")
-        self.lbl_footer_summary.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px;")
+        self.lbl_footer_summary.setTextFormat(Qt.TextFormat.RichText)
         footer.addWidget(self.lbl_footer_summary)
         self.lbl_context_tokens = QLabel("")
         self.lbl_context_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px;")
@@ -1945,7 +1945,20 @@ class DocumentScopeDialog(QDialog):
 
         approx_cards = max(1, total_words // 180) if total_words > 0 else 0
         self.lbl_selection_kpi.setText(f"{checked_count}/{total} sélectionné(s)")
-        self.lbl_footer_summary.setText(f"Portée : {checked_count} fragment(s) • ~{total_tokens:,} tokens • ~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+        capsule_base = (
+            f"background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 7px; color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px;"
+        )
+        capsule_accent = (
+            f"background-color: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; "
+            f"border-radius: 4px; padding: 2px 7px; color: {DesignTokens.ACCENT_PRIMARY}; font-size: 11px; font-weight: bold;"
+        )
+        summary_html = (
+            f"<span style='{capsule_base}'>🔤 <b>{checked_count}</b> fragment(s)</span> &nbsp;"
+            f"<span style='{capsule_base}'>📝 ~<b>{total_words:,}</b> mots</span> &nbsp;"
+            f"<span style='{capsule_base}'>🤖 ~<b>{total_tokens:,}</b> tokens</span> &nbsp;"
+            f"<span style='{capsule_accent}'>🎴 ~<b>{approx_cards}</b> carte(s)</span>"
+        ).replace(",", " ")
+        self.lbl_footer_summary.setText(summary_html)
         self._update_context_progress(total_tokens)
 
         # Mise à jour des KPIs du Mode All

@@ -392,6 +392,21 @@ class AIWozniakLinterTab(QWidget):
         categories_dict: dict[str, dict[str, Any]] = {cat_id: {"score": 100, "items": []} for cat_id in self.kpi_cards}
         rules_map = {r.name.lower(): r for r in LinterRuleModel.select()}
 
+        # Préchargement groupé pour éliminer les requêtes N+1 sur le thread principal
+        candidate_nids = [res["note_id"] for res in results if isinstance(res, dict) and not (res.get("pass") or res.get("pass_")) and res.get("note_id")]
+        notes_map: dict[int, NoteModel] = {n.id: n for n in NoteModel.select().where(NoteModel.id.in_(candidate_nids))} if candidate_nids else {}
+        versions_map: dict[int, NoteVersionModel] = (
+            {
+                v.note_id: v
+                for v in NoteVersionModel.select().where(
+                    NoteVersionModel.note.in_(candidate_nids),
+                    NoteVersionModel.is_active == True,  # noqa: E712
+                )
+            }
+            if candidate_nids
+            else {}
+        )
+
         for res in results:
             if res.get("pass") or res.get("pass_"):
                 continue
@@ -400,11 +415,11 @@ class AIWozniakLinterTab(QWidget):
             if not nid:
                 continue
 
-            note = NoteModel.get_or_none(NoteModel.id == nid)
+            note = notes_map.get(nid)
             if not note:
                 continue
 
-            active_ver = NoteVersionModel.get_or_none(NoteVersionModel.note == note, NoteVersionModel.is_active == True)  # noqa: E712
+            active_ver = versions_map.get(nid)
             if not active_ver:
                 continue
 

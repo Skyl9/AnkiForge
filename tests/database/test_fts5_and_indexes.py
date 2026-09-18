@@ -306,3 +306,33 @@ def test_migration_030_and_perf_indexes(mock_db: SqliteDatabase):
 
     # Ré-appliquer pour laisser la base propre
     mig_module.migrate(migrator, mock_db, fake=False)
+
+
+def test_fts_bulk_deletion_via_store_manager(mock_db: SqliteDatabase) -> None:
+    """Vérifie que StoreManager.delete_notes synchronise l'index FTS5."""
+    from ankiforge.services.cards.store_manager import StoreManager
+
+    deck = DeckModel.create(name="FTS Bulk Deck")
+    nt = NoteTypeModel.create(name="FTS Bulk Type", fields_schema="[]", templates="[]", css_style="")
+    repo = NoteRepository()
+
+    note1 = repo.create_note(
+        note_type=nt,
+        deck=deck,
+        fields_data={"Front": "Quantum Computing", "Back": "Qubits and superposition"},
+    )
+    note2 = repo.create_note(
+        note_type=nt,
+        deck=deck,
+        fields_data={"Front": "Quantum Entanglement", "Back": "Spooky action at a distance"},
+    )
+
+    # Doit matcher
+    assert len(FTSService.search("quantum")) == 2
+
+    # Suppression groupée via StoreManager
+    store_mgr = StoreManager()
+    store_mgr.delete_notes([note1.id, note2.id])
+
+    # Vérification que FTS5 est bien purgé
+    assert len(FTSService.search("quantum")) == 0

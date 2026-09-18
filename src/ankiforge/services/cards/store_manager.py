@@ -68,8 +68,16 @@ class StoreManager:
         logger.info("Approbation de %d notes (statut basculé à 'new').", len(note_ids))
 
     def delete_notes(self, note_ids: list[int]) -> None:
-        """Supprime une liste de notes de la base de données."""
+        """Supprime une liste de notes de la base de données et de l'index FTS5."""
+        if not note_ids:
+            return
         with db.atomic():
+            try:
+                from ankiforge.services.search.fts_service import FTSService
+
+                FTSService.delete_notes(note_ids)
+            except Exception as e:
+                logger.debug("Remarque suppression FTS5 dans delete_notes : %s", e)
             NoteModel.delete().where(NoteModel.id.in_(note_ids)).execute()
         logger.info("Suppression définitive de %d notes en base de données.", len(note_ids))
 

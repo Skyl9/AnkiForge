@@ -241,7 +241,10 @@ class SectionRowWidget(QWidget):
             layout.addWidget(h_badge)
         elif level >= 3:
             h_badge = QLabel(f"H{level}")
-            h_badge.setStyleSheet("background-color: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 4px; padding: 1px 5px; font-size: 10px;")
+            h_badge.setStyleSheet(
+                f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_SECONDARY}; border: 1px solid {DesignTokens.BORDER_COLOR};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px;"
+            )
             layout.addWidget(h_badge)
 
         # Titre avec plage de pages facultative (uniquement pour documents paginés)
@@ -261,8 +264,8 @@ class SectionRowWidget(QWidget):
         title_lbl.setToolTip(full_tooltip)
         layout.addWidget(title_lbl, 1)
 
-        # Badge Volume de mots (compact)
-        if word_count < 25 and not is_noise:
+        # Badge Volume de mots (compact) — avertissement jaune uniquement pour les feuilles
+        if word_count < 25 and not is_noise and is_leaf:
             word_badge = QLabel(f"{word_count} mots")
             word_badge.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 10px; font-weight: 500; border: none; background: transparent;")
         else:
