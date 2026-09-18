@@ -17,7 +17,7 @@ uv run ankiforge --smoke-test   # binary integrity check
 uv run ankiforge --clone-prod-to-dev
 
 # Tests
-uv run pytest                   # all 146+ tests (headless Qt via pytest-qt)
+uv run pytest                   # all 1132+ tests (headless Qt via pytest-qt)
 uv run pytest -k "not slow"     # fast unit tests only (pre-push)
 uv run pytest tests/path/test_file.py::TestClass::test_method
 
@@ -26,6 +26,9 @@ uv run ruff check --fix .
 uv run ruff format --check .
 uv run mypy src/ankiforge       # strict 100% typing required
 uv run bandit -c pyproject.toml -r src/
+
+# Skills audit & consistency check
+uv run python .agents/skills/amelioration-skills/scripts/auditer_coherence_skills.py
 
 # Documentation
 uv run zensical serve           # live at http://127.0.0.1:8000
@@ -79,7 +82,29 @@ gcc -shared -o c_ext/levenshtein_distance.so -fPIC c_ext/levenshtein_distance.c 
 - `ANKIFORGE_ENV=testing` set during pytest
 - `--dev`/`--prod` CLI flags override environment
 
+## Agent Skills Catalog (`.agents/skills/`)
+Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
+- **Meta & Maintenance**:
+  - `amelioration-skills`: Meta-skill to audit, optimize, and synchronize all skills + `GEMINI.md` + `AGENTS.md`
+  - `mise-a-jour-metadonnees`: Metadata and documentation synchronizer across 15 project files
+  - `audit-ankiforge`: Global architecture and compliance auditor against `GEMINI.md` rules
+- **Architecture & Foundation**:
+  - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
+  - `ui-screenshot`: Offscreen/headless Qt view capture and visual inspection
+- **Specialized Audits** (targeted, non-blocking):
+  - `audit-dependances`: Supply chain, licenses, outdated packages, `pip-audit`
+  - `audit-design-ui`: Design system token adherence, WCAG accessibility, hardcoded colors
+  - `audit-donnees`: Referential integrity, cascade deletes, orphaned records
+  - `audit-ia-pipeline`: DAG engine, MCP tool safety, JSON parsing robustness, token costs
+  - `audit-performance`: Qt GUI responsiveness, background worker offloading, query benchmarks
+  - `audit-qualite-code`: Strict typing (`mypy`), linting (`ruff`), dead code, no `print()`
+  - `audit-securite`: Bandit scans, secret redaction, SSRF, sandbox safety
+  - `audit-tests-ci`: Test mocking discipline, headless constraints, CI workflows
+
 ## Documentation References
 - `GEMINI.md` - agentic system prompt, core engineering rules
+- `AGENTS.md` - quick reference guide and developer cheat-sheet
+- `.github/copilot-instructions.md` - GitHub Copilot rules and reference contracts
+- `.agents/skills/` - directory of 13 agent skills with progressive disclosure
 - `docs/Dossier_architecture/` - 9 architecture docs (data model, UI inventory, DAG engine, quality/deploy)
 - `DESIGN.md` - design system, semantic tokens, 12 themes, 4 layouts; all new widgets must be documented here

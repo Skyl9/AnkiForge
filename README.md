@@ -219,6 +219,8 @@ Vous pouvez également consulter directement les guides et documentations détai
   * [Tests Automatisés & CI/CD](docs/dev/tests_et_cicd.md)
   * [Compilation Binaire Nuitka](docs/dev/compilation_nuitka.md)
   * [GEMINI.md](GEMINI.md) : Directives agentiques et règles fondamentales.
+  * [AGENTS.md](AGENTS.md) : Aide-mémoire commandes, architecture et contraintes de test.
+  * [Skills Agentiques](.agents/skills/) : Catalogue des 13 compétences et audits spécialisés.
 
 ---
 
@@ -429,6 +431,8 @@ uv run zensical build
 ### 3. Source reference documents
 You can also browse the source Markdown files in:
 * [GEMINI.md](GEMINI.md) : Agentic system prompt and core engineering rules.
+* [AGENTS.md](AGENTS.md) : Developer and AI agent quick reference guide.
+* [Agent Skills](.agents/skills/) : Catalog of 13 specialized agent skills and audits.
 * [`docs/Dossier_architecture/`](docs/Dossier_architecture/) :
   * [01_vision_et_cas_d_usage.md](docs/Dossier_architecture/01_vision_et_cas_d_usage.md) : Product vision and adaptive UX.
   * [02_architecture_technique.md](docs/Dossier_architecture/02_architecture_technique.md) : Technical stack and dependency strategy.

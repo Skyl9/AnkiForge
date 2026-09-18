@@ -1,6 +1,9 @@
 ---
 name: audit-ankiforge
-description: Analyse le code source d'AnkiForge pour vérifier sa conformité avec les règles d'architecture et de code de GEMINI.md, puis génère un rapport d'audit structuré.
+description: >
+  Analyse le code source d'AnkiForge pour vérifier sa conformité avec les règles d'architecture et de code de GEMINI.md,
+  puis génère un rapport d'audit structuré. Use when the user asks to "audit ankiforge", "auditer l'architecture",
+  "audit global", "audit conformité", "vérifier conformité GEMINI.md", or runs an overarching architectural review.
 ---
 
 # Instructions

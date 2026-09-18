@@ -206,6 +206,8 @@ Read only the documents relevant to the change, but treat these as the
 authoritative project references:
 
 - `GEMINI.md`: agent workflow and repository-wide architecture rules.
+- `AGENTS.md`: developer and AI agent quick reference guide, CLI commands, and test conventions.
+- `.agents/skills/`: project agent skills catalog (audits, Peewee, UI inspection, metadata sync, and skill optimization).
 - `DESIGN.md`: UI tokens, themes, layouts, and component registration.
 - `docs/Dossier_architecture/`: architecture, data model, AI services,
   orchestration, UI inventory, and deployment standards.

@@ -14,9 +14,15 @@ Les tests sont séparés en trois strates distinctes :
 * **Tests d'Interface (PySide6) :** Utilisation de l'extension `pytest-qt`. Elle permet de faire des tests "Headless" (sans afficher la fenêtre à l'écran) pour simuler des clics sur des boutons et vérifier que les bons signaux Qt sont émis.
 * **Évaluation de l'IA (Evals) :** Un sous-dossier de tests métier (ex: un dataset de 50 cartes Anki volontairement "malades"). Un script vérifie périodiquement que le "Linter Wozniak" généré par le LLM corrige bien ces cartes de manière pertinente.
 
-## 3. Revue Continue Agentique (Audit AnkiForge)
-C'est une exclusivité du projet. L'application possède un script IA (`.agents/skills/audit-ankiforge/SKILL.md`) qui vérifie continuellement si le code écrit respecte le document `GEMINI.md` et le présent `Dossier_architecture`.
-* *Workflow :* Avant une grosse PR (Pull Request), on invoque l'Agent Auditeur qui relit l'architecture et lève des alertes (ex: "Attention, tu as utilisé un appel synchrone bloquant dans la vue Analysis").
+## 3. Revue Continue Agentique & Arsenal de Skills (`.agents/skills/`)
+C'est une exclusivité du projet. L'application dispose d'un catalogue structuré de compétences agentiques spécialisées (`.agents/skills/`) opérant selon le principe de divulgation progressive (Progressive Disclosure) :
+* **Gouvernance & Méta-outils :**
+  * `amelioration-skills` : Méta-skill d'audit, de scoring de maturité et de synchronisation globale (`GEMINI.md`, `AGENTS.md`, Copilot).
+  * `mise-a-jour-metadonnees` : Maintien en cohérence de l'ensemble des 15 fichiers de documentation et d'architecture.
+  * `audit-ankiforge` : Audit global de conformité aux 20 règles d'ingénierie de `GEMINI.md`.
+* **Audits Techniques Spécialisés :** Huit auditeurs chirurgicaux ciblant les dépendances (`audit-dependances`), le design system (`audit-design-ui`), l'intégrité BDD (`audit-donnees`), le moteur DAG/MCP (`audit-ia-pipeline`), la réactivité Qt (`audit-performance`), la qualité du code (`audit-qualite-code`), la sécurité (`audit-securite`), et la rigueur des tests (`audit-tests-ci`).
+* **Expertises Métier :** Conception Peewee avancée (`peewee-expert`) et inspection visuelle headless (`ui-screenshot`).
+* *Workflow :* Avant toute PR ou merge majeur, les agents d'audit sont invoqués pour vérifier l'absence de régression architecturale (ex: appel bloquant sur le thread GUI, N+1 SQL, ou violation du typage strict).
 
 ## 4. Intégration et Déploiement Continu (CI/CD via GitHub Actions)
 L'usine logicielle garantit que ce qui marche sur la machine du développeur marchera chez l'utilisateur.

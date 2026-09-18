@@ -302,7 +302,7 @@ class AnthropicProvider(LLMProvider):
         payload["max_tokens"] = effective_max
 
         def _post_message() -> requests.Response:
-            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=60)
+            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=_DEFAULT_TIMEOUT_SECONDS)
             if is_retryable_status(resp.status_code):
                 raise requests.HTTPError(f"HTTP {resp.status_code}", response=resp)
             resp.raise_for_status()

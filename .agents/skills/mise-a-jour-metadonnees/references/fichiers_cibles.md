@@ -42,7 +42,8 @@ grep -cE "^\d+\. \*\*" GEMINI.md
 - `## Key Files / Entry Points` — fichiers clés `src/ankiforge/`
 - `## CI/CD Pipeline` — jobs GitHub Actions
 - `## Environment Variables` — `.env`, flags CLI
-- `## Documentation References` — liens vers GEMINI.md, DESIGN.md, docs/
+- `## Agent Skills Catalog (.agents/skills/)` — catalogue des 13 compétences spécialisées
+- `## Documentation References` — liens vers GEMINI.md, AGENTS.md, copilot-instructions, skills, DESIGN.md, docs/
 
 **Détection de désync :**
 ```bash
@@ -165,17 +166,17 @@ grep -rInE "^class \w+Model\(BaseModel\)" src/ankiforge/database/ --include="*.p
 ## 7. `.agents/skills/*.md`
 
 **Règles de cohérence :**
-- Tout nouveau fichier `SKILL.md` dans `.agents/skills/` doit être référencé dans `GEMINI.md`.
+- Tout nouveau fichier `SKILL.md` dans `.agents/skills/` doit être référencé dans `GEMINI.md` ET dans `AGENTS.md`.
 - Le `name` dans le frontmatter YAML doit correspondre au nom du dossier (kebab-case).
+- La `description` doit comporter des déclencheurs explicites (`Use when the user asks to...`).
 - Chaque skill doit avoir une section `## ⛔ Ne PAS utiliser ce skill si...`.
+- `.github/copilot-instructions.md` doit référencer `.agents/skills/` et `AGENTS.md`.
 
 **Détection de désync :**
 ```bash
-# Skills non référencés dans GEMINI.md
-for skill_dir in .agents/skills/*/; do
-  name=$(basename "$skill_dir")
-  grep -q "$name" GEMINI.md || echo "⚠️ Skill '$name' non référencé dans GEMINI.md"
-done
+# Vérification globale automatisée de l'ensemble du parc de skills et des fichiers de référence
+uv run python .agents/skills/amelioration-skills/scripts/auditer_coherence_skills.py
+```
 
 # Vérification frontmatter YAML de chaque skill
 for skill in .agents/skills/*/SKILL.md; do
