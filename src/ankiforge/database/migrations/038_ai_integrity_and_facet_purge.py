@@ -79,7 +79,7 @@ def _rebuild(database: pw.Database, table: str, transform, *, insert_columns: li
     if insert_columns and insert_values:
         dst = ", ".join(f'"{col}"' for col in insert_columns)
         src = ", ".join(insert_values)
-        database.execute_sql(f'INSERT INTO "{tmp}" ({dst}) SELECT {src} FROM "{table}";')
+        database.execute_sql(f'INSERT INTO "{tmp}" ({dst}) SELECT {src} FROM "{table}";')  # nosec B608  # identifiants internes figés
     else:
         database.execute_sql('INSERT INTO "{tmp}" SELECT * FROM "{table}";'.format(tmp=tmp, table=table))  # noqa: UP032  # nosec B608  # identifiants internes figés
     database.execute_sql(f'DROP TABLE "{table}";')
