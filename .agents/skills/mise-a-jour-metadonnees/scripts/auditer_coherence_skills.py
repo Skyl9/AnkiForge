@@ -3,11 +3,12 @@
 
 Vérifie :
 1. La structure et le frontmatter YAML de chaque skill dans .agents/skills/*/SKILL.md
-2. La synchronisation bidirectionnelle avec GEMINI.md
-3. La synchronisation avec AGENTS.md
-4. La synchronisation avec .github/copilot-instructions.md
-5. La validité des références de skills dans .agents/profiles/*.yaml
-6. Les risques de collision de triggers ou de descriptions manquantes
+   (kebab-case, description avec déclencheurs, section d'exclusion, taille <= 150 lignes)
+2. La synchronisation bidirectionnelle avec GEMINI.md et AGENTS.md
+3. La synchronisation avec .github/copilot-instructions.md
+4. La validité des références de skills dans .agents/profiles/*.yaml
+5. L'existence des fichiers référencés (references/, scripts/) et l'absence de print()
+6. Les risques de collision de triggers entre descriptions de skills
 """
 
 from __future__ import annotations
@@ -19,13 +20,67 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 def _print(msg: str = "") -> None:
     """Sortie console propre sans enfreindre la règle T20 (print())."""
     sys.stdout.write(f"{msg}\n")
 
 
-def parse_frontmatter(content: str) -> dict[str, str] | None:
+KEBAB_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+MAX_SKILL_LINES = 150
+TRIGGER_KEYWORDS = ["use when", "activer", "activat", "invoqu", "lorsque", "demande"]
+REFERENCED_FILE_RE = re.compile(r"(?:references/[A-Za-z0-9_./-]+\.md|scripts/[A-Za-z0-9_./-]+\.py)")
+PROFILE_LINK_RE = re.compile(r"(?m)^\s*-\s*[\"']?(\.agents/skills/[^\"'\n]+)[\"']?")
+STOPWORDS = {
+    "skill",
+    "skills",
+    "user",
+    "asks",
+    "when",
+    "with",
+    "pour",
+    "dans",
+    "avec",
+    "les",
+    "des",
+    "aux",
+    "une",
+    "qui",
+    "use",
+    "the",
+    "and",
+    "that",
+    "this",
+    "from",
+    "audit",
+    "audits",
+    "auditer",
+    "rapport",
+    "report",
+    "produce",
+    "produit",
+    "produire",
+    "lorsque",
+    "demande",
+}
+
+
+def _description_tokens(description: str) -> set[str]:
+    """Extrait les mots significatifs d'une description pour détecter les collisions."""
+    words = re.findall(r"[a-zà-ÿ0-9]{4,}", description.lower())
+    return {w for w in words if w not in STOPWORDS}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    inter = len(a & b)
+    return inter / len(a | b) if inter else 0.0
+
+
+def _parse_frontmatter(content: str) -> dict[str, str] | None:
     """Extrait et parse le frontmatter YAML d'un fichier markdown."""
     match = re.match(r"^---\r?\n(.*?)\r?\n---\r?\n", content, re.DOTALL)
     if not match:
@@ -33,13 +88,11 @@ def parse_frontmatter(content: str) -> dict[str, str] | None:
 
     raw_yaml = match.group(1)
     try:
-        import yaml
-
         data = yaml.safe_load(raw_yaml)
-        if isinstance(data, dict):
+        if isinstance(data, dict) and "name" in data and "description" in data:
             return {
-                "name": str(data.get("name", "")).strip(),
-                "description": str(data.get("description", "")).strip(),
+                "name": str(data["name"]).strip(),
+                "description": str(data["description"]).strip(),
             }
     except Exception:
         pass
@@ -48,15 +101,18 @@ def parse_frontmatter(content: str) -> dict[str, str] | None:
     name_match = re.search(r"^name:\s*(.+)$", raw_yaml, re.MULTILINE)
     if name_match:
         metadata["name"] = name_match.group(1).strip().strip("'\"")
+    else:
+        return None
 
     desc_match = re.search(r"^description:\s*(?:>|\|)?\s*\n?((?:(?:\s{2,}|\t).*|\s*\n)*)", raw_yaml, re.MULTILINE)
     if desc_match and desc_match.group(1).strip():
-        lines = [line.strip() for line in desc_match.group(1).splitlines() if line.strip()]
-        metadata["description"] = " ".join(lines)
+        metadata["description"] = " ".join(line.strip() for line in desc_match.group(1).splitlines() if line.strip())
     else:
         single_desc = re.search(r"^description:\s*(.+)$", raw_yaml, re.MULTILINE)
         if single_desc:
             metadata["description"] = single_desc.group(1).strip().strip("'\"")
+        else:
+            return None
 
     return metadata
 
@@ -71,7 +127,7 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
         "warnings": [],
         "references": {
             "gemini_md": {"present": False, "missing_skills": [], "extra_skills": []},
-            "agents_md": {"present": False, "skills_referenced": False},
+            "agents_md": {"present": False, "skills_referenced": False, "missing_skills": []},
             "copilot_instructions": {"present": False, "skills_referenced": False},
             "profiles": {"valid": True, "broken_links": []},
         },
@@ -85,6 +141,7 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
 
     # 1. Analyse de chaque skill
     skill_names: set[str] = set()
+    descriptions: dict[str, str] = {}
     for skill_path in sorted(skills_dir.iterdir()):
         if not skill_path.is_dir():
             continue
@@ -96,10 +153,13 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
         skill_info: dict[str, Any] = {
             "path": str(skill_file.relative_to(repo_root)),
             "exists": skill_file.exists(),
+            "name_is_kebab_case": bool(KEBAB_RE.fullmatch(skill_name)),
             "valid_frontmatter": False,
             "has_description": False,
             "has_triggers": False,
             "has_negative_triggers": False,
+            "line_count": 0,
+            "missing_references": [],
             "subfolders": [p.name for p in skill_path.iterdir() if p.is_dir()],
             "issues": [],
         }
@@ -111,7 +171,17 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
             continue
 
         content = skill_file.read_text(encoding="utf-8")
-        frontmatter = parse_frontmatter(content)
+        skill_info["line_count"] = len(content.splitlines())
+        if skill_info["line_count"] > MAX_SKILL_LINES:
+            warning = f"Skill '{skill_name}' : SKILL.md fait {skill_info['line_count']} lignes (limite {MAX_SKILL_LINES})."
+            skill_info["issues"].append(warning)
+            results["warnings"].append(warning + " Pensez à déporter le contenu dans references/ ou scripts/.")
+
+        if not skill_info["name_is_kebab_case"]:
+            skill_info["issues"].append("Nom de dossier non kebab-case (a-z0-9-).")
+            results["errors"].append(f"Skill '{skill_name}' : nom de dossier non kebab-case.")
+
+        frontmatter = _parse_frontmatter(content)
 
         if not frontmatter or "name" not in frontmatter:
             skill_info["issues"].append("Frontmatter YAML invalide ou clé 'name' manquante")
@@ -125,8 +195,8 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
         description = frontmatter.get("description", "") if frontmatter else ""
         if description:
             skill_info["has_description"] = True
-            # Détection de triggers explicites
-            if any(kw in description.lower() for kw in ["use when", "activer", "invoqu", "lorsque", "demande"]):
+            descriptions[skill_name] = description
+            if any(kw in description.lower() for kw in TRIGGER_KEYWORDS):
                 skill_info["has_triggers"] = True
             else:
                 skill_info["issues"].append("Description sans déclencheur explicite ('Use when...')")
@@ -135,15 +205,38 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
             skill_info["issues"].append("Clé 'description' manquante dans le frontmatter")
             results["errors"].append(f"Skill '{skill_name}' : description manquante.")
 
-        # Vérification de la section négative (anti-pattern guard)
+        # Vérification de la section négative (anti-pattern guard) — propagée au statut
         if "## ⛔ Ne PAS utiliser ce skill si" in content or "## Ne pas utiliser ce skill si" in content:
             skill_info["has_negative_triggers"] = True
         else:
-            skill_info["issues"].append("Section d'exclusion '## ⛔ Ne PAS utiliser ce skill si...' recommandée manquante")
+            issue = "Section d'exclusion '## ⛔ Ne PAS utiliser ce skill si...' manquante (garde-fou requis)."
+            skill_info["issues"].append(issue)
+            results["warnings"].append(f"Skill '{skill_name}' : {issue}")
+
+        # Existence des fichiers référencés (references/ et scripts/)
+        for ref in sorted(set(REFERENCED_FILE_RE.findall(content))):
+            target = skill_path / ref
+            if not target.exists():
+                skill_info["missing_references"].append(ref)
+                results["warnings"].append(f"Skill '{skill_name}' : fichier référencé introuvable : '{ref}'.")
+
+        # Absence de print() dans les scripts d'assistance (règle T20)
+        scripts_dir = skill_path / "scripts"
+        if scripts_dir.exists():
+            for script in sorted(scripts_dir.glob("*.py")):
+                script_text = script.read_text(encoding="utf-8")
+                if re.search(r"(?m)^(?!.*def _print)\s*print\(", script_text):
+                    results["warnings"].append(f"Skill '{skill_name}' : 'print(' détecté dans {script.name} (utiliser _print / sys.stdout.write).")
 
         results["skills"][skill_name] = skill_info
 
     results["skills_found"] = len(skill_names)
+
+    # 1bis. Collisions de triggers entre descriptions
+    for name_a, name_b in [pair for pair in ((a, b) for a in sorted(descriptions) for b in sorted(descriptions) if a < b)]:
+        similarity = _jaccard(_description_tokens(descriptions[name_a]), _description_tokens(descriptions[name_b]))
+        if similarity >= 0.45:
+            results["warnings"].append(f"Collision potentielle de triggers entre '{name_a}' et '{name_b}' (similarité {similarity:.2f}).")
 
     # 2. Vérification GEMINI.md
     gemini_file = repo_root / "GEMINI.md"
@@ -166,7 +259,7 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
     else:
         results["errors"].append("Fichier GEMINI.md introuvable à la racine.")
 
-    # 3. Vérification AGENTS.md
+    # 3. Vérification AGENTS.md (répertoire + listing de chaque skill)
     agents_file = repo_root / "AGENTS.md"
     if agents_file.exists():
         results["references"]["agents_md"]["present"] = True
@@ -175,6 +268,10 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
             results["references"]["agents_md"]["skills_referenced"] = True
         else:
             results["warnings"].append("AGENTS.md : aucune mention du répertoire .agents/skills/ dans la documentation.")
+        for skill_name in skill_names:
+            if skill_name not in agents_content:
+                results["references"]["agents_md"]["missing_skills"].append(skill_name)
+                results["warnings"].append(f"AGENTS.md : le skill '{skill_name}' n'apparaît pas dans le catalogue.")
     else:
         results["warnings"].append("Fichier AGENTS.md introuvable à la racine.")
 
@@ -195,8 +292,7 @@ def audit_skills(repo_root: Path) -> dict[str, Any]:
     if profiles_dir.exists():
         for profile_path in profiles_dir.glob("*.yaml"):
             p_content = profile_path.read_text(encoding="utf-8")
-            loaded_skills = re.findall(r"-\s*[\"']?(\.agents/skills/[^\"'\n]+)[\"']?", p_content)
-            for s_ref in loaded_skills:
+            for s_ref in PROFILE_LINK_RE.findall(p_content):
                 target_path = repo_root / s_ref
                 if not target_path.exists():
                     results["references"]["profiles"]["valid"] = False
@@ -217,7 +313,7 @@ def main() -> int:
     parser.add_argument("--quiet", action="store_true", help="Afficher uniquement les erreurs")
     args = parser.parse_args()
 
-    # .agents/skills/amelioration-skills/scripts/auditer_coherence_skills.py -> parents[4] is repo root
+    # .agents/skills/mise-a-jour-metadonnees/scripts/auditer_coherence_skills.py -> parents[4] is repo root
     repo_root = Path(__file__).resolve().parents[4]
     audit_res = audit_skills(repo_root)
 

@@ -68,7 +68,7 @@ Structure attendue du rapport présenté à l'utilisateur :
    - `name` doit correspondre exactement au nom du dossier en kebab-case (`a-z0-9-`).
    - `description` DOIT contenir des déclencheurs explicites réels précédés de `Use when the user asks to...`.
 2. **Concision et Divulgation Progressive** :
-   - Le fichier `SKILL.md` doit rester inférieur à 200 lignes.
+   - Le fichier `SKILL.md` doit rester inférieur à 150 lignes (seuil de la grille de maturité — rang optimal).
    - Dès qu'un tableau ou une liste dépasse 30 lignes, déportez-le dans `references/<nom>.md` et indiquez à l'agent : *"Consulter `references/<nom>.md` pour le détail exhaustif."*
 3. **Commandes Reproductibles** :
    - Toujours préfixer par `uv run` (`uv run pytest`, `uv run ruff`, `uv run mypy`).
