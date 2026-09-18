@@ -13,6 +13,7 @@ import os
 import ssl
 import sys
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +77,44 @@ def find_valid_ca_bundle() -> Path | None:
     return None
 
 
+def pin_ca_bundle_to_requests(bundle_path: Path) -> None:
+    """Force requests/certifi à utiliser le bundle CA résolu au lieu de leur chemin gelé.
+
+    Sous un build Nuitka, ``certifi.cacert.pem`` est empaqueté comme données dans
+    ``Contents/MacOS/certifi/`` puis déplacé vers ``Contents/Resources/certifi/``
+    par ``isolate_macos_binaries_and_resources``. Or ``certifi.where()`` continue de
+    résoudre vers ``Contents/MacOS/certifi/cacert.pem`` (inexistant) et requests ≥ 2.32
+    fige ``DEFAULT_CA_BUNDLE_PATH = certs.where()`` à l'import en ignorant ``SSL_CERT_FILE``.
+    Sans ce correctif, toute requête HTTPS requests lève :
+    ``OSError: Could not find a suitable TLS CA certificate bundle, invalid path: ...``
+    """
+    str_path = str(bundle_path.resolve())
+
+    # 1. certifi : patche where() pour toute importation ultérieure (requests.certs la capture à l'import).
+    try:
+        import certifi
+    except ImportError:
+        pass
+    else:
+        certifi_module: Any = certifi
+        certifi_module.where = lambda: str_path
+
+    # 2. requests déjà importé : DEFAULT_CA_BUNDLE_PATH est une constante figée à l'import du module.
+    for module_name in ("requests.utils", "requests.adapters", "requests.certs"):
+        try:
+            module: Any = __import__(module_name, fromlist=[module_name.rsplit(".", 1)[-1]])
+            module.DEFAULT_CA_BUNDLE_PATH = str_path
+            logger.debug("Bundle CA injecté dans %s.DEFAULT_CA_BUNDLE_PATH", module_name)
+        except (ImportError, AttributeError, ValueError):
+            continue
+
+
 def setup_ssl_certificates() -> str | None:
     """
-    Configure automatiquement l'environnement SSL (SSL_CERT_FILE) pour garantir
-    que toutes les connexions HTTPS (Gemini, OpenAI, Groq, Releases GitHub, Ollama)
-    fonctionnent de manière fiable sans lever de FileNotFoundError sous Nuitka.
+    Configure automatiquement l'environnement SSL (SSL_CERT_FILE) et épingle le bundle
+    de certificats validé dans certifi/requests pour garantir que toutes les connexions
+    HTTPS (Gemini, OpenAI, Groq, Releases GitHub, Ollama) fonctionnent de manière fiable
+    sans lever de FileNotFoundError sous Nuitka.
 
     Returns:
         str | None: Le chemin vers le fichier de certificats configuré, ou None si non trouvé.
@@ -89,6 +123,7 @@ def setup_ssl_certificates() -> str | None:
     if bundle_path:
         str_path = str(bundle_path.resolve())
         os.environ["SSL_CERT_FILE"] = str_path
+        pin_ca_bundle_to_requests(bundle_path)
         logger.debug("Certificats SSL initialisés avec succès : %s", str_path)
         return str_path
 
