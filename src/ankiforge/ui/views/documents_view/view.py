@@ -100,10 +100,17 @@ class DocumentsView(QWidget):
 
     request_navigation = Signal(str, object)
 
-    def __init__(self, ai_manager: Any | None = None, profile_name: str | None = None, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str | None = None,
+        parent: QWidget | None = None,
+        doc_repo: DocumentRepository | None = None,
+    ) -> None:
         super().__init__(parent)
         self.ai_manager = ai_manager
         self.profile_name = profile_name
+        self.doc_repo = doc_repo or DocumentRepository()
         self._current_doc_id: int | None = None
         self._dirty = False
         self.worker: DocumentWorker | None = None
@@ -1340,8 +1347,7 @@ class DocumentsView(QWidget):
         self.btn_import_url.setEnabled(False)
         show_toast(self, "Extraction et analyse du document en cours...")
 
-        self.worker = DocumentWorker(path_or_url)
-        self.worker.doc_id_to_update = doc_id
+        self.worker = DocumentWorker(path_or_url, doc_id_to_update=doc_id)
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.worker.error_signal.connect(self._on_worker_error)
         self.worker.log_signal.connect(self._on_worker_log)
@@ -1375,7 +1381,8 @@ class DocumentsView(QWidget):
             source_url = None
 
             if doc_id_to_update:
-                file_type = self.doc_repo.get_document_by_id(doc_id_to_update).file_type or "md"
+                existing_doc = self.doc_repo.get_document_by_id(doc_id_to_update)
+                file_type = (existing_doc.file_type if existing_doc else None) or "md"
             elif self.worker and self.worker.file_path:
                 path_or_url = self.worker.file_path
                 if path_or_url.startswith("http"):
@@ -1399,6 +1406,7 @@ class DocumentsView(QWidget):
 
             self.refresh_data()
             self._current_doc_id = doc.id
+            self._select_doc_id_in_tree(doc.id)
             title_to_display = doc.original_media.original_name if doc.original_media else doc.title
             self.doc_title_lbl.setText(title_to_display)
             self.text_editor.set_content(content)
@@ -1688,8 +1696,7 @@ class DocumentsView(QWidget):
             self._apply_chapters_filter()
             return
 
-        doc_repo = DocumentRepository()
-        stats = doc_repo.get_coverage_stats(self._current_doc_id)
+        stats = self.doc_repo.get_coverage_stats(self._current_doc_id)
         chunk_card_counts = self._query_chunk_card_counts(self._current_doc_id)
 
         unit_type = stats.get("unit_type", "sections")

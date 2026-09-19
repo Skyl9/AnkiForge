@@ -23,15 +23,17 @@ class DocumentWorker(QThread):
     log_signal = Signal(str)
     cancelled_signal = Signal()
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, doc_id_to_update: int | None = None) -> None:
         """
         Initialise le worker d'extraction.
 
         Args:
             file_path (str): Chemin vers le fichier ou URL de la page web.
+            doc_id_to_update (int | None): Identifiant du document existant à mettre à jour.
         """
         super().__init__()
         self.file_path = file_path
+        self.doc_id_to_update = doc_id_to_update
         self._is_cancelled = False
 
     def cancel(self) -> None:

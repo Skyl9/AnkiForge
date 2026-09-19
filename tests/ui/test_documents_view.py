@@ -678,3 +678,74 @@ def test_documents_view_pdf_marker_coverage_uses_sections(qtbot):
     assert "Anatomie > Les Poumons" in view.chapters_list.item(1).text()
     assert "sections" in view.lbl_coverage_details.text()
     assert "50%" in view.lbl_coverage_summary.text()
+
+
+def test_documents_view_worker_finished_updates_existing_pdf_doc(qtbot):
+    """Vérifie que la fin de l'extraction met à jour le document existant sans lever d'AttributeError sur self.doc_repo."""
+    from ankiforge.services.workers.document_worker import DocumentWorker
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Bio {uid}.pdf",
+        content="",
+        file_type="pdf",
+    )
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Simuler le worker attaché pour l'extraction de ce document
+    view.worker = DocumentWorker(f"/fake/path/Cours Bio {uid}.pdf", doc_id_to_update=doc.id)
+
+    extracted_content = "# Introduction à la Biologie\n\nLa cellule est l'unité fondamentale de tout être vivant."
+    view._on_worker_finished(doc.title, extracted_content)
+
+    # Le document doit être persisté avec son contenu et ses chunks générés
+    updated_doc = DocumentModel.get_by_id(doc.id)
+    assert updated_doc.content == extracted_content
+    assert DocumentChunkModel.select().where(DocumentChunkModel.document == doc).count() > 0
+
+    # L'éditeur et l'UI doivent refléter les nouvelles données
+    assert view.text_editor.get_content() == extracted_content
+    assert view._current_doc_id == doc.id
+    assert view.btn_import.isEnabled()
+
+
+def test_documents_view_worker_finished_new_doc_without_prior_id(qtbot):
+    """Vérifie que la fin d'un worker pour un nouveau fichier (sans doc_id préalable) crée le document."""
+    from ankiforge.services.workers.document_worker import DocumentWorker
+
+    uid = uuid.uuid4().hex[:6]
+    doc_title = f"Nouveau Document {uid}"
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.worker = DocumentWorker(f"/tmp/{doc_title}.txt")
+    sample_content = "# Titre\n\nContenu importé sans ID préalable."
+
+    view._on_worker_finished(doc_title, sample_content)
+
+    created_doc = DocumentModel.get_or_none(DocumentModel.title == doc_title)
+    assert created_doc is not None
+    assert created_doc.content == sample_content
+    assert view._current_doc_id == created_doc.id
+
+
+def test_documents_view_worker_finished_handles_missing_doc_id_gracefully(qtbot):
+    """Vérifie la robustesse si doc_id_to_update cible un identifiant inexistant."""
+    from ankiforge.services.workers.document_worker import DocumentWorker
+
+    uid = uuid.uuid4().hex[:6]
+    doc_title = f"Fichier Orphelin {uid}"
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.worker = DocumentWorker(f"/tmp/{doc_title}.md", doc_id_to_update=999999)
+    sample_content = "# Contenu de secours"
+
+    # Ne doit pas crasher avec un AttributeError
+    view._on_worker_finished(doc_title, sample_content)
+
+    saved_doc = DocumentModel.get_or_none(DocumentModel.title == doc_title)
+    assert saved_doc is not None
+    assert saved_doc.content == sample_content
