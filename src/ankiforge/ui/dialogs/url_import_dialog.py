@@ -366,7 +366,10 @@ class UrlImportDialog(QDialog):
         self.btn_import.setEnabled(False)
         self.btn_cards.setEnabled(False)
 
-        worker = UrlImportWorker(tasks)
+        if self._worker is not None and self._worker.isRunning():
+            self._worker.wait(5000)
+
+        worker = UrlImportWorker(tasks, parent=self)
         worker.url_started.connect(self._on_url_started)
         worker.url_finished.connect(self._on_url_finished)
         worker.url_failed.connect(self._on_url_failed)
@@ -423,6 +426,8 @@ class UrlImportDialog(QDialog):
 
     @Slot(int, int)
     def _on_batch_finished(self, ok: int, failed: int) -> None:
+        if self._worker is not None and self._worker.isRunning():
+            self._worker.wait(5000)
         pending_errors = [i for i in self._js_pending if i in self._rows and self._rows[i].get("status") == "error"]
         if pending_errors and self.chk_js.isChecked():
             self._render_js_for_pending(pending_errors)
@@ -437,6 +442,8 @@ class UrlImportDialog(QDialog):
 
     @Slot()
     def _on_batch_cancelled(self) -> None:
+        if self._worker is not None and self._worker.isRunning():
+            self._worker.wait(5000)
         self._worker = None
         self.btn_cancel.setEnabled(False)
         self.btn_analyze.setEnabled(True)
@@ -479,7 +486,6 @@ class UrlImportDialog(QDialog):
                     st["status"] = "error"
                     self._update_row_cell(idx, 2, f"Échec du rendu JS — {e}", DesignTokens.COLOR_RED_TEXT)
                 self._refresh_summary()
-                QApplication.processEvents()
         finally:
             QApplication.restoreOverrideCursor()
 
@@ -563,6 +569,8 @@ class UrlImportDialog(QDialog):
         return doc.id if doc else None
 
     def _finalize_analysis(self) -> None:
+        if self._worker is not None and self._worker.isRunning():
+            self._worker.wait(5000)
         self._worker = None
         self.btn_analyze.setEnabled(True)
         self.btn_cancel.setEnabled(False)
@@ -641,3 +649,4 @@ class UrlImportDialog(QDialog):
     def _cancel_running_worker(self) -> None:
         if self._worker is not None and self._worker.isRunning():
             self._worker.cancel()
+            self._worker.wait(5000)
