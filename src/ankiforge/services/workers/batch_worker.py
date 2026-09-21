@@ -10,7 +10,7 @@ from PySide6.QtCore import QThread, Signal
 from ankiforge.database.models import PersonaModel, PipelineStepModel
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator, PipelineRunState
-from ankiforge.services.ai.utils import extract_cards_from_data
+from ankiforge.services.ai.utils import extract_cards_from_data, normalize_card_fields
 from ankiforge.services.batch.models import BatchTaskSnapshot, BatchTaskStatus
 
 logger = logging.getLogger(__name__)
@@ -241,7 +241,7 @@ class BatchWorker(QThread):
                             raise RuntimeError("; ".join(orchestrator.state.errors))
                         cards_raw = orchestrator.state.get_variable("generated_cards") or orchestrator.state.get_variable("map_reduce_results") or orchestrator.state.get_variable("last_output") or []
                         extracted_cards = extract_cards_from_data(cards_raw)
-                        for note in self._normalize_notes(extracted_cards, task.note_type_fields):
+                        for note in normalize_card_fields(extracted_cards, task.note_type_fields):
                             note["_source_chunk_id"] = chunk.get("id")
                             note["_source_chunk_hash"] = chunk.get("content_hash")
                             note["_source_heading_path"] = chunk.get("heading_path")
@@ -360,7 +360,7 @@ class BatchWorker(QThread):
                 if state.errors:
                     raise RuntimeError("; ".join(state.errors))
                 raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
-                task.cards = self._deduplicate_notes(self._normalize_notes(extract_cards_from_data(raw_cards), list(config.note_type_fields)), list(config.note_type_fields))
+                task.cards = self._deduplicate_notes(normalize_card_fields(extract_cards_from_data(raw_cards), list(config.note_type_fields)), list(config.note_type_fields))
                 scope_heading_path = ", ".join(filter(None, (block.heading_path for block in getattr(task.scope, "blocks", []))))
                 scope_page = next((int(b.page_number) for b in getattr(task.scope, "blocks", []) if b.page_number is not None), None)
                 for card in task.cards:
@@ -423,36 +423,3 @@ class BatchWorker(QThread):
             seen.add(key)
             unique.append(note)
         return unique
-
-    @staticmethod
-    def _normalize_notes(cards: list[dict[str, Any]], expected_fields: list[str]) -> list[dict[str, Any]]:
-        """Normalise les dictionnaires de cartes pour correspondre strictement aux champs attendus."""
-        prepared: list[dict[str, Any]] = []
-        for card_data in cards:
-            if not isinstance(card_data, dict):
-                continue
-
-            cleaned: dict[str, str] = {}
-            lower_card = {str(k).lower().strip(): v for k, v in card_data.items()}
-            raw_vals = list(card_data.values())
-
-            for i, f in enumerate(expected_fields):
-                f_lower = f.lower().strip()
-                if f_lower in lower_card:
-                    val = lower_card[f_lower]
-                elif i < len(raw_vals):
-                    val = raw_vals[i]
-                else:
-                    val = ""
-
-                if isinstance(val, list):
-                    val_str = "<br>".join(str(item) for item in val)
-                elif val is not None:
-                    val_str = str(val)
-                else:
-                    val_str = ""
-
-                cleaned[f] = val_str
-
-            prepared.append(cleaned)
-        return prepared

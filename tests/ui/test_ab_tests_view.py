@@ -111,6 +111,16 @@ def test_ab_tests_view_engine_comparison(qtbot):
     # L'exécution bascule automatiquement sur l'écran Résultats
     assert view.phase_stack.currentWidget() is view.results_page
 
+    # Le modèle de carte sélectionné est injecté dans l'état (catalogue restreint + champs)
+    nt = view.model_field.get_value()
+    assert nt is not None
+    assert view.orchestrator_a.state.get_variable("selected_models") == [nt]
+    assert view.orchestrator_b.state.get_variable("selected_models") == [nt]
+    assert view.orchestrator_a.state.get_variable("note_type") == nt.name
+    assert view.orchestrator_a.state.get_variable("target_deck") == deck.name
+    assert view.orchestrator_a.state.get_variable("fields") == ["Front", "Back"]
+    assert view.orchestrator_a.state.get_variable("fields_str") == '"Front", "Back"'
+
 
 @pytest.mark.ui
 def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
@@ -555,3 +565,57 @@ def test_ab_tests_view_selectors_open_modals(qtbot):
     view._on_pipeline_selected_from_modal(pipeline.id, str(pipeline.name), "B")
     assert view.field_b.get_value() is not None
     assert view.field_b.get_value().id == pipeline.id
+
+
+class DummyCustomFieldProvider(LLMProvider):
+    def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+        return json.dumps(
+            {
+                "notes": [
+                    {"Question": "Requête Branche A", "Reponse": "Résultat Branche A"},
+                ]
+            }
+        )
+
+
+class DummyCustomFieldManager:
+    def create_provider_from_config(self, config: Any) -> LLMProvider:
+        return DummyCustomFieldProvider()
+
+
+@pytest.mark.slow
+@pytest.mark.ui
+def test_ab_tests_view_custom_field_note_type_normalized(qtbot):
+    """Vérifie que les cartes générées sont normalisées au schéma de champs du modèle de carte sélectionné."""
+    uid = uuid.uuid4().hex[:6]
+    nt_custom = NoteTypeModel.create(
+        name=f"NoteType Custom {uid}",
+        fields_schema='["QuestionCustom", "ReponseCustom"]',
+        templates='[{"name": "Card 1", "qfmt": "{{QuestionCustom}}", "afmt": "{{FrontSide}}<hr>{{ReponseCustom}}"}]',
+        css_style=".card { font-family: arial; }",
+    )
+    PersonaModel.create(name=f"Agent Custom {uid}", system_prompt="Prompt Custom", output_format="json")
+    cfg_a = LLMConfigModel.create(provider="mock_a", model_id=f"model_custom_{uid}", display_name=f"Model Custom A {uid}")
+    cfg_b = LLMConfigModel.create(provider="mock_b", model_id=f"model_custom_b_{uid}", display_name=f"Model Custom B {uid}")
+
+    view = ABTestsView(ai_manager=DummyCustomFieldManager())
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    view._set_engine("A", cfg_a)
+    view._set_engine("B", cfg_b)
+    view._set_model(nt_custom)
+
+    view.source_text_edit.setPlainText("Texte d'évaluation des champs personnalisés.")
+    view._on_run_ab_test()
+
+    qtbot.waitUntil(lambda: view.btn_run.isEnabled() is True, timeout=7000)
+    from PySide6.QtCore import QThreadPool
+
+    QThreadPool.globalInstance().waitForDone(5000)
+
+    # Les clés des deux branches correspondent strictement au schéma du modèle de carte
+    assert view.cards_a and view.cards_a[0].get("QuestionCustom") == "Requête Branche A"
+    assert view.cards_a and view.cards_a[0].get("ReponseCustom") == "Résultat Branche A"
+    assert view.cards_b and view.cards_b[0].get("QuestionCustom") == "Requête Branche A"
+    assert view.cards_b and view.cards_b[0].get("ReponseCustom") == "Résultat Branche A"

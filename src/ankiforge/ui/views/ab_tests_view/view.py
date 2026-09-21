@@ -34,7 +34,7 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.pricing_service import estimate_run_cost
 from ankiforge.services.ai.state import PipelineRunState
-from ankiforge.services.ai.utils import extract_cards_from_data
+from ankiforge.services.ai.utils import extract_cards_from_data, normalize_card_fields
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
     DeckSelectWindow,
@@ -1459,6 +1459,14 @@ class ABTestsView(QWidget):
         selected_nt = self.model_field.get_value()
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
         nt_schema = json.loads(selected_nt.fields_schema) if selected_nt and selected_nt.fields_schema else ["Front", "Back"]
+        if not isinstance(nt_schema, list):
+            nt_schema = ["Front", "Back"]
+        nt_first = nt_schema[0] if len(nt_schema) > 0 else "Front"
+        nt_second = nt_schema[1] if len(nt_schema) > 1 else "Back"
+        nt_fields_str = ", ".join([f'"{f}"' for f in nt_schema])
+        selected_deck = self.deck_field.get_value()
+        deck_name = selected_deck.name if selected_deck else "Défaut"
+        nt_name = selected_nt.name if selected_nt else "Basique"
 
         mode_idx = self.mode_combo.currentIndex()
 
@@ -1545,7 +1553,14 @@ class ABTestsView(QWidget):
         state_a = PipelineRunState(initial_prompt=text_source[:120])
         state_a.set_variable("text_source", text_source)
         state_a.set_variable("fields", nt_schema)
+        state_a.set_variable("fields_str", nt_fields_str)
+        state_a.set_variable("first_field", nt_first)
+        state_a.set_variable("second_field", nt_second)
         state_a.set_variable("note_type_id", nt_id)
+        state_a.set_variable("note_type", nt_name)
+        state_a.set_variable("note_type_fields_schema", nt_schema)
+        state_a.set_variable("target_deck", deck_name)
+        state_a.set_variable("selected_models", [selected_nt] if selected_nt else [])
         if temp_a is not None:
             state_a.set_variable("temperature", temp_a)
         if tok_a is not None:
@@ -1554,7 +1569,14 @@ class ABTestsView(QWidget):
         state_b = PipelineRunState(initial_prompt=text_source[:120])
         state_b.set_variable("text_source", text_source)
         state_b.set_variable("fields", nt_schema)
+        state_b.set_variable("fields_str", nt_fields_str)
+        state_b.set_variable("first_field", nt_first)
+        state_b.set_variable("second_field", nt_second)
         state_b.set_variable("note_type_id", nt_id)
+        state_b.set_variable("note_type", nt_name)
+        state_b.set_variable("note_type_fields_schema", nt_schema)
+        state_b.set_variable("target_deck", deck_name)
+        state_b.set_variable("selected_models", [selected_nt] if selected_nt else [])
         if temp_b is not None:
             state_b.set_variable("temperature", temp_b)
         if tok_b is not None:
@@ -1597,7 +1619,12 @@ class ABTestsView(QWidget):
 
     def _extract_cards_from_state(self, state: PipelineRunState) -> list[dict[str, Any]]:
         raw_cards = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
-        return extract_cards_from_data(raw_cards)
+        cards = extract_cards_from_data(raw_cards)
+        nt = self.model_field.get_value()
+        expected = json.loads(nt.fields_schema) if nt and nt.fields_schema else ["Front", "Back"]
+        if not isinstance(expected, list):
+            expected = ["Front", "Back"]
+        return normalize_card_fields(cards, expected)
 
     def _prefer_measured_usage(self, ab_run_id: str, tokens_est: int, cost_est: float) -> tuple[int, float]:
         """Remplace l'estimation par la consommation réelle mesurée si elle est disponible."""

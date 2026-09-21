@@ -233,3 +233,19 @@ def test_format_available_card_models_prompt():
     assert 'Modèle : "Cloze"' in catalog
     assert "Phrases à trous" in catalog
     assert "FORMAT JSON DE SORTIE" in catalog
+
+
+def test_normalize_card_fields():
+    """Vérifie la normalisation des cartes générées au schéma de champs du modèle de carte."""
+    from ankiforge.services.ai.utils import normalize_card_fields
+
+    cards = [
+        {"Question": "Requête", "Reponse": "Réponse", "Extra": "ignoré"},
+        {"Front": "Q1", "Back": "B1"},
+        {"mot": ["a", "b"]},
+    ]
+    normalized = normalize_card_fields(cards, ["Question", "Reponse"])
+    assert normalized[0] == {"Question": "Requête", "Reponse": "Réponse"}
+    assert normalized[1] == {"Question": "Q1", "Reponse": "B1"}
+    assert normalized[2]["Question"] == "a<br>b"
+    assert normalized[2]["Reponse"] == ""

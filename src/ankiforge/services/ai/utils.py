@@ -388,6 +388,39 @@ def _normalize_card_item(item: dict[str, Any]) -> dict[str, Any]:
     return res
 
 
+def normalize_card_fields(cards: list[dict[str, Any]], expected_fields: list[str]) -> list[dict[str, Any]]:
+    """Normalise des dictionnaires de cartes pour correspondre strictement aux champs attendus."""
+    prepared: list[dict[str, Any]] = []
+    for card_data in cards:
+        if not isinstance(card_data, dict):
+            continue
+
+        cleaned: dict[str, str] = {}
+        lower_card = {str(k).lower().strip(): v for k, v in card_data.items()}
+        raw_vals = list(card_data.values())
+
+        for i, f in enumerate(expected_fields):
+            f_lower = f.lower().strip()
+            if f_lower in lower_card:
+                val = lower_card[f_lower]
+            elif i < len(raw_vals):
+                val = raw_vals[i]
+            else:
+                val = ""
+
+            if isinstance(val, list):
+                val_str = "<br>".join(str(item) for item in val)
+            elif val is not None:
+                val_str = str(val)
+            else:
+                val_str = ""
+
+            cleaned[f] = val_str
+
+        prepared.append(cleaned)
+    return prepared
+
+
 def extract_cards_from_data(data: Any) -> list[dict[str, Any]]:
     """
     Extrait universellement une liste de dictionnaires représentant des cartes / notes
