@@ -76,22 +76,61 @@ def test_settings_modal_creation_and_tabs(qtbot):
         assert modal.stacked_widget.currentIndex() == i
 
 
-def test_settings_modal_shows_saved_status_after_save(qtbot):
-    """Le footer confirme visuellement la sauvegarde complète des paramètres."""
+def test_settings_modal_save_skips_when_no_changes(qtbot):
+    """Aucun changement : la sauvegarde est court-circuitée et le bouton reste désactivé."""
+    from ankiforge.utils.environment import get_app_qsettings
+
+    get_app_qsettings().clear()
+    get_app_qsettings("obsidian").clear()
+
     modal = SettingsModal()
     qtbot.addWidget(modal)
 
-    with patch("ankiforge.ui.widgets.theme_transition_overlay.show_theme_transition") as transition:
-        transition.side_effect = lambda **kwargs: kwargs["on_applied"]()
-        with (
-            patch.object(modal.general_tab, "save_tab", return_value=(False, None, None)),
-            patch.object(modal.ai_tab, "save_tab"),
-            patch.object(modal.anki_tab, "save_tab"),
-            patch.object(modal.tts_tab, "save_tab"),
-            patch.object(modal.maint_tab, "save_tab"),
-        ):
-            modal._save_all()
+    assert modal.btn_save_all.isEnabled() is False
 
+    with (
+        patch.object(modal.general_tab, "save_tab") as g_save,
+        patch.object(modal.ai_tab, "save_tab") as ai_save,
+        patch.object(modal.anki_tab, "save_tab") as anki_save,
+        patch.object(modal.tts_tab, "save_tab") as tts_save,
+        patch.object(modal.maint_tab, "save_tab") as maint_save,
+        patch("ankiforge.ui.widgets.theme_transition_overlay.show_theme_transition") as transition,
+    ):
+        modal._save_all()
+
+    g_save.assert_not_called()
+    ai_save.assert_not_called()
+    anki_save.assert_not_called()
+    tts_save.assert_not_called()
+    maint_save.assert_not_called()
+    transition.assert_not_called()
+    assert not modal.lbl_save_status.isHidden()
+    assert modal.lbl_save_status.text() == "✓ Aucun paramètre modifié"
+
+
+def test_settings_modal_shows_saved_status_after_save(qtbot):
+    """Le footer confirme visuellement la sauvegarde quand au moins un champ a changé."""
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+
+    modal.general_tab.cb_lang.setCurrentText("English")
+    assert modal._tabs_have_changes() is True
+    modal._update_save_enabled()
+    assert modal.btn_save_all.isEnabled() is True
+
+    with (
+        patch.object(modal.general_tab, "save_tab", return_value=(True, None, None)) as g_save,
+        patch.object(modal.ai_tab, "save_tab"),
+        patch.object(modal.anki_tab, "save_tab"),
+        patch.object(modal.tts_tab, "save_tab"),
+        patch.object(modal.maint_tab, "save_tab"),
+        patch("ankiforge.ui.widgets.settings_modal.modal.show_toast"),
+        patch("ankiforge.ui.widgets.theme_transition_overlay.show_theme_transition") as transition,
+    ):
+        modal._save_all()
+
+    g_save.assert_called_once()
+    transition.assert_not_called()
     assert not modal.lbl_save_status.isHidden()
     assert modal.lbl_save_status.text() == "✓ Paramètres sauvegardés"
 
@@ -428,3 +467,38 @@ def test_general_tab_check_updates_retains_worker(qtbot):
         assert tab._update_worker is None
         assert tab.btn_check_updates.isEnabled() is True
         assert "Échec : Erreur réseau" in tab.lbl_update_status.text()
+
+
+def test_collapsible_section_defaults_collapsed_and_toggles(qtbot):
+    """La section repliable est masquée par défaut et son contenu suit l'état replié."""
+    from PySide6.QtWidgets import QLabel
+
+    from ankiforge.ui.widgets.settings_modal.components import CollapsibleSection
+
+    section = CollapsibleSection("Options avancées")
+    qtbot.addWidget(section)
+    section.add_widget(QLabel("contenu"))
+
+    assert section.is_collapsed() is True
+    assert section.content.isHidden()
+
+    section.toggle()
+    assert section.is_collapsed() is False
+    assert not section.content.isHidden()
+
+    section.set_collapsed(True)
+    assert section.is_collapsed() is True
+
+
+def test_ai_engines_tab_advanced_sections_are_collapsed_by_default(qtbot):
+    """Les paramètres avancés (génération/RAG et vision) sont repliés par défaut."""
+    tab = AIEnginesTab()
+    qtbot.addWidget(tab)
+
+    assert tab.sec_advanced_gen.is_collapsed() is True
+    assert tab.sec_vision.is_collapsed() is True
+    assert tab.lbl_sec_vision is not None
+
+    # Un champ avancé replié reste détecté comme modifié
+    tab.slider_temp.setValue(90)
+    assert tab.has_pending_changes() is True

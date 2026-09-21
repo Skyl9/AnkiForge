@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DeckModel
-from ankiforge.services.settings_service import SettingsService
+from ankiforge.services.settings_service import SettingsService, values_equal
 from ankiforge.ui.components import (
     SecondaryButton,
     StyledComboBox,
@@ -21,17 +21,27 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
+from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
-class AnkiSyncTab(QWidget):
+class AnkiSyncTab(SettingsDirtyMixin, QWidget):
     """Onglet Formats Anki, Règles de Conflits, Compression et Répertoires locaux (Zéro AnkiConnect)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.lbl_anki_labels: list[QLabel] = []
         self._setup_ui()
+        # Référence des valeurs chargées : évite de marquer « modifié » un réglage auto-sélectionné.
+        self._initial: tuple[Any, ...] = (
+            self.cb_conflict_policy.currentData(),
+            self.chk_silent_merge.isChecked(),
+            self.cb_compression.currentData(),
+            self.cb_default_deck.currentData(),
+            int(self.cb_max_import_size.currentData() or 0),
+            self.le_anki_dir.text().strip(),
+        )
 
     def _setup_ui(self) -> None:
         from PySide6.QtWidgets import QFrame, QScrollArea
@@ -50,8 +60,8 @@ class AnkiSyncTab(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)
 
-        # ── SECTION 1 : RÈGLES DE SMART MERGE & CONFLITS (RÈGLE 11) ────────────────
-        self.lbl_sec_merge = QLabel("RÈGLES DE SMART MERGE & CONFLITS (RÈGLE 11)")
+        # ── SECTION 1 : RÈGLES DE FUSION & CONFLITS ──────────────────────────
+        self.lbl_sec_merge = QLabel("RÈGLES DE FUSION & CONFLITS")
         self.lbl_sec_merge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_merge)
 
@@ -81,7 +91,7 @@ class AnkiSyncTab(QWidget):
         row_policy.addWidget(self.cb_conflict_policy)
         merge_layout.addLayout(row_policy)
 
-        self.chk_silent_merge = QCheckBox("Fusionner silencieusement les déplacements de paquets et stats SRS (Règle d'or)")
+        self.chk_silent_merge = QCheckBox("Fusionner silencieusement les déplacements de paquets et statistiques SRS")
         self.chk_silent_merge.setChecked(bool(SettingsService.get("anki/silent_meta_merge", True)))
         self.chk_silent_merge.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_silent_merge.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px;")
@@ -176,8 +186,8 @@ class AnkiSyncTab(QWidget):
 
         layout.addWidget(self.card_fmt)
 
-        # ── SECTION 3 : RÉPERTOIRE DES COLLECTIONS ANKI LOCALES ──────────────
-        self.lbl_sec_dir = QLabel("RÉPERTOIRE DES COLLECTIONS ANKI (HORS-LIGNE)")
+        # ── SECTION 3 : RÉPERTOIRE DES COLLECTIONS ANKI ──────────────────────
+        self.lbl_sec_dir = QLabel("RÉPERTOIRE DES COLLECTIONS ANKI")
         self.lbl_sec_dir.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_dir)
 
@@ -257,6 +267,18 @@ class AnkiSyncTab(QWidget):
         SettingsService.set("anki/default_deck_id", self.cb_default_deck.currentData(), category="anki")
         SettingsService.set("anki/max_import_bytes", int(self.cb_max_import_size.currentData() or 0), category="anki")
         SettingsService.set("anki/collection_dir", self.le_anki_dir.text().strip(), category="anki")
+
+    def has_pending_changes(self) -> bool:
+        """True si un paramètre de formats/fusion Anki diffère de sa valeur chargée."""
+        current = (
+            self.cb_conflict_policy.currentData(),
+            self.chk_silent_merge.isChecked(),
+            self.cb_compression.currentData(),
+            self.cb_default_deck.currentData(),
+            int(self.cb_max_import_size.currentData() or 0),
+            self.le_anki_dir.text().strip(),
+        )
+        return any(not values_equal(cur, ini) for cur, ini in zip(current, self._initial, strict=True))
 
     def refresh_theme(self, profile: Any) -> None:
         self.lbl_sec_merge.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")

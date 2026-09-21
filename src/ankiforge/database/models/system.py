@@ -68,11 +68,17 @@ class SettingModel(BaseModel):
     @classmethod
     @db.atomic()
     def set_value(cls, key: str, value: Any, category: str = "general") -> "SettingModel":
-        """Enregistre ou met à jour un paramètre en BDD."""
+        """Enregistre ou met à jour un paramètre en BDD.
+
+        Si la valeur et la catégorie sont déjà identiques à celles persistées,
+        aucune écriture n'est déclenchée (ni mise à jour de ``updated_at``).
+        """
         value_str = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
         record = cls.get_or_none(cls.key == key)
         if record:
+            if record.value == value_str and record.category == category:
+                return record
             record.value = value_str
             record.category = category
             record.updated_at = datetime.datetime.now()

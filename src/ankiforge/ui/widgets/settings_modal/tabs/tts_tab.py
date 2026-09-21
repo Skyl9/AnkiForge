@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.cards.tts_service import PiperSidecarProvider, get_tts_service
-from ankiforge.services.settings_service import SettingsService
+from ankiforge.services.settings_service import SettingsService, values_equal
 from ankiforge.ui.components import (
     PrimaryButton,
     SecondaryButton,
@@ -34,6 +34,7 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
+from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_app_data_dir
@@ -56,7 +57,7 @@ class PiperInstallerWorker(QThread):
             self.failed.emit(str(e))
 
 
-class TTSSettingsTab(QWidget):
+class TTSSettingsTab(SettingsDirtyMixin, QWidget):
     """Onglet Paramètres Synthèse Vocale (TTS)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -77,9 +78,15 @@ class TTSSettingsTab(QWidget):
             self._audio_output = None
 
         self._installer_worker: PiperInstallerWorker | None = None
+        # Référence du périphérique audio actif au chargement (évite un faux « modifié »).
+        self._initial_device_desc: str | None = None
 
         self._setup_ui()
         self._load_settings()
+        # Référence des valeurs chargées : évite de marquer « modifié » un réglage auto-sélectionné.
+        self._initial_engine: Any = self.cb_engine.currentData()
+        self._initial_voice: Any = self.cb_voice.currentData()
+        self._initial_rate: Any = self.cb_rate.currentData()
 
     def _setup_ui(self) -> None:
         from PySide6.QtWidgets import QFrame, QScrollArea
@@ -178,7 +185,7 @@ class TTSSettingsTab(QWidget):
         layout.addWidget(self.card_general)
 
         # ── SECTION 2 : GESTIONNAIRE LOCAL PIPER (SIDECAR DÉCOUPLÉ) ──────────
-        self.lbl_sec_piper = QLabel("MOTEUR LOCAL HORS-LIGNE (PIPER SIDECAR)")
+        self.lbl_sec_piper = QLabel("MOTEUR LOCAL PIPER")
         self.lbl_sec_piper.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_piper)
 
@@ -288,6 +295,17 @@ class TTSSettingsTab(QWidget):
             if dev_desc:
                 SettingsService.set("tts.device_name", dev_desc, category="multimedia")
 
+    def has_pending_changes(self) -> bool:
+        """True si un paramètre TTS diffère de sa valeur chargée (ou de la sortie audio active)."""
+        if not values_equal(self.cb_engine.currentData(), self._initial_engine):
+            return True
+        if not values_equal(self.cb_voice.currentData(), self._initial_voice):
+            return True
+        if not values_equal(self.cb_rate.currentData(), self._initial_rate):
+            return True
+        dev_desc = self._audio_output.device().description() if self._audio_output else None
+        return not values_equal(dev_desc, self._initial_device_desc)
+
     def save_tab(self) -> None:
         """Alias conventionnel pour save_settings()."""
         self.save_settings()
@@ -321,6 +339,8 @@ class TTSSettingsTab(QWidget):
         if self.cb_device.count() > 0:
             self.cb_device.setCurrentIndex(target_idx)
             self._on_audio_device_changed()
+        if self._audio_output:
+            self._initial_device_desc = self._audio_output.device().description()
 
     def _on_audio_device_changed(self) -> None:
         """Applique le périphérique audio sélectionné au lecteur."""

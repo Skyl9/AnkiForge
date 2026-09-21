@@ -39,3 +39,34 @@ def test_settings_service_batch_and_category():
 def test_settings_service_fallback():
     """Vérifie le retour de la valeur par défaut pour une clé inconnue."""
     assert SettingsService.get("unknown_key_xyz", default="fallback_val") == "fallback_val"
+
+
+def test_settings_service_set_skips_identical_value(monkeypatch):
+    """Retaper la même valeur ne doit déclencher aucune écriture (BDD ni QSettings)."""
+    from unittest.mock import patch
+
+    SettingsService.set("ai/temperature", 0.7, category="ai")
+    record = SettingModel.get(SettingModel.key == "ai/temperature")
+    first_updated_at = record.updated_at
+
+    with patch("ankiforge.database.models.SettingModel.set_value") as mock_set_value:
+        SettingsService.set("ai/temperature", 0.7, category="ai")
+    mock_set_value.assert_not_called()
+
+    # La valeur inchangée ne bump pas la date de mise à jour
+    record = SettingModel.get(SettingModel.key == "ai/temperature")
+    assert record.updated_at == first_updated_at
+
+
+def test_setting_model_set_value_skips_identical_write():
+    """SettingModel.set_value n'écrit pas si la valeur et la catégorie sont identiques."""
+    SettingModel.set_value("ui/language", "Français", category="general")
+    record = SettingModel.get(SettingModel.key == "ui/language")
+    first_updated_at = record.updated_at
+
+    SettingModel.set_value("ui/language", "Français", category="general")
+    record = SettingModel.get(SettingModel.key == "ui/language")
+    assert record.updated_at == first_updated_at
+
+    SettingModel.set_value("ui/language", "English", category="general")
+    assert SettingModel.get_value("ui/language") == "English"

@@ -1,3 +1,4 @@
+from ankiforge.ui.widgets.settings_modal.components.collapsible_section import CollapsibleSection
 from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
 from ankiforge.ui.widgets.settings_modal.components.settings_card import (
     SettingsCard,
@@ -9,6 +10,7 @@ from ankiforge.ui.widgets.settings_modal.components.storage_metric_card import S
 __all__ = [
     "apply_pill_badge_style",
     "SettingsCard",
+    "CollapsibleSection",
     "PasswordLineEdit",
     "SettingsNavButton",
     "StorageMetricCard",

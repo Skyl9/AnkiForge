@@ -12,6 +12,15 @@ from ankiforge.utils.environment import get_app_qsettings
 
 logger = logging.getLogger(__name__)
 
+_MISSING = object()
+
+
+def values_equal(a: Any, b: Any) -> bool:
+    """Compare deux valeurs en exigeant le même type (évite les faux positifs bool/int)."""
+    if type(a) is not type(b):
+        return False
+    return a == b
+
 
 class SettingsService:
     """Service d'accès et de persistance des préférences utilisateur par profil."""
@@ -42,8 +51,14 @@ class SettingsService:
     def set(key: str, value: Any, category: str = "general", sync_qsettings: bool = True) -> None:
         """
         Enregistre un paramètre en BDD Peewee et synchronise optionnellement QSettings.
+
+        Si la valeur est déjà identique en BDD, aucune écriture (BDD ou QSettings)
+        n'est effectuée : on évite des UPDATEs inutiles et coûteux.
         """
         try:
+            current = SettingModel.get_value(key, _MISSING)
+            if current is not _MISSING and values_equal(current, value):
+                return
             SettingModel.set_value(key, value, category=category)
             logger.debug("Paramètre '%s' mis à jour en BDD (catégorie: '%s')", key, category)
         except Exception as e:
@@ -52,7 +67,8 @@ class SettingsService:
         if sync_qsettings:
             try:
                 q_settings = get_app_qsettings()
-                q_settings.setValue(key, value)
+                if not values_equal(q_settings.value(key, _MISSING), value):
+                    q_settings.setValue(key, value)
             except Exception as e:
                 logger.debug("Synchronisation QSettings '%s' échouée: %s", key, e)
 

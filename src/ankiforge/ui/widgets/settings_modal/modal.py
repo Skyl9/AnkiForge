@@ -1,6 +1,6 @@
 from typing import Any
 
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -59,6 +59,32 @@ class SettingsModal(QDialog):
 
         self._setup_ui()
         self._connect_signals()
+
+        # Surveillance légère des modifications : désactive « Enregistrer » si rien n'a changé.
+        self._dirty_timer = QTimer(self)
+        self._dirty_timer.setInterval(450)
+        self._dirty_timer.timeout.connect(self._update_save_enabled)
+        self._update_save_enabled()
+
+    def showEvent(self, event: Any) -> None:
+        self._dirty_timer.start()
+        self._update_save_enabled()
+        super().showEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        self._dirty_timer.stop()
+        super().hideEvent(event)
+
+    def _tabs_have_changes(self) -> bool:
+        for tab in (self.general_tab, self.ai_tab, self.anki_tab, self.tts_tab):
+            checker = getattr(tab, "has_pending_changes", None)
+            if checker is not None and checker():
+                return True
+        return False
+
+    def _update_save_enabled(self) -> None:
+        if hasattr(self, "btn_save_all"):
+            self.btn_save_all.setEnabled(self._tabs_have_changes())
 
     def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.Type.ActivationChange:
@@ -225,32 +251,40 @@ class SettingsModal(QDialog):
         """)
 
     def _save_all(self) -> None:
-        """Sauvegarde les paramètres de tous les onglets de façon unifiée et applique le thème."""
-        from ankiforge.ui.widgets.theme_transition_overlay import show_theme_transition
+        """Sauvegarde les paramètres modifiés des onglets, applique thème/layout si besoin.
 
-        has_theme_change, selected_layout_id, selected_theme_id = self.general_tab.save_tab()
+        Aucune écriture BDD/QSettings n'est déclenchée si aucun paramètre n'a changé.
+        """
+        if not self._tabs_have_changes():
+            self.lbl_save_status.setText("✓ Aucun paramètre modifié")
+            self.lbl_save_status.show()
+            self._update_save_enabled()
+            return
+
+        layout_changed = self.general_tab._layout_field_changed()
+        theme_changed = self.general_tab._theme_field_changed()
+
+        _, selected_layout_id, selected_theme_id = self.general_tab.save_tab()
         self.ai_tab.save_tab()
         self.anki_tab.save_tab()
         self.tts_tab.save_tab()
         self.maint_tab.save_tab()
 
         theme_title = self.general_tab.cb_theme.currentText() or "Nouveau Thème"
+        apply_layout = bool(layout_changed and selected_layout_id)
+        apply_theme = bool(theme_changed and selected_theme_id)
 
         def apply_changes() -> None:
-            from ankiforge.ui.layouts.layout_manager import LayoutManager
             from ankiforge.ui.style_engine import get_style_engine
 
             engine = get_style_engine()
-            profile_name = self.general_tab._get_profile_name()
             main_w = self.general_tab._get_main_window()
 
-            if selected_layout_id:
-                LayoutManager.save_layout_id(profile_name, selected_layout_id)
-                if main_w is not None and hasattr(main_w, "apply_layout"):
-                    main_w.apply_layout(selected_layout_id)
+            # La persistance BDD/QSettings a déjà eu lieu dans save_tab() : ici on applique à chaud.
+            if apply_layout and selected_layout_id and main_w is not None and hasattr(main_w, "apply_layout"):
+                main_w.apply_layout(selected_layout_id)
 
-            if selected_theme_id:
-                engine.save_theme_preference(profile_name, selected_theme_id)
+            if apply_theme and selected_theme_id:
                 engine.apply_theme(selected_theme_id)
 
             from shiboken6 import isValid
@@ -260,14 +294,19 @@ class SettingsModal(QDialog):
             self.lbl_save_status.show()
             show_toast(toast_parent, "Tous les paramètres ont été enregistrés avec succès !")
 
-        target_parent = self.general_tab._get_main_window() or self
-        show_theme_transition(
-            parent=target_parent,
-            theme_title=theme_title,
-            subtext="Application des tokens et du design system...",
-            duration_ms=450,
-            on_applied=apply_changes,
-        )
+        if apply_layout or apply_theme:
+            from ankiforge.ui.widgets.theme_transition_overlay import show_theme_transition
+
+            target_parent = self.general_tab._get_main_window() or self
+            show_theme_transition(
+                parent=target_parent,
+                theme_title=theme_title,
+                subtext="Application des tokens et du design system...",
+                duration_ms=450,
+                on_applied=apply_changes,
+            )
+        else:
+            apply_changes()
 
     def refresh_theme(self, profile: Any) -> None:
         """Met à jour l'ensemble des composants de la modale lors d'un changement de thème."""

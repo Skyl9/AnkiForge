@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import LLMConfigModel, db
 from ankiforge.services.ai.model_catalog import ModelCatalog, _is_loopback_url
 from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
-from ankiforge.services.settings_service import SettingsService
+from ankiforge.services.settings_service import SettingsService, values_equal
 from ankiforge.ui.components import (
     DangerButton,
     OptionToggleRow,
@@ -42,12 +42,14 @@ from ankiforge.ui.components import (
 from ankiforge.ui.components.model_selector.badges import ModelCapabilityBadgesWidget
 from ankiforge.ui.components.model_selector.dialog import ModelDiscoveryDialog
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.widgets.settings_modal.components.collapsible_section import CollapsibleSection
 from ankiforge.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
 from ankiforge.ui.widgets.settings_modal.components.settings_card import (
     SettingsCard,
     apply_pill_badge_style,
 )
 from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
+from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
@@ -144,7 +146,7 @@ def _fetch_ollama_models_and_caps(base_url: str) -> tuple[list[str], list[tuple[
     return models, results
 
 
-class AIEnginesTab(QWidget):
+class AIEnginesTab(SettingsDirtyMixin, QWidget):
     """Onglet Configuration des Moteurs IA, Clés API et Catégories de Vision d'Image."""
 
     def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
@@ -153,6 +155,8 @@ class AIEnginesTab(QWidget):
         self.lbl_provider_labels: list[QLabel] = []
         self.vision_cards: list[SettingsCard] = []
         self._setup_ui()
+        # État initial des clés API (jamais relu depuis le trousseau) pour la détection de modification.
+        self._initial_keys: dict[str, str] = {p_id: edit.text().strip() for p_id, edit in self.key_edits.items()}
         # Les catégories sont locales et nécessaires immédiatement pour que
         # l'onglet expose un état complet avant le premier tour de boucle Qt.
         self._render_vision_categories()
@@ -176,7 +180,7 @@ class AIEnginesTab(QWidget):
         layout.setSpacing(14)
 
         # ── SECTION 1 : CLÉS D'AUTHENTIFICATION CLOUD ────────────────────────
-        self.lbl_sec_keys = QLabel("CLÉS D'AUTHENTIFICATION FOURNISSEURS CLOUD")
+        self.lbl_sec_keys = QLabel("CLÉS API DES FOURNISSEURS CLOUD")
         self.lbl_sec_keys.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         layout.addWidget(self.lbl_sec_keys)
 
@@ -230,7 +234,7 @@ class AIEnginesTab(QWidget):
         layout.addWidget(self.card_keys)
 
         # ── SECTION 2 : SERVEUR LOCAL OLLAMA ─────────────────────────────────
-        self.lbl_sec_ollama = QLabel("SERVEUR LOCAL OLLAMA (ZÉRO CLOUD)")
+        self.lbl_sec_ollama = QLabel("SERVEUR LOCAL OLLAMA")
         self.lbl_sec_ollama.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_ollama)
 
@@ -265,7 +269,7 @@ class AIEnginesTab(QWidget):
         layout.addWidget(self.card_ollama)
 
         # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
-        self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES TEXTUELS (Peewee ORM)")
+        self.lbl_sec_cat = QLabel("CATALOGUE DES MOTEURS & MODÈLES")
         self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_cat)
 
@@ -327,8 +331,8 @@ class AIEnginesTab(QWidget):
 
         layout.addLayout(toolbar)
 
-        # ── SECTION 4 : OPTIONS ET PRÉFÉRENCES IA GLOBALES ───────────────────
-        self.lbl_sec_global_prefs = QLabel("OPTIONS ET PRÉFÉRENCES IA GLOBALES")
+        # ── SECTION 4 : PRÉFÉRENCES IA GLOBALES ──────────────────────────────
+        self.lbl_sec_global_prefs = QLabel("PRÉFÉRENCES IA GLOBALES")
         self.lbl_sec_global_prefs.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
         layout.addWidget(self.lbl_sec_global_prefs)
 
@@ -418,8 +422,6 @@ class AIEnginesTab(QWidget):
         thinking_col.addWidget(self.cb_thinking)
         gen_grid.addLayout(thinking_col, 0, 2)
 
-        prefs_layout.addLayout(gen_grid)
-
         # Délai maximal de génération (timeout réseau par requête)
         timeout_row = QHBoxLayout()
         timeout_row.setSpacing(8)
@@ -448,9 +450,8 @@ class AIEnginesTab(QWidget):
         self.cb_timeout.setFixedHeight(28)
         for label, value in timeout_presets:
             self.cb_timeout.addItem(label, value)
+        self.cb_timeout.setCurrentIndex(len(timeout_presets) - 1)
         timeout_row.addWidget(self.cb_timeout)
-
-        prefs_layout.addLayout(timeout_row)
 
         # Toggles globaux (2x2 grid)
         toggles_grid = QGridLayout()
@@ -519,18 +520,22 @@ class AIEnginesTab(QWidget):
 
         rag_grid.setColumnStretch(0, 1)
         rag_grid.setColumnStretch(1, 1)
-        prefs_layout.addLayout(rag_grid)
+
+        # Paramètres avancés : génération (température/tokens/CoT), timeout et RAG, repliés par défaut
+        self.sec_advanced_gen = CollapsibleSection("Options avancées de génération & RAG", collapsed=True)
+        self.sec_advanced_gen.add_layout(gen_grid)
+        self.sec_advanced_gen.add_layout(timeout_row)
+        self.sec_advanced_gen.add_layout(rag_grid)
+        prefs_layout.addWidget(self.sec_advanced_gen)
 
         layout.addWidget(self.card_global_prefs)
 
-        # ── SECTION 5 : CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (VISION) ───
-        self.lbl_sec_vision = QLabel("CATÉGORIES D'IA DE RECONNAISSANCE D'IMAGE (STANDARDS 2025-2026)")
+        # ── SECTION 5 : CATÉGORIES DE RECONNAISSANCE D'IMAGE (VISION, repliée) ─
+        self.lbl_sec_vision = QLabel("CATÉGORIES DE RECONNAISSANCE D'IMAGE")
         self.lbl_sec_vision.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
-        layout.addWidget(self.lbl_sec_vision)
 
         self.vision_container = QVBoxLayout()
         self.vision_container.setSpacing(8)
-        layout.addLayout(self.vision_container)
 
         # Barre d'outils Vision
         vision_toolbar = QHBoxLayout()
@@ -547,7 +552,11 @@ class AIEnginesTab(QWidget):
         vision_toolbar.addWidget(self.btn_reset_vision)
 
         vision_toolbar.addStretch()
-        layout.addLayout(vision_toolbar)
+
+        self.sec_vision = CollapsibleSection("Catégories de reconnaissance d'image", collapsed=True)
+        self.sec_vision.add_layout(self.vision_container)
+        self.sec_vision.add_layout(vision_toolbar)
+        layout.addWidget(self.sec_vision)
 
         self.scroll.setWidget(self.content_widget)
         root_layout.addWidget(self.scroll)
@@ -1108,9 +1117,11 @@ class AIEnginesTab(QWidget):
         """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel, sauvegarde les options globales et recharge l'IA."""
         from ankiforge.utils.secret_store import store_llm_key
 
+        had_ai_changes = self.has_pending_changes()
+
         for p_id, edit in self.key_edits.items():
             key_val = edit.text().strip()
-            if not key_val:
+            if not key_val or values_equal(key_val, self._initial_keys.get(p_id, "")):
                 continue
             if store_llm_key(p_id, p_id, key_val):
                 # Clé dans le trousseau OS : ne plus la persister en clair en BDD
@@ -1154,11 +1165,40 @@ class AIEnginesTab(QWidget):
         SettingsService.set("ai/rag_top_k", self.slider_rag_topk.value(), category="ai")
         SettingsService.set("ai/rag_similarity_threshold", round(self.slider_rag_sim.value() / 100.0, 2), category="ai")
 
-        if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+        if had_ai_changes and self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
             try:
                 self.ai_manager.reload_provider()
             except Exception as e:
                 logger.warning("Erreur reload_provider lors de save_tab: %s", e)
+
+    def has_pending_changes(self) -> bool:
+        """True si un réglage IA (clés, URL Ollama, modèle, génération, RAG) diffère de sa valeur enregistrée."""
+        for p_id, edit in self.key_edits.items():
+            if not values_equal(edit.text().strip(), self._initial_keys.get(p_id, "")):
+                return True
+        if self._changed("ollama/url", self.le_ollama_url.text().strip(), "http://localhost:11434"):
+            return True
+        if self._changed("ai/default_model_id", str(self.cb_default_model.currentData() or ""), ""):
+            return True
+        if self._changed("ai/temperature", round(self.slider_temp.value() / 100.0, 2), 0.7):
+            return True
+        if self._changed("ai/max_tokens", int(self.cb_max_tokens.currentData() or 0), 16384):
+            return True
+        if self._changed("ai/thinking_budget", int(self.cb_thinking.currentData() or 0), 0):
+            return True
+        if self._changed("ai/generation_timeout_seconds", int(self.cb_timeout.currentData() or 0), 60000):
+            return True
+        if self._changed("ai/streaming", self.toggle_streaming.is_checked(), True):
+            return True
+        if self._changed("ai/vision_enabled", self.toggle_vision.is_checked(), True):
+            return True
+        if self._changed("ai/auto_validation", self.toggle_autoval.is_checked(), False):
+            return True
+        if self._changed("ai/auto_linter", self.toggle_linter.is_checked(), True):
+            return True
+        if self._changed("ai/rag_top_k", self.slider_rag_topk.value(), 5):
+            return True
+        return self._changed("ai/rag_similarity_threshold", round(self.slider_rag_sim.value() / 100.0, 2), 0.7)
 
     def refresh_theme(self, profile: Any) -> None:
         self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
@@ -1173,6 +1213,10 @@ class AIEnginesTab(QWidget):
         self.card_ollama.refresh_theme(profile)
         if hasattr(self, "card_global_prefs"):
             self.card_global_prefs.refresh_theme(profile)
+        if hasattr(self, "sec_advanced_gen"):
+            self.sec_advanced_gen.refresh_theme(profile)
+        if hasattr(self, "sec_vision"):
+            self.sec_vision.refresh_theme(profile)
 
         for card in self.vision_cards:
             card.refresh_theme(profile)

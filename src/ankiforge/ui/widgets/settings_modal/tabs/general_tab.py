@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.services.settings_service import SettingsService
+from ankiforge.services.settings_service import SettingsService, values_equal
 from ankiforge.ui.components import (
     SecondaryButton,
     StyledComboBox,
@@ -20,10 +20,11 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.settings_modal.components.settings_card import SettingsCard
+from ankiforge.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
-class GeneralTab(QWidget):
+class GeneralTab(SettingsDirtyMixin, QWidget):
     """Onglet Paramètres Généraux et Apparence."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -399,7 +400,7 @@ class GeneralTab(QWidget):
         webbrowser.open(p.as_uri())
 
     def save_tab(self) -> tuple[bool, str | None, str | None]:
-        """Sauvegarde les paramètres de l'onglet et retourne (has_theme_change, selected_layout_id, selected_theme_id)."""
+        """Sauvegarde les paramètres de l'onglet et retourne (has_change, selected_layout_id, selected_theme_id)."""
         from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL
         from ankiforge.ui.layouts.layout_manager import LayoutManager
         from ankiforge.ui.style_engine import get_style_engine
@@ -410,26 +411,76 @@ class GeneralTab(QWidget):
         selected_layout_id = self.cb_layout.currentData()
         selected_theme_id = self.cb_theme.currentData()
 
-        # Enregistrement en BDD
-        SettingsService.set("ui/language", self.cb_lang.currentText(), category="general")
-        SettingsService.set("app/batch_factory_style", self.cb_batch_style.currentText(), category="general")
-        SettingsService.set("app/export_path", self.le_export.text().strip(), category="general")
+        has_change = self.has_pending_changes()
+
+        # Enregistrement uniquement des paramètres réellement modifiés
+        for key, current, default in (
+            ("ui/language", self.cb_lang.currentText(), "Français"),
+            ("app/batch_factory_style", self.cb_batch_style.currentText(), "CI/CD (Tableau de bord industriel)"),
+            ("app/export_path", self.le_export.text().strip(), str(Path.home() / "AnkiForge" / "Exports")),
+        ):
+            if not values_equal(SettingsService.get(key, default), current):
+                SettingsService.set(key, current, category="general")
+                has_change = True
 
         # Enregistrement des préférences de démarrage profil et canal de mise à jour dans QSettings
         from ankiforge.utils.environment import get_app_qsettings
 
         q_settings = get_app_qsettings()
-        if hasattr(self, "chk_auto_startup"):
+        if hasattr(self, "chk_auto_startup") and not values_equal(q_settings.value("profiles/auto_open_startup", False, type=bool), self.chk_auto_startup.isChecked()):
             q_settings.setValue("profiles/auto_open_startup", self.chk_auto_startup.isChecked())
-        if hasattr(self, "cb_default_profile") and self.cb_default_profile.currentData():
+            has_change = True
+        if (
+            hasattr(self, "cb_default_profile")
+            and self.cb_default_profile.currentData()
+            and not values_equal(q_settings.value("profiles/default_startup_profile", profile_name or "default"), self.cb_default_profile.currentData())
+        ):
             q_settings.setValue("profiles/default_startup_profile", self.cb_default_profile.currentData())
-        if hasattr(self, "cb_update_channel") and self.cb_update_channel.currentData():
+            has_change = True
+        if hasattr(self, "cb_update_channel") and self.cb_update_channel.currentData() and not values_equal(q_settings.value(SETTINGS_KEY_CHANNEL, "stable"), self.cb_update_channel.currentData()):
             q_settings.setValue(SETTINGS_KEY_CHANNEL, self.cb_update_channel.currentData())
+            has_change = True
 
-        LayoutManager.save_layout_id(profile_name, selected_layout_id)
-        engine.save_theme_preference(profile_name, selected_theme_id)
+        if self._layout_field_changed():
+            LayoutManager.save_layout_id(profile_name, selected_layout_id)
+        if self._theme_field_changed():
+            engine.save_theme_preference(profile_name, selected_theme_id)
 
-        return True, selected_layout_id, selected_theme_id
+        return has_change, selected_layout_id, selected_theme_id
+
+    def _layout_field_changed(self) -> bool:
+        from ankiforge.ui.layouts.layout_manager import LayoutManager
+
+        return not values_equal(self.cb_layout.currentData(), LayoutManager.get_saved_layout_id(self._get_profile_name()))
+
+    def _theme_field_changed(self) -> bool:
+        from ankiforge.ui.style_engine import get_style_engine
+
+        engine = get_style_engine()
+        return not values_equal(self.cb_theme.currentData(), engine.get_saved_theme_id(self._get_profile_name()))
+
+    def has_pending_changes(self) -> bool:
+        """True si au moins un paramètre de l'onglet diffère de sa valeur enregistrée."""
+        if self._layout_field_changed() or self._theme_field_changed():
+            return True
+        if self._changed("ui/language", self.cb_lang.currentText(), "Français"):
+            return True
+        if self._changed("app/batch_factory_style", self.cb_batch_style.currentText(), "CI/CD (Tableau de bord industriel)"):
+            return True
+        if self._changed("app/export_path", self.le_export.text().strip(), str(Path.home() / "AnkiForge" / "Exports")):
+            return True
+
+        from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL
+        from ankiforge.utils.environment import get_app_qsettings
+
+        q_settings = get_app_qsettings()
+        default_profile = self._get_profile_name() or "default"
+        checks = (
+            ("profiles/auto_open_startup", self.chk_auto_startup.isChecked(), False),
+            ("profiles/default_startup_profile", self.cb_default_profile.currentData() or default_profile, default_profile),
+            (SETTINGS_KEY_CHANNEL, self.cb_update_channel.currentData() or "stable", "stable"),
+        )
+        return any(not values_equal(q_settings.value(key, default), current) for key, current, default in checks)
 
     def refresh_theme(self, profile: Any) -> None:
         """Met à jour les styles dynamiques lors d'un changement de thème."""
