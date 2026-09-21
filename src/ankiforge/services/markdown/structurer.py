@@ -76,10 +76,12 @@ class MarkdownStructurer:
                 level = int(token.tag[1:]) if len(token.tag) > 1 and token.tag[1:].isdigit() else 1
                 line_number = (token.map[0] + 1) if token.map else 1
 
-                # Le contenu du titre se trouve dans le token inline suivant
+                # Le contenu du titre se trouve dans le token inline suivant.
+                # On nettoie les balises HTML/Markdown résiduelles (spans de page Marker,
+                # formatage inline laissé par markdownify, etc.).
                 title = ""
                 if i + 1 < len(tokens) and tokens[i + 1].type == "inline":
-                    title = tokens[i + 1].content.strip()
+                    title = cls.clean_heading_title(tokens[i + 1].content)
 
                 if not title:
                     title = f"Section {line_number}"

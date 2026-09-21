@@ -1179,7 +1179,10 @@ class BatchView(QWidget):
         end_page = getattr(doc, "end_page", None)
         for index, chunk in enumerate(raw_chunks):
             content = str(chunk.get("content", "")).strip()
-            heading_path = str(chunk.get("heading_path") or "").strip()
+            heading_path_raw = str(chunk.get("heading_path") or "").strip()
+            # Nettoyage des balises HTML résiduelles (spans de page Marker, <b>…) pour
+            # un affichage et une traçabilité lisibles, même sur une base non re-indexée.
+            heading_path = ChunkingService._clean_heading_text(heading_path_raw)
             page_number = chunk.get("page_number")
             if not content:
                 continue

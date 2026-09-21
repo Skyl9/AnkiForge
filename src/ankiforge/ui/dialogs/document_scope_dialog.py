@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel
 from ankiforge.services.ai.context_compactor import ContextCompactor
+from ankiforge.services.markdown.structurer import MarkdownStructurer
 from ankiforge.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
@@ -264,8 +265,9 @@ class DocumentScopeDialog(QDialog):
                     if has_end and p_num > self._delimited_end_page:
                         continue
 
-                # Filtrage des titres exclus
-                h_path = (c.heading_path or "").lower().strip()
+                # Filtrage des titres exclus (sur la version nettoyée des balises HTML)
+                clean_heading = MarkdownStructurer.clean_heading_title(c.heading_path or "")
+                h_path = (clean_heading or (c.heading_path or "")).lower().strip()
                 if self._excluded_headings and any(ex in h_path or h_path == ex for ex in self._excluded_headings):
                     continue
 
@@ -275,8 +277,8 @@ class DocumentScopeDialog(QDialog):
                 useful.append(
                     {
                         "index": useful_idx,
-                        "title": c.heading_path or (f"Page {p_num}" if p_num else f"Segment #{useful_idx + 1}"),
-                        "heading_path": c.heading_path,
+                        "title": clean_heading or (f"Page {p_num}" if p_num else f"Segment #{useful_idx + 1}"),
+                        "heading_path": clean_heading,
                         "page_number": p_num,
                         "content": content,
                         "tokens": tokens,
@@ -308,7 +310,8 @@ class DocumentScopeDialog(QDialog):
                     p_num = c.get("page_number")
                     if self.is_paginated and p_num is not None and (p_num < self._delimited_start_page or p_num > self._delimited_end_page):
                         continue
-                    h_path = str(c.get("heading_path") or "").lower()
+                    clean_heading = MarkdownStructurer.clean_heading_title(str(c.get("heading_path") or ""))
+                    h_path = (clean_heading or str(c.get("heading_path") or "")).lower()
                     if any(ex in h_path for ex in self._excluded_headings):
                         continue
                     content = str(c.get("content") or "")
@@ -316,8 +319,8 @@ class DocumentScopeDialog(QDialog):
                     useful.append(
                         {
                             "index": useful_idx,
-                            "title": c.get("heading_path") or (f"Page {p_num}" if p_num else f"Section #{useful_idx + 1}"),
-                            "heading_path": c.get("heading_path"),
+                            "title": clean_heading or (f"Page {p_num}" if p_num else f"Section #{useful_idx + 1}"),
+                            "heading_path": clean_heading,
                             "page_number": p_num,
                             "content": content,
                             "tokens": ContextCompactor.estimate_tokens(content),
@@ -1427,6 +1430,7 @@ class DocumentScopeDialog(QDialog):
             or_layout.addWidget(ch_badge)
 
             or_title = QLabel(root_n.title)
+            or_title.setTextFormat(Qt.TextFormat.PlainText)
             or_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
             or_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             or_layout.addWidget(or_title, 1)

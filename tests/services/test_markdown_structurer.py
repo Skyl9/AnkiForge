@@ -107,6 +107,18 @@ def test_clean_heading_title() -> None:
     assert MarkdownStructurer.clean_heading_title("**Important** et *notable* avec `code`") == "Important et notable avec code"
     # Math inline KaTeX
     assert MarkdownStructurer.clean_heading_title("Formule $E = mc^2$ et espace") == "Formule E = mc^2 et espace"
+    # Commentaire HTML (marqueur de page) et balises imbriquées
+    assert MarkdownStructurer.clean_heading_title("<!-- PAGE: 3 --> Titre") == "Titre"
+    assert MarkdownStructurer.clean_heading_title("<span>Chapitre <b>2</b></span>") == "Chapitre 2"
+
+
+def test_get_outline_cleans_html_page_spans_in_titles() -> None:
+    md = '# <span id="page-1-0"></span>Chapitre **1**\n\nContenu du chapitre.'
+    outline = MarkdownStructurer.get_outline(md)
+    assert outline[0].title == "Chapitre 1"
+    assert outline[0].breadcrumb == "Chapitre 1"
+    assert "span" not in outline[0].slug
+    assert "page-1-0" not in outline[0].slug
 
 
 def test_slugify_with_html_tags() -> None:

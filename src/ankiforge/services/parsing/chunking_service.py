@@ -33,7 +33,9 @@ class ChunkingService:
     # et déclencher une re-indexation automatique.
     # v1 = ancien (H3 seul, pas de markdown_ast), v2 = nouveau (H1→H6 AST)
     # v3 = PDFs Marker détectés par contenu → découpage AST avec conservation des pages
-    CHUNKING_VERSION: int = 3
+    # v4 = titres nettoyés : les balises HTML/Markdown résiduelles (spans de page Marker,
+    #      <b>/<em>, backticks…) sont retirées des heading_path et des arbres de titres
+    CHUNKING_VERSION: int = 4
 
     CONTINUOUS_FILE_TYPES = ("md", "markdown", "txt", "text", "web", "youtube", "yt", "ipynb", "py")
 
@@ -129,13 +131,20 @@ class ChunkingService:
 
     @classmethod
     def _clean_heading_text(cls, text: str) -> str:
-        """Nettoie un titre de heading : retire les spans HTML de page (Marker),
-        les résidus de balisage gras/italique et les liens."""
+        """Nettoie un titre de heading : retire les balises HTML (dont les spans de page Marker),
+        les commentaires, les résidus de balisage gras/italique, les liens et les délimiteurs Markdown.
+
+        Délègue le gros du travail au sanitizer canonique ``MarkdownStructurer.clean_heading_title``
+        afin de garantir un affichage lisible des chapitres et une sélection fiable.
+        """
+        if not text:
+            return ""
+        # Import paresseux : évite un cycle d'import (database.models → rag →
+        # chunking_service → markdown.structurer → services.ai).
+        from ankiforge.services.markdown.structurer import MarkdownStructurer
+
         cleaned = cls._SPAN_PAGE_HEADING_RE.sub("", text)
-        cleaned = re.sub(r"(?<!\*)\*\*(?!\*)(.*?)\*\*(?!\*)", r"\1", cleaned)
-        cleaned = re.sub(r"(?<!\*)\*(?!\*)(.*?)\*(?!\*)", r"\1", cleaned)
-        cleaned = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", cleaned)
-        return cleaned.strip()
+        return MarkdownStructurer.clean_heading_title(cleaned)
 
     @classmethod
     def _build_line_to_page_map(cls, content: str) -> dict[int, int | None]:
@@ -243,7 +252,7 @@ class ChunkingService:
             heading_matches = list(cls.HEADING_REGEX.finditer(clean_text))
             for h_match in heading_matches:
                 level = len(h_match.group(1))
-                title = h_match.group(2).strip()
+                title = cls._clean_heading_text(h_match.group(2))
                 current_heading_stack = current_heading_stack[: level - 1]
                 while len(current_heading_stack) < level - 1:
                     current_heading_stack.append("Section")
@@ -308,7 +317,7 @@ class ChunkingService:
             h_match = cls.HEADING_REGEX.match(line)
             if h_match:
                 level = len(h_match.group(1))
-                title = h_match.group(2).strip()
+                title = cls._clean_heading_text(h_match.group(2))
 
                 has_substantive_text = any(line_item.strip() and not cls.HEADING_REGEX.match(line_item) for line_item in current_section_lines)
 
@@ -411,7 +420,7 @@ class ChunkingService:
 
         for idx, h_match in enumerate(heading_matches):
             level = len(h_match.group(1))
-            title = h_match.group(2).strip()
+            title = cls._clean_heading_text(h_match.group(2))
             start_offset = h_match.start()
             end_offset = heading_matches[idx + 1].start() if idx + 1 < len(heading_matches) else len(content)
 
@@ -539,7 +548,9 @@ class ChunkingService:
             if not h_path:
                 h_path = f"Page {p}" if p else f"Section #{idx + 1}"
 
-            parts = [part.strip() for part in h_path.split(" > ") if part.strip()]
+            # Nettoyage des segments du fil d'Ariane : gère les heading_path
+            # persistant en base qui peuvent encore contenir des balises HTML.
+            parts = [cls._clean_heading_text(part) for part in h_path.split(" > ") if part.strip()]
             if not parts:
                 parts = [h_path]
 

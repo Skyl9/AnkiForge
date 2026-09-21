@@ -1817,7 +1817,9 @@ class DocumentsView(QWidget):
                 key = ("page", chunk.page_number)
                 label = f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}"
             else:
-                heading = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+                raw_heading = chunk.heading_path or (f"Page {chunk.page_number}" if chunk.page_number else f"Section #{chunk.chunk_index + 1}")
+                # La version en base peut contenir des balises HTML résiduelles (<span page Marker>…)
+                heading = MarkdownStructurer.clean_heading_title(raw_heading) or raw_heading
                 key = ("heading", heading)
                 label = heading
             if key in index:

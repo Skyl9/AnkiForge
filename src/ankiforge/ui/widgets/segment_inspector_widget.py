@@ -116,6 +116,7 @@ class SegmentItemWidget(QWidget):
         header_layout.addWidget(idx_badge)
 
         self.title_lbl = QLabel(title)
+        self.title_lbl.setTextFormat(Qt.TextFormat.PlainText)
         self.title_lbl.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY};")
         header_layout.addWidget(self.title_lbl, 1)
 

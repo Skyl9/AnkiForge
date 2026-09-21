@@ -289,3 +289,80 @@ Contenu suffisamment long pour la section.
     chapter2 = next(c for c in chunks if c["heading_path"].endswith("Chapitre 2"))
     assert chapter1["page_number"] == 1
     assert chapter2["page_number"] == 2
+
+
+def test_chunking_by_page_cleans_html_tags_in_headings():
+    """Le découpage par page retire les balises de page Marker et le markdown du heading_path."""
+    content = """<!-- PAGE: 1 -->
+## <span id="page-1-0"></span>**Introduction** au cours
+Contenu substantiel de la première page pour être retenu.
+Texte suffisant pour dépasser le seuil minimal du fragment.
+
+<!-- PAGE: 2 -->
+## <b>Approfondissement</b> <em>du</em> sujet
+Contenu tout aussi substantiel pour la seconde page.
+Assez de texte pour retenir le fragment de la page.
+"""
+    chunks = ChunkingService.extract_chunks(content, file_type="pdf")
+    assert len(chunks) == 2
+    assert chunks[0]["heading_path"].endswith("Introduction au cours")
+    assert "<span" not in chunks[0]["heading_path"]
+    assert "**" not in chunks[0]["heading_path"]
+    assert chunks[1]["heading_path"].endswith("Approfondissement du sujet")
+    assert "<b>" not in chunks[1]["heading_path"]
+
+
+def test_chunking_by_section_cleans_html_tags_in_headings():
+    """Le découpage par section nettoie les balises HTML résiduelles dans les titres."""
+    content = """# <b>Chapitre 1</b> : Rappels
+Texte de la section suffisamment long pour être conservé.
+
+## Sous-section <span>avancée</span>
+Contenu complémentaire de la sous-section tout aussi long.
+"""
+    chunks = ChunkingService.extract_chunks(content)
+    assert chunks[0]["heading_path"] == "Chapitre 1 : Rappels"
+    assert chunks[1]["heading_path"] == "Chapitre 1 : Rappels > Sous-section avancée"
+
+
+def test_chunking_ast_cleans_html_tags_in_breadcrumb():
+    """Le chemin AST retire les spans de page Marker, gras, italique et HTML des breadcrumbs."""
+    content = """# <span id="page-0-0"></span>Partie **A**
+## Chapitre <em>1</em>
+Contenu du chapitre assez long pour être un fragment autonome.
+"""
+    chunks = ChunkingService.extract_chunks(content, file_type="md", strategy=ChunkingService.preferred_strategy("md"))
+    assert chunks[1]["heading_path"] == "Partie A > Chapitre 1"
+    assert all("<span" not in p and "**" not in p for p in (c["heading_path"] for c in chunks))
+
+
+def test_heading_tree_with_pages_cleans_html_titles():
+    """L'arbre de titres exposé à la sélection ne contient plus de balises HTML."""
+    content = """{0}------------------------------------------------
+# <span id="page-0-0"></span>**Chapitre 1**
+## Sous-section <b>A</b>
+Contenu divers de la section courante.
+
+{1}------------------------------------------------
+# Chapitre 2
+Contenu du second chapitre lui aussi substantiel.
+"""
+    tree = ChunkingService.extract_heading_tree_with_pages(content, total_pages=2)
+    assert len(tree) == 2
+    assert tree[0].title == "Chapitre 1"
+    assert "span" not in tree[0].slug
+    assert tree[0].children[0].title == "Sous-section A"
+
+
+def test_build_tree_from_chunks_cleans_persisted_heading_path():
+    """Les heading_path persistés en base (contenant des balises) sont nettoyés à l'arbre."""
+    chunks = [
+        {"index": 0, "heading_path": '<span id="page-1-0"></span>Chapitre **1** > Sous-partie <b>B</b>', "page_number": 1, "content": "abcdefghijkl"},
+        {"index": 1, "heading_path": '<span id="page-2-0"></span>Chapitre **1** > Sous-partie <b>B</b>', "page_number": 2, "content": "mnopqrstuvwx"},
+    ]
+    tree = ChunkingService.build_tree_from_chunks(chunks)
+    assert len(tree) == 1
+    assert tree[0].title == "Chapitre 1"
+    assert tree[0].children[0].title == "Sous-partie B"
+    assert "<span" not in tree[0].heading_path
+    assert "**" not in tree[0].children[0].heading_path

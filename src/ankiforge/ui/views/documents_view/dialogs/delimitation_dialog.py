@@ -407,6 +407,7 @@ class ChapterCardWidget(QFrame):
         info_col.setSpacing(2)
 
         title_lbl = QLabel(title)
+        title_lbl.setTextFormat(Qt.TextFormat.PlainText)
         title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600; border: none; background: transparent;")
         title_lbl.setWordWrap(True)
         info_col.addWidget(title_lbl)
