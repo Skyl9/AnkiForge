@@ -502,3 +502,36 @@ def test_ai_engines_tab_advanced_sections_are_collapsed_by_default(qtbot):
     # Un champ avancé replié reste détecté comme modifié
     tab.slider_temp.setValue(90)
     assert tab.has_pending_changes() is True
+
+
+def test_settings_modal_dirty_check_triggers_zero_db_queries(qtbot):
+    """Vérifie que la surveillance périodique de dirty checking n'émet AUCUNE requête SQL en BDD."""
+    from ankiforge.database.base import db
+
+    modal = SettingsModal()
+    qtbot.addWidget(modal)
+
+    # Initialement au repos : aucun changement détecté
+    assert modal._tabs_have_changes() is False
+
+    # Surveillance de toutes les requêtes SQL Peewee exécutées
+    with patch.object(db, "execute_sql", wraps=db.execute_sql) as mock_sql:
+        for _ in range(25):
+            modal._tabs_have_changes()
+
+        # Zéro requête BDD en 25 vérifications consécutives
+        assert mock_sql.call_count == 0
+
+    # Vérification de la détection de modification et du retour à la normale
+    modal.general_tab.cb_lang.setCurrentText("English")
+    assert modal._tabs_have_changes() is True
+
+    modal.general_tab.cb_lang.setCurrentText("Français")
+    assert modal._tabs_have_changes() is False
+
+    # Modification onglet IA
+    modal.ai_tab.slider_temp.setValue(92)
+    assert modal._tabs_have_changes() is True
+
+    modal.ai_tab.slider_temp.setValue(70)
+    assert modal._tabs_have_changes() is False

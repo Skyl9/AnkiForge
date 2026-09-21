@@ -160,6 +160,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         # Les catégories sont locales et nécessaires immédiatement pour que
         # l'onglet expose un état complet avant le premier tour de boucle Qt.
         self._render_vision_categories()
+        self._record_initial_state()
         QTimer.singleShot(0, self.refresh_data)
 
     def _setup_ui(self) -> None:
@@ -934,6 +935,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         except Exception as e:
             logger.warning("Erreur refresh_data vision_categories: %s", e)
 
+        self._record_initial_state()
+
     def _quick_add_engine(
         self,
         name: str,
@@ -1171,34 +1174,39 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             except Exception as e:
                 logger.warning("Erreur reload_provider lors de save_tab: %s", e)
 
+        self._record_initial_state()
+
+    def _get_current_settings(self) -> dict[str, Any]:
+        """Extrait l'état actuel des contrôles de réglages IA."""
+        return {
+            "ollama_url": self.le_ollama_url.text().strip(),
+            "default_model": str(self.cb_default_model.currentData() or ""),
+            "temp": round(self.slider_temp.value() / 100.0, 2),
+            "max_tokens": int(self.cb_max_tokens.currentData() or 0),
+            "thinking": int(self.cb_thinking.currentData() or 0),
+            "timeout": int(self.cb_timeout.currentData() or 0),
+            "streaming": self.toggle_streaming.is_checked(),
+            "vision": self.toggle_vision.is_checked(),
+            "autoval": self.toggle_autoval.is_checked(),
+            "linter": self.toggle_linter.is_checked(),
+            "rag_top_k": self.slider_rag_topk.value(),
+            "rag_sim": round(self.slider_rag_sim.value() / 100.0, 2),
+        }
+
+    def _record_initial_state(self) -> None:
+        """Capture l'état initial des clés et réglages IA en mémoire vive pour la détection dirty à zéro coût BDD."""
+        self._initial_keys = {p_id: edit.text().strip() for p_id, edit in self.key_edits.items()}
+        self._initial_settings = self._get_current_settings()
+
     def has_pending_changes(self) -> bool:
-        """True si un réglage IA (clés, URL Ollama, modèle, génération, RAG) diffère de sa valeur enregistrée."""
+        """True si un réglage IA (clés, URL Ollama, modèle, génération, RAG) diffère de sa valeur initiale en mémoire."""
+        if not hasattr(self, "_initial_settings"):
+            return False
         for p_id, edit in self.key_edits.items():
             if not values_equal(edit.text().strip(), self._initial_keys.get(p_id, "")):
                 return True
-        if self._changed("ollama/url", self.le_ollama_url.text().strip(), "http://localhost:11434"):
-            return True
-        if self._changed("ai/default_model_id", str(self.cb_default_model.currentData() or ""), ""):
-            return True
-        if self._changed("ai/temperature", round(self.slider_temp.value() / 100.0, 2), 0.7):
-            return True
-        if self._changed("ai/max_tokens", int(self.cb_max_tokens.currentData() or 0), 16384):
-            return True
-        if self._changed("ai/thinking_budget", int(self.cb_thinking.currentData() or 0), 0):
-            return True
-        if self._changed("ai/generation_timeout_seconds", int(self.cb_timeout.currentData() or 0), 60000):
-            return True
-        if self._changed("ai/streaming", self.toggle_streaming.is_checked(), True):
-            return True
-        if self._changed("ai/vision_enabled", self.toggle_vision.is_checked(), True):
-            return True
-        if self._changed("ai/auto_validation", self.toggle_autoval.is_checked(), False):
-            return True
-        if self._changed("ai/auto_linter", self.toggle_linter.is_checked(), True):
-            return True
-        if self._changed("ai/rag_top_k", self.slider_rag_topk.value(), 5):
-            return True
-        return self._changed("ai/rag_similarity_threshold", round(self.slider_rag_sim.value() / 100.0, 2), 0.7)
+        current = self._get_current_settings()
+        return any(not values_equal(current[k], self._initial_settings.get(k)) for k in current)
 
     def refresh_theme(self, profile: Any) -> None:
         self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
