@@ -71,6 +71,7 @@ from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
 from ankiforge.ui.widgets.katex_editor import KaTeXEditor
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+from ankiforge.utils.hierarchy import descendants_prefix, descends_from, join_hierarchy, leaf_name, split_hierarchy
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -735,19 +736,19 @@ class DocumentsView(QWidget):
 
             target_folder = FolderModel.get_or_none(FolderModel.id == target_id) if target_id else None
             old_name = folder.name
-            base_name = old_name.split("::")[-1]
-            new_name = (target_folder.name + "::" + base_name) if target_folder else base_name
+            base_name = leaf_name(old_name)
+            new_name = join_hierarchy((target_folder.name, base_name)) if target_folder else base_name
 
             if new_name == old_name:
                 return
 
-            if target_folder and (target_folder.name == old_name or target_folder.name.startswith(old_name + "::")):
+            if target_folder and descends_from(target_folder.name, old_name):
                 show_toast(self, "Vous ne pouvez pas déplacer un dossier dans lui-même.", is_error=True)
                 return
 
             try:
                 with FolderModel._meta.database.atomic():
-                    folders_to_update = FolderModel.select().where((FolderModel.name == old_name) | (FolderModel.name.startswith(old_name + "::")))
+                    folders_to_update = FolderModel.select().where((FolderModel.name == old_name) | (FolderModel.name.startswith(descendants_prefix(old_name))))
                     for f in folders_to_update:
                         if f.name == old_name:
                             f.name = new_name
@@ -771,10 +772,10 @@ class DocumentsView(QWidget):
             sorted_folders = sorted(folders, key=lambda f: f.name)
 
             for folder in sorted_folders:
-                parts = folder.name.split("::")
+                parts = split_hierarchy(folder.name)
                 parent_item = None
                 for i in range(1, len(parts)):
-                    parent_path = "::".join(parts[:i])
+                    parent_path = join_hierarchy(parts[:i])
                     if parent_path in path_items:
                         parent_item = path_items[parent_path]
                     else:
@@ -1438,7 +1439,7 @@ class DocumentsView(QWidget):
                     if target_folder_id:
                         folder = FolderModel.get_or_none(FolderModel.id == target_folder_id)
                         if folder:
-                            target_name = f"{folder.name}::{target_name}"
+                            target_name = join_hierarchy((folder.name, target_name))
 
             try:
                 FolderModel.create(name=target_name)
@@ -1486,7 +1487,7 @@ class DocumentsView(QWidget):
                 )
                 if reply == QMessageBox.StandardButton.Yes:
                     with FolderModel._meta.database.atomic():
-                        folders_to_delete = FolderModel.select().where((FolderModel.name == folder.name) | (FolderModel.name.startswith(folder.name + "::")))
+                        folders_to_delete = FolderModel.select().where((FolderModel.name == folder.name) | (FolderModel.name.startswith(descendants_prefix(folder.name))))
                         for f in folders_to_delete:
                             f.delete_instance()
                     self.refresh_data()

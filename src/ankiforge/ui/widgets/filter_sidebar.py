@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QFrame, QLabel, QListWidget, QListWidgetItem, QTre
 from ankiforge.database.models import CardModel, DeckModel, NoteModel
 from ankiforge.ui.components import RoundedPanel
 from ankiforge.ui.theme import StyledMenu
+from ankiforge.utils.hierarchy import descendants_prefix, join_hierarchy, split_hierarchy
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +70,12 @@ class FilterSidebar(RoundedPanel):
             decks = DeckModel.select().order_by(DeckModel.name)
             tree_nodes: dict[str, QTreeWidgetItem] = {}
             for deck in decks:
-                parts = deck.name.split("::")
+                parts = split_hierarchy(deck.name)
                 display_name = parts[-1]
                 if len(parts) == 1:
                     item = QTreeWidgetItem(self.deck_tree, [f"📁 {display_name}"])
                 else:
-                    parent_name = "::".join(parts[:-1])
+                    parent_name = join_hierarchy(parts[:-1])
                     parent_item = tree_nodes.get(parent_name, self.deck_tree)
                     item = QTreeWidgetItem(parent_item, [f"📂 {display_name}"])
 
@@ -99,7 +100,7 @@ class FilterSidebar(RoundedPanel):
 
         try:
             selected_deck = DeckModel.get_by_id(deck_id)
-            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+            matching_decks = DeckModel.select().where((DeckModel.name == selected_deck.name) | (DeckModel.name.startswith(descendants_prefix(selected_deck.name))))
 
             notes = NoteModel.select(NoteModel.tags).join(CardModel).where(CardModel.deck.in_(matching_decks) & status_condition).distinct()
 

@@ -8,6 +8,7 @@ import logging
 
 from ankiforge.database.models import CardModel, DeckModel
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.utils.hierarchy import descendants_prefix, join_hierarchy, split_hierarchy
 
 logger = logging.getLogger(__name__)
 
@@ -47,16 +48,13 @@ class DeckRepository(BaseRepository):
         Retrieve or create a deck, ensuring all parent decks in the 'Parent::Child'
         hierarchy are created and properly linked via parent_deck.
         """
-        parts = [p.strip() for p in name.split("::") if p.strip()]
-        if not parts:
-            parts = ["Par défaut"]
+        parts = split_hierarchy(name) or ["Par défaut"]
 
         current_deck: DeckModel | None = None
-        accumulated_name = ""
 
         with self.atomic():
-            for i, part in enumerate(parts):
-                accumulated_name = part if i == 0 else f"{accumulated_name}::{part}"
+            for i in range(len(parts)):
+                accumulated_name = join_hierarchy(parts[: i + 1])
                 existing = self.get_deck_by_name(accumulated_name)
                 current_deck = existing or DeckModel.create(
                     name=accumulated_name,
@@ -93,8 +91,8 @@ class DeckRepository(BaseRepository):
             deck.save()
 
             # Update child subdecks prefix
-            old_prefix = f"{old_name}::"
-            new_prefix = f"{new_name}::"
+            old_prefix = descendants_prefix(old_name)
+            new_prefix = descendants_prefix(new_name)
             children = list(DeckModel.select().where(DeckModel.name.startswith(old_prefix)))
             for child in children:
                 child.name = new_prefix + child.name[len(old_prefix) :]
@@ -114,7 +112,7 @@ class DeckRepository(BaseRepository):
 
     def get_descendant_decks(self, deck_name: str) -> list[DeckModel]:
         """Retrieve a deck and all its subdecks based on hierarchy prefix."""
-        return list(DeckModel.select().where((DeckModel.name == deck_name) | (DeckModel.name.startswith(f"{deck_name}::"))))
+        return list(DeckModel.select().where((DeckModel.name == deck_name) | (DeckModel.name.startswith(descendants_prefix(deck_name)))))
 
     def get_card_count(self, deck_id: int) -> int:
         """Return total number of cards placed in a specific deck."""

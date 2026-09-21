@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QHBoxLayout,
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.components import ActionButton, DangerButton, EmptyStateWidget, PrimaryButton, RoundedPanel
 from ankiforge.ui.theme import StyledMenu
+from ankiforge.utils.hierarchy import descendants_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +234,7 @@ class NoteTableWidget(RoundedPanel):
 
         try:
             selected_deck = DeckModel.get_by_id(deck_id)
-            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+            matching_decks = DeckModel.select().where((DeckModel.name == selected_deck.name) | (DeckModel.name.startswith(descendants_prefix(selected_deck.name))))
 
             status_condition = (NoteModel.status == "pending") if is_quarantine else (NoteModel.status != "pending")
             if tag_filter:

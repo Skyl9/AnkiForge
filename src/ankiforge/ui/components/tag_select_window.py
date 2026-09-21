@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QLineEdit, QTreeWi
 from ankiforge.database.models import NoteModel
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.hierarchy import join_hierarchy, split_hierarchy
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 
@@ -156,12 +157,12 @@ class TagSelectWindow(QWidget):
         sorted_tags = sorted(list(all_tags))
 
         for tag in sorted_tags:
-            parts = tag.split("::")
+            parts = split_hierarchy(tag)
             parent_item = None
 
             # Construire ou trouver les parents
             for i in range(1, len(parts)):
-                parent_path = "::".join(parts[:i])
+                parent_path = join_hierarchy(parts[:i])
                 if parent_path in self._items_by_path:
                     parent_item = self._items_by_path[parent_path]
                 else:

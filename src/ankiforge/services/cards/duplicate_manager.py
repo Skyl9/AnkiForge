@@ -5,6 +5,7 @@ from typing import Any
 
 from ankiforge.database.models import CardModel, DeckModel, IgnoredDuplicateModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.utils.c_bridge import get_similarity
+from ankiforge.utils.hierarchy import descendants_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class DuplicateManager:
             matching_decks = DeckModel.select()
         else:
             selected_deck = DeckModel.get_by_id(deck_id)
-            matching_decks = DeckModel.select().where(DeckModel.name.startswith(selected_deck.name))
+            matching_decks = DeckModel.select().where((DeckModel.name == selected_deck.name) | (DeckModel.name.startswith(descendants_prefix(selected_deck.name))))
 
         # Récupère toutes les notes du paquet
         all_notes = list(

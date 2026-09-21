@@ -24,6 +24,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
+from ankiforge.utils.hierarchy import descendants_prefix, join_hierarchy
 from ankiforge.utils.paths import get_media_dir
 
 # Suppression des avertissements genanki pour le parsing LaTeX / HTML
@@ -124,7 +125,7 @@ class ExportManager:
         matching_decks = None
         if deck_id is not None:
             root_deck = DeckModel.get_or_none(DeckModel.id == deck_id)
-            matching_decks = list(DeckModel.select().where((DeckModel.id == root_deck.id) | DeckModel.name.startswith(f"{root_deck.name}::"))) if root_deck else []
+            matching_decks = list(DeckModel.select().where((DeckModel.id == root_deck.id) | DeckModel.name.startswith(descendants_prefix(root_deck.name)))) if root_deck else []
         else:
             matching_decks = list(DeckModel.select())
 
@@ -341,13 +342,13 @@ class ExportManager:
                     c_flg = int(getattr(c, "flags", 0) or 0)
                     if c_flg > 0:
                         flg_name = DesignTokens.FLAG_NAMES.get(c_flg, str(c_flg)).lower()
-                        flag_tag = f"flag::{flg_name}"
+                        flag_tag = join_hierarchy(("flag", flg_name))
                         if flag_tag not in added_tags:
                             tags_list.append(flag_tag)
                             added_tags.add(flag_tag)
-                    if getattr(c, "is_suspended", False) and "is::suspended" not in added_tags:
-                        tags_list.append("is::suspended")
-                        added_tags.add("is::suspended")
+                    if getattr(c, "is_suspended", False) and join_hierarchy(("is", "suspended")) not in added_tags:
+                        tags_list.append(join_hierarchy(("is", "suspended")))
+                        added_tags.add(join_hierarchy(("is", "suspended")))
 
             g_note = genanki.Note(
                 model=g_model,

@@ -31,6 +31,7 @@ from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.inputs import StyledLineEdit
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.toast import show_toast
+from ankiforge.utils.hierarchy import descendants_prefix, to_filename_safe
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -219,7 +220,7 @@ class ExportDialog(QDialog):
     def _get_default_filename(self) -> str:
         if self.selected_deck_id is None:
             return "export_collection.apkg"
-        clean_name = self.selected_deck_name.replace("::", "_").replace(" ", "_")
+        clean_name = to_filename_safe(self.selected_deck_name)
         return f"export_{clean_name}.apkg"
 
     def _update_default_dest_filename(self) -> None:
@@ -248,7 +249,7 @@ class ExportDialog(QDialog):
             else:
                 root_deck = DeckModel.get_or_none(DeckModel.id == self.selected_deck_id)
                 if root_deck:
-                    matching = list(DeckModel.select().where((DeckModel.id == root_deck.id) | DeckModel.name.startswith(f"{root_deck.name}::")))
+                    matching = list(DeckModel.select().where((DeckModel.id == root_deck.id) | DeckModel.name.startswith(descendants_prefix(root_deck.name))))
                     cnt = CardModel.select().where(CardModel.deck.in_(matching)).count()
                 else:
                     cnt = 0

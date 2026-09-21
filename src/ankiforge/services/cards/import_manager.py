@@ -39,6 +39,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.utils.archive_utils import safe_extract_zip
 from ankiforge.utils.c_bridge import get_similarity
+from ankiforge.utils.hierarchy import from_anki_unit_separator, join_hierarchy, split_hierarchy
 from ankiforge.utils.paths import get_media_dir
 
 logger = logging.getLogger(__name__)
@@ -424,11 +425,10 @@ class ImportManager:
         if name in deck_cache:
             return deck_cache[name]
 
-        parts = name.split("::")
+        parts = split_hierarchy(name)
         current_deck: DeckModel | None = None
-        accumulated_name = ""
-        for i, part in enumerate(parts):
-            accumulated_name = part if i == 0 else f"{accumulated_name}::{part}"
+        for i in range(len(parts)):
+            accumulated_name = join_hierarchy(parts[: i + 1])
             if accumulated_name in deck_cache:
                 current_deck = deck_cache[accumulated_name]
                 continue
@@ -580,7 +580,7 @@ class ImportManager:
                         decks_row = cursor.fetchone()
                         if decks_row and decks_row[0]:
                             decks_json = json.loads(decks_row[0])
-                            raw_decks = list(decks_json.values())
+                            raw_decks = [{"id": d.get("id", 1), "name": from_anki_unit_separator(str(d.get("name", "Par défaut")))} for d in decks_json.values()]
                     except Exception as e:
                         logger.warning("Erreur extraction decks col: %s", e)
 
@@ -588,7 +588,7 @@ class ImportManager:
                     try:
                         cursor.execute("SELECT id, name FROM decks")
                         for row in cursor.fetchall():
-                            name_str = row[1].replace("\x1f", "::") if row[1] else "Par défaut"
+                            name_str = from_anki_unit_separator(row[1]) if row[1] else "Par défaut"
                             raw_decks.append({"id": row[0], "name": name_str})
                     except Exception as e:
                         logger.warning("Erreur extraction table decks: %s", e)

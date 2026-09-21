@@ -66,6 +66,7 @@ from ankiforge.ui.widgets.time_machine_dialog import TimeMachineDialog
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.event_bus import event_bus
+from ankiforge.utils.hierarchy import descendants_prefix
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 
@@ -1935,7 +1936,7 @@ class EditionView(QWidget):
                     active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
                     if active_deck:
                         deck_name = active_deck.name
-                        descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(f"{deck_name}::")))
+                        descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(descendants_prefix(deck_name))))
                         deck_ids = [d.id for d in descendant_decks]
                         query = query.where(CardModel.deck.in_(deck_ids))
                 for tag in self._active_tags:
@@ -1961,7 +1962,7 @@ class EditionView(QWidget):
                     active_deck = DeckModel.get_or_none(DeckModel.id == self._active_folder_id)
                     if active_deck:
                         deck_name = active_deck.name
-                        descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(f"{deck_name}::")))
+                        descendant_decks = DeckModel.select(DeckModel.id).where((DeckModel.id == active_deck.id) | (DeckModel.name.startswith(descendants_prefix(deck_name))))
                         deck_ids = [d.id for d in descendant_decks]
                         matching_note_ids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.deck.in_(deck_ids))]
                         query = query.where(NoteModel.id.in_(matching_note_ids))

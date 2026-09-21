@@ -20,6 +20,7 @@ from ankiforge.database.models import DeckModel
 from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.utils.hierarchy import SEPARATOR
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ class CreateDeckDialog(QDialog):
         layout.addWidget(lbl_name)
 
         self.txt_name = QLineEdit()
-        self.txt_name.setPlaceholderText("Ex: Sciences::Physique::Thermodynamique")
+        self.txt_name.setPlaceholderText(f"Ex: Sciences{SEPARATOR}Physique{SEPARATOR}Thermodynamique")
         self.txt_name.setText(initial_name)
         self.txt_name.setFixedHeight(34)
         self.txt_name.setStyleSheet(f"""
@@ -103,7 +104,7 @@ class CreateDeckDialog(QDialog):
         layout.addWidget(self.txt_name)
 
         # Indication hiérarchie
-        lbl_hint = QLabel("💡 Utilisez le séparateur '::' pour imbriquer des sous-paquets.")
+        lbl_hint = QLabel(f"💡 Utilisez le séparateur '{SEPARATOR}' pour imbriquer des sous-paquets.")
         lbl_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
         layout.addWidget(lbl_hint)
 

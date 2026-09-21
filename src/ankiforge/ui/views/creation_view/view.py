@@ -81,6 +81,7 @@ from ankiforge.utils.event_bus import (
     NoteCreatedEvent,
     event_bus,
 )
+from ankiforge.utils.hierarchy import SEPARATOR
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
 from ankiforge.utils.tags import build_document_tags
@@ -1330,7 +1331,7 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_create_new_deck(self) -> None:
-        name, ok = QInputDialog.getText(self, "Nouveau Paquet", "Nom du paquet Anki (ex: Science::Physique) :")
+        name, ok = QInputDialog.getText(self, "Nouveau Paquet", f"Nom du paquet Anki (ex: Science{SEPARATOR}Physique) :")
         if ok and name.strip():
             try:
                 dk_name = name.strip()

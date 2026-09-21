@@ -11,6 +11,7 @@ from typing import Any
 
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import format_available_card_models_prompt
+from ankiforge.utils.hierarchy import join_hierarchy
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ class PipelinePromptInterpolator:
             "plan_cours",
             "1. Définition et notations\n2. Valeurs propres et vecteurs propres\n3. Théorème de diagonalisation",
         )
-        state.set_variable("target_deck", "Mathématiques::Algèbre")
+        state.set_variable("target_deck", join_hierarchy(("Mathématiques", "Algèbre")))
         state.set_variable("note_type", "Basique")
         state.add_retrieved_chunks(["Extrait 1 : Valeurs propres et polynôme caractéristique de l'endomorphisme."])
 
