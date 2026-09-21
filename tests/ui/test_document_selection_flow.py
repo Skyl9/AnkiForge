@@ -1262,3 +1262,302 @@ def test_section_mode_persists_sections_without_page_bounds(qtbot: Any, mock_db:
     assert persisted.start_page is None
     assert persisted.end_page is None
     assert "partie a" in persisted.excluded_headings.lower()
+
+
+@pytest.mark.ui
+def test_h3_content_and_h4_children_retained_in_scope_dialog(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que le contenu propre de H3 ET ses sous-sections H4 cochées sont inclus dans la portée."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc H3 H4 {uid}",
+        file_type="md",
+        content="""# Chapitre 1
+Introduction du chapitre 1.
+
+## Section 1.1
+Introduction de la section 1.1.
+
+### Sous-section 1.1.1
+Texte direct de la sous-section 1.1.1 avant les H4.
+
+#### Sous-section 1.1.1.a
+Détail H4 A.
+
+#### Sous-section 1.1.1.b
+Détail H4 B.
+""",
+    )
+
+    chunks_data = [
+        (0, "Chapitre 1", "# Chapitre 1\nIntroduction du chapitre 1."),
+        (1, "Chapitre 1 > Section 1.1", "## Section 1.1\nIntroduction de la section 1.1."),
+        (2, "Chapitre 1 > Section 1.1 > Sous-section 1.1.1", "### Sous-section 1.1.1\nTexte direct de la sous-section 1.1.1 avant les H4."),
+        (3, "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.a", "#### Sous-section 1.1.1.a\nDétail H4 A."),
+        (4, "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.b", "#### Sous-section 1.1.1.b\nDétail H4 B."),
+    ]
+    for idx, hp, cnt in chunks_data:
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=idx,
+            page_number=None,
+            heading_path=hp,
+            content=cnt,
+            content_hash=f"hash_{uid}_{idx}",
+        )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Vérifier que le mode est sections pour markdown pur
+    assert dlg.selection_mode == "sections"
+
+    # Toutes les sections sont cochées par défaut
+    selected = dlg._selected_chunks_for_mode()
+    selected_paths = [c.get("heading_path") for c in selected]
+
+    # H3 direct content (Sous-section 1.1.1) DOIT être présent !
+    assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1" in selected_paths
+    assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.a" in selected_paths
+    assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.b" in selected_paths
+
+    # Trouver l'item H3 et ses enfants H4 dans la sections_list
+    h3_item = None
+    h4a_item = None
+    h4b_item = None
+    for i in range(dlg.sections_list.count()):
+        it = dlg.sections_list.item(i)
+        meta = dlg._section_meta.get(i, {})
+        title = meta.get("title", "")
+        if title == "Sous-section 1.1.1":
+            h3_item = it
+        elif title == "Sous-section 1.1.1.a":
+            h4a_item = it
+        elif title == "Sous-section 1.1.1.b":
+            h4b_item = it
+
+    assert h3_item is not None
+    assert h4a_item is not None
+    assert h4b_item is not None
+
+    # Décocher H4b via son widget
+    w_h4b = dlg.sections_list.itemWidget(h4b_item, 0)
+    assert isinstance(w_h4b, SectionRowWidget)
+    w_h4b.checkbox.click()
+    assert h4b_item.checkState(0) == Qt.CheckState.Unchecked
+
+    # H3 doit être passé en PartiallyChecked
+    assert h3_item.checkState(0) == Qt.CheckState.PartiallyChecked
+
+    # Les fragments sélectionnés doivent contenir H3 (intro) et H4a, mais PAS H4b
+    selected_after = dlg._selected_chunks_for_mode()
+    paths_after = [c.get("heading_path") for c in selected_after]
+    assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1" in paths_after
+    assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.a" in paths_after
+    assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.b" not in paths_after
+
+
+@pytest.mark.ui
+def test_h3_tristate_checkbox_toggle_and_row_click_isolation(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le cycle binaire de la checkbox et l'isolation du clic sur la ligne."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QMouseEvent
+
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Click isolation {uid}",
+        file_type="md",
+        content="""# Titre H1
+Texte 1
+
+## Titre H2
+Texte 2
+
+### Titre H3
+Texte 3
+
+#### Titre H4
+Texte 4
+""",
+    )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Trouver l'item H3
+    h3_item = None
+    for i in range(dlg.sections_list.count()):
+        it = dlg.sections_list.item(i)
+        if dlg._section_meta.get(i, {}).get("title") == "Titre H3":
+            h3_item = it
+            break
+
+    assert h3_item is not None
+    w_h3 = dlg.sections_list.itemWidget(h3_item, 0)
+    assert isinstance(w_h3, SectionRowWidget)
+
+    # 1. Clic sur la ligne (hors checkbox) : ne doit PAS modifier la case à cocher
+    initial_state = w_h3.check_state()
+    mouse_event = QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress,
+        QPointF(200, 15),
+        QPointF(200, 15),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    w_h3.mousePressEvent(mouse_event)
+    assert w_h3.check_state() == initial_state
+    assert h3_item.checkState(0) == initial_state
+
+    # 2. Clic sur la checkbox : bascule franche Checked -> Unchecked
+    w_h3.checkbox.click()
+    assert w_h3.check_state() == Qt.CheckState.Unchecked
+    assert h3_item.checkState(0) == Qt.CheckState.Unchecked
+    assert h3_item.child(0).checkState(0) == Qt.CheckState.Unchecked
+
+    # 3. Clic sur la checkbox : bascule Unchecked -> Checked
+    w_h3.checkbox.click()
+    assert w_h3.check_state() == Qt.CheckState.Checked
+    assert h3_item.checkState(0) == Qt.CheckState.Checked
+    assert h3_item.child(0).checkState(0) == Qt.CheckState.Checked
+
+
+@pytest.mark.ui
+def test_h3_h4_scope_dialog_restore_faithfully(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la réouverture de DocumentScopeDialog restaure fidèlement la sélection fine H3/H4."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Restore H3 H4 {uid}",
+        file_type="md",
+        content="""# Racine
+Texte racine.
+
+## H2
+Texte H2.
+
+### H3
+Texte introductif H3.
+
+#### H4a
+Texte H4a.
+
+#### H4b
+Texte H4b.
+""",
+    )
+    for idx, hp in enumerate(["Racine", "Racine > H2", "Racine > H2 > H3", "Racine > H2 > H3 > H4a", "Racine > H2 > H3 > H4b"]):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=idx,
+            heading_path=hp,
+            content=f"Contenu {hp}",
+            content_hash=f"h_{uid}_{idx}",
+        )
+
+    dlg1 = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg1)
+
+    # Décocher H4b
+    h4b_item = next(dlg1.sections_list.item(i) for i in range(dlg1.sections_list.count()) if dlg1._section_meta.get(i, {}).get("title") == "H4b")
+    w_h4b = dlg1.sections_list.itemWidget(h4b_item, 0)
+    assert isinstance(w_h4b, SectionRowWidget)
+    w_h4b.checkbox.click()
+
+    dlg1._on_apply()
+    res = dlg1.get_result()
+
+    # Réouverture avec initial_scope_result
+    dlg2 = DocumentScopeDialog(doc, initial_scope_str=res["range_str"], initial_scope_result=res)
+    qtbot.addWidget(dlg2)
+
+    h3_item2 = next(dlg2.sections_list.item(i) for i in range(dlg2.sections_list.count()) if dlg2._section_meta.get(i, {}).get("title") == "H3")
+    h4a_item2 = next(dlg2.sections_list.item(i) for i in range(dlg2.sections_list.count()) if dlg2._section_meta.get(i, {}).get("title") == "H4a")
+    h4b_item2 = next(dlg2.sections_list.item(i) for i in range(dlg2.sections_list.count()) if dlg2._section_meta.get(i, {}).get("title") == "H4b")
+
+    # Vérifier les états restaurés
+    assert h3_item2.checkState(0) == Qt.CheckState.PartiallyChecked
+    assert h4a_item2.checkState(0) == Qt.CheckState.Checked
+    assert h4b_item2.checkState(0) == Qt.CheckState.Unchecked
+
+    # Vérifier que les chunks sélectionnés restaurés contiennent H3 et H4a
+    dlg2._on_apply()
+    res2 = dlg2.get_result()
+    paths2 = [c.get("heading_path") for c in res2["chunks"]]
+    assert "Racine > H2 > H3" in paths2
+    assert "Racine > H2 > H3 > H4a" in paths2
+    assert "Racine > H2 > H3 > H4b" not in paths2
+
+
+@pytest.mark.ui
+def test_delimitation_dialog_h3_content_and_h4_cascade(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la préservation du contenu H3 et la cascade dans DocumentDelimitationDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Delimitation H3 H4 {uid}",
+        file_type="md",
+        content="""# Module
+Texte module.
+
+## Section
+Texte section.
+
+### Point 1
+Introduction du point 1 avec du texte direct.
+
+#### Sous-point 1.A
+Détail 1.A.
+
+#### Sous-point 1.B
+Détail 1.B.
+""",
+    )
+    for idx, hp in enumerate(["Module", "Module > Section", "Module > Section > Point 1", "Module > Section > Point 1 > Sous-point 1.A", "Module > Section > Point 1 > Sous-point 1.B"]):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=idx,
+            heading_path=hp,
+            content=f"Contenu {hp}",
+            content_hash=f"h_delim_{uid}_{idx}",
+        )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Par défaut, toutes les sections sont cochées et H3 direct content est retenu
+    selected = dlg._selected_chunks_for_mode()
+    paths = [c.get("heading_path") for c in selected]
+    assert "Module > Section > Point 1" in paths
+    assert "Module > Section > Point 1 > Sous-point 1.A" in paths
+    assert "Module > Section > Point 1 > Sous-point 1.B" in paths
+
+    # Décocher Sous-point 1.B
+    p1_b_item = next(dlg.sections_list.item(i) for i in range(dlg.sections_list.count()) if dlg._section_meta.get(i, {}).get("title") == "Sous-point 1.B")
+    w_b = dlg.sections_list.itemWidget(p1_b_item, 0)
+    assert isinstance(w_b, SectionRowWidget)
+    w_b.checkbox.click()
+    assert p1_b_item.checkState(0) == Qt.CheckState.Unchecked
+
+    # Point 1 (H3) doit être PartiallyChecked
+    p1_item = next(dlg.sections_list.item(i) for i in range(dlg.sections_list.count()) if dlg._section_meta.get(i, {}).get("title") == "Point 1")
+    assert p1_item.checkState(0) == Qt.CheckState.PartiallyChecked
+
+    # Point 1 (intro) et Sous-point 1.A sont retenus, mais pas Sous-point 1.B
+    selected2 = dlg._selected_chunks_for_mode()
+    paths2 = [c.get("heading_path") for c in selected2]
+    assert "Module > Section > Point 1" in paths2
+    assert "Module > Section > Point 1 > Sous-point 1.A" in paths2
+    assert "Module > Section > Point 1 > Sous-point 1.B" not in paths2

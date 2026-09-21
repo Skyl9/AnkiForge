@@ -15,7 +15,7 @@ from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_
 logger = logging.getLogger(__name__)
 
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
-_DEFAULT_TIMEOUT_SECONDS = 30.0
+_DEFAULT_TIMEOUT_SECONDS = 60000.0
 _DEFAULT_MAX_RETRIES = 2
 
 

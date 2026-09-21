@@ -50,6 +50,7 @@ from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
     SectionRowWidget,
     SectionTreeWidgetItem,
     has_structured_heading_nodes,
+    has_substantive_content,
 )
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -1291,6 +1292,11 @@ class DocumentScopeDialog(QDialog):
         for root_node in tree_nodes:
             _add_node_recursive(root_node, None)
 
+        # Règle GEMINI.md 13 : synchroniser les parents en parcours inverse (post-order)
+        for it in reversed(self.sections_list.all_items()):
+            if it.childCount() > 0:
+                self._update_parent_from_children(it)
+
         self._tree_nodes = tree_nodes
         self._chapter_cards.clear()
         while self.chapters_list_layout.count():
@@ -1722,9 +1728,8 @@ class DocumentScopeDialog(QDialog):
                     w = self.sections_list.itemWidget(item, 0)
                     if isinstance(w, SectionRowWidget):
                         w.set_check_state(target_state)
-            for i in range(self.sections_list.count()):
-                it = self.sections_list.item(i)
-                if it and it.childCount() > 0:
+            for it in reversed(self.sections_list.all_items()):
+                if it.childCount() > 0:
                     self._update_parent_from_children(it)
             self.sections_list.blockSignals(False)
         finally:
@@ -1827,9 +1832,9 @@ class DocumentScopeDialog(QDialog):
                 for i in range(self.sections_list.count()):
                     item = self.sections_list.item(i)
                     meta = self._section_meta.get(i, {})
-                    if item and item.childCount() == 0 and meta.get("root_index", -1) in checked_chs:
+                    if item and meta.get("root_index", -1) in checked_chs:
                         chunk = meta.get("chunk")
-                        if isinstance(chunk, dict):
+                        if isinstance(chunk, dict) and (item.childCount() == 0 or has_substantive_content(chunk)):
                             chapter_chunks.append(chunk)
                 return chapter_chunks
             else:
@@ -1840,20 +1845,32 @@ class DocumentScopeDialog(QDialog):
                 for i in range(self.sections_list.count()):
                     item = self.sections_list.item(i)
                     meta = self._section_meta.get(i, {})
-                    if item.childCount() == 0 and start <= meta.get("root_index", -1) <= end:
+                    if item and start <= meta.get("root_index", -1) <= end:
                         chunk = meta.get("chunk")
-                        if isinstance(chunk, dict):
+                        if isinstance(chunk, dict) and (item.childCount() == 0 or has_substantive_content(chunk)):
                             chapter_chunks.append(chunk)
                 return chapter_chunks
 
         selected: list[dict[str, Any]] = []
         for i in range(self.sections_list.count()):
             item = self.sections_list.item(i)
-            if item.checkState(0) != Qt.CheckState.Checked or item.childCount() > 0:
+            if item is None:
+                continue
+            state = item.checkState(0)
+            if state == Qt.CheckState.Unchecked:
                 continue
             chunk = self._section_meta.get(i, {}).get("chunk")
-            if isinstance(chunk, dict):
-                selected.append(chunk)
+            if not isinstance(chunk, dict):
+                continue
+            if item.childCount() == 0:
+                if state == Qt.CheckState.Checked:
+                    selected.append(chunk)
+            else:
+                # Nœud parent (H1, H2, H3 avec enfants) :
+                # Inclure son contenu propre s'il est substantiel et qu'il n'a pas été manuellement exclu
+                is_active = (state == Qt.CheckState.Checked) or (state == Qt.CheckState.PartiallyChecked and i not in self._manually_deselected_indices)
+                if is_active and has_substantive_content(chunk):
+                    selected.append(chunk)
         return selected
 
     def _refresh_final_preview(self) -> None:
@@ -1939,7 +1956,7 @@ class DocumentScopeDialog(QDialog):
         total = self.sections_list.count()
         selected_chunks = self._selected_chunks_for_mode()
         selected_ids = {id(chunk) for chunk in selected_chunks}
-        checked_count = len([i for i in range(total) if self.sections_list.item(i).childCount() == 0 and (id(self._section_meta.get(i, {}).get("chunk")) in selected_ids or self._page_in_range(i))])
+        checked_count = len([i for i in range(total) if (id(self._section_meta.get(i, {}).get("chunk")) in selected_ids or self._page_in_range(i))])
         total_tokens = sum(ContextCompactor.estimate_tokens(str(chunk.get("content", ""))) for chunk in selected_chunks)
         total_words = sum(len(str(chunk.get("content", "")).split()) for chunk in selected_chunks)
 
@@ -2052,13 +2069,23 @@ class DocumentScopeDialog(QDialog):
         selected_chunk_indices: list[int] = []
         for c in checked_chunks:
             h = c.get("heading_path") or c.get("title")
-            if h:
+            if h and str(h) not in selected_headings:
                 selected_headings.append(str(h))
             if c.get("index") is not None:
                 try:
-                    selected_chunk_indices.append(int(c["index"]))
+                    idx_val = int(c["index"])
+                    if idx_val not in selected_chunk_indices:
+                        selected_chunk_indices.append(idx_val)
                 except (ValueError, TypeError):
                     pass
+
+        for i in range(self.sections_list.count()):
+            it = self.sections_list.item(i)
+            if it and it.checkState(0) == Qt.CheckState.Checked:
+                m = self._section_meta.get(i, {})
+                m_h = m.get("heading_path") or m.get("title")
+                if m_h and str(m_h) not in selected_headings:
+                    selected_headings.append(str(m_h))
 
         selected_chapters: list[int] = []
         if hasattr(self, "_chapter_cards"):

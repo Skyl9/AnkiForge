@@ -61,6 +61,17 @@ def has_structured_heading_nodes(nodes: list[HeadingTreeNode]) -> bool:
     return any(node.children or node.level > 1 or not node.title.casefold().startswith(("page ", "planche ")) for node in nodes)
 
 
+def has_substantive_content(chunk: dict[str, Any] | None) -> bool:
+    """Vérifie si un chunk possède du texte de corps substantiel au-delà d'un simple titre Markdown."""
+    if not isinstance(chunk, dict):
+        return False
+    content = str(chunk.get("content", "")).strip()
+    if not content:
+        return False
+    body_lines = [line.strip() for line in content.splitlines() if not re.match(r"^#{1,6}\s+", line.strip()) and line.strip()]
+    return len(body_lines) > 0
+
+
 class SectionTreeWidgetItem(QTreeWidgetItem):
     """Élément d'arborescence pour QTreeWidget offrant une compatibilité API totale avec QListWidgetItem."""
 
@@ -185,6 +196,18 @@ class DocumentStructureTreeWidget(QTreeWidget):
             self.setCurrentItem(it)
 
 
+class TristateTreeCheckBox(QCheckBox):
+    """Case à cocher pour arbre hiérarchique :
+    L'utilisateur ne cycle qu'entre Checked et Unchecked au clic.
+    L'état PartiallyChecked n'est défini que par programme."""
+
+    def nextCheckState(self) -> None:
+        if self.checkState() == Qt.CheckState.Checked:
+            self.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            self.setCheckState(Qt.CheckState.Checked)
+
+
 class SectionRowWidget(QWidget):
     """Widget de ligne personnalisée pour afficher et basculer individuellement une section avec son diagnostic."""
 
@@ -218,7 +241,7 @@ class SectionRowWidget(QWidget):
         layout.setSpacing(8)
 
         # Checkbox explicite et interactive avec support tristate
-        self.checkbox = QCheckBox()
+        self.checkbox = TristateTreeCheckBox()
         self.checkbox.setTristate(True)
         self.checkbox.setChecked(is_checked)
         self.checkbox.checkStateChanged.connect(self._on_check_state_changed)
@@ -329,10 +352,7 @@ class SectionRowWidget(QWidget):
 
     def mousePressEvent(self, event: Any) -> None:
         self._tree_widget.setCurrentItem(self._item)
-        pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
-        if not self.checkbox.geometry().contains(pos):
-            new_state = Qt.CheckState.Unchecked if self.checkbox.checkState() == Qt.CheckState.Checked else Qt.CheckState.Checked
-            self.checkbox.setCheckState(new_state)
+        super().mousePressEvent(event)
         self._tree_widget.itemClicked.emit(self._item)
 
 
@@ -1916,20 +1936,35 @@ class DocumentDelimitationDialog(QDialog):
                 return selected
             for i in range(self.sections_list.count()):
                 item = self.sections_list.item(i)
+                if item is None:
+                    continue
                 meta = self._section_meta.get(i, {})
-                if item.childCount() == 0 and start <= meta.get("root_index", -1) <= end:
-                    chunk = meta.get("chunk")
-                    if isinstance(chunk, dict):
-                        selected.append(chunk)
+                chunk = meta.get("chunk")
+                if not isinstance(chunk, dict):
+                    continue
+                if start <= meta.get("root_index", -1) <= end and (item.childCount() == 0 or has_substantive_content(chunk)):
+                    selected.append(chunk)
             return selected
 
         for i in range(self.sections_list.count()):
             item = self.sections_list.item(i)
-            if item.checkState(0) != Qt.CheckState.Checked or item.childCount() > 0:
+            if item is None:
+                continue
+            state = item.checkState(0)
+            if state == Qt.CheckState.Unchecked:
                 continue
             chunk = self._section_meta.get(i, {}).get("chunk")
-            if isinstance(chunk, dict):
-                selected.append(chunk)
+            if not isinstance(chunk, dict):
+                continue
+            if item.childCount() == 0:
+                if state == Qt.CheckState.Checked:
+                    selected.append(chunk)
+            else:
+                meta = self._section_meta.get(i, {})
+                low_h_path = (chunk.get("heading_path") or meta.get("heading_path") or "").lower().strip()
+                is_excluded = bool(low_h_path and low_h_path in self._manual_exclusions)
+                if not is_excluded and has_substantive_content(chunk):
+                    selected.append(chunk)
         return selected
 
     def _refresh_final_preview(self) -> None:
@@ -2222,9 +2257,8 @@ class DocumentDelimitationDialog(QDialog):
                         w = self.sections_list.itemWidget(item, 0)
                         if isinstance(w, SectionRowWidget):
                             w.set_check_state(target_state)
-            for i in range(self.sections_list.count()):
-                it = self.sections_list.item(i)
-                if it and it.childCount() > 0:
+            for it in reversed(self.sections_list.all_items()):
+                if it.childCount() > 0:
                     self._update_parent_from_children(it)
             self.sections_list.blockSignals(False)
         finally:
@@ -2235,6 +2269,7 @@ class DocumentDelimitationDialog(QDialog):
         row = self.sections_list.row(item)
         meta = self._section_meta.get(row, {})
         title = str(meta.get("title") or "").lower().strip()
+        h_path = str(meta.get("heading_path") or "").lower().strip()
         orig_title = str(meta.get("title") or "")
         p_num = meta.get("page_number")
 
@@ -2250,10 +2285,16 @@ class DocumentDelimitationDialog(QDialog):
                     self._cascade_down(item, state)
                 self._cascade_up(item)
 
-                if state == Qt.CheckState.Unchecked and title:
-                    self._manual_exclusions.add(title)
-                elif state == Qt.CheckState.Checked and title:
-                    self._manual_exclusions.discard(title)
+                if state == Qt.CheckState.Unchecked:
+                    if h_path:
+                        self._manual_exclusions.add(h_path)
+                    if title:
+                        self._manual_exclusions.add(title)
+                elif state == Qt.CheckState.Checked:
+                    if h_path:
+                        self._manual_exclusions.discard(h_path)
+                    if title:
+                        self._manual_exclusions.discard(title)
             finally:
                 self._syncing_selection = False
 
@@ -2270,12 +2311,19 @@ class DocumentDelimitationDialog(QDialog):
             w = self.sections_list.itemWidget(child, 0)
             if isinstance(w, SectionRowWidget):
                 w.set_check_state(state)
-            meta = self._section_meta.get(self.sections_list.row(child), {})
-            child_title = str(meta.get("title") or "").lower().strip()
-            if state == Qt.CheckState.Unchecked and child_title:
-                self._manual_exclusions.add(child_title)
-            elif state == Qt.CheckState.Checked and child_title:
-                self._manual_exclusions.discard(child_title)
+            child_meta = self._section_meta.get(self.sections_list.row(child), {})
+            child_title = str(child_meta.get("title") or "").lower().strip()
+            child_h_path = str(child_meta.get("heading_path") or "").lower().strip()
+            if state == Qt.CheckState.Unchecked:
+                if child_h_path:
+                    self._manual_exclusions.add(child_h_path)
+                if child_title:
+                    self._manual_exclusions.add(child_title)
+            elif state == Qt.CheckState.Checked:
+                if child_h_path:
+                    self._manual_exclusions.discard(child_h_path)
+                if child_title:
+                    self._manual_exclusions.discard(child_title)
             self._cascade_down(child, state)
 
     def _cascade_up(self, item: QTreeWidgetItem) -> None:
@@ -2607,9 +2655,9 @@ class DocumentDelimitationDialog(QDialog):
         self.chapters_list_layout.addStretch()
         self.all_outline_layout.addStretch()
 
-        for i in range(self.sections_list.count()):
-            it = self.sections_list.item(i)
-            if it and it.childCount() > 0:
+        # Règle GEMINI.md 13 : synchroniser les parents en parcours inverse (post-order)
+        for it in reversed(self.sections_list.all_items()):
+            if it.childCount() > 0:
                 self._update_parent_from_children(it)
 
         self.sections_list.blockSignals(False)
@@ -2632,12 +2680,16 @@ class DocumentDelimitationDialog(QDialog):
             if not item:
                 continue
             meta = self._section_meta.get(i, {})
+            chunk = meta.get("chunk")
+            is_substantive = has_substantive_content(chunk) if isinstance(chunk, dict) else False
+
+            if item.childCount() > 0 and not is_substantive:
+                continue
+
             w_cnt = int(meta.get("word_count", 0))
             c_cnt = int(meta.get("cards_count", 0))
 
-            if item.childCount() > 0:
-                continue
-            if id(meta.get("chunk")) in selected_ids:
+            if id(chunk) in selected_ids:
                 checked_count += 1
                 checked_words += w_cnt
                 checked_cards += c_cnt
