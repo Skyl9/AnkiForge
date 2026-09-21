@@ -67,3 +67,26 @@ def test_deck_repository_get_or_create_hierarchical() -> None:
     # Idempotence : appel récurrent ne recrée rien
     same_leaf = repo.get_or_create_deck_hierarchical("Langues::Japonais::Grammaire")
     assert same_leaf.id == leaf.id
+
+
+def test_get_or_create_hierarchical_repairs_parent_link() -> None:
+    """Un paquet créé à plat (ex: 'A::B' sans parent) doit être rattaché à son parent
+    lors d'un appel hiérarchique ultérieur, sans dupliquer."""
+    repo = DeckRepository()
+
+    flat = repo.create_deck("Sciences::Physique")
+    assert flat.parent_deck is None
+
+    leaf = repo.get_or_create_deck_hierarchical("Sciences::Physique::Thermo")
+
+    sciences = repo.get_deck_by_name("Sciences")
+    physique = repo.get_deck_by_name("Sciences::Physique")
+    assert sciences is not None and sciences.parent_deck is None
+    assert physique is not None
+    assert physique.parent_deck_id == sciences.id
+    assert leaf.parent_deck_id == physique.id
+
+    # Idempotence : un second appel ne duplique rien et conserve les liens
+    again = repo.get_or_create_deck_hierarchical("Sciences::Physique::Thermo")
+    assert again.id == leaf.id
+    assert repo.get_deck_by_name("Sciences::Physique").parent_deck_id == sciences.id

@@ -6,6 +6,7 @@ import uuid
 from typing import Any
 
 import pytest
+from PySide6.QtCore import Qt
 
 from ankiforge.database.models import DeckModel
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
@@ -55,6 +56,30 @@ def test_create_deck_dialog(qtbot: Any, mock_db: Any) -> None:
     assert parent_deck is not None
     child_deck = DeckModel.get_by_id(deck_id)
     assert child_deck.parent_deck.id == parent_deck.id
+
+
+@pytest.mark.ui
+def test_create_deck_dialog_enter_submits(qtbot: Any, mock_db: Any) -> None:
+    """Dans le modal de création de paquet, Enter doit créer le paquet (et non fermer via Annuler)."""
+    uid = uuid.uuid4().hex[:6]
+    dlg = CreateDeckDialog(initial_name=f"Entree_{uid}::Sous", parent=None)
+    qtbot.addWidget(dlg)
+
+    assert dlg.btn_submit.isDefault()
+    assert not dlg.btn_cancel.isDefault()
+
+    emitted: list[tuple[int, str]] = []
+    dlg.deck_created.connect(lambda did, name: emitted.append((did, name)))
+
+    qtbot.keyClick(dlg.txt_name, Qt.Key.Key_Return)
+
+    assert len(emitted) == 1
+    assert emitted[0][1] == f"Entree_{uid}::Sous"
+    assert dlg.result() == 1  # QDialog.DialogCode.Accepted
+    created = DeckModel.get_by_id(emitted[0][0])
+    parent = DeckModel.get_or_none(DeckModel.name == f"Entree_{uid}")
+    assert parent is not None
+    assert created.parent_deck.id == parent.id
 
 
 @pytest.mark.ui

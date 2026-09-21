@@ -52,6 +52,33 @@ def test_creation_view_creation(qtbot: Any, mock_db: Any) -> None:
 
 
 @pytest.mark.ui
+def test_creation_view_create_new_deck_hierarchical(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Le « Nouveau Paquet » du Studio doit créer la hiérarchie complète (parents + lien parent_deck)."""
+    from PySide6.QtWidgets import QInputDialog
+
+    uid = uuid.uuid4().hex[:6]
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    assert hasattr(view, "btn_new_deck")
+
+    new_name = f"Maths_{uid}::Algebre_{uid}::Polynomes_{uid}"
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: (new_name, True)))
+
+    view._on_create_new_deck()
+
+    parent1 = DeckModel.get_or_none(DeckModel.name == f"Maths_{uid}")
+    parent2 = DeckModel.get_or_none(DeckModel.name == f"Maths_{uid}::Algebre_{uid}")
+    assert parent1 is not None
+    assert parent1.parent_deck is None
+    assert parent2 is not None
+    assert parent2.parent_deck_id == parent1.id
+    assert view.current_deck is not None
+    assert view.current_deck.name == new_name
+    assert view.current_deck.parent_deck_id == parent2.id
+
+
+@pytest.mark.ui
 def test_free_input_remains_editable_for_generation(qtbot: Any, mock_db: Any) -> None:
     """Une saisie libre doit rester éditable et transmettre le texte modifié."""
     editor = DocumentEditorWidget("Texte initial", source_title="Nouvelle Saisie")

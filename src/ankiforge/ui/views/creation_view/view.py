@@ -1335,10 +1335,10 @@ class CreationView(QWidget):
         if ok and name.strip():
             try:
                 dk_name = name.strip()
-                new_deck, _ = DeckModel.get_or_create(name=dk_name, description="Nouveau paquet créé depuis le Studio.")
+                new_deck = self.deck_repo.get_or_create_deck_hierarchical(dk_name, description="Nouveau paquet créé depuis le Studio.")
                 self.refresh_data()
                 self._set_current_deck(new_deck)
-                show_toast(self, f"Paquet '{dk_name}' créé avec succès !")
+                show_toast(self, f"Paquet '{new_deck.name}' créé avec succès !")
             except Exception as e:
                 log_and_notify_error(e, context="Création de paquet", parent=self, title="Erreur")
 

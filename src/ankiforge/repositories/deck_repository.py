@@ -56,11 +56,22 @@ class DeckRepository(BaseRepository):
             for i in range(len(parts)):
                 accumulated_name = join_hierarchy(parts[: i + 1])
                 existing = self.get_deck_by_name(accumulated_name)
-                current_deck = existing or DeckModel.create(
-                    name=accumulated_name,
-                    description=description if i == len(parts) - 1 else "",
-                    parent_deck=current_deck,
-                )
+                if existing:
+                    # Répare un lien parent manquant/obsolète (ex: paquet créé à plat)
+                    # afin que la hiérarchie DB (parent_deck) reste cohérente avec le nom.
+                    expected_parent: DeckModel | None = current_deck if i > 0 else None
+                    expected_parent_id = expected_parent.id if expected_parent else None
+                    existing_parent_id = existing.parent_deck.id if existing.parent_deck else None
+                    if existing_parent_id != expected_parent_id:
+                        existing.parent_deck = expected_parent
+                        existing.save()
+                    current_deck = existing
+                else:
+                    current_deck = DeckModel.create(
+                        name=accumulated_name,
+                        description=description if i == len(parts) - 1 else "",
+                        parent_deck=current_deck,
+                    )
         if current_deck is None:
             raise ValueError(f"Impossible de créer ou récupérer le paquet : {name}")
         return current_deck

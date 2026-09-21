@@ -43,6 +43,7 @@ from ankiforge.database.models import (
     PipelineStepModel,
     db,
 )
+from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.services.batch.models import BatchTaskSnapshot
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.settings_service import SettingsService
@@ -1391,7 +1392,7 @@ class BatchView(QWidget):
             deck = task.get("deck")
             if not deck:
                 deck_name = task.get("deck_name", "Général")
-                deck, _ = DeckModel.get_or_create(name=deck_name)
+                deck = DeckRepository().get_or_create_deck_hierarchical(deck_name)
 
             selected_nt = task.get("note_type")
             if isinstance(selected_nt, NoteTypeModel):

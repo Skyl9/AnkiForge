@@ -145,10 +145,12 @@ class CreateDeckDialog(QDialog):
         footer.setSpacing(8)
 
         self.btn_cancel = SecondaryButton("Annuler")
+        self.btn_cancel.setAutoDefault(False)
         self.btn_cancel.clicked.connect(self.reject)
 
         self.btn_submit = PrimaryButton("Créer le paquet")
         self.btn_submit.setEnabled(bool(initial_name.strip()))
+        self.btn_submit.setDefault(True)
         self.btn_submit.clicked.connect(self._on_submit)
 
         footer.addStretch()
@@ -156,6 +158,9 @@ class CreateDeckDialog(QDialog):
         footer.addWidget(self.btn_submit)
 
         layout.addLayout(footer)
+
+        # Entrée dans le champ nom valide la création (au lieu d'activer le bouton Annuler)
+        self.txt_name.returnPressed.connect(self._on_submit)
 
     def _on_name_changed(self, text: str) -> None:
         clean = text.strip()
