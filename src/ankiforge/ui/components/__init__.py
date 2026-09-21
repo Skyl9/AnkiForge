@@ -21,9 +21,12 @@ from .flow_layout import FlowLayout, FlowWidget
 from .inputs import DBComboBox, GlowLineEdit, OptionToggleRow, StyledComboBox, StyledLineEdit, StyledTextEdit, ToggleSwitch
 from .lists import ActivityItem, ContextItem, DocTreeItem, StyledListItem, VirtualListView
 from .misc import StyledToolbar, UserAvatar
+from .modal_field import ModalField
 from .model_select_window import ModelSelectWindow
 from .model_selector import ModelCapabilityBadgesWidget, ModelDiscoveryDialog, ModelSelectorWidget
 from .panels import EmptyStateWidget, GlassPanel, IdePanel, MetricCard, StatCard
+from .persona_select_window import PersonaSelectWindow
+from .pipeline_select_window import PipelineSelectWindow
 from .sidebar import ClickableLabel, Sidebar, SidebarItem
 from .tables import CicdTable, StyledTableWidget, VirtualTableView
 from .tabs import IdeTabBar, PillTabBar, SettingsTabBar
@@ -91,9 +94,12 @@ __all__ = [
     "DeckSelectWindow",
     "DocumentPickerButton",
     "DocumentSelectWindow",
+    "ModalField",
     "ModelSelectWindow",
     "ModelSelectorWidget",
     "ModelCapabilityBadgesWidget",
     "ModelDiscoveryDialog",
+    "PersonaSelectWindow",
+    "PipelineSelectWindow",
     "TagSelectWindow",
 ]

@@ -13,7 +13,7 @@ from ankiforge.database.models import (
     PipelineModel,
 )
 from ankiforge.services.ai.base import LLMProvider
-from ankiforge.ui.components import StyledTextEdit
+from ankiforge.ui.components import ModalField, StyledTextEdit
 from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.views.ab_tests_view import ABTestsView
 from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
@@ -72,7 +72,7 @@ def test_ab_tests_view_engine_comparison(qtbot):
     persona = PersonaModel.create(name=f"Agent Commun {uid}", system_prompt="Prompt Commun", output_format="json")
 
     cfg_a = LLMConfigModel.create(provider="mock_a", model_id=f"model_a_{uid}", display_name=f"Model A {uid}")
-    LLMConfigModel.create(provider="mock_b", model_id=f"model_b_{uid}", display_name=f"Model B {uid}")
+    cfg_b = LLMConfigModel.create(provider="mock_b", model_id=f"model_b_{uid}", display_name=f"Model B {uid}")
 
     ai_mgr = DummyABManager(cfg_a_id=cfg_a.id)
 
@@ -84,21 +84,10 @@ def test_ab_tests_view_engine_comparison(qtbot):
     # Mode 0 : Comparer deux moteurs
     view.mode_combo.setCurrentIndex(0)
 
-    idx_ea = view.engine_a_combo.findText(f"Model A {uid}")
-    if idx_ea != -1:
-        view.engine_a_combo.setCurrentIndex(idx_ea)
-
-    idx_eb = view.engine_b_combo.findText(f"Model B {uid}")
-    if idx_eb != -1:
-        view.engine_b_combo.setCurrentIndex(idx_eb)
-
-    idx_p = view.persona_combo.findText(str(persona.name))
-    if idx_p != -1:
-        view.persona_combo.setCurrentIndex(idx_p)
-
-    idx_d = view.deck_combo.findText(deck.name)
-    if idx_d != -1:
-        view.deck_combo.setCurrentIndex(idx_d)
+    view._set_engine("A", cfg_a)
+    view._set_engine("B", cfg_b)
+    view._set_persona("common", persona)
+    view._set_deck(deck)
 
     # Lancer le test A/B
     view.source_text_edit.setPlainText("Texte d'évaluation comparatif Moteurs A/B.")
@@ -151,13 +140,15 @@ def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
 
     # Mode 1 : Comparer deux prompts
     view.mode_combo.setCurrentIndex(1)
-    assert not view.persona_a_combo.isHidden()
-    assert not view.persona_b_combo.isHidden()
+    assert view.lbl_a.text() == "Prompt A :"
+    assert view.lbl_b.text() == "Prompt B :"
+    assert view.field_a.get_value() is not None  # défaut prompt persisté par branche
 
     # Mode 2 : Comparer deux pipelines
     view.mode_combo.setCurrentIndex(2)
-    assert not view.pipeline_a_combo.isHidden()
-    assert not view.pipeline_b_combo.isHidden()
+    assert view.lbl_a.text() == "Pipeline A :"
+    assert view.lbl_b.text() == "Pipeline B :"
+    assert view.field_b.get_value() is not None  # défaut pipeline persisté par branche
 
     # Test navigation synchronisée
     view.cards_a = [{"Front": "A1"}, {"Front": "A2"}]
@@ -210,11 +201,11 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     assert not hasattr(view, "btn_toggle_source")
     assert not hasattr(view, "btn_adv_toggle")
 
-    # 3. Branches à comparer sur l'écran Configuration (paramètres testés réglables avant le run)
-    assert view.engine_a_combo.parent() is view.branches_block
-    assert view.engine_b_combo.parent() is view.branches_block
-    assert view.persona_a_combo.parent() is view.branches_block
-    assert view.pipeline_b_combo.parent() is view.branches_block
+    # 3. Branches à comparer sur l'écran Configuration (champs modaux cliquables)
+    assert view.field_a.parent() is view.branches_block
+    assert view.field_b.parent() is view.branches_block
+    assert isinstance(view.deck_field, ModalField)
+    assert isinstance(view.model_field, ModalField)
     assert hasattr(view, "lbl_branch_a")  # label lecture seule sur l'écran Résultats
     assert hasattr(view, "lbl_branch_b")
 
@@ -494,7 +485,7 @@ def test_ab_tests_view_config_summary_populated(qtbot):
     deck = DeckModel.create(name=f"Deck Summary {uid}")
     PersonaModel.create(name=f"Agent Summary {uid}", system_prompt="Prompt Summary", output_format="json")
     cfg_a = LLMConfigModel.create(provider="mock_a", model_id=f"model_a_summary_{uid}", display_name="Model Summary A")
-    LLMConfigModel.create(provider="mock_b", model_id=f"model_b_summary_{uid}", display_name="Model Summary B")
+    cfg_b = LLMConfigModel.create(provider="mock_b", model_id=f"model_b_summary_{uid}", display_name="Model Summary B")
 
     ai_mgr = DummyABManager(cfg_a_id=cfg_a.id)
 
@@ -503,15 +494,9 @@ def test_ab_tests_view_config_summary_populated(qtbot):
     view.refresh_data()
 
     view.mode_combo.setCurrentIndex(0)
-    idx_ea = view.engine_a_combo.findText("Model Summary A")
-    if idx_ea != -1:
-        view.engine_a_combo.setCurrentIndex(idx_ea)
-    idx_eb = view.engine_b_combo.findText("Model Summary B")
-    if idx_eb != -1:
-        view.engine_b_combo.setCurrentIndex(idx_eb)
-    idx_d = view.deck_combo.findText(deck.name)
-    if idx_d != -1:
-        view.deck_combo.setCurrentIndex(idx_d)
+    view._set_engine("A", cfg_a)
+    view._set_engine("B", cfg_b)
+    view._set_deck(deck)
 
     view.source_text_edit.setPlainText("Texte de vérification du résumé.")
     view._on_run_ab_test()
@@ -532,3 +517,41 @@ def test_ab_tests_view_config_summary_populated(qtbot):
     assert "Model Summary B" in view.lbl_branch_b.text()
     assert "0.70" in view.summary_labels["inf_a"].text()
     assert "4096" in view.summary_labels["inf_a"].text()
+
+
+@pytest.mark.ui
+def test_ab_tests_view_selectors_open_modals(qtbot):
+    """Vérifie qu'un clic sur chaque champ sélectionnable ouvre la modale correspondante."""
+    uid = uuid.uuid4().hex[:6]
+    persona = PersonaModel.create(name=f"Agent Modal {uid}", system_prompt="Prompt Modal", output_format="json")
+    pipeline = PipelineModel.create(name=f"Pipe Modal {uid}")
+
+    view = ABTestsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    # Clic sur chaque champ → la modale dédiée s'ouvre (pattern singleton + raise)
+    view.deck_field.clicked.emit()
+    assert view._deck_modal is not None
+    assert view._deck_modal.isVisible()
+
+    view.model_field.clicked.emit()
+    assert view._model_modal is not None
+    assert view._model_modal.isVisible()
+
+    view._open_persona_modal("A")
+    assert view._persona_modals["A"] is not None
+    assert view._persona_modals["A"].isVisible()
+
+    view._open_pipeline_modal("B")
+    assert view._pipeline_modals["B"] is not None
+    assert view._pipeline_modals["B"].isVisible()
+
+    # Sélection depuis une modale → le champ est mis à jour avec le bon payload
+    view._on_persona_selected_from_modal(persona.id, str(persona.name), "A")
+    assert view.field_a.get_value() is not None
+    assert view.field_a.get_value().id == persona.id
+
+    view._on_pipeline_selected_from_modal(pipeline.id, str(pipeline.name), "B")
+    assert view.field_b.get_value() is not None
+    assert view.field_b.get_value().id == pipeline.id

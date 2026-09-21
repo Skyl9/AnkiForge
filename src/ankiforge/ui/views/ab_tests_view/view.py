@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from ankiforge.database.models import (
     DeckModel,
     DocumentModel,
+    LLMConfigModel,
     NoteTypeModel,
     PersonaModel,
     PipelineModel,
@@ -36,11 +37,16 @@ from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import (
+    DeckSelectWindow,
     DocumentPickerButton,
     FlowLayout,
     IconButton,
     IdePanel,
-    ModelSelectorWidget,
+    ModalField,
+    ModelDiscoveryDialog,
+    ModelSelectWindow,
+    PersonaSelectWindow,
+    PipelineSelectWindow,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
@@ -95,6 +101,24 @@ class ABTestsView(QWidget):
         self._persona_cfg_b: Any = None
         self._pipeline_cfg_a: Any = None
         self._pipeline_cfg_b: Any = None
+
+        # Sélections persistées par type (branch, kind) où kind ∈ {engine, persona, pipeline}
+        self._branch_sel: dict[tuple[str, str], Any] = {}
+        self._common_persona: PersonaModel | None = None
+        self._global_engine: LLMConfigModel | None = None
+
+        # Caches peuplés par refresh_data()
+        self._decks: list[DeckModel] = []
+        self._note_types: list[NoteTypeModel] = []
+        self._personas: list[PersonaModel] = []
+        self._pipelines: list[PipelineModel] = []
+        self._engines: list[LLMConfigModel] = []
+
+        # Références des modales (pattern singleton + raise)
+        self._deck_modal: DeckSelectWindow | None = None
+        self._model_modal: ModelSelectWindow | None = None
+        self._persona_modals: dict[str, PersonaSelectWindow] = {}
+        self._pipeline_modals: dict[str, PipelineSelectWindow] = {}
 
         self._setup_ui()
         self._connect_signals()
@@ -310,11 +334,9 @@ class ABTestsView(QWidget):
         row_deck.setSpacing(8)
         lbl_deck = QLabel("Paquet Cible :")
         lbl_deck.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.deck_combo = StyledComboBox()
-        self.deck_combo.setMinimumWidth(130)
-        self.deck_combo.setFixedHeight(30)
+        self.deck_field = ModalField("Sélectionner un paquet cible...")
         row_deck.addWidget(lbl_deck, alignment=Qt.AlignmentFlag.AlignVCenter)
-        row_deck.addWidget(self.deck_combo, 1)
+        row_deck.addWidget(self.deck_field, 1)
         test_rows.addLayout(row_deck)
 
         box_test.addLayout(test_rows)
@@ -332,11 +354,9 @@ class ABTestsView(QWidget):
         gp_layout.setSpacing(6)
         lbl_gp = QLabel("Agent Commun :")
         lbl_gp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.persona_combo = StyledComboBox()
-        self.persona_combo.setMinimumWidth(170)
-        self.persona_combo.setFixedHeight(30)
+        self.persona_field = ModalField("Sélectionner un agent commun...")
         gp_layout.addWidget(lbl_gp)
-        gp_layout.addWidget(self.persona_combo, 1)
+        gp_layout.addWidget(self.persona_field, 1)
         eval_rows.addWidget(self.global_persona_widget)
 
         self.global_engine_widget = QWidget()
@@ -345,10 +365,9 @@ class ABTestsView(QWidget):
         ge_layout.setSpacing(6)
         lbl_ge = QLabel("Moteur Commun :")
         lbl_ge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.global_engine_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.global_engine_combo.setMinimumWidth(180)
+        self.global_engine_field = ModalField("Sélectionner le moteur commun...")
         ge_layout.addWidget(lbl_ge)
-        ge_layout.addWidget(self.global_engine_combo, 1)
+        ge_layout.addWidget(self.global_engine_field, 1)
         eval_rows.addWidget(self.global_engine_widget)
         self.global_engine_widget.hide()
 
@@ -357,11 +376,9 @@ class ABTestsView(QWidget):
         row_nt.setSpacing(8)
         lbl_nt = QLabel("Modèle Cible :")
         lbl_nt.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.model_combo = StyledComboBox()
-        self.model_combo.setMinimumWidth(150)
-        self.model_combo.setFixedHeight(30)
+        self.model_field = ModalField("Sélectionner un modèle de carte...")
         row_nt.addWidget(lbl_nt, alignment=Qt.AlignmentFlag.AlignVCenter)
-        row_nt.addWidget(self.model_combo, 1)
+        row_nt.addWidget(self.model_field, 1)
         eval_rows.addLayout(row_nt)
 
         box_eval.addLayout(eval_rows)
@@ -378,17 +395,9 @@ class ABTestsView(QWidget):
         row_branch_a.setSpacing(8)
         self.lbl_a = QLabel("Moteur A :")
         self.lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.engine_a_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.persona_a_combo = StyledComboBox()
-        self.persona_a_combo.setFixedHeight(30)
-        self.persona_a_combo.hide()
-        self.pipeline_a_combo = StyledComboBox()
-        self.pipeline_a_combo.setFixedHeight(30)
-        self.pipeline_a_combo.hide()
+        self.field_a = ModalField("Sélectionner la branche A...")
         row_branch_a.addWidget(self.lbl_a, alignment=Qt.AlignmentFlag.AlignVCenter)
-        row_branch_a.addWidget(self.engine_a_combo, 1)
-        row_branch_a.addWidget(self.persona_a_combo, 1)
-        row_branch_a.addWidget(self.pipeline_a_combo, 1)
+        row_branch_a.addWidget(self.field_a, 1)
         branches_rows.addLayout(row_branch_a)
 
         row_branch_b = QHBoxLayout()
@@ -396,17 +405,9 @@ class ABTestsView(QWidget):
         row_branch_b.setSpacing(8)
         self.lbl_b = QLabel("Moteur B :")
         self.lbl_b.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold;")
-        self.engine_b_combo = ModelSelectorWidget(allow_inherit=False, show_badges=False, parent=self)
-        self.persona_b_combo = StyledComboBox()
-        self.persona_b_combo.setFixedHeight(30)
-        self.persona_b_combo.hide()
-        self.pipeline_b_combo = StyledComboBox()
-        self.pipeline_b_combo.setFixedHeight(30)
-        self.pipeline_b_combo.hide()
+        self.field_b = ModalField("Sélectionner la branche B...")
         row_branch_b.addWidget(self.lbl_b, alignment=Qt.AlignmentFlag.AlignVCenter)
-        row_branch_b.addWidget(self.engine_b_combo, 1)
-        row_branch_b.addWidget(self.persona_b_combo, 1)
-        row_branch_b.addWidget(self.pipeline_b_combo, 1)
+        row_branch_b.addWidget(self.field_b, 1)
         branches_rows.addLayout(row_branch_b)
 
         branches_box.addLayout(branches_rows)
@@ -870,6 +871,14 @@ class ABTestsView(QWidget):
 
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
+        # Sélecteurs modaux : le clic sur un champ ouvre la modale correspondante
+        self.deck_field.clicked.connect(self._open_deck_modal)
+        self.model_field.clicked.connect(self._open_model_modal)
+        self.persona_field.clicked.connect(lambda: self._open_persona_modal("common"))
+        self.global_engine_field.clicked.connect(lambda: self._open_engine_modal(None))
+        self.field_a.clicked.connect(lambda: self._open_branch_modal("A"))
+        self.field_b.clicked.connect(lambda: self._open_branch_modal("B"))
+
         for slider, key in (
             (self.global_temp_slider, "ab_test/global_temperature"),
             (self.global_tok_slider, "ab_test/global_max_tokens"),
@@ -910,13 +919,7 @@ class ABTestsView(QWidget):
         show_toast(self, f"Document « {doc.title} » importé (vues PDF/Stylisé/Source disponibles).")
 
     def _branch_display(self, branch: str) -> str:
-        mode_idx = self.mode_combo.currentIndex()
-        if mode_idx == 0:
-            cfg = self.engine_a_combo.currentData() if branch == "A" else self.engine_b_combo.currentData()
-        elif mode_idx == 1:
-            cfg = self.persona_a_combo.currentData() if branch == "A" else self.persona_b_combo.currentData()
-        else:
-            cfg = self.pipeline_a_combo.currentData() if branch == "A" else self.pipeline_b_combo.currentData()
+        cfg = self._branch_field(branch).get_value()
         if cfg is None:
             return "—"
         display = getattr(cfg, "name", None) or getattr(cfg, "display_name", None) or getattr(cfg, "model_id", None) or "—"
@@ -934,8 +937,8 @@ class ABTestsView(QWidget):
 
     def _update_config_summary(self) -> None:
         """Met à jour les badges de résumé de configuration affichés sur l'écran Résultats."""
-        deck = self.deck_combo.currentData()
-        nt = self.model_combo.currentData()
+        deck = self.deck_field.get_value()
+        nt = self.model_field.get_value()
         deck_name = getattr(deck, "name", "—") if deck is not None else "—"
         nt_name = getattr(nt, "name", "—") if nt is not None else "—"
         temp_a = self._effective_temperature("A")
@@ -988,99 +991,331 @@ class ABTestsView(QWidget):
         if idx == 0:
             self.global_persona_widget.show()
             self.global_engine_widget.hide()
-
             self.lbl_a.setText("Moteur A :")
-            self.engine_a_combo.show()
-            self.persona_a_combo.hide()
-            self.pipeline_a_combo.hide()
-
             self.lbl_b.setText("Moteur B :")
-            self.engine_b_combo.show()
-            self.persona_b_combo.hide()
-            self.pipeline_b_combo.hide()
         elif idx == 1:
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
-
             self.lbl_a.setText("Prompt A :")
-            self.engine_a_combo.hide()
-            self.persona_a_combo.show()
-            self.pipeline_a_combo.hide()
-
             self.lbl_b.setText("Prompt B :")
-            self.engine_b_combo.hide()
-            self.persona_b_combo.show()
-            self.pipeline_b_combo.hide()
         else:
             self.global_persona_widget.hide()
             self.global_engine_widget.show()
-
             self.lbl_a.setText("Pipeline A :")
-            self.engine_a_combo.hide()
-            self.persona_a_combo.hide()
-            self.pipeline_a_combo.show()
-
             self.lbl_b.setText("Pipeline B :")
-            self.engine_b_combo.hide()
-            self.persona_b_combo.hide()
-            self.pipeline_b_combo.show()
+
+        kind = ("engine", "persona", "pipeline")[idx]
+        for branch in ("A", "B"):
+            self._render_branch_field(branch, kind)
 
     def refresh_data(self) -> None:
         try:
-            self.engine_a_combo.refresh_models()
-            self.engine_b_combo.refresh_models()
-            self.global_engine_combo.refresh_models()
-            if self.engine_b_combo.count() > 1:
-                self.engine_b_combo.setCurrentIndex(1)
+            self._engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
+            self._personas = list(PersonaModel.select().order_by(PersonaModel.name.asc()))
+            self._pipelines = list(PipelineModel.select().order_by(PipelineModel.name.asc()))
+            self._note_types = list(NoteTypeModel.select().order_by(NoteTypeModel.name.asc()))
 
-            self.persona_combo.blockSignals(True)
-            self.persona_a_combo.blockSignals(True)
-            self.persona_b_combo.blockSignals(True)
-            self.persona_combo.clear()
-            self.persona_a_combo.clear()
-            self.persona_b_combo.clear()
-            personas = list(PersonaModel.select())
-            for ag in personas:
-                self.persona_combo.addItem(ag.name, userData=ag)
-                self.persona_a_combo.addItem(ag.name, userData=ag)
-                self.persona_b_combo.addItem(ag.name, userData=ag)
-            if len(personas) > 1:
-                self.persona_b_combo.setCurrentIndex(1)
-            self.persona_combo.blockSignals(False)
-            self.persona_a_combo.blockSignals(False)
-            self.persona_b_combo.blockSignals(False)
+            self._decks = list(DeckModel.select())
+            if not self._decks:
+                self._decks = [DeckModel.create(name="Défaut")]
 
-            self.pipeline_a_combo.blockSignals(True)
-            self.pipeline_b_combo.blockSignals(True)
-            self.pipeline_a_combo.clear()
-            self.pipeline_b_combo.clear()
-            pipelines = list(PipelineModel.select())
-            for pipe in pipelines:
-                self.pipeline_a_combo.addItem(pipe.name, userData=pipe)
-                self.pipeline_b_combo.addItem(pipe.name, userData=pipe)
-            if len(pipelines) > 1:
-                self.pipeline_b_combo.setCurrentIndex(1)
-            self.pipeline_a_combo.blockSignals(False)
-            self.pipeline_b_combo.blockSignals(False)
+            if self.deck_field.get_value() is None and self._decks:
+                self._set_deck(self._decks[0])
+            if self.model_field.get_value() is None and self._note_types:
+                self._set_model(self._note_types[0])
+            if self._common_persona is None and self._personas:
+                self._set_persona("common", self._personas[0])
+            if self._global_engine is None and self._engines:
+                self._set_engine(None, self._engines[0])
 
-            self.model_combo.blockSignals(True)
-            self.model_combo.clear()
-            for nt in NoteTypeModel.select():
-                self.model_combo.addItem(nt.name, userData=nt)
-            self.model_combo.blockSignals(False)
-
-            self.deck_combo.blockSignals(True)
-            self.deck_combo.clear()
-            decks = list(DeckModel.select())
-            if not decks:
-                default_d = DeckModel.create(name="Défaut")
-                decks = [default_d]
-            for d in decks:
-                self.deck_combo.addItem(d.name, userData=d)
-            self.deck_combo.blockSignals(False)
+            # Rend les branches selon le mode courant (défauts si non sélectionnées)
+            self._on_mode_changed()
 
         except Exception as e:
             logger.warning("Erreur refresh_data ab_tests_view: %s", e)
+
+    # ── Sélecteurs modaux ──────────────────────────────────────────────────────
+    def _branch_field(self, branch: str) -> ModalField:
+        """Retourne le champ d'une branche (A ou B)."""
+        return self.field_a if branch == "A" else self.field_b
+
+    def _engine_field_for(self, target: str | None) -> ModalField:
+        """Retourne le champ moteur : global si target est None, sinon celui de la branche."""
+        if target is None:
+            return self.global_engine_field
+        return self._branch_field(target)
+
+    def _persona_field_for(self, target: str) -> ModalField:
+        """Retourne le champ agent : 'common' ou branche A/B."""
+        if target == "common":
+            return self.persona_field
+        return self._branch_field(target)
+
+    def _engine_icon(self, provider: str) -> tuple[str, str]:
+        """Retourne (nom d'icône, couleur) pour un fournisseur de moteur."""
+        if provider == "gemini":
+            return "ph.sparkle", DesignTokens.COLOR_BLUE
+        if provider == "anthropic":
+            return "ph.lightning", DesignTokens.COLOR_YELLOW
+        if provider == "ollama":
+            return "ph.cpu", DesignTokens.COLOR_GREEN
+        return "ph.brain", DesignTokens.ACCENT_PRIMARY
+
+    def _apply_engine_to_field(self, target: str | None, engine: LLMConfigModel | None) -> None:
+        field = self._engine_field_for(target)
+        if engine is None:
+            field.clear()
+            return
+        display = engine.display_name or f"{engine.provider} ({engine.model_id})"
+        pricing = "Gratuit" if (engine.is_free or engine.provider == "ollama") else f"{engine.prompt_pricing:.2f}$/1M"
+        icon_name, icon_color = self._engine_icon(engine.provider)
+        field.set_value(
+            display,
+            payload=engine,
+            subtitle=f"{engine.provider} • {pricing}",
+            icon_name=icon_name,
+            icon_color=icon_color,
+        )
+
+    def _set_engine(self, target: str | None, engine: LLMConfigModel | None) -> None:
+        """Persiste la sélection moteur (global ou branche) puis met à jour le champ."""
+        if target is None:
+            self._global_engine = engine
+        else:
+            self._branch_sel[(target, "engine")] = engine
+        self._apply_engine_to_field(target, engine)
+
+    def _set_deck(self, deck: DeckModel) -> None:
+        self.deck_field.set_value(
+            deck.name,
+            payload=deck,
+            subtitle="Paquet cible",
+            icon_name="ph.folder",
+            icon_color=DesignTokens.COLOR_BLUE,
+        )
+
+    def _set_model(self, note_type: NoteTypeModel) -> None:
+        n_fields = 0
+        if note_type.fields_schema:
+            try:
+                n_fields = len(json.loads(note_type.fields_schema))
+            except Exception:
+                n_fields = 0
+        self.model_field.set_value(
+            note_type.name,
+            payload=note_type,
+            subtitle=f"{n_fields} champ{'s' if n_fields != 1 else ''}",
+            icon_name="ph.cards",
+            icon_color=DesignTokens.ACCENT_PRIMARY,
+        )
+
+    def _apply_persona_to_field(self, target: str, persona: PersonaModel | None) -> None:
+        field = self._persona_field_for(target)
+        if persona is None:
+            if target == "common":
+                self._common_persona = None
+            field.clear()
+            return
+        meta = f"{persona.output_format or 'json'} • {persona.persona_type or 'pipeline'}"
+        field.set_value(
+            persona.name,
+            payload=persona,
+            subtitle=meta,
+            icon_name="ph.robot",
+            icon_color=DesignTokens.COLOR_PURPLE,
+        )
+
+    def _set_persona(self, target: str, persona: PersonaModel | None) -> None:
+        if target == "common":
+            self._common_persona = persona
+        else:
+            self._branch_sel[(target, "persona")] = persona
+        self._apply_persona_to_field(target, persona)
+
+    def _apply_pipeline_to_field(self, branch: str, pipeline: PipelineModel | None) -> None:
+        field = self._branch_field(branch)
+        if pipeline is None:
+            field.clear()
+            return
+        n_steps = PipelineStepModel.select().where(PipelineStepModel.pipeline_id == pipeline.id).count()
+        field.set_value(
+            pipeline.name,
+            payload=pipeline,
+            subtitle=f"{n_steps} étape{'s' if n_steps != 1 else ''}",
+            icon_name="ph.git-branch",
+            icon_color=DesignTokens.COLOR_GREEN,
+        )
+
+    def _set_pipeline(self, branch: str, pipeline: PipelineModel | None) -> None:
+        self._branch_sel[(branch, "pipeline")] = pipeline
+        self._apply_pipeline_to_field(branch, pipeline)
+
+    def _default_for_kind(self, kind: str, branch: str) -> Any:
+        """Retourne l'élément par défaut (1er, ou 2e pour B) pour un type de branche."""
+        if kind == "engine":
+            items = self._engines
+        elif kind == "persona":
+            items = self._personas
+        else:
+            items = self._pipelines
+        if not items:
+            return None
+        index = 1 if branch == "B" and len(items) > 1 else 0
+        return items[index]
+
+    def _render_branch_field(self, branch: str, kind: str) -> None:
+        """Affiche sur le champ de branche la sélection persistée du type demandé (défaut sinon)."""
+        obj = self._branch_sel.get((branch, kind))
+        if obj is None:
+            obj = self._default_for_kind(kind, branch)
+            if obj is not None:
+                self._branch_sel[(branch, kind)] = obj
+        if kind == "engine":
+            self._apply_engine_to_field(branch, obj)
+        elif kind == "persona":
+            self._apply_persona_to_field(branch, obj)
+        else:
+            self._apply_pipeline_to_field(branch, obj)
+
+    def _resolve_engine(self, obj: Any) -> LLMConfigModel | None:
+        """Retrouve dans la cache un LLMConfigModel correspondant à l'objet sélectionné."""
+        obj_id = getattr(obj, "id", None)
+        model_id = getattr(obj, "model_id", None)
+        for engine in self._engines:
+            if obj_id is not None and getattr(engine, "id", None) == obj_id:
+                return engine
+            if model_id and getattr(engine, "model_id", None) == model_id:
+                return engine
+        return None
+
+    @Slot()
+    def _open_branch_modal(self, branch: str) -> None:
+        """Ouvre la modale correspondant au mode courant pour une branche A/B."""
+        idx = self.mode_combo.currentIndex()
+        if idx == 0:
+            self._open_engine_modal(branch)
+        elif idx == 1:
+            self._open_persona_modal(branch)
+        else:
+            self._open_pipeline_modal(branch)
+
+    @Slot()
+    def _open_deck_modal(self) -> None:
+        try:
+            if self._deck_modal and self._deck_modal.isVisible():
+                self._deck_modal.raise_()
+                self._deck_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._deck_modal = None
+        current = self.deck_field.get_value()
+        current_id = current.id if current else None
+        self._deck_modal = DeckSelectWindow(title="Sélectionner un paquet cible", selected_deck_id=current_id, parent=self)
+        self._deck_modal.deck_selected.connect(self._on_deck_selected_from_modal)
+        self._deck_modal.show()
+
+    @Slot(int, str)
+    def _on_deck_selected_from_modal(self, deck_id: int, deck_name: str) -> None:
+        try:
+            self._set_deck(DeckModel.get_by_id(deck_id))
+        except Exception as e:
+            logger.error("Deck introuvable %s : %s", deck_name, e)
+
+    @Slot()
+    def _open_model_modal(self) -> None:
+        try:
+            if self._model_modal and self._model_modal.isVisible():
+                self._model_modal.raise_()
+                self._model_modal.activateWindow()
+                return
+        except RuntimeError:
+            self._model_modal = None
+        current = self.model_field.get_value()
+        current_id = current.id if current else None
+        self._model_modal = ModelSelectWindow(title="Sélectionner un modèle de carte cible", allow_all=False, current_model_id=current_id, parent=self)
+        self._model_modal.model_selected.connect(self._on_model_selected_from_modal)
+        self._model_modal.show()
+
+    @Slot(int, str)
+    def _on_model_selected_from_modal(self, model_id: int, model_name: str) -> None:
+        try:
+            self._set_model(NoteTypeModel.get_by_id(model_id))
+        except Exception as e:
+            logger.error("Modèle de carte introuvable %s : %s", model_name, e)
+
+    @Slot()
+    def _open_persona_modal(self, target: str) -> None:
+        try:
+            modal = self._persona_modals.get(target)
+            if modal is not None and modal.isVisible():
+                modal.raise_()
+                modal.activateWindow()
+                return
+        except RuntimeError:
+            self._persona_modals.pop(target, None)
+        current = self._persona_field_for(target).get_value()
+        current_id = current.id if current else None
+        title = "Sélectionner un agent commun..." if target == "common" else f"Sélectionner l'agent de la branche {target}"
+        modal = PersonaSelectWindow(title=title, current_persona_id=current_id, parent=self)
+        modal.persona_selected.connect(lambda pid, name, t=target: self._on_persona_selected_from_modal(pid, name, t))
+        self._persona_modals[target] = modal
+        modal.show()
+
+    @Slot(int, str, str)
+    def _on_persona_selected_from_modal(self, persona_id: int, persona_name: str, target: str) -> None:
+        try:
+            self._set_persona(target, PersonaModel.get_by_id(persona_id))
+        except Exception as e:
+            logger.error("Agent introuvable %s : %s", persona_name, e)
+
+    @Slot()
+    def _open_pipeline_modal(self, branch: str) -> None:
+        try:
+            modal = self._pipeline_modals.get(branch)
+            if modal is not None and modal.isVisible():
+                modal.raise_()
+                modal.activateWindow()
+                return
+        except RuntimeError:
+            self._pipeline_modals.pop(branch, None)
+        current = self._branch_field(branch).get_value()
+        current_id = current.id if current else None
+        modal = PipelineSelectWindow(title=f"Sélectionner le pipeline de la branche {branch}", current_pipeline_id=current_id, parent=self)
+        modal.pipeline_selected.connect(lambda pid, name, b=branch: self._on_pipeline_selected_from_modal(pid, name, b))
+        self._pipeline_modals[branch] = modal
+        modal.show()
+
+    @Slot(int, str, str)
+    def _on_pipeline_selected_from_modal(self, pipeline_id: int, pipeline_name: str, branch: str) -> None:
+        try:
+            self._set_pipeline(branch, PipelineModel.get_by_id(pipeline_id))
+        except Exception as e:
+            logger.error("Pipeline introuvable %s : %s", pipeline_name, e)
+
+    @Slot()
+    def _open_engine_modal(self, target: str | None) -> None:
+        field = self._engine_field_for(target)
+        current = field.get_value()
+        curr_id = getattr(current, "model_id", None) if current else None
+        dlg = ModelDiscoveryDialog(current_model_id=curr_id, picker_mode=True, parent=self)
+        if dlg.exec():
+            selected = dlg.get_selected_model()
+            if selected:
+                engine = self._resolve_engine(selected)
+                if engine is None:
+                    self._engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
+                    engine = self._resolve_engine(selected)
+                if engine is not None:
+                    self._set_engine(target, engine)
+                else:
+                    label = getattr(selected, "display_name", None) or getattr(selected, "model_id", None) or str(selected)
+                    field.set_value(
+                        str(label),
+                        payload=None,
+                        subtitle="Catalogue (non configuré)",
+                        icon_name="ph.brain",
+                        icon_color=DesignTokens.ACCENT_PRIMARY,
+                    )
 
     def is_dirty(self) -> bool:
         return False
@@ -1109,7 +1344,7 @@ class ABTestsView(QWidget):
         self._update_views()
 
     def _update_views(self) -> None:
-        selected_nt = self.model_combo.currentData()
+        selected_nt = self.model_field.get_value()
         fields = ["Front", "Back"]
         if selected_nt and getattr(selected_nt, "fields_schema", None):
             try:
@@ -1221,7 +1456,7 @@ class ABTestsView(QWidget):
             show_toast(self, "Veuillez saisir un texte source à tester.", is_error=True)
             return
 
-        selected_nt = self.model_combo.currentData()
+        selected_nt = self.model_field.get_value()
         nt_id = selected_nt.id if selected_nt and hasattr(selected_nt, "id") else 1
         nt_schema = json.loads(selected_nt.fields_schema) if selected_nt and selected_nt.fields_schema else ["Front", "Back"]
 
@@ -1251,22 +1486,22 @@ class ABTestsView(QWidget):
         self._pipeline_cfg_b = None
 
         if mode_idx == 0:
-            engine_a = self.engine_a_combo.currentData()
-            engine_b = self.engine_b_combo.currentData()
+            engine_a = self.field_a.get_value()
+            engine_b = self.field_b.get_value()
             pipe_id_a = None
             pipe_id_b = None
-            common_persona = self.persona_combo.currentData()
+            common_persona = self.persona_field.get_value()
             if common_persona:
                 steps_a = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_a))]
                 steps_b = [PipelineStepModel(persona=common_persona, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_b))]
 
         elif mode_idx == 1:
-            engine_a = self.global_engine_combo.currentData()
-            engine_b = self.global_engine_combo.currentData()
+            engine_a = self.global_engine_field.get_value()
+            engine_b = self.global_engine_field.get_value()
             pipe_id_a = None
             pipe_id_b = None
-            p_a = self.persona_a_combo.currentData()
-            p_b = self.persona_b_combo.currentData()
+            p_a = self.field_a.get_value()
+            p_b = self.field_b.get_value()
             self._persona_cfg_a = p_a
             self._persona_cfg_b = p_b
             if p_a:
@@ -1275,10 +1510,10 @@ class ABTestsView(QWidget):
                 steps_b = [PipelineStepModel(persona=p_b, step_type="LLM_PROMPT", step_order=1, config_data=json.dumps(inf_cfg_b))]
 
         else:
-            engine_a = self.global_engine_combo.currentData()
-            engine_b = self.global_engine_combo.currentData()
-            pipe_a = self.pipeline_a_combo.currentData()
-            pipe_b = self.pipeline_b_combo.currentData()
+            engine_a = self.global_engine_field.get_value()
+            engine_b = self.global_engine_field.get_value()
+            pipe_a = self.field_a.get_value()
+            pipe_b = self.field_b.get_value()
             self._pipeline_cfg_a = pipe_a
             self._pipeline_cfg_b = pipe_b
             pipe_id_a = pipe_a.id if pipe_a else None
