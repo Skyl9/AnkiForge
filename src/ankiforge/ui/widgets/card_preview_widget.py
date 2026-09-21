@@ -332,13 +332,33 @@ class CardPreviewWidget(QWidget):
         is_recto = self.is_recto
         raw_html = tmpl.get("qfmt", "") if is_recto else tmpl.get("afmt", "")
 
-        fields_copy = self.current_fields.copy()
-        if "Front" not in fields_copy and len(fields_copy) > 0:
-            fields_copy["Front"] = list(fields_copy.values())[0]
-        if "Back" not in fields_copy and len(fields_copy) > 1:
-            fields_copy["Back"] = list(fields_copy.values())[1]
+        excluded = {
+            "model",
+            "note_type",
+            "status",
+            "chunk_id",
+            "source_doc_id",
+            "tags",
+            "section",
+            "heading_path",
+            "page_number",
+            "_source_chunk_id",
+            "_source_heading_path",
+            "_source_page_number",
+            "_source_chunk_hash",
+            "_documentation_enabled",
+            "guid",
+            "id",
+            "source",
+        }
+        clean_fields = {k: str(v) for k, v in self.current_fields.items() if k not in excluded and not str(k).startswith("_")}
 
-        cur_fields = AnkiFields(fields_copy)
+        if "Front" not in clean_fields and len(clean_fields) > 0:
+            clean_fields["Front"] = list(clean_fields.values())[0]
+        if "Back" not in clean_fields and len(clean_fields) > 1:
+            clean_fields["Back"] = list(clean_fields.values())[1]
+
+        cur_fields = AnkiFields(clean_fields)
 
         final_html = render_anki_card(
             raw_html=raw_html,

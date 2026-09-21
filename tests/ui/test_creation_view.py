@@ -530,6 +530,146 @@ def test_card_edit_dialog_dynamic_fields(qtbot: Any) -> None:
 
 
 @pytest.mark.ui
+def test_card_edit_dialog_strict_fields_and_formatting_toolbar(qtbot: Any) -> None:
+    """Vérifie que CardEditDialog n'ajoute aucun champ fantôme/métadonnée et que la barre d'outils fonctionne."""
+    card_data = {
+        "Front": "Question initiale",
+        "Back": "Réponse initiale",
+        # Métadonnées et clés fantômes parasites qui ne doivent JAMAIS apparaître comme champs
+        "Recto": "Question parasite",
+        "Verso": "Réponse parasite",
+        "section": "Introduction",
+        "heading_path": "Chapitre 1 > Intro",
+        "page_number": 42,
+        "_source_chunk_id": 999,
+        "model": "Basique",
+        "status": "À valider",
+    }
+    field_names = ["Front", "Back"]
+
+    dlg = CardEditDialog(card_data=card_data, field_names=field_names)
+    qtbot.addWidget(dlg)
+
+    # 1. Vérification du filtrage strict : UNIQUEMENT Front et Back
+    assert list(dlg.field_edits.keys()) == ["Front", "Back"]
+    assert "Recto" not in dlg.field_edits
+    assert "Verso" not in dlg.field_edits
+    assert "section" not in dlg.field_edits
+    assert "_source_chunk_id" not in dlg.field_edits
+
+    # 2. Test du formatage Gras via _wrap_selection
+    front_edit = dlg.field_edits["Front"]
+    front_edit.selectAll()
+    dlg._set_last_focused("Front")
+    dlg._wrap_selection("<b>", "</b>")
+    assert front_edit.toPlainText() == "<b>Question initiale</b>"
+
+    # 3. Test de l'insertion de trou Cloze
+    back_edit = dlg.field_edits["Back"]
+    back_edit.selectAll()
+    dlg._set_last_focused("Back")
+    dlg._insert_cloze()
+    assert "{{c1::Réponse initiale}}" in back_edit.toPlainText()
+
+    # Deuxième cloze doit s'auto-incrémenter à c2
+    back_edit.setPlainText("Un deux trois")
+    cursor = back_edit.textCursor()
+    cursor.setPosition(3)
+    cursor.setPosition(7, cursor.MoveMode.KeepAnchor)
+    back_edit.setTextCursor(cursor)
+    dlg._insert_cloze()
+    assert "{{c1::" in back_edit.toPlainText() or "{{c2::" in back_edit.toPlainText()
+
+    # 4. Test de l'insertion de saut de ligne HTML <br>
+    dlg._insert_text("<br>\n")
+    assert "<br>\n" in back_edit.toPlainText()
+
+    # 5. Nettoyage
+    dlg.cleanup()
+
+
+@pytest.mark.ui
+def test_creation_view_cell_edited_does_not_inject_synonym_keys(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que modifier une cellule dans le tableau ne crée pas de champs synonymes parasites."""
+    nt_basic = NoteTypeModel.create(
+        name="Basique Propre",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style=".card {}",
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.models_cache = [nt_basic]
+    view.current_model = nt_basic
+
+    view.generated_cards = [
+        {"model": "Basique Propre", "Front": "Question", "Back": "Réponse", "status": "À valider"},
+    ]
+    view._populate_results_table()
+
+    # Modifier la cellule 'Front'
+    item_front = view.results_table.item(0, 1)
+    assert item_front is not None
+    item_front.setText("Nouvelle Question")
+    view._on_cell_edited(item_front)
+
+    card = view.generated_cards[0]
+    assert card["Front"] == "Nouvelle Question"
+    # Vérifier l'absence absolue de clés synonymes injectées
+    assert "Recto" not in card
+    assert "Verso" not in card
+    assert "Texte" not in card
+    assert "Remarques extra" not in card
+
+
+@pytest.mark.ui
+def test_creation_view_edit_card_cleans_phantom_keys(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
+    """Vérifie que _on_edit_card nettoie les clés fantômes résiduelles hors schéma."""
+    from PySide6.QtWidgets import QDialog
+
+    nt_basic = NoteTypeModel.create(
+        name="Basique Nettoyage",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+        css_style=".card {}",
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.models_cache = [nt_basic]
+    view.current_model = nt_basic
+
+    # Carte contenant des clés fantômes
+    view.generated_cards = [
+        {
+            "model": "Basique Nettoyage",
+            "Front": "Question 1",
+            "Back": "Réponse 1",
+            "Recto": "Fantôme 1",
+            "Verso": "Fantôme 2",
+            "status": "À valider",
+        },
+    ]
+    view.current_preview_index = 0
+    view._populate_results_table()
+
+    def mock_exec(dlg_self: Any) -> int:
+        dlg_self.field_edits["Front"].setPlainText("Question Corrigée")
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(CardEditDialog, "exec", mock_exec)
+
+    view._on_edit_card()
+
+    card = view.generated_cards[0]
+    assert card["Front"] == "Question Corrigée"
+    # Les clés fantômes doivent avoir été supprimées
+    assert "Recto" not in card
+    assert "Verso" not in card
+
+
+@pytest.mark.ui
 def test_creation_view_dynamic_table_columns_heterogeneous_cards(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que le tableau des résultats adapte ses colonnes à l'union des champs et grise les champs non applicables."""
     from PySide6.QtCore import Qt

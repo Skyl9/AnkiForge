@@ -2003,8 +2003,10 @@ class CreationView(QWidget):
                         val = "<br>".join([str(v) for v in val]) if isinstance(val, list) else str(val) if val is not None else ""
                         note_dict[field_name] = val
 
+                    known_field_lowers = {f.lower().strip() for f in m_fields}
                     for k, v in item.items():
-                        if k not in note_dict and str(k).lower() not in ("status",):
+                        k_lower = str(k).lower().strip()
+                        if k not in note_dict and k_lower not in ("status", "model", "note_type") and k_lower not in known_field_lowers:
                             note_dict[k] = v
 
                     cleaned_notes.append(note_dict)
@@ -2073,8 +2075,28 @@ class CreationView(QWidget):
     def _get_table_field_columns(self) -> list[str]:
         """Détermine la liste ordonnée et unique des champs à afficher en colonnes dans le tableau."""
         ordered_fields: list[str] = []
-        excluded_keys = {"model", "note_type", "status", "chunk_id", "source_doc_id", "tags"}
+        excluded_keys = {
+            "model",
+            "note_type",
+            "status",
+            "chunk_id",
+            "source_doc_id",
+            "tags",
+            "section",
+            "heading_path",
+            "page_number",
+            "_source_chunk_id",
+            "_source_heading_path",
+            "_source_page_number",
+            "_source_chunk_hash",
+            "_documentation_enabled",
+            "guid",
+            "id",
+            "source",
+        }
 
+        # Collecte stricte des modèles associés aux cartes présentes
+        models_to_check: list[NoteTypeModel] = []
         if self.generated_cards:
             for card in self.generated_cards:
                 card_model_name = card.get("model") or card.get("note_type")
@@ -2086,28 +2108,27 @@ class CreationView(QWidget):
                             break
                 if not target_nt:
                     target_nt = self.current_model
+                if target_nt and target_nt not in models_to_check:
+                    models_to_check.append(target_nt)
+        elif self.current_model:
+            models_to_check.append(self.current_model)
 
-                if target_nt and target_nt.fields_schema:
-                    try:
-                        m_fields = json.loads(str(target_nt.fields_schema))
-                        for f in m_fields:
-                            if f not in excluded_keys and f not in ordered_fields:
-                                ordered_fields.append(f)
-                    except Exception as err:
-                        logger.debug("Parsing des champs du modèle ciblé ignoré : %s", err)
-
-                for k in card:
-                    if k not in excluded_keys and k not in ordered_fields:
-                        ordered_fields.append(k)
-        else:
-            if self.current_model and self.current_model.fields_schema:
+        for nt in models_to_check:
+            if nt and nt.fields_schema:
                 try:
-                    m_fields = json.loads(str(self.current_model.fields_schema))
+                    m_fields = json.loads(str(nt.fields_schema))
                     for f in m_fields:
-                        if f not in excluded_keys and f not in ordered_fields:
+                        if f not in excluded_keys and not str(f).startswith("_") and f not in ordered_fields:
                             ordered_fields.append(f)
                 except Exception as err:
-                    logger.debug("Parsing des champs du modèle courant ignoré : %s", err)
+                    logger.debug("Parsing des champs du modèle ignoré : %s", err)
+
+        # Repli exceptionnel si aucun schéma n'a fourni de champs
+        if not ordered_fields and self.generated_cards:
+            for card in self.generated_cards:
+                for k in card:
+                    if k not in excluded_keys and not str(k).startswith("_") and k not in ordered_fields:
+                        ordered_fields.append(k)
 
         if not ordered_fields:
             ordered_fields = ["Front", "Back"]
@@ -2284,18 +2305,6 @@ class CreationView(QWidget):
                     card = self.generated_cards[row]
                     card[field_name] = text
 
-                    f_lower = field_name.lower().strip()
-                    if f_lower in ("front", "recto"):
-                        card["Front"] = text
-                        card["Recto"] = text
-                    elif f_lower in ("back", "verso"):
-                        card["Back"] = text
-                        card["Verso"] = text
-                    elif f_lower in ("texte",):
-                        card["Texte"] = text
-                    elif f_lower in ("remarques extra", "remarques", "extra"):
-                        card["Remarques extra"] = text
-
                     if row == self.current_preview_index:
                         self._update_card_preview()
 
@@ -2387,24 +2396,18 @@ class CreationView(QWidget):
         dlg = CardEditDialog(
             card_data=card,
             field_names=field_names,
+            note_type=target_nt,
             parent=self,
         )
         if dlg.exec() == QDialog.DialogCode.Accepted:
             updated_fields = dlg.get_fields()
             card.update(updated_fields)
 
-            for f_name, val in updated_fields.items():
-                f_lower = f_name.lower().strip()
-                if f_lower in ("front", "recto"):
-                    card["Front"] = val
-                    card["Recto"] = val
-                elif f_lower in ("back", "verso"):
-                    card["Back"] = val
-                    card["Verso"] = val
-                elif f_lower in ("texte",):
-                    card["Texte"] = val
-                elif f_lower in ("remarques extra", "remarques", "extra"):
-                    card["Remarques extra"] = val
+            # Nettoyer les clés fantômes/synonymes qui ne font pas partie du schéma du modèle
+            if field_names:
+                for k in list(card.keys()):
+                    if k not in CardEditDialog.METADATA_KEYS and not str(k).startswith("_") and k not in field_names:
+                        del card[k]
 
             card["status"] = previous_status
             self._populate_results_table()

@@ -113,7 +113,7 @@ class ImageOcclusionService:
             "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
             "  font-size: 16px;\n"
             "  text-align: center;\n"
-            "  color: palette(text);\n"
+            "  color: #1e293b;\n"
             "}\n"
             "#image-wrapper {\n"
             "  position: relative;\n"

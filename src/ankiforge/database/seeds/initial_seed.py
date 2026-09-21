@@ -64,7 +64,15 @@ def _seed_initial_data_inner() -> None:
                 ],
                 ensure_ascii=False,
             ),
-            css_style=".card { font-family: arial; font-size: 20px; text-align: center; color: palette(text); }",
+            css_style=(
+                ".card {\n"
+                "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
+                "  font-size: 18px;\n"
+                "  text-align: center;\n"
+                "  color: #1e293b;\n"
+                "  background-color: #ffffff;\n"
+                "}"
+            ),
         )
 
     if NoteTypeModel.select().where(NoteTypeModel.name == "Texte à trous (Cloze)").count() == 0:
@@ -82,7 +90,19 @@ def _seed_initial_data_inner() -> None:
                 ],
                 ensure_ascii=False,
             ),
-            css_style=".card { font-family: arial; font-size: 20px; text-align: center; color: palette(text); }\n.cloze { font-weight: bold; color: #2196f3; }",
+            css_style=(
+                ".card {\n"
+                "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
+                "  font-size: 18px;\n"
+                "  text-align: center;\n"
+                "  color: #1e293b;\n"
+                "  background-color: #ffffff;\n"
+                "}\n"
+                ".cloze {\n"
+                "  font-weight: bold;\n"
+                "  color: #3b82f6;\n"
+                "}"
+            ),
         )
 
     if NoteTypeModel.select().where(NoteTypeModel.name == "Image Occlusion Enhanced").count() == 0:
@@ -135,7 +155,7 @@ def _seed_initial_data_inner() -> None:
                 "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;\n"
                 "  font-size: 16px;\n"
                 "  text-align: center;\n"
-                "  color: palette(text);\n"
+                "  color: #1e293b;\n"
                 "}\n"
                 "#image-wrapper {\n"
                 "  position: relative;\n"

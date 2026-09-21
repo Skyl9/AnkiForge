@@ -56,7 +56,10 @@ def _sanitize_fields(fields_dict: Mapping[str, Any]) -> dict[str, str]:
         if isinstance(v, list):
             safe_fields[k] = "<br>".join([str(item) for item in v])
         else:
-            safe_fields[k] = str(v) if v is not None else ""
+            s = str(v) if v is not None else ""
+            if "\n" in s and "<br" not in s and "<p" not in s and "<div" not in s:
+                s = s.replace("\r\n", "\n").replace("\n", "<br>")
+            safe_fields[k] = s
     return safe_fields
 
 
@@ -309,6 +312,7 @@ def render_anki_card(
     # Résolution des médias (images et balises audio [sound:...])
     html = _process_media_references(html)
 
+    cleaned_css = css.replace("palette(text)", "inherit") if css else ""
     body_class = "nightMode" if is_dark_mode else ""
     final_html = f"""<!DOCTYPE html>
             <html>
@@ -317,7 +321,16 @@ def render_anki_card(
                 <style>
                     body {{ background-color: #f8fafc; color: #1e293b; margin: 0; padding: 15px; }}
                     body.nightMode {{ background-color: #0f172a; color: #e2e8f0; }}
-                    .card {{ background-color: #ffffff; color: #1e293b; }}
+                    .card {{
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 18px;
+                        line-height: 1.5;
+                        background-color: #ffffff;
+                        color: #1e293b;
+                        padding: 16px;
+                        border-radius: 8px;
+                        box-sizing: border-box;
+                    }}
                     .nightMode .card {{ background-color: #1e293b; color: #e2e8f0; }}
                     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
                     ::-webkit-scrollbar-track {{ background: transparent; }}
@@ -326,7 +339,7 @@ def render_anki_card(
                     .cloze {{ color: #38bdf8; font-weight: bold; }}
                     .katex .cloze {{ color: #38bdf8 !important; font-weight: bold; background: rgba(56, 189, 248, 0.15); border-radius: 3px; padding: 0 3px; }}
                     img {{ max-width: 100%; height: auto; }}
-                    {css}
+                    {cleaned_css}
                 </style>
             </head>
             <body class="{body_class}">

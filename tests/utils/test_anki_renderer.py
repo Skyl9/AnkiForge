@@ -127,3 +127,23 @@ def test_process_media_references_images_and_sounds(tmp_path, monkeypatch):
 
     # 4. Audio manquant avec repli visuel propre
     assert "🔊 introuvable.mp3" in processed
+
+
+def test_render_anki_card_newline_conversion_and_palette_cleaning() -> None:
+    """Vérifie que render_anki_card remplace palette(text) et convertit \n en <br> pour les champs multilignes."""
+    fields = {"Front": "Ligne 1\nLigne 2\nLigne 3", "Back": "Réponse directe"}
+    css = ".card { color: palette(text); font-size: 20px; }"
+
+    rendered = render_anki_card(
+        raw_html="{{Front}}",
+        css=css,
+        fields_dict=fields,
+        is_recto=True,
+    )
+
+    # Vérifier que palette(text) a été assaini
+    assert "palette(text)" not in rendered
+    assert "inherit" in rendered
+
+    # Vérifier que les retours à la ligne \n ont été convertis en <br>
+    assert "Ligne 1<br>Ligne 2<br>Ligne 3" in rendered
