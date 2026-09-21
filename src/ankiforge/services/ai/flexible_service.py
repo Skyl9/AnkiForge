@@ -37,6 +37,23 @@ def _ollama_base_url() -> str:
     return url
 
 
+def _resolve_generation_timeout_seconds() -> float:
+    """Résout le délai maximal de génération (secondes) depuis les réglages utilisateur.
+
+    Returns:
+        Délai en secondes (toujours > 0 ; repli sur la valeur par défaut si le
+        réglage est absent, invalide ou non positif).
+    """
+    try:
+        from ankiforge.services.settings_service import SettingsService
+
+        raw = SettingsService.get("ai/generation_timeout_seconds", _DEFAULT_TIMEOUT_SECONDS)
+        timeout = float(raw)
+    except (TypeError, ValueError):
+        timeout = _DEFAULT_TIMEOUT_SECONDS
+    return timeout if timeout > 0 else _DEFAULT_TIMEOUT_SECONDS
+
+
 class OpenAICompatibleProvider(LLMProvider):
     """
     Service générique pour les APIs compatibles avec le standard OpenAI.
@@ -151,15 +168,16 @@ class OllamaProvider(OpenAICompatibleProvider):
     Fournisseur d'IA locale 100% gratuit utilisant Ollama.
     """
 
-    def __init__(self, model_name: str = "llama3", max_tokens: int = 16384):
+    def __init__(self, model_name: str = "llama3", max_tokens: int = 16384, timeout: float = _DEFAULT_TIMEOUT_SECONDS):
         """
         Initialise le service Ollama sur l'URL locale configurée (repli localhost).
 
         Args:
             model_name (str): Nom du modèle local à utiliser.
             max_tokens (int): Nombre maximal de tokens de réponse.
+            timeout (float): Délai maximal (secondes) par requête réseau.
         """
-        super().__init__(base_url=f"{_ollama_base_url()}/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens)
+        super().__init__(base_url=f"{_ollama_base_url()}/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens, timeout=timeout)
 
     @staticmethod
     def get_available_models() -> list[str]:
@@ -185,7 +203,7 @@ class GroqProvider(OpenAICompatibleProvider):
     Fournisseur Cloud haute performance utilisant l'infrastructure Groq.
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "llama3-8b-8192", max_tokens: int = 16384):
+    def __init__(self, api_key: str | None = None, model_name: str = "llama3-8b-8192", max_tokens: int = 16384, timeout: float = _DEFAULT_TIMEOUT_SECONDS):
         """
         Initialise le client Groq.
 
@@ -193,6 +211,7 @@ class GroqProvider(OpenAICompatibleProvider):
             api_key (str | None): Clé API Groq. Cherchée dans l'environnement par défaut.
             model_name (str): Modèle à utiliser sur Groq.
             max_tokens (int): Nombre maximal de tokens de réponse.
+            timeout (float): Délai maximal (secondes) par requête réseau.
 
         Raises:
             ValueError: Si aucune clé API n'est fournie ou trouvée.
@@ -200,7 +219,7 @@ class GroqProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("GROQ_API_KEY")
         if not key:
             raise ValueError("Clé API GROQ_API_KEY manquante.")
-        super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key, max_tokens=max_tokens)
+        super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
@@ -208,7 +227,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     Fournisseur d'accès multi-IA via la plateforme OpenRouter.
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "google/gemini-2.5-flash:free", max_tokens: int = 16384):
+    def __init__(self, api_key: str | None = None, model_name: str = "google/gemini-2.5-flash:free", max_tokens: int = 16384, timeout: float = _DEFAULT_TIMEOUT_SECONDS):
         """
         Initialise le client OpenRouter.
 
@@ -216,6 +235,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             api_key (str | None): Clé API OpenRouter.
             model_name (str): Modèle cible disponible sur OpenRouter.
             max_tokens (int): Nombre maximal de tokens de réponse.
+            timeout (float): Délai maximal (secondes) par requête réseau.
 
         Raises:
             ValueError: Si la clé API est absente.
@@ -223,7 +243,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ValueError("Clé API OPENROUTER_API_KEY manquante.")
-        super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key, max_tokens=max_tokens)
+        super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
 
 
 class AnthropicProvider(LLMProvider):
@@ -237,11 +257,13 @@ class AnthropicProvider(LLMProvider):
         model_name: str = "claude-3-7-sonnet-20250219",
         thinking_budget: int = 0,
         max_tokens: int = 16384,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
     ):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.model_name = model_name
         self.thinking_budget = thinking_budget
         self.max_tokens = max_tokens
+        self.timeout = timeout
 
     def generate(
         self,
@@ -302,7 +324,7 @@ class AnthropicProvider(LLMProvider):
         payload["max_tokens"] = effective_max
 
         def _post_message() -> requests.Response:
-            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=_DEFAULT_TIMEOUT_SECONDS)
+            resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=self.timeout)
             if is_retryable_status(resp.status_code):
                 raise requests.HTTPError(f"HTTP {resp.status_code}", response=resp)
             resp.raise_for_status()
@@ -407,21 +429,22 @@ class AIManager:
             except Exception as err:
                 logger.debug("Échec du chargement de la clé via SettingsService : %s", err)
 
+        timeout = _resolve_generation_timeout_seconds()
         try:
             if p_name == "ollama":
-                return OllamaProvider(model_name=model_id, max_tokens=max_tokens)
+                return OllamaProvider(model_name=model_id, max_tokens=max_tokens, timeout=timeout)
             elif p_name == "gemini":
                 if not key:
                     logger.warning("Clé API Gemini absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
                 from ankiforge.services.ai.gemini_service import GeminiService
 
-                return GeminiService(api_key=key, model_name=model_id, max_tokens=max_tokens)
+                return GeminiService(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
             elif p_name == "groq":
                 if not key and not os.environ.get("GROQ_API_KEY"):
                     logger.warning("Clé API Groq absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return GroqProvider(api_key=key, model_name=model_id, max_tokens=max_tokens)
+                return GroqProvider(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
             elif p_name == "openai":
                 if not key and not os.environ.get("OPENAI_API_KEY"):
                     logger.warning("Clé API OpenAI absente pour le modèle %s, repli sur MockProvider.", model_id)
@@ -431,12 +454,13 @@ class AIManager:
                     model_name=model_id,
                     api_key=key,
                     max_tokens=max_tokens,
+                    timeout=timeout,
                 )
             elif p_name == "anthropic":
                 if not key and not os.environ.get("ANTHROPIC_API_KEY"):
                     logger.warning("Clé API Anthropic absente pour le modèle %s, repli sur MockProvider.", model_id)
                     return MockProvider()
-                return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget, max_tokens=max_tokens)
+                return AnthropicProvider(api_key=key, model_name=model_id, thinking_budget=thinking_budget, max_tokens=max_tokens, timeout=timeout)
         except Exception as err:
             logger.warning("Échec de création du provider %s (%s) : %s. Utilisation de MockProvider.", p_name, model_id, err)
             return MockProvider()

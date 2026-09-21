@@ -37,12 +37,29 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.utils.archive_utils import safe_extract_zip
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.hierarchy import from_anki_unit_separator, join_hierarchy, split_hierarchy
 from ankiforge.utils.paths import get_media_dir
 
 logger = logging.getLogger(__name__)
+
+MAX_APKG_DECOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 Gio — plafond anti zip-bomb de sécurité par défaut pour l'import APKG
+
+
+def _resolve_apkg_size_limit() -> int | None:
+    """Résout le plafond de taille décompressée pour l'import depuis les réglages.
+
+    Returns:
+        Plafond en octets, ou ``None`` si le plafond a été désactivé (valeur <= 0).
+    """
+    try:
+        raw = SettingsService.get("anki/max_import_bytes", MAX_APKG_DECOMPRESSED_BYTES)
+        limit = int(raw)
+    except (TypeError, ValueError):
+        limit = MAX_APKG_DECOMPRESSED_BYTES
+    return limit if limit > 0 else None
 
 
 @dataclass
@@ -491,8 +508,9 @@ class ImportManager:
         temp_path = Path(temp_dir)
 
         try:
-            # Extraction sécurisée anti Zip-Slip (chemins absolus/remontées refusés)
-            safe_extract_zip(apkg_path, temp_path, max_total_size=512 * 1024 * 1024)
+            # Extraction sécurisée anti Zip-Slip (chemins absolus/remontées refusés),
+            # plafond de taille décompressée configurable (anti zip-bomb).
+            safe_extract_zip(apkg_path, temp_path, max_total_size=_resolve_apkg_size_limit())
         except zipfile.BadZipFile as e:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise ValueError(f"Le fichier {apkg_path.name} n'est pas une archive ZIP/APKG valide.") from e

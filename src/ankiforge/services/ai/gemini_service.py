@@ -34,7 +34,7 @@ class GeminiService(LLMProvider):
     de Google. Supporte les fonctionnalités multimodales (vision).
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash-lite", max_tokens: int = 65536):
+    def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash-lite", max_tokens: int = 65536, timeout: float = 60000.0):
         """
         Initialise le client Gemini.
 
@@ -42,6 +42,7 @@ class GeminiService(LLMProvider):
             api_key (str): Clé API Google AI Studio.
             model_name (str): Nom du modèle Gemini à utiliser.
             max_tokens (int): Nombre maximal de tokens de sortie.
+            timeout (float): Délai maximal (secondes) par requête réseau.
 
         Raises:
             ValueError: Si aucune clé API n'est disponible.
@@ -49,6 +50,7 @@ class GeminiService(LLMProvider):
         self.api_key = api_key
         self.model_name = model_name
         self.max_tokens = max_tokens
+        self.timeout = timeout
 
         if not self.api_key:
             raise ValueError("Clé API Gemini manquante. Veuillez la configurer dans les paramètres.")
@@ -56,8 +58,11 @@ class GeminiService(LLMProvider):
         # Garantir un environnement de certificats SSL valide avant d'instancier genai.Client
         setup_ssl_certificates()
 
-        # Connexion directe à l'API Google AI Studio
-        self.client = genai.Client(api_key=self.api_key)
+        # Connexion directe à l'API Google AI Studio (timeout converti en millisecondes pour le SDK)
+        http_options: types.HttpOptionsDict = {}
+        if timeout > 0:
+            http_options["timeout"] = int(timeout * 1000)
+        self.client = genai.Client(api_key=self.api_key, http_options=http_options)
 
     def generate(
         self,

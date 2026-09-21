@@ -147,6 +147,33 @@ class AnkiSyncTab(QWidget):
         row_deck.addWidget(self.cb_default_deck)
         fmt_layout.addLayout(row_deck)
 
+        row_maxsize = QHBoxLayout()
+        lbl_ms = QLabel("Taille max. décompressée à l'import (anti zip-bomb) :")
+        lbl_ms.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_maxsize.addWidget(lbl_ms)
+        self.lbl_anki_labels.append(lbl_ms)
+
+        size_presets = [
+            ("512 Mio", 512 * 1024 * 1024),
+            ("1 Gio (recommandé)", 1024 * 1024 * 1024),
+            ("2 Gio", 2 * 1024 * 1024 * 1024),
+            ("4 Gio", 4 * 1024 * 1024 * 1024),
+            ("Illimité", 0),
+        ]
+        self.cb_max_import_size = StyledComboBox()
+        self.cb_max_import_size.setMinimumWidth(260)
+        self.cb_max_import_size.setFixedHeight(28)
+        for label, value in size_presets:
+            self.cb_max_import_size.addItem(label, value)
+        saved_max_size = int(SettingsService.get("anki/max_import_bytes", 1024 * 1024 * 1024) or 0)
+        for i in range(self.cb_max_import_size.count()):
+            if self.cb_max_import_size.itemData(i) == saved_max_size:
+                self.cb_max_import_size.setCurrentIndex(i)
+                break
+        row_maxsize.addStretch()
+        row_maxsize.addWidget(self.cb_max_import_size)
+        fmt_layout.addLayout(row_maxsize)
+
         layout.addWidget(self.card_fmt)
 
         # ── SECTION 3 : RÉPERTOIRE DES COLLECTIONS ANKI LOCALES ──────────────
@@ -228,6 +255,7 @@ class AnkiSyncTab(QWidget):
         SettingsService.set("anki/silent_meta_merge", self.chk_silent_merge.isChecked(), category="anki")
         SettingsService.set("anki/compression", self.cb_compression.currentData(), category="anki")
         SettingsService.set("anki/default_deck_id", self.cb_default_deck.currentData(), category="anki")
+        SettingsService.set("anki/max_import_bytes", int(self.cb_max_import_size.currentData() or 0), category="anki")
         SettingsService.set("anki/collection_dir", self.le_anki_dir.text().strip(), category="anki")
 
     def refresh_theme(self, profile: Any) -> None:

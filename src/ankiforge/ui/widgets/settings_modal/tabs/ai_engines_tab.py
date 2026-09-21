@@ -420,6 +420,38 @@ class AIEnginesTab(QWidget):
 
         prefs_layout.addLayout(gen_grid)
 
+        # Délai maximal de génération (timeout réseau par requête)
+        timeout_row = QHBoxLayout()
+        timeout_row.setSpacing(8)
+        icon_timeout = QLabel()
+        icon_timeout.setPixmap(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_MUTED).pixmap(15, 15))
+        timeout_row.addWidget(icon_timeout)
+
+        self.lbl_timeout_title = QLabel("Délai max. de génération :")
+        self.lbl_timeout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        timeout_row.addWidget(self.lbl_timeout_title)
+
+        timeout_row.addStretch()
+
+        timeout_presets = [
+            ("30 s", 30),
+            ("60 s (1 min)", 60),
+            ("120 s (2 min)", 120),
+            ("300 s (5 min)", 300),
+            ("600 s (10 min)", 600),
+            ("1 800 s (30 min)", 1800),
+            ("3 600 s (1 h)", 3600),
+            ("60 000 s (défaut)", 60000),
+        ]
+        self.cb_timeout = StyledComboBox()
+        self.cb_timeout.setMinimumWidth(220)
+        self.cb_timeout.setFixedHeight(28)
+        for label, value in timeout_presets:
+            self.cb_timeout.addItem(label, value)
+        timeout_row.addWidget(self.cb_timeout)
+
+        prefs_layout.addLayout(timeout_row)
+
         # Toggles globaux (2x2 grid)
         toggles_grid = QGridLayout()
         toggles_grid.setHorizontalSpacing(12)
@@ -857,6 +889,18 @@ class AIEnginesTab(QWidget):
                     self.cb_thinking.setCurrentIndex(i)
                     break
 
+            # Délai maximal de génération (timeout réseau)
+            saved_timeout = int(SettingsService.get("ai/generation_timeout_seconds", 60000))
+            timeout_idx = None
+            for i in range(self.cb_timeout.count()):
+                if self.cb_timeout.itemData(i) == saved_timeout:
+                    timeout_idx = i
+                    break
+            if timeout_idx is None:
+                self.cb_timeout.addItem(f"{saved_timeout} s", saved_timeout)
+                timeout_idx = self.cb_timeout.count() - 1
+            self.cb_timeout.setCurrentIndex(timeout_idx)
+
             # Toggles
             self.toggle_streaming.set_checked(bool(SettingsService.get("ai/streaming", True)))
             self.toggle_vision.set_checked(bool(SettingsService.get("ai/vision_enabled", True)))
@@ -1098,6 +1142,10 @@ class AIEnginesTab(QWidget):
         if thinking_val is not None:
             SettingsService.set("ai/thinking_budget", int(thinking_val), category="ai")
 
+        timeout_val = self.cb_timeout.currentData()
+        if timeout_val is not None:
+            SettingsService.set("ai/generation_timeout_seconds", int(timeout_val), category="ai")
+
         SettingsService.set("ai/streaming", self.toggle_streaming.is_checked(), category="ai")
         SettingsService.set("ai/vision_enabled", self.toggle_vision.is_checked(), category="ai")
         SettingsService.set("ai/auto_validation", self.toggle_autoval.is_checked(), category="ai")
@@ -1141,6 +1189,8 @@ class AIEnginesTab(QWidget):
             self.lbl_tokens_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
         if hasattr(self, "lbl_thinking_title"):
             self.lbl_thinking_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_timeout_title"):
+            self.lbl_timeout_title.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_rag_topk_title"):
             self.lbl_rag_topk_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
         if hasattr(self, "lbl_rag_topk_val"):

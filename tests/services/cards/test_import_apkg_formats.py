@@ -301,3 +301,36 @@ def test_import_incomplete_model_fails_before_commit(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="aucun template valide"):
         ImportManager().analyze_archive(apkg_path)
+
+
+@pytest.mark.parametrize("size_limit", [None, 1000])
+def test_import_configurable_decompressed_size_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size_limit: int | None) -> None:
+    """Le plafond anti zip-bomb est réglable : la même archive est acceptée ou rejetée selon la valeur."""
+    from ankiforge.services.cards import import_manager as import_manager_mod
+
+    db_file = tmp_path / "limit.db"
+    conn = sqlite3.connect(str(db_file))
+    conn.execute("CREATE TABLE col (id integer, models text, decks text)")
+    models_json = '{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}], '
+    models_json += '"tmpls": [{"name": "Q->A", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]}}'
+    decks_json = '{"1": {"id": 1, "name": "Default"}}'
+    conn.execute("INSERT INTO col VALUES (1, ?, ?)", (models_json, decks_json))
+    conn.execute("CREATE TABLE notes (id integer, guid text, mid integer, tags text, flds text)")
+    conn.execute("INSERT INTO notes VALUES (1, 'limit_guid', 1, '', 'Q\x1fA')")
+    conn.commit()
+    conn.close()
+
+    apkg_path = tmp_path / "big.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+        zf.writestr("asset_padding.bin", b"\x00" * 2048)
+
+    monkeypatch.setattr(import_manager_mod, "_resolve_apkg_size_limit", lambda: size_limit)
+
+    if size_limit == 1000:
+        with pytest.raises(ValueError, match="dépasse le plafond"):
+            ImportManager().analyze_archive(apkg_path)
+    else:
+        analysis = ImportManager().analyze_archive(apkg_path)
+        assert len(analysis.new_notes) == 1

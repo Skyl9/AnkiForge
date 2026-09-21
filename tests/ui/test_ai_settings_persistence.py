@@ -92,6 +92,12 @@ def test_ai_engines_tab_global_prefs_persistence(qtbot):
             tab1.cb_thinking.setCurrentIndex(i)
             break
 
+    # Délai maximal de génération
+    for i in range(tab1.cb_timeout.count()):
+        if tab1.cb_timeout.itemData(i) == 300:
+            tab1.cb_timeout.setCurrentIndex(i)
+            break
+
     # Modification des 4 toggles
     tab1.toggle_streaming.set_checked(False)
     tab1.toggle_vision.set_checked(False)
@@ -112,6 +118,7 @@ def test_ai_engines_tab_global_prefs_persistence(qtbot):
     assert SettingsService.get("ai/temperature") == 0.85
     assert SettingsService.get("ai/max_tokens") == 32768
     assert SettingsService.get("ai/thinking_budget") == 4096
+    assert SettingsService.get("ai/generation_timeout_seconds") == 300
     assert SettingsService.get("ai/streaming") is False
     assert SettingsService.get("ai/vision_enabled") is False
     assert SettingsService.get("ai/auto_validation") is True
@@ -129,6 +136,7 @@ def test_ai_engines_tab_global_prefs_persistence(qtbot):
     assert tab2.lbl_temp_val.text() == "0.85"
     assert tab2.cb_max_tokens.currentData() == 32768
     assert tab2.cb_thinking.currentData() == 4096
+    assert tab2.cb_timeout.currentData() == 300
     assert tab2.toggle_streaming.is_checked() is False
     assert tab2.toggle_vision.is_checked() is False
     assert tab2.toggle_autoval.is_checked() is True
