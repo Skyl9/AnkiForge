@@ -829,17 +829,22 @@ class SegmentInspectorWidget(QFrame):
         self.segments_list.blockSignals(True)
         self.segments_list.clear()
 
-        for chunk in self._chunks:
+        for i, chunk in enumerate(self._chunks):
             item = QListWidgetItem(self.segments_list)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked)
             item.setData(Qt.ItemDataRole.UserRole, chunk)
 
+            idx = chunk.get("index", i)
+            title = chunk.get("title") or chunk.get("heading_path") or f"Segment {i + 1}"
+            content = str(chunk.get("content", ""))
+            tokens = chunk.get("tokens", len(content.split()))
+
             widget = SegmentItemWidget(
-                index=chunk["index"],
-                title=chunk["title"],
-                content=chunk["content"],
-                token_count=chunk["tokens"],
+                index=idx,
+                title=title,
+                content=content,
+                token_count=tokens,
                 is_checked=True,
             )
             widget.toggled.connect(lambda chk, it=item: self._on_widget_toggled(it, chk))

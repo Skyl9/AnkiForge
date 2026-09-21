@@ -4,7 +4,7 @@ from typing import Any
 
 import markdown
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QPixmap
+from PySide6.QtGui import QCloseEvent, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -32,6 +32,84 @@ from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import resolve_media_path
 
 logger = logging.getLogger(__name__)
+
+
+class TextScopeBannerWidget(QFrame):
+    """Bandeau d'information et d'actions affiché au-dessus de l'éditeur textuel lorsqu'une portée est active."""
+
+    toggle_display_requested = Signal()
+    edit_scope_requested = Signal()
+    clear_scope_requested = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("textScopeBanner")
+        self.setStyleSheet(f"""
+            QFrame#textScopeBanner {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 6px;
+            }}
+        """)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(8)
+
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setPixmap(load_phosphor_icon("ph.funnel", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+
+        self.lbl_status = QLabel("Portée active")
+        self.lbl_status.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: 600; font-size: 11px; border: none; background: transparent;")
+
+        self.badge_status = Badge("Extrait filtré", variant="success")
+
+        layout.addWidget(self.icon_lbl)
+        layout.addWidget(self.lbl_status)
+        layout.addWidget(self.badge_status)
+        layout.addStretch()
+
+        self.btn_toggle_display = QPushButton("Afficher tout le document")
+        self.btn_toggle_display.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_display.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.btn_toggle_display.clicked.connect(self.toggle_display_requested.emit)
+        layout.addWidget(self.btn_toggle_display)
+
+        self.btn_edit_scope = IconButton("ph.sliders", "Modifier la portée documentaire...", 14)
+        self.btn_edit_scope.clicked.connect(self.edit_scope_requested.emit)
+        layout.addWidget(self.btn_edit_scope)
+
+        self.btn_clear_scope = IconButton("ph.x", "Effacer le filtre de portée", 14)
+        self.btn_clear_scope.clicked.connect(self.clear_scope_requested.emit)
+        layout.addWidget(self.btn_clear_scope)
+
+    def set_scope_info(self, title: str, chunks_count: int, is_showing_full: bool = False) -> None:
+        unit = "fragment" if chunks_count == 1 else "fragments"
+        chunks_str = f" ({chunks_count} {unit})" if chunks_count > 0 else ""
+        self.lbl_status.setText(f"Portée active : {title}{chunks_str}")
+        if is_showing_full:
+            self.badge_status.setText("Document entier (filtre en pause)")
+            self.badge_status.set_variant("neutral")
+            self.btn_toggle_display.setText("Afficher l'extrait filtré")
+        else:
+            self.badge_status.setText("Extrait filtré")
+            self.badge_status.set_variant("success")
+            self.btn_toggle_display.setText("Afficher tout le document")
 
 
 class AlbumPageMiniWidget(QFrame):
@@ -123,11 +201,19 @@ class DocumentEditorWidget(QWidget):
     generate_requested = Signal(str, str)  # text_source, source_title
     cancel_requested = Signal()
     album_page_selected = Signal(int)
+    edit_scope_requested = Signal()
+    clear_scope_requested = Signal()
 
     def __init__(self, content: str = "", source_title: str = "Saisie Libre", doc_model: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.source_title = source_title
         self._raw_content: str = content
+        self._original_content: str = content
+        self._scoped_content: str = ""
+        self._is_scoped: bool = False
+        self._is_showing_full_in_scope: bool = False
+        self._scope_title: str = ""
+        self._scope_chunks_count: int = 0
         self._album_cards: dict[int, AlbumPageMiniWidget] = {}
         self._album_selected_pages: list[int] = []
         self._audio_player: Any | None = None
@@ -135,6 +221,12 @@ class DocumentEditorWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
+
+        self.text_scope_banner = TextScopeBannerWidget(self)
+        self.text_scope_banner.toggle_display_requested.connect(self.toggle_scope_display)
+        self.text_scope_banner.edit_scope_requested.connect(self.edit_scope_requested.emit)
+        self.text_scope_banner.clear_scope_requested.connect(self.clear_scope_requested.emit)
+        self.text_scope_banner.hide()
 
         self.doc_model = doc_model
         self.pdf_document = None
@@ -336,6 +428,7 @@ class DocumentEditorWidget(QWidget):
                 self.view_toggle_frame.show()
                 self._on_view_toggled("pdf")
 
+        layout.addWidget(self.text_scope_banner)
         layout.addWidget(self.editor_stack, 1)
 
         bot_widget = QWidget()
@@ -527,6 +620,14 @@ class DocumentEditorWidget(QWidget):
             else:
                 self.editor_stack.setCurrentWidget(self.raw_editor)
 
+        if hasattr(self, "text_scope_banner"):
+            if mode == "pdf" and file_type == "pdf":
+                self.text_scope_banner.hide()
+            elif self._is_scoped:
+                self.text_scope_banner.show()
+            else:
+                self.text_scope_banner.hide()
+
     def set_pdf_scope(self, pages: list[int]) -> None:
         """Met à jour la portée active du PDF et asservit le bandeau de navigation."""
         self._pdf_selected_pages = sorted(pages)
@@ -538,12 +639,14 @@ class DocumentEditorWidget(QWidget):
 
         count = len(self._pdf_selected_pages)
         first_p = self._pdf_selected_pages[0]
-        last_p = self._pdf_selected_pages[-1]
 
+        from ankiforge.ui.views.creation_view.utils import format_page_ranges
+
+        range_str = format_page_ranges(self._pdf_selected_pages)
         if count == 1:
             self.lbl_pdf_scope_status.setText(f"Portée : Page {first_p}")
         else:
-            self.lbl_pdf_scope_status.setText(f"Portée : Pages {first_p} à {last_p} ({count} pages)")
+            self.lbl_pdf_scope_status.setText(f"Portée : Pages {range_str} ({count} pages)")
 
         self.jump_pdf_to_page(first_p - 1)
         self._update_scope_indicator(first_p - 1)
@@ -657,7 +760,9 @@ class DocumentEditorWidget(QWidget):
             return
 
         raw = getattr(doc, "content", "") or getattr(doc, "text_content", "") or ""
+        self._original_content = raw
         self._raw_content = raw
+        self.clear_scoped_extract()
         self.raw_editor.setPlainText(raw)
         self.markdown_viewer.setHtml(markdown.markdown(raw, extensions=["fenced_code", "tables"]))
 
@@ -689,6 +794,7 @@ class DocumentEditorWidget(QWidget):
         self._on_text_changed()
 
     def set_content(self, content: str) -> None:
+        self._original_content = content
         self._raw_content = content
         self.raw_editor.setPlainText(content)
         html = markdown.markdown(content, extensions=["fenced_code", "tables"])
@@ -704,6 +810,80 @@ class DocumentEditorWidget(QWidget):
                     self.btn_view_md.setChecked(True)
                 self._on_view_toggled("md")
         self._on_text_changed()
+
+    def set_scoped_extract(self, scoped_text: str, scope_title: str = "", chunks_count: int = 0, is_scoped: bool = True) -> None:
+        """Définit l'extrait filtré à afficher dans l'éditeur textuel tout en préservant le texte d'origine."""
+        self._scoped_content = scoped_text
+        self._scope_title = scope_title
+        self._scope_chunks_count = chunks_count
+        self._is_scoped = is_scoped
+        self._is_showing_full_in_scope = False
+
+        if is_scoped and scoped_text.strip():
+            self.text_scope_banner.set_scope_info(scope_title or "Extrait sélectionné", chunks_count, is_showing_full=False)
+            file_type = getattr(self.doc_model, "file_type", "").lower() if self.doc_model else ""
+            is_in_pdf_mode = hasattr(self, "btn_view_pdf") and self.btn_view_pdf.isChecked() and file_type == "pdf"
+            if not is_in_pdf_mode:
+                self.text_scope_banner.show()
+            self._apply_text_to_editors(scoped_text)
+        else:
+            self.clear_scoped_extract()
+
+    def clear_scoped_extract(self) -> None:
+        """Efface le filtre de portée textuel et restaure le contenu intégral du document."""
+        self._is_scoped = False
+        self._is_showing_full_in_scope = False
+        self._scoped_content = ""
+        self._scope_title = ""
+        self._scope_chunks_count = 0
+        if hasattr(self, "text_scope_banner"):
+            self.text_scope_banner.hide()
+        if hasattr(self, "_original_content") and self._original_content:
+            self._apply_text_to_editors(self._original_content)
+
+    def toggle_scope_display(self) -> None:
+        """Alterne entre l'affichage de l'extrait filtré et celui du document complet sans perdre la portée."""
+        if not self._is_scoped:
+            return
+        self._is_showing_full_in_scope = not self._is_showing_full_in_scope
+        self.text_scope_banner.set_scope_info(self._scope_title, self._scope_chunks_count, is_showing_full=self._is_showing_full_in_scope)
+        if self._is_showing_full_in_scope:
+            self._apply_text_to_editors(self._original_content)
+        else:
+            self._apply_text_to_editors(self._scoped_content)
+
+    def _apply_text_to_editors(self, text: str) -> None:
+        self._raw_content = text
+        self.raw_editor.blockSignals(True)
+        self.raw_editor.setPlainText(text)
+        self.raw_editor.blockSignals(False)
+        html = markdown.markdown(text, extensions=["fenced_code", "tables"])
+        self.markdown_viewer.setHtml(html)
+        self._on_text_changed()
+
+    def get_original_content(self) -> str:
+        """Retourne le contenu intégral du document d'origine."""
+        return getattr(self, "_original_content", "") or self._raw_content
+
+    def highlight_or_scroll_to_text(self, snippet: str, page_number: int | None = None) -> None:
+        """Scrolle et met en surbrillance l'extrait spécifié dans l'éditeur textuel, et saute à la page PDF."""
+        if page_number is not None:
+            self.jump_pdf_to_page(page_number - 1)
+
+        clean_snippet = snippet.strip()
+        if not clean_snippet:
+            return
+
+        search_str = clean_snippet[:60]
+        pos = self.raw_editor.toPlainText().find(search_str)
+        if pos != -1:
+            cursor = self.raw_editor.textCursor()
+            cursor.setPosition(pos)
+            cursor.setPosition(pos + len(search_str), QTextCursor.MoveMode.KeepAnchor)
+            self.raw_editor.setTextCursor(cursor)
+            self.raw_editor.ensureCursorVisible()
+
+        self.markdown_viewer.find(search_str)
 
     @Slot()
     def _on_text_changed(self) -> None:

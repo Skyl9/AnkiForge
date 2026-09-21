@@ -243,6 +243,7 @@ class CreationView(QWidget):
         self.segment_inspector.open_delimitation_requested.connect(self._on_open_delimitation_for_current_doc)
         self.segment_inspector.open_scope_dialog_requested.connect(self._on_open_scope_dialog_for_current_doc)
         self.segment_inspector.scope_changed.connect(self._on_page_scope_changed)
+        self.segment_inspector.segments_updated.connect(self._on_segments_updated_in_inspector)
         config_layout.addWidget(self.segment_inspector)
 
         # Alias de rétro-compatibilité avec les propriétés de l'ancienne scope_card
@@ -780,14 +781,134 @@ class CreationView(QWidget):
         finally:
             self._is_syncing_document = False
 
+    def _get_current_document(self) -> DocumentModel | Any | None:
+        """Retourne le document actuellement sélectionné dans la vue de création."""
+        if hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document():
+            return self.doc_picker_btn.get_document()
+        if getattr(self, "_current_selected_doc", None):
+            return self._current_selected_doc
+        if hasattr(self, "file_tree"):
+            selected_items = self.file_tree.selectedItems()
+            if selected_items:
+                doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+                if isinstance(doc, DocumentModel):
+                    return doc
+        return None
+
+    def _get_current_editor(self) -> DocumentEditorWidget | None:
+        """Retourne l'éditeur actif du panneau source ou l'éditeur associé au document actif."""
+        if hasattr(self, "source_panel") and hasattr(self.source_panel, "content_stack"):
+            cur = self.source_panel.content_stack.currentWidget()
+            if isinstance(cur, DocumentEditorWidget):
+                return cur
+        doc = self._get_current_document()
+        if doc and hasattr(doc, "title") and doc.title in self.open_editors:
+            return self.open_editors[doc.title]
+        active_title = getattr(self, "current_source_title", "")
+        if active_title and active_title in self.open_editors:
+            return self.open_editors[active_title]
+        return None
+
+    def _apply_scope_result(self, res: dict[str, Any]) -> None:
+        """Applique les résultats d'une sélection de portée (DocumentScopeDialog) à l'inspecteur et à l'éditeur central."""
+        self._is_syncing_scope = True
+        try:
+            self.segment_inspector.apply_scope_result(res)
+
+            doc = self._get_current_document()
+            if doc and not self._get_current_editor():
+                self._open_document_for_model(doc)
+
+            editor = self._get_current_editor()
+            if not editor:
+                return
+
+            chunks = res.get("chunks", [])
+            is_all = bool(res.get("is_all", False))
+            scope_title = str(res.get("scope_title", "Portée active"))
+
+            if not is_all and chunks:
+                scoped_text = "\n\n---\n\n".join(str(c.get("content", "")) for c in chunks if c.get("content"))
+                editor.set_scoped_extract(scoped_text, scope_title, len(chunks), is_scoped=True)
+
+                pages: list[int] = list(res.get("selected_pages", []))
+                if not pages:
+                    pages = sorted(list({int(c["page_number"]) for c in chunks if c.get("page_number") is not None}))
+
+                if pages:
+                    editor.set_pdf_scope(pages)
+                    editor.set_album_scope(pages)
+            else:
+                editor.clear_scoped_extract()
+                if doc:
+                    tot_p = getattr(doc, "page_count", 0) or getattr(doc, "total_pages", 0) or getattr(doc, "end_page", 10) or 10
+                    all_p = list(range(1, tot_p + 1))
+                    editor.set_pdf_scope(all_p)
+                    editor.set_album_scope(all_p)
+        finally:
+            self._is_syncing_scope = False
+
+    @Slot(int, int)
+    def _on_segments_updated_in_inspector(self, active_count: int, total_count: int) -> None:
+        """Synchronise l'éditeur central lorsque les segments individuels sont cochés/décochés."""
+        if getattr(self, "_is_syncing_scope", False) or getattr(self, "_is_syncing_document", False):
+            return
+
+        editor = self._get_current_editor()
+        if not editor:
+            return
+
+        active_segs = self.segment_inspector.get_active_segments()
+        doc = self._get_current_document()
+
+        if not active_segs:
+            editor.set_scoped_extract("", "Aucun segment sélectionné", 0, is_scoped=True)
+            return
+
+        if active_count == total_count and total_count > 0:
+            editor.clear_scoped_extract()
+            if doc:
+                tot_p = getattr(doc, "page_count", 0) or getattr(doc, "total_pages", 0) or getattr(doc, "end_page", 10) or 10
+                all_p = list(range(1, tot_p + 1))
+                editor.set_pdf_scope(all_p)
+                editor.set_album_scope(all_p)
+        else:
+            scoped_text = "\n\n---\n\n".join(str(s.get("content", "")) for s in active_segs if s.get("content"))
+            unit_name = "fragment" if active_count == 1 else "fragments"
+            editor.set_scoped_extract(scoped_text, f"{active_count} {unit_name} sélectionnés", active_count, is_scoped=True)
+
+            seg_pages = sorted(list({int(s["page_number"]) for s in active_segs if s.get("page_number") is not None}))
+            if seg_pages:
+                editor.set_pdf_scope(seg_pages)
+                editor.set_album_scope(seg_pages)
+
+    @Slot()
+    def _on_clear_scope_for_current_doc(self) -> None:
+        """Réinitialise la portée pour le document courant (tout afficher)."""
+        editor = self._get_current_editor()
+        if editor:
+            editor.clear_scoped_extract()
+        doc = self._get_current_document()
+        if doc and hasattr(self, "segment_inspector"):
+            self.segment_inspector.set_document(doc)
+
     @Slot(int, str)
     def _on_segment_selected_in_inspector(self, idx: int, content: str) -> None:
-        active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
-        if active_editor and content:
-            editor_text = active_editor.get_text()
-            pos = editor_text.find(content[:60])
-            if pos != -1 and hasattr(active_editor, "editor") and hasattr(active_editor.editor, "set_cursor_position"):
-                active_editor.editor.set_cursor_position(pos)
+        active_editor = self._get_current_editor()
+        if not active_editor:
+            return
+
+        page_num: int | None = None
+        if hasattr(self, "segment_inspector") and hasattr(self.segment_inspector, "segments_list") and 0 <= idx < self.segment_inspector.segments_list.count():
+            it = self.segment_inspector.segments_list.item(idx)
+            data = it.data(Qt.ItemDataRole.UserRole)
+            if isinstance(data, dict) and data.get("page_number") is not None:
+                try:
+                    page_num = int(data["page_number"])
+                except (ValueError, TypeError):
+                    pass
+
+        active_editor.highlight_or_scroll_to_text(content, page_number=page_num)
 
     @Slot()
     def _on_open_delimitation_for_current_doc(self) -> None:
@@ -836,7 +957,7 @@ class CreationView(QWidget):
         dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, initial_scope_result=last_result, parent=self)
         if dlg.exec():
             res = dlg.get_result()
-            self.segment_inspector.apply_scope_result(res)
+            self._apply_scope_result(res)
 
     @Slot()
     def _on_preset_range(self) -> None:
@@ -1238,6 +1359,8 @@ class CreationView(QWidget):
         editor_widget.generate_requested.connect(self._on_generate)
         editor_widget.cancel_requested.connect(self._on_cancel_generation)
         editor_widget.album_page_selected.connect(self._on_album_page_selected)
+        editor_widget.edit_scope_requested.connect(self._on_open_scope_dialog_for_current_doc)
+        editor_widget.clear_scope_requested.connect(self._on_clear_scope_for_current_doc)
 
         self.open_editors[title] = editor_widget
         icon = "ph.text-t"
@@ -1397,11 +1520,23 @@ class CreationView(QWidget):
                 total_words = sum(len(str(s.get("content", "")).split()) for s in active_segs)
                 approx_cards = max(1, total_words // 180) if total_words > 0 else 0
                 self.lbl_scope_stats.setText(f"~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+
+                editor = self._get_current_editor()
+                if editor:
+                    scoped_text = "\n\n---\n\n".join(str(s.get("content", "")) for s in active_segs if s.get("content"))
+                    editor.set_scoped_extract(scoped_text, f"{count} {unit_name} sélectionnée(s)", count, is_scoped=True)
+                    seg_pages = sorted(list({int(s["page_number"]) for s in active_segs if s.get("page_number") is not None}))
+                    if seg_pages:
+                        editor.set_pdf_scope(seg_pages)
+                        editor.set_album_scope(seg_pages)
                 return
 
             self.scope_badge.setText(f"0 {unit_pl}")
             self.scope_badge.set_variant("danger")
             self.lbl_scope_stats.setText(f"Aucune sélection ({unit_pl})")
+            editor = self._get_current_editor()
+            if editor:
+                editor.set_scoped_extract("", "Aucune sélection", 0, is_scoped=True)
             return
 
         count = len(pages)
@@ -1426,15 +1561,11 @@ class CreationView(QWidget):
         self.spin_page_start.blockSignals(False)
         self.spin_page_end.blockSignals(False)
 
-        selected_items = self.file_tree.selectedItems()
-        if not selected_items:
-            return
-
-        doc = selected_items[0].data(0, Qt.ItemDataRole.UserRole)
+        doc = self._get_current_document()
         if not doc or not hasattr(doc, "title"):
             return
 
-        editor = self.open_editors.get(doc.title)
+        editor = self._get_current_editor()
         if not editor:
             return
 
@@ -1459,7 +1590,7 @@ class CreationView(QWidget):
                 parts.append(f"### Planche {p.page_number}\n\n{p_text}")
 
             msg = f"_Aucune transcription ou analyse visuelle trouvée pour les planches {scope_text}_" if not parts else "\n\n".join(parts)
-            editor.set_content(msg)
+            editor.set_scoped_extract(msg, f"Planches {scope_text}", len(pages), is_scoped=True)
             editor.set_album_scope(pages)
             return
 
@@ -1479,12 +1610,15 @@ class CreationView(QWidget):
             )
 
         if not chunks:
+            if doc.content and doc.content.strip():
+                editor.clear_scoped_extract()
+                return
             msg = f"_Aucun contenu trouvé pour les pages {scope_text}_" if has_pages else f"_Aucun contenu trouvé pour les sections {scope_text}_"
-            editor.set_content(msg)
+            editor.set_scoped_extract(msg, f"Pages {scope_text}", 0, is_scoped=True)
             return
 
         content = "\n\n".join([c.content for c in chunks])
-        editor.set_content(content)
+        editor.set_scoped_extract(content, f"Pages {scope_text}", len(chunks), is_scoped=True)
         editor.set_pdf_scope(pages)
 
     @Slot()

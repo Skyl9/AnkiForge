@@ -2194,6 +2194,7 @@ class DocumentScopeDialog(QDialog):
 
     def _on_apply(self) -> None:
         checked_chunks = self._selected_chunks_for_mode()
+        selected_chapters: list[int] = [card.chapter_index for card in getattr(self, "_chapter_cards", []) if card.is_checked()]
 
         if self.selection_mode == "pages" and self.is_paginated:
             page_start_val = self.spin_p_start.value()
@@ -2236,6 +2237,9 @@ class DocumentScopeDialog(QDialog):
         else:
             sp = self._delimited_start_page
             ep = self._delimited_end_page
+            is_all = len(checked_chunks) == len(self._useful_chunks) and len(self._useful_chunks) > 0
+            if self.selection_mode == "chapters" and hasattr(self, "_chapter_cards") and self._chapter_cards:
+                is_all = len(selected_chapters) == len(self._chapter_cards)
             scope_title = f"Portée : {len(checked_chunks)} section(s) utile(s)"
             range_str = "" if self.is_paginated else "1"
 
@@ -2265,11 +2269,8 @@ class DocumentScopeDialog(QDialog):
                 if m_h and str(m_h) not in selected_headings:
                     selected_headings.append(str(m_h))
 
-        selected_chapters: list[int] = []
-        if hasattr(self, "_chapter_cards"):
-            selected_chapters = [card.chapter_index for card in self._chapter_cards if card.is_checked()]
-
         self._result = {
+            "is_all": is_all,
             "chunks": checked_chunks,
             "scope_title": scope_title,
             "scope_stats": stats_str,

@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem, QMessageBox
 
 from ankiforge.database.models import (
+    DocumentChunkModel,
     DocumentModel,
     FolderModel,
 )
@@ -16,6 +17,9 @@ from ankiforge.ui.components.document_picker_button import DocumentPickerButton
 from ankiforge.ui.components.document_select_window import DocumentSelectWindow
 from ankiforge.ui.views.batch_view import BatchView
 from ankiforge.ui.views.creation_view import CreationView
+from ankiforge.ui.views.creation_view.widgets.document_editor import (
+    DocumentEditorWidget,
+)
 
 
 @pytest.mark.ui
@@ -2014,3 +2018,165 @@ def test_delimitation_dialog_slide_selector_and_segments_sync(qtbot: Any, mock_d
     dlg.chk_revectorize.setChecked(False)
     dlg._on_apply()
     assert dlg.result() == 1
+
+
+@pytest.mark.ui
+def test_document_editor_scoped_extract_and_toggle(qtbot: Any) -> None:
+    """Vérifie l'affichage du bandeau TextScopeBannerWidget et la bascule entre extrait filtré et document complet."""
+    initial_full_text = "# Cours Complet\n\nIntro générale.\n\n## Section 1\nDétail section 1.\n\n## Section 2\nDétail section 2."
+    editor = DocumentEditorWidget(content=initial_full_text, source_title="Cours Complet")
+    qtbot.addWidget(editor)
+    editor.show()
+
+    assert editor.text_scope_banner.isHidden()
+    assert editor.get_text() == initial_full_text
+
+    # 1. Définition d'un extrait de portée filtrée
+    scoped_text = "## Section 1\nDétail section 1."
+    editor.set_scoped_extract(scoped_text, scope_title="Section 1", chunks_count=1, is_scoped=True)
+
+    assert not editor.text_scope_banner.isHidden()
+    assert editor.get_text() == scoped_text
+    assert "Section 1" in editor.text_scope_banner.lbl_status.text()
+    assert "Extrait filtré" in editor.text_scope_banner.badge_status.text()
+
+    # 2. Bascule vers l'affichage complet temporaire (sans perte de portée)
+    editor.text_scope_banner.btn_toggle_display.click()
+    assert editor.get_text() == initial_full_text
+    assert "en pause" in editor.text_scope_banner.badge_status.text()
+    assert "Afficher l'extrait filtré" in editor.text_scope_banner.btn_toggle_display.text()
+
+    # 3. Re-bascule vers l'extrait filtré
+    editor.text_scope_banner.btn_toggle_display.click()
+    assert editor.get_text() == scoped_text
+    assert "Extrait filtré" in editor.text_scope_banner.badge_status.text()
+
+    # 4. Effacement du filtre de portée
+    editor.clear_scoped_extract()
+    assert editor.text_scope_banner.isHidden()
+    assert editor.get_text() == initial_full_text
+
+
+@pytest.mark.ui
+def test_creation_view_scope_dialog_updates_editor(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que l'application d'un résultat de DocumentScopeDialog met immédiatement à jour l'éditeur central."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Cours Neurologie {uid}",
+        file_type="md",
+        content="# Cervelet\n\nFonction motrice.\n\n# Moelle épinière\n\nRéflexes et transmission.",
+    )
+    c1 = DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Cervelet", content="# Cervelet\n\nFonction motrice.")
+    c2 = DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Moelle épinière", content="# Moelle épinière\n\nRéflexes et transmission.")
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+    view.refresh_data()
+
+    # Ouvrir le document dans un onglet
+    view._open_document_for_model(doc)
+    editor = view._get_current_editor()
+    assert editor is not None
+    assert doc.content in editor.get_text()
+
+    # Simuler le résultat de DocumentScopeDialog ciblant uniquement le Cervelet
+    scope_result = {
+        "is_all": False,
+        "chunks": [{"content": c1.content, "heading_path": "Cervelet", "title": "Cervelet", "page_number": None, "index": 0, "tokens": 5}],
+        "scope_title": "Portée : 1 section utile",
+        "scope_stats": "~10 mots • ~1 cartes estimées",
+        "range_str": "1",
+        "selection_mode": "sections",
+        "selected_pages": [],
+        "selected_headings": ["Cervelet"],
+        "selected_chunk_indices": [0],
+    }
+
+    view._apply_scope_result(scope_result)
+
+    # Vérifier que l'éditeur central a été mis à jour avec le contenu filtré
+    assert not editor.text_scope_banner.isHidden()
+    assert "Fonction motrice" in editor.get_text()
+    assert "Moelle épinière" not in editor.get_text()
+
+    # Revenir à tout le document
+    all_result = {
+        "is_all": True,
+        "chunks": [{"content": c1.content, "title": "Cervelet"}, {"content": c2.content, "title": "Moelle épinière"}],
+        "scope_title": "Portée : Tout le document",
+        "selection_mode": "sections",
+        "selected_pages": [],
+    }
+    view._apply_scope_result(all_result)
+    assert editor.text_scope_banner.isHidden()
+    assert "Fonction motrice" in editor.get_text()
+    assert "Moelle épinière" in editor.get_text()
+
+
+@pytest.mark.ui
+def test_creation_view_segment_inspector_toggles_update_editor(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que cocher/décocher des segments dans SegmentInspectorWidget met à jour l'éditeur central en direct."""
+    uid = uuid.uuid4().hex[:6]
+    content_text = (
+        "## Partie 1 : Ventricule cardiaque et débit sanguin.\n\n"
+        "Contenu détaillé du ventricule cardiaque avec volume d'éjection systolique.\n\n"
+        "## Partie 2 : Oreillette et valves auriculo-ventriculaires.\n\n"
+        "Contenu détaillé de l'oreillette avec retour veineux et hémodynamique."
+    )
+    doc = DocumentModel.create(
+        title=f"Cardiologie {uid}",
+        file_type="md",
+        content=content_text,
+    )
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+    view.refresh_data()
+
+    view._open_document_for_model(doc)
+    editor = view._get_current_editor()
+    assert editor is not None
+
+    # L'inspecteur a découpé les 2 segments H2
+    assert view.segment_inspector.segments_list.count() == 2
+
+    # Décocher le deuxième segment
+    item_2 = view.segment_inspector.segments_list.item(1)
+    view.segment_inspector._on_widget_toggled(item_2, False)
+
+    # Vérifier que l'éditeur a été actualisé et n'affiche plus que le segment 1
+    assert "Partie 1 : Ventricule" in editor.get_text()
+    assert "Partie 2 : Oreillette" not in editor.get_text()
+    assert not editor.text_scope_banner.isHidden()
+
+    # Recocher le segment 2 (tous cochés)
+    view.segment_inspector._on_widget_toggled(item_2, True)
+    assert editor.text_scope_banner.isHidden()
+    assert "Partie 1 : Ventricule" in editor.get_text()
+    assert "Partie 2 : Oreillette" in editor.get_text()
+
+
+@pytest.mark.ui
+def test_creation_view_segment_selected_highlights_in_editor(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que cliquer sur un segment dans l'inspecteur déplace le curseur et surligne le texte dans l'éditeur."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Génétique {uid}",
+        file_type="md",
+        content="Introduction générale.\n\nSéquence ADN cible spécifique.\n\nConclusion.",
+    )
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.show()
+    view.refresh_data()
+
+    view._open_document_for_model(doc)
+    editor = view._get_current_editor()
+    assert editor is not None
+
+    view._on_segment_selected_in_inspector(0, "Séquence ADN cible spécifique.")
+    cursor = editor.raw_editor.textCursor()
+    selected_text = cursor.selectedText()
+    assert "Séquence ADN cible spécifique" in selected_text
