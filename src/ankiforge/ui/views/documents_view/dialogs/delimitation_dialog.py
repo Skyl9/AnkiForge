@@ -49,6 +49,7 @@ from ankiforge.services.parsing.chunking_service import ChunkingService, Heading
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.views.creation_view.utils import format_page_ranges, parse_page_ranges
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
 from ankiforge.utils.paths import get_resource_path, resolve_media_path
@@ -435,7 +436,7 @@ class ChapterCardWidget(QFrame):
 
 
 class ScopeRangeBarWidget(QWidget):
-    """Barre visuelle interactive représentant l'étendue du document et la plage utile demandée."""
+    """Barre visuelle interactive représentant l'étendue du document et les segments utiles demandés."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -443,11 +444,22 @@ class ScopeRangeBarWidget(QWidget):
         self._start = 1
         self._end = 1
         self._total = 1
+        self._selected_pages: set[int] = set()
 
     def set_range(self, start: int, end: int, total: int) -> None:
-        self._start = max(1, start)
-        self._end = max(self._start, min(end, total))
+        start_p = max(1, start)
+        end_p = max(start_p, min(end, total))
+        self.set_selected_pages(set(range(start_p, end_p + 1)), total)
+
+    def set_selected_pages(self, pages: set[int], total: int) -> None:
         self._total = max(1, total)
+        self._selected_pages = {p for p in pages if 1 <= p <= self._total}
+        if not self._selected_pages:
+            self._start = 1
+            self._end = 1
+        else:
+            self._start = min(self._selected_pages)
+            self._end = max(self._selected_pages)
         self.update()
 
     def paintEvent(self, event: Any) -> None:
@@ -463,26 +475,438 @@ class ScopeRangeBarWidget(QWidget):
         painter.setPen(QPen(QColor(DesignTokens.BORDER_COLOR), 1))
         painter.drawRoundedRect(0, 2, w, h - 4, r, r)
 
-        # Plage active
+        # Segments actifs (plages continues avec trous transparents pour les pages exclues)
         total = max(1, self._total)
-        start_ratio = (self._start - 1) / total
-        end_ratio = self._end / total
-        x_start = int(start_ratio * w)
-        x_end = int(end_ratio * w)
-        active_w = max(4, x_end - x_start)
-
         painter.setBrush(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(x_start, 2, active_w, h - 4, r, r)
+
+        sorted_p = sorted(self._selected_pages)
+        intervals: list[tuple[int, int]] = []
+        if sorted_p:
+            cur_start = sorted_p[0]
+            cur_end = sorted_p[0]
+            for p in sorted_p[1:]:
+                if p == cur_end + 1:
+                    cur_end = p
+                else:
+                    intervals.append((cur_start, cur_end))
+                    cur_start = p
+                    cur_end = p
+            intervals.append((cur_start, cur_end))
+
+        for s, e in intervals:
+            start_ratio = (s - 1) / total
+            end_ratio = e / total
+            x_start = int(start_ratio * w)
+            x_end = int(end_ratio * w)
+            active_w = max(4, x_end - x_start)
+            painter.drawRoundedRect(x_start, 2, active_w, h - 4, r, r)
 
         # Texte centré
         painter.setPen(QPen(QColor("white")))
         font = QFont(DesignTokens.FONT_MAIN, 9)
         font.setBold(True)
         painter.setFont(font)
-        text = f"Portée : Pages {self._start} à {self._end} ({self._end - self._start + 1} / {self._total} pages)"
+        compact_str = format_page_ranges(self._selected_pages)
+        text = f"Portée : {compact_str} ({len(self._selected_pages)} / {self._total} pages)" if compact_str else "Aucune page sélectionnée"
         painter.drawText(0, 0, w, h, Qt.AlignmentFlag.AlignCenter, text)
         painter.end()
+
+
+class SlideSelectorBarWidget(QWidget):
+    """Ruban / Grille de pastilles de slides interactives cliquables (1 à N)."""
+
+    page_toggled = Signal(int)
+    all_selected = Signal()
+    none_selected = Signal()
+    inverted = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._selected_pages: set[int] = set()
+        self._total_pages: int = 1
+        self._buttons: dict[int, QPushButton] = {}
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # En-tête : Titre, compteur et boutons d'action rapide
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(6)
+
+        self.lbl_title = QLabel("Slides / Pages :")
+        self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        header_layout.addWidget(self.lbl_title)
+
+        self.lbl_count = QLabel("")
+        self.lbl_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none;")
+        header_layout.addWidget(self.lbl_count)
+        header_layout.addStretch()
+
+        btn_action_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                padding: 1px 6px;
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+        self.btn_all = QPushButton("Tout")
+        self.btn_all.setStyleSheet(btn_action_style)
+        self.btn_all.setToolTip("Inclure toutes les slides")
+        self.btn_all.clicked.connect(self.all_selected.emit)
+        header_layout.addWidget(self.btn_all)
+
+        self.btn_none = QPushButton("Aucun")
+        self.btn_none.setStyleSheet(btn_action_style)
+        self.btn_none.setToolTip("Exclure toutes les slides (conserve la première)")
+        self.btn_none.clicked.connect(self.none_selected.emit)
+        header_layout.addWidget(self.btn_none)
+
+        self.btn_invert = QPushButton("Inverser")
+        self.btn_invert.setStyleSheet(btn_action_style)
+        self.btn_invert.setToolTip("Inverser la sélection des slides")
+        self.btn_invert.clicked.connect(self.inverted.emit)
+        header_layout.addWidget(self.btn_invert)
+
+        layout.addLayout(header_layout)
+
+        # Ruban de pastilles avec défilement horizontal
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFixedHeight(34)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        self.pills_container = QWidget()
+        self.pills_container.setStyleSheet("background: transparent;")
+        self.pills_layout = QHBoxLayout(self.pills_container)
+        self.pills_layout.setContentsMargins(0, 0, 0, 0)
+        self.pills_layout.setSpacing(4)
+        self.scroll_area.setWidget(self.pills_container)
+
+        layout.addWidget(self.scroll_area)
+
+    def set_pages(self, selected_pages: set[int], total_pages: int) -> None:
+        total_pages = max(1, total_pages)
+        self._total_pages = total_pages
+        self._selected_pages = {p for p in selected_pages if 1 <= p <= total_pages}
+
+        # Reconstruire les pastilles si le total a changé
+        if set(self._buttons.keys()) != set(range(1, total_pages + 1)):
+            while self.pills_layout.count():
+                item = self.pills_layout.takeAt(0)
+                w = item.widget()
+                if w:
+                    w.deleteLater()
+            self._buttons.clear()
+
+            for p in range(1, total_pages + 1):
+                btn = QPushButton(str(p))
+                btn.setFixedSize(28, 24)
+                btn.setToolTip(f"Slide {p} : Cliquer pour basculer la sélection")
+                btn.clicked.connect(lambda _, page=p: self.page_toggled.emit(page))
+                self.pills_layout.addWidget(btn)
+                self._buttons[p] = btn
+            self.pills_layout.addStretch()
+
+        included_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                font-weight: bold;
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                font-size: 10px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """
+        excluded_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_MUTED};
+                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                font-size: 10px;
+            }}
+            QPushButton:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """
+        for p, btn in self._buttons.items():
+            if p in self._selected_pages:
+                btn.setStyleSheet(included_style)
+            else:
+                btn.setStyleSheet(excluded_style)
+
+        sel_count = len(self._selected_pages)
+        excl_count = total_pages - sel_count
+        if excl_count > 0:
+            self.lbl_count.setText(f"({sel_count} / {total_pages} — {excl_count} exclue{'s' if excl_count > 1 else ''})")
+        else:
+            self.lbl_count.setText(f"({sel_count} / {total_pages} — toutes incluses)")
+
+
+class RangeSegmentsWidget(QWidget):
+    """Liste visuelle de segments de plages cumulables avec suppression 1-clic et ajout inline."""
+
+    segment_removed = Signal(int, int)
+    range_added = Signal(int, int)
+
+    def __init__(self, max_page: int = 1, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._max_page = max(1, max_page)
+        self._selected_pages: set[int] = set()
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(6)
+
+        lbl_title = QLabel("Plages :")
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        top_layout.addWidget(lbl_title)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFixedHeight(30)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        self.chips_container = QWidget()
+        self.chips_container.setStyleSheet("background: transparent;")
+        self.chips_layout = QHBoxLayout(self.chips_container)
+        self.chips_layout.setContentsMargins(0, 0, 0, 0)
+        self.chips_layout.setSpacing(6)
+        self.scroll_area.setWidget(self.chips_container)
+
+        top_layout.addWidget(self.scroll_area, 1)
+
+        self.btn_add_range = QPushButton("+ Plage")
+        self.btn_add_range.setFixedHeight(24)
+        self.btn_add_range.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.ACCENT_PRIMARY};
+                border: 1px dashed {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-style: solid;
+            }}
+        """)
+        self.btn_add_range.setToolTip("Ajouter un segment de pages à la sélection")
+        self.btn_add_range.clicked.connect(self._toggle_builder)
+        top_layout.addWidget(self.btn_add_range)
+
+        layout.addLayout(top_layout)
+
+        self.builder_widget = QFrame()
+        self.builder_widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 2px;
+            }}
+        """)
+        builder_layout = QHBoxLayout(self.builder_widget)
+        builder_layout.setContentsMargins(6, 3, 6, 3)
+        builder_layout.setSpacing(6)
+
+        lbl_de = QLabel("Ajouter plage : de")
+        lbl_de.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        builder_layout.addWidget(lbl_de)
+
+        self.spin_add_start = QSpinBox()
+        self.spin_add_start.setRange(1, self._max_page)
+        self.spin_add_start.setFixedWidth(50)
+        self.spin_add_start.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                padding: 1px 4px;
+                font-size: 11px;
+            }}
+        """)
+        builder_layout.addWidget(self.spin_add_start)
+
+        lbl_a = QLabel("à")
+        lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        builder_layout.addWidget(lbl_a)
+
+        self.spin_add_end = QSpinBox()
+        self.spin_add_end.setRange(1, self._max_page)
+        self.spin_add_end.setFixedWidth(50)
+        self.spin_add_end.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                padding: 1px 4px;
+                font-size: 11px;
+            }}
+        """)
+        builder_layout.addWidget(self.spin_add_end)
+
+        self.btn_confirm_add = QPushButton("✓ Ajouter")
+        self.btn_confirm_add.setFixedHeight(22)
+        self.btn_confirm_add.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+        """)
+        self.btn_confirm_add.clicked.connect(self._on_confirm_add)
+        builder_layout.addWidget(self.btn_confirm_add)
+
+        self.btn_cancel_add = QPushButton("✕")
+        self.btn_cancel_add.setFixedSize(22, 22)
+        self.btn_cancel_add.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_MUTED};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                font-size: 10px;
+            }}
+            QPushButton:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        self.btn_cancel_add.clicked.connect(self.builder_widget.hide)
+        builder_layout.addWidget(self.btn_cancel_add)
+        builder_layout.addStretch()
+
+        self.builder_widget.hide()
+        layout.addWidget(self.builder_widget)
+
+    def _toggle_builder(self) -> None:
+        if self.builder_widget.isVisible():
+            self.builder_widget.hide()
+        else:
+            missing = [p for p in range(1, self._max_page + 1) if p not in self._selected_pages]
+            s_val = missing[0] if missing else 1
+            e_val = missing[0] if missing else self._max_page
+            self.spin_add_start.setValue(s_val)
+            self.spin_add_end.setValue(e_val)
+            self.builder_widget.show()
+
+    def _on_confirm_add(self) -> None:
+        s = self.spin_add_start.value()
+        e = self.spin_add_end.value()
+        if s > e:
+            s, e = e, s
+        self.range_added.emit(s, e)
+        self.builder_widget.hide()
+
+    def set_selected_pages(self, selected_pages: set[int], max_page: int) -> None:
+        self._max_page = max(1, max_page)
+        self.spin_add_start.setRange(1, self._max_page)
+        self.spin_add_end.setRange(1, self._max_page)
+        self._selected_pages = {p for p in selected_pages if 1 <= p <= self._max_page}
+
+        while self.chips_layout.count():
+            item = self.chips_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        sorted_p = sorted(self._selected_pages)
+        intervals: list[tuple[int, int]] = []
+        if sorted_p:
+            cur_s = sorted_p[0]
+            cur_e = sorted_p[0]
+            for p in sorted_p[1:]:
+                if p == cur_e + 1:
+                    cur_e = p
+                else:
+                    intervals.append((cur_s, cur_e))
+                    cur_s = p
+                    cur_e = p
+            intervals.append((cur_s, cur_e))
+
+        for s, e in intervals:
+            chip = QFrame()
+            chip.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                    padding: 1px 4px;
+                }}
+            """)
+            c_layout = QHBoxLayout(chip)
+            c_layout.setContentsMargins(4, 1, 4, 1)
+            c_layout.setSpacing(4)
+
+            lbl_txt = f"p. {s}-{e}" if s != e else f"p. {s}"
+            lbl = QLabel(lbl_txt)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none;")
+            c_layout.addWidget(lbl)
+
+            btn_del = QPushButton("✕")
+            btn_del.setFixedSize(16, 16)
+            btn_del.setToolTip(f"Exclure la plage {lbl_txt}")
+            btn_del.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_MUTED};
+                    border: none;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 0;
+                }}
+                QPushButton:hover {{
+                    color: #ef4444;
+                }}
+            """)
+            btn_del.clicked.connect(lambda _, start=s, end=e: self.segment_removed.emit(start, end))
+            c_layout.addWidget(btn_del)
+
+            self.chips_layout.addWidget(chip)
+
+        self.chips_layout.addStretch()
 
 
 class DocumentPreviewWidget(QWidget):
@@ -494,13 +918,15 @@ class DocumentPreviewWidget(QWidget):
     - Planches haute résolution pour les albums et documents d'images.
     """
 
+    page_scope_toggled = Signal(int, bool)
+
     def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.doc = doc
         file_type = (getattr(self.doc, "file_type", "") or "").lower()
         if not file_type and getattr(self.doc, "title", "").lower().endswith(".pdf"):
             file_type = "pdf"
-        self._is_paginated = file_type in ("pdf", "album")
+        self._is_paginated = file_type in ("pdf", "album", "pptx") or (getattr(doc, "total_pages", None) is not None and doc.total_pages > 1)
         self._current_page = 1
         self._total_pages = int(doc.total_pages or 1)
         self._current_mode = "markdown"
@@ -615,6 +1041,15 @@ class DocumentPreviewWidget(QWidget):
         self.lbl_scope_status = QLabel("")
         self.lbl_scope_status.hide()
         header_layout.addWidget(self.lbl_scope_status)
+        header_layout.addSpacing(6)
+
+        # Bouton 1-clic pour exclure/inclure la diapositive ou page courante
+        self.btn_toggle_page_scope = QPushButton("Exclure cette page")
+        self.btn_toggle_page_scope.setFixedHeight(24)
+        self.btn_toggle_page_scope.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_page_scope.clicked.connect(self._on_toggle_page_scope_clicked)
+        self.btn_toggle_page_scope.hide()
+        header_layout.addWidget(self.btn_toggle_page_scope)
         header_layout.addSpacing(8)
 
         # Contrôles de navigation de page
@@ -892,6 +1327,10 @@ class DocumentPreviewWidget(QWidget):
             self.btn_zoom_in.hide()
         self._update_page_label()
 
+    @property
+    def current_page(self) -> int:
+        return self._current_page
+
     def jump_to_page(self, page_number: int) -> None:
         """Navigue directement vers la page demandée."""
         self._current_page = max(1, min(page_number, self._total_pages))
@@ -969,25 +1408,66 @@ class DocumentPreviewWidget(QWidget):
         """Alias pour set_scope_range avec support explicite des pages incluses."""
         self.set_scope_range(start_page, end_page, included_pages=included_pages)
 
+    def _on_toggle_page_scope_clicked(self) -> None:
+        is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
+        self.page_scope_toggled.emit(self._current_page, not is_included)
+
     def _update_scope_badge(self) -> None:
         if not hasattr(self, "lbl_scope_status"):
             return
         if not self._is_paginated:
             self.lbl_scope_status.hide()
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.hide()
             return
+        scope_str = format_page_ranges(self._included_pages) if self._included_pages else f"{self._scope_start}–{self._scope_end}"
         is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
         if is_included:
-            self.lbl_scope_status.setText(f"Page {self._current_page} INCLUSE (portée {self._scope_start}–{self._scope_end})")
+            self.lbl_scope_status.setText(f"Page {self._current_page} INCLUSE (portée {scope_str})")
             self.lbl_scope_status.setStyleSheet(
                 f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
                 f" border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.setText("🚫 Exclure cette page")
+                self.btn_toggle_page_scope.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: transparent;
+                        color: {DesignTokens.COLOR_RED_TEXT};
+                        border: 1px solid {DesignTokens.COLOR_RED_BORDER};
+                        border-radius: 4px;
+                        padding: 2px 8px;
+                        font-size: 10px;
+                        font-weight: 500;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {DesignTokens.COLOR_RED_BG};
+                    }}
+                """)
+                self.btn_toggle_page_scope.show()
         else:
-            self.lbl_scope_status.setText(f"Page {self._current_page} EXCLUE (portée {self._scope_start}–{self._scope_end})")
+            self.lbl_scope_status.setText(f"Page {self._current_page} EXCLUE (portée {scope_str})")
             self.lbl_scope_status.setStyleSheet(
                 f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
                 f" border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
             )
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.setText("✅ Inclure cette page")
+                self.btn_toggle_page_scope.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: transparent;
+                        color: {DesignTokens.COLOR_GREEN_TEXT};
+                        border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
+                        border-radius: 4px;
+                        padding: 2px 8px;
+                        font-size: 10px;
+                        font-weight: 500;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {DesignTokens.COLOR_GREEN_BG};
+                    }}
+                """)
+                self.btn_toggle_page_scope.show()
         self.lbl_scope_status.show()
 
     def _update_page_label(self) -> None:
@@ -1005,6 +1485,8 @@ class DocumentPreviewWidget(QWidget):
             self.btn_next_page.hide()
             if hasattr(self, "lbl_scope_status"):
                 self.lbl_scope_status.hide()
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.hide()
 
     def _load_album_page(self, page_num: int) -> None:
         page_rec = (
@@ -1058,13 +1540,6 @@ class DocumentDelimitationDialog(QDialog):
 
         self._load_document_stats()
 
-        # Détection de pagination : physique uniquement pour les PDF et Albums
-        file_type = (getattr(self.doc, "file_type", "") or "").lower()
-        if not file_type and getattr(self.doc, "title", "").lower().endswith(".pdf"):
-            file_type = "pdf"
-        self.is_paginated = file_type in ("pdf", "album")
-        self.selection_mode = "pages" if self.is_paginated else "chapters"
-
         # 1. Extraction universelle des fragments et calcul du nombre total de pages
         pages_query = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
         if doc.file_type == "album" or pages_query:
@@ -1097,6 +1572,22 @@ class DocumentDelimitationDialog(QDialog):
             self._max_page = max(page_numbers, default=int(doc.total_pages or 1))
             if doc.total_pages and doc.total_pages > self._max_page:
                 self._max_page = int(doc.total_pages)
+
+        # Détection de pagination : PDF, Album, PPTX, ou documents avec chunks paginés
+        file_type = (getattr(self.doc, "file_type", "") or "").lower()
+        if not file_type and getattr(self.doc, "title", "").lower().endswith(".pdf"):
+            file_type = "pdf"
+        has_page_chunks = any(c.get("page_number") is not None for c in self._all_chunks)
+        self.is_paginated = file_type in ("pdf", "album", "pptx") or has_page_chunks or (getattr(doc, "total_pages", None) is not None and doc.total_pages > 1)
+        self.selection_mode = "pages" if self.is_paginated else "chapters"
+
+        start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
+        end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
+        all_pages_in_span = set(range(start_val, end_val + 1))
+        for p in list(all_pages_in_span):
+            if f"page:{p}" in self._manual_exclusions or f"page {p}" in self._manual_exclusions:
+                all_pages_in_span.discard(p)
+        self._selected_pages: set[int] = all_pages_in_span or set(range(start_val, end_val + 1))
 
         self._chapter_cards: list[ChapterCardWidget] = []
         self._tree_nodes: list[HeadingTreeNode] = []
@@ -1290,6 +1781,20 @@ class DocumentDelimitationDialog(QDialog):
         self.range_bar = ScopeRangeBarWidget(self)
         pages_card_layout.addWidget(self.range_bar)
 
+        # Ruban de pastilles de slides cliquables (1 à N)
+        self.slide_selector_bar = SlideSelectorBarWidget(self)
+        self.slide_selector_bar.page_toggled.connect(self._on_page_pill_toggled)
+        self.slide_selector_bar.all_selected.connect(self._on_select_all_pages)
+        self.slide_selector_bar.none_selected.connect(self._on_deselect_all_pages)
+        self.slide_selector_bar.inverted.connect(self._on_invert_pages)
+        pages_card_layout.addWidget(self.slide_selector_bar)
+
+        # Liste visuelle de segments de plages cumulables
+        self.range_segments_widget = RangeSegmentsWidget(self._max_page, self)
+        self.range_segments_widget.segment_removed.connect(self._on_segment_removed)
+        self.range_segments_widget.range_added.connect(self._on_segment_added)
+        pages_card_layout.addWidget(self.range_segments_widget)
+
         # Conteneur des curseurs (slider) et spinboxes — Visible UNIQUEMENT en mode Plage de pages
         self.slider_scope_container = QWidget()
         slider_scope_layout = QVBoxLayout(self.slider_scope_container)
@@ -1360,6 +1865,35 @@ class DocumentDelimitationDialog(QDialog):
         end_row.addWidget(self.spin_p_end)
         end_row.addWidget(self.slider_p_end, 1)
         slider_scope_layout.addLayout(end_row)
+
+        # Ligne de saisie personnalisée (plages discontinues : ex. "1-5, 8, 11-14")
+        custom_row = QHBoxLayout()
+        custom_row.setContentsMargins(0, 2, 0, 0)
+        custom_row.setSpacing(8)
+        lbl_custom = QLabel("Saisie :")
+        lbl_custom.setFixedWidth(44)
+        lbl_custom.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.input_custom_pages = QLineEdit()
+        self.input_custom_pages.setPlaceholderText("ex: 1-5, 8, 11-14")
+        self.input_custom_pages.setToolTip("Saisissez des numéros ou plages de pages séparés par des virgules pour exclure des diapositives inutiles.")
+        self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+        self.input_custom_pages.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-size: 11px;
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.input_custom_pages.textChanged.connect(self._on_custom_pages_text_changed)
+        custom_row.addWidget(lbl_custom)
+        custom_row.addWidget(self.input_custom_pages, 1)
+        slider_scope_layout.addLayout(custom_row)
 
         pages_card_layout.addWidget(self.slider_scope_container)
 
@@ -1434,8 +1968,9 @@ class DocumentDelimitationDialog(QDialog):
         self.lbl_range_chapters_kpi.setWordWrap(True)
         ric_layout.addWidget(self.lbl_range_chapters_kpi)
         pages_card_layout.addWidget(self.range_info_card)
-
-        self.range_bar.set_range(self.spin_p_start.value(), self.spin_p_end.value(), self._max_page)
+        self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        self.slide_selector_bar.set_pages(self._selected_pages, self._max_page)
+        self.range_segments_widget.set_selected_pages(self._selected_pages, self._max_page)
         self.lbl_page_impact = QLabel()
         self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
         pages_card_layout.addWidget(self.lbl_page_impact)
@@ -1813,6 +2348,7 @@ class DocumentDelimitationDialog(QDialog):
         if self.is_paginated:
             self.spin_p_start.valueChanged.connect(self._on_start_page_changed)
             self.spin_p_end.valueChanged.connect(self._on_end_page_changed)
+            self.preview_widget.page_scope_toggled.connect(self._on_page_scope_toggled_from_preview)
 
         # 4. Pied de page & validation
         footer = QHBoxLayout()
@@ -1888,13 +2424,16 @@ class DocumentDelimitationDialog(QDialog):
         self._set_section_controls_visible(False)
         self.structure_scope_container.hide()
         self.slider_scope_container.hide()
+        self._selected_pages = set(range(1, self._max_page + 1))
         self._syncing_selection = True
         try:
             self.spin_p_start.setValue(1)
             self.spin_p_end.setValue(self._max_page)
             self.slider_p_start.setValue(1)
             self.slider_p_end.setValue(self._max_page)
-            self.range_bar.set_range(1, self._max_page, self._max_page)
+            if hasattr(self, "input_custom_pages"):
+                self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
         finally:
             self._syncing_selection = False
         self.doc.start_page = None
@@ -1924,9 +2463,9 @@ class DocumentDelimitationDialog(QDialog):
     def _selected_chunks_for_mode(self) -> list[dict[str, Any]]:
         """Retourne les fragments gouvernés par le mode actif."""
         if self.selection_mode == "pages":
-            start_page = self.spin_p_start.value()
-            end_page = self.spin_p_end.value()
-            return [chunk for chunk in self._all_chunks if chunk.get("page_number") is None or start_page <= chunk.get("page_number", start_page) <= end_page]
+            if self.is_paginated:
+                return [chunk for chunk in self._all_chunks if (chunk.get("page_number") or 1) in self._selected_pages]
+            return list(self._all_chunks)
 
         selected: list[dict[str, Any]] = []
         if self.selection_mode == "chapters":
@@ -2006,10 +2545,160 @@ class DocumentDelimitationDialog(QDialog):
             )
         self.final_preview_browser.setHtml("".join(html_blocks))
 
+    def _on_custom_pages_text_changed(self, text: str) -> None:
+        if not self.is_paginated or self._syncing_selection:
+            return
+        parsed = parse_page_ranges(text, max_page=self._max_page)
+        if parsed:
+            self._apply_page_selection(parsed, trigger_jump=False, update_text=False)
+
+    def _on_page_scope_toggled_from_preview(self, page_num: int, should_include: bool) -> None:
+        if not self.is_paginated:
+            return
+        new_pages = set(self._selected_pages)
+        if should_include:
+            new_pages.add(page_num)
+            self._manual_exclusions.discard(f"page:{page_num}")
+        else:
+            new_pages.discard(page_num)
+            self._manual_exclusions.add(f"page:{page_num}")
+        if not new_pages:
+            new_pages = {page_num}
+        self._apply_page_selection(new_pages, trigger_jump=False, update_text=True)
+
+    def _on_page_pill_toggled(self, page_num: int) -> None:
+        if not self.is_paginated:
+            return
+        new_pages = set(self._selected_pages)
+        if page_num in new_pages:
+            if len(new_pages) > 1:
+                new_pages.remove(page_num)
+                self._manual_exclusions.add(f"page:{page_num}")
+        else:
+            new_pages.add(page_num)
+            self._manual_exclusions.discard(f"page:{page_num}")
+        self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.jump_to_page(page_num)
+
+    def _on_select_all_pages(self) -> None:
+        if not self.is_paginated:
+            return
+        self._manual_exclusions = {ex for ex in self._manual_exclusions if not ex.startswith("page:")}
+        self._apply_page_selection(set(range(1, self._max_page + 1)), trigger_jump=True, update_text=True)
+
+    def _on_deselect_all_pages(self) -> None:
+        if not self.is_paginated:
+            return
+        cur = min(self._selected_pages) if self._selected_pages else 1
+        for p in range(1, self._max_page + 1):
+            if p != cur:
+                self._manual_exclusions.add(f"page:{p}")
+        self._apply_page_selection({cur}, trigger_jump=True, update_text=True)
+
+    def _on_invert_pages(self) -> None:
+        if not self.is_paginated:
+            return
+        all_p = set(range(1, self._max_page + 1))
+        inverted = all_p - self._selected_pages
+        if not inverted:
+            inverted = {1}
+        for p in all_p:
+            if p in inverted:
+                self._manual_exclusions.discard(f"page:{p}")
+            else:
+                self._manual_exclusions.add(f"page:{p}")
+        self._apply_page_selection(inverted, trigger_jump=True, update_text=True)
+
+    def _on_segment_removed(self, start_p: int, end_p: int) -> None:
+        if not self.is_paginated:
+            return
+        to_remove = set(range(start_p, end_p + 1))
+        new_pages = self._selected_pages - to_remove
+        if not new_pages:
+            new_pages = {min(self._selected_pages)} if self._selected_pages else {1}
+        for p in to_remove:
+            self._manual_exclusions.add(f"page:{p}")
+        self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
+
+    def _on_segment_added(self, start_p: int, end_p: int) -> None:
+        if not self.is_paginated:
+            return
+        start_p = max(1, min(start_p, self._max_page))
+        end_p = max(1, min(end_p, self._max_page))
+        if start_p > end_p:
+            start_p, end_p = end_p, start_p
+        to_add = set(range(start_p, end_p + 1))
+        new_pages = self._selected_pages | to_add
+        for p in to_add:
+            self._manual_exclusions.discard(f"page:{p}")
+        self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
+
+    def _apply_page_selection(self, selected_pages: set[int], trigger_jump: bool = True, update_text: bool = True) -> None:
+        """Met à jour l'état de pagination globale, synchronise spinboxes/curseurs, barre de portée, arborescence et aperçu."""
+        if not self.is_paginated:
+            return
+        self._selected_pages = {p for p in selected_pages if p >= 1}
+        if not self._selected_pages:
+            self._selected_pages = {1}
+
+        min_p = min(self._selected_pages)
+        max_p = max(self._selected_pages)
+
+        if update_text and hasattr(self, "input_custom_pages"):
+            self.input_custom_pages.blockSignals(True)
+            self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.input_custom_pages.blockSignals(False)
+
+        if self.spin_p_start.value() != min_p:
+            self.spin_p_start.blockSignals(True)
+            self.spin_p_start.setValue(min_p)
+            self.spin_p_start.blockSignals(False)
+        self.slider_p_start.blockSignals(True)
+        self.slider_p_start.setValue(min(min_p, self._max_page))
+        self.slider_p_start.blockSignals(False)
+
+        if self.spin_p_end.value() != max_p:
+            self.spin_p_end.blockSignals(True)
+            self.spin_p_end.setValue(max_p)
+            self.spin_p_end.blockSignals(False)
+        self.slider_p_end.blockSignals(True)
+        self.slider_p_end.setValue(min(max_p, self._max_page))
+        self.slider_p_end.blockSignals(False)
+
+        valid_pages = {p for p in self._selected_pages if p <= self._max_page} or {1}
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_selected_pages(valid_pages, self._max_page)
+
+        if hasattr(self, "slide_selector_bar"):
+            self.slide_selector_bar.set_pages(valid_pages, self._max_page)
+
+        if hasattr(self, "range_segments_widget"):
+            self.range_segments_widget.set_selected_pages(valid_pages, self._max_page)
+
+        self._filter_sections_by_pages(valid_pages)
+
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(min(valid_pages), max(valid_pages), included_pages=valid_pages)
+            if trigger_jump:
+                self.preview_widget.jump_to_page(min(valid_pages))
+
+        self._refresh_final_preview()
+        self._update_kpi()
+
+    def _apply_page_range(self, start_p: int, end_p: int, trigger_jump: bool = True) -> None:
+        """Applique une plage continue et met à jour l'ensemble des pages sélectionnées."""
+        start_p = max(1, start_p)
+        if start_p > end_p:
+            start_p, end_p = end_p, start_p
+        pages = set(range(start_p, min(end_p, self._max_page) + 1))
+        if end_p > self._max_page:
+            pages.add(end_p)
+        self._apply_page_selection(pages, trigger_jump=trigger_jump, update_text=True)
+
     def _apply_page_preset(self, start: int, end: int) -> None:
         """Applique un préréglage de pagination et met à jour l'interface."""
-        self.spin_p_start.setValue(start)
-        self.spin_p_end.setValue(end)
+        self._apply_page_range(start, end, trigger_jump=True)
 
     def _on_check_all_chapters(self) -> None:
         """Coche tous les chapitres dans la vue chapitres."""
@@ -2063,6 +2752,8 @@ class DocumentDelimitationDialog(QDialog):
         if hasattr(self, "structure_scope_container"):
             self.structure_scope_container.hide()
         self._manual_exclusions.clear()
+        self._selected_pages = set(range(1, self._max_page + 1))
+
         self.spin_p_start.blockSignals(True)
         self.spin_p_end.blockSignals(True)
         self.slider_p_start.blockSignals(True)
@@ -2078,12 +2769,19 @@ class DocumentDelimitationDialog(QDialog):
         self.slider_p_start.blockSignals(False)
         self.slider_p_end.blockSignals(False)
 
-        self.range_bar.set_range(1, self._max_page, self._max_page)
+        if hasattr(self, "input_custom_pages"):
+            self.input_custom_pages.blockSignals(True)
+            self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.input_custom_pages.blockSignals(False)
+
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
         self._set_all_checked(True)
         for card in self._chapter_cards:
             card.set_checked(True)
         if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(1, self._max_page, included_pages=set(range(1, self._max_page + 1)))
+            self.preview_widget.set_scope_range(1, self._max_page, included_pages=self._selected_pages)
+        self._refresh_final_preview()
         self._update_kpi()
 
     def _on_mode_range_clicked(self) -> None:
@@ -2101,15 +2799,23 @@ class DocumentDelimitationDialog(QDialog):
             self.structure_scope_container.hide()
         sp = self.spin_p_start.value()
         ep = self.spin_p_end.value()
-        self.range_bar.set_range(sp, ep, self._max_page)
-        self._filter_sections_by_pages(sp, ep)
+        if not self._selected_pages:
+            self._selected_pages = set(range(sp, ep + 1))
+        if hasattr(self, "input_custom_pages"):
+            self.input_custom_pages.blockSignals(True)
+            self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.input_custom_pages.blockSignals(False)
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        self._filter_sections_by_pages(self._selected_pages)
         checked_pages = {
             self._section_meta[i]["page_number"]
             for i in range(self.sections_list.count())
             if self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
         }
         if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(sp, ep, included_pages=checked_pages)
+            self.preview_widget.set_scope_range(min(self._selected_pages), max(self._selected_pages), included_pages=checked_pages)
+        self._refresh_final_preview()
         self._update_kpi()
 
     def _on_mode_structure_clicked(self) -> None:
@@ -2175,81 +2881,68 @@ class DocumentDelimitationDialog(QDialog):
         self._update_kpi()
 
     def _on_slider_start_changed(self, val: int) -> None:
-        if val > self.spin_p_end.value():
-            self.spin_p_end.setValue(val)
-        self.spin_p_start.setValue(val)
+        end_val = self.spin_p_end.value()
+        if val > end_val:
+            end_val = val
+        self._apply_page_range(val, end_val, trigger_jump=True)
 
     def _on_slider_end_changed(self, val: int) -> None:
-        if val < self.spin_p_start.value():
-            self.spin_p_start.setValue(val)
-        self.spin_p_end.setValue(val)
+        start_val = self.spin_p_start.value()
+        if val < start_val:
+            start_val = val
+        self._apply_page_range(start_val, val, trigger_jump=True)
 
     def _on_start_page_changed(self, val: int) -> None:
-        if self._syncing_selection:
-            return
-        if self.selection_mode != "pages":
+        if self._syncing_selection or self.selection_mode != "pages":
             return
         if hasattr(self, "btn_scope_mode_range") and (val > 1 or self.spin_p_end.value() < self._max_page):
             self.btn_scope_mode_range.setChecked(True)
             self.slider_scope_container.show()
             if hasattr(self, "structure_scope_container"):
                 self.structure_scope_container.hide()
-        self.slider_p_start.blockSignals(True)
-        self.slider_p_start.setValue(val)
-        self.slider_p_start.blockSignals(False)
-        if hasattr(self, "range_bar"):
-            self.range_bar.set_range(val, self.spin_p_end.value(), self._max_page)
-        self._filter_sections_by_pages(val, self.spin_p_end.value())
-        checked_pages = {
-            self._section_meta[i]["page_number"]
-            for i in range(self.sections_list.count())
-            if self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
-        }
-        if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(val, self.spin_p_end.value(), included_pages=checked_pages)
-            self.preview_widget.jump_to_page(val)
-        self._update_kpi()
+        end_val = self.spin_p_end.value()
+        if val > end_val:
+            end_val = val
+        self._apply_page_range(val, end_val, trigger_jump=True)
 
     def _on_end_page_changed(self, val: int) -> None:
-        if self._syncing_selection:
-            return
-        if self.selection_mode != "pages":
+        if self._syncing_selection or self.selection_mode != "pages":
             return
         if hasattr(self, "btn_scope_mode_range") and (self.spin_p_start.value() > 1 or val < self._max_page):
             self.btn_scope_mode_range.setChecked(True)
             self.slider_scope_container.show()
             if hasattr(self, "structure_scope_container"):
                 self.structure_scope_container.hide()
-        self.slider_p_end.blockSignals(True)
-        self.slider_p_end.setValue(val)
-        self.slider_p_end.blockSignals(False)
-        if hasattr(self, "range_bar"):
-            self.range_bar.set_range(self.spin_p_start.value(), val, self._max_page)
-        self._filter_sections_by_pages(self.spin_p_start.value(), val)
-        checked_pages = {
-            self._section_meta[i]["page_number"]
-            for i in range(self.sections_list.count())
-            if self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked and self._section_meta.get(i, {}).get("page_number") is not None
-        }
-        if hasattr(self, "preview_widget"):
-            self.preview_widget.set_scope_range(self.spin_p_start.value(), val, included_pages=checked_pages)
-            self.preview_widget.jump_to_page(val)
-        self._update_kpi()
+        start_val = self.spin_p_start.value()
+        if val < start_val:
+            start_val = val
+        self._apply_page_range(start_val, val, trigger_jump=True)
 
-    def _filter_sections_by_pages(self, start_p: int, end_p: int) -> None:
+    def _filter_sections_by_pages(self, pages_or_start: set[int] | int, end_p: int | None = None) -> None:
         """Coche ou décoche automatiquement les fragments selon leur appartenance à la plage de pages sélectionnée sans écraser les exclusions manuelles."""
         if not self.is_paginated or self.selection_mode != "pages" or self._syncing_selection:
             return
+        if isinstance(pages_or_start, set):
+            selected_pages = pages_or_start
+        elif isinstance(pages_or_start, int) and end_p is not None:
+            selected_pages = set(range(pages_or_start, end_p + 1))
+        else:
+            selected_pages = set(range(1, self._max_page + 1))
+
         self._syncing_selection = True
         try:
             self.sections_list.blockSignals(True)
             for i in range(self.sections_list.count()):
                 meta = self._section_meta.get(i, {})
                 p_num = meta.get("page_number")
+                end_p_num = meta.get("end_page") or p_num
                 title = str(meta.get("title") or "").lower().strip()
+                h_path = str(meta.get("heading_path") or "").lower().strip()
                 if p_num is not None:
-                    in_range = start_p <= p_num <= end_p
-                    should_check = in_range and (title not in self._manual_exclusions)
+                    sec_end = end_p_num if end_p_num is not None and end_p_num >= p_num else p_num
+                    in_range = any(p in selected_pages for p in range(p_num, sec_end + 1))
+                    is_excluded = title in self._manual_exclusions or h_path in self._manual_exclusions
+                    should_check = in_range and not is_excluded
                     item = self.sections_list.item(i)
                     if item:
                         target_state = Qt.CheckState.Checked if should_check else Qt.CheckState.Unchecked
@@ -2717,13 +3410,12 @@ class DocumentDelimitationDialog(QDialog):
 
         # Mise à jour des informations du Mode Range
         if hasattr(self, "lbl_range_coverage_kpi") and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
-            sp = self.spin_p_start.value()
-            ep = self.spin_p_end.value()
-            p_cnt = ep - sp + 1
+            p_cnt = len(self._selected_pages) if self.is_paginated else self._max_page
             p_pct = (p_cnt / self._max_page * 100) if self._max_page > 0 else 100.0
-            self.lbl_range_coverage_kpi.setText(f"Pages {sp} à {ep} ({p_cnt} / {self._max_page} pages — {p_pct:.1f}%)")
-            words_in_range = sum(m.get("word_count", 0) for m in self._section_meta.values() if m.get("page_number") and sp <= m.get("page_number") <= ep and m.get("is_leaf"))
-            chs_in_range = [c.title for c in self._tree_nodes if (c.start_page is not None and c.end_page is not None and max(sp, c.start_page) <= min(ep, c.end_page))]
+            range_display = format_page_ranges(self._selected_pages) if self.is_paginated else f"1-{self._max_page}"
+            self.lbl_range_coverage_kpi.setText(f"Pages sélectionnées : {range_display} ({p_cnt} / {self._max_page} pages — {p_pct:.1f}%)")
+            words_in_range = sum(m.get("word_count", 0) for m in self._section_meta.values() if m.get("page_number") in self._selected_pages and m.get("is_leaf"))
+            chs_in_range = [c.title for c in self._tree_nodes if (c.start_page is not None and c.end_page is not None and any(p in self._selected_pages for p in range(c.start_page, c.end_page + 1)))]
             self.lbl_range_words_kpi.setText(f"Volume estimé dans la plage : ~{words_in_range:,} mots".replace(",", " "))
             ch_txt = ", ".join(chs_in_range[:3]) + (f" (+{len(chs_in_range) - 3})" if len(chs_in_range) > 3 else "") if chs_in_range else "Tous"
             self.lbl_range_chapters_kpi.setText(f"Chapitres concernés : {ch_txt}")
@@ -2738,9 +3430,7 @@ class DocumentDelimitationDialog(QDialog):
         # Impact sur la pagination (uniquement si le document est un PDF / paginé)
         if self.is_paginated and self.selection_mode == "pages":
             self.lbl_page_impact.show()
-            start_p = self.spin_p_start.value()
-            end_p = self.spin_p_end.value()
-            excluded_pages = [p for p in self._page_cards if p < start_p or p > end_p]
+            excluded_pages = [p for p in self._page_cards if p not in self._selected_pages]
             excluded_page_cards = sum(self._page_cards[p] for p in excluded_pages)
 
             if excluded_page_cards > 0:
@@ -2775,23 +3465,37 @@ class DocumentDelimitationDialog(QDialog):
         self._update_kpi()
 
     def _on_apply(self) -> None:
+        effective_exclusions: set[str] = set()
+
         if self.selection_mode == "pages" and self.is_paginated:
-            page_start = self.spin_p_start.value()
-            page_end = self.spin_p_end.value()
-            if page_start > page_end:
+            page_start_val = self.spin_p_start.value()
+            page_end_val = self.spin_p_end.value()
+            if page_start_val > page_end_val:
                 show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
                 return
-            if page_end > self._max_page:
+            if page_end_val > self._max_page or any(p > self._max_page for p in self._selected_pages):
                 show_toast(self, f"La page de fin ne peut pas dépasser la dernière page détectée ({self._max_page}).", is_error=True)
                 return
-            if hasattr(self, "btn_scope_mode_all") and self.btn_scope_mode_all.isChecked() and page_start == 1 and page_end == self._max_page:
+            if not self._selected_pages:
+                show_toast(self, "Veuillez sélectionner au moins une page.", is_error=True)
+                return
+            page_start: int | None = min(self._selected_pages)
+            page_end: int | None = max(self._selected_pages)
+            if hasattr(self, "btn_scope_mode_all") and self.btn_scope_mode_all.isChecked() and self._selected_pages == set(range(1, self._max_page + 1)):
                 page_start = None
                 page_end = None
+            # Enregistrer uniquement les trous à l'intérieur de la plage comme exclusions effectives
+            if page_start is not None and page_end is not None:
+                excluded_pages_set = set(range(page_start, page_end + 1)) - self._selected_pages
+            else:
+                excluded_pages_set = set(range(1, self._max_page + 1)) - self._selected_pages
+            for p in sorted(excluded_pages_set):
+                effective_exclusions.add(f"page:{p}")
+            effective_exclusions.update(ex for ex in self._manual_exclusions if ex.startswith("page:"))
         else:
             page_start = None
             page_end = None
 
-        effective_exclusions: set[str] = set()
         if self.selection_mode == "sections":
             for i in range(self.sections_list.count()):
                 item = self.sections_list.item(i)
@@ -2808,9 +3512,9 @@ class DocumentDelimitationDialog(QDialog):
         for chunk in self._all_chunks:
             if self.selection_mode in ("sections", "chapters") and id(chunk) not in selected_ids:
                 continue
-            if self.selection_mode == "pages" and page_start is not None and page_end is not None:
-                page_number = chunk.get("page_number")
-                if page_number is not None and not (page_start <= page_number <= page_end):
+            if self.selection_mode == "pages" and self.is_paginated:
+                page_number = chunk.get("page_number") or 1
+                if page_number not in self._selected_pages:
                     continue
             h_path = (chunk.get("heading_path") or "").strip()
             title_str = h_path or (f"Page {chunk.get('page_number')}" if chunk.get("page_number") else f"Section #{chunk.get('index', 0) + 1}")

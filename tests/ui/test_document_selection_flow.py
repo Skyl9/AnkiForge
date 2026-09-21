@@ -1561,3 +1561,456 @@ Détail 1.B.
     assert "Module > Section > Point 1" in paths2
     assert "Module > Section > Point 1 > Sous-point 1.A" in paths2
     assert "Module > Section > Point 1 > Sous-point 1.B" not in paths2
+
+
+def test_format_and_parse_page_ranges_canonical() -> None:
+    """Vérifie le parsing et le formatage canonique des plages de pages (continues et discontinues)."""
+    from ankiforge.ui.views.creation_view.utils import format_page_ranges, parse_page_ranges
+
+    # 1. Parsing
+    assert parse_page_ranges("1-3, 5, 7-9") == [1, 2, 3, 5, 7, 8, 9]
+    assert parse_page_ranges("9, 1-3, 5") == [1, 2, 3, 5, 9]
+    assert parse_page_ranges("4") == [4]
+    assert parse_page_ranges("") == []
+    assert parse_page_ranges("invalid, abc") == []
+    assert parse_page_ranges("1-10, 15", max_page=5) == [1, 2, 3, 4, 5]
+
+    # 2. Formatage canonique
+    assert format_page_ranges({1, 2, 3, 5, 7, 8, 9}) == "1-3, 5, 7-9"
+    assert format_page_ranges([5, 1, 2, 3]) == "1-3, 5"
+    assert format_page_ranges({4}) == "4"
+    assert format_page_ranges([]) == ""
+    assert format_page_ranges(set(range(1, 6))) == "1-5"
+
+
+@pytest.mark.ui
+def test_document_scope_dialog_non_contiguous_pages(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la sélection et la restauration de plages discontinues dans DocumentScopeDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"NonContig Scope {uid}",
+        file_type="pdf",
+        total_pages=6,
+        content="\n\n".join(f"<!-- PAGE: {p} -->\nContenu slide {p}." for p in range(1, 7)),
+    )
+    for p in range(1, 7):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Slide {p}",
+            content=f"Contenu slide {p}.",
+            content_hash=f"h_sc_{uid}_{p}",
+        )
+
+    # 1. Ouverture avec portée initiale discontinue "1-2, 4-5" (slide 3 et 6 exclus)
+    dlg = DocumentScopeDialog(doc, initial_scope_str="1-2, 4-5")
+    qtbot.addWidget(dlg)
+
+    assert dlg.is_paginated is True
+    assert dlg.selection_mode == "pages"
+    assert dlg._selected_pages == {1, 2, 4, 5}
+    assert dlg.input_custom_pages.text() == "1-2, 4-5"
+    assert dlg.range_bar._selected_pages == {1, 2, 4, 5}
+
+    # Vérification des chunks retenus
+    selected_chunks = dlg._selected_chunks_for_mode()
+    selected_pages = [c.get("page_number") for c in selected_chunks]
+    assert selected_pages == [1, 2, 4, 5]
+    assert 3 not in selected_pages
+    assert 6 not in selected_pages
+
+    # 2. Validation
+    dlg._on_apply()
+    res = dlg.get_result()
+    assert res["range_str"] == "1-2, 4-5"
+    assert res["selected_pages"] == [1, 2, 4, 5]
+    assert res["scope_title"] == "Portée : Pages 1-2, 4-5"
+
+    # 3. Réouverture avec le résultat précédent (restauration fidèle)
+    dlg2 = DocumentScopeDialog(doc, initial_scope_result=res)
+    qtbot.addWidget(dlg2)
+    assert dlg2.selection_mode == "pages"
+    assert dlg2._selected_pages == {1, 2, 4, 5}
+    assert dlg2.input_custom_pages.text() == "1-2, 4-5"
+
+
+@pytest.mark.ui
+def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que DocumentDelimitationDialog exclut correctement les pages sautées et enregistre les exclusions."""
+    import json
+
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"NonContig Delim {uid}",
+        file_type="pptx",
+        total_pages=5,
+        content="\n\n".join(f"<!-- PAGE: {p} -->\nContenu détaillé de la diapositive {p}." for p in range(1, 6)),
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Diapo {p}",
+            content=f"Contenu détaillé de la diapositive {p}.",
+            content_hash=f"h_dl_{uid}_{p}",
+        )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+    dlg.btn_scope_mode_range.click()
+
+    # Saisir une plage avec exclusion de la page 3
+    dlg.input_custom_pages.setText("1-2, 4-5")
+
+    assert dlg._selected_pages == {1, 2, 4, 5}
+    selected_chunks = dlg._selected_chunks_for_mode()
+    selected_pages = [c.get("page_number") for c in selected_chunks]
+    assert selected_pages == [1, 2, 4, 5]
+    assert 3 not in selected_pages
+
+    dlg._on_apply()
+
+    # Vérification de la persistance en base
+    fresh_doc = DocumentModel.get_by_id(doc.id)
+    assert fresh_doc.start_page == 1
+    assert fresh_doc.end_page == 5
+    exclusions = json.loads(fresh_doc.excluded_headings)
+    assert "page:3" in exclusions
+
+    # Vérification des chunks restants en BDD
+    remaining = list(DocumentChunkModel.select().where(DocumentChunkModel.document == fresh_doc).order_by(DocumentChunkModel.chunk_index))
+    remaining_pages = [c.page_number for c in remaining]
+    assert remaining_pages == [1, 2, 4, 5]
+
+
+@pytest.mark.ui
+def test_preview_widget_page_toggle_button(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le bouton 1-clic d'exclusion/inclusion de diapositive dans le volet d'aperçu."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Toggle Slide {uid}",
+        file_type="pdf",
+        total_pages=4,
+        content="\n\n".join(f"<!-- PAGE: {p} -->\nSlide {p}." for p in range(1, 5)),
+    )
+    for p in range(1, 5):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Slide {p}",
+            content=f"Slide {p}.",
+            content_hash=f"h_tg_{uid}_{p}",
+        )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Initialement toutes les pages sont incluses (1-4)
+    assert dlg._selected_pages == {1, 2, 3, 4}
+
+    # Se positionner sur la page 2
+    dlg.preview_widget.jump_to_page(2)
+    assert dlg.preview_widget.current_page == 2
+    assert "Exclure" in dlg.preview_widget.btn_toggle_page_scope.text()
+
+    # 1. Cliquer sur 'Exclure cette page'
+    dlg.preview_widget.btn_toggle_page_scope.click()
+    assert 2 not in dlg._selected_pages
+    assert dlg._selected_pages == {1, 3, 4}
+    assert dlg.input_custom_pages.text() == "1, 3-4"
+    assert "Inclure" in dlg.preview_widget.btn_toggle_page_scope.text()
+
+    # 2. Recliquer pour réinclure la page
+    dlg.preview_widget.btn_toggle_page_scope.click()
+    assert 2 in dlg._selected_pages
+    assert dlg._selected_pages == {1, 2, 3, 4}
+    assert dlg.input_custom_pages.text() == "1-4"
+    assert "Exclure" in dlg.preview_widget.btn_toggle_page_scope.text()
+
+
+@pytest.mark.ui
+def test_push_behavior_slider_spinbox(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le comportement push-clamp lorsque le début dépasse la fin ou inversement."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Push Behavior {uid}",
+        file_type="pdf",
+        total_pages=10,
+        content="\n\n".join(f"<!-- PAGE: {p} -->\nPage {p}." for p in range(1, 11)),
+    )
+    for p in range(1, 11):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Page {p}.",
+            content_hash=f"h_pb_{uid}_{p}",
+        )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+    dlg.btn_mode_range.click()
+
+    # Initialement start=1, end=10
+    dlg.spin_p_end.setValue(5)
+    assert dlg.spin_p_start.value() == 1
+    assert dlg.spin_p_end.value() == 5
+
+    # Déplacer start au-delà de end (start=7 > end=5) -> end est poussé à 7
+    dlg.spin_p_start.setValue(7)
+    assert dlg.spin_p_start.value() == 7
+    assert dlg.spin_p_end.value() == 7
+    assert dlg._selected_pages == {7}
+    assert dlg.input_custom_pages.text() == "7"
+
+    # Déplacer end en-deçà de start (end=3 < start=7) -> start est poussé à 3
+    dlg.spin_p_end.setValue(3)
+    assert dlg.spin_p_start.value() == 3
+    assert dlg.spin_p_end.value() == 3
+    assert dlg._selected_pages == {3}
+    assert dlg.input_custom_pages.text() == "3"
+
+
+@pytest.mark.ui
+def test_section_multi_page_span_overlap(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie qu'une section ou chapitre couvrant plusieurs pages reste cochée si l'une des pages est incluse."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    content = """<!-- PAGE: 1 -->
+# Intro
+Introduction du document.
+
+<!-- PAGE: 2 -->
+# Chapitre Long
+Début du long chapitre sur la page 2 avec du texte substantiel.
+
+<!-- PAGE: 3 -->
+Suite du long chapitre sur la page 3 avec des explications riches.
+
+<!-- PAGE: 4 -->
+Fin du long chapitre sur la page 4 avec la conclusion de la démonstration.
+
+<!-- PAGE: 5 -->
+# Conclusion
+Dernière page du document.
+"""
+    doc = DocumentModel.create(
+        title=f"MultiPage Span {uid}",
+        file_type="pdf",
+        total_pages=5,
+        content=content,
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path="Chapitre Long" if 2 <= p <= 4 else ("Intro" if p == 1 else "Conclusion"),
+            content=f"Contenu page {p} riche et suffisant.",
+            content_hash=f"h_span_{uid}_{p}",
+        )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+    dlg.btn_mode_range.click()
+
+    # Sélectionner uniquement la page 3
+    dlg.input_custom_pages.setText("3")
+    assert dlg._selected_pages == {3}
+
+    # Le "Chapitre Long" couvre les pages 2 à 4. Comme la page 3 est incluse, il doit rester coché ou partiellement coché
+    chap_item = next(dlg.sections_list.item(i) for i in range(dlg.sections_list.count()) if "Chapitre Long" in str(dlg._section_meta.get(i, {}).get("title", "")))
+    assert chap_item.checkState(0) in (Qt.CheckState.Checked, Qt.CheckState.PartiallyChecked)
+
+
+@pytest.mark.ui
+def test_document_scope_rejects_page_range_outside_bounds(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que DocumentScopeDialog refuse d'appliquer si une page dépasse la borne utile."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Scope Bounds {uid}",
+        file_type="pdf",
+        total_pages=3,
+        content="<!-- PAGE: 1 -->\nP1\n<!-- PAGE: 2 -->\nP2\n<!-- PAGE: 3 -->\nP3",
+    )
+    for p in range(1, 4):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Contenu page {p} suffisant.",
+            content_hash=f"h_bnd_{uid}_{p}",
+        )
+
+    dlg = DocumentScopeDialog(doc)
+    qtbot.addWidget(dlg)
+    dlg.btn_mode_range.click()
+    dlg.spin_p_end.setRange(1, 99)
+    dlg.spin_p_end.setValue(99)
+    dlg._on_apply()
+    assert dlg.result() == 0
+
+
+@pytest.mark.ui
+def test_slide_selector_bar_widget(qtbot: Any) -> None:
+    """Vérifie le ruban de pastilles de slides cliquables et ses actions rapides."""
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SlideSelectorBarWidget
+
+    widget = SlideSelectorBarWidget()
+    qtbot.addWidget(widget)
+    widget.set_pages({1, 2, 3, 4, 5}, 5)
+
+    assert len(widget._buttons) == 5
+    assert "toutes incluses" in widget.lbl_count.text()
+
+    # Clic sur la pastille 3
+    toggled_pages: list[int] = []
+    widget.page_toggled.connect(toggled_pages.append)
+    widget._buttons[3].click()
+    assert toggled_pages == [3]
+
+    # Mise à jour avec la page 3 exclue
+    widget.set_pages({1, 2, 4, 5}, 5)
+    assert "1 exclue" in widget.lbl_count.text()
+
+    # Actions rapides
+    actions_fired: list[str] = []
+    widget.all_selected.connect(lambda: actions_fired.append("all"))
+    widget.none_selected.connect(lambda: actions_fired.append("none"))
+    widget.inverted.connect(lambda: actions_fired.append("invert"))
+
+    widget.btn_all.click()
+    assert "all" in actions_fired
+    widget.btn_none.click()
+    assert "none" in actions_fired
+    widget.btn_invert.click()
+    assert "invert" in actions_fired
+
+
+@pytest.mark.ui
+def test_range_segments_widget(qtbot: Any) -> None:
+    """Vérifie l'affichage des badges de segments et le constructeur inline de plage."""
+    from PySide6.QtWidgets import QPushButton
+
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import RangeSegmentsWidget
+
+    widget = RangeSegmentsWidget(max_page=10)
+    qtbot.addWidget(widget)
+    widget.set_selected_pages({1, 2, 3, 5, 8}, 10)
+
+    # 3 segments : 1-3, 5, 8
+    assert widget.chips_layout.count() >= 3
+
+    # Test suppression de segment via signal
+    removed_segments: list[tuple[int, int]] = []
+    widget.segment_removed.connect(lambda s, e: removed_segments.append((s, e)))
+    # Cliquer sur la croix du premier chip (1-3)
+    first_chip = widget.chips_layout.itemAt(0).widget()
+    del_btn = first_chip.findChild(QPushButton)
+    assert del_btn is not None
+    del_btn.click()
+    assert removed_segments == [(1, 3)]
+
+    # Test constructeur inline "+ Plage"
+    assert widget.builder_widget.isHidden()
+    widget.btn_add_range.click()
+    assert not widget.builder_widget.isHidden()
+
+    added_ranges: list[tuple[int, int]] = []
+    widget.range_added.connect(lambda s, e: added_ranges.append((s, e)))
+
+    widget.spin_add_start.setValue(9)
+    widget.spin_add_end.setValue(10)
+    widget.btn_confirm_add.click()
+
+    assert added_ranges == [(9, 10)]
+    assert widget.builder_widget.isHidden()
+
+
+@pytest.mark.ui
+def test_delimitation_dialog_slide_selector_and_segments_sync(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la synchronisation complète entre les pastilles, les segments, les spinboxes et l'aperçu dans DelimitationDialog."""
+    from ankiforge.database.models import DocumentChunkModel
+    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+    uid = uuid.uuid4().hex[:6]
+    pages_content = "\n".join(f"<!-- PAGE: {p} -->\n# Slide {p}\nContenu riche de la slide {p}." for p in range(1, 9))
+    doc = DocumentModel.create(
+        title=f"Slides Presentation {uid}",
+        file_type="pdf",
+        total_pages=8,
+        content=pages_content,
+    )
+    for p in range(1, 9):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Slide {p}",
+            content=f"Contenu riche de la slide {p}.",
+            content_hash=f"h_sl_{uid}_{p}",
+        )
+
+    dlg = DocumentDelimitationDialog(doc)
+    qtbot.addWidget(dlg)
+
+    # Vérification présence des nouveaux widgets
+    assert hasattr(dlg, "slide_selector_bar")
+    assert hasattr(dlg, "range_segments_widget")
+    assert len(dlg.slide_selector_bar._buttons) == 8
+
+    # 1. Clic sur la pastille 2 pour l'exclure
+    dlg.slide_selector_bar._buttons[2].click()
+    assert 2 not in dlg._selected_pages
+    assert dlg.input_custom_pages.text() == "1, 3-8"
+
+    # 2. Clic sur la pastille 4 pour l'exclure
+    dlg.slide_selector_bar._buttons[4].click()
+    assert 4 not in dlg._selected_pages
+    assert dlg.input_custom_pages.text() == "1, 3, 5-8"
+
+    # 3. Ré-inclusion de la pastille 2 en cliquant dessus
+    dlg.slide_selector_bar._buttons[2].click()
+    assert 2 in dlg._selected_pages
+    assert dlg.input_custom_pages.text() == "1-3, 5-8"
+
+    # 4. Suppression du segment 1-3 via le widget de segments
+    dlg.range_segments_widget.segment_removed.emit(1, 3)
+    assert dlg._selected_pages == {5, 6, 7, 8}
+    assert dlg.input_custom_pages.text() == "5-8"
+
+    # 5. Ajout d'une plage 1-2 via le widget de segments
+    dlg.range_segments_widget.range_added.emit(1, 2)
+    assert dlg._selected_pages == {1, 2, 5, 6, 7, 8}
+    assert dlg.input_custom_pages.text() == "1-2, 5-8"
+
+    # 6. Action Tout inclure
+    dlg.slide_selector_bar.btn_all.click()
+    assert dlg._selected_pages == set(range(1, 9))
+
+    # 7. Validation et persistance
+    dlg.chk_revectorize.setChecked(False)
+    dlg._on_apply()
+    assert dlg.result() == 1
