@@ -6,6 +6,7 @@ le Safe Mode et la compatibilité Nuitka.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import logging
@@ -19,11 +20,45 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-from ankiforge.services.plugins.api import AnkiForgeAPI
+from ankiforge.services.plugins.api import AnkiForgeAPI, MCPHooksAPI, PipelineHooksAPI
 from ankiforge.services.plugins.manifest_schema import AddonInfo, AddonManifest, AddonStatus
 from ankiforge.utils.archive_utils import safe_extract_zip
+from ankiforge.version import VERSION_INFO
 
 logger = logging.getLogger(__name__)
+
+
+def compute_file_sha256(file_path: Path) -> str:
+    """Calcule l'empreinte SHA-256 d'un fichier."""
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest().lower()
+
+
+def check_version_compatibility(
+    min_ver: str | None,
+    max_ver: str | None,
+    current_ver_str: str,
+) -> tuple[bool, str | None]:
+    """Vérifie la compatibilité de version SemVer de l'addon avec la version courante d'AnkiForge."""
+    try:
+        from packaging.version import Version
+
+        current_v = Version(current_ver_str.strip().lstrip("vV"))
+        if min_ver:
+            min_v_obj = Version(min_ver.strip().lstrip("vV"))
+            if current_v < min_v_obj:
+                return False, f"Nécessite AnkiForge v{min_ver} ou supérieure (actuelle : v{current_ver_str})"
+        if max_ver:
+            max_v_obj = Version(max_ver.strip().lstrip("vV"))
+            if current_v > max_v_obj:
+                return False, f"Compatible jusqu'à AnkiForge v{max_ver} (actuelle : v{current_ver_str})"
+        return True, None
+    except Exception as e:
+        logger.warning("Erreur lors de la vérification de version de l'addon : %s", e)
+        return True, None
 
 
 class PluginManager:
@@ -33,16 +68,17 @@ class PluginManager:
 
     _instance: PluginManager | None = None
 
-    def __init__(self, addons_dir: Path | None = None) -> None:
+    def __init__(self, addons_dir: Path | None = None, meta_file: Path | None = None) -> None:
         if addons_dir is None:
             from ankiforge.utils.paths import get_app_data_dir
 
             self.addons_dir = get_app_data_dir() / "addons"
+            self.meta_file = meta_file or (self.addons_dir.parent / "addons_meta.json")
         else:
             self.addons_dir = Path(addons_dir)
+            self.meta_file = meta_file or (self.addons_dir / "addons_meta.json")
 
         self.addons_dir.mkdir(parents=True, exist_ok=True)
-        self.meta_file = self.addons_dir.parent / "addons_meta.json"
 
         self._addons: dict[str, AddonInfo] = {}
         self._apis: dict[str, AnkiForgeAPI] = {}
@@ -93,6 +129,7 @@ class PluginManager:
         """
         Scanne le dossier ~/.ankiforge/addons/ pour découvrir tous les addons valides.
         """
+        old_addons = self._addons.copy()
         self._addons.clear()
         if not self.addons_dir.exists():
             return []
@@ -138,7 +175,49 @@ class PluginManager:
                     config_data = {}
 
             is_enabled = manifest.id not in self._disabled_addon_ids
-            status = AddonStatus.DISABLED if not is_enabled else AddonStatus.DISABLED
+            error_message: str | None = None
+
+            # 1. Compatibilité de version SemVer
+            is_compat, compat_err = check_version_compatibility(
+                manifest.min_ankiforge_version,
+                manifest.max_ankiforge_version,
+                VERSION_INFO.version,
+            )
+
+            # 2. Intégrité SHA-256 (si spécifié)
+            hash_valid = True
+            hash_err: str | None = None
+            if manifest.sha256:
+                entry_file = entry / manifest.entry_point
+                if not entry_file.exists():
+                    hash_valid = False
+                    hash_err = f"Point d'entrée '{manifest.entry_point}' introuvable."
+                else:
+                    try:
+                        computed_hash = compute_file_sha256(entry_file)
+                        if computed_hash.lower() != manifest.sha256.strip().lower():
+                            hash_valid = False
+                            hash_err = "Intégrité compromise : empreinte SHA-256 invalide."
+                    except Exception as e:
+                        hash_valid = False
+                        hash_err = f"Erreur de calcul d'empreinte : {e}"
+
+            # Détermination du statut
+            if not is_compat:
+                status = AddonStatus.INCOMPATIBLE
+                error_message = compat_err
+            elif not hash_valid:
+                status = AddonStatus.ERROR
+                error_message = hash_err
+            elif not is_enabled:
+                status = AddonStatus.DISABLED
+            elif manifest.id in self._modules:
+                status = AddonStatus.ACTIVE
+            elif manifest.id in old_addons and old_addons[manifest.id].status == AddonStatus.ERROR:
+                status = AddonStatus.ERROR
+                error_message = old_addons[manifest.id].error_message
+            else:
+                status = AddonStatus.DISABLED
 
             addon_info = AddonInfo(
                 manifest=manifest,
@@ -148,6 +227,7 @@ class PluginManager:
                 config_schema=config_data,
                 has_documentation=has_doc,
                 doc_markdown=doc_content,
+                error_message=error_message,
             )
             self._addons[manifest.id] = addon_info
 
@@ -190,12 +270,15 @@ class PluginManager:
         if self._safe_mode:
             logger.info("🛡️ Mode Sans Échec actif : aucun addon ne sera chargé au démarrage.")
             for addon_id, info in self._addons.items():
-                info.status = AddonStatus.DISABLED
+                if info.status != AddonStatus.INCOMPATIBLE:
+                    info.status = AddonStatus.DISABLED
                 results[addon_id] = False
             return results
 
         for addon_id, info in list(self._addons.items()):
-            if info.is_enabled:
+            if info.status == AddonStatus.INCOMPATIBLE:
+                results[addon_id] = False
+            elif info.is_enabled:
                 success = self.load_addon(addon_id)
                 results[addon_id] = success
             else:
@@ -212,6 +295,30 @@ class PluginManager:
         if not info:
             logger.warning("Addon introuvable : %s", addon_id)
             return False
+
+        if info.status == AddonStatus.INCOMPATIBLE:
+            logger.warning("Addon '%s' incompatible avec la version courante : %s", addon_id, info.error_message)
+            return False
+
+        if info.manifest.sha256:
+            entry_file = info.folder_path / info.manifest.entry_point
+            if not entry_file.exists():
+                info.status = AddonStatus.ERROR
+                info.error_message = f"Point d'entrée '{info.manifest.entry_point}' introuvable."
+                logger.error("Addon '%s' : %s", addon_id, info.error_message)
+                return False
+            try:
+                computed_hash = compute_file_sha256(entry_file)
+                if computed_hash.lower() != info.manifest.sha256.strip().lower():
+                    info.status = AddonStatus.ERROR
+                    info.error_message = "Intégrité compromise : empreinte SHA-256 invalide."
+                    logger.error("Addon '%s' : %s", addon_id, info.error_message)
+                    return False
+            except Exception as e:
+                info.status = AddonStatus.ERROR
+                info.error_message = f"Erreur de calcul d'empreinte : {e}"
+                logger.error("Addon '%s' : %s", addon_id, info.error_message)
+                return False
 
         init_file = info.folder_path / info.manifest.entry_point
         if not init_file.exists():
@@ -269,24 +376,32 @@ class PluginManager:
             api = self._apis.pop(addon_id)
             api.events.unregister_all()
 
+        MCPHooksAPI.unregister_addon_tools(addon_id)
+        PipelineHooksAPI.unregister_addon_steps(addon_id)
+
         module_name = f"ankiforge_addon_{addon_id}"
         if module_name in sys.modules:
             del sys.modules[module_name]
         self._modules.pop(addon_id, None)
 
-        if addon_id in self._addons:
+        if addon_id in self._addons and self._addons[addon_id].status != AddonStatus.INCOMPATIBLE:
             self._addons[addon_id].status = AddonStatus.DISABLED
 
         return True
 
     def enable_addon(self, addon_id: str) -> bool:
         """Active un addon et sauvegarde dans les préférences."""
+        info = self._addons.get(addon_id)
+        if info and info.status == AddonStatus.INCOMPATIBLE:
+            logger.warning("Impossible d'activer l'addon incompatible : %s", addon_id)
+            return False
+
         if addon_id in self._disabled_addon_ids:
             self._disabled_addon_ids.remove(addon_id)
             self._save_meta()
 
-        if addon_id in self._addons:
-            self._addons[addon_id].is_enabled = True
+        if info:
+            info.is_enabled = True
             return self.load_addon(addon_id)
         return False
 
@@ -298,7 +413,8 @@ class PluginManager:
         if addon_id in self._addons:
             self._addons[addon_id].is_enabled = False
             self.unload_addon(addon_id)
-            self._addons[addon_id].status = AddonStatus.DISABLED
+            if self._addons[addon_id].status != AddonStatus.INCOMPATIBLE:
+                self._addons[addon_id].status = AddonStatus.DISABLED
             return True
         return False
 

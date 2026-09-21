@@ -8,7 +8,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import Qt
 
+from ankiforge.services.plugins.manifest_schema import AddonStatus
 from ankiforge.services.plugins.plugin_manager import PluginManager
 from ankiforge.ui.dialogs.addon_manager_dialog import (
     AddonConfigForm,
@@ -139,3 +141,90 @@ def test_settings_modal_addons_tab(qtbot, dummy_plugin_env):
     # Basculer sur l'onglet Extensions (index 5)
     modal.stacked_widget.setCurrentIndex(5)
     assert modal.stacked_widget.currentIndex() == 5
+
+
+def test_addon_incompatible_ui(qtbot):
+    """Teste l'affichage et le comportement d'un addon incompatible dans l'UI."""
+    temp_dir = tempfile.mkdtemp(prefix="ankiforge_ui_incompat_")
+    addons_dir = Path(temp_dir)
+    try:
+        # Addon Incompatible
+        p_inc = addons_dir / "incompatible_addon"
+        p_inc.mkdir(parents=True)
+        m_inc = {
+            "id": "incompatible_addon",
+            "name": "Super Future Tool",
+            "version": "5.0.0",
+            "min_ankiforge_version": "99.0.0",
+            "description": "Nécessite AnkiForge 99.0.0",
+        }
+        (p_inc / "manifest.json").write_text(json.dumps(m_inc), encoding="utf-8")
+        (p_inc / "__init__.py").write_text("def init_addon(api): pass", encoding="utf-8")
+
+        pm = PluginManager(addons_dir=addons_dir)
+        pm.discover_addons()
+
+        widget = AddonManagerWidget(plugin_manager=pm)
+        qtbot.addWidget(widget)
+
+        # Vérification du statut dans la table
+        assert widget.table.rowCount() == 1
+        assert widget.table.item(0, 0).text() == "Super Future Tool"
+        assert widget.table.item(0, 1).text() == "Incompatible"
+
+        # Sélectionner l'addon incompatible
+        widget.table.selectRow(0)
+        detail = widget.detail_widget
+        assert detail.badge_status.text() == "Incompatible"
+        assert detail.badge_status.current_variant == "warning"
+        assert detail.btn_toggle_enable.isEnabled() is False
+        assert detail.btn_toggle_enable.text() == "Incompatible"
+        assert detail.tabs.tabText(2) == "⚠️ Incompatibilité"
+        assert "99.0.0" in detail.error_edit.toPlainText()
+
+        # Tentative d'appel de toggle : ne doit pas basculer en actif
+        detail._toggle_enable()
+        addon = pm.get_addon("incompatible_addon")
+        assert addon is not None
+        assert addon.status == AddonStatus.INCOMPATIBLE
+
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_addon_toggle_enable_disable_lifecycle_ui(qtbot, dummy_plugin_env):
+    """Vérifie l'interaction IHM pour désactiver puis réactiver un addon actif."""
+    widget = AddonManagerWidget(plugin_manager=dummy_plugin_env)
+    qtbot.addWidget(widget)
+
+    # Trouver et sélectionner la ligne correspondant à tts_plugin (actif)
+    row_tts = -1
+    for r in range(widget.table.rowCount()):
+        item = widget.table.item(r, 0)
+        if item and item.data(Qt.ItemDataRole.UserRole) == "tts_plugin":
+            row_tts = r
+            break
+    assert row_tts != -1
+    widget.table.selectRow(row_tts)
+
+    detail = widget.detail_widget
+    assert detail.current_addon is not None
+    assert detail.current_addon.id == "tts_plugin"
+    assert detail.badge_status.text() == "Actif"
+    assert detail.btn_toggle_enable.text() == "Désactiver"
+
+    # Clic sur Désactiver
+    detail._toggle_enable()
+    addon_disabled = dummy_plugin_env.get_addon("tts_plugin")
+    assert addon_disabled is not None
+    assert addon_disabled.status == AddonStatus.DISABLED
+    assert detail.badge_status.text() == "Désactivé"
+    assert detail.btn_toggle_enable.text() == "Activer"
+
+    # Clic sur Activer
+    detail._toggle_enable()
+    addon_active = dummy_plugin_env.get_addon("tts_plugin")
+    assert addon_active is not None
+    assert addon_active.status == AddonStatus.ACTIVE
+    assert detail.badge_status.text() == "Actif"
+    assert detail.btn_toggle_enable.text() == "Désactiver"

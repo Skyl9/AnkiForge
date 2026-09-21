@@ -36,6 +36,7 @@ class AddonManifest(BaseModel):
     max_ankiforge_version: str | None = Field(default=None, description="Version maximale d'AnkiForge supportée")
     entry_point: str = Field(default="__init__.py", description="Fichier Python point d'entrée")
     homepage: str | None = Field(default=None, description="URL de documentation ou GitHub")
+    sha256: str | None = Field(default=None, description="Empreinte SHA-256 du point d'entrée pour contrôle d'intégrité")
 
     @field_validator("id")
     @classmethod

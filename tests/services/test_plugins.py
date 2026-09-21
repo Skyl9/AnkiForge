@@ -16,7 +16,11 @@ from pydantic import ValidationError
 from ankiforge.services.plugins.api import MCPHooksAPI, PipelineHooksAPI
 from ankiforge.services.plugins.event_bus import EventBus
 from ankiforge.services.plugins.manifest_schema import AddonManifest, AddonStatus
-from ankiforge.services.plugins.plugin_manager import PluginManager
+from ankiforge.services.plugins.plugin_manager import (
+    PluginManager,
+    check_version_compatibility,
+    compute_file_sha256,
+)
 
 
 @pytest.fixture
@@ -228,3 +232,182 @@ def test_zip_installation_and_uninstall(temp_addons_dir):
         assert del_success is True
         assert pm.get_addon("zipped_addon") is None
         assert not (temp_addons_dir / "zipped_addon").exists()
+
+
+def test_addon_rediscovery_preserves_active_and_error_status(temp_addons_dir):
+    """Vérifie que discover_addons() préserve le statut ACTIVE des addons déjà chargés en mémoire et ERROR des addons en échec."""
+    # 1. Addon actif
+    a1_folder = temp_addons_dir / "active_addon"
+    a1_folder.mkdir(parents=True)
+    m1 = {"id": "active_addon", "name": "Active Addon", "version": "1.0.0"}
+    (a1_folder / "manifest.json").write_text(json.dumps(m1), encoding="utf-8")
+    (a1_folder / "__init__.py").write_text("def init_addon(api): pass", encoding="utf-8")
+
+    # 2. Addon en erreur
+    a2_folder = temp_addons_dir / "faulty_addon"
+    a2_folder.mkdir(parents=True)
+    m2 = {"id": "faulty_addon", "name": "Faulty Addon", "version": "1.0.0"}
+    (a2_folder / "manifest.json").write_text(json.dumps(m2), encoding="utf-8")
+    (a2_folder / "__init__.py").write_text("def init_addon(api):\n    raise RuntimeError('Échec de boot')", encoding="utf-8")
+
+    pm = PluginManager(addons_dir=temp_addons_dir)
+    results = pm.load_all_addons(safe_mode=False)
+    assert results["active_addon"] is True
+    assert results["faulty_addon"] is False
+    assert pm.get_addon("active_addon").status == AddonStatus.ACTIVE
+    assert pm.get_addon("faulty_addon").status == AddonStatus.ERROR
+
+    # Re-découverte (simule l'ouverture ou le rafraîchissement du gestionnaire d'addons)
+    discovered = pm.discover_addons()
+    assert len(discovered) == 2
+
+    # L'addon actif doit RESTER ACTIF (ne pas être réinitialisé à DISABLED)
+    info_active = pm.get_addon("active_addon")
+    assert info_active is not None
+    assert info_active.status == AddonStatus.ACTIVE
+
+    # L'addon en erreur doit préserver son statut ERROR et son message
+    info_faulty = pm.get_addon("faulty_addon")
+    assert info_faulty is not None
+    assert info_faulty.status == AddonStatus.ERROR
+    assert "Échec de boot" in (info_faulty.error_message or "")
+
+
+def test_addon_version_compatibility(temp_addons_dir):
+    """Teste la vérification SemVer de compatibilité de version d'AnkiForge."""
+    # Test unitaire de la fonction check_version_compatibility
+    ok, err = check_version_compatibility("1.0.0", "2.0.0", "1.1.5")
+    assert ok is True
+    assert err is None
+
+    ok, err = check_version_compatibility("2.0.0", None, "1.1.5")
+    assert ok is False
+    assert err is not None
+    assert "Nécessite AnkiForge v2.0.0" in err
+
+    ok, err = check_version_compatibility(None, "1.0.0", "1.1.5")
+    assert ok is False
+    assert err is not None
+    assert "Compatible jusqu'à AnkiForge v1.0.0" in err
+
+    # Intégration dans discover_addons et chargement
+    addon_folder = temp_addons_dir / "future_addon"
+    addon_folder.mkdir(parents=True)
+    manifest = {
+        "id": "future_addon",
+        "name": "Future Addon",
+        "version": "1.0.0",
+        "min_ankiforge_version": "99.0.0",
+    }
+    (addon_folder / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (addon_folder / "__init__.py").write_text("def init_addon(api): pass", encoding="utf-8")
+
+    pm = PluginManager(addons_dir=temp_addons_dir)
+    discovered = pm.discover_addons()
+    assert len(discovered) == 1
+    assert discovered[0].status == AddonStatus.INCOMPATIBLE
+    assert "99.0.0" in (discovered[0].error_message or "")
+
+    # load_all_addons ne doit pas charger un addon incompatible
+    results = pm.load_all_addons(safe_mode=False)
+    assert results["future_addon"] is False
+    assert pm.get_addon("future_addon").status == AddonStatus.INCOMPATIBLE
+
+    # Tentative manuelle d'activation doit échouer
+    assert pm.enable_addon("future_addon") is False
+    assert pm.get_addon("future_addon").status == AddonStatus.INCOMPATIBLE
+
+
+def test_addon_sha256_integrity_check(temp_addons_dir):
+    """Vérifie le contrôle d'intégrité SHA-256 du fichier d'entrée."""
+    addon_folder = temp_addons_dir / "secure_addon"
+    addon_folder.mkdir(parents=True)
+
+    init_code = "def init_addon(api): pass\n"
+    (addon_folder / "__init__.py").write_text(init_code, encoding="utf-8")
+    real_sha256 = compute_file_sha256(addon_folder / "__init__.py")
+
+    # 1. Avec l'empreinte correcte
+    manifest_valid = {
+        "id": "secure_addon",
+        "name": "Secure Addon",
+        "version": "1.0.0",
+        "sha256": real_sha256,
+    }
+    (addon_folder / "manifest.json").write_text(json.dumps(manifest_valid), encoding="utf-8")
+
+    pm = PluginManager(addons_dir=temp_addons_dir)
+    pm.discover_addons()
+    assert pm.get_addon("secure_addon").status != AddonStatus.ERROR
+    results = pm.load_all_addons(safe_mode=False)
+    assert results["secure_addon"] is True
+    assert pm.get_addon("secure_addon").status == AddonStatus.ACTIVE
+
+    # Décharger
+    pm.unload_addon("secure_addon")
+
+    # 2. Avec une empreinte invalide (fichier altéré)
+    manifest_corrupt = {
+        "id": "secure_addon",
+        "name": "Secure Addon",
+        "version": "1.0.0",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    }
+    (addon_folder / "manifest.json").write_text(json.dumps(manifest_corrupt), encoding="utf-8")
+
+    pm2 = PluginManager(addons_dir=temp_addons_dir)
+    pm2.discover_addons()
+    addon_corrupt = pm2.get_addon("secure_addon")
+    assert addon_corrupt.status == AddonStatus.ERROR
+    assert "SHA-256" in (addon_corrupt.error_message or "")
+
+    # load_addon doit également refuser le chargement
+    assert pm2.load_addon("secure_addon") is False
+
+
+def test_addon_full_lifecycle_and_hook_cleanup_e2e(temp_addons_dir):
+    """Teste le cycle de vie complet d'un addon (découverte, hooks, désactivation, réactivation, désinstallation)."""
+    addon_folder = temp_addons_dir / "lifecycle_addon"
+    addon_folder.mkdir(parents=True)
+
+    manifest = {"id": "lifecycle_addon", "name": "Lifecycle Addon", "version": "1.0.0"}
+    (addon_folder / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    init_code = """
+def init_addon(api):
+    def custom_step(orchestrator, step, state):
+        pass
+    api.pipelines.register_step_type("STEP_LIFECYCLE", custom_step)
+
+    def custom_tool(query: str):
+        return query
+    api.mcp.register_tool("tool_lifecycle", custom_tool, description="Lifecycle Tool")
+"""
+    (addon_folder / "__init__.py").write_text(init_code, encoding="utf-8")
+
+    pm = PluginManager(addons_dir=temp_addons_dir)
+
+    # 1. Chargement initial
+    results = pm.load_all_addons(safe_mode=False)
+    assert results["lifecycle_addon"] is True
+    assert "STEP_LIFECYCLE" in PipelineHooksAPI.get_registered_steps()
+    assert "tool_lifecycle" in MCPHooksAPI.get_registered_tools()
+
+    # 2. Désactivation / Déchargement : nettoyage des hooks
+    assert pm.disable_addon("lifecycle_addon") is True
+    assert pm.get_addon("lifecycle_addon").status == AddonStatus.DISABLED
+    assert "STEP_LIFECYCLE" not in PipelineHooksAPI.get_registered_steps()
+    assert "tool_lifecycle" not in MCPHooksAPI.get_registered_tools()
+
+    # 3. Réactivation : réenregistrement des hooks
+    assert pm.enable_addon("lifecycle_addon") is True
+    assert pm.get_addon("lifecycle_addon").status == AddonStatus.ACTIVE
+    assert "STEP_LIFECYCLE" in PipelineHooksAPI.get_registered_steps()
+    assert "tool_lifecycle" in MCPHooksAPI.get_registered_tools()
+
+    # 4. Désinstallation complète
+    assert pm.uninstall_addon("lifecycle_addon") is True
+    assert pm.get_addon("lifecycle_addon") is None
+    assert "STEP_LIFECYCLE" not in PipelineHooksAPI.get_registered_steps()
+    assert "tool_lifecycle" not in MCPHooksAPI.get_registered_tools()
+    assert not addon_folder.exists()

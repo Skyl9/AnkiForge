@@ -125,6 +125,7 @@ class PipelineHooksAPI:
 
     # Registre global de tous les types d'étapes enregistrés par les plugins
     _step_registry: dict[str, Callable[..., Any]] = {}
+    _step_addon_map: dict[str, str] = {}
 
     def __init__(self, addon_id: str) -> None:
         self.addon_id = addon_id
@@ -135,11 +136,20 @@ class PipelineHooksAPI:
         """
         step_type = step_type_name.strip().upper()
         PipelineHooksAPI._step_registry[step_type] = executor_callable
+        PipelineHooksAPI._step_addon_map[step_type] = self.addon_id
         logger.info(f"[{self.addon_id}] Type d'étape de pipeline enregistré : '{step_type}'")
 
     @classmethod
     def get_registered_steps(cls) -> dict[str, Callable[..., Any]]:
         return dict(cls._step_registry)
+
+    @classmethod
+    def unregister_addon_steps(cls, addon_id: str) -> None:
+        """Supprime tous les types d'étapes de pipeline enregistrés par un addon spécifique."""
+        to_remove = [k for k, owner in cls._step_addon_map.items() if owner == addon_id]
+        for k in to_remove:
+            cls._step_registry.pop(k, None)
+            cls._step_addon_map.pop(k, None)
 
 
 class MCPHooksAPI:
@@ -174,6 +184,13 @@ class MCPHooksAPI:
     @classmethod
     def get_registered_tools(cls) -> dict[str, dict[str, Any]]:
         return dict(cls._tools_registry)
+
+    @classmethod
+    def unregister_addon_tools(cls, addon_id: str) -> None:
+        """Supprime tous les outils MCP enregistrés par un addon spécifique."""
+        to_remove = [k for k, v in cls._tools_registry.items() if v.get("addon_id") == addon_id]
+        for k in to_remove:
+            cls._tools_registry.pop(k, None)
 
 
 class EventBusAPI:

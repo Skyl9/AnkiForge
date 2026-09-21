@@ -342,14 +342,22 @@ class AddonDetailWidget(QWidget):
         if addon_info.status == AddonStatus.ACTIVE:
             self.badge_status.setText("Actif")
             self.badge_status.set_variant("success")
+            self.btn_toggle_enable.setEnabled(True)
             self.btn_toggle_enable.setText("Désactiver")
+        elif addon_info.status == AddonStatus.INCOMPATIBLE:
+            self.badge_status.setText("Incompatible")
+            self.badge_status.set_variant("warning")
+            self.btn_toggle_enable.setEnabled(False)
+            self.btn_toggle_enable.setText("Incompatible")
         elif addon_info.status == AddonStatus.ERROR:
             self.badge_status.setText("Erreur")
             self.badge_status.set_variant("danger")
+            self.btn_toggle_enable.setEnabled(True)
             self.btn_toggle_enable.setText("Réessayer")
         else:
             self.badge_status.setText("Désactivé")
             self.badge_status.set_variant("neutral")
+            self.btn_toggle_enable.setEnabled(True)
             self.btn_toggle_enable.setText("Activer")
 
         # Remplir l'onglet Réglages
@@ -368,11 +376,17 @@ class AddonDetailWidget(QWidget):
         else:
             self.doc_edit.setHtml(f"<p style='color:{DesignTokens.TEXT_MUTED}; font-style:italic;'>Aucun fichier config.md ou README.md trouvé pour cette extension.</p>")
 
-        # Logs d'erreur
-        if addon_info.error_message:
+        # Logs d'erreur ou d'incompatibilité
+        if addon_info.status == AddonStatus.INCOMPATIBLE:
+            self.tabs.setTabText(2, "⚠️ Incompatibilité")
+            self.error_edit.setText(addon_info.error_message or "Cette extension est incompatible avec la version actuelle d'AnkiForge.")
+            self.tabs.setTabVisible(2, True)
+        elif addon_info.error_message:
+            self.tabs.setTabText(2, "⚠️ Diagnostic Erreur")
             self.error_edit.setText(addon_info.error_message)
             self.tabs.setTabVisible(2, True)
         else:
+            self.tabs.setTabText(2, "⚠️ Diagnostic Erreur")
             self.error_edit.setText("Aucune anomalie détectée.")
             self.tabs.setTabVisible(2, False)
 
@@ -382,12 +396,21 @@ class AddonDetailWidget(QWidget):
         if not self.current_addon:
             return
         aid = self.current_addon.id
+        if self.current_addon.status == AddonStatus.INCOMPATIBLE:
+            _safe_show_toast(self, f"Extension '{self.current_addon.name}' incompatible.", is_error=True)
+            return
+
         if self.current_addon.is_enabled and self.current_addon.status == AddonStatus.ACTIVE:
             self.plugin_manager.disable_addon(aid)
             _safe_show_toast(self, f"Extension '{self.current_addon.name}' désactivée.", is_error=False)
         else:
-            self.plugin_manager.enable_addon(aid)
-            _safe_show_toast(self, f"Extension '{self.current_addon.name}' activée !", is_error=False)
+            success = self.plugin_manager.enable_addon(aid)
+            if success:
+                _safe_show_toast(self, f"Extension '{self.current_addon.name}' activée !", is_error=False)
+            else:
+                updated_addon = self.plugin_manager.get_addon(aid)
+                err_msg = (updated_addon.error_message if updated_addon else None) or "Erreur lors de l'activation de l'extension."
+                _safe_show_toast(self, f"Échec d'activation : {err_msg}", is_error=True)
 
         self.set_addon(self.plugin_manager.get_addon(aid))
         self.addon_updated.emit()
@@ -506,11 +529,24 @@ class AddonManagerWidget(QWidget):
         main_layout.addWidget(self.splitter, 1)
 
     def refresh_addons_list(self) -> None:
-        """Recharge la liste des addons."""
+        """Recharge la liste des addons en préservant la sélection active."""
+        current_selected_id = None
+        selected_items = self.table.selectedItems()
+        if selected_items:
+            row = selected_items[0].row()
+            item = self.table.item(row, 0)
+            if item:
+                current_selected_id = item.data(Qt.ItemDataRole.UserRole)
+        elif self.detail_widget.current_addon:
+            current_selected_id = self.detail_widget.current_addon.id
+
         addons = self.plugin_manager.discover_addons()
         filter_text = self.search_input.text().strip().lower()
 
+        self.table.blockSignals(True)
         self.table.setRowCount(0)
+        selected_row = -1
+
         for addon in addons:
             if filter_text and filter_text not in addon.name.lower() and filter_text not in addon.description.lower() and filter_text not in addon.id:
                 continue
@@ -523,12 +559,30 @@ class AddonManagerWidget(QWidget):
             self.table.setItem(row, 0, item_name)
 
             # Badge Statut
-            status_text = "Actif" if addon.status == AddonStatus.ACTIVE else ("Erreur" if addon.status == AddonStatus.ERROR else "Désactivé")
+            if addon.status == AddonStatus.ACTIVE:
+                status_text = "Actif"
+            elif addon.status == AddonStatus.INCOMPATIBLE:
+                status_text = "Incompatible"
+            elif addon.status == AddonStatus.ERROR:
+                status_text = "Erreur"
+            else:
+                status_text = "Désactivé"
             item_status = QTableWidgetItem(status_text)
             self.table.setItem(row, 1, item_status)
 
             item_ver = QTableWidgetItem(f"v{addon.version}")
             self.table.setItem(row, 2, item_ver)
+
+            if current_selected_id and addon.id == current_selected_id:
+                selected_row = row
+
+        self.table.blockSignals(False)
+
+        if selected_row != -1:
+            self.table.selectRow(selected_row)
+            self.detail_widget.set_addon(self.plugin_manager.get_addon(str(current_selected_id)))
+        elif current_selected_id is None:
+            self.detail_widget.set_addon(None)
 
     def _filter_addons(self) -> None:
         self.refresh_addons_list()
