@@ -482,6 +482,54 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         thinking_col.addWidget(self.cb_thinking)
         gen_grid.addLayout(thinking_col, 0, 2)
 
+        # Budget Tokens Consultant (Temps Réel)
+        consultant_tokens_col = QVBoxLayout()
+        consultant_tokens_col.setSpacing(4)
+        self.lbl_consultant_tokens_title = QLabel("Budget Tokens Consultant :")
+        self.lbl_consultant_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        consultant_tokens_col.addWidget(self.lbl_consultant_tokens_title)
+
+        self.cb_consultant_token_budget = StyledComboBox()
+        self.cb_consultant_token_budget.addItem("10 000 tokens", 10000)
+        self.cb_consultant_token_budget.addItem("25 000 tokens", 25000)
+        self.cb_consultant_token_budget.addItem("50 000 tokens (Défaut)", 50000)
+        self.cb_consultant_token_budget.addItem("100 000 tokens", 100000)
+        self.cb_consultant_token_budget.addItem("200 000 tokens", 200000)
+        self.cb_consultant_token_budget.addItem("Illimité (0)", 0)
+        self.cb_consultant_token_budget.setCurrentIndex(2)
+        consultant_tokens_col.addWidget(self.cb_consultant_token_budget)
+        gen_grid.addLayout(consultant_tokens_col, 1, 0)
+
+        # Budget Coût Consultant USD (Temps Réel)
+        consultant_cost_col = QVBoxLayout()
+        consultant_cost_col.setSpacing(4)
+        self.lbl_consultant_cost_title = QLabel("Budget Coût Consultant (USD) :")
+        self.lbl_consultant_cost_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        consultant_cost_col.addWidget(self.lbl_consultant_cost_title)
+
+        self.cb_consultant_cost_budget = StyledComboBox()
+        self.cb_consultant_cost_budget.addItem("0.10 $", 0.10)
+        self.cb_consultant_cost_budget.addItem("0.25 $", 0.25)
+        self.cb_consultant_cost_budget.addItem("0.50 $ (Défaut)", 0.50)
+        self.cb_consultant_cost_budget.addItem("1.00 $", 1.00)
+        self.cb_consultant_cost_budget.addItem("2.00 $", 2.00)
+        self.cb_consultant_cost_budget.addItem("5.00 $", 5.00)
+        self.cb_consultant_cost_budget.addItem("Illimité (0.00 $)", 0.0)
+        self.cb_consultant_cost_budget.setCurrentIndex(2)
+        consultant_cost_col.addWidget(self.cb_consultant_cost_budget)
+        gen_grid.addLayout(consultant_cost_col, 1, 1)
+
+        # Note d'information sur le garde-fou 80 %
+        info_guard_col = QVBoxLayout()
+        info_guard_col.setSpacing(4)
+        lbl_guard_title = QLabel("Protection Budget Consultant :")
+        lbl_guard_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        info_guard_col.addWidget(lbl_guard_title)
+        self.lbl_guard_desc = QLabel("Arrêt préventif à 80 % du quota")
+        self.lbl_guard_desc.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 600; padding-top: 4px;")
+        info_guard_col.addWidget(self.lbl_guard_desc)
+        gen_grid.addLayout(info_guard_col, 1, 2)
+
         # Délai maximal de génération (timeout réseau par requête)
         timeout_row = QHBoxLayout()
         timeout_row.setSpacing(8)
@@ -975,6 +1023,20 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 timeout_idx = self.cb_timeout.count() - 1
             self.cb_timeout.setCurrentIndex(timeout_idx)
 
+            # Budget Consultant Tokens
+            saved_c_tokens = int(SettingsService.get("ai/consultant_token_budget", 50000))
+            for i in range(self.cb_consultant_token_budget.count()):
+                if self.cb_consultant_token_budget.itemData(i) == saved_c_tokens:
+                    self.cb_consultant_token_budget.setCurrentIndex(i)
+                    break
+
+            # Budget Consultant Coût USD
+            saved_c_cost = float(SettingsService.get("ai/consultant_cost_budget", 0.50))
+            for i in range(self.cb_consultant_cost_budget.count()):
+                if abs(float(self.cb_consultant_cost_budget.itemData(i)) - saved_c_cost) < 0.001:
+                    self.cb_consultant_cost_budget.setCurrentIndex(i)
+                    break
+
             # Toggles
             self.toggle_streaming.set_checked(bool(SettingsService.get("ai/streaming", True)))
             self.toggle_vision.set_checked(bool(SettingsService.get("ai/vision_enabled", True)))
@@ -1252,6 +1314,14 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         timeout_val = self.cb_timeout.currentData()
         if timeout_val is not None:
             SettingsService.set("ai/generation_timeout_seconds", int(timeout_val), category="ai")
+
+        c_tokens_val = self.cb_consultant_token_budget.currentData()
+        if c_tokens_val is not None:
+            SettingsService.set("ai/consultant_token_budget", int(c_tokens_val), category="ai")
+
+        c_cost_val = self.cb_consultant_cost_budget.currentData()
+        if c_cost_val is not None:
+            SettingsService.set("ai/consultant_cost_budget", float(c_cost_val), category="ai")
 
         SettingsService.set("ai/streaming", self.toggle_streaming.is_checked(), category="ai")
         SettingsService.set("ai/vision_enabled", self.toggle_vision.is_checked(), category="ai")

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 from enum import StrEnum
 from typing import Any
 
@@ -208,7 +209,8 @@ class Toast(QWidget):
         self.setWindowOpacity(0.0)
 
         self.fade_anim = QPropertyAnimation(self, b"windowOpacity", self)
-        self.fade_anim.setDuration(220)
+        is_testing = os.environ.get("ANKIFORGE_ENV") == "testing" or os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+        self.fade_anim.setDuration(0 if is_testing else 220)
         self.fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
         # Timer de progression (tick tous les 40ms)
@@ -262,6 +264,12 @@ class Toast(QWidget):
         if not self._is_closing and self.duration_ms > 0:
             self._tick_timer.start()
         super().leaveEvent(event)
+
+    def closeEvent(self, event: Any) -> None:
+        """Garantit l'arrêt immédiat des timers et animations pour éviter tout crash Qt/C++."""
+        self._tick_timer.stop()
+        self.fade_anim.stop()
+        super().closeEvent(event)
 
 
 class ToastManager:
@@ -398,13 +406,16 @@ class ToastManager:
             logger.debug("Erreur géométrie toast (widget détruit) : %s", err)
 
     def clear(self) -> None:
-        """Ferme immédiatement tous les toasts actifs."""
+        """Ferme immédiatement tous les toasts actifs sans animation."""
         from shiboken6 import isValid
 
         for t in list(self._active_toasts):
             if isValid(t):
                 with contextlib.suppress(Exception):
-                    t.close_toast()
+                    t._tick_timer.stop()
+                    t.fade_anim.stop()
+                    t.close()
+                    t.deleteLater()
         self._active_toasts.clear()
 
 

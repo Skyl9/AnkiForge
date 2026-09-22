@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 import peewee
@@ -10,6 +11,7 @@ from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QAction, QCursor, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
@@ -185,16 +187,110 @@ class ContextPillBadge(Badge):
             self.setToolTip("Source ancrée dans l'historique de cette discussion")
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton and not self.is_committed:
             event.accept()
-            if not self.is_committed and self.on_remove:
+            return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and not self.is_committed:
+            event.accept()
+            if self.on_remove:
                 from PySide6.QtCore import QTimer
 
                 ctx = self.context_id
                 cb = self.on_remove
                 QTimer.singleShot(0, lambda: cb(ctx))
             return
-        super().mousePressEvent(event)
+        super().mouseReleaseEvent(event)
+
+
+def format_session_to_markdown(session: ConsultantSessionModel) -> str:
+    """Génère un document Markdown exhaustif d'une session de discussion avec pensées, outils et diffs."""
+    msgs = list(ConsultantMessageModel.select().where(ConsultantMessageModel.session == session).order_by(ConsultantMessageModel.created_at.asc()))
+    total_tokens = sum(m.tokens_used or 0 for m in msgs)
+    persona_name = session.persona.name if session.persona else "Consultant Général"
+    created_str = session.created_at.strftime("%Y-%m-%d %H:%M:%S") if session.created_at else "Inconnue"
+
+    lines: list[str] = [
+        f"# Discussion AnkiForge AI — {session.title}",
+        "",
+        "| Métadonnée | Valeur |",
+        "| :--- | :--- |",
+        f"| **Date** | {created_str} |",
+        f"| **Persona** | {persona_name} |",
+        f"| **Messages** | {len(msgs)} |",
+        f"| **Tokens consommés** | {total_tokens:,} |".replace(",", " "),
+        "",
+        "---",
+        "",
+    ]
+
+    for idx, m in enumerate(msgs, start=1):
+        role_label = "👤 Utilisateur" if m.role == "user" else "🤖 Consultant IA"
+        time_str = m.created_at.strftime("%H:%M:%S") if m.created_at else ""
+        lines.append(f"## {idx}. {role_label} ({time_str})\n")
+
+        # 1. Pensées (CoT / ReAct)
+        if m.thoughts:
+            try:
+                th_list = json.loads(m.thoughts) if isinstance(m.thoughts, str) else m.thoughts
+                if isinstance(th_list, list) and th_list:
+                    lines.append("<details>")
+                    lines.append("<summary>🧠 Réflexion (CoT / ReAct)</summary>\n")
+                    for step_item in th_list:
+                        if isinstance(step_item, list | tuple) and len(step_item) >= 2:
+                            lines.append(f"**Étape {step_item[0]} :**\n{step_item[1]}\n")
+                        else:
+                            lines.append(f"- {step_item}\n")
+                    lines.append("</details>\n")
+            except Exception:
+                lines.append(f"<details><summary>🧠 Réflexion</summary>\n\n{m.thoughts}\n</details>\n")
+
+        # 2. Appels d'outils
+        if m.tool_calls_json:
+            try:
+                tc_list = json.loads(m.tool_calls_json) if isinstance(m.tool_calls_json, str) else m.tool_calls_json
+                if isinstance(tc_list, list) and tc_list:
+                    lines.append("<details>")
+                    lines.append(f"<summary>🛠️ Outils exécutés ({len(tc_list)})</summary>\n")
+                    for tc in tc_list:
+                        if isinstance(tc, list | tuple) and len(tc) >= 3:
+                            t_name, t_args, t_res = tc[0], tc[1], tc[2]
+                            lines.append(f"#### Outil : `{t_name}`")
+                            lines.append(f"**Paramètres :**\n```json\n{t_args}\n```")
+                            lines.append(f"**Résultat :**\n```\n{t_res}\n```\n")
+                    lines.append("</details>\n")
+            except Exception:
+                pass
+
+        # 3. Diffs stagés
+        if m.staged_diffs_json:
+            try:
+                diff_data = json.loads(m.staged_diffs_json) if isinstance(m.staged_diffs_json, str) else m.staged_diffs_json
+                if isinstance(diff_data, dict):
+                    diff_title = diff_data.get("title", "Diff Proposé")
+                    diff_type = diff_data.get("type", "card")
+                    lines.append("<details>")
+                    lines.append(f"<summary>📝 Diff Stagé : {diff_title} ({diff_type})</summary>\n")
+                    lines.append(f"- **Type :** `{diff_type}`")
+                    if diff_data.get("explanation"):
+                        lines.append(f"- **Explication :** {diff_data['explanation']}\n")
+                    if diff_data.get("original"):
+                        orig_str = json.dumps(diff_data["original"], indent=2, ensure_ascii=False) if isinstance(diff_data["original"], dict | list) else str(diff_data["original"])
+                        lines.append(f"**Original :**\n```json\n{orig_str}\n```\n")
+                    if diff_data.get("modified"):
+                        mod_str = json.dumps(diff_data["modified"], indent=2, ensure_ascii=False) if isinstance(diff_data["modified"], dict | list) else str(diff_data["modified"])
+                        lines.append(f"**Modifié :**\n```json\n{mod_str}\n```\n")
+                    lines.append("</details>\n")
+            except Exception:
+                pass
+
+        # 4. Contenu brut du message
+        lines.append(f"{m.content}\n")
+        lines.append("---\n")
+
+    return "\n".join(lines)
 
 
 class ConsultantView(QWidget):
@@ -221,6 +317,8 @@ class ConsultantView(QWidget):
         self._active_staged_diff: dict[str, Any] | None = None
         self.used_tokens_count = 0
         self.modified_cards_count = 0
+        self._current_run_tokens = 0
+        self._current_run_cost = 0.0
         self.active_context: list[str] = []
         self.committed_context: set[str] = set()
         self._deck_modal: DeckSelectWindow | None = None
@@ -285,6 +383,12 @@ class ConsultantView(QWidget):
         self.btn_toggle_inspector = IconButton("ph.brain", tooltip="Afficher/Masquer le Hub de Contexte", size=22)
         self.btn_toggle_inspector.clicked.connect(self._toggle_inspector)
         self.chat_panel.add_header_widget(self.btn_toggle_inspector)
+        self.chat_panel.add_header_separator()
+
+        # Bouton export de la session en Markdown
+        self.btn_export_session = IconButton("ph.export", tooltip="Exporter la session complète en Markdown", size=22)
+        self.btn_export_session.clicked.connect(self._on_export_session_clicked)
+        self.chat_panel.add_header_widget(self.btn_export_session)
 
         # Attributs préservés pour compatibilité ascendante
         self.session_selector = StyledComboBox()
@@ -513,17 +617,38 @@ class ConsultantView(QWidget):
                 self.view_model.create_new_session()
             show_toast(self, "Discussion supprimée.")
 
+    @Slot()
+    def _on_export_session_clicked(self) -> None:
+        session = self.view_model.current_session
+        if not session:
+            show_toast(self, "Aucune session active à exporter.", is_error=True)
+            return
+
+        markdown_content = format_session_to_markdown(session)
+        safe_title = re.sub(r"[^\w\-_\. ]", "_", session.title).strip().replace(" ", "_")[:40]
+        default_name = f"session_{session.id}_{safe_title}.md"
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporter la session en Markdown",
+            default_name,
+            "Fichiers Markdown (*.md);;Tous les fichiers (*)",
+        )
+        if file_path:
+            try:
+                Path(file_path).write_text(markdown_content, encoding="utf-8")
+                QApplication.clipboard().setText(markdown_content)
+                show_toast(self, f"Session exportée avec succès ({Path(file_path).name}) !")
+            except Exception as e:
+                logger.error("Erreur lors de l'export de session : %s", e)
+                show_toast(self, f"Erreur lors de l'export : {e}", is_error=True)
+
     @Slot(int)
     def _on_sidebar_session_exported(self, session_id: int) -> None:
         s = ConsultantSessionModel.get_or_none(ConsultantSessionModel.id == session_id)
         if not s:
             return
-        msgs = list(ConsultantMessageModel.select().where(ConsultantMessageModel.session == s).order_by(ConsultantMessageModel.created_at.asc()))
-        export_lines = [f"# Discussion AnkiForge AI — {s.title}\n"]
-        for m in msgs:
-            r = "**Vous**" if m.role == "user" else "**AnkiForge AI**"
-            export_lines.append(f"### {r}\n{m.content}\n")
-        markdown_content = "\n".join(export_lines)
+        markdown_content = format_session_to_markdown(s)
         QApplication.clipboard().setText(markdown_content)
         show_toast(self, "Discussion copiée dans le presse-papier en Markdown !")
 
@@ -1378,10 +1503,32 @@ class ConsultantView(QWidget):
         self.worker.text_delta_signal.connect(self._on_text_delta)
         self.worker.progress.connect(self._on_ai_progress)
         self.worker.next_steps_signal.connect(self._on_next_steps_received)
+        self.worker.budget_updated_signal.connect(self._on_budget_updated)
         self.worker.finished_signal.connect(self._on_ai_response)
         self.worker.cancelled_signal.connect(self._on_ai_cancelled)
         self.worker.error_signal.connect(self._on_ai_error)
         self.worker.start()
+
+    @Slot(int, float, int, float)
+    def _on_budget_updated(self, tokens_used: int, cost_usd: float, token_budget: int, cost_budget: float) -> None:
+        self._current_run_tokens = tokens_used
+        self._current_run_cost = cost_usd
+
+        if self._active_ai_message:
+            self._active_ai_message.update_budget(tokens_used, cost_usd)
+
+        cost_str = f"${cost_usd:.4f}" if cost_usd >= 0.0001 else f"${cost_usd:.6f}"
+        self.lbl_tokens_usage.setText(f"{tokens_used:,} tok • {cost_str}".replace(",", " "))
+        self.session_sidebar.update_metrics(tokens_used, self.modified_cards_count, cost_usd=cost_usd)
+
+        # Vérification du seuil d'alerte à 80%
+        token_ratio = (tokens_used / token_budget) if token_budget > 0 else 0.0
+        cost_ratio = (cost_usd / cost_budget) if cost_budget > 0.0 else 0.0
+        if max(token_ratio, cost_ratio) >= 0.8:
+            self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-weight: bold; background: {DesignTokens.COLOR_YELLOW_BG}; padding: 2px 6px; border-radius: 4px;")
+            self.lbl_chat_status.setText("⚠️ Quota budget proche de la limite (80%)")
+        else:
+            self.lbl_tokens_usage.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
 
     @Slot(int, str, bool)
     def _on_thought_received(self, step: int, thought: str, is_running: bool) -> None:
@@ -1446,7 +1593,11 @@ class ConsultantView(QWidget):
         self.lbl_chat_status.setText("")
 
         if self._active_ai_message:
-            self._active_ai_message.mark_as_finished(response)
+            self._active_ai_message.mark_as_finished(
+                response,
+                tokens=self._current_run_tokens if self._current_run_tokens > 0 else None,
+                cost_usd=self._current_run_cost if self._current_run_cost > 0.0 else None,
+            )
 
         # 1. Détection automatique des propositions de modification en JSON
         last_user_q = ""
@@ -1521,8 +1672,10 @@ class ConsultantView(QWidget):
         QApplication.processEvents()
         self.chat_scroll.verticalScrollBar().setValue(self.chat_scroll.verticalScrollBar().maximum())
 
-        self.used_tokens_count += int(len(response.split()) * 1.3) + 120
-        self.lbl_tokens_usage.setText(f"{self.used_tokens_count:,}")
+        tokens_to_add = self._current_run_tokens if self._current_run_tokens > 0 else int(len(response.split()) * 1.3) + 120
+        self.used_tokens_count += tokens_to_add
+        cost_str = f" • ${self._current_run_cost:.4f}" if self._current_run_cost > 0.0 else ""
+        self.lbl_tokens_usage.setText(f"{self.used_tokens_count:,} tok{cost_str}".replace(",", " "))
 
     @Slot()
     def _on_ai_cancelled(self) -> None:

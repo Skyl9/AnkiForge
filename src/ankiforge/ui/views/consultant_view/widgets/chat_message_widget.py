@@ -97,12 +97,36 @@ class ChatMessageWidget(QWidget):
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         self.content_layout.setSpacing(6)
 
+        self.header_widget = QWidget()
+        header_layout = QHBoxLayout(self.header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
+
         now_str = datetime.datetime.now().strftime("%H:%M")
         sender_html = f"<span style='font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px;'>{sender}</span>"
         time_html = f"<span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px; margin-left: 6px;'>{now_str}</span>"
         self.header_lbl = QLabel(f"{sender_html} {time_html}")
         self.header_lbl.setStyleSheet("border: none; background: transparent;")
-        self.content_layout.addWidget(self.header_lbl)
+        header_layout.addWidget(self.header_lbl)
+
+        if not is_user:
+            header_layout.addStretch()
+            self.lbl_budget_info = QLabel()
+            self.lbl_budget_info.setStyleSheet(f"""
+                QLabel {{
+                    color: {DesignTokens.TEXT_MUTED};
+                    font-size: 10px;
+                    font-weight: 500;
+                    padding: 1px 6px;
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+            self.lbl_budget_info.setVisible(False)
+            header_layout.addWidget(self.lbl_budget_info)
+
+        self.content_layout.addWidget(self.header_widget)
 
         # Conteneur pour pensées et outils injectés en direct
         self.steps_wrapper = QWidget()
@@ -261,13 +285,27 @@ class ChatMessageWidget(QWidget):
         self._tool_widgets.append(tc_widget)
         self.steps_layout.addWidget(tc_widget)
 
-    def mark_as_finished(self, text: str = "") -> None:
+    def update_budget(self, tokens: int, cost_usd: float) -> None:
+        """Met à jour le badge de consommation budget (tokens et coût estimé)."""
+        if not hasattr(self, "lbl_budget_info") or self.is_user:
+            return
+        if tokens <= 0 and cost_usd <= 0.0:
+            self.lbl_budget_info.setVisible(False)
+            return
+        cost_str = f"${cost_usd:.4f}" if cost_usd >= 0.0001 else f"${cost_usd:.6f}"
+        self.lbl_budget_info.setText(f"⚡ {tokens:,} tok • {cost_str}".replace(",", " "))
+        self.lbl_budget_info.setVisible(True)
+
+    def mark_as_finished(self, text: str = "", tokens: int | None = None, cost_usd: float | None = None) -> None:
         """Finalise le message de l'assistant et ajoute les boutons d'actions."""
         self.is_streaming = False
         if text:
             self.raw_text = text
             html = render_markdown_message(self.raw_text)
             self.msg_body.setText(html)
+
+        if tokens is not None and cost_usd is not None:
+            self.update_budget(tokens, cost_usd)
 
         # Passer toutes les pensées en état achevé
         for th in self._thought_widgets.values():
@@ -417,6 +455,18 @@ class ChatMessageWidget(QWidget):
                 }}
             """)
         self.msg_body.setStyleSheet(f"color: {profile.text_primary}; border: none; font-size: 13px; line-height: 1.5;")
+        if hasattr(self, "lbl_budget_info") and self.lbl_budget_info:
+            self.lbl_budget_info.setStyleSheet(f"""
+                QLabel {{
+                    color: {profile.text_muted};
+                    font-size: 10px;
+                    font-weight: 500;
+                    padding: 1px 6px;
+                    background-color: {profile.bg_input};
+                    border: 1px solid {profile.border_color};
+                    border-radius: {profile.radius_sm}px;
+                }}
+            """)
         for child in self.findChildren(QWidget):
             if isinstance(child, ThoughtStepWidget | ToolCallWidget) and hasattr(child, "refresh_theme"):
                 child.refresh_theme(profile)

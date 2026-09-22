@@ -317,9 +317,12 @@ class ConsultantSessionSidebar(QFrame):
         self._active_session_id = session_id
         self._render_list()
 
-    def update_metrics(self, tokens: int, modified_cards: int) -> None:
+    def update_metrics(self, tokens: int, modified_cards: int, cost_usd: float = 0.0) -> None:
         """Met à jour les compteurs du footer."""
-        self.lbl_footer_tokens.setText(f"⚡ {tokens:,} tok")
+        if cost_usd > 0.0:
+            self.lbl_footer_tokens.setText(f"⚡ {tokens:,} tok • ${cost_usd:.4f}".replace(",", " "))
+        else:
+            self.lbl_footer_tokens.setText(f"⚡ {tokens:,} tok".replace(",", " "))
         self.lbl_footer_cards.setText(f"📦 {modified_cards} mod.")
 
     def _on_filter_changed(self, text: str) -> None:

@@ -52,7 +52,7 @@ from ankiforge.database.models import (
 # runs still default to offscreen when no display backend was provided.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
-os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu --offscreen --disable-dev-shm-usage")
+os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu --disable-software-rasterizer --offscreen --disable-dev-shm-usage")
 os.environ.setdefault("ANKIFORGE_MOCK_WEBENGINE", "1")
 os.environ.setdefault("ANKIFORGE_ENV", "testing")
 
@@ -143,6 +143,11 @@ def cleanup_qt_widgets():
     yield
     from PySide6.QtCore import QCoreApplication, QEvent, QThreadPool
     from PySide6.QtWidgets import QApplication
+
+    with contextlib.suppress(Exception):
+        from ankiforge.ui.widgets.toast import ToastManager
+
+        ToastManager.get_instance().clear()
 
     # 1. Attendre que les tâches en cours du QThreadPool terminent
     with contextlib.suppress(Exception):

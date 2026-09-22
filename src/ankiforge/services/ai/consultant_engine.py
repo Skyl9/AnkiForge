@@ -16,11 +16,13 @@ import logging
 import re
 import sqlite3
 import threading
+import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
 from peewee import fn
 
+from ankiforge.database.base import db
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
@@ -36,9 +38,11 @@ from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.ai.flexible_service import AIManager, OpenAICompatibleProvider
 from ankiforge.services.ai.linter import WozniakLinterEngine
+from ankiforge.services.ai.pricing_service import estimate_run_cost
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import log_token_usage, telemetry_context
 from ankiforge.services.plugins.api import MCPHooksAPI
+from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.tools.tool_service import ToolService
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
@@ -378,9 +382,12 @@ class ConsultantToolRegistry:
             return f"Erreur lors de la recherche de doublons : {e}"
 
     @staticmethod
-    def find_cards_by_content(query: str, deck_name: str = "", limit: int = 8) -> str:
-        """Recherche des cartes par mot-clé dans leur question/réponse pour retrouver facilement leur note_id."""
+    def find_cards_by_content(query: str, deck_name: str = "", limit: int = 10, offset: int = 0) -> str:
+        """Recherche des cartes par mot-clé avec pagination (limit, offset) dans leur question/réponse."""
         try:
+            eff_limit = max(1, min(limit, 50))
+            eff_offset = max(0, offset)
+
             q_db = NoteModel.select().join(CardModel).distinct()
             if deck_name:
                 deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
@@ -390,7 +397,7 @@ class ConsultantToolRegistry:
             clean_query = query.strip().lower()
             matching_notes = []
 
-            for note in q_db.limit(100):
+            for note in q_db.limit(300):
                 v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
                 if not v or not v.content:
                     continue
@@ -412,13 +419,20 @@ class ConsultantToolRegistry:
                             "champs": d,
                         }
                     )
-                    if len(matching_notes) >= limit:
-                        break
 
             if not matching_notes:
                 return f"Aucune carte trouvée pour la recherche '{query}' dans le paquet '{deck_name or 'tous'}'. Utilise get_cards_by_deck_or_tag pour lister les cartes disponibles."
 
-            return f"🔍 {len(matching_notes)} cartes trouvées pour '{query}' :\n" + json.dumps(matching_notes, ensure_ascii=False, indent=2)
+            total_found = len(matching_notes)
+            page_slice = matching_notes[eff_offset : eff_offset + eff_limit]
+            start_num = eff_offset + 1 if total_found > 0 and page_slice else 0
+            end_num = min(eff_offset + len(page_slice), total_found)
+
+            header = f"🔍 {total_found} cartes trouvées pour '{query}' (Affichage {start_num}-{end_num}, limit={eff_limit}, offset={eff_offset}) :"
+            res_str = header + "\n" + json.dumps(page_slice, ensure_ascii=False, indent=2)
+            if end_num < total_found:
+                res_str += f"\n... ({total_found - end_num} autres cartes trouvées. Spécifie offset={end_num} pour la suite)"
+            return res_str
         except Exception as e:
             logger.error("Erreur find_cards_by_content : %s", e)
             return f"Erreur recherche cartes : {e}"
@@ -515,6 +529,293 @@ class ConsultantToolRegistry:
         except Exception as e:
             logger.error("Erreur propose_card_split : %s", e)
             return f"Erreur lors de la préparation de la scission : {e}"
+
+    @staticmethod
+    def apply_patch(
+        patch_json: str = "",
+        patch_type: str = "",
+        target_id: int = 0,
+        target_name: str = "",
+        patch_data_json: str = "{}",
+        explanation: str = "",
+    ) -> str:
+        """
+        Applique un diff ou une modification validée en base SQLite avec rollback versionné.
+        Prend en charge les types : 'card', 'split', 'model', 'css'.
+        """
+        try:
+            parsed_patch: dict[str, Any] = {}
+            if patch_json and patch_json.strip():
+                try:
+                    loaded = robust_json_loads(patch_json)
+                    if isinstance(loaded, dict):
+                        parsed_patch = loaded
+                except Exception:
+                    pass
+
+            p_type = str(parsed_patch.get("type") or patch_type or "").lower().strip()
+            if p_type in ("note", "card_refactor"):
+                p_type = "card"
+            elif p_type in ("card_split",):
+                p_type = "split"
+            elif p_type in ("note_type", "model_refactor"):
+                p_type = "model"
+
+            raw_meta = parsed_patch.get("metadata")
+            metadata_dict: dict[str, Any] = raw_meta if isinstance(raw_meta, dict) else {}
+            n_id_val = parsed_patch.get("note_id") or parsed_patch.get("target_id") or metadata_dict.get("note_id") or target_id
+            try:
+                n_id = int(n_id_val) if n_id_val is not None else 0
+            except (ValueError, TypeError):
+                n_id = 0
+
+            modified = parsed_patch.get("modified")
+            if modified is None and patch_data_json:
+                try:
+                    modified = robust_json_loads(patch_data_json)
+                except Exception:
+                    modified = patch_data_json
+
+            model_name = (
+                parsed_patch.get("note_type_name")
+                or parsed_patch.get("model_name")
+                or target_name
+                or (parsed_patch.get("metadata", {}).get("note_type_name") if isinstance(parsed_patch.get("metadata"), dict) else "")
+            )
+
+            if not p_type:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": "Type de patch manquant ou non reconnu. Types supportés: 'card', 'split', 'model', 'css'.",
+                    },
+                    ensure_ascii=False,
+                )
+
+            with db.atomic():
+                if p_type == "card":
+                    if not n_id or n_id <= 0:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": "ID de note invalide pour l'application d'un patch de type 'card'.",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    note = NoteModel.get_or_none(NoteModel.id == n_id)
+                    if not note:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": f"Note #{n_id} introuvable en base SQLite.",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                    prev_v_num = active_v.version_number if active_v else 0
+                    if active_v:
+                        active_v.is_active = False
+                        active_v.save()
+
+                    new_v_num = (note.versions.select(fn.MAX(NoteVersionModel.version_number)).scalar() or prev_v_num or 1) + 1
+                    content_str = json.dumps(modified, ensure_ascii=False) if isinstance(modified | (dict, list)) else str(modified)
+
+                    NoteVersionModel.create(
+                        note=note,
+                        version_number=new_v_num,
+                        content=content_str,
+                        source="consultant_apply_patch",
+                        is_active=True,
+                    )
+
+                    return json.dumps(
+                        {
+                            "status": "applied",
+                            "type": "card",
+                            "note_id": note.id,
+                            "version_number": new_v_num,
+                            "previous_version_number": prev_v_num,
+                            "message": f"Patch appliqué avec succès sur la Note #{note.id} (Version {new_v_num} active).",
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+                elif p_type == "split":
+                    if not n_id or n_id <= 0:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": "ID de note invalide pour l'application d'une scission ('split').",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    note = NoteModel.get_or_none(NoteModel.id == n_id)
+                    if not note:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": f"Note #{n_id} introuvable pour la scission.",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    cards_list = modified if isinstance(modified, list) else []
+                    if not cards_list and isinstance(modified, dict):
+                        cards_list = [modified]
+
+                    if not cards_list:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": "Données des nouvelles cartes manquantes ou vides pour la scission.",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    card_rel = note.cards.first()
+                    target_deck = card_rel.deck if card_rel else DeckModel.select().first()
+                    created_note_ids: list[int] = []
+
+                    for c_data in cards_list:
+                        guid = str(uuid.uuid4())[:12]
+                        new_note = NoteModel.create(
+                            guid=guid,
+                            note_type=note.note_type,
+                            tags=note.tags,
+                            status="pending",
+                        )
+                        c_str = json.dumps(c_data, ensure_ascii=False) if isinstance(c_data | (dict, list)) else str(c_data)
+                        NoteVersionModel.create(
+                            note=new_note,
+                            version_number=1,
+                            content=c_str,
+                            source="consultant_split",
+                            is_active=True,
+                        )
+                        if target_deck:
+                            CardModel.create(note=new_note, deck=target_deck, template_index=0)
+                        created_note_ids.append(new_note.id)
+
+                    note.status = "archived"
+                    note.save()
+
+                    return json.dumps(
+                        {
+                            "status": "applied",
+                            "type": "split",
+                            "parent_note_id": note.id,
+                            "created_notes_count": len(created_note_ids),
+                            "created_note_ids": created_note_ids,
+                            "new_note_ids": created_note_ids,
+                            "message": f"Note #{note.id} scindée en {len(created_note_ids)} cartes atomiques (notes #{', #'.join(map(str, created_note_ids))}). Note d'origine archivée.",
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+                elif p_type == "model":
+                    nt = None
+                    if model_name:
+                        nt = NoteTypeModel.get_or_none(NoteTypeModel.name == str(model_name).strip())
+                    if not nt and n_id and n_id > 0:
+                        nt = NoteTypeModel.get_or_none(NoteTypeModel.id == n_id)
+
+                    if not nt:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": f"Modèle de carte '{model_name or n_id}' introuvable.",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    if isinstance(modified, dict):
+                        if "css_style" in modified:
+                            nt.css_style = str(modified["css_style"])
+                        if "fields_schema" in modified:
+                            nt.fields_schema = json.dumps(modified["fields_schema"], ensure_ascii=False) if isinstance(modified["fields_schema"], list) else str(modified["fields_schema"])
+                        if "templates" in modified:
+                            nt.templates = json.dumps(modified["templates"], ensure_ascii=False) if isinstance(modified["templates"], list) else str(modified["templates"])
+                        if "description" in modified:
+                            nt.description = str(modified["description"])
+                    elif isinstance(modified, str):
+                        nt.css_style = modified
+
+                    nt.save()
+                    return json.dumps(
+                        {
+                            "status": "applied",
+                            "type": "model",
+                            "note_type_name": nt.name,
+                            "note_type_id": nt.id,
+                            "message": f"Modèle de carte '{nt.name}' mis à jour avec succès en BDD.",
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+                elif p_type == "css":
+                    nt = None
+                    if model_name:
+                        nt = NoteTypeModel.get_or_none(NoteTypeModel.name == str(model_name).strip())
+                    if not nt and n_id and n_id > 0:
+                        nt = NoteTypeModel.get_or_none(NoteTypeModel.id == n_id)
+                    if not nt:
+                        nt = NoteTypeModel.select().first()
+
+                    if not nt:
+                        return json.dumps(
+                            {
+                                "status": "error",
+                                "message": "Aucun modèle de carte trouvé pour appliquer le CSS.",
+                            },
+                            ensure_ascii=False,
+                        )
+
+                    snippet = str(modified) if modified is not None else ""
+                    if isinstance(parsed_patch.get("metadata"), dict) and "snippet" in parsed_patch["metadata"]:
+                        snippet = str(parsed_patch["metadata"]["snippet"])
+
+                    current_css = nt.css_style or ""
+                    if snippet not in current_css:
+                        nt.css_style = current_css + f"\n\n/* Appliqué par Consultant IA */\n{snippet}"
+                    else:
+                        nt.css_style = snippet
+
+                    nt.save()
+                    return json.dumps(
+                        {
+                            "status": "applied",
+                            "type": "css",
+                            "note_type_name": nt.name,
+                            "message": f"Style CSS appliqué au modèle '{nt.name}'.",
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+                else:
+                    return json.dumps(
+                        {
+                            "status": "error",
+                            "message": f"Type de patch non supporté : '{p_type}'.",
+                        },
+                        ensure_ascii=False,
+                    )
+
+        except Exception as e:
+            logger.error("Erreur apply_patch : %s", e)
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": f"Erreur lors de l'application du patch : {e}",
+                },
+                ensure_ascii=False,
+            )
 
     @staticmethod
     def list_note_types() -> str:
@@ -690,8 +991,8 @@ class ConsultantToolRegistry:
             return f"Erreur lors de la préparation du diff CSS : {e}"
 
     @staticmethod
-    def query_peewee(sql_query: str) -> str:
-        """Exécute une requête SQL SELECT en lecture seule (hors secrets) sur la base SQLite."""
+    def query_peewee(sql_query: str, limit: int = 50, offset: int = 0) -> str:
+        """Exécute une requête SQL SELECT en lecture seule avec pagination (limit, offset) sur SQLite."""
         sql_clean = _SQL_COMMENT_RE.sub(" ", sql_query).strip().rstrip(";").strip()
 
         if not sql_clean:
@@ -701,9 +1002,10 @@ class ConsultantToolRegistry:
         if not _SQL_START_RE.match(sql_clean):
             return "Erreur : Seules les requêtes SELECT (lecture seule) sont autorisées par mesure de sécurité."
 
-        try:
-            from ankiforge.database.base import db
+        eff_limit = max(1, min(limit, 100))
+        eff_offset = max(0, offset)
 
+        try:
             read_only = _open_readonly_sqlite()
             if read_only is not None:
                 try:
@@ -725,12 +1027,21 @@ class ConsultantToolRegistry:
             if not results:
                 return "Aucun résultat trouvé."
 
-            formatted_lines = [f"Colonnes : {', '.join(columns)}"]
-            for row in results[:40]:
+            total_count = len(results)
+            page_slice = results[eff_offset : eff_offset + eff_limit]
+            start_num = eff_offset + 1 if total_count > 0 and page_slice else 0
+            end_num = min(eff_offset + len(page_slice), total_count)
+
+            formatted_lines = [
+                f"📊 Résultats ({start_num} à {end_num} sur {total_count} total, limit={eff_limit}, offset={eff_offset}) :",
+                f"Colonnes : {', '.join(columns)}",
+            ]
+            for row in page_slice:
                 formatted_lines.append(f"- {row}")
 
-            if len(results) > 40:
-                formatted_lines.append(f"... ({len(results) - 40} résultats supplémentaires masqués)")
+            remaining = total_count - end_num
+            if remaining > 0:
+                formatted_lines.append(f"... ({remaining} résultats supplémentaires. Utilise offset={end_num} pour la page suivante)")
 
             return "\n".join(formatted_lines)
         except sqlite3.DatabaseError as e:
@@ -901,9 +1212,12 @@ class ConsultantToolRegistry:
             return f"Erreur lors de la récupération du profil de note : {e}"
 
     @staticmethod
-    def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 15) -> str:
-        """Récupère une liste de cartes selon leur paquet ou tag."""
+    def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20, offset: int = 0) -> str:
+        """Récupère une liste de cartes selon leur paquet ou tag avec pagination (limit, offset)."""
         try:
+            eff_limit = max(1, min(limit, 50))
+            eff_offset = max(0, offset)
+
             query = NoteModel.select().join(CardModel).distinct()
             if deck_name:
                 deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
@@ -912,7 +1226,8 @@ class ConsultantToolRegistry:
             if tag:
                 query = query.where(NoteModel.tags.contains(tag.strip()))
 
-            notes = list(query.limit(min(limit, 30)))
+            total_notes = query.count()
+            notes = list(query.offset(eff_offset).limit(eff_limit))
             if not notes:
                 return "Aucune carte trouvée pour ces critères."
 
@@ -933,7 +1248,14 @@ class ConsultantToolRegistry:
                         "champs": content,
                     }
                 )
-            return f"🎴 {len(res_list)} notes trouvées :\n" + json.dumps(res_list, ensure_ascii=False, indent=2)
+
+            start_num = eff_offset + 1 if total_notes > 0 and res_list else 0
+            end_num = min(eff_offset + len(res_list), total_notes)
+            header = f"🎴 {total_notes} notes au total (Affichage {start_num}-{end_num}, limit={eff_limit}, offset={eff_offset}) :"
+            output = header + "\n" + json.dumps(res_list, ensure_ascii=False, indent=2)
+            if end_num < total_notes:
+                output += f"\n... ({total_notes - end_num} autres notes disponibles. Spécifie offset={end_num} pour la suite)"
+            return output
         except Exception as e:
             return f"Erreur de récupération des cartes : {e}"
 
@@ -1389,6 +1711,24 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "apply_patch",
+            "description": "Applique un patch validé sur une note, une scission, un modèle ou du CSS en base SQLite avec rollback versionné.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "patch_json": {"type": "string", "description": "Objet JSON complet du patch (contenant type, note_id/target_id, modified, etc.)"},
+                    "patch_type": {"type": "string", "description": "Type de patch : 'card', 'split', 'model', 'css' (optionnel si dans patch_json)"},
+                    "target_id": {"type": "integer", "description": "ID de la note ou du modèle ciblé (optionnel si dans patch_json)"},
+                    "target_name": {"type": "string", "description": "Nom du modèle ciblé (pour type model ou css)"},
+                    "patch_data_json": {"type": "string", "description": "Données modifiées en JSON (optionnel si dans patch_json)"},
+                    "explanation": {"type": "string", "description": "Motif de l'application"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_css_tune",
             "description": "Propose un ajustement CSS pour un modèle de carte avec aperçu live avant enregistrement en BDD.",
             "parameters": {
@@ -1477,10 +1817,14 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "query_peewee",
-            "description": "Exécute une requête SQL SELECT (lecture seule) sur SQLite pour analyser des données spécifiques.",
+            "description": "Exécute une requête SQL SELECT (lecture seule) sur SQLite pour analyser des données spécifiques avec pagination.",
             "parameters": {
                 "type": "object",
-                "properties": {"sql_query": {"type": "string", "description": "Requête SQL SELECT valide"}},
+                "properties": {
+                    "sql_query": {"type": "string", "description": "Requête SQL SELECT valide"},
+                    "limit": {"type": "integer", "description": "Nombre max de lignes à retourner (défaut: 50, max: 100)"},
+                    "offset": {"type": "integer", "description": "Index de départ pour la pagination (défaut: 0)"},
+                },
                 "required": ["sql_query"],
             },
         },
@@ -1501,13 +1845,14 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "get_cards_by_deck_or_tag",
-            "description": "Récupère un lot de cartes filtrées par nom de paquet ou par tag.",
+            "description": "Récupère un lot de cartes filtrées par nom de paquet ou par tag avec pagination.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "deck_name": {"type": "string", "description": "Nom du paquet (optionnel)"},
                     "tag": {"type": "string", "description": "Tag recherché (optionnel)"},
-                    "limit": {"type": "integer", "description": "Nombre max de cartes (défaut: 15)"},
+                    "limit": {"type": "integer", "description": "Nombre max de cartes (défaut: 20, max: 50)"},
+                    "offset": {"type": "integer", "description": "Index de départ pour la pagination (défaut: 0)"},
                 },
             },
         },
@@ -1516,13 +1861,14 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "find_cards_by_content",
-            "description": "Recherche des cartes par mot-clé dans leur question/réponse pour retrouver rapidement leur note_id et contenu.",
+            "description": "Recherche des cartes par mot-clé dans leur question/réponse pour retrouver rapidement leur note_id et contenu avec pagination.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Mot-clé ou extrait de texte recherché dans la carte"},
                     "deck_name": {"type": "string", "description": "Nom du paquet (optionnel)"},
-                    "limit": {"type": "integer", "description": "Nombre max de résultats (défaut: 8)"},
+                    "limit": {"type": "integer", "description": "Nombre max de résultats (défaut: 10, max: 50)"},
+                    "offset": {"type": "integer", "description": "Index de départ pour la pagination (défaut: 0)"},
                 },
                 "required": ["query"],
             },
@@ -1831,6 +2177,22 @@ class ConsultantEngine:
                 nc_json = tool_args.get("new_cards_json", "[]")
                 expl = tool_args.get("explanation", "")
                 return ConsultantToolRegistry.propose_card_split(n_id, nc_json, expl), False
+            elif tool_name == "apply_patch":
+                p_json = tool_args.get("patch_json", "")
+                p_type = tool_args.get("patch_type", "")
+                t_id = int(tool_args.get("target_id") or tool_args.get("note_id") or 0)
+                t_name = tool_args.get("target_name") or tool_args.get("note_type_name") or ""
+                p_data = tool_args.get("patch_data_json") or tool_args.get("modified") or "{}"
+                p_data_str = json.dumps(p_data, ensure_ascii=False) if isinstance(p_data, (dict | list)) else str(p_data)
+                expl = tool_args.get("explanation", "")
+                return ConsultantToolRegistry.apply_patch(
+                    patch_json=p_json,
+                    patch_type=p_type,
+                    target_id=t_id,
+                    target_name=t_name,
+                    patch_data_json=p_data_str,
+                    explanation=expl,
+                ), False
             elif tool_name == "propose_css_tune":
                 nt_name = tool_args.get("note_type_name", "")
                 css = tool_args.get("css_snippet", "")
@@ -1859,20 +2221,24 @@ class ConsultantEngine:
                 return ConsultantToolRegistry.get_note_full_profile_360(n_id), False
             elif tool_name == "query_peewee":
                 sql = tool_args.get("sql_query") or tool_args.get("query") or ""
-                return ConsultantToolRegistry.query_peewee(sql), False
+                lim = int(tool_args.get("limit", 50))
+                off = int(tool_args.get("offset", 0))
+                return ConsultantToolRegistry.query_peewee(sql, limit=lim, offset=off), False
             elif tool_name == "get_deck_stats":
                 deck = tool_args.get("deck_name") or tool_args.get("name") or ""
                 return ConsultantToolRegistry.get_deck_stats(deck), False
             elif tool_name == "get_cards_by_deck_or_tag":
                 deck = tool_args.get("deck_name", "")
                 tag = tool_args.get("tag", "")
-                limit = int(tool_args.get("limit", 15))
-                return ConsultantToolRegistry.get_cards_by_deck_or_tag(deck, tag, limit), False
+                lim = int(tool_args.get("limit", 20))
+                off = int(tool_args.get("offset", 0))
+                return ConsultantToolRegistry.get_cards_by_deck_or_tag(deck, tag, limit=lim, offset=off), False
             elif tool_name == "find_cards_by_content":
                 query = tool_args.get("query", "")
                 deck = tool_args.get("deck_name", "")
-                limit = int(tool_args.get("limit", 8))
-                return ConsultantToolRegistry.find_cards_by_content(query, deck, limit), False
+                lim = int(tool_args.get("limit", 10))
+                off = int(tool_args.get("offset", 0))
+                return ConsultantToolRegistry.find_cards_by_content(query, deck, limit=lim, offset=off), False
             elif tool_name == "search_attached_documents":
                 query = tool_args.get("query", "")
                 doc_title = tool_args.get("document_title", "")
@@ -2008,6 +2374,14 @@ class ConsultantEngine:
         final_answer = ""
         tool_call_history: list[str] = []
 
+        # Configuration des budgets temps réel
+        token_budget = int(SettingsService.get("ai/consultant_token_budget", 50000) or 50000)
+        cost_budget = float(SettingsService.get("ai/consultant_cost_budget", 0.50) or 0.50)
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_tokens = 0
+        current_cost = 0.0
+
         for step in range(1, max_steps + 1):
             if cancel_event and cancel_event.is_set():
                 yield {"type": "cancelled", "content": "Opération interrompue par l'utilisateur."}
@@ -2034,12 +2408,19 @@ class ConsultantEngine:
 
                     usage = getattr(response, "usage", None)
                     if usage is not None:
+                        p_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
+                        c_tok = int(getattr(usage, "completion_tokens", 0) or 0)
+                        total_prompt_tokens += p_tok
+                        total_completion_tokens += c_tok
+                        total_tokens = total_prompt_tokens + total_completion_tokens
+                        _, current_cost = estimate_run_cost(total_prompt_tokens, total_completion_tokens, self.llm_config)
+
                         provider_label = getattr(self.ai_provider, "provider_name", type(self.ai_provider).__name__)
                         log_token_usage(
                             str(provider_label),
                             getattr(self.ai_provider, "model_name", "unknown"),
-                            int(getattr(usage, "prompt_tokens", 0) or 0),
-                            int(getattr(usage, "completion_tokens", 0) or 0),
+                            p_tok,
+                            c_tok,
                             task_type="Consultant IA (Agent ReAct)",
                         )
 
@@ -2086,10 +2467,57 @@ class ConsultantEngine:
                         user_prompt=conversation_text,
                         response_format="text",
                     )
+                    est_p = int(len(conversation_text.split()) * 1.3)
+                    est_c = int(len(content_text.split()) * 1.3)
+                    total_prompt_tokens += est_p
+                    total_completion_tokens += est_c
+                    total_tokens = total_prompt_tokens + total_completion_tokens
+                    _, current_cost = estimate_run_cost(total_prompt_tokens, total_completion_tokens, self.llm_config)
                 except Exception as e:
                     logger.warning("Erreur generate provider : %s", e)
                     yield {"type": "text", "content": f"⚠️ Erreur de communication avec l'IA : {e}"}
                     break
+
+            # Émission des métriques de budget temps réel
+            yield {
+                "type": "budget_update",
+                "step": step,
+                "tokens_used": total_tokens,
+                "cost_usd": current_cost,
+                "token_budget": token_budget,
+                "cost_budget": cost_budget,
+            }
+
+            # Garde-fou 80 % : Interruption automatique préventive
+            ratio_tokens = (total_tokens / token_budget) if token_budget > 0 else 0.0
+            ratio_cost = (current_cost / cost_budget) if cost_budget > 0 else 0.0
+            if ratio_tokens >= 0.80 or ratio_cost >= 0.80:
+                pct = int(max(ratio_tokens, ratio_cost) * 100)
+                logger.warning(
+                    "Interruption préventive Consultant : seuil de %d%% du budget atteint (%d/%d tokens, $%.4f/$%.2f)",
+                    pct,
+                    total_tokens,
+                    token_budget,
+                    current_cost,
+                    cost_budget,
+                )
+                warn_msg = (
+                    f"\n\n> ⚠️ **Interruption automatique (Protection Budget) :** {pct} % du budget alloué a été atteint "
+                    f"({total_tokens:,} tokens consommés sur {token_budget:,} ; ${current_cost:.4f} sur ${cost_budget:.2f}). "
+                    f"La boucle d'exécution a été interrompue pour préserver votre quota."
+                )
+                yield {
+                    "type": "budget_warning",
+                    "content": warn_msg,
+                    "threshold": 0.8,
+                    "tokens_used": total_tokens,
+                    "cost_usd": current_cost,
+                    "token_budget": token_budget,
+                    "cost_budget": cost_budget,
+                }
+                final_answer = (content_text + warn_msg) if content_text else warn_msg
+                yield {"type": "text", "content": final_answer}
+                break
 
             # 3. Extraction d'éventuels blocs <think> réels
             if content_text and "<think>" in content_text and "</think>" in content_text:
@@ -2181,4 +2609,13 @@ class ConsultantEngine:
 
         # Compaction post-tâche et suggestions proactives
         _, next_steps = ContextCompactor.compact_post_task(messages)
-        yield {"type": "finished", "content": final_answer, "next_steps": next_steps}
+        yield {
+            "type": "finished",
+            "content": final_answer,
+            "text": final_answer,
+            "next_steps": next_steps,
+            "tokens_used": total_tokens,
+            "cost_usd": current_cost,
+            "token_budget": token_budget,
+            "cost_budget": cost_budget,
+        }

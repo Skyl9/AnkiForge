@@ -15,7 +15,6 @@ import difflib
 import html
 import json
 import logging
-import uuid
 from typing import Any
 
 from peewee import PeeweeException, fn
@@ -34,8 +33,6 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import (
-    CardModel,
-    DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
@@ -70,6 +67,7 @@ class WorkspaceInspectorWidget(QWidget):
         self._patch_queue: list[dict[str, Any]] = []
         self._current_index: int = 0
         self._last_applied_patch: dict[str, Any] | None = None
+        self._apply_all_armed: bool = False
         self._setup_ui()
         self.set_empty_state()
 
@@ -357,7 +355,10 @@ class WorkspaceInspectorWidget(QWidget):
         self.banner_guard.show()
         self.queue_bar.setVisible(total > 1)
         self.lbl_queue_status.setText(f"Proposition {self._current_index + 1} / {total}")
+        self._apply_all_armed = False
         self.btn_apply_all.setText(f"Tout appliquer ({total})")
+        self.btn_apply_all.setIcon(load_on_accent_icon("ph.check-circle"))
+        self.btn_apply_all.setToolTip("Appliquer toutes les modifications validées en base de données")
         self.btn_prev_patch.setEnabled(self._current_index > 0)
         self.btn_next_patch.setEnabled(self._current_index < total - 1)
 
@@ -594,11 +595,19 @@ class WorkspaceInspectorWidget(QWidget):
 
     @Slot()
     def _on_apply_all_clicked(self) -> None:
-        """Garde-Fou validé : applique TOUTE la file d'attente en une transaction atomique."""
+        """Garde-Fou validé : applique TOUTE la file d'attente en une transaction atomique avec confirmation 2 clics."""
         if not self._patch_queue:
             return
 
         count = len(self._patch_queue)
+        if count > 1 and not self._apply_all_armed:
+            self._apply_all_armed = True
+            self.btn_apply_all.setText(f"⚠️ Confirmer ({count}) ?")
+            self.btn_apply_all.setIcon(load_phosphor_icon("ph.warning-circle", color=DesignTokens.COLOR_YELLOW))
+            self.btn_apply_all.setToolTip("Cliquez à nouveau pour confirmer l'application par lot en BDD")
+            return
+
+        self._apply_all_armed = False
         with db.atomic():
             for patch in list(self._patch_queue):
                 self._persist_patch(patch)
@@ -615,6 +624,7 @@ class WorkspaceInspectorWidget(QWidget):
     @Slot()
     def _on_reject_clicked(self) -> None:
         """Garde-Fou rejeté pour l'élément courant."""
+        self._apply_all_armed = False
         if not self._patch_queue or self._current_index >= len(self._patch_queue):
             return
 
@@ -634,77 +644,32 @@ class WorkspaceInspectorWidget(QWidget):
 
     def _persist_patch(self, patch: dict[str, Any]) -> None:
         """Persiste concrètement un patch en base SQLite."""
+        from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
+
         p_type = patch.get("type", "card")
         metadata = patch.get("metadata", {})
-        modified = patch.get("modified")
-        note_id = patch.get("note_id") or metadata.get("note_id")
+        note_id = patch.get("note_id") or (metadata.get("note_id") if isinstance(metadata, dict) else None)
+        if "note_id" not in patch and note_id:
+            patch["note_id"] = note_id
 
         try:
-            if p_type == "css":
-                model_name = metadata.get("note_type_name", "")
-                snippet = metadata.get("snippet", str(modified))
-                nt = NoteTypeModel.get_or_none(NoteTypeModel.name == model_name) if model_name else NoteTypeModel.select().first()
-                if nt:
-                    with db.atomic():
-                        nt.css_style = (nt.css_style or "") + f"\n\n/* Appliqué depuis le Workspace */\n{snippet}"
-                        nt.save()
-                    self.action_applied.emit(f"CSS validé pour {nt.name}")
-
-            elif p_type in ("model", "note_type"):
-                model_name = patch.get("note_type_name") or metadata.get("note_type_name", "")
-                nt = NoteTypeModel.get_or_none(NoteTypeModel.name == model_name) if model_name else None
-                if not nt and patch.get("note_type_id"):
-                    nt = NoteTypeModel.get_or_none(NoteTypeModel.id == int(patch["note_type_id"]))
-                if nt:
-                    with db.atomic():
-                        if isinstance(modified, dict):
-                            if "css_style" in modified:
-                                nt.css_style = str(modified["css_style"])
-                            if "fields_schema" in modified:
-                                nt.fields_schema = json.dumps(modified["fields_schema"], ensure_ascii=False) if isinstance(modified["fields_schema"], list) else str(modified["fields_schema"])
-                            if "templates" in modified:
-                                nt.templates = json.dumps(modified["templates"], ensure_ascii=False) if isinstance(modified["templates"], list) else str(modified["templates"])
-                            if "description" in modified:
-                                nt.description = str(modified["description"])
-                        elif isinstance(modified, str):
-                            nt.css_style = modified
-                        nt.save()
-                    self.action_applied.emit(f"Modèle de carte '{nt.name}' mis à jour en BDD")
-
-            elif p_type == "card" and note_id:
-                note = NoteModel.get_or_none(NoteModel.id == int(note_id))
-                if note:
-                    with db.atomic():
-                        active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
-                        if active_v:
-                            active_v.is_active = False
-                            active_v.save()
-                        new_v_num = (note.versions.select(fn.MAX(NoteVersionModel.version_number)).scalar() or 1) + 1
-                        NoteVersionModel.create(
-                            note=note,
-                            version_number=new_v_num,
-                            content=json.dumps(modified, ensure_ascii=False) if isinstance(modified, dict) else str(modified),
-                            source="consultant_workspace",
-                            is_active=True,
-                        )
-                    self.action_applied.emit(f"Note #{note.id} refactorisée")
-
-            elif p_type == "split" and note_id:
-                cards_list = modified if isinstance(modified, list) else []
-                note = NoteModel.get_or_none(NoteModel.id == int(note_id))
-                if note and cards_list:
-                    card_rel = note.cards.first()
-                    target_deck = card_rel.deck if card_rel else DeckModel.select().first()
-                    with db.atomic():
-                        for c_data in cards_list:
-                            new_note = NoteModel.create(guid=str(uuid.uuid4())[:12], note_type=note.note_type, tags=note.tags, status="pending")
-                            NoteVersionModel.create(note=new_note, version_number=1, content=json.dumps(c_data, ensure_ascii=False), source="consultant_split", is_active=True)
-                            if target_deck:
-                                CardModel.create(note=new_note, deck=target_deck, template_index=0)
-                        note.status = "archived"
-                        note.save()
-                    self.action_applied.emit(f"Note #{note.id} scindée")
-
+            res_str = ConsultantToolRegistry.apply_patch(patch_json=json.dumps(patch, ensure_ascii=False))
+            res = json.loads(res_str)
+            if res.get("status") == "applied":
+                if p_type == "css":
+                    model_name = metadata.get("note_type_name", "")
+                    self.action_applied.emit(f"CSS validé pour {model_name or 'modèle'}")
+                elif p_type in ("model", "note_type"):
+                    model_name = patch.get("note_type_name") or metadata.get("note_type_name", "")
+                    self.action_applied.emit(f"Modèle de carte '{model_name}' mis à jour en BDD")
+                elif p_type == "card" and note_id:
+                    self.action_applied.emit(f"Note #{note_id} refactorisée")
+                elif p_type == "split" and note_id:
+                    self.action_applied.emit(f"Note #{note_id} scindée")
+                else:
+                    self.action_applied.emit(res.get("message", "Patch appliqué"))
+            else:
+                logger.error("Erreur apply_patch workspace : %s", res.get("message"))
         except Exception as e:
             logger.error("Erreur _persist_patch workspace : %s", e)
 

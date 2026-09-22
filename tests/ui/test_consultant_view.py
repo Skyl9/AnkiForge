@@ -7,6 +7,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 
 from ankiforge.database.models import (
+    ConsultantMessageModel,
+    ConsultantSessionModel,
     DeckModel,
     DocumentModel,
     LLMConfigModel,
@@ -22,7 +24,10 @@ from ankiforge.ui.views.consultant_view import (
     ConsultantChatInput,
     ConsultantView,
 )
-from ankiforge.ui.views.consultant_view.view import extract_card_proposal_from_text
+from ankiforge.ui.views.consultant_view.view import (
+    extract_card_proposal_from_text,
+    format_session_to_markdown,
+)
 
 pytestmark = pytest.mark.ui
 
@@ -632,6 +637,7 @@ def test_context_uncommitted_safe_mouse_clicks(qtbot):
     qtbot.mouseClick(badge, Qt.MouseButton.LeftButton)
     # Attente déterministe : le badge est supprimé dès que active_context est vide
     qtbot.waitUntil(lambda: len(view.active_context) == 0, timeout=500)
+    qtbot.wait(10)
 
     # Le badge a été supprimé sans erreur C++
     assert len(view.active_context) == 0
@@ -646,6 +652,7 @@ def test_context_uncommitted_safe_mouse_clicks(qtbot):
     qtbot.mouseClick(btn_del, Qt.MouseButton.LeftButton)
     # Attente déterministe : la carte source est retirée du hub dès que active_context est vide
     qtbot.waitUntil(lambda: len(view.active_context) == 0, timeout=500)
+    qtbot.wait(10)
 
     assert len(view.active_context) == 0
 
@@ -723,3 +730,78 @@ def test_consultant_view_modal_selection_handlers(qtbot):
     view._on_doc_modal_selected(99, "Cours Physiologie")
     assert "doc_99" in view.active_context
     assert len(view.active_context) == 2
+
+
+def test_consultant_view_export_session_markdown(qtbot, tmp_path, monkeypatch):
+    """Vérifie le formatage complet et l'exportation de la session en Markdown avec balises <details>."""
+    from PySide6.QtWidgets import QFileDialog
+
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    uid = uuid.uuid4().hex[:6]
+    session = ConsultantSessionModel.create(title=f"Session Test {uid}")
+    view.view_model.switch_session(session.id)
+
+    # Création de messages types avec pensées, appels d'outils et diffs
+    ConsultantMessageModel.create(
+        session=session,
+        role="user",
+        content="Peux-tu refactoriser ma carte ?",
+        tokens_used=15,
+    )
+    ConsultantMessageModel.create(
+        session=session,
+        role="assistant",
+        content="Voici la carte refactorisée selon la règle d'atomicité.",
+        thoughts=json.dumps([[1, "Analyse de la note..."], [2, "Scission des concepts redondants."]]),
+        tool_calls_json=json.dumps([["get_cards_by_deck_or_tag", "{}", "résultat test", False]]),
+        staged_diffs_json=json.dumps(
+            {
+                "title": "Diff Note #42",
+                "type": "card",
+                "original": {"Front": "Ancien"},
+                "modified": {"Front": "Nouveau"},
+                "explanation": "Plus atomique",
+            }
+        ),
+        tokens_used=120,
+    )
+
+    # 1. Vérification du formatage Markdown
+    md_content = format_session_to_markdown(session)
+    assert f"# Discussion AnkiForge AI — {session.title}" in md_content
+    assert "<details>" in md_content
+    assert "<summary>🧠 Réflexion (CoT / ReAct)</summary>" in md_content
+    assert "<summary>🛠️ Outils exécutés (1)</summary>" in md_content
+    assert "<summary>📝 Diff Stagé : Diff Note #42 (card)</summary>" in md_content
+    assert "Ancien" in md_content
+    assert "Nouveau" in md_content
+
+    # 2. Clic sur le bouton d'export avec simulation du QFileDialog
+    dest_file = tmp_path / f"export_{uid}.md"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args, **kwargs: (str(dest_file), "Markdown (*.md)"))
+
+    assert hasattr(view, "btn_export_session")
+    view.btn_export_session.click()
+
+    assert dest_file.exists()
+    written_text = dest_file.read_text(encoding="utf-8")
+    assert f"Session Test {uid}" in written_text
+
+
+def test_consultant_view_budget_updated_slot(qtbot):
+    """Vérifie que la réception d'un événement de budget met à jour la topbar et applique l'alerte à 80%."""
+    view = ConsultantView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Budget normal (< 80%)
+    view._on_budget_updated(tokens_used=10000, cost_usd=0.015, token_budget=50000, cost_budget=0.50)
+    assert "10 000" in view.lbl_tokens_usage.text() or "10000" in view.lbl_tokens_usage.text()
+    assert "$0.0150" in view.lbl_tokens_usage.text()
+    assert "80%" not in view.lbl_chat_status.text()
+
+    # Seuil >= 80% atteint (42 000 tokens / 50 000 = 84%)
+    view._on_budget_updated(tokens_used=42000, cost_usd=0.063, token_budget=50000, cost_budget=0.50)
+    assert "42 000" in view.lbl_tokens_usage.text() or "42000" in view.lbl_tokens_usage.text()
+    assert "80%" in view.lbl_chat_status.text()

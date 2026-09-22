@@ -31,6 +31,7 @@ class ConsultantWorker(QThread):
     tool_call_emitted = Signal(str, str, str, bool)  # compatibilité historique
     text_delta_signal = Signal(str)  # token / chunk streaming
     progress = Signal(str)
+    budget_updated_signal = Signal(int, float, int, float)  # tokens_used, cost_usd, token_budget, cost_budget
     finished_signal = Signal(str)
     next_steps_signal = Signal(list)
     cancelled_signal = Signal()
@@ -131,6 +132,21 @@ class ConsultantWorker(QThread):
                         delta = event.get("delta", "")
                         self.text_delta_signal.emit(delta)
 
+                    elif ev_type == "budget_update":
+                        tok_used = int(event.get("tokens_used", 0))
+                        cost_usd = float(event.get("cost_usd", 0.0))
+                        tok_bgt = int(event.get("token_budget", 0))
+                        cost_bgt = float(event.get("cost_budget", 0.0))
+                        self.budget_updated_signal.emit(tok_used, cost_usd, tok_bgt, cost_bgt)
+
+                    elif ev_type == "budget_warning":
+                        tok_used = int(event.get("tokens_used", 0))
+                        cost_usd = float(event.get("cost_usd", 0.0))
+                        tok_bgt = int(event.get("token_budget", 0))
+                        cost_bgt = float(event.get("cost_budget", 0.0))
+                        self.budget_updated_signal.emit(tok_used, cost_usd, tok_bgt, cost_bgt)
+                        self.progress.emit("⚠️ Budget 80 % atteint — Interruption.")
+
                     elif ev_type == "text":
                         final_text = event.get("content", "")
 
@@ -138,6 +154,11 @@ class ConsultantWorker(QThread):
                         if not final_text:
                             final_text = event.get("content", "")
                         next_steps_list = event.get("next_steps", [])
+                        tok_used = int(event.get("tokens_used", 0))
+                        cost_usd = float(event.get("cost_usd", 0.0))
+                        tok_bgt = int(event.get("token_budget", 0))
+                        cost_bgt = float(event.get("cost_budget", 0.0))
+                        self.budget_updated_signal.emit(tok_used, cost_usd, tok_bgt, cost_bgt)
 
                     elif ev_type == "cancelled":
                         was_cancelled = True

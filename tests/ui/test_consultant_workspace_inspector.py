@@ -114,7 +114,11 @@ def test_workspace_inspector_patch_queue_batch(qtbot):
     assert len(widget._patch_queue) == 2
     assert not widget.queue_bar.isHidden()
 
-    # Clic sur tout appliquer
+    # 1er clic : arme la confirmation
+    widget.btn_apply_all.click()
+    assert "Confirmer" in widget.btn_apply_all.text()
+
+    # 2nd clic : applique toute la file
     with qtbot.waitSignal(widget.action_applied, timeout=1000):
         widget.btn_apply_all.click()
 

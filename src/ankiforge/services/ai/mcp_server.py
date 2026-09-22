@@ -48,6 +48,26 @@ def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "")
 
 
 @mcp.tool()
+def apply_patch(
+    patch_json: str = "",
+    patch_type: str = "",
+    target_id: int = 0,
+    target_name: str = "",
+    patch_data_json: str = "{}",
+    explanation: str = "",
+) -> str:
+    """Applique un patch validé sur une note, scission, modèle ou CSS en base SQLite avec rollback versionné."""
+    return ConsultantToolRegistry.apply_patch(
+        patch_json=patch_json,
+        patch_type=patch_type,
+        target_id=target_id,
+        target_name=target_name,
+        patch_data_json=patch_data_json,
+        explanation=explanation,
+    )
+
+
+@mcp.tool()
 def propose_css_tune(note_type_name: str, css_snippet: str, selector: str = "") -> str:
     """Propose un ajustement CSS pour un modèle de carte avec aperçu live avant enregistrement."""
     return ConsultantToolRegistry.propose_css_tune(note_type_name, css_snippet, selector)
@@ -72,9 +92,9 @@ def get_note_full_profile_360(note_id: int) -> str:
 
 
 @mcp.tool()
-def query_peewee(sql_query: str) -> str:
-    """Exécute une requête SQL en lecture seule sur la base de données SQLite."""
-    return ConsultantToolRegistry.query_peewee(sql_query)
+def query_peewee(sql_query: str, limit: int = 50, offset: int = 0) -> str:
+    """Exécute une requête SQL en lecture seule sur la base de données SQLite avec pagination."""
+    return ConsultantToolRegistry.query_peewee(sql_query, limit=limit, offset=offset)
 
 
 @mcp.tool()
@@ -84,15 +104,15 @@ def get_deck_stats(deck_name: str) -> str:
 
 
 @mcp.tool()
-def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20) -> str:
-    """Récupère une liste de cartes filtrée par nom de paquet ou par tag."""
-    return ConsultantToolRegistry.get_cards_by_deck_or_tag(deck_name, tag, limit)
+def get_cards_by_deck_or_tag(deck_name: str = "", tag: str = "", limit: int = 20, offset: int = 0) -> str:
+    """Récupère une liste de cartes filtrée par nom de paquet ou par tag avec pagination."""
+    return ConsultantToolRegistry.get_cards_by_deck_or_tag(deck_name, tag, limit=limit, offset=offset)
 
 
 @mcp.tool()
-def find_cards_by_content(query: str, deck_name: str = "", limit: int = 8) -> str:
-    """Recherche des cartes par mot-clé dans leur question/réponse pour retrouver facilement leur note_id."""
-    return ConsultantToolRegistry.find_cards_by_content(query, deck_name, limit)
+def find_cards_by_content(query: str, deck_name: str = "", limit: int = 10, offset: int = 0) -> str:
+    """Recherche des cartes par mot-clé dans leur question/réponse pour retrouver facilement leur note_id avec pagination."""
+    return ConsultantToolRegistry.find_cards_by_content(query, deck_name, limit=limit, offset=offset)
 
 
 @mcp.tool()
