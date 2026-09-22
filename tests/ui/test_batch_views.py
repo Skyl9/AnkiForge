@@ -644,3 +644,153 @@ def test_batch_worker_resume_incomplete(qtbot: Any, monkeypatch: Any) -> None:
     assert view.queue_tasks_data[0]["status"] == "Succès"
     assert view.queue_tasks_data[1]["status"] == "Succès"
     assert view.btn_resume_batch.isHidden()
+
+
+# ── Atelier de production : 3 modes de composition ───────────────────────────
+
+
+def test_batch_view_slice_to_queue_manual_task(qtbot: Any) -> None:
+    """Le mode manuel (1 par 1) construit une tâche de file à partir d'un SliceUnit."""
+    from ankiforge.services.batch.slicing_service import SlicingService
+
+    doc = DocumentModel.create(
+        title="Doc Slice.pdf",
+        content="# Intro\n\nTexte introductif suffisamment long pour constituer une tranche d'étude.\n\n# Technique\n\nSecond paragraphe descriptif des méthodes utilisées.",
+        file_type="pdf",
+    )
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view._segment_inspector_doc = doc
+    view.current_deck = None
+    view.current_model = None
+
+    slice_unit = SlicingService.slice_by_headings(doc.content, min_words=5)[0]
+    task = view._slice_to_queue_task(slice_unit)
+    assert task is not None
+    assert task["chunk_label"] == slice_unit.title
+    assert task["doc_content"] == slice_unit.content
+    assert task["source_chunks"][0]["content"] == slice_unit.content
+    assert task["auto_val"] in (True, False)
+    assert task["status"] == "En attente"
+
+
+def test_batch_view_append_queue_tasks(qtbot: Any) -> None:
+    """La file accepte des tâches composées via _append_queue_tasks."""
+    doc = DocumentModel.create(title="Doc Compose.md", content="Contenu de la tranche", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view._segment_inspector_doc = doc
+
+    payload = {
+        "doc": doc,
+        "doc_title": "Doc Compose.md — Tranche 1",
+        "doc_content": "Contenu de la tranche",
+        "source_chunks": [{"content": "Contenu de la tranche"}],
+        "chunk_label": "Tranche 1",
+        "deck_name": "Général",
+        "model_name": "Basique",
+        "pipeline_name": "Standard",
+    }
+    view._append_queue_tasks([payload])
+    assert len(view.queue_tasks_data) == 1
+    assert view.queue_tasks_data[0]["status"] == "En attente"
+    assert view.queue_tasks_data[0]["chunk_label"] == "Tranche 1"
+
+    # Les entrées vides sont rejetées
+    before = len(view.queue_tasks_data)
+    view._append_queue_tasks([{"doc": doc, "doc_title": "Vide", "doc_content": "   "}])
+    assert len(view.queue_tasks_data) == before
+
+
+def test_batch_view_auto_slice_dialog_populates_queue(qtbot: Any, monkeypatch: Any, mock_db: Any) -> None:
+    """Le découpage auto injecte les tranches configurées dans la file."""
+    from ankiforge.services.batch.slicing_service import SliceUnit
+    from ankiforge.ui.views.batch_view.dialogs.auto_slice_config_dialog import AutoSliceConfigDialog
+
+    doc = DocumentModel.create(
+        title="Doc Auto Slice.pdf",
+        content="# Intro\n\nParagraphe introductif substantiel pour la tranche auto.\n\n# Corps\n\nParagraphe de développement avec de la matière pédagogique.",
+        file_type="pdf",
+    )
+
+    class FakeDlg:
+        def exec(self) -> int:
+            return 1
+
+        def get_result(self) -> dict[str, Any]:
+            unit = SliceUnit(index=0, title="Intro", heading_path="Intro", content="Contenu intro")
+            return {"mode": "headings", "slices": [unit]}
+
+    monkeypatch.setattr(AutoSliceConfigDialog, "exec", FakeDlg.exec)
+    monkeypatch.setattr(AutoSliceConfigDialog, "get_result", FakeDlg.get_result)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+    view._segment_inspector_doc = doc
+
+    view._on_open_auto_slice()
+    assert len(view.queue_tasks_data) == 1
+    assert view.queue_tasks_data[0]["chunk_label"] == "Intro"
+
+
+def test_batch_view_wizard_populates_queue(qtbot: Any, monkeypatch: Any, mock_db: Any) -> None:
+    """L'assistant wizard injecte les tâches groupées dans la file (staging par défaut)."""
+    from ankiforge.ui.views.batch_view.dialogs.batch_slicing_wizard_dialog import BatchSlicingWizardDialog
+
+    doc = DocumentModel.create(title="Doc Wizard.pdf", content="# Intro\n\nContenu introductif riche pour le wizard.", file_type="pdf")
+
+    class FakeWizard:
+        def exec(self) -> int:
+            return 1
+
+        def get_configured_payloads(self) -> list[dict[str, Any]]:
+            return [
+                {
+                    "doc": doc,
+                    "doc_title": "Doc Wizard.pdf — Intro",
+                    "doc_content": "Contenu introductif riche pour le wizard.",
+                    "source_chunks": [{"content": "Contenu introductif riche pour le wizard."}],
+                    "chunk_label": "Intro",
+                    "auto_val": False,
+                }
+            ]
+
+    monkeypatch.setattr(BatchSlicingWizardDialog, "exec", FakeWizard.exec)
+    monkeypatch.setattr(BatchSlicingWizardDialog, "get_configured_payloads", FakeWizard.get_configured_payloads)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+    view._segment_inspector_doc = doc
+
+    view._on_open_slicing_wizard()
+    assert len(view.queue_tasks_data) == 1
+    assert view.queue_tasks_data[0]["chunk_label"] == "Intro"
+    assert view.queue_tasks_data[0]["auto_val"] is False
+
+
+def test_batch_view_retry_failed_task(qtbot: Any) -> None:
+    """Le bouton de relance remet une tâche en échec en attente."""
+    doc = DocumentModel.create(title="Doc Retry.pdf", content="Contenu", file_type="pdf")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data = [
+        {
+            "doc": doc,
+            "doc_title": "Doc Retry.pdf — Section 1",
+            "doc_content": "Contenu",
+            "chunk_label": "Section 1",
+            "status": "Erreur",
+            "progress_pct": 100,
+            "cards_count": 0,
+            "error_message": "boom",
+            "deck_name": "Général",
+            "model_name": "Basique",
+            "pipeline_name": "Standard",
+        }
+    ]
+    view._update_queue_table()
+    view._on_retry_task(0)
+    assert view.queue_tasks_data[0]["status"] == "En attente"
+    assert "error_message" not in view.queue_tasks_data[0]

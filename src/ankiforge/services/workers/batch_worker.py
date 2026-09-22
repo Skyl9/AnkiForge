@@ -61,7 +61,8 @@ class BatchWorker(QThread):
     task_progress = Signal(int, int, str)  # task_idx, progress_pct, step_detail
     task_completed = Signal(int, list, int)  # task_idx, prepared_notes, cards_count
     task_failed = Signal(int, str)  # task_idx, error_message
-    task_review_ready = Signal(str, dict)
+    task_review_ready = Signal(int, list)  # task_idx, prepared_notes (mode staging)
+    task_accepted = Signal(int, int)  # task_idx, cards_count (mode auto-validation)
     task_state_changed = Signal(str, str)
 
     # Signaux globaux du batch
@@ -275,6 +276,13 @@ class BatchWorker(QThread):
                     total_cards_generated += task_cards_count
                     self.task_completed.emit(task.task_index, prepared_notes, task_cards_count)
                     self.batch_data_ready.emit(prepared_notes, task.deck_id, task.model_id, task.doc_id)
+                    if task.auto_validation:
+                        # Mode validation automatique : les cartes sont prêtes pour la
+                        # persistance immédiate, aucune revue staging nécessaire.
+                        self.task_accepted.emit(task.task_index, task_cards_count)
+                    else:
+                        # Mode staging : placer les cartes en revue pour validation manuelle.
+                        self.task_review_ready.emit(task.task_index, prepared_notes)
                     status = "avec erreurs de chunks" if task_errors else "validé"
                     self.log.emit("SUCCESS", f"✅ JOB {current_idx + 1}/{total_tasks} {status} : {task_cards_count} cartes extraites pour '{task.doc_title}'.")
                 else:
@@ -388,12 +396,22 @@ class BatchWorker(QThread):
                     card.setdefault("_source_page_number", scope_page)
                     card.setdefault("_source_chunk_id", None)
                     card.setdefault("_documentation_enabled", True)
-                task.status = BatchTaskStatus.REVIEW
-                success_count += 1
-                total_cards += len(task.cards)
-                self.task_review_ready.emit(task.task_id, {"task_id": task.task_id, "cards": task.cards, "scope": task.scope})
-                self.task_completed.emit(index, task.cards, len(task.cards))
-                self.task_state_changed.emit(task.task_id, task.status.value)
+                if config.auto_validation:
+                    # Mode validation automatique : persistance immédiate, sans staging.
+                    task.status = BatchTaskStatus.ACCEPTED
+                    success_count += 1
+                    total_cards += len(task.cards)
+                    self.task_accepted.emit(index, len(task.cards))
+                    self.task_completed.emit(index, task.cards, len(task.cards))
+                    self.task_state_changed.emit(task.task_id, task.status.value)
+                else:
+                    # Mode staging : cartes prêtes pour la revue utilisateur.
+                    task.status = BatchTaskStatus.REVIEW
+                    success_count += 1
+                    total_cards += len(task.cards)
+                    self.task_review_ready.emit(index, task.cards)
+                    self.task_completed.emit(index, task.cards, len(task.cards))
+                    self.task_state_changed.emit(task.task_id, task.status.value)
             except Exception as exc:
                 task.status = BatchTaskStatus.FAILED
                 task.error = str(exc)

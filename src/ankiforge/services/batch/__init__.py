@@ -7,6 +7,11 @@ from ankiforge.services.batch.models import (
     BatchTaskSnapshot,
     BatchTaskStatus,
 )
+from ankiforge.services.batch.slicing_service import (
+    SliceUnit,
+    SlicingMode,
+    SlicingService,
+)
 
 __all__ = [
     "BatchGenerationConfig",
@@ -14,4 +19,7 @@ __all__ = [
     "BatchSourceBlock",
     "BatchTaskSnapshot",
     "BatchTaskStatus",
+    "SliceUnit",
+    "SlicingMode",
+    "SlicingService",
 ]

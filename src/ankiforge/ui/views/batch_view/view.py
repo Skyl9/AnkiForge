@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 import json
 import logging
 import time
@@ -14,7 +13,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -24,7 +22,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSlider,
     QSplitter,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -45,29 +42,29 @@ from ankiforge.database.models import (
 )
 from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.services.batch.models import BatchTaskSnapshot
+from ankiforge.services.batch.slicing_service import SliceUnit
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.settings_service import SettingsService
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.components import (
-    Badge,
-    EmptyStateWidget,
     IconButton,
     IdePanel,
     OptionToggleRow,
     PrimaryButton,
     SecondaryButton,
     StyledComboBox,
-    StyledTableWidget,
-    StyledTextEdit,
 )
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.components.document_picker_button import DocumentPickerButton
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.views.batch_view.constants import apply_pill_style
+from ankiforge.ui.views.batch_view.dialogs import AutoSliceConfigDialog, BatchSlicingWizardDialog
 from ankiforge.ui.views.batch_view.widgets import (
-    CicdMetricCard,
-    ProgressTableCellWidget,
+    BatchActivityLog,
+    BatchMetricsBar,
+    BatchQueueTable,
+    BatchSlicePanel,
+    BatchStagingPanel,
 )
 from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 from ankiforge.ui.widgets.toast import show_toast
@@ -90,9 +87,6 @@ class BatchView(QWidget):
         self.worker: BatchWorker | None = None
         self.queue_tasks_data: list[dict[str, Any]] = []
         self._batch_scope_results: dict[int, dict[str, Any]] = {}
-        self.cell_widgets_map: dict[int, ProgressTableCellWidget] = {}
-        self.status_badges_map: dict[int, Badge] = {}
-        self.cards_items_map: dict[int, QTableWidgetItem] = {}
         self._total_cards_accumulated = 0
         self.start_timestamp = 0.0
         self.current_deck: DeckModel | None = None
@@ -101,6 +95,8 @@ class BatchView(QWidget):
         self.models_cache: list[NoteTypeModel] = []
         self._deck_modal: DeckSelectWindow | None = None
         self._segment_inspector_doc: DocumentModel | None = None  # doc actuellement prévisualisé dans l'inspecteur
+        # Staging panel: notes brutes par index de tâche (reçues du worker via task_completed)
+        self._prepared_notes_by_task: dict[int, list[dict[str, Any]]] = {}
 
         self._setup_ui()
         self._connect_signals()
@@ -111,24 +107,14 @@ class BatchView(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # TOP ROW: Metrics Cards
-        metrics_container = QWidget()
-        metrics_container.setObjectName("batchMetricsContainer")
-        metrics_row = QHBoxLayout(metrics_container)
-        metrics_row.setContentsMargins(12, 10, 12, 10)
-        metrics_row.setSpacing(12)
-
-        self.card_status = CicdMetricCard("STATUT GLOBAL", "En attente", "ph.check-circle", color=DesignTokens.COLOR_GREEN)
-        self.card_time = CicdMetricCard("TEMPS RESTANT", "--:--:--", "ph.timer", color=DesignTokens.COLOR_BLUE)
-        self.card_cards = CicdMetricCard("CARTES GÉNÉRÉES", "0 / 0", "ph.cards", color=DesignTokens.COLOR_PURPLE)
-        self.card_cost = CicdMetricCard("COÛT ESTIMÉ", "$0.00", "ph.coin", color=DesignTokens.COLOR_YELLOW)
-
-        metrics_row.addWidget(self.card_status, 1)
-        metrics_row.addWidget(self.card_time, 1)
-        metrics_row.addWidget(self.card_cards, 1)
-        metrics_row.addWidget(self.card_cost, 1)
-
-        main_layout.addWidget(metrics_container)
+        # TOP ROW: Metrics Cards (barre KPI encapsulée dans BatchMetricsBar)
+        self.metrics_bar = BatchMetricsBar(self)
+        # Alias rétrocompatibles utilisés par BatchView et les tests
+        self.card_status = self.metrics_bar.card_status
+        self.card_time = self.metrics_bar.card_time
+        self.card_cards = self.metrics_bar.card_cards
+        self.card_cost = self.metrics_bar.card_cost
+        main_layout.addWidget(self.metrics_bar)
 
         # MAIN SPLITTER
         self.main_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -213,6 +199,23 @@ class BatchView(QWidget):
         src_layout.addWidget(self.segment_inspector)
 
         build_layout.addWidget(src_card)
+
+        # Composition de la file : contrôle segmenté des 3 modes (Manuel / Auto / Wizard)
+        slice_card = QFrame()
+        slice_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        slice_layout = QVBoxLayout(slice_card)
+        slice_layout.setContentsMargins(8, 8, 8, 8)
+        slice_layout.setSpacing(6)
+        self.slice_panel = BatchSlicePanel(slice_card)
+        self.slice_panel.set_defaults_provider(self._default_queue_targets)
+        slice_layout.addWidget(self.slice_panel)
+        build_layout.addWidget(slice_card)
 
         # Compatibilité ascendante : widgets conservés pour tests et rétro-compatibilité mais masqués
         self.doc_search_input = QLineEdit(self)
@@ -487,51 +490,14 @@ class BatchView(QWidget):
         queue_layout.setContentsMargins(0, 0, 0, 0)
         queue_layout.setSpacing(0)
 
-        self.queue_table = StyledTableWidget(["", "STATUT", "FICHIER / SOURCE", "PAQUET", "MODÈLE", "PIPELINE", "PROGRÈS", "CARTES", "ACTIONS"])
-        self.queue_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
-        self.queue_table.verticalHeader().setDefaultSectionSize(46)
-
-        header = self.queue_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(8, QHeaderView.ResizeMode.Fixed)
-
-        self.queue_table.setColumnWidth(0, 32)
-        self.queue_table.setColumnWidth(1, 100)
-        self.queue_table.setColumnWidth(3, 110)
-        self.queue_table.setColumnWidth(4, 110)
-        self.queue_table.setColumnWidth(5, 120)
-        self.queue_table.setColumnWidth(6, 150)
-        self.queue_table.setColumnWidth(7, 80)
-        self.queue_table.setColumnWidth(8, 50)
-
-        self.queue_table.setStyleSheet(
-            self.queue_table.styleSheet()
-            + """
-            QHeaderView::section {
-                padding: 6px 8px;
-                font-size: 11px;
-            }
-            QTableWidget::item {
-                padding: 4px 6px;
-            }
-        """
-        )
-
-        queue_layout.addWidget(self.queue_table, 1)
-
-        self.queue_empty = EmptyStateWidget(
-            icon_name="ph.tray",
-            title="File d'attente vide",
-            description="Sélectionnez des documents et configurez la forge à gauche pour ajouter des tâches par lots.",
-        )
-        queue_layout.addWidget(self.queue_empty, 1)
+        # Tableau de bord de la file (table, filtres et rendu encapsulés dans BatchQueueTable)
+        self.queue_widget = BatchQueueTable(queue_content)
+        self.queue_table = self.queue_widget.table
+        self.queue_empty = self.queue_widget.queue_empty
+        self.queue_widget.review_requested.connect(self._on_open_staging_for_task)
+        self.queue_widget.remove_requested.connect(self._remove_from_queue)
+        self.queue_widget.retry_requested.connect(self._on_retry_task)
+        queue_layout.addWidget(self.queue_widget, 1)
 
         self.queue_panel.add_tab("File d'attente détaillée", queue_content, "ph.list-dashes", closable=False)
         self.middle_splitter.addWidget(self.queue_panel)
@@ -561,24 +527,21 @@ class BatchView(QWidget):
         terminal_layout.setContentsMargins(0, 0, 0, 0)
         terminal_layout.setSpacing(0)
 
-        self.console_output = StyledTextEdit()
-        self.console_output.setReadOnly(True)
-        self.console_output.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background-color: {DesignTokens.BG_INPUT};
-                color: {DesignTokens.COLOR_GREEN};
-                font-family: '{DesignTokens.FONT_CODE}';
-                font-size: 12px;
-                line-height: 1.6;
-                padding: 14px;
-                border: none;
-                selection-background-color: {DesignTokens.ACCENT_PRIMARY};
-            }}
-        """)
-        terminal_layout.addWidget(self.console_output, 1)
+        # Journal d'activité moderne (remplace la QPlainTextEdit verte)
+        self.activity_log = BatchActivityLog(self.terminal_content)
+        # Alias rétrocompatible utilisé dans _log_formatted_line et les tests
+        self.console_output: BatchActivityLog = self.activity_log
+        terminal_layout.addWidget(self.activity_log, 1)
 
         self.terminal_panel.add_tab("root@ankiforge:~/pipeline_logs", self.terminal_content, "ph.terminal-window", closable=False)
         self.main_splitter.addWidget(self.terminal_panel)
+
+        # STAGING PANEL (hidden by default, shown when a task enters REVIEW state)
+        self.staging_panel = BatchStagingPanel(parent=self)
+        self.staging_panel.set_save_callback(self._save_extracted_notes_to_db)
+        self.staging_panel.cards_accepted.connect(self._on_staging_accepted)
+        self.staging_panel.task_rejected.connect(self._on_staging_rejected)
+        self.main_splitter.addWidget(self.staging_panel)
 
         self.middle_splitter.setCollapsible(0, False)
         self.middle_splitter.setCollapsible(1, False)
@@ -618,10 +581,14 @@ class BatchView(QWidget):
         self.docs_list.itemDoubleClicked.connect(self._on_doc_item_double_clicked)
         self.segment_inspector.open_delimitation_requested.connect(self._on_open_delimitation_for_batch_doc)
         self.segment_inspector.open_scope_dialog_requested.connect(self._on_open_scope_dialog_for_batch_doc)
+        self.slice_panel.auto_slice_requested.connect(self._on_open_auto_slice)
+        self.slice_panel.wizard_requested.connect(self._on_open_slicing_wizard)
+        self.slice_panel.slices_ready.connect(self._append_queue_tasks)
 
     @Slot(object)
     def _on_picker_document_changed(self, doc: DocumentModel | None) -> None:
         self._segment_inspector_doc = doc
+        self.slice_panel.set_document(doc)
         if doc is not None:
             self.btn_delimit_doc.setVisible(True)
             self.segment_inspector.setVisible(True)
@@ -647,6 +614,7 @@ class BatchView(QWidget):
         doc = item.data(Qt.ItemDataRole.UserRole)
         if isinstance(doc, DocumentModel):
             self._segment_inspector_doc = doc
+            self.slice_panel.set_document(doc)
             self.doc_picker_btn.set_document(doc, emit_signal=False)
             self.btn_delimit_doc.setVisible(True)
             self.segment_inspector.setVisible(True)
@@ -812,6 +780,7 @@ class BatchView(QWidget):
                     self._segment_inspector_doc = None
                     self.doc_picker_btn.set_document(None, emit_signal=False)
                     self.segment_inspector.setVisible(False)
+            self.slice_panel.set_document(self._segment_inspector_doc)
 
             decks = list(DeckModel.select())
             if not decks:
@@ -1011,18 +980,8 @@ class BatchView(QWidget):
         modal.exec()
 
     def _log_formatted_line(self, level: str, msg: str) -> None:
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        level_color = DesignTokens.COLOR_BLUE
-        if level == "WARN":
-            level_color = DesignTokens.COLOR_YELLOW
-        elif level == "SUCCESS":
-            level_color = DesignTokens.COLOR_GREEN
-        elif level == "ERROR":
-            level_color = DesignTokens.COLOR_RED
-
-        formatted_html = f"<span style='color: {DesignTokens.TEXT_MUTED}'>[{now_str}]</span> <span style='color: {level_color}; font-weight: bold;'>{level}</span> {msg}"
-        self.console_output.appendHtml(formatted_html)
+        if hasattr(self, "activity_log"):
+            self.activity_log.append_log(level, msg)
 
     @Slot()
     def _on_clear_terminal_clicked(self) -> None:
@@ -1211,110 +1170,8 @@ class BatchView(QWidget):
         return chunks
 
     def _update_queue_table(self) -> None:
-        self.queue_table.blockSignals(True)
-        self.cell_widgets_map.clear()
-        self.status_badges_map.clear()
-        self.cards_items_map.clear()
-
-        if not self.queue_tasks_data:
-            self.queue_table.setRowCount(0)
-            self.queue_table.hide()
-            self.queue_empty.show()
-            self.queue_table.blockSignals(False)
-            return
-
-        self.queue_empty.hide()
-        self.queue_table.show()
-        self.queue_table.clearSpans()
-        self.queue_table.setRowCount(len(self.queue_tasks_data))
-
-        for i, task in enumerate(self.queue_tasks_data):
-            doc: DocumentModel = task["doc"]
-            status: str = task.get("status", "En attente")
-            progress_pct: int = task.get("progress_pct", 0)
-            cards_count: int = task.get("cards_count", 0)
-
-            # Col 0: Checkbox
-            cb_item = QTableWidgetItem()
-            cb_item.setCheckState(Qt.CheckState.Checked)
-            self.queue_table.setItem(i, 0, cb_item)
-
-            # Col 1: Badge Statut
-            badge_color = DesignTokens.COLOR_YELLOW
-            if status == "Succès":
-                badge_color = DesignTokens.COLOR_GREEN
-            elif status == "En cours":
-                badge_color = DesignTokens.COLOR_BLUE
-            elif status == "Erreur":
-                badge_color = DesignTokens.COLOR_RED
-            elif status == "Annulé":
-                badge_color = DesignTokens.TEXT_MUTED
-
-            status_badge = Badge(status, variant="status")
-            apply_pill_style(status_badge, badge_color)
-            self.status_badges_map[i] = status_badge
-            self.queue_table.setCellWidget(i, 1, status_badge)
-
-            # Col 2: Document source
-            chunk_label = task.get("chunk_label")
-            source_label = f"{doc.title} › {chunk_label}" if chunk_label else doc.title
-            doc_item = QTableWidgetItem(source_label)
-            doc_item.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.COLOR_BLUE))
-            doc_item.setToolTip(f"ID: {doc.id} | Type: {doc.file_type or 'doc'} | Mots: {len((task.get('doc_content') or doc.content or '').split())}")
-            self.queue_table.setItem(i, 2, doc_item)
-
-            # Col 3: Paquet cible
-            deck_item = QTableWidgetItem(task.get("deck_name", "Général"))
-            self.queue_table.setItem(i, 3, deck_item)
-
-            # Col 4: Modèle
-            model_item = QTableWidgetItem(task.get("model_name", "Basique"))
-            self.queue_table.setItem(i, 4, model_item)
-
-            # Col 5: Pipeline
-            pipe_item = QTableWidgetItem(task.get("pipeline_name", "Standard"))
-            self.queue_table.setItem(i, 5, pipe_item)
-
-            # Col 6: Progrès
-            p_color = DesignTokens.ACCENT_PRIMARY
-            p_text = "En attente..."
-            if status == "Succès":
-                p_color = DesignTokens.COLOR_GREEN
-                p_text = "Terminé"
-            elif status == "En cours":
-                p_color = DesignTokens.COLOR_BLUE
-                p_text = f"{progress_pct}%"
-            elif status == "Erreur":
-                p_color = DesignTokens.COLOR_RED
-                p_text = "Erreur"
-            elif status == "Annulé":
-                p_color = DesignTokens.TEXT_MUTED
-                p_text = "Annulé"
-
-            prog_widget = ProgressTableCellWidget(progress_pct=progress_pct, status_text=p_text, color=p_color)
-            self.cell_widgets_map[i] = prog_widget
-            self.queue_table.setCellWidget(i, 6, prog_widget)
-
-            # Col 7: Cartes
-            cards_text = f"{cards_count} cartes" if cards_count > 0 else "-"
-            cards_item = QTableWidgetItem(cards_text)
-            cards_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.cards_items_map[i] = cards_item
-            self.queue_table.setItem(i, 7, cards_item)
-
-            # Col 8: Action Supprimer
-            btn_del = IconButton("ph.x", tooltip="Retirer de la queue", size=18)
-            btn_del.clicked.connect(lambda _, row_idx=i: self._remove_from_queue(row_idx))
-
-            del_widget = QWidget()
-            del_layout = QHBoxLayout(del_widget)
-            del_layout.setContentsMargins(0, 0, 0, 0)
-            del_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            del_layout.addWidget(btn_del)
-
-            self.queue_table.setCellWidget(i, 8, del_widget)
-
-        self.queue_table.blockSignals(False)
+        """Délègue le rendu complet de la file d'attente au widget BatchQueueTable."""
+        self.queue_widget.set_tasks(self.queue_tasks_data)
 
     def _remove_from_queue(self, row_idx: int) -> None:
         if 0 <= row_idx < len(self.queue_tasks_data):
@@ -1477,6 +1334,10 @@ class BatchView(QWidget):
         self.worker.log.connect(self._log_formatted_line)
         self.worker.batch_finished.connect(self._on_batch_finished)
         self.worker.cancelled.connect(self._on_batch_cancelled)
+        if hasattr(self.worker, "task_review_ready"):
+            self.worker.task_review_ready.connect(self._on_task_review_ready)
+        if hasattr(self.worker, "task_accepted"):
+            self.worker.task_accepted.connect(self._on_task_accepted)
 
         self.worker.start()
 
@@ -1504,11 +1365,7 @@ class BatchView(QWidget):
     def _on_task_started(self, task_idx: int, doc_title: str) -> None:
         if 0 <= task_idx < len(self.queue_tasks_data):
             self.queue_tasks_data[task_idx]["status"] = "En cours"
-            if task_idx in self.status_badges_map:
-                self.status_badges_map[task_idx].setText("En cours")
-                apply_pill_style(self.status_badges_map[task_idx], DesignTokens.COLOR_BLUE)
-            if task_idx in self.cell_widgets_map:
-                self.cell_widgets_map[task_idx].update_progress(0, "Démarrage...", color=DesignTokens.COLOR_BLUE)
+            self.queue_widget.sync_started(task_idx)
 
         total = len(self.queue_tasks_data)
         self.card_status.val_lbl.setText(f"En cours ({task_idx + 1}/{total})")
@@ -1517,8 +1374,7 @@ class BatchView(QWidget):
     def _on_task_progress(self, task_idx: int, progress_pct: int, step_detail: str) -> None:
         if 0 <= task_idx < len(self.queue_tasks_data):
             self.queue_tasks_data[task_idx]["progress_pct"] = progress_pct
-            if task_idx in self.cell_widgets_map:
-                self.cell_widgets_map[task_idx].update_progress(progress_pct, step_detail, color=DesignTokens.COLOR_BLUE)
+            self.queue_widget.sync_progress(task_idx, progress_pct, step_detail)
 
         if self.start_timestamp > 0:
             elapsed = int(time.time() - self.start_timestamp)
@@ -1530,28 +1386,34 @@ class BatchView(QWidget):
     def _on_task_completed(self, task_idx: int, prepared_notes: list[dict[str, Any]], cards_count: int) -> None:
         if 0 <= task_idx < len(self.queue_tasks_data):
             task = self.queue_tasks_data[task_idx]
-            task["status"] = "Succès"
             task["progress_pct"] = 100
             task["cards_count"] = cards_count
 
-            # Sauvegarde atomique en base
-            deck_id = task["deck"].id if hasattr(task.get("deck"), "id") else 1
-            model_id = task["note_type"].id if hasattr(task.get("note_type"), "id") else 1
-            doc_id = task["doc"].id if hasattr(task.get("doc"), "id") else 0
-            self._save_extracted_notes_to_db(prepared_notes, deck_id, model_id, doc_id)
+            auto_val: bool = bool(task.get("auto_val", True))
 
-            if task_idx in self.status_badges_map:
-                self.status_badges_map[task_idx].setText("Succès")
-                apply_pill_style(self.status_badges_map[task_idx], DesignTokens.COLOR_GREEN)
+            if auto_val:
+                # Mode validation automatique : sauvegarde immédiate
+                task["status"] = "Succès"
+                deck_id = task["deck"].id if hasattr(task.get("deck"), "id") else 1
+                model_id = task["note_type"].id if hasattr(task.get("note_type"), "id") else 1
+                doc_id = task["doc"].id if hasattr(task.get("doc"), "id") else 0
+                self._save_extracted_notes_to_db(prepared_notes, deck_id, model_id, doc_id)
 
-            if task_idx in self.cell_widgets_map:
-                self.cell_widgets_map[task_idx].update_progress(100, "Terminé", color=DesignTokens.COLOR_GREEN)
+                self.queue_widget.sync_completed(task_idx, "Succès", cards_count)
+                self._total_cards_accumulated += cards_count
+                self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
 
-            if task_idx in self.cards_items_map:
-                self.cards_items_map[task_idx].setText(f"{cards_count} cartes")
+            else:
+                # Mode staging : mettre la tâche en revue, ne pas sauvegarder
+                task["status"] = "À réviser"
+                task["_staging_notes"] = prepared_notes
+                self._prepared_notes_by_task[task_idx] = prepared_notes
 
-            self._total_cards_accumulated += cards_count
-            self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+                self.queue_widget.sync_completed(task_idx, "À réviser", cards_count)
+
+                staging_count = sum(1 for t in self.queue_tasks_data if t.get("status") == "À réviser")
+                self.card_cards.val_lbl.setText(f"{staging_count} en staging")
+                self._log_formatted_line("INFO", f"Tâche #{task_idx + 1} prête pour revue ({cards_count} cartes).")
 
     @Slot(int, str)
     def _on_task_failed(self, task_idx: int, error_message: str) -> None:
@@ -1560,13 +1422,181 @@ class BatchView(QWidget):
             task["status"] = "Erreur"
             task["progress_pct"] = 100
             task["error_message"] = error_message
+            self.queue_widget.sync_failed(task_idx)
 
-            if task_idx in self.status_badges_map:
-                self.status_badges_map[task_idx].setText("Erreur")
-                apply_pill_style(self.status_badges_map[task_idx], DesignTokens.COLOR_RED)
+    @Slot(int, int)
+    def _on_task_accepted(self, task_idx: int, cards_count: int) -> None:
+        """Mode validation automatique : la tâche est acceptée sans revue."""
+        if 0 <= task_idx < len(self.queue_tasks_data):
+            self.card_status.val_lbl.setText(f"Acceptée ({task_idx + 1})")
 
-            if task_idx in self.cell_widgets_map:
-                self.cell_widgets_map[task_idx].update_progress(100, "Échec", color=DesignTokens.COLOR_RED)
+    def _default_queue_targets(self) -> dict[str, Any]:
+        """Valeurs par défaut des nouvelles tâches de la file (deck, modèle, engine, pipeline, ...)."""
+        engine = self.engine_combo.currentData() if self.engine_combo.count() else None
+        pipeline = self.pipeline_combo.currentData() if self.pipeline_combo.count() else None
+        return {
+            "deck": self.current_deck,
+            "deck_name": str(getattr(self.current_deck, "name", "Général")),
+            "model": self.current_model,
+            "model_name": str(getattr(self.current_model, "name", "Basique")),
+            "engine": engine,
+            "pipeline": pipeline,
+            "pipeline_name": str(getattr(pipeline, "name", "Standard")),
+            "use_vision": bool(self.cb_vision.isChecked()) if hasattr(self, "cb_vision") else False,
+            "auto_val": bool(self.cb_autoval.isChecked()) if hasattr(self, "cb_autoval") else True,
+            "temperature": self.slider_temp.value() / 10.0 if hasattr(self, "slider_temp") else 0.7,
+            "max_tokens": self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384,
+        }
+
+    def _slice_to_queue_task(self, s: SliceUnit) -> dict[str, Any] | None:
+        """Construit un dict de tâche de file depuis un SliceUnit découpé manuellement/auto."""
+        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
+        if doc is None:
+            return None
+        defaults = self._default_queue_targets()
+        return {
+            "doc": doc,
+            "doc_title": f"{doc.title} — {s.title}",
+            "doc_content": s.content,
+            "source_chunks": [s.as_dict()],
+            "chunk_label": s.title,
+            "chunk_index": s.index,
+            "tokens_est": s.tokens_estimate or len(s.content.split()) * 4,
+            "deck": defaults["deck"],
+            "deck_name": defaults["deck_name"],
+            "note_type": defaults["model"],
+            "model_name": defaults["model_name"],
+            "engine": defaults["engine"],
+            "pipeline": defaults["pipeline"],
+            "pipeline_name": defaults["pipeline_name"],
+            "use_vision": defaults["use_vision"],
+            "auto_val": defaults["auto_val"],
+            "temperature": defaults["temperature"],
+            "max_tokens": defaults["max_tokens"],
+            "status": "En attente",
+            "progress_pct": 0,
+            "cards_count": 0,
+            "pending_cards": [],
+        }
+
+    def _append_queue_tasks(self, task_dicts: list[dict[str, Any]]) -> None:
+        """Ajoute les tâches composées (manuelles/auto/wizard) à la file d'attente."""
+        added_count = 0
+        for task in task_dicts:
+            content = str(task.get("doc_content", "")).strip()
+            if not content:
+                continue
+            task.setdefault("doc", self._segment_inspector_doc or self.doc_picker_btn.get_document())
+            task.setdefault("status", "En attente")
+            task.setdefault("progress_pct", 0)
+            task.setdefault("cards_count", 0)
+            task.setdefault("pending_cards", [])
+            task.setdefault("deck", self.current_deck)
+            task.setdefault("note_type", self.current_model)
+            task.setdefault("engine", self.engine_combo.currentData() if self.engine_combo.count() else None)
+            task.setdefault("pipeline", self.pipeline_combo.currentData() if self.pipeline_combo.count() else None)
+            task.setdefault("auto_val", True)
+            self.queue_tasks_data.append(task)
+            added_count += 1
+        if added_count:
+            self._update_queue_table()
+            self._update_estimates_summary()
+            show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
+
+    @Slot()
+    def _on_open_auto_slice(self) -> None:
+        """Ouvre AutoSliceConfigDialog pour un découpage automatique du document courant."""
+        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
+        if doc is None:
+            show_toast(self, "Veuillez sélectionner un document source.", is_error=True)
+            return
+        dlg = AutoSliceConfigDialog(doc, parent=self)
+        if dlg.exec():
+            result = dlg.get_result()
+            slices = result.get("slices", []) if isinstance(result, dict) else []
+            tasks = [t for s in slices if (t := self._slice_to_queue_task(s)) is not None]
+            self._append_queue_tasks(tasks)
+
+    @Slot()
+    def _on_open_slicing_wizard(self) -> None:
+        """Ouvre BatchSlicingWizardDialog pour composer des tâches avancées dans la queue."""
+        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
+        if doc is None:
+            show_toast(self, "Veuillez sélectionner un document source.", is_error=True)
+            return
+        dlg = BatchSlicingWizardDialog(
+            doc,
+            decks=self.decks_cache,
+            note_types=self.models_cache,
+            engines=list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc())),
+            pipelines=list(PipelineModel.select()),
+            parent=self,
+        )
+        if dlg.exec():
+            payloads = dlg.get_configured_payloads()
+            self._append_queue_tasks(payloads)
+
+    @Slot(int)
+    def _on_retry_task(self, row_idx: int) -> None:
+        """Relance une tâche en échec : remise en attente puis reprise du batch."""
+        if 0 <= row_idx < len(self.queue_tasks_data):
+            task = self.queue_tasks_data[row_idx]
+            task["status"] = "En attente"
+            task["progress_pct"] = 0
+            task["cards_count"] = 0
+            task.pop("error_message", None)
+            self._update_queue_table()
+            self._log_formatted_line("INFO", f"Tâche #{row_idx + 1} relancée.")
+            self._on_resume_batch()
+
+    # ── Staging Panel Slots ──────────────────────────────────────────────
+
+    @Slot(int, list)
+    def _on_task_review_ready(self, task_idx: int, prepared_notes: list[dict[str, Any]]) -> None:
+        """Slot déclenché par BatchWorker.task_review_ready : ouvre directement le staging panel."""
+        if 0 <= task_idx < len(self.queue_tasks_data):
+            task = self.queue_tasks_data[task_idx]
+            self._prepared_notes_by_task[task_idx] = prepared_notes
+            self.staging_panel.load_task(task_idx, task, prepared_notes)
+
+    @Slot(int)
+    def _on_open_staging_for_task(self, task_idx: int) -> None:
+        """Ouvre le staging panel pour une tâche en statut 'À réviser'."""
+        if 0 <= task_idx < len(self.queue_tasks_data):
+            task = self.queue_tasks_data[task_idx]
+            notes = self._prepared_notes_by_task.get(task_idx) or list(task.get("_staging_notes", []))
+            if notes:
+                self.staging_panel.load_task(task_idx, task, notes)
+            else:
+                from ankiforge.ui.widgets.toast import show_toast
+
+                show_toast(self, "Aucune carte en attente de revue pour cette tâche.", is_error=True)
+
+    @Slot(int, list)
+    def _on_staging_accepted(self, task_idx: int, accepted_cards: list[dict[str, Any]]) -> None:
+        """Appelé quand le staging panel valide des cartes : mettre à jour le statut de la tâche."""
+        if 0 <= task_idx < len(self.queue_tasks_data):
+            task = self.queue_tasks_data[task_idx]
+            task["status"] = "Acceptée"
+            task["cards_count"] = len(accepted_cards)
+            self._total_cards_accumulated += len(accepted_cards)
+            self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+
+            self.queue_widget.sync_completed(task_idx, "Acceptée", len(accepted_cards))
+
+            self._log_formatted_line("SUCCESS", f"Tâche #{task_idx + 1} validée : {len(accepted_cards)} carte(s) enregistrée(s).")
+
+    @Slot(int)
+    def _on_staging_rejected(self, task_idx: int) -> None:
+        """Appelé quand le staging panel rejette une tranche."""
+        if 0 <= task_idx < len(self.queue_tasks_data):
+            task = self.queue_tasks_data[task_idx]
+            task["status"] = "Rejetée"
+            task["cards_count"] = 0
+
+            self.queue_widget.sync_completed(task_idx, "Rejetée", 0)
+
+            self._log_formatted_line("WARN", f"Tâche #{task_idx + 1} rejetée par l'utilisateur.")
 
     def accept_batch_task(self, task_idx: int, accepted_cards: list[dict[str, Any]] | None = None) -> bool:
         """Persist the reviewed cards for one new scope-based queue row."""
@@ -1733,14 +1763,8 @@ class BatchView(QWidget):
         log_and_notify_error(error_msg, context="Exécution du pipeline", parent=self, title="Erreur Pipeline")
 
     def refresh_theme(self, profile: Any) -> None:
-        if hasattr(self, "card_status"):
-            self.card_status.refresh_theme(profile)
-        if hasattr(self, "card_time"):
-            self.card_time.refresh_theme(profile)
-        if hasattr(self, "card_cards"):
-            self.card_cards.refresh_theme(profile)
-        if hasattr(self, "card_cost"):
-            self.card_cost.refresh_theme(profile)
+        if hasattr(self, "metrics_bar"):
+            self.metrics_bar.refresh_theme(profile)
 
         if hasattr(self, "lbl_src"):
             self.lbl_src.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: bold;")
@@ -1790,8 +1814,8 @@ class BatchView(QWidget):
         if hasattr(self, "val_tokens_lbl"):
             self.val_tokens_lbl.setStyleSheet(f"color: {profile.text_primary}; font-family: '{profile.font_code}'; font-size: 11px;")
 
-        if hasattr(self, "queue_table") and hasattr(self.queue_table, "refresh_theme"):
-            self.queue_table.refresh_theme(profile)
+        if hasattr(self, "queue_widget"):
+            self.queue_widget.refresh_theme(profile)
 
         if hasattr(self, "console_output"):
             self.console_output.setStyleSheet(f"""
@@ -1810,7 +1834,7 @@ class BatchView(QWidget):
         if hasattr(self, "btn_toggle_terminal") and hasattr(self.btn_toggle_terminal, "refresh_theme"):
             self.btn_toggle_terminal.refresh_theme(profile)
 
-        for cell in self.cell_widgets_map.values():
+        for cell in self.queue_widget.cell_widgets_map.values():
             if hasattr(cell, "refresh_theme"):
                 cell.refresh_theme(profile)
 

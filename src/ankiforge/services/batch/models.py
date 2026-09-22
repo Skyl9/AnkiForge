@@ -133,6 +133,44 @@ class BatchTaskSnapshot:
         identity = stable_hash({"scope": scope.scope_hash, "config": config.identity_payload()})
         return cls(task_id=identity, scope=scope, config=config)
 
+    @property
+    def pending_cards(self) -> list[dict[str, Any]]:
+        """Cartes en attente de révision ou non encore explicitement rejetées."""
+        return [c for c in self.cards if c.get("status") not in (BatchTaskStatus.REJECTED, "Rejetée")]
+
+    @property
+    def accepted_cards(self) -> list[dict[str, Any]]:
+        """Cartes expressément validées par l'utilisateur."""
+        return [c for c in self.cards if c.get("status") in (BatchTaskStatus.ACCEPTED, "Validée")]
+
+    @property
+    def rejected_cards(self) -> list[dict[str, Any]]:
+        """Cartes rejetées lors du staging."""
+        return [c for c in self.cards if c.get("status") in (BatchTaskStatus.REJECTED, "Rejetée")]
+
+    def set_card_status(self, card_index: int, status: str) -> None:
+        """Modifie le statut d'une carte spécifique."""
+        if 0 <= card_index < len(self.cards):
+            self.cards[card_index]["status"] = status
+
+    def update_card_field(self, card_index: int, field_name: str, value: str) -> None:
+        """Met à jour la valeur d'un champ de carte et marque la carte comme éditée."""
+        if 0 <= card_index < len(self.cards):
+            self.cards[card_index][field_name] = value
+            self.cards[card_index]["user_edited"] = True
+
+    def accept_all_cards(self) -> None:
+        """Valide toutes les cartes de la tâche."""
+        for card in self.cards:
+            card["status"] = "Validée"
+        self.status = BatchTaskStatus.ACCEPTED
+
+    def reject_all_cards(self) -> None:
+        """Rejette toutes les cartes de la tâche."""
+        for card in self.cards:
+            card["status"] = "Rejetée"
+        self.status = BatchTaskStatus.REJECTED
+
 
 def content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
