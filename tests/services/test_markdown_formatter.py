@@ -1,7 +1,11 @@
 """Tests unitaires pour MarkdownFormatter."""
 
+import pytest
+
 from ankiforge.services.markdown.formatter import MarkdownFormatter
 from ankiforge.services.markdown.models import FormatOptions
+
+pytestmark = pytest.mark.unit
 
 
 def test_formatter_empty_string() -> None:

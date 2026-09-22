@@ -5,8 +5,12 @@ Tests unitaires pour le service d'import/export de modèles de cartes (CardModel
 import json
 from pathlib import Path
 
+import pytest
+
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.services.cards.card_model_io import BUNDLE_EXTENSION, CardModelIO
+
+pytestmark = pytest.mark.integration
 
 
 def test_export_to_dict_and_json():

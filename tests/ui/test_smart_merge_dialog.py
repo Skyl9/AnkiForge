@@ -3,6 +3,8 @@ import pytest
 from ankiforge.services.cards.import_manager import ConflictItem
 from ankiforge.ui.dialogs.smart_merge_dialog import ConflictFieldRow, SmartMergeDialog
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def sample_conflict():

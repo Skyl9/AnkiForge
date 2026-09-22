@@ -1,8 +1,12 @@
 import json
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.database.models import NoteTypeModel
 from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+
+pytestmark = pytest.mark.ui
 
 
 def test_preview_widget_empty_state(qtbot):

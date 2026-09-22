@@ -19,6 +19,8 @@ from ankiforge.ui.widgets.note_editor_widget import (
     NoteFieldTextEdit,
 )
 
+pytestmark = pytest.mark.ui
+
 
 def test_strip_html_tags_and_format_tags():
     """Vérifie le nettoyage du HTML brut et des tags vides."""
@@ -34,7 +36,6 @@ def test_strip_html_tags_and_format_tags():
     assert format_tags_display(["medecine", "cardio"]) == "#medecine  #cardio"
 
 
-@pytest.mark.ui
 def test_edition_view_progressive_disclosure_and_navigation(qtbot, mock_db):
     """Vérifie la disposition verticale avec Progressive Disclosure (repliement en ruban) et la navigation."""
     uid1 = uuid.uuid4().hex[:6]
@@ -86,7 +87,6 @@ def test_edition_view_progressive_disclosure_and_navigation(qtbot, mock_db):
     assert view.nav_ribbon.isHidden()
 
 
-@pytest.mark.ui
 def test_edition_view_preview_toggle_and_modes(qtbot, mock_db):
     """Vérifie le masquage et l'affichage du volet de prévisualisation dans l'éditeur bas."""
     view = EditionView(ai_manager=None)
@@ -117,7 +117,6 @@ def test_edition_view_preview_toggle_and_modes(qtbot, mock_db):
     assert not view.fields_scroll_area.isHidden()
 
 
-@pytest.mark.ui
 def test_note_field_editor_and_highlighter(qtbot):
     """Vérifie le widget de champ NoteFieldEditorWidget, le repliage et la coloration syntaxique."""
     widget = NoteFieldEditorWidget("Recto", "<b>Hello</b> $\\alpha$ {{c1::test}}", is_first=True)
@@ -140,7 +139,6 @@ def test_note_field_editor_and_highlighter(qtbot):
     assert widget.get_text() == "Nouveau contenu"
 
 
-@pytest.mark.ui
 def test_katex_completer_and_auto_closing_pairs(qtbot):
     """Vérifie l'IntelliSense (LaTeX, HTML, Modèle) et la fermeture automatique des délimiteurs."""
     editor = NoteFieldTextEdit()
@@ -181,7 +179,6 @@ def test_katex_completer_and_auto_closing_pairs(qtbot):
     assert editor.toPlainText() == "$$"
 
 
-@pytest.mark.ui
 def test_editor_toolbar_actions_and_custom_registration(qtbot):
     """Vérifie l'exécution des actions de la barre d'outils et l'enregistrement d'une action personnalisée."""
     toolbar = EditorToolbarWidget()
@@ -216,7 +213,6 @@ def test_editor_toolbar_actions_and_custom_registration(qtbot):
     assert "custom_stamp" not in toolbar._actions
 
 
-@pytest.mark.ui
 def test_edition_view_card_selection_smart_cloze_and_saving(qtbot, mock_db):
     """Vérifie la sélection de carte, l'enrichissement par la toolbar avec Cloze incrémental et la sauvegarde épurée."""
     uid = uuid.uuid4().hex[:6]
@@ -292,7 +288,6 @@ def test_edition_view_consult_ai_button(qtbot):
     assert f"#{note.id}" in received_events[0].initial_prompt
 
 
-@pytest.mark.ui
 def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'ouverture de ModelSelectWindow depuis la barre de filtres et l'application du filtre."""
     from ankiforge.ui.components.model_select_window import ModelSelectWindow
@@ -325,7 +320,6 @@ def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
     assert "Tous" in view.btn_open_model.text()
 
 
-@pytest.mark.ui
 def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le changement de modèle d'une note via la modale dans l'éditeur."""
     from ankiforge.ui.components.model_select_window import ModelSelectWindow
@@ -372,7 +366,6 @@ def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any) -> None:
     assert view.dynamic_field_widgets["Answer"].get_text() == "Contenu Reponse"
 
 
-@pytest.mark.ui
 def test_edition_view_move_card_to_deck(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le déplacement d'une note vers un autre paquet via la modale."""
     uid = uuid.uuid4().hex[:6]
@@ -402,7 +395,6 @@ def test_edition_view_move_card_to_deck(qtbot: Any, mock_db: Any) -> None:
     assert refreshed_card.deck.name == deck_new.name
 
 
-@pytest.mark.ui
 def test_edition_view_batch_move_cards_to_deck(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le déplacement par lot de plusieurs notes cochées vers un paquet."""
     uid = uuid.uuid4().hex[:6]

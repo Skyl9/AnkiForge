@@ -10,6 +10,8 @@ from ankiforge.services.rag.hybrid_retriever import (
     HybridRAGRetriever,
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def sample_chunks(mock_db):

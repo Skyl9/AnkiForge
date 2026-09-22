@@ -4,6 +4,8 @@ Tests unitaires pour MetricsService (calcul des KPIs, agrégation 7 jours et dia
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from ankiforge.database.models import (
     AuditRecordModel,
     CardModel,
@@ -17,6 +19,8 @@ from ankiforge.database.models import (
     TokenUsageModel,
 )
 from ankiforge.services.audit.metrics_service import MetricsService
+
+pytestmark = pytest.mark.integration
 
 
 def test_wozniak_health_score_empty_db():

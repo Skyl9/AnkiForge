@@ -1,5 +1,9 @@
+import pytest
+
 from ankiforge.database.models import PersonaModel
 from ankiforge.services.ai.prompt_interpolator import PipelinePromptInterpolator
+
+pytestmark = pytest.mark.unit
 
 
 def test_interpolate_step_with_prompt_override():

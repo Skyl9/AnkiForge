@@ -7,6 +7,8 @@ import pytest
 from ankiforge.database.models import PersonaModel
 from ankiforge.services.ai.consultant_engine import ConsultantEngine, ConsultantToolRegistry
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def sample_personas():

@@ -4,7 +4,11 @@ Unit tests for PersonaRepository.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.repositories.persona_repository import PersonaRepository
+
+pytestmark = pytest.mark.integration
 
 
 def test_persona_repository_crud() -> None:

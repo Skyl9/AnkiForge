@@ -4,12 +4,15 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from PySide6.QtWidgets import QDialog
 
 from ankiforge.services.cards.import_manager import ImportAnalysisResult, ImportManager
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
 from ankiforge.ui.dialogs.import_dialog import ImportDialog
 from ankiforge.ui.views.dashboard_view import DashboardView
+
+pytestmark = pytest.mark.ui
 
 
 def _create_simple_apkg(file_path: Path) -> None:

@@ -4,7 +4,11 @@ Unit tests for SettingRepository.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.repositories.setting_repository import SettingRepository
+
+pytestmark = pytest.mark.integration
 
 
 def test_setting_repository_crud() -> None:

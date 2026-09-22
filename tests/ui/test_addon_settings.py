@@ -19,6 +19,8 @@ from ankiforge.ui.dialogs.addon_manager_dialog import (
 )
 from ankiforge.ui.widgets.settings_modal import SettingsModal
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def dummy_plugin_env():

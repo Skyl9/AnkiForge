@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ankiforge.services.parsing.youtube_parser import YouTubeParser, format_timestamp
+
+pytestmark = pytest.mark.unit
 
 
 def test_format_timestamp() -> None:

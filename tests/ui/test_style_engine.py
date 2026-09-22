@@ -16,6 +16,8 @@ from ankiforge.ui.style_engine import (
 )
 from ankiforge.ui.theme import DesignTokens
 
+pytestmark = pytest.mark.ui
+
 
 def test_style_engine_singleton_and_builtin_themes():
     """Vérifie l'accès au singleton et la présence des 4 thèmes officiels."""

@@ -25,6 +25,8 @@ from ankiforge.ui.views.creation_view import CreationView
 from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
 from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 
+pytestmark = pytest.mark.ui
+
 
 class DummyCreationProvider(LLMProvider):
     def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json", max_tokens: int | None = None) -> str:
@@ -43,7 +45,6 @@ class DummyCreationAIManager:
         return DummyCreationProvider()
 
 
-@pytest.mark.ui
 def test_creation_view_creation(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'instanciation de base de la vue de création."""
     view = CreationView(ai_manager=None)
@@ -51,7 +52,6 @@ def test_creation_view_creation(qtbot: Any, mock_db: Any) -> None:
     assert view is not None
 
 
-@pytest.mark.ui
 def test_creation_view_create_new_deck_hierarchical(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Le « Nouveau Paquet » du Studio doit créer la hiérarchie complète (parents + lien parent_deck)."""
     from PySide6.QtWidgets import QInputDialog
@@ -78,7 +78,6 @@ def test_creation_view_create_new_deck_hierarchical(qtbot: Any, mock_db: Any, mo
     assert view.current_deck.parent_deck_id == parent2.id
 
 
-@pytest.mark.ui
 def test_free_input_remains_editable_for_generation(qtbot: Any, mock_db: Any) -> None:
     """Une saisie libre doit rester éditable et transmettre le texte modifié."""
     editor = DocumentEditorWidget("Texte initial", source_title="Nouvelle Saisie")
@@ -95,7 +94,6 @@ def test_free_input_remains_editable_for_generation(qtbot: Any, mock_db: Any) ->
 
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_creation_view_dag_generation_flow(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le déclenchement asynchrone de la génération DAG et la réception des cartes."""
 
@@ -148,7 +146,6 @@ def test_creation_view_dag_generation_flow(qtbot: Any, mock_db: Any) -> None:
     view.thread_pool.waitForDone(2000)
 
 
-@pytest.mark.ui
 def test_human_validation_dialog(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le fonctionnement de la modale HumanValidationDialog."""
     from ankiforge.services.ai.state import PipelineRunState
@@ -175,7 +172,6 @@ def test_human_validation_dialog(qtbot: Any, mock_db: Any) -> None:
     assert state.get_variable("map_items") == ["Concept 1 Modifié"]
 
 
-@pytest.mark.ui
 def test_creation_view_cancellation(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'annulation propre de la génération dans CreationView."""
     view = CreationView(ai_manager=None)
@@ -185,7 +181,6 @@ def test_creation_view_cancellation(qtbot: Any, mock_db: Any) -> None:
     assert view.orchestrator is None or view.orchestrator._is_cancelled
 
 
-@pytest.mark.ui
 def test_creation_view_album_context_and_scope(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'affichage adaptatif d'un album (scope, vision, galerie, presets) dans CreationView."""
     uid = uuid.uuid4().hex[:6]
@@ -240,7 +235,6 @@ def test_creation_view_album_context_and_scope(qtbot: Any, mock_db: Any) -> None
     assert editor._album_cards[3].badge.text() == "Hors portée"
 
 
-@pytest.mark.ui
 def test_creation_view_multimodal_formats_scope(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'adaptation des unités et titres de portée pour PPTX, EPUB et Audio."""
     uid = uuid.uuid4().hex[:6]
@@ -269,7 +263,6 @@ def test_creation_view_multimodal_formats_scope(qtbot: Any, mock_db: Any) -> Non
     assert view.vision_card.isHidden()
 
 
-@pytest.mark.ui
 def test_document_editor_modes_and_album_gallery(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le commutateur de vues (Galerie / Texte) et les cartes d'album."""
     uid = uuid.uuid4().hex[:6]
@@ -300,7 +293,6 @@ def test_document_editor_modes_and_album_gallery(qtbot: Any, mock_db: Any) -> No
     assert editor.editor_stack.currentWidget() == editor.album_container
 
 
-@pytest.mark.ui
 def test_creation_view_multimodal_variables_in_generation(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que use_vision, document_id, file_type et scope_pages sont bien transmis à l'état DAG."""
     uid = uuid.uuid4().hex[:6]
@@ -362,7 +354,6 @@ def test_creation_view_multimodal_variables_in_generation(qtbot: Any, mock_db: A
     view.thread_pool.waitForDone(2000)
 
 
-@pytest.mark.ui
 def test_creation_view_generation_logs_tab(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la présence et le bon fonctionnement de l'onglet de logs d'exécution."""
     view = CreationView(ai_manager=None)
@@ -398,7 +389,6 @@ def test_creation_view_generation_logs_tab(qtbot: Any, mock_db: Any) -> None:
     assert "Journal des Erreurs (1)" in view.results_panel.tabs_bar.tabs[CreationView.TAB_INDEX_ERRORS].text()
 
 
-@pytest.mark.ui
 def test_creation_view_generation_logs_flow(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le cycle de vie complet des logs lors d'une génération asynchrone."""
     uid = uuid.uuid4().hex[:6]
@@ -452,7 +442,6 @@ def test_creation_view_generation_logs_flow(qtbot: Any, mock_db: Any) -> None:
     view.thread_pool.waitForDone(2000)
 
 
-@pytest.mark.ui
 def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie que la validation et le rejet de cartes ne déclenchent pas de toast unitaire
 
@@ -519,7 +508,6 @@ def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch
     tm.clear()
 
 
-@pytest.mark.ui
 def test_card_edit_dialog_dynamic_fields(qtbot: Any) -> None:
     """Vérifie que CardEditDialog génère dynamiquement tous les champs et permet leur édition."""
     card_data = {
@@ -556,7 +544,6 @@ def test_card_edit_dialog_dynamic_fields(qtbot: Any) -> None:
     assert second == "ˈʃaːdn̩ˌfʁɔɪ̯də"
 
 
-@pytest.mark.ui
 def test_card_edit_dialog_strict_fields_and_formatting_toolbar(qtbot: Any) -> None:
     """Vérifie que CardEditDialog n'ajoute aucun champ fantôme/métadonnée et que la barre d'outils fonctionne."""
     card_data = {
@@ -615,7 +602,6 @@ def test_card_edit_dialog_strict_fields_and_formatting_toolbar(qtbot: Any) -> No
     dlg.cleanup()
 
 
-@pytest.mark.ui
 def test_creation_view_cell_edited_does_not_inject_synonym_keys(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que modifier une cellule dans le tableau ne crée pas de champs synonymes parasites."""
     nt_basic = NoteTypeModel.create(
@@ -650,7 +636,6 @@ def test_creation_view_cell_edited_does_not_inject_synonym_keys(qtbot: Any, mock
     assert "Remarques extra" not in card
 
 
-@pytest.mark.ui
 def test_creation_view_edit_card_cleans_phantom_keys(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie que _on_edit_card nettoie les clés fantômes résiduelles hors schéma."""
     from PySide6.QtWidgets import QDialog
@@ -696,7 +681,6 @@ def test_creation_view_edit_card_cleans_phantom_keys(qtbot: Any, mock_db: Any, m
     assert "Verso" not in card
 
 
-@pytest.mark.ui
 def test_creation_view_dynamic_table_columns_heterogeneous_cards(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que le tableau des résultats adapte ses colonnes à l'union des champs et grise les champs non applicables."""
     from PySide6.QtCore import Qt
@@ -778,7 +762,6 @@ def test_creation_view_dynamic_table_columns_heterogeneous_cards(qtbot: Any, moc
     assert view.generated_cards[1]["Texte"] == "Texte Modifié"
 
 
-@pytest.mark.ui
 def test_creation_view_on_edit_card_flow(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie l'ouverture et la prise en compte des modifications via _on_edit_card."""
     from PySide6.QtWidgets import QDialog
@@ -824,7 +807,6 @@ def test_creation_view_on_edit_card_flow(qtbot: Any, mock_db: Any, monkeypatch: 
     assert item_res_3 is not None and item_res_3.text() == "Docs officielles"
 
 
-@pytest.mark.ui
 def test_creation_view_save_anki_creates_tags_without_chunk_link(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la sauvegarde d'une note dans CreationView crée les tags déterministes mais plus de lien forge NoteChunkLinkModel."""
     uid = uuid.uuid4().hex[:6]
@@ -880,7 +862,6 @@ def test_creation_view_save_anki_creates_tags_without_chunk_link(qtbot: Any, moc
     assert link.chunk_id == chunk.id
 
 
-@pytest.mark.ui
 def test_creation_view_load_context_retains_chunk_and_page(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que load_context retient correctement chunk_id, doc_id et page_number."""
     uid = uuid.uuid4().hex[:6]
@@ -915,7 +896,6 @@ def test_creation_view_load_context_retains_chunk_and_page(qtbot: Any, mock_db: 
     assert view.input_page_scope.text() == "4"
 
 
-@pytest.mark.ui
 def test_document_scope_dialog_sections_restoration(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentScopeDialog restaure fidèlement le mode sections et l'état des cases cochées."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
@@ -970,7 +950,6 @@ def test_document_scope_dialog_sections_restoration(qtbot: Any, mock_db: Any) ->
     assert all("1.2" not in (c.get("heading_path") or "") for c in selected2)
 
 
-@pytest.mark.ui
 def test_creation_view_second_generation_with_sections_selection(qtbot: Any, mock_db: Any) -> None:
     """Vérifie qu'une deuxième génération dans CreationView conserve fidèlement la sélection par section."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog

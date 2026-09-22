@@ -7,6 +7,8 @@ from jinja2.exceptions import SecurityError
 
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
+pytestmark = pytest.mark.unit
+
 
 def test_renders_plain_variable() -> None:
     env = create_prompt_environment()

@@ -4,10 +4,14 @@ Unit tests for EditionViewModel.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.ui.viewmodels.edition_viewmodel import EditionViewModel
 from ankiforge.utils.event_bus import AppEventBus, NoteDeletedEvent, NoteUpdatedEvent
+
+pytestmark = pytest.mark.ui
 
 
 def test_edition_viewmodel_browser() -> None:

@@ -8,8 +8,9 @@ from PySide6.QtTest import QTest
 
 from ankiforge.ui.components.inputs import OptionToggleRow, ToggleSwitch
 
+pytestmark = pytest.mark.ui
 
-@pytest.mark.ui
+
 def test_toggle_switch_initial_state_and_instant_set(qtbot: Any) -> None:
     """Vérifie l'état initial sans animation et le positionnement instantané du curseur."""
     sw_off = ToggleSwitch()
@@ -24,7 +25,6 @@ def test_toggle_switch_initial_state_and_instant_set(qtbot: Any) -> None:
     assert sw_on.get_thumb_pos() == 18.0
 
 
-@pytest.mark.ui
 def test_toggle_switch_animated_transition(qtbot: Any) -> None:
     """Vérifie que l'animation glisse le curseur de 2.0 à 18.0."""
     sw = ToggleSwitch()
@@ -48,7 +48,6 @@ def test_toggle_switch_animated_transition(qtbot: Any) -> None:
     assert signals == [True, False]
 
 
-@pytest.mark.ui
 def test_toggle_switch_mid_flight_reversal(qtbot: Any) -> None:
     """Vérifie qu'un clic à mi-course inverse l'animation sans gel ni saut brutal."""
     sw = ToggleSwitch()
@@ -69,7 +68,6 @@ def test_toggle_switch_mid_flight_reversal(qtbot: Any) -> None:
     qtbot.waitUntil(lambda: sw.get_thumb_pos() == 2.0, timeout=500)
 
 
-@pytest.mark.ui
 def test_toggle_switch_mouse_events(qtbot: Any) -> None:
     """Vérifie que le clic direct sur ToggleSwitch déclenche la bascule."""
     sw = ToggleSwitch()
@@ -83,7 +81,6 @@ def test_toggle_switch_mouse_events(qtbot: Any) -> None:
     assert not sw.is_checked()
 
 
-@pytest.mark.ui
 def test_option_toggle_row_single_click_toggle(qtbot: Any) -> None:
     """Vérifie qu'un clic sur la rangée ou sur l'interrupteur ne produit qu'une seule bascule (pas de double toggle)."""
     row = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=True)
@@ -112,7 +109,6 @@ def test_option_toggle_row_single_click_toggle(qtbot: Any) -> None:
     assert signals == [False, True, False]
 
 
-@pytest.mark.ui
 def test_option_toggle_row_set_checked_programmatic(qtbot: Any) -> None:
     """Vérifie le pilotage programmatique de OptionToggleRow."""
     row = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=False)
@@ -127,7 +123,6 @@ def test_option_toggle_row_set_checked_programmatic(qtbot: Any) -> None:
     assert not row.isChecked()
 
 
-@pytest.mark.ui
 def test_option_toggle_row_theme_profile_application(qtbot: Any) -> None:
     """Vérifie l'application d'un profil de thème personnalisé sur OptionToggleRow et ToggleSwitch."""
     from ankiforge.ui.style_engine.themes import JETBRAINS_DARK
@@ -142,7 +137,6 @@ def test_option_toggle_row_theme_profile_application(qtbot: Any) -> None:
     assert row.switch._profile == profile
 
 
-@pytest.mark.ui
 def test_toggle_switch_paint_event_antialiased(qtbot: Any) -> None:
     """Vérifie que paintEvent s'exécute sans exception aux positions extrêmes et intermédiaires."""
     sw = ToggleSwitch()

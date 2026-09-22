@@ -9,11 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
+
+pytestmark = pytest.mark.ui
 
 
 class TestFeedbackDialog:

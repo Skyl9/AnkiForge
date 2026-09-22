@@ -1,8 +1,12 @@
 import csv
 
+import pytest
+
 from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
 from ankiforge.services.cards.import_manager import ImportManager
 from ankiforge.services.cards.store_manager import StoreManager
+
+pytestmark = pytest.mark.integration
 
 
 def test_extract_pb_string():

@@ -3,6 +3,7 @@
 import json
 from unittest.mock import patch
 
+import pytest
 from peewee import SqliteDatabase
 from PySide6.QtCore import Qt
 
@@ -20,6 +21,8 @@ from ankiforge.services.search.fts_service import (
     sanitize_fts5_query,
 )
 from ankiforge.ui.widgets.omnibox import Omnibox
+
+pytestmark = pytest.mark.integration
 
 
 def test_sanitize_fts5_query():

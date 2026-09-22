@@ -3,7 +3,12 @@ import sys
 import types
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.utils.ssl_certificates import find_valid_ca_bundle, pin_ca_bundle_to_requests, setup_ssl_certificates
+
+pytestmark = pytest.mark.unit
+
 
 BUNDLE_CONTENT = b"dummy-ca-bundle-content"
 

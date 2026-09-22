@@ -7,6 +7,8 @@ from ankiforge.ui.views.documents_view.widgets.audio_player import (
     format_duration,
 )
 
+pytestmark = pytest.mark.ui
+
 
 def test_format_duration():
     """Vérifie la conversion millisecondes vers chaîne formattée."""
@@ -16,7 +18,6 @@ def test_format_duration():
     assert format_duration(3605000) == "01:00:05"
 
 
-@pytest.mark.ui
 def test_audio_player_widget_init(qtbot):
     """Vérifie l'initialisation des composants du lecteur audio."""
     widget = AudioPlayerWidget()
@@ -28,7 +29,6 @@ def test_audio_player_widget_init(qtbot):
     assert widget.slider_timeline.value() == 0
 
 
-@pytest.mark.ui
 def test_audio_player_load_audio_file(qtbot, tmp_path):
     """Vérifie le chargement d'un fichier audio et la mise à jour des labels."""
     fake_audio = tmp_path / "cours_biochimie.mp3"
@@ -42,7 +42,6 @@ def test_audio_player_load_audio_file(qtbot, tmp_path):
     assert widget.lbl_title.text() == "cours_biochimie.mp3"
 
 
-@pytest.mark.ui
 def test_audio_player_load_missing_file(qtbot):
     """Vérifie le comportement gracieux si le fichier n'existe pas."""
     widget = AudioPlayerWidget()
@@ -52,7 +51,6 @@ def test_audio_player_load_missing_file(qtbot):
     assert success is False
 
 
-@pytest.mark.ui
 def test_audio_player_seek_and_signals(qtbot, tmp_path):
     """Vérifie que seek_seconds émet le signal time_jumped."""
     fake_audio = tmp_path / "cours_seek.mp3"
@@ -68,7 +66,6 @@ def test_audio_player_seek_and_signals(qtbot, tmp_path):
     assert blocker.args == [12.5]
 
 
-@pytest.mark.ui
 def test_audio_player_controls(qtbot):
     """Vérifie les interactions sur la vitesse, le volume et la sourdine."""
     widget = AudioPlayerWidget()

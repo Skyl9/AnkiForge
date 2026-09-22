@@ -1,10 +1,13 @@
 from pathlib import Path
 
+import pytest
 from pytestqt.qtbot import QtBot
 
 from ankiforge.services.update_checker import UpdateInfo
 from ankiforge.ui.components.topbar import TopBar
 from ankiforge.ui.dialogs.update_dialog import UpdateDialog
+
+pytestmark = pytest.mark.ui
 
 
 def test_update_dialog_creation(qtbot: QtBot) -> None:

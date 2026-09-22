@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import uuid
 
+import pytest
+
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
@@ -27,6 +29,8 @@ from ankiforge.utils.tags import (
     extract_tag_metadata,
     parse_note_tags,
 )
+
+pytestmark = pytest.mark.integration
 
 
 def test_parse_note_tags() -> None:

@@ -1,8 +1,12 @@
+import pytest
+
 from ankiforge.utils.chunker import (
     _get_protected_intervals,
     _is_safe_split,
     smart_chunk_text,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_protected_intervals_detection():

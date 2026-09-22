@@ -2,8 +2,12 @@
 Tests unitaires pour SettingsService (Persistance BDD Peewee et fallback QSettings).
 """
 
+import pytest
+
 from ankiforge.database.models import SettingModel
 from ankiforge.services.settings_service import SettingsService
+
+pytestmark = pytest.mark.integration
 
 
 def test_settings_service_get_and_set():

@@ -17,6 +17,8 @@ from ankiforge.services.update_checker import (
 )
 from ankiforge.utils.environment import get_app_qsettings
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(autouse=True)
 def clean_settings() -> Any:

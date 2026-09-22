@@ -8,6 +8,8 @@ from PySide6.QtWidgets import QDialog
 from ankiforge.database.models import DeckModel, IgnoredDuplicateModel, NoteModel, NoteTypeModel
 from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def mock_db_notes():

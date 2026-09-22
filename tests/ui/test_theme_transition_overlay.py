@@ -1,3 +1,4 @@
+import pytest
 from PySide6.QtWidgets import QWidget
 
 from ankiforge.ui.widgets.theme_transition_overlay import (
@@ -5,6 +6,8 @@ from ankiforge.ui.widgets.theme_transition_overlay import (
     ThemeTransitionOverlay,
     show_theme_transition,
 )
+
+pytestmark = pytest.mark.ui
 
 
 def test_spinning_icon_label(qtbot):

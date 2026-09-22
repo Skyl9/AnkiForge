@@ -5,6 +5,8 @@ import pytest
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
 from ankiforge.ui.widgets.filter_sidebar import FilterSidebar
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def filter_sidebar(qtbot):

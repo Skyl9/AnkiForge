@@ -22,6 +22,9 @@ from PySide6.QtWidgets import QWidget
 from ankiforge.database.models import DocumentModel
 from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 
+pytestmark = pytest.mark.ui
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

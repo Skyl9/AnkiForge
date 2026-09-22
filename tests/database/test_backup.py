@@ -3,7 +3,11 @@ import sqlite3
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.database.backup import backup_database, check_db_integrity, restore_latest_valid_backup
+
+pytestmark = pytest.mark.integration
 
 
 def test_backup_database_skips_if_no_db(tmp_path: Path):

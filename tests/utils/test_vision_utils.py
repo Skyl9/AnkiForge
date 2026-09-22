@@ -1,10 +1,14 @@
 import base64
 
+import pytest
+
 from ankiforge.utils.vision_utils import (
     _encode_image_base64,
     prepare_multimodal_payload,
     strip_image_tags,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_strip_image_tags():

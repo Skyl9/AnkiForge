@@ -2,6 +2,8 @@ import json
 import uuid
 from typing import Any
 
+import pytest
+
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
@@ -26,6 +28,8 @@ from ankiforge.ui.views.analysis_view import (
     DocumentInspectorPanel,
 )
 from ankiforge.utils.tags import build_document_tags
+
+pytestmark = pytest.mark.ui
 
 
 def test_document_inspector_panel_chapter_coverage(qtbot):

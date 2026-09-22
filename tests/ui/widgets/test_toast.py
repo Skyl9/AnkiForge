@@ -9,6 +9,8 @@ from PySide6.QtWidgets import QLabel, QWidget
 
 from ankiforge.ui.widgets.toast import Toast, ToastLevel, ToastManager, show_import_toast, show_toast
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def parent_widget(qtbot) -> QWidget:

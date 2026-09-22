@@ -33,6 +33,8 @@ from ankiforge.ui.widgets.settings_modal import (
     TTSSettingsTab,
 )
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture(autouse=True)
 def setup_settings_test_db():
@@ -54,6 +56,7 @@ def setup_settings_test_db():
     CardModel.create(note=note, deck=deck, template_index=0)
 
 
+@pytest.mark.slow
 def test_settings_modal_creation_and_tabs(qtbot):
     """Vérifie l'instanciation complète de SettingsModal et la navigation dans les 5 onglets."""
     modal = SettingsModal()

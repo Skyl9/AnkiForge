@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+import pytest
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import (
@@ -19,6 +20,8 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.views.batch_view import BatchTab
+
+pytestmark = pytest.mark.ui
 
 
 def test_batch_views_creation(qtbot: Any) -> None:

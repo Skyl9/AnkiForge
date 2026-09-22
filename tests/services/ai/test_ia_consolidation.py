@@ -2,12 +2,16 @@
 
 import asyncio
 
+import pytest
+
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.consultant_engine import (
     ConsultantToolRegistry,
     _wrap_tool_observation,
 )
 from ankiforge.services.ai.retry import with_retry, with_retry_async
+
+pytestmark = pytest.mark.integration
 
 
 def test_wrap_tool_observation_delimits_data():

@@ -5,10 +5,13 @@ Tests UI (pytest-qt headless) pour les fonctionnalités audio & TTS dans NoteFie
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
 from ankiforge.ui.widgets.note_editor_widget import NoteFieldEditorWidget
+
+pytestmark = pytest.mark.ui
 
 
 def test_note_field_audio_visibility_toggle(qtbot: QtBot) -> None:

@@ -3,6 +3,8 @@ import sqlite3
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
@@ -11,6 +13,8 @@ from ankiforge.database.models import (
     NoteVersionModel,
 )
 from ankiforge.services.cards.import_manager import ImportManager
+
+pytestmark = pytest.mark.integration
 
 
 def _build_apkg(tmp_path: Path, filename: str, guid: str, front: str, back: str, deck_name: str = "Default") -> Path:

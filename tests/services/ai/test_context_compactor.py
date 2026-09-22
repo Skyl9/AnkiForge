@@ -2,7 +2,11 @@
 Tests unitaires pour le service ContextCompactor (Compaction dynamique et Next Steps).
 """
 
+import pytest
+
 from ankiforge.services.ai.context_compactor import ContextCompactor
+
+pytestmark = pytest.mark.unit
 
 
 def test_estimate_tokens_string():

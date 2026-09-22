@@ -11,6 +11,8 @@ from ankiforge.services.parsing.audio_parser import (
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
 
+pytestmark = pytest.mark.unit
+
 
 def test_format_seconds_to_timestamp():
     """Vérifie le formatage des secondes en chaînes mm:ss et hh:mm:ss."""

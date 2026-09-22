@@ -11,6 +11,8 @@ import pytest
 
 from ankiforge.services.parsing.marker_service import MarkerService
 
+pytestmark = pytest.mark.unit
+
 
 def test_is_python_compatible_accepts_valid_version() -> None:
     """Vérifie que _is_python_compatible accepte un interpréteur dans [3.10, 3.14)."""

@@ -22,6 +22,8 @@ from ankiforge.database.models import (
     SettingModel,
 )
 
+pytestmark = pytest.mark.integration
+
 
 def test_note_version_default_source():
     """Vérifie que la source par défaut lors de la création d'une version via add_version est 'manual'."""

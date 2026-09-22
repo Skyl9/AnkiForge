@@ -1,8 +1,12 @@
 import json
 
+import pytest
+
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.consultant_engine import ConsultantEngine
+
+pytestmark = pytest.mark.integration
 
 
 class LoopingProvider(LLMProvider):

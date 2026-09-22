@@ -162,6 +162,63 @@ def cleanup_qt_widgets():
         QThreadPool.globalInstance().waitForDone(1000)
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Garantit que 100% des tests possèdent au moins un marqueur primaire (unit, integration, ui)
+
+    selon leur nature et leur emplacement, tout en respectant les marqueurs explicites.
+    """
+    unit_marker = pytest.mark.unit
+    integration_marker = pytest.mark.integration
+    ui_marker = pytest.mark.ui
+
+    integration_specific_paths = {
+        "tests/test_dag_audio_tts_step.py",
+        "tests/test_tts_service.py",
+        "tests/services/test_card_model_io.py",
+        "tests/services/test_markdown_integration.py",
+        "tests/services/test_persona_versioning.py",
+        "tests/services/test_profile_content_transfer.py",
+        "tests/services/test_profile_manager.py",
+        "tests/services/test_reindex_service.py",
+        "tests/services/test_settings_service.py",
+        "tests/services/ai/test_ai_manager.py",
+        "tests/services/ai/test_consultant_360_tools.py",
+        "tests/services/ai/test_consultant_loop.py",
+        "tests/services/ai/test_consultant_note_types.py",
+        "tests/services/ai/test_dag_orchestrator.py",
+        "tests/services/ai/test_dedicated_mcp_agents.py",
+        "tests/services/ai/test_ia_consolidation.py",
+        "tests/services/ai/test_mcp_doc_tools.py",
+        "tests/services/ai/test_mcp_server_agents.py",
+        "tests/services/ai/test_pricing_service.py",
+        "tests/services/ai/test_vision_categories.py",
+        "tests/services/rag/test_hybrid_retriever.py",
+        "tests/services/rag/test_vector_manager.py",
+        "tests/services/rag/test_vector_manager_cache.py",
+        "tests/services/rag/test_visual_rag_service.py",
+    }
+
+    for item in items:
+        existing_markers = {m.name for m in item.iter_markers()}
+        has_primary = bool(existing_markers & {"unit", "integration", "ui"})
+
+        if not has_primary:
+            rel_path = os.path.relpath(str(item.fspath), str(config.rootdir)).replace("\\", "/")
+            if "qtbot" in item.fixturenames or rel_path.startswith("tests/ui/") or "widget" in rel_path:
+                item.add_marker(ui_marker)
+            elif (
+                rel_path.startswith("tests/database/")
+                or rel_path.startswith("tests/repositories/")
+                or rel_path.startswith("tests/services/workers/")
+                or rel_path.startswith("tests/services/cards/")
+                or rel_path.startswith("tests/services/audit/")
+                or rel_path in integration_specific_paths
+            ):
+                item.add_marker(integration_marker)
+            else:
+                item.add_marker(unit_marker)
+
+
 def pytest_unconfigure(config):
     """S'assure d'une sortie propre sans crash C++ Chromium WebEngine en fin de tests."""
     import os

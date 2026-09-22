@@ -1,6 +1,9 @@
+import pytest
 from PySide6.QtWidgets import QLabel, QWidget
 
 from ankiforge.ui.widgets.tour_guide import TourBubble, TourStep, create_default_tour_steps
+
+pytestmark = pytest.mark.ui
 
 
 def test_tour_bubble_creation(qtbot):

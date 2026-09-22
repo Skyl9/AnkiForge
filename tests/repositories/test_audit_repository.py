@@ -4,8 +4,12 @@ Unit tests for AuditRepository.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.repositories.audit_repository import AuditRepository
+
+pytestmark = pytest.mark.integration
 
 
 def test_audit_repository_rules_and_records() -> None:

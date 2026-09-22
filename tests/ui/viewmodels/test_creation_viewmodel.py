@@ -4,12 +4,16 @@ Unit tests for CreationViewModel.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.repositories.deck_repository import DeckRepository
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.repositories.note_repository import NoteRepository
 from ankiforge.repositories.pipeline_repository import PipelineRepository
 from ankiforge.ui.viewmodels.creation_viewmodel import CreationViewModel
 from ankiforge.utils.event_bus import AppEventBus, CardCreatedEvent, NoteCreatedEvent
+
+pytestmark = pytest.mark.ui
 
 
 def test_creation_viewmodel_workflow() -> None:

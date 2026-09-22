@@ -6,6 +6,8 @@ import pytest
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.services.cards.export_manager import ExportManager
 
+pytestmark = pytest.mark.integration
+
 
 def test_generate_stable_id():
     manager = ExportManager()

@@ -15,6 +15,9 @@ from ankiforge.services.parsing.web_importer import (
     result_to_payload,
 )
 
+pytestmark = pytest.mark.unit
+
+
 STATIC_HTML = "<html><head><title>Mon Titre</title></head><body><article><p>Contenu de test.</p></article></body></html>"
 
 

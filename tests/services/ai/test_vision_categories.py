@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from PIL import Image
 
 from ankiforge.database.models import DocumentPageModel
@@ -13,6 +14,8 @@ from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.services.workers.album_worker import AlbumOCRWorker
 from ankiforge.ui.widgets.settings_modal.dialogs.vision_category_dialog import VisionCategoryDialog
 from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+
+pytestmark = pytest.mark.integration
 
 
 def _create_test_img(path: Path, color: str = "blue") -> Path:

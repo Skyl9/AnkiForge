@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from ankiforge.database.models import CardModel, DeckModel
@@ -23,6 +24,8 @@ from ankiforge.services.cards.image_occlusion_service import (
     OcclusionBox,
 )
 from ankiforge.services.cards.media_manager import MediaManager
+
+pytestmark = pytest.mark.unit
 
 
 class DummyVisionProvider(LLMProvider):

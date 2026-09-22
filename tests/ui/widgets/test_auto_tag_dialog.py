@@ -1,4 +1,8 @@
+import pytest
+
 from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
+
+pytestmark = pytest.mark.ui
 
 
 def test_auto_tag_dialog_instantiation(qtbot):

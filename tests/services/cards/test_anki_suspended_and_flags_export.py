@@ -19,6 +19,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
@@ -34,6 +35,9 @@ from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.import_manager import ImportManager
 from ankiforge.ui.models.delegates import IS_SUSPENDED_ROLE
 from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
+
+pytestmark = pytest.mark.integration
+
 
 mig_027 = importlib.import_module("ankiforge.database.migrations.027_card_suspended")
 

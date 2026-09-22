@@ -1,9 +1,12 @@
 import uuid
 
+import pytest
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import DocumentModel, FolderModel
 from ankiforge.ui.components.document_select_window import DocumentSelectWindow
+
+pytestmark = pytest.mark.ui
 
 
 def test_document_select_window_load_and_filter(qtbot):

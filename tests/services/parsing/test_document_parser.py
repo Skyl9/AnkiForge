@@ -11,6 +11,8 @@ import ankiforge.services.parsing.document_parser as document_parser
 from ankiforge.services.parsing.document_parser import DocumentParser
 from ankiforge.services.parsing.marker_service import MarkerService
 
+pytestmark = pytest.mark.unit
+
 
 def test_parse_document_file_not_found():
     """Test 1: Si le fichier n'existe pas, ça doit crasher tout de suite."""

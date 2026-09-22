@@ -24,6 +24,8 @@ from ankiforge.ui.views.consultant_view import (
 )
 from ankiforge.ui.views.consultant_view.view import extract_card_proposal_from_text
 
+pytestmark = pytest.mark.ui
+
 
 class MockReActProvider(LLMProvider):
     """Simule un LLM exécutant un appel d'outil au tour 1 puis formulant sa réponse avec réflexion au tour 2."""

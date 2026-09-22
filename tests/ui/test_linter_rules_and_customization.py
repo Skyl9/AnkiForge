@@ -5,6 +5,7 @@ la création de catégories personnalisées, et la normalisation universelle des
 
 import json
 
+import pytest
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import LinterRuleModel, seed_default_linter_rules
@@ -12,6 +13,8 @@ from ankiforge.services.ai.linter import normalize_linter_suggestion
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.ui.components.linter_rules_dialog import LinterRulesManagerDialog
 from ankiforge.ui.views.analysis_view import AIWozniakLinterTab
+
+pytestmark = pytest.mark.ui
 
 
 def test_normalize_linter_suggestion_variants():

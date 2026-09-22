@@ -1,5 +1,9 @@
+import pytest
+
 from ankiforge.database.models import LLMConfigModel
 from ankiforge.services.ai.flexible_service import AIManager, MockProvider, OllamaProvider, OpenAICompatibleProvider
+
+pytestmark = pytest.mark.integration
 
 
 def test_ai_manager_create_provider_from_config(mock_db):

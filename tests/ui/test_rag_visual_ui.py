@@ -15,6 +15,8 @@ from ankiforge.services.workers.coverage_worker import CoverageWorker
 from ankiforge.ui.views.documents_view.dialogs.rag_test_dialog import RAGTestDialog
 from ankiforge.ui.views.documents_view.widgets.album_viewer import AlbumViewerWidget
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def sample_visual_doc(mock_db, tmp_path):
@@ -43,7 +45,6 @@ def sample_visual_doc(mock_db, tmp_path):
     return {"doc": doc, "page": page, "chunk": chunk, "media": m, "media_mgr": media_mgr}
 
 
-@pytest.mark.ui
 def test_album_viewer_rag_buttons(qtbot, sample_visual_doc):
     """Vérifie que AlbumViewerWidget contient les boutons RAG et émet les signaux attendus."""
     widget = AlbumViewerWidget()
@@ -64,7 +65,6 @@ def test_album_viewer_rag_buttons(qtbot, sample_visual_doc):
     assert blocker_search.args == [doc.id]
 
 
-@pytest.mark.ui
 def test_rag_test_dialog_visual_badge_and_search(qtbot, sample_visual_doc):
     """Vérifie que RAGTestDialog affiche le badge visuel [Visuel] et formate le résultat."""
     doc = sample_visual_doc["doc"]
@@ -102,7 +102,6 @@ def test_rag_test_dialog_visual_badge_and_search(qtbot, sample_visual_doc):
     assert "carotide" in item.text()
 
 
-@pytest.mark.ui
 def test_coverage_worker_visual_album(qtbot, sample_visual_doc):
     """Vérifie que CoverageWorker exécute le flux Visual RAG pour un document de type album."""
     doc = sample_visual_doc["doc"]

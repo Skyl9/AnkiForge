@@ -5,9 +5,12 @@ Unit tests for VectorManager persistent embedding cache.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from ankiforge.database.models import DocumentModel, EmbeddingCacheModel
 from ankiforge.services.rag.vector_manager import VectorManager
+
+pytestmark = pytest.mark.integration
 
 
 def test_embedding_cache_hit_and_persistence() -> None:

@@ -11,6 +11,8 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.cards.import_manager import ImportAnalysisResult, ImportManager
 
+pytestmark = pytest.mark.integration
+
 
 def test_compute_field_diffs():
     local = {"Front": "Hello World", "Back": "Bonjour le monde"}

@@ -1,11 +1,14 @@
 import json
 import uuid
 
+import pytest
 from PySide6.QtCore import Qt
 
 from ankiforge.database.models import DocumentChunkModel, DocumentModel, NoteChunkLinkModel, NoteModel
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+
+pytestmark = pytest.mark.integration
 
 
 def test_coverage_stats_with_delimited_pages():

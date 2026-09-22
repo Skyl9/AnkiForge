@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.version import (
     AppVersionInfo,
     __version__,
     get_version_info,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_version_info_structure() -> None:

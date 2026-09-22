@@ -18,6 +18,8 @@ from ankiforge.ui.views.documents_view.widgets.album_viewer import (
     PageInspectorWidget,
 )
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def sample_album_files(tmp_path):

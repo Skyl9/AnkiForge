@@ -3,12 +3,16 @@ import sqlite3
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
 )
 from ankiforge.services.cards.import_manager import ImportManager
+
+pytestmark = pytest.mark.integration
 
 
 def test_import_multi_cards_per_note(tmp_path: Path) -> None:

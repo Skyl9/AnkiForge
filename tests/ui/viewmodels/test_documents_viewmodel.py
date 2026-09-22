@@ -4,9 +4,13 @@ Unit tests for DocumentsViewModel.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
 from ankiforge.utils.event_bus import AppEventBus, DocumentAddedEvent, DocumentDeletedEvent
+
+pytestmark = pytest.mark.ui
 
 
 def test_documents_viewmodel_management() -> None:

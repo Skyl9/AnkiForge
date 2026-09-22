@@ -22,6 +22,8 @@ from ankiforge.ui.models.delegates import (
 from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
 from ankiforge.ui.views.edition_view import EditionView
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def dual_mode_sample_data(mock_db: Any) -> dict[str, Any]:
@@ -187,7 +189,6 @@ def test_table_model_checkboxes_in_cards_mode(dual_mode_sample_data: dict[str, A
     assert len(checked) == 3
 
 
-@pytest.mark.ui
 def test_edition_view_dual_mode_toggle_and_interaction(qtbot: Any, dual_mode_sample_data: dict[str, Any]) -> None:
     """Vérifie le basculement interactif du bouton [ Notes | Cartes ] et la synchronisation avec le volet d'aperçu."""
     view = EditionView(ai_manager=None)

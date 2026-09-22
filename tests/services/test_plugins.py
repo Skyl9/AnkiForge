@@ -22,6 +22,8 @@ from ankiforge.services.plugins.plugin_manager import (
     compute_file_sha256,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def temp_addons_dir():

@@ -2,9 +2,13 @@
 Tests d'interface pour ActivityChartWidget (QPainter 7 jours).
 """
 
+import pytest
+
 from ankiforge.ui.style_engine import ThemeProfile
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.ui.widgets.activity_chart import ActivityChartWidget
+
+pytestmark = pytest.mark.ui
 
 
 def test_activity_chart_widget_creation(qtbot):

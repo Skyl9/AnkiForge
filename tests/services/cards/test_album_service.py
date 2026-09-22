@@ -10,6 +10,8 @@ from ankiforge.database.models import DocumentModel, DocumentPageModel, FolderMo
 from ankiforge.services.cards.album_service import AlbumService, extract_exif_timestamp, natural_sort_key
 from ankiforge.services.cards.media_manager import MediaManager
 
+pytestmark = pytest.mark.integration
+
 
 def _create_test_image(path: Path, width: int = 100, height: int = 80, color: str = "red", exif_date: str | None = None) -> Path:
     """Utilitaire de création d'une image physique de test avec ou sans EXIF."""

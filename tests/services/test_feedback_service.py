@@ -8,12 +8,16 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from ankiforge.services.feedback_service import (
     BugReportData,
     FeatureIdeaData,
     FeedbackService,
     SystemDiagnosticInfo,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestFeedbackService:

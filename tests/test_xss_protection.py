@@ -16,6 +16,9 @@ from PySide6.QtWidgets import QWidget
 from ankiforge.ui.widgets.katex_editor import sanitize_user_markdown_html
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEnginePage, SafeWebEngineView
 
+pytestmark = pytest.mark.unit
+
+
 LINUX_QTWEBENGINE_UNSTABLE = pytest.mark.skipif(
     sys.platform.startswith("linux"),
     reason="QtWebEngine 6.11 segfaults during pytest-qt teardown on Linux CI",

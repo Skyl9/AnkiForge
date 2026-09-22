@@ -4,8 +4,12 @@ Tests unitaires pour le service de versioning des Personas / Agents IA (PersonaV
 
 import json
 
+import pytest
+
 from ankiforge.database.models import LLMConfigModel, PersonaModel, PersonaVersionModel
 from ankiforge.services.ai.persona_version_service import PersonaVersionService
+
+pytestmark = pytest.mark.integration
 
 
 def test_create_snapshot_initial(mock_db):

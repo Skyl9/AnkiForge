@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+import pytest
 from PySide6.QtWidgets import QPlainTextEdit
 
 from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel
@@ -13,6 +14,8 @@ from ankiforge.ui.views.pipelines_view import (
     StepPickerDialog,
     audit_pipeline_dag,
 )
+
+pytestmark = pytest.mark.ui
 
 
 def test_pipelines_view_initialization_and_refresh(qtbot):

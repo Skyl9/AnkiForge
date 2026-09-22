@@ -9,6 +9,8 @@ from ankiforge.ui.components.model_selector.badges import CapabilityPill, ModelC
 from ankiforge.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
 from ankiforge.ui.components.model_selector.selector import ModelSelectorWidget
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def sample_llm_configs():

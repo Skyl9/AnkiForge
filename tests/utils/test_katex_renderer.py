@@ -28,6 +28,9 @@ from ankiforge.utils.anki_renderer import (
 )
 from ankiforge.utils.paths import get_resource_path
 
+pytestmark = pytest.mark.unit
+
+
 LINUX_QTWEBENGINE_UNSTABLE = pytest.mark.skipif(
     sys.platform.startswith("linux"),
     reason="QtWebEngine 6.11 segfaults during pytest-qt teardown on Linux CI",
@@ -162,6 +165,8 @@ def test_safe_web_engine_view_has_file_urls_enabled(qtbot: Any) -> None:
     view.cleanup()
 
 
+@pytest.mark.slow
+@pytest.mark.ui
 @LINUX_QTWEBENGINE_UNSTABLE
 def test_webengine_headless_renders_katex_formulas(qtbot: Any) -> None:
     """Test réel offscreen dans QWebEnginePage pour confirmer que KaTeX s'exécute et génère .katex."""

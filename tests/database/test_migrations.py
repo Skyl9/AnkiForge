@@ -6,6 +6,9 @@ from peewee_migrate import Router
 from ankiforge.database.migration import run_migrations
 from ankiforge.database.models import db
 
+pytestmark = pytest.mark.integration
+
+
 MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "ankiforge", "database", "migrations")
 
 

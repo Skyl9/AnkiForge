@@ -14,6 +14,8 @@ from ankiforge.services.parsing.epub_parser import (
     convert_mathml_to_latex,
 )
 
+pytestmark = pytest.mark.unit
+
 
 def create_sample_epub(
     file_path: Path,

@@ -5,6 +5,8 @@ Tests unitaires pour CoverageAlignmentService et la résolution bidirectionnelle
 import json
 import uuid
 
+import pytest
+
 from ankiforge.database.models import (
     CardModel,
     DeckModel,
@@ -18,6 +20,8 @@ from ankiforge.database.models import (
 from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
 from ankiforge.utils.paths import get_media_dir, resolve_media_path
 from ankiforge.utils.tags import build_document_tags, clean_source_slug
+
+pytestmark = pytest.mark.integration
 
 
 def _make_note_with_tags(nt: NoteTypeModel, tags: list[str]) -> NoteModel:

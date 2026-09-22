@@ -1,6 +1,10 @@
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.services.parsing.youtube_parser import YouTubeParser
+
+pytestmark = pytest.mark.unit
 
 
 def test_extract_video_id():

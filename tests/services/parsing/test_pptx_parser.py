@@ -16,6 +16,8 @@ from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
 from ankiforge.services.parsing.pptx_parser import PptxParser
 
+pytestmark = pytest.mark.unit
+
 
 def create_sample_pptx(
     file_path: Path,

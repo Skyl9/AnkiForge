@@ -10,6 +10,8 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def test_note():

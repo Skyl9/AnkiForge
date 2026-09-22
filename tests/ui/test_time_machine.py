@@ -10,8 +10,9 @@ import pytest
 from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget, TimeMachineDialog
 
+pytestmark = pytest.mark.ui
 
-@pytest.mark.ui
+
 def test_time_machine_dialog_loading_versions(qtbot, mock_db):
     """Vérifie le chargement des versions dans TimeMachineDialog et le calcul du diff."""
     uid = uuid.uuid4().hex[:6]
@@ -56,7 +57,6 @@ def test_time_machine_dialog_loading_versions(qtbot, mock_db):
     assert dialog.btn_restore.isEnabled() is False
 
 
-@pytest.mark.ui
 def test_time_machine_diff_viewer_html_generation(qtbot):
     """Vérifie la génération HTML du visualiseur de diff (rouge/vert)."""
     diff_viewer = DiffViewerWidget()
@@ -73,7 +73,6 @@ def test_time_machine_diff_viewer_html_generation(qtbot):
     assert "COMPARAISON AVEC LA VERSION ACTUELLE" in html
 
 
-@pytest.mark.ui
 def test_time_machine_restore_version(qtbot, mock_db, monkeypatch):
     """Vérifie la restauration d'une ancienne version avec création de snapshot et émission de signal."""
     from PySide6.QtWidgets import QMessageBox

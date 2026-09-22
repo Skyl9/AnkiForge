@@ -12,8 +12,9 @@ from ankiforge.database.models import DeckModel
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
 from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
+pytestmark = pytest.mark.ui
 
-@pytest.mark.ui
+
 def test_deck_select_window_allow_all(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le comportement de allow_all (True vs False)."""
     uid = uuid.uuid4().hex[:6]
@@ -33,7 +34,6 @@ def test_deck_select_window_allow_all(qtbot: Any, mock_db: Any) -> None:
     assert win_strict.btn_confirm.isEnabled()
 
 
-@pytest.mark.ui
 def test_create_deck_dialog(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la création d'un paquet et de ses sous-paquets via CreateDeckDialog."""
     uid = uuid.uuid4().hex[:6]
@@ -58,7 +58,6 @@ def test_create_deck_dialog(qtbot: Any, mock_db: Any) -> None:
     assert child_deck.parent_deck.id == parent_deck.id
 
 
-@pytest.mark.ui
 def test_create_deck_dialog_enter_submits(qtbot: Any, mock_db: Any) -> None:
     """Dans le modal de création de paquet, Enter doit créer le paquet (et non fermer via Annuler)."""
     uid = uuid.uuid4().hex[:6]
@@ -82,7 +81,6 @@ def test_create_deck_dialog_enter_submits(qtbot: Any, mock_db: Any) -> None:
     assert created.parent_deck.id == parent.id
 
 
-@pytest.mark.ui
 def test_deck_select_window_creates_and_selects_deck(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie que la création d'un paquet recharge l'arbre et sélectionne le nouveau paquet."""
     uid = uuid.uuid4().hex[:6]

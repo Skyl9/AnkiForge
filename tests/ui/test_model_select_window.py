@@ -10,8 +10,9 @@ import pytest
 from ankiforge.database.models import NoteModel, NoteTypeModel
 from ankiforge.ui.components.model_select_window import ModelSelectWindow
 
+pytestmark = pytest.mark.ui
 
-@pytest.mark.ui
+
 def test_model_select_window_init_allow_all(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'initialisation de ModelSelectWindow avec allow_all=True."""
     uid = uuid.uuid4().hex[:6]
@@ -47,7 +48,6 @@ def test_model_select_window_init_allow_all(qtbot: Any, mock_db: Any) -> None:
     assert f"Basique {uid}" in emitted[0][1]
 
 
-@pytest.mark.ui
 def test_model_select_window_search_filter(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le filtrage dynamique en direct par la barre de recherche."""
     uid = uuid.uuid4().hex[:6]
@@ -79,7 +79,6 @@ def test_model_select_window_search_filter(qtbot: Any, mock_db: Any) -> None:
     assert not item2.isHidden()
 
 
-@pytest.mark.ui
 def test_model_select_window_allow_all_false_and_get_selected(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le mode allow_all=False (assignation de modèle) et get_selected_model."""
     uid = uuid.uuid4().hex[:6]

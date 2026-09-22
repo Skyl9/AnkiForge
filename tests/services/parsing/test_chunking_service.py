@@ -1,4 +1,8 @@
+import pytest
+
 from ankiforge.services.parsing.chunking_service import ChunkingService
+
+pytestmark = pytest.mark.unit
 
 
 def test_chunking_pdf_paginated_by_page():

@@ -4,8 +4,12 @@ Tests d'interface pour DashboardView (Cockpit Global, KPIs, diagnostics et macro
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ankiforge.ui.views.dashboard_view import ActivityItem, DashboardView, DiagnosticCardWidget
 from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
+
+pytestmark = pytest.mark.ui
 
 
 def test_dashboard_view_creation(qtbot):

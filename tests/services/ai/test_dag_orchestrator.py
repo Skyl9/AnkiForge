@@ -2,6 +2,8 @@ import json
 import threading
 from typing import Any
 
+import pytest
+
 from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.orchestrator import (
@@ -11,6 +13,8 @@ from ankiforge.services.ai.orchestrator import (
     _stamp_card_source_metadata,
 )
 from ankiforge.services.ai.state import PipelineRunState
+
+pytestmark = pytest.mark.integration
 
 
 class DummyProvider(LLMProvider):

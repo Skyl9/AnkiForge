@@ -17,6 +17,8 @@ from ankiforge.services.cards.tts_service import (
     TTSService,
 )
 
+pytestmark = pytest.mark.integration
+
 
 def test_text_normalizer_strip_html() -> None:
     """Vérifie que le HTML est éradiqué tout en préservant le texte."""
@@ -125,6 +127,7 @@ def test_tts_service_empty_text_error() -> None:
         service.synthesize("   <br/>  <b></b>  ")
 
 
+@pytest.mark.slow
 def test_system_speech_provider_available_or_graceful() -> None:
     """Vérifie que SystemSpeechProvider ne crash pas et expose des voix."""
     provider = SystemSpeechProvider()

@@ -7,9 +7,13 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ankiforge.database.models import PipelineStepModel
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator
 from ankiforge.services.ai.state import PipelineRunState
+
+pytestmark = pytest.mark.integration
 
 
 class MockTTSSvc:

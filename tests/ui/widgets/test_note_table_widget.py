@@ -5,6 +5,8 @@ import pytest
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel, db
 from ankiforge.ui.widgets.note_table_widget import NoteTableWidget
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def note_table(qtbot):

@@ -7,6 +7,8 @@ from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.rag.vector_manager import BM25OkapiIndex
 from ankiforge.utils.anki_renderer import render_anki_card
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def golden_data_dir() -> Path:

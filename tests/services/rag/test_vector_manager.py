@@ -11,6 +11,8 @@ from ankiforge.database.models import DocumentChunkModel, DocumentModel
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.rag.vector_manager import VectorManager
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.integration
 def test_vector_manager_hybrid_index_and_search(tmp_path: Path):

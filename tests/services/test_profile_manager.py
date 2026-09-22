@@ -6,6 +6,8 @@ from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def mock_profiles_dir(tmp_path):
@@ -83,6 +85,7 @@ def test_profile_selector_dialog_create(qtbot, mock_profiles_dir):
     assert dialog.selected_profile == "nouveau_prof"
 
 
+@pytest.mark.slow
 def test_main_window_switch_profile(qtbot, mock_profiles_dir):
     ai_mock = MagicMock()
     window = MainWindow(ai_manager=ai_mock, profile_name="default")

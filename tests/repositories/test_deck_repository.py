@@ -4,7 +4,11 @@ Unit tests for DeckRepository.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.repositories.deck_repository import DeckRepository
+
+pytestmark = pytest.mark.integration
 
 
 def test_deck_repository_crud() -> None:

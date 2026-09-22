@@ -12,6 +12,8 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.cards.import_manager import ImportManager
 
+pytestmark = pytest.mark.integration
+
 
 def _register_unicase(conn: sqlite3.Connection) -> None:
     conn.create_collation("unicase", lambda left, right: (left.casefold() > right.casefold()) - (left.casefold() < right.casefold()))

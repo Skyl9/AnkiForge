@@ -10,6 +10,8 @@ from ankiforge.services.tools.tool_service import (
     tool_validate_json_schema,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(autouse=True)
 def init_tools(mock_db):

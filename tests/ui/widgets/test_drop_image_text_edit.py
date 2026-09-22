@@ -7,6 +7,8 @@ from PySide6.QtGui import QImage
 # Ajuste l'import selon ton architecture
 from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def mock_media_dir(tmp_path):

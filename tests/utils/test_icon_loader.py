@@ -6,11 +6,15 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from ankiforge.utils.icon_loader import (
     clear_icon_cache,
     load_logo_icon,
     load_phosphor_icon,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_load_phosphor_icon_basic(qapp: Any) -> None:

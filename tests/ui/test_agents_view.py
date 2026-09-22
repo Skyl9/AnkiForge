@@ -1,12 +1,16 @@
 import json
 import uuid
 
+import pytest
+
 from ankiforge.database.models import LLMConfigModel, PersonaFolderModel, PersonaModel
 from ankiforge.ui.views.agents_view import (
     AgentPromptPreviewDialog,
     AgentsView,
     AgentTestDialog,
 )
+
+pytestmark = pytest.mark.ui
 
 
 def test_agents_view_load_and_selection(qtbot):

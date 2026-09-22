@@ -10,6 +10,8 @@ from ankiforge.ui.dialogs.repair_headings_dialog import RepairHeadingsDialog
 from ankiforge.ui.views.documents_view.view import DocumentsView
 from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
 
+pytestmark = pytest.mark.ui
+
 
 def test_document_outline_widget_population_and_selection(qtbot: QtBot) -> None:
     widget = DocumentOutlineWidget()

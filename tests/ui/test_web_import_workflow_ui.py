@@ -2,10 +2,13 @@
 
 import uuid
 
+import pytest
 from PySide6.QtCore import QObject, Signal
 
 from ankiforge.database.models import DocumentModel
 from ankiforge.ui.views.documents_view import DocumentsView
+
+pytestmark = pytest.mark.ui
 
 
 def test_web_import_flow_through_documents_view(qtbot, monkeypatch) -> None:

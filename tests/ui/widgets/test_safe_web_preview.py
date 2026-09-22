@@ -14,6 +14,9 @@ from ankiforge.ui.widgets.safe_web_preview import (
     SafeWebEngineView,
 )
 
+pytestmark = pytest.mark.ui
+
+
 LINUX_QTWEBENGINE_UNSTABLE = pytest.mark.skipif(
     sys.platform.startswith("linux"),
     reason="QtWebEngine 6.11 segfaults during pytest-qt teardown on Linux CI",

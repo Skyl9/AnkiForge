@@ -6,7 +6,11 @@ la formule de score Okapi BM25 et la persistance JSON.
 
 from pathlib import Path
 
+import pytest
+
 from ankiforge.services.rag.bm25_index import BM25OkapiIndex, normalize_text, tokenize
+
+pytestmark = pytest.mark.unit
 
 
 def test_normalize_text():

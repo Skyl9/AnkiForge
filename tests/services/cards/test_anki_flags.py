@@ -16,6 +16,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QStyleOptionViewItem
@@ -32,6 +33,9 @@ from ankiforge.services.cards.export_manager import ExportManager
 from ankiforge.services.cards.import_manager import ImportManager
 from ankiforge.ui.models.delegates import FLAG_ROLE, FlagItemDelegate
 from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
+
+pytestmark = pytest.mark.integration
+
 
 mig_026 = importlib.import_module("ankiforge.database.migrations.026_card_flags")
 

@@ -18,6 +18,8 @@ from ankiforge.services.auto_updater import (
     validate_update_file_confinement,
 )
 
+pytestmark = pytest.mark.unit
+
 
 def test_is_standalone_app_returns_false_in_dev_env() -> None:
     """Vérifie que l'environnement de développement/tests est détecté comme non-standalone."""

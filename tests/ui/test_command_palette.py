@@ -1,4 +1,8 @@
+import pytest
+
 from ankiforge.ui.widgets.command_palette import CommandPalette
+
+pytestmark = pytest.mark.ui
 
 
 def test_command_palette_creation(qtbot):

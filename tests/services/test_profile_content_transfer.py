@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from peewee import SqliteDatabase
 
 from ankiforge.database.models import (
@@ -11,6 +12,8 @@ from ankiforge.database.models import (
     PipelineStepModel,
 )
 from ankiforge.services.profile_content_transfer import ProfileContentTransfer
+
+pytestmark = pytest.mark.integration
 
 
 def test_import_persona_from_another_profile(mock_db, tmp_path: Path) -> None:

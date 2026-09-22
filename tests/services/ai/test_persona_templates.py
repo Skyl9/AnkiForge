@@ -1,4 +1,5 @@
 import jinja2
+import pytest
 
 from ankiforge.services.ai.persona_templates import (
     JINJA2_VARIABLE_DOCS,
@@ -8,6 +9,8 @@ from ankiforge.services.ai.persona_templates import (
     get_persona_template,
     get_templates_by_category,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_persona_templates_integrity():

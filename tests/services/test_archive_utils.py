@@ -11,6 +11,8 @@ import pytest
 
 from ankiforge.utils.archive_utils import safe_extract_tar, safe_extract_zip
 
+pytestmark = pytest.mark.unit
+
 
 def _write_zip(path: Path, entries: list[tuple[str, bytes]]) -> None:
     with zipfile.ZipFile(path, "w") as zf:

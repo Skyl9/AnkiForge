@@ -19,6 +19,8 @@ from ankiforge.ui.widgets.image_occlusion_editor import (
     OcclusionGraphicsItem,
 )
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def sample_image(tmp_path: Path) -> Path:

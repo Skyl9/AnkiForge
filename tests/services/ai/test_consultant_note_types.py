@@ -20,6 +20,8 @@ from ankiforge.database.models import (
 from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.ui.views.consultant_view.widgets.workspace_inspector_widget import WorkspaceInspectorWidget
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def custom_model_data():

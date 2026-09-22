@@ -1,5 +1,9 @@
+import pytest
+
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.workers.consultant_worker import ConsultantWorker
+
+pytestmark = pytest.mark.integration
 
 
 def test_consultant_worker_success():

@@ -4,10 +4,13 @@ import sqlite3
 import zipfile
 from pathlib import Path
 
+import pytest
 import zstandard as zstd
 
 from ankiforge.database.models import MediaModel
 from ankiforge.services.cards.import_manager import ImportManager
+
+pytestmark = pytest.mark.integration
 
 
 def _create_minimal_anki2(db_path: Path) -> None:

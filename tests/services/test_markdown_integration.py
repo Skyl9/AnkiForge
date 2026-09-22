@@ -8,6 +8,8 @@ from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.parsing.document_parser import DocumentParser
 
+pytestmark = pytest.mark.integration
+
 
 def test_chunking_service_markdown_ast_strategy() -> None:
     content = (

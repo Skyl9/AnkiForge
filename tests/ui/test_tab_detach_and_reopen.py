@@ -21,6 +21,8 @@ from ankiforge.ui.components.tabs.segmented_tab_bar import (
     SubTabButton,
 )
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture(autouse=True)
 def cleanup_floating_windows() -> Any:

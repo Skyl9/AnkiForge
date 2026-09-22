@@ -4,6 +4,8 @@ Tests unitaires pour reindex_service (Re-indexation migratoire des documents sta
 
 import uuid
 
+import pytest
+
 from ankiforge.database.models import DocumentChunkModel, DocumentModel
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.reindex_service import (
@@ -14,6 +16,8 @@ from ankiforge.services.reindex_service import (
     mark_document_version,
     reindex_document,
 )
+
+pytestmark = pytest.mark.integration
 
 
 def test_mark_document_version(mock_db) -> None:

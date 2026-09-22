@@ -9,9 +9,10 @@ from ankiforge.ui.main_window import MainWindow
 from ankiforge.ui.views.batch_view import BatchView
 from ankiforge.ui.views.edition_view import EditionView
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_main_window_creation(qtbot, mock_db):
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
@@ -37,7 +38,6 @@ def test_topbar_notification_badge_is_not_clipped(qtbot):
 
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_main_window_breadcrumb_navigation(qtbot, mock_db):
     with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)

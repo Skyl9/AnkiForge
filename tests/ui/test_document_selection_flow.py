@@ -21,8 +21,9 @@ from ankiforge.ui.views.creation_view.widgets.document_editor import (
     DocumentEditorWidget,
 )
 
+pytestmark = pytest.mark.ui
 
-@pytest.mark.ui
+
 def test_document_select_window_preselects_document(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentSelectWindow pré-sélectionne le document spécifié par selected_doc_id."""
     uid = uuid.uuid4().hex[:6]
@@ -39,7 +40,6 @@ def test_document_select_window_preselects_document(qtbot: Any, mock_db: Any) ->
     assert window.btn_confirm.isEnabled()
 
 
-@pytest.mark.ui
 def test_document_picker_button_lifecycle(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le fonctionnement du DocumentPickerButton (affichage, types, émission conditionnelle)."""
     uid = uuid.uuid4().hex[:6]
@@ -77,7 +77,6 @@ def test_document_picker_button_lifecycle(qtbot: Any, mock_db: Any) -> None:
     assert len(emitted_docs) == 2
 
 
-@pytest.mark.ui
 def test_creation_view_folder_click_does_not_crash(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que cliquer sur un dossier dans l'arborescence ne plante pas et ne le sélectionne pas comme doc."""
     uid = uuid.uuid4().hex[:6]
@@ -108,7 +107,6 @@ def test_creation_view_folder_click_does_not_crash(qtbot: Any, mock_db: Any) -> 
     assert not isinstance(view._current_selected_doc, FolderModel)
 
 
-@pytest.mark.ui
 def test_creation_view_tree_and_picker_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation bidirectionnelle entre l'arborescence et le DocumentPickerButton."""
     uid = uuid.uuid4().hex[:6]
@@ -132,7 +130,6 @@ def test_creation_view_tree_and_picker_bidirectional_sync(qtbot: Any, mock_db: A
     assert len(view.file_tree.selectedItems()) == 0
 
 
-@pytest.mark.ui
 def test_creation_view_tab_switch_syncs_document(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que changer d'onglet met à jour le document actif, le picker et le découpage."""
     uid = uuid.uuid4().hex[:6]
@@ -156,7 +153,6 @@ def test_creation_view_tab_switch_syncs_document(qtbot: Any, mock_db: Any) -> No
     assert view.doc_picker_btn.get_document() == doc1
 
 
-@pytest.mark.ui
 def test_batch_view_document_item_click_and_segments(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que cliquer sur un document dans BatchView active le SegmentInspector et gère les segments."""
     uid = uuid.uuid4().hex[:6]
@@ -194,7 +190,6 @@ def test_batch_view_document_item_click_and_segments(qtbot: Any, mock_db: Any) -
     assert added_task["doc"].id == doc.id
 
 
-@pytest.mark.ui
 def test_batch_view_picker_button_and_queue_flow(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la sélection de document par DocumentPickerButton dans BatchView fonctionne en miroir de CreationView."""
     uid = uuid.uuid4().hex[:6]
@@ -227,7 +222,6 @@ def test_batch_view_picker_button_and_queue_flow(qtbot: Any, mock_db: Any) -> No
     assert view._segment_inspector_doc is None
 
 
-@pytest.mark.ui
 def test_modal_range_selector_contextual_slider_and_range_bar(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la modale de délimitation, la barre visuelle et la présence contextuelle du slider."""
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
@@ -278,7 +272,6 @@ def test_modal_range_selector_contextual_slider_and_range_bar(qtbot: Any, mock_d
     assert dlg.spin_p_end.value() == 20
 
 
-@pytest.mark.ui
 def test_modal_scope_unpaginated_doc_no_slider(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que pour un document non paginé, aucun slider de page n'est présent."""
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
@@ -294,7 +287,6 @@ def test_modal_scope_unpaginated_doc_no_slider(qtbot: Any, mock_db: Any) -> None
     assert dlg.pages_card.isHidden()
 
 
-@pytest.mark.ui
 def test_segment_inspector_scope_trigger_card(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que SegmentInspectorWidget affiche la carte de portée et gère les signaux de délimitation et de portée."""
     from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
@@ -320,7 +312,6 @@ def test_segment_inspector_scope_trigger_card(qtbot: Any, mock_db: Any) -> None:
         inspector.btn_open_scope_modal.click()
 
 
-@pytest.mark.ui
 def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentScopeDialog donne accès uniquement au contenu filtré et conditionne le slider."""
     from ankiforge.database.models import DocumentChunkModel
@@ -373,7 +364,6 @@ def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any,
     assert res["chunks"][0]["page_number"] == 3
 
 
-@pytest.mark.ui
 def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la mise à jour différentielle de délimitation préserve les NoteChunkLinkModel."""
     from ankiforge.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
@@ -410,7 +400,6 @@ def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any
     assert DocumentChunkModel.select().where(DocumentChunkModel.id == c1.id).first() is None
 
 
-@pytest.mark.ui
 def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation bidirectionnelle slider <-> sections dans DocumentDelimitationDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -442,7 +431,6 @@ def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: An
     assert dlg.spin_p_end.value() == 4
 
 
-@pytest.mark.ui
 def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation bidirectionnelle et la Vue Finale Assemblée dans DocumentScopeDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -495,7 +483,6 @@ def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any,
     assert dlg.preview_stack.currentIndex() == 0
 
 
-@pytest.mark.ui
 def test_delimitation_modification_and_modal_refresh_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la mise à jour réactive des modaux après modification de la délimitation d'un document."""
     from ankiforge.database.models import DocumentChunkModel
@@ -559,7 +546,6 @@ def test_delimitation_modification_and_modal_refresh_sync(qtbot: Any, mock_db: A
     assert len(scope_dlg._useful_chunks) == 5
 
 
-@pytest.mark.ui
 def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que les exclusions manuelles de sections restent fidèlement mémorisées et ne sont pas écrasées par le slider."""
     from ankiforge.database.models import DocumentChunkModel
@@ -622,7 +608,6 @@ def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mo
     assert len(scope_dlg._useful_chunks) == 5
 
 
-@pytest.mark.ui
 def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le saut immédiat de la vue PDF et l'ajustement dynamique des sliders dans DocumentDelimitationDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -698,7 +683,6 @@ def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, m
     assert dlg.sections_list.item(1).checkState() == Qt.CheckState.Unchecked
 
 
-@pytest.mark.ui
 def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le saut immédiat de la vue PDF et l'ajustement dynamique des sliders dans DocumentScopeDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -772,7 +756,6 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
     assert 5 in scope_dlg.preview_widget._included_pages
 
 
-@pytest.mark.ui
 def test_structure_delimitation_pdf_markdown_tree_cascade_and_chapter_range(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la hiérarchie arborescente, la cascade tristate et le sélecteur rapide de chapitres pour un PDF-Markdown."""
     from ankiforge.database.models import DocumentChunkModel
@@ -899,7 +882,6 @@ def test_structure_delimitation_pdf_markdown_tree_cascade_and_chapter_range(qtbo
     assert res["range_str"] == ""
 
 
-@pytest.mark.ui
 def test_structure_delimitation_pure_markdown_no_pages_card(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le comportement avec un document Markdown pur : masque pages_card, affiche sélecteur dans sections."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
@@ -964,7 +946,6 @@ def test_structure_delimitation_pure_markdown_no_pages_card(qtbot: Any, mock_db:
     assert any("Partie 2" in (c.get("heading_path") or c.get("title") or "") for c in scope_dlg._useful_chunks)
 
 
-@pytest.mark.ui
 def test_structure_delimitation_scanned_pdf_or_album_hides_structure_mode(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que pour un Album ou PDF numérisé sans titres, le bouton Par Chapitres est masqué."""
     from ankiforge.database.models import DocumentPageModel, MediaModel
@@ -1010,7 +991,6 @@ def test_structure_delimitation_scanned_pdf_or_album_hides_structure_mode(qtbot:
     assert scope_dlg.sections_list.count() == 3
 
 
-@pytest.mark.ui
 def test_modal_hierarchical_filter_keeps_ancestors_and_check_states(qtbot: Any, mock_db: Any) -> None:
     """Le filtre garde les ancêtres visibles et ne modifie jamais les cases cochées."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
@@ -1065,7 +1045,6 @@ def test_modal_hierarchical_filter_keeps_ancestors_and_check_states(qtbot: Any, 
     assert scope_beta.isHidden()
 
 
-@pytest.mark.ui
 def test_delimitation_assembled_preview_uses_in_memory_selection(qtbot: Any, mock_db: Any) -> None:
     """La vue finale assemble les feuilles sélectionnées sans dépendre de la BDD."""
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
@@ -1094,7 +1073,6 @@ def test_delimitation_assembled_preview_uses_in_memory_selection(qtbot: Any, moc
     assert "deuxième partie" not in assembled_after
 
 
-@pytest.mark.ui
 def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qtbot: Any, mock_db: Any) -> None:
     """Le reset est confirmé avant de vider les bornes et exclusions persistées."""
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
@@ -1132,7 +1110,6 @@ def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qt
     assert reset.excluded_headings == "[]"
 
 
-@pytest.mark.ui
 def test_scope_context_progress_is_hidden_without_valid_limit(qtbot: Any, mock_db: Any) -> None:
     """Une limite de contexte absente ou invalide ne doit pas afficher de jauge trompeuse."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
@@ -1156,7 +1133,6 @@ def test_scope_context_progress_is_hidden_without_valid_limit(qtbot: Any, mock_d
     assert configured.token_progress.maximum() == 100
 
 
-@pytest.mark.ui
 def test_pdf_defaults_to_pages_and_requires_explicit_section_activation(qtbot: Any, mock_db: Any) -> None:
     """Un PDF structuré démarre en mode pages et le mode sections est explicite."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
@@ -1200,7 +1176,6 @@ def test_pdf_defaults_to_pages_and_requires_explicit_section_activation(qtbot: A
     assert not scope.sections_list.isHidden()
 
 
-@pytest.mark.ui
 def test_markdown_defaults_to_sections_and_section_selection_does_not_change_pages(qtbot: Any, mock_db: Any) -> None:
     """Un Markdown non paginé démarre en mode sections."""
     from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
@@ -1235,7 +1210,6 @@ def test_markdown_defaults_to_sections_and_section_selection_does_not_change_pag
     scope_row.checkbox.setChecked(False)
 
 
-@pytest.mark.ui
 def test_section_mode_persists_sections_without_page_bounds(qtbot: Any, mock_db: Any) -> None:
     """La validation en mode sections persiste les exclusions, pas une plage de pages dérivée."""
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
@@ -1268,7 +1242,6 @@ def test_section_mode_persists_sections_without_page_bounds(qtbot: Any, mock_db:
     assert "partie a" in persisted.excluded_headings.lower()
 
 
-@pytest.mark.ui
 def test_h3_content_and_h4_children_retained_in_scope_dialog(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que le contenu propre de H3 ET ses sous-sections H4 cochées sont inclus dans la portée."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1364,7 +1337,6 @@ Détail H4 B.
     assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.b" not in paths_after
 
 
-@pytest.mark.ui
 def test_h3_tristate_checkbox_toggle_and_row_click_isolation(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le cycle binaire de la checkbox et l'isolation du clic sur la ligne."""
     from PySide6.QtCore import QPointF
@@ -1433,7 +1405,6 @@ Texte 4
     assert h3_item.child(0).checkState(0) == Qt.CheckState.Checked
 
 
-@pytest.mark.ui
 def test_h3_h4_scope_dialog_restore_faithfully(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la réouverture de DocumentScopeDialog restaure fidèlement la sélection fine H3/H4."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1503,7 +1474,6 @@ Texte H4b.
     assert "Racine > H2 > H3 > H4b" not in paths2
 
 
-@pytest.mark.ui
 def test_delimitation_dialog_h3_content_and_h4_cascade(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la préservation du contenu H3 et la cascade dans DocumentDelimitationDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1587,7 +1557,6 @@ def test_format_and_parse_page_ranges_canonical() -> None:
     assert format_page_ranges(set(range(1, 6))) == "1-5"
 
 
-@pytest.mark.ui
 def test_document_scope_dialog_non_contiguous_pages(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la sélection et la restauration de plages discontinues dans DocumentScopeDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1642,7 +1611,6 @@ def test_document_scope_dialog_non_contiguous_pages(qtbot: Any, mock_db: Any) ->
     assert dlg2.input_custom_pages.text() == "1-2, 4-5"
 
 
-@pytest.mark.ui
 def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentDelimitationDialog exclut correctement les pages sautées et enregistre les exclusions."""
     import json
@@ -1695,7 +1663,6 @@ def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: 
     assert remaining_pages == [1, 2, 4, 5]
 
 
-@pytest.mark.ui
 def test_preview_widget_page_toggle_button(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le bouton 1-clic d'exclusion/inclusion de diapositive dans le volet d'aperçu."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1744,7 +1711,6 @@ def test_preview_widget_page_toggle_button(qtbot: Any, mock_db: Any) -> None:
     assert "Exclure" in dlg.preview_widget.btn_toggle_page_scope.text()
 
 
-@pytest.mark.ui
 def test_push_behavior_slider_spinbox(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le comportement push-clamp lorsque le début dépasse la fin ou inversement."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1791,7 +1757,6 @@ def test_push_behavior_slider_spinbox(qtbot: Any, mock_db: Any) -> None:
     assert dlg.input_custom_pages.text() == "3"
 
 
-@pytest.mark.ui
 def test_section_multi_page_span_overlap(qtbot: Any, mock_db: Any) -> None:
     """Vérifie qu'une section ou chapitre couvrant plusieurs pages reste cochée si l'une des pages est incluse."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1845,7 +1810,6 @@ Dernière page du document.
     assert chap_item.checkState(0) in (Qt.CheckState.Checked, Qt.CheckState.PartiallyChecked)
 
 
-@pytest.mark.ui
 def test_document_scope_rejects_page_range_outside_bounds(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentScopeDialog refuse d'appliquer si une page dépasse la borne utile."""
     from ankiforge.database.models import DocumentChunkModel
@@ -1877,7 +1841,6 @@ def test_document_scope_rejects_page_range_outside_bounds(qtbot: Any, mock_db: A
     assert dlg.result() == 0
 
 
-@pytest.mark.ui
 def test_slide_selector_bar_widget(qtbot: Any) -> None:
     """Vérifie le ruban de pastilles de slides cliquables et ses actions rapides."""
     from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SlideSelectorBarWidget
@@ -1913,7 +1876,6 @@ def test_slide_selector_bar_widget(qtbot: Any) -> None:
     assert "invert" in actions_fired
 
 
-@pytest.mark.ui
 def test_range_segments_widget(qtbot: Any) -> None:
     """Vérifie l'affichage des badges de segments et le constructeur inline de plage."""
     from PySide6.QtWidgets import QPushButton
@@ -1953,7 +1915,6 @@ def test_range_segments_widget(qtbot: Any) -> None:
     assert widget.builder_widget.isHidden()
 
 
-@pytest.mark.ui
 def test_delimitation_dialog_slide_selector_and_segments_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation complète entre les pastilles, les segments, les spinboxes et l'aperçu dans DelimitationDialog."""
     from ankiforge.database.models import DocumentChunkModel
@@ -2020,7 +1981,6 @@ def test_delimitation_dialog_slide_selector_and_segments_sync(qtbot: Any, mock_d
     assert dlg.result() == 1
 
 
-@pytest.mark.ui
 def test_document_editor_scoped_extract_and_toggle(qtbot: Any) -> None:
     """Vérifie l'affichage du bandeau TextScopeBannerWidget et la bascule entre extrait filtré et document complet."""
     initial_full_text = "# Cours Complet\n\nIntro générale.\n\n## Section 1\nDétail section 1.\n\n## Section 2\nDétail section 2."
@@ -2057,7 +2017,6 @@ def test_document_editor_scoped_extract_and_toggle(qtbot: Any) -> None:
     assert editor.get_text() == initial_full_text
 
 
-@pytest.mark.ui
 def test_creation_view_scope_dialog_updates_editor(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que l'application d'un résultat de DocumentScopeDialog met immédiatement à jour l'éditeur central."""
     uid = uuid.uuid4().hex[:6]
@@ -2114,7 +2073,6 @@ def test_creation_view_scope_dialog_updates_editor(qtbot: Any, mock_db: Any) -> 
     assert "Moelle épinière" in editor.get_text()
 
 
-@pytest.mark.ui
 def test_creation_view_segment_inspector_toggles_update_editor(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que cocher/décocher des segments dans SegmentInspectorWidget met à jour l'éditeur central en direct."""
     uid = uuid.uuid4().hex[:6]
@@ -2158,7 +2116,6 @@ def test_creation_view_segment_inspector_toggles_update_editor(qtbot: Any, mock_
     assert "Partie 2 : Oreillette" in editor.get_text()
 
 
-@pytest.mark.ui
 def test_creation_view_segment_selected_highlights_in_editor(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que cliquer sur un segment dans l'inspecteur déplace le curseur et surligne le texte dans l'éditeur."""
     uid = uuid.uuid4().hex[:6]

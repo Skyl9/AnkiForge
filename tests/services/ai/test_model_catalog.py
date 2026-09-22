@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ankiforge.services.ai.model_catalog import (
     ModelCatalog,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_curated_models_not_empty():

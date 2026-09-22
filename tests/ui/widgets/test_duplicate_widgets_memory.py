@@ -1,10 +1,13 @@
 """Tests pour l'optimisation mémoire et le recyclage des vues dans DuplicateMergeInspector."""
 
+import pytest
 from pytestqt.qtbot import QtBot
 
 from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
 from ankiforge.ui.components.duplicate_widgets import DuplicateMergeInspector
 from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
+
+pytestmark = pytest.mark.ui
 
 
 def test_duplicate_merge_inspector_lazy_loading_and_recycling(qtbot: QtBot) -> None:

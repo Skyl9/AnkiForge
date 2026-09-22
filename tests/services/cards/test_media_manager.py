@@ -5,6 +5,8 @@ import pytest
 
 from ankiforge.services.cards.media_manager import MediaManager
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def media_manager(tmp_path):

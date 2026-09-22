@@ -4,6 +4,8 @@ Unit tests for central typed AppEventBus.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.utils.event_bus import (
     AppEvent,
     AppEventBus,
@@ -35,6 +37,8 @@ from ankiforge.utils.event_bus import (
     SettingChangedEvent,
     ThemeChangedEvent,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_event_bus_singleton() -> None:

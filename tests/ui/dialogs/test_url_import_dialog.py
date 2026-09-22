@@ -5,10 +5,14 @@ requests.get / trafilatura.extract mockés, et le rendu JS via
 web_js_renderer.render_page_to_html mocké.
 """
 
+import pytest
 import requests
 
 from ankiforge.database.models import DocumentModel
 from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
+
+pytestmark = pytest.mark.ui
+
 
 STATIC_HTML_OK = "<html><head><title>Article Rendu</title></head><body>ARTICLE_MARKER</body></html>"
 SPA_HTML = '<html><head><title>SPA</title></head><body><div id="app"></div></body></html>'

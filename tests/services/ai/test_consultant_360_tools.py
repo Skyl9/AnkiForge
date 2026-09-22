@@ -17,6 +17,8 @@ from ankiforge.database.models import (
 )
 from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def sample_data():

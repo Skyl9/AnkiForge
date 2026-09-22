@@ -14,6 +14,8 @@ from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.services.rag.vector_manager import VectorManager
 from ankiforge.services.rag.visual_rag_service import VisualRAGService
 
+pytestmark = pytest.mark.integration
+
 
 class FakeVisionProvider(LLMProvider):
     """Fournisseur LLM simulé pour les tests de description visuelle dense."""

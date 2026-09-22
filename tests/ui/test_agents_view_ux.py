@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from PySide6.QtWidgets import QMessageBox
 
 from ankiforge.database.models import PersonaModel
@@ -10,6 +11,8 @@ from ankiforge.ui.views.agents_view import (
     PersonaEmptyStateWidget,
     VariableHelperDialog,
 )
+
+pytestmark = pytest.mark.ui
 
 
 def test_empty_state_widget_signals(qtbot):

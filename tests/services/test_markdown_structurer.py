@@ -1,6 +1,10 @@
 """Tests unitaires pour MarkdownStructurer."""
 
+import pytest
+
 from ankiforge.services.markdown.structurer import MarkdownStructurer
+
+pytestmark = pytest.mark.unit
 
 
 def test_slugify() -> None:

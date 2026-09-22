@@ -1,7 +1,11 @@
 """Tests unitaires pour les outils et ressources de documentation dans MCP et Consultant IA."""
 
+import pytest
+
 from ankiforge.services.ai.consultant_engine import ConsultantEngine, ConsultantToolRegistry
 from ankiforge.services.ai.mcp_server import mcp
+
+pytestmark = pytest.mark.integration
 
 
 def test_consultant_tool_registry_doc_tools():

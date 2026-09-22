@@ -5,6 +5,7 @@ Tests UI PySide6 pour WorkspaceInspectorWidget avec Garde-Fou, Patch Queue, Dire
 import json
 import uuid
 
+import pytest
 from PySide6.QtWidgets import QTextEdit
 
 from ankiforge.database.models import (
@@ -18,6 +19,8 @@ from ankiforge.database.models import (
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.mention_completer import MentionCompleter
 from ankiforge.ui.views.consultant_view.widgets.workspace_inspector_widget import WorkspaceInspectorWidget
+
+pytestmark = pytest.mark.ui
 
 
 def test_workspace_inspector_widget_init(qtbot):

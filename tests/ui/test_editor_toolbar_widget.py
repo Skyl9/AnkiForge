@@ -10,6 +10,8 @@ from ankiforge.services.settings_service import SettingsService
 from ankiforge.ui.dialogs.toolbar_customize_dialog import ToolbarCustomizeDialog
 from ankiforge.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture(autouse=True)
 def reset_toolbar_settings() -> Any:
@@ -19,7 +21,6 @@ def reset_toolbar_settings() -> Any:
     SettingsService.set("editor/toolbar_hidden_actions", [])
 
 
-@pytest.mark.ui
 def test_editor_toolbar_init_and_default_actions(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'initialisation de la toolbar et la présence du bouton trois points."""
     toolbar = EditorToolbarWidget()
@@ -39,7 +40,6 @@ def test_editor_toolbar_init_and_default_actions(qtbot: Any, mock_db: Any) -> No
     assert "bullet_list" in action_ids
 
 
-@pytest.mark.ui
 def test_editor_toolbar_hide_and_show_action(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le masquage et l'affichage individuel d'un bouton d'action."""
     toolbar = EditorToolbarWidget()
@@ -63,7 +63,6 @@ def test_editor_toolbar_hide_and_show_action(qtbot: Any, mock_db: Any) -> None:
     assert "bold" not in toolbar.get_hidden_action_ids()
 
 
-@pytest.mark.ui
 def test_editor_toolbar_batch_hide_and_reset(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le masquage par lot, tout afficher et réinitialiser."""
     toolbar = EditorToolbarWidget()
@@ -89,7 +88,6 @@ def test_editor_toolbar_batch_hide_and_reset(qtbot: Any, mock_db: Any) -> None:
     assert len(toolbar.get_hidden_action_ids()) == 0
 
 
-@pytest.mark.ui
 def test_editor_toolbar_persistence(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la persistance des préférences de visibilité via SettingsService."""
     toolbar = EditorToolbarWidget()
@@ -109,7 +107,6 @@ def test_editor_toolbar_persistence(qtbot: Any, mock_db: Any) -> None:
     assert toolbar2.is_action_visible("bold") is True
 
 
-@pytest.mark.ui
 def test_toolbar_customize_dialog(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le fonctionnement de ToolbarCustomizeDialog (cases à cocher, application)."""
     toolbar = EditorToolbarWidget()
@@ -151,7 +148,6 @@ def test_toolbar_customize_dialog(qtbot: Any, mock_db: Any) -> None:
     assert "italic" in applied_result[0]
 
 
-@pytest.mark.ui
 def test_editor_toolbar_adaptive_separators_and_menu(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie l'adaptation des séparateurs et l'ouverture du menu trois points."""
     from PySide6.QtWidgets import QFrame

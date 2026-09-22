@@ -6,6 +6,7 @@ ModelExportDialog, ModelImportDialog et StarterPackDialog.
 import json
 from pathlib import Path
 
+import pytest
 from pytestqt.qtbot import QtBot
 
 from ankiforge.database.models import (
@@ -14,6 +15,8 @@ from ankiforge.database.models import (
 from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
+
+pytestmark = pytest.mark.ui
 
 
 def test_model_export_dialog(qtbot: QtBot, tmp_path: Path):

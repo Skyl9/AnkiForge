@@ -5,7 +5,11 @@ des formules LaTeX (anti-slashs simples non échappés \Sigma, \delta, \frac, \b
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.services.ai.consultant_engine import robust_json_loads
+
+pytestmark = pytest.mark.unit
 
 
 def test_robust_json_loads_standard_json():

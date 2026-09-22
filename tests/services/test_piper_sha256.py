@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 from ankiforge.services.cards.tts_service import (
     _MAX_PIPER_ARCHIVE_BYTES,
     _PIPER_ASSETS,
     _PIPER_VOICE_SHA256,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_all_assets_are_sha256_hex() -> None:

@@ -8,6 +8,8 @@ import pytest
 from ankiforge.database.models import PersonaModel
 from ankiforge.services.ai.mcp_server import mcp
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture
 def sample_mcp_agent():

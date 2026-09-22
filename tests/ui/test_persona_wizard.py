@@ -1,11 +1,15 @@
 import json
 import uuid
 
+import pytest
+
 from ankiforge.database.models import PersonaFolderModel, PersonaModel
 from ankiforge.services.ai.persona_templates import PERSONA_TEMPLATES
 from ankiforge.ui.views.agents_view.dialogs.persona_wizard_dialog import (
     PersonaCreationWizardDialog,
 )
+
+pytestmark = pytest.mark.ui
 
 
 def test_persona_wizard_init_and_mode_switch(qtbot):

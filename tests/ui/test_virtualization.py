@@ -42,6 +42,8 @@ from ankiforge.ui.models import (
 )
 from ankiforge.ui.theme import DesignTokens
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def sample_virtual_data(mock_db):
@@ -337,7 +339,6 @@ def test_delegates_painting(qtbot):
 
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_note_virtual_table_model_stress_10k_rows(mock_db, qtbot) -> None:
     """Test de charge et de virtualisation : 10 000 notes insérées et manipulées à 60 FPS."""
     import time

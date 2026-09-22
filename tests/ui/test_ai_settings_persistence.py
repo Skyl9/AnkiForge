@@ -29,6 +29,8 @@ from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import Docume
 from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 from ankiforge.utils.environment import get_app_qsettings
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture(autouse=True)
 def clean_db_and_settings():

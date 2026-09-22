@@ -4,8 +4,12 @@ Unit tests for PipelineRepository.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.database.models import PersonaModel
 from ankiforge.repositories.pipeline_repository import PipelineRepository
+
+pytestmark = pytest.mark.integration
 
 
 def test_pipeline_repository_crud() -> None:

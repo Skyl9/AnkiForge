@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSizePolicy, QTreeWidgetItem
 
@@ -17,7 +18,10 @@ from ankiforge.ui.views.documents_view import (
     RAGTestDialog,
 )
 
+pytestmark = pytest.mark.ui
 
+
+@pytest.mark.slow
 def test_documents_view_selection_and_coverage(qtbot):
     """Vérifie le chargement des chapitres et les indicateurs de couverture dans DocumentsView."""
     uid = uuid.uuid4().hex[:6]

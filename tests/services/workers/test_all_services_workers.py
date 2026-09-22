@@ -19,6 +19,8 @@ from ankiforge.services.workers.duplicate_worker import DuplicateWorker
 from ankiforge.services.workers.linter_worker import LinterWorker
 from ankiforge.services.workers.vector_worker import VectorWorker
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.integration
 def test_ab_worker_execution_and_cancellation(qtbot) -> None:

@@ -1,5 +1,9 @@
+import pytest
+
 from ankiforge.database.models import DeckModel
 from ankiforge.ui.components import DBComboBox
+
+pytestmark = pytest.mark.ui
 
 
 def test_db_combobox_initialization(qtbot, mock_db):

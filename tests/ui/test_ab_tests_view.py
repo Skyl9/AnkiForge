@@ -18,6 +18,8 @@ from ankiforge.ui.style_engine import get_style_engine
 from ankiforge.ui.views.ab_tests_view import ABTestsView
 from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 
+pytestmark = pytest.mark.ui
+
 
 class DummyABProviderA(LLMProvider):
     def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
@@ -57,7 +59,6 @@ class DummySingleABManager:
 
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_ab_tests_view_engine_comparison(qtbot):
     """Vérifie le test A/B en Mode 0 : Comparer deux Moteurs IA et affichage des résultats."""
     uid = uuid.uuid4().hex[:6]
@@ -122,7 +123,6 @@ def test_ab_tests_view_engine_comparison(qtbot):
     assert view.orchestrator_a.state.get_variable("fields_str") == '"Front", "Back"'
 
 
-@pytest.mark.ui
 def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
     """Vérifie le test A/B en Mode 1 (Prompts) et Mode 2 (Pipelines) ainsi que la navigation synchro."""
     uid = uuid.uuid4().hex[:6]
@@ -176,7 +176,6 @@ def test_ab_tests_view_prompt_and_pipeline_comparison(qtbot):
     assert view.index_b == 0
 
 
-@pytest.mark.ui
 def test_ab_tests_view_features_and_theme_reactivity(qtbot):
     """Vérifie le commutateur de vue, la disposition splitter, les réglages toujours visibles, le winner badging et la réactivité du thème."""
     view = ABTestsView(ai_manager=None)
@@ -299,7 +298,6 @@ def test_ab_tests_view_features_and_theme_reactivity(qtbot):
         view.refresh_theme(light_profile)
 
 
-@pytest.mark.ui
 def test_ab_tests_view_inference_sliders_independent(qtbot):
     """Vérifie la persistance des sliders d'inférence et le calcul température/tokens par branche."""
     view = ABTestsView(ai_manager=None)
@@ -329,7 +327,6 @@ def test_ab_tests_view_inference_sliders_independent(qtbot):
     assert view._effective_max_tokens("B") == 512
 
 
-@pytest.mark.ui
 def test_ab_tests_view_no_winner_or_adopt_mechanism(qtbot):
     """Vérifie que le mécanisme 'gagnant' (badge + Adopter) et la copie config A→B ont été supprimés."""
 
@@ -352,7 +349,6 @@ def test_ab_tests_view_no_winner_or_adopt_mechanism(qtbot):
     assert view.kpi_b.lbl_time.text() == "3.00s"
 
 
-@pytest.mark.ui
 def test_ab_tests_view_diff_and_copy_config(qtbot):
     """Vérifie le 4e niveau de vue Diff A↔B et le bouton 'Copier config A→B'."""
     view = ABTestsView(ai_manager=None)
@@ -385,7 +381,6 @@ def test_ab_tests_view_diff_and_copy_config(qtbot):
     assert view.tok_slider_b.value() == 4096
 
 
-@pytest.mark.ui
 def test_ab_tests_view_document_import(qtbot):
     """Vérifie l'import d'un document dans le texte source avec les vues Rendu Stylisé / Source."""
     uid = uuid.uuid4().hex[:6]
@@ -426,7 +421,6 @@ def test_ab_tests_view_document_import(qtbot):
     assert view.source_editor.view_toggle_frame.isHidden()
 
 
-@pytest.mark.ui
 def test_ab_tests_view_trash_clears_source_markdown(qtbot):
     """Vérifie que la poubelle efface le texte source et désélectionne le document (Markdown)."""
     uid = uuid.uuid4().hex[:6]
@@ -454,7 +448,6 @@ def test_ab_tests_view_trash_clears_source_markdown(qtbot):
     assert view.source_editor.editor_stack.currentWidget() is view.source_editor.raw_editor
 
 
-@pytest.mark.ui
 def test_ab_tests_view_trash_clears_source_pdf(qtbot):
     """Vérifie que la poubelle efface un document PDF dont la vue reste présentée."""
     uid = uuid.uuid4().hex[:6]
@@ -482,7 +475,6 @@ def test_ab_tests_view_trash_clears_source_pdf(qtbot):
 
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_ab_tests_view_config_summary_populated(qtbot):
     """Vérifie que la barre de résumé de configuration est peuplée correctement après un run."""
     uid = uuid.uuid4().hex[:6]
@@ -529,7 +521,6 @@ def test_ab_tests_view_config_summary_populated(qtbot):
     assert "4096" in view.summary_labels["inf_a"].text()
 
 
-@pytest.mark.ui
 def test_ab_tests_view_selectors_open_modals(qtbot):
     """Vérifie qu'un clic sur chaque champ sélectionnable ouvre la modale correspondante."""
     uid = uuid.uuid4().hex[:6]
@@ -584,7 +575,6 @@ class DummyCustomFieldManager:
 
 
 @pytest.mark.slow
-@pytest.mark.ui
 def test_ab_tests_view_custom_field_note_type_normalized(qtbot):
     """Vérifie que les cartes générées sont normalisées au schéma de champs du modèle de carte sélectionné."""
     uid = uuid.uuid4().hex[:6]

@@ -1,8 +1,12 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ankiforge.database.models import DeckModel
 from ankiforge.ui.dialogs.export_dialog import ExportDialog
 from ankiforge.ui.dialogs.import_dialog import ImportDialog
+
+pytestmark = pytest.mark.ui
 
 
 def test_import_dialog_init(qtbot):

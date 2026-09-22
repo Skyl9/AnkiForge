@@ -2,12 +2,16 @@
 
 from typing import Any
 
+import pytest
+
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.markdown.ai_structurer import (
     AIDocumentStructurer,
     StructuringOptions,
     StructuringProfile,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class DummyStructuringProvider(LLMProvider):

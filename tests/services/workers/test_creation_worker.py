@@ -1,8 +1,12 @@
 import json
 
+import pytest
+
 from ankiforge.database.models import NoteTypeModel, PersonaModel, PipelineModel, PipelineStepModel
 from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
+
+pytestmark = pytest.mark.integration
 
 
 def test_creation_worker_success(mock_db):

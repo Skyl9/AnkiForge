@@ -9,6 +9,8 @@ import pytest
 
 from ankiforge.services.tools.tool_sandbox import run_python_tool
 
+pytestmark = pytest.mark.unit
+
 
 def test_simple_execution_succeeds() -> None:
     result = run_python_tool("def run(state):\n    return 1 + 2", {})

@@ -9,6 +9,8 @@ from ankiforge.database.models import DocumentModel
 # Ajuste le chemin d'import selon la structure exacte de ton projet
 from ankiforge.ui.widgets.omnibox import Omnibox
 
+pytestmark = pytest.mark.ui
+
 
 @pytest.fixture
 def omnibox(qtbot):

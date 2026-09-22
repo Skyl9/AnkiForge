@@ -4,8 +4,12 @@ Unit tests for DocumentRepository.
 
 from __future__ import annotations
 
+import pytest
+
 from ankiforge.database.models import NoteModel, NoteTypeModel
 from ankiforge.repositories.document_repository import DocumentRepository
+
+pytestmark = pytest.mark.integration
 
 
 def test_document_repository_crud() -> None:

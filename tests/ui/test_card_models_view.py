@@ -3,6 +3,7 @@ import uuid
 from typing import Any
 from unittest.mock import patch
 
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
@@ -11,6 +12,8 @@ from ankiforge.services.cards.snippet_library import SnippetLibrary
 from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
 from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
 from ankiforge.ui.views.card_models_view import CardModelsView
+
+pytestmark = pytest.mark.ui
 
 
 def _get_flow_layout_texts(flow_layout: Any) -> list[str]:

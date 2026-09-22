@@ -14,6 +14,8 @@ from ankiforge.services.documentation.doc_service import (
     search_app_documentation,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def temp_docs_env(tmp_path: Path) -> tuple[Path, Path]:

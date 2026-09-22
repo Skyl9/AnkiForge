@@ -20,10 +20,10 @@ En tant qu'**Auditeur QA & CI/CD**, tu évalues la discipline de test (isolation
 uv run pytest --collect-only -q | tail -3
 
 # Sous-ensemble rapide en série (recommandé, ~40s) — pas la suite complète d'emblée
-uv run pytest tests/ -k "not slow" -n 0 -q
+uv run pytest tests/ -m "not slow" -n 0 -q
 
 # Couverture sur le sous-ensemble (CI exige ≥ 70)
-uv run pytest tests/ -k "not slow" -n 0 --cov=ankiforge --cov-report=term-missing -q | tail -20 || true
+uv run pytest tests/ -m "not slow" -n 0 --cov=ankiforge --cov-report=term-missing -q | tail -20 || true
 
 # Patterns interdits dans les tests
 grep -rInE "time\.sleep\(|sleep\(" tests/ || true
@@ -38,7 +38,7 @@ grep -rInE "(OpenAI\(|Client\(|Anthropic\(|genai\.|ollama|requests\.(get|post))\
 3. **Headless UI** : les tests UI doivent fonctionner sans affichage (`QT_QPA_PLATFORM=offscreen`, `QTWEBENGINE_DISABLE_SANDBOX=1`, `ANKIFORGE_MOCK_WEBENGINE=1` dans `conftest.py`) ; pas de snapshot visuel (jugé instable).
 4. **`time.sleep`** dans `tests/` : interdit (problèmes de flakiness) — remplacer par attente d'événement (`SignalSpy`, polling court, `qtbot.waitSignal`/`waitUntil`).
 5. **Pyramide & isolation** : tests unitaires purs < 10 ms (zéro BDD, zéro widget, zéro réseau) ; identifier les tests lents (> 1 s) via marqueur `slow`/collect durations.
-6. **Pytest config** : `pytest.ini` (testpaths, addopts xdist, timeout) cohérent avec conftest ; markers documentés.
+6. **Pytest config** : `pytest.ini` (`--strict-markers`, testpaths, addopts xdist, timeout) cohérent avec conftest ; markers documentés et 100% assignés (aucun test sans marqueur unitaire/intégration/UI).
 7. **CI/CD** (`.github/workflows/ci.yml`) : jobs qualité parallèles (ruff, mypy, bandit, pip-audit), matrice multi-OS (Linux/macOS/Windows) avec compilation de l'extension C, coverage SÉRIEL (`-n 0`, `--cov-fail-under=70` sur Linux — contrainte Qt/WebEngine), gitleaks, build & smoke test Nuitka. Signaler toute régression (ex. couverture re-parallélisée, seuil abaissé).
 8. **Pré-commit / pré-push** : hooks `ruff --fix`+format, pre-push `mypy` + tests rapides, sous 5-10 s ; rendre l'ordre de vérification conforme à `AGENTS.md`.
 

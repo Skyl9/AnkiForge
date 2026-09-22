@@ -20,6 +20,8 @@ from ankiforge.utils.hierarchy import (
     to_filename_safe,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestSplitHierarchy:
     def test_split_basic(self) -> None:
