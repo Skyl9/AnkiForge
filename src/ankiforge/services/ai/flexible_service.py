@@ -85,6 +85,7 @@ class OpenAICompatibleProvider(LLMProvider):
         self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=max_retries)
         self.model_name = model_name
         self.max_tokens = max_tokens
+        self.is_ollama = "localhost" in base_url or "127.0.0.1" in base_url
 
     @property
     def provider_name(self) -> str:
@@ -94,6 +95,8 @@ class OpenAICompatibleProvider(LLMProvider):
             return "groq"
         if "openrouter" in base:
             return "openrouter"
+        if "opencode" in base:
+            return "opencode"
         if "anthropic" in base:
             return "anthropic"
         if "localhost" in base or "127.0.0.1" in base:
@@ -142,7 +145,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 kwargs["max_tokens"] = effective_max
 
             # 👇 C'est ici que l'on connecte votre interface au backend !
-            if response_format == "json":
+            if response_format == "json" and not self.is_ollama:
                 kwargs["response_format"] = {"type": "json_object"}
 
             response = cast(
@@ -178,6 +181,10 @@ class OllamaProvider(OpenAICompatibleProvider):
             timeout (float): Délai maximal (secondes) par requête réseau.
         """
         super().__init__(base_url=f"{_ollama_base_url()}/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens, timeout=timeout)
+
+    @property
+    def provider_name(self) -> str:
+        return "ollama"
 
     @staticmethod
     def get_available_models() -> list[str]:
@@ -221,29 +228,99 @@ class GroqProvider(OpenAICompatibleProvider):
             raise ValueError("Clé API GROQ_API_KEY manquante.")
         super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
 
+    @property
+    def provider_name(self) -> str:
+        return "groq"
+
 
 class OpenRouterProvider(OpenAICompatibleProvider):
     """
     Fournisseur d'accès multi-IA via la plateforme OpenRouter.
     """
 
-    def __init__(self, api_key: str | None = None, model_name: str = "google/gemini-2.5-flash:free", max_tokens: int = 16384, timeout: float = _DEFAULT_TIMEOUT_SECONDS):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model_name: str = "qwen/qwen3.8-27b:free",
+        base_url: str | None = None,
+        max_tokens: int = 16384,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+    ):
         """
         Initialise le client OpenRouter.
 
         Args:
             api_key (str | None): Clé API OpenRouter.
             model_name (str): Modèle cible disponible sur OpenRouter.
+            base_url (str | None): URL de la passerelle (défaut : openrouter/base_url ou https://openrouter.ai/api/v1).
             max_tokens (int): Nombre maximal de tokens de réponse.
             timeout (float): Délai maximal (secondes) par requête réseau.
 
         Raises:
             ValueError: Si la clé API est absente.
         """
+        resolved_url = base_url
+        if not resolved_url:
+            try:
+                from ankiforge.services.settings_service import SettingsService
+
+                resolved_url = str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1").rstrip("/")
+            except Exception:
+                resolved_url = "https://openrouter.ai/api/v1"
+
         key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ValueError("Clé API OPENROUTER_API_KEY manquante.")
-        super().__init__(base_url="https://openrouter.ai/api/v1", model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
+        super().__init__(base_url=resolved_url, model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
+
+    @property
+    def provider_name(self) -> str:
+        return "openrouter"
+
+
+class OpenCodeProvider(OpenAICompatibleProvider):
+    """
+    Fournisseur d'accès aux modèles d'IA via la passerelle OpenCode (OpenCode Zen / passerelle locale).
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model_name: str = "deepseek-v4-flash",
+        base_url: str | None = None,
+        max_tokens: int = 16384,
+        timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+    ):
+        """
+        Initialise le client OpenCode.
+
+        Args:
+            api_key (str | None): Clé API OpenCode (ou variable OPENCODE_API_KEY).
+            model_name (str): Modèle cible (ex: 'deepseek-v4-flash', 'gemini-3.5-flash-lite').
+            base_url (str | None): URL de la passerelle (défaut : opencode/base_url ou https://opencode.ai/zen/v1).
+            max_tokens (int): Plafond maximal de tokens.
+            timeout (float): Délai maximal par requête réseau.
+
+        Raises:
+            ValueError: Si la clé API est absente.
+        """
+        resolved_url = base_url
+        if not resolved_url:
+            try:
+                from ankiforge.services.settings_service import SettingsService
+
+                resolved_url = str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1").rstrip("/")
+            except Exception:
+                resolved_url = "https://opencode.ai/zen/v1"
+
+        key = api_key or os.environ.get("OPENCODE_API_KEY")
+        if not key:
+            raise ValueError("Clé API OPENCODE_API_KEY manquante.")
+        super().__init__(base_url=resolved_url, model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
+
+    @property
+    def provider_name(self) -> str:
+        return "opencode"
 
 
 class AnthropicProvider(LLMProvider):
@@ -456,6 +533,16 @@ class AIManager:
                     max_tokens=max_tokens,
                     timeout=timeout,
                 )
+            elif p_name == "openrouter":
+                if not key and not os.environ.get("OPENROUTER_API_KEY"):
+                    logger.warning("Clé API OpenRouter absente pour le modèle %s, repli sur MockProvider.", model_id)
+                    return MockProvider()
+                return OpenRouterProvider(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
+            elif p_name == "opencode":
+                if not key and not os.environ.get("OPENCODE_API_KEY"):
+                    logger.warning("Clé API OpenCode absente pour le modèle %s, repli sur MockProvider.", model_id)
+                    return MockProvider()
+                return OpenCodeProvider(api_key=key, model_name=model_id, max_tokens=max_tokens, timeout=timeout)
             elif p_name == "anthropic":
                 if not key and not os.environ.get("ANTHROPIC_API_KEY"):
                     logger.warning("Clé API Anthropic absente pour le modèle %s, repli sur MockProvider.", model_id)

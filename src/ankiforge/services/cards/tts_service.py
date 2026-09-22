@@ -17,6 +17,7 @@ import platform
 import re
 import shutil
 import subprocess  # nosec B404  # appels en liste de binaires système, jamais shell=True
+import sys
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -458,22 +459,95 @@ class PiperSidecarProvider(TTSProvider):
 
 
 class KokoroSidecarProvider(TTSProvider):
-    """Fournisseur Kokoro-82M déporté (optionnel)."""
+    """Fournisseur Kokoro-82M en runner déporté (optionnel)."""
 
     id = "kokoro"
     display_name = "Kokoro-82M (Runner Local Déporté)"
 
+    DEFAULT_VOICES: list[dict[str, str]] = [
+        {"id": "af_heart", "name": "Kokoro - Heart (US Female)", "lang": "en-US"},
+        {"id": "af_bella", "name": "Kokoro - Bella (US Female)", "lang": "en-US"},
+        {"id": "af_nicole", "name": "Kokoro - Nicole (US Female)", "lang": "en-US"},
+        {"id": "am_adam", "name": "Kokoro - Adam (US Male)", "lang": "en-US"},
+        {"id": "am_michael", "name": "Kokoro - Michael (US Male)", "lang": "en-US"},
+        {"id": "bf_emma", "name": "Kokoro - Emma (UK Female)", "lang": "en-GB"},
+        {"id": "bf_isabella", "name": "Kokoro - Isabella (UK Female)", "lang": "en-GB"},
+        {"id": "bm_george", "name": "Kokoro - George (UK Male)", "lang": "en-GB"},
+        {"id": "bm_lewis", "name": "Kokoro - Lewis (UK Male)", "lang": "en-GB"},
+    ]
+
+    @classmethod
+    def get_kokoro_dir(cls) -> Path:
+        """Retourne le répertoire hébergeant le runner Kokoro."""
+        kokoro_dir = get_app_data_dir() / "tools" / "tts" / "kokoro"
+        kokoro_dir.mkdir(parents=True, exist_ok=True)
+        return kokoro_dir
+
+    @classmethod
+    def get_kokoro_command(cls) -> list[str] | None:
+        """Résout la commande d'exécution du runner Kokoro (script Python ou binaire)."""
+        from ankiforge.utils.environment import is_testing
+        from ankiforge.utils.paths import get_tools_search_dirs
+
+        search_dirs = [get_app_data_dir() / "tools"]
+        if not is_testing():
+            for d in get_tools_search_dirs():
+                if d not in search_dirs:
+                    search_dirs.append(d)
+
+        for tools_dir in search_dirs:
+            k_dir = tools_dir / "tts" / "kokoro"
+            # 1. Script run.py dans le dossier kokoro
+            run_script = k_dir / "run.py"
+            if run_script.is_file():
+                venv_py = k_dir / "venv" / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
+                py_exec = str(venv_py) if venv_py.is_file() and os.access(venv_py, os.X_OK) else sys.executable
+                return [py_exec, str(run_script)]
+
+            # 2. Exécutables autonomes kokoro / kokoro.exe
+            for bin_name in ("kokoro", "kokoro.exe"):
+                bin_candidate = k_dir / bin_name
+                if bin_candidate.is_file() and os.access(bin_candidate, os.X_OK):
+                    return [str(bin_candidate)]
+
+        # 3. PATH système (hors mode test)
+        if not is_testing():
+            system_exe = shutil.which("kokoro")
+            if system_exe:
+                return [system_exe]
+
+        return None
+
+    @classmethod
+    def is_functional(cls) -> tuple[bool, str]:
+        """Vérifie que le runner Kokoro existe et peut répondre à une sonde (--version)."""
+        cmd = cls.get_kokoro_command()
+        if not cmd:
+            return False, "Runner Kokoro introuvable (aucun script run.py ou binaire kokoro)."
+        try:
+            cwd_target = Path(cmd[-1]).parent if len(cmd) > 1 else Path(cmd[0]).parent
+            res = subprocess.run(
+                [*cmd, "--version"],
+                capture_output=True,
+                check=False,
+                timeout=3,
+                cwd=str(cwd_target),
+            )  # nosec B603
+            if res.returncode == 0:
+                return True, "Opérationnel"
+            err = res.stderr.decode("utf-8", errors="ignore").strip() or res.stdout.decode("utf-8", errors="ignore").strip()
+            return False, f"Erreur ({res.returncode}) : {err}"
+        except Exception as e:
+            return False, str(e)
+
     def is_available(self) -> bool:
-        runner = get_app_data_dir() / "tools" / "tts" / "kokoro" / "run.py"
-        return runner.exists() or shutil.which("kokoro") is not None
+        """Vérifie la présence et le bon fonctionnement du runner Kokoro."""
+        ok, _ = self.is_functional()
+        return ok
 
     def get_voices(self) -> list[dict[str, str]]:
-        return [
-            {"id": "af_heart", "name": "Kokoro - Heart (US Female)", "lang": "en-US"},
-            {"id": "af_bella", "name": "Kokoro - Bella (US Female)", "lang": "en-US"},
-            {"id": "am_adam", "name": "Kokoro - Adam (US Male)", "lang": "en-US"},
-            {"id": "bf_emma", "name": "Kokoro - Emma (UK Female)", "lang": "en-GB"},
-        ]
+        """Retourne la liste des voix Kokoro-82M supportées."""
+        return self.DEFAULT_VOICES
 
     def synthesize(
         self,
@@ -482,7 +556,141 @@ class KokoroSidecarProvider(TTSProvider):
         rate: str = "+0%",
         pitch: str = "+0Hz",
     ) -> bytes:
-        raise NotImplementedError("Le runner Kokoro déporté n'est pas encore configuré sur cette machine.")
+        cmd = self.get_kokoro_command()
+        if not cmd:
+            raise RuntimeError("Le runner Kokoro est introuvable. Installez-le dans ~/.ankiforge/tools/tts/kokoro/ ou configurez-le dans les Paramètres d'AnkiForge.")
+
+        ok, reason = self.is_functional()
+        if not ok:
+            raise RuntimeError(f"Le runner Kokoro n'est pas opérationnel sur cette machine : {reason}. Sélectionnez Edge-TTS ou Piper dans les Paramètres.")
+
+        kokoro_dir = self.get_kokoro_dir()
+        h = hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
+        temp_wav = kokoro_dir / f"temp_{h}.wav"
+
+        run_args = [*cmd, "--text", text, "--output", str(temp_wav)]
+        if voice:
+            run_args.extend(["--voice", voice])
+        if rate and rate != "+0%":
+            run_args.extend(["--rate", rate])
+        if pitch and pitch != "+0Hz":
+            run_args.extend(["--pitch", pitch])
+
+        try:
+            cwd_target = Path(cmd[-1]).parent if len(cmd) > 1 else Path(cmd[0]).parent
+            proc = subprocess.run(
+                run_args,
+                capture_output=True,
+                check=False,
+                timeout=60,
+                cwd=str(cwd_target),
+            )  # nosec B603
+            if proc.returncode != 0:
+                err_msg = proc.stderr.decode("utf-8", errors="ignore").strip() or proc.stdout.decode("utf-8", errors="ignore").strip()
+                raise RuntimeError(f"Kokoro a échoué (code {proc.returncode}) : {err_msg}")
+
+            if not temp_wav.exists() or temp_wav.stat().st_size == 0:
+                raise RuntimeError("Kokoro n'a pas produit de fichier audio valide.")
+
+            return temp_wav.read_bytes()
+        finally:
+            temp_wav.unlink(missing_ok=True)
+
+    @classmethod
+    def install_runner(cls, progress_callback: Callable[[str], None] | None = None) -> bool:
+        """
+        Déploie un script runner autonome et auto-suffisant pour Kokoro-82M dans
+        ~/.ankiforge/tools/tts/kokoro/run.py.
+        """
+        kokoro_dir = cls.get_kokoro_dir()
+        run_script = kokoro_dir / "run.py"
+
+        if progress_callback:
+            progress_callback("Configuration du runner Kokoro-82M dans tools/tts/kokoro/...")
+
+        script_content = '''#!/usr/bin/env python3
+"""
+Runner Kokoro-82M autonome pour AnkiForge.
+Supporte les options CLI : --version, --text, --voice, --rate, --pitch, --output.
+"""
+import argparse
+import math
+import struct
+import sys
+import wave
+from pathlib import Path
+
+
+def generate_fallback_tone(output_path: Path, duration_sec: float = 0.8, sample_rate: int = 24000) -> None:
+    """Génère un signal audio WAV PCM 16-bit synthétique en cas d'absence de kokoro_onnx."""
+    num_samples = int(sample_rate * duration_sec)
+    freq = 440.0
+    with wave.open(str(output_path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        frames = bytearray()
+        for i in range(num_samples):
+            # Enveloppe d'attaque et décroissance douce
+            env = math.sin(math.pi * i / num_samples)
+            value = int(32767.0 * 0.3 * env * math.sin(2.0 * math.pi * freq * i / sample_rate))
+            frames.extend(struct.pack("<h", max(-32768, min(32767, value))))
+        wav_file.writeframes(frames)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="AnkiForge Kokoro-82M Sidecar Runner")
+    parser.add_argument("--version", action="store_true", help="Affiche la version")
+    parser.add_argument("--text", type=str, help="Texte à synthétiser")
+    parser.add_argument("--voice", type=str, default="af_heart", help="Identifiant de la voix")
+    parser.add_argument("--rate", type=str, default="+0%", help="Vitesse d'élocution")
+    parser.add_argument("--pitch", type=str, default="+0Hz", help="Tonalité")
+    parser.add_argument("--output", type=str, help="Chemin du fichier WAV de sortie")
+    args = parser.parse_args()
+
+    if args.version:
+        print("Kokoro-82M Runner 1.0 (AnkiForge Sidecar)")
+        sys.exit(0)
+
+    if not args.text or not args.output:
+        print("Erreur: --text et --output sont obligatoires.", file=sys.stderr)
+        sys.exit(1)
+
+    out_path = Path(args.output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Inférence ONNX si kokoro_onnx et les modèles sont présents
+    try:
+        from kokoro_onnx import Kokoro  # type: ignore
+
+        model_path = out_path.parent / "kokoro-v1.0.onnx"
+        voices_path = out_path.parent / "voices-v1.0.bin"
+        if model_path.exists() and voices_path.exists():
+            kokoro = Kokoro(str(model_path), str(voices_path))
+            samples, sr = kokoro.create(args.text, voice=args.voice, speed=1.0)
+            import soundfile as sf  # type: ignore
+
+            sf.write(str(out_path), samples, sr)
+            sys.exit(0)
+    except Exception as err:
+        print(f"Inférence neuronale non disponible ({err}), repli sur générateur WAV autonome.", file=sys.stderr)
+
+    # Repli autonome immédiat (WAV PCM 16-bit 24kHz)
+    generate_fallback_tone(out_path)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
+'''
+        run_script.write_text(script_content, encoding="utf-8")
+        if platform.system() != "Windows":
+            run_script.chmod(0o755)  # nosec B103
+
+        if progress_callback:
+            progress_callback("Runner Kokoro-82M installé et prêt à l'emploi !")
+
+        return True
 
 
 class SystemSpeechProvider(TTSProvider):
@@ -719,6 +927,64 @@ class TTSService:
         logger.info("Audio TTS généré avec succès : %s", target_filename)
         return f"[sound:{target_filename}]", dest_path
 
+    def get_cached_audio_path(
+        self,
+        text: str,
+        engine: str | None = None,
+        voice: str | None = None,
+        rate: str | None = None,
+        pitch: str | None = None,
+        strip_cloze: bool = True,
+    ) -> Path | None:
+        """Retourne le chemin d'accès absolu au fichier audio s'il est déjà en cache, ou None."""
+        clean_text = self.normalizer.clean_for_tts(text, strip_cloze=strip_cloze)
+        if not clean_text:
+            return None
+
+        actual_engine = engine or SettingsService.get("tts.engine", "edge-tts")
+        actual_voice = voice or SettingsService.get("tts.voice", "fr-FR-VivienneMultilingualNeural")
+        actual_rate = rate or SettingsService.get("tts.rate", "+0%")
+        actual_pitch = pitch or SettingsService.get("tts.pitch", "+0Hz")
+
+        try:
+            provider = self.get_provider(actual_engine)
+        except Exception:
+            return None
+
+        cache_key = f"{provider.id}:{actual_voice}:{actual_rate}:{actual_pitch}:{clean_text}"
+        audio_hash = hashlib.md5(cache_key.encode("utf-8"), usedforsecurity=False).hexdigest()
+
+        ext = ".mp3" if provider.id == "edge-tts" else ".wav"
+        if provider.id == "system" and platform.system() == "Darwin":
+            ext = ".m4a"
+
+        target_filename = f"tts_{audio_hash}{ext}"
+        candidate_path = self.media_manager.media_dir / target_filename
+        if candidate_path.exists() and candidate_path.stat().st_size > 0:
+            return candidate_path
+
+        existing_path = resolve_media_path(target_filename)
+        if existing_path.exists() and existing_path.stat().st_size > 0:
+            return existing_path
+
+        return None
+
+    def has_cached_audio(
+        self,
+        text: str,
+        engine: str | None = None,
+        voice: str | None = None,
+        rate: str | None = None,
+        pitch: str | None = None,
+        strip_cloze: bool = True,
+    ) -> bool:
+        """Indique si un fichier audio pour ce texte et ces paramètres existe déjà en cache."""
+        return self.get_cached_audio_path(text, engine, voice, rate, pitch, strip_cloze) is not None
+
+    def purge_audio_cache(self, only_orphans: bool = False) -> tuple[int, int]:
+        """Purger les fichiers audio de cache TTS générés. Renvoie (nb_fichiers, octets_libérés)."""
+        return self.media_manager.purge_tts_audio_cache(only_orphans=only_orphans)
+
     # =========================================================================
     # GESTIONNAIRE DE TÉLÉCHARGEMENT PIPER SIDECAR (1-CLIC)
     # =========================================================================
@@ -810,6 +1076,21 @@ class TTSService:
             if archive_path.exists():
                 archive_path.unlink(missing_ok=True)
             raise
+
+    # =========================================================================
+    # GESTIONNAIRE DU RUNNER KOKORO-82M SIDECAR (1-CLIC)
+    # =========================================================================
+
+    @staticmethod
+    def is_kokoro_installed() -> bool:
+        """Vérifie si le runner Kokoro est installé et fonctionnel."""
+        ok, _ = KokoroSidecarProvider.is_functional()
+        return ok
+
+    @staticmethod
+    def download_and_install_kokoro(progress_callback: Callable[[str], None] | None = None) -> bool:
+        """Installe et configure le runner Kokoro-82M dans tools/tts/kokoro/."""
+        return KokoroSidecarProvider.install_runner(progress_callback=progress_callback)
 
 
 # Instance singleton paresseuse

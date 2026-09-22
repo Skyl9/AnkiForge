@@ -31,6 +31,8 @@ from ankiforge.utils.paths import get_active_profile, get_app_data_dir
 # ── EXPRESSIONS RÉGULIÈRES POUR LE MASQUAGE DES SECRETS (PII / CLÉS API) ──
 
 _RE_ANTHROPIC_KEY = re.compile(r"sk-ant-[a-zA-Z0-9_\-]{15,}")
+_RE_OPENCODE_KEY = re.compile(r"(?:oc_sk_[a-zA-Z0-9_\-]{15,}|sk-ONR[a-zA-Z0-9_\-]{15,})")
+_RE_OPENROUTER_KEY = re.compile(r"sk-or-v1-[a-zA-Z0-9_\-]{20,}")
 _RE_OPENAI_KEY = re.compile(r"sk-[a-zA-Z0-9_\-]{20,}")
 _RE_GOOGLE_KEY = re.compile(r"AIza[0-9A-Za-z\-_]{35}")
 _RE_GROQ_KEY = re.compile(r"gsk_[a-zA-Z0-9_\-]{20,}")
@@ -46,8 +48,10 @@ def redact_secrets(text: str) -> str:
     if not text or not isinstance(text, str):
         return str(text)
 
-    # 1. Clés d'API spécifiques (Anthropic en premier car commence aussi par 'sk-')
+    # 1. Clés d'API spécifiques (Anthropic, OpenCode et OpenRouter en premier car commencent aussi par 'sk-')
     sanitized = _RE_ANTHROPIC_KEY.sub("[REDACTED_ANTHROPIC_KEY]", text)
+    sanitized = _RE_OPENCODE_KEY.sub("[REDACTED_OPENCODE_KEY]", sanitized)
+    sanitized = _RE_OPENROUTER_KEY.sub("[REDACTED_OPENROUTER_KEY]", sanitized)
     sanitized = _RE_OPENAI_KEY.sub("[REDACTED_OPENAI_KEY]", sanitized)
     sanitized = _RE_GOOGLE_KEY.sub("[REDACTED_GEMINI_KEY]", sanitized)
     sanitized = _RE_GROQ_KEY.sub("[REDACTED_GROQ_KEY]", sanitized)

@@ -404,6 +404,42 @@ def _seed_initial_data_inner() -> None:
             recommended_tasks='["flashcards", "batch"]',
             description="Modèle 100% local hébergé sur votre machine via Ollama.",
         )
+        LLMConfigModel.create(
+            display_name="OpenCode (DeepSeek V4 Flash)",
+            provider="opencode",
+            model_id="deepseek-v4-flash",
+            context_limit=128000,
+            max_tokens=16384,
+            sort_order=40,
+            prompt_pricing=0.15,
+            completion_pricing=0.60,
+            is_free=False,
+            supports_vision=True,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="ultra-fast",
+            quality_tier="flagship",
+            recommended_tasks='["flashcards", "batch", "audit"]',
+            description="Modèle ultra-rapide et économique via la passerelle OpenCode.",
+        )
+        LLMConfigModel.create(
+            display_name="OpenRouter Gratuit (Qwen 3.8 27B)",
+            provider="openrouter",
+            model_id="qwen/qwen3.8-27b:free",
+            context_limit=32768,
+            max_tokens=8192,
+            sort_order=45,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
+            is_free=True,
+            supports_vision=False,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="fast",
+            quality_tier="balanced",
+            recommended_tasks='["flashcards", "batch", "audit"]',
+            description="Modèle open source 27B performant et 100% gratuit via OpenRouter.",
+        )
 
     # ==========================================
     # INITIALISATION DES RÈGLES WOZNIAK DU LINTER

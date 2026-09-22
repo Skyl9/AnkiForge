@@ -51,7 +51,24 @@ def test_redact_secrets():
     assert "eyJhbGciOi" not in sanitized_bearer
     assert "Bearer [REDACTED_TOKEN]" in sanitized_bearer
 
-    # 5. Password / Secret param
+    # 5. Clé OpenCode (sk-ONR... et oc_sk_...)
+    raw_opencode_sk = "OpenCode sk key: sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi"
+    sanitized_opencode_sk = redact_secrets(raw_opencode_sk)
+    assert "sk-ONR9yD6Sza" not in sanitized_opencode_sk
+    assert "[REDACTED_OPENCODE_KEY]" in sanitized_opencode_sk
+
+    raw_opencode_oc = "OpenCode oc_sk key: oc_sk_abcdef1234567890abcdef12345"
+    sanitized_opencode_oc = redact_secrets(raw_opencode_oc)
+    assert "oc_sk_abcdef" not in sanitized_opencode_oc
+    assert "[REDACTED_OPENCODE_KEY]" in sanitized_opencode_oc
+
+    # 6. Clé OpenRouter
+    raw_openrouter = "OpenRouter key: sk-or-v1-abcdef1234567890abcdef1234567890"
+    sanitized_openrouter = redact_secrets(raw_openrouter)
+    assert "sk-or-v1-abcdef" not in sanitized_openrouter
+    assert "[REDACTED_OPENROUTER_KEY]" in sanitized_openrouter
+
+    # 7. Password / Secret param
     raw_pwd = "User login failed with password='MySuperSecretPassword123!'"
     sanitized_pwd = redact_secrets(raw_pwd)
     assert "MySuperSecretPassword123!" not in sanitized_pwd

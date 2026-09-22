@@ -173,8 +173,15 @@ class MediaManager:
 
         # On itère sur toutes les versions de notes (actives et inactives)
         for version in NoteVersionModel.select(NoteVersionModel.content):
-            matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', version.content)
-            used_media.update(matches)
+            if not version.content:
+                continue
+            # Images standard HTML
+            used_media.update(re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', version.content))
+            # Balises audio Anki [sound:xxx]
+            used_media.update(re.findall(r"\[sound:([^\]]+)\]", version.content))
+            # Balises audio HTML5 <audio src="..."> et <source src="...">
+            used_media.update(re.findall(r'<audio[^>]+src=["\']([^"\']+)["\']', version.content))
+            used_media.update(re.findall(r'<source[^>]+src=["\']([^"\']+)["\']', version.content))
 
         # Médias utilisés comme documents originaux
         for doc in DocumentModel.select(DocumentModel.original_media).where(DocumentModel.original_media.is_null(False)):
@@ -225,6 +232,61 @@ class MediaManager:
 
         logger.info("Nettoyage des médias orphelins terminé : %d fichier(s) supprimé(s)", deleted_count)
         return deleted_count
+
+    def purge_tts_audio_cache(self, only_orphans: bool = False) -> tuple[int, int]:
+        """
+        Purger les fichiers de cache audio TTS générés (commençant par 'tts_').
+
+        Args:
+            only_orphans: Si True, ne supprime que les fichiers audio TTS qui ne sont
+                pas référencés dans les versions de notes. Si False, purge tout le cache
+                audio TTS pour libérer de l'espace disque.
+
+        Returns:
+            tuple[int, int]: (nombre_fichiers_supprimes, octets_libérés)
+        """
+        from ankiforge.database.models import MediaModel, NoteVersionModel
+
+        used_audio: set[str] = set()
+        if only_orphans:
+            for version in NoteVersionModel.select(NoteVersionModel.content):
+                if version.content:
+                    used_audio.update(re.findall(r"\[sound:([^\]]+)\]", version.content))
+                    used_audio.update(re.findall(r'<audio[^>]+src=["\']([^"\']+)["\']', version.content))
+                    used_audio.update(re.findall(r'<source[^>]+src=["\']([^"\']+)["\']', version.content))
+
+        deleted_count = 0
+        freed_bytes = 0
+        deleted_filenames: list[str] = []
+
+        # Garde-fou de sécurité pytest pour le dossier réel
+        if os.environ.get("PYTEST_CURRENT_TEST") and str(self.media_dir).startswith(str(Path.home() / ".ankiforge")):
+            logger.warning("Garde-fou pytest : purge du cache audio réel bloquée.")
+            return 0, 0
+
+        if self.media_dir.exists():
+            for file_path in self.media_dir.iterdir():
+                if file_path.is_file() and file_path.name.startswith("tts_"):
+                    if only_orphans and file_path.name in used_audio:
+                        continue
+                    try:
+                        size = file_path.stat().st_size
+                        file_path.unlink()
+                        deleted_count += 1
+                        freed_bytes += size
+                        deleted_filenames.append(file_path.name)
+                        logger.debug("Cache audio TTS supprimé : %s (%d octets)", file_path.name, size)
+                    except OSError as err:
+                        logger.warning("Impossible de supprimer le cache audio %s : %s", file_path.name, err)
+
+        if deleted_filenames:
+            try:
+                MediaModel.delete().where(MediaModel.filename.in_(deleted_filenames)).execute()
+            except Exception as err:
+                logger.debug("Nettoyage MediaModel pour cache audio : %s", err)
+
+        logger.info("Purge du cache audio TTS terminée : %d fichier(s) supprimé(s), %d Ko libérés", deleted_count, freed_bytes // 1024)
+        return deleted_count, freed_bytes
 
     def decompress_all_zstd_media(self, profile_name: str | None = None) -> int:
         """

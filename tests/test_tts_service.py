@@ -10,6 +10,7 @@ import pytest
 
 from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.services.cards.tts_service import (
+    KokoroSidecarProvider,
     SystemSpeechProvider,
     TextNormalizer,
     TTSProvider,
@@ -152,3 +153,162 @@ def test_piper_executable_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyP
     detected = PiperSidecarProvider.get_piper_executable()
     assert detected is not None
     assert detected == fake_exe
+
+
+def test_kokoro_command_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie la détection du runner Kokoro (run.py ou binaire)."""
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    # Avant installation
+    assert KokoroSidecarProvider.get_kokoro_command() is None
+    assert KokoroSidecarProvider().is_available() is False
+
+    # Création d'un script run.py factice
+    kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
+    kokoro_dir.mkdir(parents=True)
+    run_py = kokoro_dir / "run.py"
+    run_py.write_text("print('kokoro')")
+
+    cmd = KokoroSidecarProvider.get_kokoro_command()
+    assert cmd is not None
+    assert str(run_py) in cmd[-1]
+
+
+def test_kokoro_synthesize_missing_runner_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que synthesize() lève RuntimeError si le runner est absent."""
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    provider = KokoroSidecarProvider()
+    with pytest.raises(RuntimeError, match="Le runner Kokoro est introuvable"):
+        provider.synthesize("Bonjour")
+
+
+def test_kokoro_synthesize_subprocess_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie la synthèse par subprocess avec code retour 0 et production de fichier WAV."""
+    import subprocess
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
+    kokoro_dir.mkdir(parents=True)
+    run_py = kokoro_dir / "run.py"
+    run_py.write_text("print('stub')")
+
+    # Mock is_functional
+    monkeypatch.setattr(KokoroSidecarProvider, "is_functional", classmethod(lambda cls: (True, "Opérationnel")))
+
+    # Simuler subprocess.run produisant le fichier WAV attendu
+    fake_wav_bytes = b"RIFF....WAVEfmt ...."
+
+    def fake_subprocess_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        # Trouver l'argument --output
+        if "--output" in cmd:
+            out_idx = cmd.index("--output") + 1
+            out_file = Path(cmd[out_idx])
+            out_file.write_bytes(fake_wav_bytes)
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    provider = KokoroSidecarProvider()
+    audio = provider.synthesize("Hello world", voice="af_heart", rate="+10%")
+    assert audio == fake_wav_bytes
+
+
+def test_kokoro_synthesize_subprocess_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie qu'un code retour non-nul du subprocess déclenche une RuntimeError claire."""
+    import subprocess
+
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    kokoro_dir = tmp_path / "tools" / "tts" / "kokoro"
+    kokoro_dir.mkdir(parents=True)
+    (kokoro_dir / "run.py").write_text("print('stub')")
+
+    monkeypatch.setattr(KokoroSidecarProvider, "is_functional", classmethod(lambda cls: (True, "Opérationnel")))
+
+    def fake_subprocess_fail(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(cmd, returncode=1, stdout=b"", stderr=b"OOM or syntax error")
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_fail)
+
+    provider = KokoroSidecarProvider()
+    with pytest.raises(RuntimeError, match="Kokoro a échoué"):
+        provider.synthesize("Crash text")
+
+
+def test_kokoro_install_runner_creates_executable_and_executes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vérifie que install_runner déploie un run.py valide et fonctionnel."""
+    monkeypatch.setattr("ankiforge.services.cards.tts_service.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankiforge.utils.environment.is_testing", lambda: True)
+
+    ok = KokoroSidecarProvider.install_runner()
+    assert ok is True
+
+    run_py = tmp_path / "tools" / "tts" / "kokoro" / "run.py"
+    assert run_py.exists()
+    assert run_py.stat().st_size > 100
+
+    # Vérifier que is_functional() probe et confirme que run.py s'exécute avec succès
+    functional, msg = KokoroSidecarProvider.is_functional()
+    assert functional is True
+    assert msg == "Opérationnel"
+
+    # Vérifier la synthèse réelle de fallback via ce run.py
+    provider = KokoroSidecarProvider()
+    data = provider.synthesize("Bonjour depuis Kokoro", voice="af_heart")
+    assert len(data) > 44  # Header WAV standard = 44 octets
+    assert data[:4] == b"RIFF"
+    assert data[8:12] == b"WAVE"
+
+
+def test_tts_service_cache_helpers(tmp_path: Path) -> None:
+    """Vérifie get_cached_audio_path et has_cached_audio."""
+    media_mgr = MediaManager()
+    media_mgr.media_dir = tmp_path
+
+    service = TTSService(media_manager=media_mgr)
+    mock_provider = MockSuccessProvider()
+    service._providers["mock"] = mock_provider
+
+    text = "Phrase pour test cache"
+    # Avant synthèse
+    assert service.has_cached_audio(text, engine="mock", voice="v1") is False
+    assert service.get_cached_audio_path(text, engine="mock", voice="v1") is None
+
+    # Synthèse
+    _, audio_path = service.synthesize(text, engine="mock", voice="v1")
+    assert audio_path.exists()
+
+    # Après synthèse
+    assert service.has_cached_audio(text, engine="mock", voice="v1") is True
+    cached_path = service.get_cached_audio_path(text, engine="mock", voice="v1")
+    assert cached_path == audio_path
+
+
+def test_tts_service_purge_audio_cache(tmp_path: Path) -> None:
+    """Vérifie que purge_audio_cache supprime les fichiers tts_ et libère l'espace."""
+    media_mgr = MediaManager()
+    media_mgr.media_dir = tmp_path
+
+    service = TTSService(media_manager=media_mgr)
+
+    # Création de faux fichiers audio et d'un fichier image à ne pas toucher
+    tts1 = tmp_path / "tts_12345.mp3"
+    tts2 = tmp_path / "tts_67890.wav"
+    image = tmp_path / "image.png"
+
+    tts1.write_bytes(b"A" * 1000)
+    tts2.write_bytes(b"B" * 2000)
+    image.write_bytes(b"C" * 500)
+
+    count, freed = service.purge_audio_cache(only_orphans=False)
+    assert count == 2
+    assert freed == 3000
+    assert not tts1.exists()
+    assert not tts2.exists()
+    assert image.exists()  # L'image est préservée

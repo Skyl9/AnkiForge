@@ -112,6 +112,12 @@ class ModelSelectorWidget(QWidget):
                 elif m.provider == "ollama":
                     prov_icon_name = "ph.cpu"
                     icon_color = DesignTokens.COLOR_GREEN
+                elif m.provider == "opencode":
+                    prov_icon_name = "ph.code"
+                    icon_color = "#6366f1"
+                elif m.provider == "openrouter":
+                    prov_icon_name = "ph.arrows-split"
+                    icon_color = "#ec4899"
 
                 icon = load_phosphor_icon(prov_icon_name, color=icon_color)
                 label = f"{display}  ·  {pricing_tag}"

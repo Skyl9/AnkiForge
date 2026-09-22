@@ -288,13 +288,20 @@ class CreationView(QWidget):
         target_top.addStretch()
         target_layout.addLayout(target_top)
 
+        deck_row = QHBoxLayout()
+        deck_row.setSpacing(6)
         self.btn_select_deck = SecondaryButton("Sélectionner un paquet...")
         self.btn_select_deck.setIcon(load_phosphor_icon("ph.folder-open", color=DesignTokens.TEXT_MUTED))
         self.btn_select_deck.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_select_deck.setStyleSheet(
             f"text-align: left; padding: 7px 10px; border-radius: 6px; border: 1px solid {DesignTokens.BORDER_COLOR}; background: {DesignTokens.BG_PANEL}; font-weight: 500;"
         )
-        target_layout.addWidget(self.btn_select_deck)
+        deck_row.addWidget(self.btn_select_deck, 1)
+
+        self.btn_new_deck = IconButton("ph.folder-plus", "Nouveau paquet...", 34)
+        self.btn_new_deck.clicked.connect(self._on_create_new_deck)
+        deck_row.addWidget(self.btn_new_deck)
+        target_layout.addLayout(deck_row)
 
         self.btn_select_model = SecondaryButton("Sélectionner un modèle...")
         self.btn_select_model.setIcon(load_phosphor_icon("ph.file-code", color=DesignTokens.TEXT_MUTED))
@@ -1220,6 +1227,24 @@ class CreationView(QWidget):
                     context_limit=200000,
                     max_tokens=8192,
                     sort_order=20,
+                )
+                self.persona_repo.create_llm_config(
+                    display_name="OpenCode (DeepSeek V4 Flash)",
+                    provider="opencode",
+                    model_id="deepseek-v4-flash",
+                    context_limit=128000,
+                    max_tokens=16384,
+                    sort_order=30,
+                    is_free=False,
+                )
+                self.persona_repo.create_llm_config(
+                    display_name="OpenRouter Gratuit (Qwen 3.8 27B)",
+                    provider="openrouter",
+                    model_id="qwen/qwen3.8-27b:free",
+                    context_limit=32768,
+                    max_tokens=8192,
+                    sort_order=35,
+                    is_free=True,
                 )
                 engines = self.persona_repo.get_all_llm_configs()
 

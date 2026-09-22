@@ -129,3 +129,55 @@ def test_export_package_real_file_and_cloze_auto_healing(tmp_path):
     parsed_fields = json.loads(refreshed_nt.fields_schema)
     assert "Field_1" in parsed_fields
     assert "Field_2" in parsed_fields
+
+
+@pytest.mark.integration
+def test_export_audio_files_resolution_and_cache(tmp_path, monkeypatch):
+    """Vérifie que les fichiers audio [sound:xxx] sont résolus, mis en cache et inclus dans l'archive .apkg."""
+    import zipfile
+
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("ankiforge.services.cards.export_manager.get_media_dir", lambda: media_dir)
+
+    # Création d'un vrai fichier audio dans media/
+    snd_file = media_dir / "tts_hello.mp3"
+    snd_file.write_bytes(b"FAKE_AUDIO_DATA_FOR_HELLO")
+
+    deck = DeckModel.create(name="AudioDeck")
+    nt = NoteTypeModel.create(
+        name="AudioModel",
+        fields_schema='["Front", "Back"]',
+        templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]',
+    )
+
+    # Note avec balise sound
+    note = NoteModel.create(guid="snd_note_1", note_type=nt)
+    content = {
+        "Front": "Listen [sound:tts_hello.mp3]",
+        "Back": "Écoutez",
+    }
+    NoteVersionModel.create(note=note, content=json.dumps(content), is_active=True)
+    CardModel.create(note=note, deck=deck)
+
+    manager = ExportManager()
+    manager.media_dir = media_dir
+
+    output_apkg = tmp_path / "audio_deck.apkg"
+    count = manager.export_package(
+        output_path=output_apkg,
+        deck_id=deck.id,
+        include_media=True,
+    )
+
+    assert count == 1
+    assert output_apkg.exists()
+
+    # Vérification que le fichier audio est présent dans le package APKG
+    with zipfile.ZipFile(output_apkg, "r") as zf:
+        namelist = zf.namelist()
+        # genanki numérote les médias ("0", "1", ...) ou stocke media json mapping
+        assert "media" in namelist
+        media_mapping_raw = zf.read("media").decode("utf-8")
+        media_mapping = json.loads(media_mapping_raw)
+        assert "tts_hello.mp3" in media_mapping.values()

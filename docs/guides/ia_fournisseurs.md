@@ -38,6 +38,11 @@ Pour traiter de très volumineux corpus de texte ou générer des démonstration
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `o3-mini`, `o1` | Rigueur extrême dans le respect des schémas JSON stricts (*Structured Outputs*). | `OPENAI_API_KEY` |
 | **Anthropic** | `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-5-haiku` | Raisonnement hybride étendu, qualité littéraire et pédagogique inégalée. | `ANTHROPIC_API_KEY` |
 | **Groq** | `llama-3.3-70b-versatile`, `deepseek-r1-distill-llama-70b` | Vitesse d'inférence phénoménale sur puces LPU (plus de 500 tokens/seconde). | `GROQ_API_KEY` |
+| **OpenCode** | `deepseek-v4-flash`, `gemini-3.5-flash-lite`, `gpt-5.4-mini`, `qwen3.8-flash` | Passerelle OpenCode Zen (`sk-...` ou `oc_sk_...`) optimisée pour les flux rapides et le code. URL personnalisable (`opencode/base_url`). | `OPENCODE_API_KEY` |
+| **OpenRouter** | Modèles gratuits `:free` (`qwen/qwen3.8-27b:free`, `google/gemma-4-31b-it:free`...) ou payants | Accès multi-fournisseurs universel avec agrégation de modèles et sélection de modèles 100% gratuits sans carte bancaire. URL personnalisable (`openrouter/base_url`). | `OPENROUTER_API_KEY` |
+
+!!! info "Persistance sécurisée des clés d'API et passerelles personnalisées"
+    Toutes les clés d'API (OpenCode, OpenRouter, OpenAI, Anthropic, Gemini, Groq) sont stockées dans le **trousseau de clés sécurisé du système d'exploitation** (Keychain sur macOS, SecretService sur Linux, DPAPI sur Windows) et ne sont **jamais stockées en clair** dans la base SQLite. Les passerelles OpenCode et OpenRouter disposent également de points de terminaison configurables directement depuis l'onglet **Moteurs IA** des Préférences.
 
 !!! tip "Vérification des modèles"
     La liste exhaustive et actualisée des `ModelSpec` (contexte, vitesse, coût, auto-détection des capacités vision) est disponible dans `src/ankiforge/services/ai/model_catalog.py`. Pour les modèles **Ollama locaux**, AnkiForge interroge `POST /api/show` et détecte automatiquement les capacités réelles du modèle présent sur votre machine.

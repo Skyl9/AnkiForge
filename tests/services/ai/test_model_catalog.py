@@ -117,3 +117,25 @@ def test_detect_ollama_offline_fallback():
     assert caps.supports_vision is True
     assert caps.supports_json is True
     assert caps.context_window == 8192
+
+
+def test_opencode_and_openrouter_models_in_catalog():
+    """Vérifie la présence et la gratuité des modèles OpenCode et OpenRouter Free."""
+    # Modèle OpenCode vérifié
+    opencode_spec = ModelCatalog.get_model_spec("opencode", "deepseek-v4-flash")
+    assert opencode_spec is not None
+    assert opencode_spec.provider == "opencode"
+    assert opencode_spec.model_id == "deepseek-v4-flash"
+    assert opencode_spec.speed_rating == "ultra-fast"
+
+    # Modèle OpenRouter gratuit vérifié
+    openrouter_spec = ModelCatalog.get_model_spec("openrouter", "qwen/qwen3.8-27b:free")
+    assert openrouter_spec is not None
+    assert openrouter_spec.is_free is True
+    assert openrouter_spec.prompt_pricing == 0.0
+    assert openrouter_spec.completion_pricing == 0.0
+
+    # Inférence automatique pour tout modèle se terminant par :free
+    inferred_free = ModelCatalog.get_model_spec("openrouter", "meta-llama/llama-3.3-70b-instruct:free")
+    assert inferred_free.is_free is True
+    assert inferred_free.prompt_pricing == 0.0

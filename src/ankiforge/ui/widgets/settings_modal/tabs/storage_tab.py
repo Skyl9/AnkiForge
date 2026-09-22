@@ -141,6 +141,16 @@ class StorageMaintenanceTab(QWidget):
         row_actions2.addWidget(self.btn_clear_cache, 1)
 
         act_layout.addLayout(row_actions2)
+
+        row_actions3 = QHBoxLayout()
+        row_actions3.setSpacing(10)
+
+        self.btn_purge_tts = SecondaryButton("Purger le cache audio TTS")
+        self.btn_purge_tts.setIcon(load_phosphor_icon("ph.speaker-high", color=DesignTokens.COLOR_PURPLE))
+        self.btn_purge_tts.clicked.connect(self._purge_tts_cache)
+        row_actions3.addWidget(self.btn_purge_tts, 1)
+
+        act_layout.addLayout(row_actions3)
         layout.addWidget(self.card_act)
 
         # ── SECTION 3 : SAUVEGARDES DE SÉCURITÉ (BACKUPS) ────────────────────
@@ -199,14 +209,25 @@ class StorageMaintenanceTab(QWidget):
 
             media_count = 0
             media_size_bytes = 0
+            tts_count = 0
+            tts_size_bytes = 0
             if media_dir.exists():
                 for f in media_dir.glob("*"):
                     if f.is_file():
                         media_count += 1
-                        media_size_bytes += f.stat().st_size
+                        sz = f.stat().st_size
+                        media_size_bytes += sz
+                        if f.name.startswith("tts_"):
+                            tts_count += 1
+                            tts_size_bytes += sz
 
             media_size_mb = media_size_bytes / (1024 * 1024)
-            self.c_media.update_metric(f"{media_size_mb:.2f} Mo", f"{media_count} fichier{'s' if media_count > 1 else ''} média")
+            tts_size_mb = tts_size_bytes / (1024 * 1024)
+            tts_info = f" • dont {tts_count} audio TTS ({tts_size_mb:.1f} Mo)" if tts_count > 0 else ""
+            self.c_media.update_metric(
+                f"{media_size_mb:.2f} Mo",
+                f"{media_count} fichier{'s' if media_count > 1 else ''} média{tts_info}",
+            )
 
             # Time Machine
             versions_count = NoteVersionModel.select().count()
@@ -286,9 +307,35 @@ class StorageMaintenanceTab(QWidget):
                     if f.is_file():
                         f.unlink()
                         deleted_count += 1
-            show_toast(self, f"Cache et fichiers temporaires nettoyés ({deleted_count} fichiers supprimés) !")
+            # Purger également le cache audio orphelin
+            from ankiforge.services.cards.tts_service import get_tts_service
+
+            tts_del, _ = get_tts_service().purge_audio_cache(only_orphans=True)
+            self.refresh_metrics()
+            show_toast(
+                self,
+                f"Cache nettoyé ({deleted_count} fichiers temporaires et {tts_del} audios orphelins supprimés) !",
+            )
         except Exception as e:
             show_toast(self, f"Erreur nettoyage cache : {e}", is_error=True)
+
+    def _purge_tts_cache(self) -> None:
+        reply = QMessageBox.question(
+            self,
+            "Confirmer la purge du cache audio",
+            "Voulez-vous supprimer tous les fichiers audio TTS générés en cache ?\n(Les audios pourront être régénérés à la demande dans l'éditeur de notes).",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                from ankiforge.services.cards.tts_service import get_tts_service
+
+                count, freed_bytes = get_tts_service().purge_audio_cache(only_orphans=False)
+                self.refresh_metrics()
+                freed_mb = freed_bytes / (1024 * 1024)
+                show_toast(self, f"Purge terminée : {count} fichier(s) audio supprimé(s) ({freed_mb:.1f} Mo libérés).")
+            except Exception as e:
+                show_toast(self, f"Erreur lors de la purge : {e}", is_error=True)
 
     def _create_snapshot(self) -> None:
         try:

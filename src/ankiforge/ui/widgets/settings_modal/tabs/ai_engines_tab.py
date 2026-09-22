@@ -89,6 +89,12 @@ class CloudKeyPingWorker(QRunnable):
                 )  # la clé passe par l'en-tête x-goog-api-key, jamais dans l'URL (anti-fuite)
             elif self.provider_id == "groq":
                 req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "opencode":
+                oc_base = str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1").rstrip("/")
+                req = urllib.request.Request(f"{oc_base}/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "openrouter":
+                or_base = str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1").rstrip("/")
+                req = urllib.request.Request(f"{or_base}/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
 
             if req is None:
                 self.signals.result_ready.emit(self.provider_id, True, "Format valide")
@@ -198,6 +204,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             ("anthropic", "Anthropic", "sk-ant-...", "ph.sparkle"),
             ("gemini", "Gemini", "AIzaSy...", "ph.sparkle"),
             ("groq", "Groq", "gsk_...", "ph.lightning"),
+            ("opencode", "OpenCode", "sk-... ou oc_sk_...", "ph.code"),
+            ("openrouter", "OpenRouter", "sk-or-...", "ph.arrows-split"),
         ]
 
         for p_id, p_name, placeholder, p_icon in providers_cfg:
@@ -214,7 +222,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             row.addWidget(lbl)
             self.lbl_provider_labels.append(lbl)
 
-            initial_key = str(SettingsService.get(f"keys/{p_id}", ""))
+            from ankiforge.utils.secret_store import load_llm_key
+
+            stored_key = load_llm_key(p_id, p_id)
+            initial_key = stored_key or str(SettingsService.get(f"keys/{p_id}", "") or "")
             p_edit = PasswordLineEdit(placeholder=placeholder, initial_text=initial_key)
             self.key_edits[p_id] = p_edit
             row.addWidget(p_edit, 1)
@@ -226,7 +237,12 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             row.addWidget(btn_test)
 
             badge_st = QLabel("")
-            badge_st.hide()
+            if initial_key:
+                badge_st.setText("Format valide")
+                apply_pill_badge_style(badge_st, DesignTokens.COLOR_GREEN)
+                badge_st.show()
+            else:
+                badge_st.hide()
             self.key_status_badges[p_id] = badge_st
             row.addWidget(badge_st)
 
@@ -234,38 +250,73 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         layout.addWidget(self.card_keys)
 
-        # ── SECTION 2 : SERVEUR LOCAL OLLAMA ─────────────────────────────────
-        self.lbl_sec_ollama = QLabel("SERVEUR LOCAL OLLAMA")
+        # ── SECTION 2 : SERVEURS LOCAUX & PASSERELLES ───────────────────────
+        self.lbl_sec_ollama = QLabel("SERVEURS LOCAUX & PASSERELLES D'ACCÈS")
         self.lbl_sec_ollama.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         layout.addWidget(self.lbl_sec_ollama)
 
         self.card_ollama = SettingsCard()
-        ollama_layout = QHBoxLayout(self.card_ollama)
+        ollama_layout = QVBoxLayout(self.card_ollama)
         ollama_layout.setContentsMargins(14, 10, 14, 10)
-        ollama_layout.setSpacing(10)
+        ollama_layout.setSpacing(8)
 
+        # Ligne Ollama
+        row_ol = QHBoxLayout()
+        row_ol.setSpacing(10)
         lbl_ol_icon = QLabel()
         lbl_ol_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
-        ollama_layout.addWidget(lbl_ol_icon)
-
-        self.lbl_ol_url = QLabel("URL Serveur :")
+        row_ol.addWidget(lbl_ol_icon)
+        self.lbl_ol_url = QLabel("Ollama Local :")
+        self.lbl_ol_url.setMinimumWidth(130)
         self.lbl_ol_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
-        ollama_layout.addWidget(self.lbl_ol_url)
-
+        row_ol.addWidget(self.lbl_ol_url)
         self.le_ollama_url = StyledLineEdit()
         self.le_ollama_url.setFixedHeight(28)
         self.le_ollama_url.setText(str(SettingsService.get("ollama/url", "http://localhost:11434")))
-        ollama_layout.addWidget(self.le_ollama_url, 1)
-
-        self.btn_scan_ollama = SecondaryButton("Scanner les modèles installés")
+        row_ol.addWidget(self.le_ollama_url, 1)
+        self.btn_scan_ollama = SecondaryButton("Scanner les modèles")
         self.btn_scan_ollama.setFixedHeight(28)
         self.btn_scan_ollama.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.COLOR_GREEN))
         self.btn_scan_ollama.clicked.connect(self._scan_ollama)
-        ollama_layout.addWidget(self.btn_scan_ollama)
-
+        row_ol.addWidget(self.btn_scan_ollama)
         self.badge_ollama_status = QLabel("")
         self.badge_ollama_status.hide()
-        ollama_layout.addWidget(self.badge_ollama_status)
+        row_ol.addWidget(self.badge_ollama_status)
+        ollama_layout.addLayout(row_ol)
+
+        # Ligne Passerelle OpenCode
+        row_oc = QHBoxLayout()
+        row_oc.setSpacing(10)
+        lbl_oc_icon = QLabel()
+        lbl_oc_icon.setPixmap(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        row_oc.addWidget(lbl_oc_icon)
+        self.lbl_oc_url = QLabel("Passerelle OpenCode :")
+        self.lbl_oc_url.setMinimumWidth(130)
+        self.lbl_oc_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_oc.addWidget(self.lbl_oc_url)
+        self.le_opencode_url = StyledLineEdit()
+        self.le_opencode_url.setFixedHeight(28)
+        self.le_opencode_url.setPlaceholderText("https://opencode.ai/zen/v1")
+        self.le_opencode_url.setText(str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1"))
+        row_oc.addWidget(self.le_opencode_url, 1)
+        ollama_layout.addLayout(row_oc)
+
+        # Ligne Passerelle OpenRouter
+        row_or = QHBoxLayout()
+        row_or.setSpacing(10)
+        lbl_or_icon = QLabel()
+        lbl_or_icon.setPixmap(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
+        row_or.addWidget(lbl_or_icon)
+        self.lbl_or_url = QLabel("API OpenRouter :")
+        self.lbl_or_url.setMinimumWidth(130)
+        self.lbl_or_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_or.addWidget(self.lbl_or_url)
+        self.le_openrouter_url = StyledLineEdit()
+        self.le_openrouter_url.setFixedHeight(28)
+        self.le_openrouter_url.setPlaceholderText("https://openrouter.ai/api/v1")
+        self.le_openrouter_url.setText(str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1"))
+        row_or.addWidget(self.le_openrouter_url, 1)
+        ollama_layout.addLayout(row_or)
 
         layout.addWidget(self.card_ollama)
 
@@ -313,6 +364,14 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), "Ollama Local (llama3)", self)
         act_ollama.triggered.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
         self.menu_add.addAction(act_ollama)
+
+        act_opencode = QAction(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY), "OpenCode (DeepSeek V4 Flash)", self)
+        act_opencode.triggered.connect(lambda: self._quick_add_engine("OpenCode (DeepSeek V4 Flash)", "opencode", "deepseek-v4-flash", False, max_tokens=16384, sort_order=25))
+        self.menu_add.addAction(act_opencode)
+
+        act_openrouter = QAction(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN), "OpenRouter Gratuit (Qwen 3.8 27B)", self)
+        act_openrouter.triggered.connect(lambda: self._quick_add_engine("OpenRouter Gratuit (Qwen 3.8 27B)", "openrouter", "qwen/qwen3.8-27b:free", True, max_tokens=8192, sort_order=26))
+        self.menu_add.addAction(act_openrouter)
 
         self.menu_add.addSeparator()
 
@@ -689,6 +748,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
             or (provider_id == "anthropic" and (key_val.startswith("sk-ant-") or len(key_val) > 20))
             or (provider_id == "gemini" and (key_val.startswith("AIza") or len(key_val) >= 20))
             or (provider_id == "groq" and (key_val.startswith("gsk_") or len(key_val) > 20))
+            or (provider_id == "opencode" and (key_val.startswith("sk-") or key_val.startswith("oc_sk_") or len(key_val) >= 16))
+            or (provider_id == "openrouter" and (key_val.startswith("sk-or-") or len(key_val) >= 16))
         ):
             valid_format = True
         else:
@@ -704,6 +765,9 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 from ankiforge.utils.secret_store import store_llm_key
 
                 if store_llm_key(provider_id, provider_id, key_val):
+                    env_key = f"{provider_id.upper()}_API_KEY"
+                    os.environ[env_key] = key_val
+
                     # Clé dans le trousseau OS : ne plus la persister en clair en BDD
                     LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == provider_id).execute()
                 else:
@@ -935,6 +999,17 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         except Exception as e:
             logger.warning("Erreur refresh_data vision_categories: %s", e)
 
+        # Rafraîchissement des passerelles
+        try:
+            if hasattr(self, "le_ollama_url"):
+                self.le_ollama_url.setText(str(SettingsService.get("ollama/url", "http://localhost:11434")))
+            if hasattr(self, "le_opencode_url"):
+                self.le_opencode_url.setText(str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1"))
+            if hasattr(self, "le_openrouter_url"):
+                self.le_openrouter_url.setText(str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1"))
+        except Exception as e:
+            logger.warning("Erreur refresh_data passerelles: %s", e)
+
         self._record_initial_state()
 
     def _quick_add_engine(
@@ -955,6 +1030,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
             spec = ModelCatalog.get_model_spec(provider, model_id)
             api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
+            if not api_key and provider != "ollama":
+                from ankiforge.utils.secret_store import load_llm_key
+
+                api_key = load_llm_key(provider, provider) or ""
 
             # Stockage du secret dans le trousseau OS uniquement : jamais en clair en BDD
             if api_key:
@@ -1014,7 +1093,7 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         le_name.setPlaceholderText("ex: DeepSeek-R1 (Local)")
 
         cb_prov = StyledComboBox()
-        cb_prov.addItems(["gemini", "openai", "anthropic", "ollama", "groq", "openrouter"])
+        cb_prov.addItems(["gemini", "openai", "anthropic", "ollama", "groq", "opencode", "openrouter"])
 
         le_model = StyledLineEdit()
         le_model.setPlaceholderText("ex: deepseek-r1:32b")
@@ -1132,6 +1211,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                     LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == p_id).execute()
                 except Exception as e:
                     logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
+                # Synchroniser la variable d'environnement de session
+                os.environ[f"{p_id.upper()}_API_KEY"] = key_val
             else:
                 # Pas de repli en clair : le trousseau OS est indisponible, la clé n'est pas enregistrée
                 logger.error(
@@ -1140,6 +1221,18 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
                 )
 
         SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
+        if hasattr(self, "le_opencode_url"):
+            SettingsService.set(
+                "opencode/base_url",
+                self.le_opencode_url.text().strip() or "https://opencode.ai/zen/v1",
+                category="ai",
+            )
+        if hasattr(self, "le_openrouter_url"):
+            SettingsService.set(
+                "openrouter/base_url",
+                self.le_openrouter_url.text().strip() or "https://openrouter.ai/api/v1",
+                category="ai",
+            )
 
         # Sauvegarde des préférences globales IA
         def_model = self.cb_default_model.currentData()
@@ -1180,6 +1273,8 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
         """Extrait l'état actuel des contrôles de réglages IA."""
         return {
             "ollama_url": self.le_ollama_url.text().strip(),
+            "opencode_url": self.le_opencode_url.text().strip() if hasattr(self, "le_opencode_url") else "",
+            "openrouter_url": self.le_openrouter_url.text().strip() if hasattr(self, "le_openrouter_url") else "",
             "default_model": str(self.cb_default_model.currentData() or ""),
             "temp": round(self.slider_temp.value() / 100.0, 2),
             "max_tokens": int(self.cb_max_tokens.currentData() or 0),
@@ -1231,6 +1326,10 @@ class AIEnginesTab(SettingsDirtyMixin, QWidget):
 
         if hasattr(self, "lbl_ol_url"):
             self.lbl_ol_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_oc_url"):
+            self.lbl_oc_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_or_url"):
+            self.lbl_or_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_default_model"):
             self.lbl_default_model.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "lbl_temp_title"):

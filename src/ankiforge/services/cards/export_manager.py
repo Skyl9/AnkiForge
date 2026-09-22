@@ -25,7 +25,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.utils.hierarchy import descendants_prefix, join_hierarchy
-from ankiforge.utils.paths import get_media_dir
+from ankiforge.utils.paths import get_media_dir, resolve_media_path
 
 # Suppression des avertissements genanki pour le parsing LaTeX / HTML
 logger = logging.getLogger(__name__)
@@ -149,6 +149,7 @@ class ExportManager:
         genanki_models = {}
         processed_notes: set[int] = set()
         media_files_to_export: set[str] = set()
+        sound_path_cache: dict[str, str | None] = {}
         exported_note_ids: list[int] = []
 
         cards = list(query)
@@ -311,9 +312,16 @@ class ExportManager:
                     # Audio / Sons [sound:xxx.mp3]
                     snd_matches = re.findall(r"\[sound:([^\]]+)\]", val)
                     for snd_name in snd_matches:
-                        snd_path = self.media_dir / snd_name
-                        if snd_path.exists():
-                            media_files_to_export.add(str(snd_path))
+                        if snd_name not in sound_path_cache:
+                            snd_path = self.media_dir / snd_name
+                            if snd_path.exists():
+                                sound_path_cache[snd_name] = str(snd_path)
+                            else:
+                                resolved = resolve_media_path(snd_name)
+                                sound_path_cache[snd_name] = str(resolved) if resolved.exists() else None
+                        cached_snd = sound_path_cache[snd_name]
+                        if cached_snd:
+                            media_files_to_export.add(cached_snd)
 
             if not field_values:
                 field_values = [""]

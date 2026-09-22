@@ -6,7 +6,7 @@ L'apprentissage auditif renforce considérablement la rétention mnésique, en p
 
 ## 🔊 1. Moteurs Vocaux Disponibles
 
-AnkiForge offre le choix entre deux moteurs complémentaires pour s'adapter à toutes les situations :
+AnkiForge offre le choix entre plusieurs moteurs complémentaires pour s'adapter à toutes les situations :
 
 ### Edge-TTS (En ligne - Qualité Studio)
 - **Technologie** : Modèles neuronaux Microsoft Azure Cognitive Services (utilisés par Microsoft Edge).
@@ -19,8 +19,26 @@ AnkiForge offre le choix entre deux moteurs complémentaires pour s'adapter à t
 ### Piper TTS (Local & Hors-ligne)
 - **Technologie** : Moteur de synthèse neuronale ONNX open source léger et ultra-rapide.
 - **Avantages** : Fonctionne de manière **100% autonome et hors-ligne**, zéro télémétrie, aucune donnée envoyée sur Internet, génération quasi-instantanée.
-- **Gestion Automatisée** : AnkiForge télécharge automatiquement le binaire adapté à votre système d'exploitation et votre architecture processeur (`macOS aarch64/x64`, `Linux x64/arm64`, `Windows x64`) ainsi que les modèles vocaux initiaux dans `~/.ankiforge/sidecars/piper/`.
+- **Gestion Automatisée** : AnkiForge télécharge automatiquement le binaire adapté à votre système d'exploitation et votre architecture processeur (`macOS aarch64/x64`, `Linux x64/arm64`, `Windows x64`) ainsi que les modèles vocaux initiaux dans `~/.ankiforge/tools/tts/voices/`.
 - **Résilience** : Le service vérifie la viabilité fonctionnelle du binaire (`is_functional()`) et bascule avec élégance sur Edge-TTS si une dépendance dynamique système est manquante.
+
+### Kokoro-82M (Runner Local Déporté - Optionnel)
+- **Technologie** : Modèle de synthèse vocale léger (82M paramètres) exécuté en runner sidecar déporté.
+- **Avantages** : Synthèse locale open-source de qualité supérieure, supportant de multiples voix anglaises (`af_heart`, `af_bella`, `am_adam`, `bf_emma`).
+- **Gestion Déportée** : Exécutable autonome ou script runner dans `~/.ankiforge/tools/tts/kokoro/run.py` (installable en 1 clic dans les Paramètres Audio & TTS).
+- **Intégration Défensive** : Le moteur n'est actif dans le sélecteur que si le runner est réellement installé et opérationnel.
+
+### Moteur Système OS (Fallback Natif Sans Réseau)
+- **Technologie** : Synthétiseurs intégrés de votre système d'exploitation (`/usr/bin/say` sur macOS, PowerShell SAPI5 sur Windows, `spd-say`/`espeak-ng` sur Linux).
+- **Avantages** : Zéro réseau, zéro téléchargement préalable, toujours disponible.
+
+---
+
+## 🗄️ 2. Cache Audio Global & Entretien du Stockage
+
+1. **Génération Déterministe (MD5)** : Chaque extrait vocal généré est indexé sous la forme `tts_<hash>.mp3` (ou `.wav`/`.m4a`) où l'empreinte combine le moteur, la voix, la vitesse, la tonalité et le texte normalisé. Deux synthèses identiques ne consomment jamais de temps processeur ni de bande passante supplémentaire.
+2. **Protection des Flashcards** : Le nettoyeur de médias orphelins (`clean_orphaned_media()`) extrait et protège systématiquement toutes les balises Anki `[sound:xxx]` ainsi que les balises HTML5 `<audio>` et `<source>` présentes sur l'ensemble de vos cartes actives et archivées.
+3. **Purge du Cache** : Dans **Paramètres ➔ Stockage & BDD**, un bouton dédié **"Purger le cache audio TTS"** permet de supprimer les extraits générés en cache pour libérer de l'espace disque, sans affecter la possibilité de les régénérer à la demande.
 
 ---
 

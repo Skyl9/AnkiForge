@@ -244,3 +244,40 @@ def test_wozniak_delimitation_and_ab_test_persistence(qtbot):
     qtbot.addWidget(ab_view)
     ab_view.chk_sync_nav.setChecked(False)
     assert SettingsService.get("ab_test/sync_nav") is False
+
+
+def test_ai_engines_tab_gateway_urls_and_keys_persistence(qtbot, monkeypatch):
+    """Vérifie la persistance et la restauration des passerelles d'accès (OpenCode/OpenRouter) et l'isolation des clés."""
+    import os
+
+    tab1 = AIEnginesTab()
+    qtbot.addWidget(tab1)
+    tab1.refresh_data()
+
+    assert tab1.le_opencode_url.text() == "https://opencode.ai/zen/v1"
+    assert tab1.le_openrouter_url.text() == "https://openrouter.ai/api/v1"
+
+    # Modification des passerelles
+    tab1.le_opencode_url.setText("https://custom.opencode.internal/v1")
+    tab1.le_openrouter_url.setText("https://custom.openrouter.internal/v1")
+
+    # Clé OpenCode
+    tab1.key_edits["opencode"].setText("sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi")
+
+    with patch("ankiforge.utils.secret_store.store_llm_key", return_value=True):
+        tab1.save_tab()
+
+    assert SettingsService.get("opencode/base_url") == "https://custom.opencode.internal/v1"
+    assert SettingsService.get("openrouter/base_url") == "https://custom.openrouter.internal/v1"
+    # Vérifie qu'aucun secret n'est écrit en clair dans la BDD
+    assert SettingsService.get("keys/opencode") is None
+    # Variable de session synchronisée
+    assert os.environ.get("OPENCODE_API_KEY") == "sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi"
+
+    # Restauration dans un nouvel onglet
+    tab2 = AIEnginesTab()
+    qtbot.addWidget(tab2)
+    tab2.refresh_data()
+
+    assert tab2.le_opencode_url.text() == "https://custom.opencode.internal/v1"
+    assert tab2.le_openrouter_url.text() == "https://custom.openrouter.internal/v1"

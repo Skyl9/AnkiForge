@@ -219,17 +219,65 @@ def test_ai_engines_tab_key_validation_and_crud(qtbot):
     tab._test_cloud_key("openai", "OpenAI")
     assert tab.key_status_badges["openai"].text() == "Format valide"
 
+    # 1b. Validation de la clé OpenCode (format sk-ONR... de l'utilisateur)
+    assert "opencode" in tab.key_edits
+    assert "openrouter" in tab.key_edits
+    tab.key_edits["opencode"].setText("sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi")
+    tab._test_cloud_key("opencode", "OpenCode")
+    assert tab.key_status_badges["opencode"].text() == "Format valide"
+
     # 2. Ajout rapide d'un moteur
     initial_count = LLMConfigModel.select().count()
     tab._quick_add_engine("Custom Test Model", "openai", "gpt-4o-custom", False)
     assert LLMConfigModel.select().count() == initial_count + 1
 
+    # 2b. Ajout d'un moteur OpenCode
+    tab._quick_add_engine("OpenCode Test", "opencode", "deepseek-v4-flash", False)
+    assert LLMConfigModel.select().where(LLMConfigModel.provider == "opencode").exists()
+
+    # 2c. Ajout d'un moteur OpenRouter Gratuit
+    tab._quick_add_engine("OpenRouter Gratuit", "openrouter", "qwen/qwen3.8-27b:free", True)
+    assert LLMConfigModel.select().where(LLMConfigModel.provider == "openrouter").exists()
+
     # 3. Sauvegarde des clés
     tab.save_tab()
     # Trousseau OS neutralisé en test : la clé ne doit jamais être persistée en clair
     assert SettingsService.get("keys/openai") is None
+    assert SettingsService.get("keys/opencode") is None
     openai_cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "openai").first()
     assert openai_cfg is None or openai_cfg.api_key in (None, "")
+    opencode_cfg = LLMConfigModel.select().where(LLMConfigModel.provider == "opencode").first()
+    assert opencode_cfg is None or opencode_cfg.api_key in (None, "")
+
+
+def test_ai_engines_tab_restores_keys_from_keyring_and_validates(qtbot):
+    """Vérifie que AIEnginesTab restaure fidèlement les clés depuis le trousseau OS et affiche le badge Format valide."""
+
+    def _mock_load_key(model_id: str, provider: str) -> str | None:
+        if provider == "opencode":
+            return "sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi"
+        if provider == "openrouter":
+            return "sk-or-v1-abcdef1234567890"
+        return None
+
+    with patch("ankiforge.utils.secret_store.load_llm_key", side_effect=_mock_load_key):
+        tab = AIEnginesTab()
+        qtbot.addWidget(tab)
+
+        # 1. Champs pré-remplis
+        assert tab.key_edits["opencode"].text() == "sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi"
+        assert tab.key_status_badges["opencode"].text() == "Format valide"
+        assert tab.key_edits["openrouter"].text() == "sk-or-v1-abcdef1234567890"
+        assert tab.key_status_badges["openrouter"].text() == "Format valide"
+
+        # 2. Ajout rapide d'un moteur sans retaper la clé : héritage de la clé du trousseau
+        tab.key_edits["opencode"].setText("")
+        with patch("ankiforge.utils.secret_store.store_llm_key", return_value=True):
+            tab._quick_add_engine("OpenCode Restored", "opencode", "deepseek-v4-flash", False)
+            created = LLMConfigModel.select().where((LLMConfigModel.provider == "opencode") & (LLMConfigModel.model_id == "deepseek-v4-flash")).first()
+            assert created is not None
+            # Stockage sécurisé dans le trousseau -> champ api_key BDD vide
+            assert created.api_key in (None, "")
 
 
 def test_ai_engines_tab_key_test_surfaces_save_failure_without_crashing(qtbot):
@@ -325,6 +373,14 @@ def test_storage_maintenance_tab_actions(qtbot):
         tab._create_snapshot()
         mock_backup.assert_called_once()
 
+    # 6. Purge cache audio TTS
+    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), patch("ankiforge.services.cards.tts_service.get_tts_service") as mock_get_tts:
+        mock_svc = MagicMock()
+        mock_svc.purge_audio_cache.return_value = (3, 1024 * 1024)
+        mock_get_tts.return_value = mock_svc
+        tab._purge_tts_cache()
+        mock_svc.purge_audio_cache.assert_called_once_with(only_orphans=False)
+
 
 def test_settings_modal_theme_reactivity(qtbot):
     """Vérifie que la modale et tous ses onglets supportent le rafraîchissement de thème sans exception."""
@@ -362,6 +418,32 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
 
     tab._on_installer_failed("Réseau indisponible")
     assert "Échec du téléchargement" in tab.lbl_install_progress.text()
+
+
+def test_tts_settings_tab_kokoro_integration(qtbot):
+    """Vérifie la détection dynamique de Kokoro, son statut et les callbacks d'installation."""
+    with patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(False, "Absent")):
+        tab = TTSSettingsTab()
+        qtbot.addWidget(tab)
+
+        # Kokoro ne doit pas être présent dans cb_engine si non fonctionnel
+        engine_ids = [tab.cb_engine.itemData(i) for i in range(tab.cb_engine.count())]
+        assert "kokoro" not in engine_ids
+        assert "Non installé" in tab.lbl_kokoro_status.text()
+
+        # Callbacks installation
+        tab._on_kokoro_installer_failed("Erreur réseau")
+        assert "Échec de la configuration" in tab.lbl_kokoro_install_progress.text()
+
+    with patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(True, "Opérationnel")):
+        tab2 = TTSSettingsTab()
+        qtbot.addWidget(tab2)
+        engine_ids2 = [tab2.cb_engine.itemData(i) for i in range(tab2.cb_engine.count())]
+        assert "kokoro" in engine_ids2
+        assert "Installé" in tab2.lbl_kokoro_status.text()
+
+        tab2._on_kokoro_installer_success()
+        assert "Kokoro configuré avec succès" in tab2.lbl_kokoro_install_progress.text()
 
 
 def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):

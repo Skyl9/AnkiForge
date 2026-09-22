@@ -120,6 +120,16 @@ class ModelCardWidget(QFrame):
             prov_fg_color = "#10b981"
             prov_bg_color = "rgba(16, 185, 129, 0.15)"
             provider_display = "OpenAI"
+        elif provider == "opencode":
+            prov_icon = "ph.code"
+            prov_fg_color = "#6366f1"
+            prov_bg_color = "rgba(99, 102, 241, 0.15)"
+            provider_display = "OpenCode"
+        elif provider == "openrouter":
+            prov_icon = "ph.arrows-split"
+            prov_fg_color = "#ec4899"
+            prov_bg_color = "rgba(236, 72, 153, 0.15)"
+            provider_display = "OpenRouter"
 
         # Badge rond / capsule pour l'icône du fournisseur
         icon_container = QLabel()
@@ -284,11 +294,13 @@ class ModelDiscoveryDialog(QDialog):
     def __init__(
         self,
         current_model_id: str | None = None,
+        current_provider: str | None = None,
         picker_mode: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.current_model_id = current_model_id
+        self.current_provider = current_provider
         self.picker_mode = picker_mode
         self._selected_model: Any | None = None
         self._compared_models: list[Any] = []
@@ -365,6 +377,8 @@ class ModelDiscoveryDialog(QDialog):
             ("openai", "OpenAI", "ph.brain"),
             ("ollama", "Ollama (100% Local)", "ph.cpu"),
             ("groq", "Groq", "ph.lightning"),
+            ("opencode", "OpenCode", "ph.code"),
+            ("openrouter", "OpenRouter", "ph.arrows-split"),
         ]
 
         for p_key, p_label, p_icon in providers_meta:
@@ -603,10 +617,51 @@ class ModelDiscoveryDialog(QDialog):
             filtered.append((model, is_inst))
 
         # Disposition en 2 colonnes
+        curr_str = str(self.current_model_id or "").strip()
+        curr_prov = str(self.current_provider or "").strip().lower()
+
+        # Identifier si un modèle installé correspond déjà au modèle actuel demandé
+        installed_matched = False
+        if curr_str:
+            for cfg in installed_configs:
+                cfg_mid = str(getattr(cfg, "model_id", ""))
+                cfg_prov = str(getattr(cfg, "provider", "")).lower()
+                cfg_id = str(getattr(cfg, "id", ""))
+                if cfg_id == curr_str or f"{cfg_prov}:{cfg_mid.lower()}" == curr_str.lower() or (cfg_mid.lower() == curr_str.lower() and (not curr_prov or cfg_prov == curr_prov)):
+                    installed_matched = True
+                    break
+
+        matched_catalog_current = False
         for idx, (model, is_inst) in enumerate(filtered):
             m_id = str(getattr(model, "model_id", ""))
-            curr_str = str(self.current_model_id or "")
-            is_curr = bool(curr_str and (m_id.lower() == curr_str.lower() or (hasattr(model, "id") and str(model.id) == curr_str)))
+            prov = str(getattr(model, "provider", "")).lower()
+
+            if not curr_str:
+                is_curr = False
+            elif is_inst:
+                is_curr = bool(
+                    (hasattr(model, "id") and str(model.id) == curr_str) or f"{prov}:{m_id.lower()}" == curr_str.lower() or (m_id.lower() == curr_str.lower() and (not curr_prov or prov == curr_prov))
+                )
+            else:
+                # Modèle catalogue non installé : ne peut être actuel que si aucun modèle installé ne correspond
+                if installed_matched or matched_catalog_current:
+                    is_curr = False
+                elif f"{prov}:{m_id.lower()}" == curr_str.lower():
+                    is_curr = True
+                    matched_catalog_current = True
+                elif m_id.lower() == curr_str.lower() and (not curr_prov or prov == curr_prov):
+                    # Si aucun provider spécifié, éviter qu'un proxy opencode usurpe le modèle originel
+                    if (
+                        not curr_prov
+                        and prov not in m_id.lower()
+                        and any(getattr(other_m, "provider", "").lower() in m_id.lower() for other_m, other_inst in filtered if str(getattr(other_m, "model_id", "")).lower() == m_id.lower())
+                    ):
+                        is_curr = False
+                    else:
+                        is_curr = True
+                        matched_catalog_current = True
+                else:
+                    is_curr = False
 
             card = ModelCardWidget(
                 model=model,

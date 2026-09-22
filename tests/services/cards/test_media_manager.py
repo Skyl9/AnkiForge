@@ -92,3 +92,85 @@ def test_clean_orphaned_media(media_manager, tmp_path):
     assert deleted == 1
     assert used_img.exists() is True
     assert orphan_img.exists() is False
+
+
+def test_clean_orphaned_media_preserves_sound_and_audio_tags(media_manager, tmp_path):
+    """Vérifie que [sound:xxx], <audio src="xxx"> et <source src="xxx"> sont préservés."""
+    import json
+
+    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(exist_ok=True)
+
+    snd_anki = media_dir / "tts_anki.mp3"
+    snd_html = media_dir / "tts_html.wav"
+    snd_source = media_dir / "tts_source.ogg"
+    snd_orphan = media_dir / "tts_orphan.mp3"
+
+    snd_anki.write_text("audio anki")
+    snd_html.write_text("audio html")
+    snd_source.write_text("audio source")
+    snd_orphan.write_text("audio orphan")
+
+    nt = NoteTypeModel.create(name="AudioDeck", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    note = NoteModel.create(guid="audio_note_1", note_type=nt)
+    content = {
+        "Front": "Question [sound:tts_anki.mp3]",
+        "Back": "Réponse <audio src='tts_html.wav'><source src='tts_source.ogg'></audio>",
+    }
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps(content),
+        is_active=True,
+    )
+
+    deleted = media_manager.clean_orphaned_media()
+    assert deleted == 1
+    assert snd_anki.exists() is True
+    assert snd_html.exists() is True
+    assert snd_source.exists() is True
+    assert snd_orphan.exists() is False
+
+
+def test_purge_tts_audio_cache_all_and_orphans(media_manager, tmp_path):
+    """Vérifie purge_tts_audio_cache selon only_orphans=True et only_orphans=False."""
+    import json
+
+    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(exist_ok=True)
+
+    used_tts = media_dir / "tts_used.mp3"
+    orphan_tts = media_dir / "tts_orphan.wav"
+    normal_img = media_dir / "normal.png"
+
+    used_tts.write_bytes(b"A" * 500)
+    orphan_tts.write_bytes(b"B" * 800)
+    normal_img.write_bytes(b"C" * 200)
+
+    nt = NoteTypeModel.create(name="PurgeDeck", fields_schema='["Front"]', templates="[]", css_style="")
+    note = NoteModel.create(guid="purge_note", note_type=nt)
+    NoteVersionModel.create(
+        note=note,
+        version_number=1,
+        content=json.dumps({"Front": "Phrase [sound:tts_used.mp3]"}),
+        is_active=True,
+    )
+
+    # 1. Purge orphelins uniquement : tts_used doit être conservé
+    del_count, freed = media_manager.purge_tts_audio_cache(only_orphans=True)
+    assert del_count == 1
+    assert freed == 800
+    assert used_tts.exists() is True
+    assert orphan_tts.exists() is False
+    assert normal_img.exists() is True
+
+    # 2. Purge totale : supprime même le tts_used mais préserve normal_img
+    del_count2, freed2 = media_manager.purge_tts_audio_cache(only_orphans=False)
+    assert del_count2 == 1
+    assert freed2 == 500
+    assert used_tts.exists() is False
+    assert normal_img.exists() is True

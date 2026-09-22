@@ -1059,6 +1059,10 @@ class ABTestsView(QWidget):
             return "ph.lightning", DesignTokens.COLOR_YELLOW
         if provider == "ollama":
             return "ph.cpu", DesignTokens.COLOR_GREEN
+        if provider == "opencode":
+            return "ph.code", "#6366f1"
+        if provider == "openrouter":
+            return "ph.arrows-split", "#ec4899"
         return "ph.brain", DesignTokens.ACCENT_PRIMARY
 
     def _apply_engine_to_field(self, target: str | None, engine: LLMConfigModel | None) -> None:

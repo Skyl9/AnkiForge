@@ -97,3 +97,51 @@ def test_ai_manager_reload_provider_selects_top_model_by_sort_order(mock_db):
     manager.reload_provider()
     # Le provider rechargé doit être celui avec sort_order=0
     assert getattr(manager.provider, "model_name", None) == "gemini-3.5-flash-lite"
+
+
+def test_ai_manager_create_opencode_with_key(mock_db):
+    """Vérifie que l'AIManager instancie OpenCodeProvider avec la clé fournie."""
+    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+
+    config = LLMConfigModel.create(
+        display_name="OpenCode Test",
+        provider="opencode",
+        model_id="deepseek-v4-flash",
+        api_key="sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi",
+        context_limit=128000,
+    )
+    provider = AIManager.create_provider_from_config(config)
+    assert isinstance(provider, OpenCodeProvider)
+    assert provider.model_name == "deepseek-v4-flash"
+    assert provider.client.api_key == "sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi"
+
+
+def test_ai_manager_create_openrouter_with_key(mock_db):
+    """Vérifie que l'AIManager instancie OpenRouterProvider avec la clé fournie."""
+    from ankiforge.services.ai.flexible_service import OpenRouterProvider
+
+    config = LLMConfigModel.create(
+        display_name="OpenRouter Test",
+        provider="openrouter",
+        model_id="qwen/qwen3.8-27b:free",
+        api_key="sk-or-v1-testkey",
+        context_limit=128000,
+    )
+    provider = AIManager.create_provider_from_config(config)
+    assert isinstance(provider, OpenRouterProvider)
+    assert provider.model_name == "qwen/qwen3.8-27b:free"
+    assert provider.client.api_key == "sk-or-v1-testkey"
+
+
+def test_ai_manager_opencode_missing_key_fallback(mock_db, monkeypatch):
+    """Vérifie le repli sur MockProvider si la clé OpenCode est absente."""
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
+    config = LLMConfigModel.create(
+        display_name="OpenCode No Key",
+        provider="opencode",
+        model_id="deepseek-v4-flash",
+        api_key="",
+        context_limit=128000,
+    )
+    provider = AIManager.create_provider_from_config(config)
+    assert isinstance(provider, MockProvider)

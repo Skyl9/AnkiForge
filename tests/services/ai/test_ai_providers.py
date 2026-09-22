@@ -104,3 +104,85 @@ def test_anthropic_provider_custom_max_tokens(mock_post):
     mock_post.assert_called_once()
     _, kwargs = mock_post.call_args
     assert kwargs["json"]["max_tokens"] == 64000
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_opencode_provider_success(mock_openai_class):
+    """Vérifie l'instanciation et la génération avec OpenCodeProvider."""
+    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"notes": [{"front": "Q", "back": "A"}]}'
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=MagicMock(prompt_tokens=10, completion_tokens=20))
+
+    provider = OpenCodeProvider(api_key="sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi", model_name="deepseek-v4-flash")
+    assert provider.provider_name == "opencode"
+    mock_openai_class.assert_called_once()
+    _, init_kwargs = mock_openai_class.call_args
+    assert init_kwargs["base_url"] == "https://opencode.ai/zen/v1"
+    assert init_kwargs["api_key"] == "sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi"
+
+    res = provider.generate("System", "User")
+    assert '{"notes":' in res
+
+
+def test_opencode_provider_missing_key(monkeypatch):
+    """Vérifie que OpenCodeProvider lève une ValueError si la clé API est absente."""
+    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+
+    monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="OPENCODE_API_KEY manquante"):
+        OpenCodeProvider(api_key=None)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openrouter_provider_success(mock_openai_class):
+    """Vérifie l'instanciation et l'URL de base pour OpenRouterProvider."""
+    from ankiforge.services.ai.flexible_service import OpenRouterProvider
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    provider = OpenRouterProvider(api_key="sk-or-v1-test", model_name="qwen/qwen3.8-27b:free")
+    assert provider.provider_name == "openrouter"
+    _, init_kwargs = mock_openai_class.call_args
+    assert init_kwargs["base_url"] == "https://openrouter.ai/api/v1"
+    assert init_kwargs["api_key"] == "sk-or-v1-test"
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_opencode_provider_custom_base_url(mock_openai_class):
+    """Vérifie que OpenCodeProvider respecte un base_url custom passé en argument et via SettingsService."""
+    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+    from ankiforge.services.settings_service import SettingsService
+
+    # 1. base_url explicite
+    OpenCodeProvider(api_key="sk-test", base_url="http://custom-opencode:8080/v1")
+    _, init_kwargs = mock_openai_class.call_args
+    assert init_kwargs["base_url"] == "http://custom-opencode:8080/v1"
+
+    # 2. base_url depuis SettingsService
+    with patch.object(SettingsService, "get", return_value="https://my-zen-proxy.internal/v1"):
+        OpenCodeProvider(api_key="sk-test")
+        _, init_kwargs = mock_openai_class.call_args
+        assert init_kwargs["base_url"] == "https://my-zen-proxy.internal/v1"
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openrouter_provider_custom_base_url(mock_openai_class):
+    """Vérifie que OpenRouterProvider respecte un base_url custom passé en argument et via SettingsService."""
+    from ankiforge.services.ai.flexible_service import OpenRouterProvider
+    from ankiforge.services.settings_service import SettingsService
+
+    # 1. base_url explicite
+    OpenRouterProvider(api_key="sk-or-test", base_url="http://custom-openrouter:9090/v1")
+    _, init_kwargs = mock_openai_class.call_args
+    assert init_kwargs["base_url"] == "http://custom-openrouter:9090/v1"
+
+    # 2. base_url depuis SettingsService
+    with patch.object(SettingsService, "get", return_value="https://my-openrouter-proxy.internal/v1"):
+        OpenRouterProvider(api_key="sk-or-test")
+        _, init_kwargs = mock_openai_class.call_args
+        assert init_kwargs["base_url"] == "https://my-openrouter-proxy.internal/v1"
