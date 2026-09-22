@@ -272,7 +272,7 @@ class WebImporter:
             progress_callback("Récupération des sous-titres YouTube...")
         try:
             parser = YouTubeParser()
-            content = parser.parse(url, ai_manager=None)
+            content = parser.parse(url, ai_manager=None, progress_callback=progress_callback)
             if not content:
                 raise WebImportError("Impossible de récupérer les sous-titres pour cette vidéo (sous-titres absents ou vidéo privée).", category="youtube")
             return WebImportResult(url=url, title=self._youtube_title(url, content), content=content, doc_type="youtube", final_url=url)

@@ -620,7 +620,7 @@ class ConsultantToolRegistry:
                         active_v.save()
 
                     new_v_num = (note.versions.select(fn.MAX(NoteVersionModel.version_number)).scalar() or prev_v_num or 1) + 1
-                    content_str = json.dumps(modified, ensure_ascii=False) if isinstance(modified | (dict, list)) else str(modified)
+                    content_str = json.dumps(modified, ensure_ascii=False) if isinstance(modified, dict | list) else str(modified)
 
                     NoteVersionModel.create(
                         note=note,
@@ -688,7 +688,7 @@ class ConsultantToolRegistry:
                             tags=note.tags,
                             status="pending",
                         )
-                        c_str = json.dumps(c_data, ensure_ascii=False) if isinstance(c_data | (dict, list)) else str(c_data)
+                        c_str = json.dumps(c_data, ensure_ascii=False) if isinstance(c_data, dict | list) else str(c_data)
                         NoteVersionModel.create(
                             note=new_note,
                             version_number=1,

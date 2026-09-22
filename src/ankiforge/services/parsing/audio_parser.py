@@ -5,8 +5,12 @@ découpée en fragments temporels exploitables par ChunkingService et synchronis
 avec le lecteur AudioPlayerWidget.
 """
 
+import json
 import logging
 import os
+import shutil
+import subprocess  # nosec B404
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,7 +19,19 @@ from ankiforge.services.cards.media_manager import MediaManager
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_AUDIO_EXTENSIONS = frozenset({".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac", ".wma"})
+SUPPORTED_AUDIO_EXTENSIONS = frozenset({".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac", ".wma", ".webm"})
+
+
+class WhisperUnavailableError(RuntimeError):
+    """Exception levée lorsqu'aucun moteur de transcription Whisper (local ou API) n'est disponible."""
+
+    def __init__(self, message: str | None = None) -> None:
+        default_msg = (
+            "Aucun moteur Whisper disponible. Veuillez soit configurer une clé API "
+            "(OpenAI ou Groq) dans les Paramètres IA, soit installer un binaire Whisper local "
+            "(ex: 'pip install openai-whisper' ou 'whisper-cli')."
+        )
+        super().__init__(message or default_msg)
 
 
 def format_seconds_to_timestamp(seconds: float) -> str:
@@ -201,15 +217,123 @@ class AudioParser:
 
         return ("", "", "")
 
+    @classmethod
+    def find_local_whisper(cls) -> Path | None:
+        """Localise un binaire Whisper local éventuel (whisper CLI ou whisper-cli)."""
+        from ankiforge.utils.environment import is_testing
+        from ankiforge.utils.paths import get_tools_search_dirs
+
+        for tools_dir in get_tools_search_dirs():
+            for sub in ("whisper/venv/bin", "whisper", "bin"):
+                for name in ("whisper", "whisper.exe", "whisper-cli", "whisper-cli.exe"):
+                    c = tools_dir / sub / name
+                    if c.is_file() and os.access(c, os.X_OK):
+                        return c
+
+        if not is_testing():
+            for name in ("whisper", "whisper-cli"):
+                sys_path = shutil.which(name)
+                if sys_path:
+                    cand = Path(sys_path)
+                    if cand.is_file() and os.access(cand, os.X_OK):
+                        return cand
+        return None
+
+    def is_whisper_available(self) -> bool:
+        """Vérifie si un moteur Whisper (binaire local ou API OpenAI/Groq) est disponible."""
+        if self.find_local_whisper() is not None:
+            return True
+        _, api_key, _ = self._resolve_stt_credentials()
+        return bool(api_key)
+
+    def _transcribe_local(
+        self,
+        audio_path: Path,
+        check_cancel: Callable[[], bool] | None = None,
+    ) -> list[dict[str, Any]] | None:
+        """Exécute la transcription via un binaire local Whisper si disponible."""
+        whisper_bin = self.find_local_whisper()
+        if not whisper_bin:
+            return None
+
+        if check_cancel and check_cancel():
+            return None
+
+        logger.info("Utilisation du binaire Whisper local : %s", whisper_bin)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir)
+            cmd = [
+                str(whisper_bin),
+                str(audio_path),
+                "--output_format",
+                "json",
+                "--output_dir",
+                str(out_dir),
+                "--task",
+                "transcribe",
+            ]
+            try:
+                proc = subprocess.Popen(  # nosec B603
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                while proc.poll() is None:
+                    if check_cancel and check_cancel():
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            proc.kill()
+                        return None
+                if proc.returncode != 0:
+                    logger.warning("Échec du binaire Whisper local (code %d). Repli sur API.", proc.returncode)
+                    return None
+
+                json_files = list(out_dir.glob("*.json"))
+                if not json_files:
+                    return None
+
+                data = json.loads(json_files[0].read_text(encoding="utf-8"))
+                raw_segments = data.get("segments", [])
+                segments: list[dict[str, Any]] = []
+                for seg in raw_segments:
+                    segments.append(
+                        {
+                            "start": float(seg.get("start", 0.0)),
+                            "end": float(seg.get("end", 0.0)),
+                            "text": str(seg.get("text", "")).strip(),
+                        }
+                    )
+                return segments
+            except Exception as e:
+                logger.warning("Erreur lors de l'exécution de Whisper local : %s. Repli sur API.", e)
+                return None
+
     def _transcribe_audio(
         self,
         audio_path: Path,
         check_cancel: Callable[[], bool] | None = None,
+        raise_if_unavailable: bool = False,
     ) -> list[dict[str, Any]]:
-        """Effectue la transcription via l'API Whisper OpenAI ou Groq."""
+        """Effectue la transcription via Whisper local ou l'API Whisper OpenAI / Groq."""
+        if check_cancel and check_cancel():
+            return []
+
+        # 1. Tentative locale si binaire présent
+        local_segments = self._transcribe_local(audio_path, check_cancel=check_cancel)
+        if local_segments is not None:
+            return local_segments
+
+        # 2. Repli sur API Cloud
         provider, api_key, base_url = self._resolve_stt_credentials()
 
         if not api_key:
+            if raise_if_unavailable:
+                raise WhisperUnavailableError()
             logger.warning("Aucune clé API Whisper (OpenAI/Groq) configurée. Génération d'une transcription fictive.")
             # Mode dégradé si aucune clé n'est configurée
             return [

@@ -10,6 +10,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -71,7 +72,7 @@ class DocumentParser:
         if source_str.startswith("http"):
             if progress_callback:
                 progress_callback("Téléchargement et extraction de la page Web...")
-            res = self._parse_web(source_str)
+            res = self._parse_web(source_str, progress_callback, check_cancel)
             if auto_format and res:
                 from ankiforge.services.markdown.formatter import MarkdownFormatter
 
@@ -109,13 +110,13 @@ class DocumentParser:
             res = self._parse_docx(file_path)
         elif ext == ".pptx":
             if progress_callback:
-                progress_callback("Analyse de la présentation PowerPoint en cours...")
+                progress_callback("Extraction de la présentation PowerPoint en cours...")
             res = self._parse_pptx(file_path, progress_callback, check_cancel)
         elif ext == ".epub":
             if progress_callback:
                 progress_callback("Extraction du livre numérique EPUB en cours...")
             res = self._parse_epub(file_path, progress_callback, check_cancel)
-        elif ext in (".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac", ".wma"):
+        elif ext in (".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac", ".wma", ".webm"):
             if progress_callback:
                 progress_callback("Transcription de l'enregistrement audio en cours...")
             res = self._parse_audio(file_path, progress_callback, check_cancel)
@@ -134,7 +135,12 @@ class DocumentParser:
         logger.info("Extraction locale terminée pour '%s' (%d caractères)", file_path.name, len(res))
         return res
 
-    def _parse_web(self, url: str) -> str:
+    def _parse_web(
+        self,
+        url: str,
+        progress_callback: Callable[[str], None] | None = None,
+        check_cancel: Callable[[], bool] | None = None,
+    ) -> str:
         """
         Télécharge et extrait le contenu principal d'une page Web.
         """
@@ -143,11 +149,11 @@ class DocumentParser:
 
             try:
                 parser = YouTubeParser()
-                # Extraction basique des sous-titres sans l'agent IA (l'IA interviendra lors du batching dans CreationView)
-                result = parser.parse(url, ai_manager=None)
+                # Extraction des sous-titres ou fallback transcription audio
+                result = parser.parse(url, ai_manager=None, progress_callback=progress_callback, check_cancel=check_cancel)
                 if result:
                     return result
-                raise ValueError("Impossible de récupérer les sous-titres YouTube pour cette vidéo.")
+                raise ValueError("Impossible de récupérer le contenu YouTube pour cette vidéo.")
             except Exception as e:
                 raise ValueError(f"Erreur d'extraction YouTube : {e}") from e
 

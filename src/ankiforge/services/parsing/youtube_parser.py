@@ -2,13 +2,20 @@
 
 import json
 import logging
+import tempfile
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs, urlparse
 
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
+
+from ankiforge.services.cards.media_manager import MediaManager
+from ankiforge.services.parsing.audio_parser import AudioParser, format_seconds_to_timestamp
+from ankiforge.services.parsing.yt_dlp_service import YtDlpService, YtDlpUnavailableError
 
 if TYPE_CHECKING:
     from ankiforge.services.ai.flexible_service import AIManager
@@ -29,6 +36,15 @@ def format_timestamp(seconds: float) -> str:
 
 class YouTubeParser:
     """Extraction et pré-structuration de contenu YouTube pour génération de cartes."""
+
+    def __init__(
+        self,
+        media_manager: MediaManager | None = None,
+        audio_parser: AudioParser | None = None,
+    ) -> None:
+        """Initialise le parseur YouTube avec support optionnel des médias et audio."""
+        self.media_manager = media_manager or MediaManager()
+        self.audio_parser = audio_parser or AudioParser(media_manager=self.media_manager)
 
     @staticmethod
     def format_time(seconds: float) -> str:
@@ -178,19 +194,138 @@ class YouTubeParser:
 
         return "\n".join(sections)
 
-    def download_and_transcribe(self, url: str, ai_manager: "AIManager | None" = None) -> str:
-        """Fallback : yt-dlp audio download + transcription IA (Whisper/Gemini)."""
+    def download_and_transcribe(
+        self,
+        url: str,
+        ai_manager: "AIManager | None" = None,
+        progress_callback: Callable[[str], None] | None = None,
+        check_cancel: Callable[[], bool] | None = None,
+        save_audio: bool = True,
+    ) -> str:
+        """Fallback : téléchargement audio vidéo à la demande (yt-dlp) + transcription Whisper."""
         logger.info("Démarrage du téléchargement audio / transcription de secours pour : %s", url)
-        return ""
+
+        if check_cancel and check_cancel():
+            logger.warning("Téléchargement/transcription YouTube annulé avant le démarrage.")
+            return ""
+
+        # 1. Vérification de la disponibilité de yt-dlp
+        if not YtDlpService.is_available():
+            logger.error("yt-dlp est introuvable pour transcrire l'audio de %s", url)
+            raise YtDlpUnavailableError()
+
+        # 2. Métadonnées de la vidéo (oEmbed)
+        metadata = self.fetch_video_metadata(url)
+        title = metadata.get("title", "")
+        author = metadata.get("author_name", "")
+        meta_header = ""
+        if title:
+            author_str = f" • {author}" if author else ""
+            meta_header = f"# {title}\n\n**Source :** Vidéo YouTube{author_str}\n\n"
+
+        # 3. Téléchargement du flux audio
+        if progress_callback:
+            progress_callback("Téléchargement du flux audio YouTube via yt-dlp...")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_dir = Path(tmp_dir)
+            try:
+                audio_file = YtDlpService.download_audio(
+                    url=url,
+                    output_dir=output_dir,
+                    progress_callback=progress_callback,
+                    check_cancel=check_cancel,
+                )
+            except Exception as e:
+                logger.error("Échec du téléchargement audio YouTube pour %s : %s", url, e)
+                raise
+
+            if check_cancel and check_cancel():
+                logger.warning("Opération YouTube interrompue après téléchargement audio.")
+                return ""
+
+            # 4. Stockage du média dans MediaManager (si activé)
+            if save_audio:
+                try:
+                    self.media_manager.store_document_source(str(audio_file))
+                except Exception as e:
+                    logger.debug("Stockage du fichier audio YouTube dans MediaManager ignoré : %s", e)
+
+            # 5. Transcription audio via Whisper
+            if progress_callback:
+                progress_callback("Transcription de l'enregistrement sonore avec Whisper...")
+
+            segments = self.audio_parser._transcribe_audio(
+                audio_path=audio_file,
+                check_cancel=check_cancel,
+                raise_if_unavailable=True,
+            )
+
+            if check_cancel and check_cancel():
+                logger.warning("Opération YouTube interrompue pendant la transcription.")
+                return ""
+
+            if not segments:
+                logger.warning("Aucun segment de transcription retourné pour la vidéo %s", url)
+                return f"{meta_header}*Aucune parole détectée dans cette vidéo.*".strip()
+
+            # 6. Regroupement sémantique et mise en forme Markdown paginée et horodatée
+            if progress_callback:
+                progress_callback(f"Structuration sémantique de {len(segments)} fragments...")
+
+            grouped_chunks = self.audio_parser._group_segments(segments, target_duration_secs=50.0)
+
+            chunk_outputs: list[str] = []
+            for idx, chunk in enumerate(grouped_chunks, start=1):
+                if check_cancel and check_cancel():
+                    logger.warning("Mise en forme interrompue au fragment %d.", idx)
+                    break
+
+                start_t = float(chunk["start"])
+                end_t = float(chunk["end"])
+                text = str(chunk["text"]).strip()
+                start_str = format_seconds_to_timestamp(start_t)
+                end_str = format_seconds_to_timestamp(end_t)
+
+                page_marker = f"<!-- PAGE: {idx} -->"
+                time_marker = f"<!-- TIME: {start_t:.2f} - {end_t:.2f} -->"
+                heading = f"### [{start_str} - {end_str}] Vidéo YouTube - Extrait #{idx}"
+
+                chunk_content = f"{page_marker}\n{time_marker}\n\n{heading}\n\n{text}"
+                chunk_outputs.append(chunk_content)
+
+            body = "\n\n[SPLIT]\n\n".join(chunk_outputs)
+            full_content = f"{meta_header}{body}".strip()
+
+            logger.info(
+                "Transcription YouTube terminée avec succès : %d fragments pour '%s'",
+                len(chunk_outputs),
+                title or url,
+            )
+            return full_content
 
     def parse(
         self,
         url: str,
         ai_manager: "AIManager | None" = None,
         preserve_timestamps: bool = True,
+        progress_callback: Callable[[str], None] | None = None,
+        check_cancel: Callable[[], bool] | None = None,
     ) -> str:
         """Pipeline complet : sous-titres d'abord, repli transcription."""
+        if progress_callback:
+            progress_callback("Recherche des sous-titres de la vidéo...")
+
         result = self.extract_subtitles(url, preserve_timestamps=preserve_timestamps)
         if result is None:
-            result = self.download_and_transcribe(url, ai_manager)
+            if check_cancel and check_cancel():
+                return ""
+            if progress_callback:
+                progress_callback("Sous-titres indisponibles. Téléchargement et transcription avec yt-dlp + Whisper...")
+            result = self.download_and_transcribe(
+                url,
+                ai_manager=ai_manager,
+                progress_callback=progress_callback,
+                check_cancel=check_cancel,
+            )
         return result or ""
