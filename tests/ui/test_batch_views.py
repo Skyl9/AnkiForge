@@ -549,3 +549,98 @@ def test_batch_view_sections_scope_restoration_and_queue(qtbot: Any, mock_db: An
     chunks = dlg._selected_chunks_for_mode()
     assert len(chunks) == 1
     assert chunks[0]["heading_path"] == "Intro"
+
+
+def test_batch_worker_resume_incomplete(qtbot: Any, monkeypatch: Any) -> None:
+    """Vérifie que BatchWorker et BatchView ignorent les tâches réussies lors d'une reprise."""
+    deck = DeckModel.create(name="Deck Worker Resume Test")
+    nt = NoteTypeModel.create(
+        name="Basic Worker Resume Test",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+    doc = DocumentModel.create(title="Doc Worker Resume.md", content_markdown="Source data", file_type="md")
+
+    executed_tasks: list[int] = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        idx = self_orch.state.get_variable("source_chunk_id") or 0
+        executed_tasks.append(idx)
+        self_orch.state.variables["generated_cards"] = [{"Front": f"Q {idx}", "Back": f"A {idx}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # Simuler 2 tâches dans la queue : tâche 0 déjà terminée, tâche 1 échouée
+    t0 = {
+        "doc": doc,
+        "doc_id": doc.id,
+        "doc_title": doc.title,
+        "doc_content": "Chunk 0",
+        "chunk_id": 101,
+        "chunk_label": "Section 1",
+        "heading_path": "S1",
+        "page_number": 1,
+        "deck": deck,
+        "deck_id": deck.id,
+        "deck_name": deck.name,
+        "note_type": nt,
+        "model_id": nt.id,
+        "model_name": nt.name,
+        "note_type_fields": ["Front", "Back"],
+        "note_type_templates": [],
+        "pipeline_id": 1,
+        "pipeline_name": "Standard",
+        "llm_id": 1,
+        "llm_config": {"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        "status": "Succès",
+        "cards_count": 2,
+    }
+    t1 = {
+        "doc": doc,
+        "doc_id": doc.id,
+        "doc_title": doc.title,
+        "doc_content": "Chunk 1",
+        "chunk_id": 102,
+        "chunk_label": "Section 2",
+        "heading_path": "S2",
+        "page_number": 2,
+        "deck": deck,
+        "deck_id": deck.id,
+        "deck_name": deck.name,
+        "note_type": nt,
+        "model_id": nt.id,
+        "model_name": nt.name,
+        "note_type_fields": ["Front", "Back"],
+        "note_type_templates": [],
+        "pipeline_id": 1,
+        "pipeline_name": "Standard",
+        "llm_id": 1,
+        "llm_config": {"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        "status": "Erreur",
+        "cards_count": 0,
+    }
+    view.queue_tasks_data = [t0, t1]
+    view._update_queue_table()
+    view._update_resume_button_visibility()
+
+    assert not view.btn_resume_batch.isHidden()
+
+    # Déclencher la reprise
+    view._on_resume_batch()
+    assert view.worker is not None
+    assert view.worker.resume_incomplete is True
+
+    qtbot.waitUntil(
+        lambda: view.queue_tasks_data[1]["status"] == "Succès" and view.btn_resume_batch.isHidden(),
+        timeout=15000,
+    )
+
+    # Seule la tâche 1 a été exécutée par l'orchestrateur
+    assert len(executed_tasks) == 1
+    assert view.queue_tasks_data[0]["status"] == "Succès"
+    assert view.queue_tasks_data[1]["status"] == "Succès"
+    assert view.btn_resume_batch.isHidden()

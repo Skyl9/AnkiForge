@@ -476,6 +476,12 @@ class BatchView(QWidget):
         self.btn_start_pipeline.clicked.connect(self._on_start_batch)
         self.queue_panel.add_header_widget(self.btn_start_pipeline)
 
+        self.btn_resume_batch = SecondaryButton("Reprendre le Lot", tooltip="Relancer uniquement les documents non terminés ou en échec")
+        self.btn_resume_batch.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
+        self.btn_resume_batch.setVisible(False)
+        self.btn_resume_batch.clicked.connect(self._on_resume_batch)
+        self.queue_panel.add_header_widget(self.btn_resume_batch)
+
         queue_content = QWidget()
         queue_layout = QVBoxLayout(queue_content)
         queue_layout.setContentsMargins(0, 0, 0, 0)
@@ -1372,7 +1378,7 @@ class BatchView(QWidget):
             """)
 
     @Slot()
-    def _on_start_batch(self) -> None:
+    def _on_start_batch(self, resume_incomplete: bool = False) -> None:
         if self.worker is not None and self.worker.isRunning():
             self._on_stop_batch()
             return
@@ -1384,6 +1390,10 @@ class BatchView(QWidget):
         tasks_payloads: list[BatchTaskPayload | BatchTaskSnapshot] = []
 
         for idx, task in enumerate(self.queue_tasks_data):
+            prev_status = str(task.get("status", "En attente"))
+            if resume_incomplete and prev_status in ("Succès", "Acceptée"):
+                continue
+
             task["status"] = "En attente"
             task["progress_pct"] = 0
             task["cards_count"] = 0
@@ -1441,17 +1451,25 @@ class BatchView(QWidget):
                 max_tokens=int(task.get("max_tokens", 16384)),
                 process_full_document=False,
                 source_chunks=list(task.get("source_chunks", [])),
+                extra_metadata={"status": prev_status, "cards_count": task.get("cards_count", 0)},
             )
             tasks_payloads.append(payload)
 
+        if not tasks_payloads:
+            show_toast(self, "Toutes les tâches de la file sont déjà terminées avec succès.", is_error=False)
+            return
+
         self._update_queue_table()
         self.start_timestamp = time.time()
-        self._total_cards_accumulated = 0
+        if not resume_incomplete:
+            self._total_cards_accumulated = 0
 
         self._set_running_ui_state(True)
-        self._log_formatted_line("INFO", f"Initialisation du pipeline de traitement par lots ({len(tasks_payloads)} tâche(s))...")
+        self.btn_resume_batch.setVisible(False)
+        action_desc = "Reprise" if resume_incomplete else "Initialisation"
+        self._log_formatted_line("INFO", f"{action_desc} du pipeline de traitement par lots ({len(tasks_payloads)} tâche(s))...")
 
-        self.worker = BatchWorker(tasks=tasks_payloads)
+        self.worker = BatchWorker(tasks=tasks_payloads, resume_incomplete=resume_incomplete)
         self.worker.task_started.connect(self._on_task_started)
         self.worker.task_progress.connect(self._on_task_progress)
         self.worker.task_completed.connect(self._on_task_completed)
@@ -1461,6 +1479,20 @@ class BatchView(QWidget):
         self.worker.cancelled.connect(self._on_batch_cancelled)
 
         self.worker.start()
+
+    @Slot()
+    def _on_resume_batch(self) -> None:
+        """Relance le traitement par lots uniquement sur les tâches non terminées ou en échec."""
+        self._on_start_batch(resume_incomplete=True)
+
+    def _update_resume_button_visibility(self) -> None:
+        """Affiche le bouton de reprise si des tâches sont restées non terminées."""
+        if not hasattr(self, "btn_resume_batch"):
+            return
+        has_incomplete = any(t.get("status") in ("Erreur", "Interrompu", "Échec", "En attente") for t in self.queue_tasks_data)
+        has_finished = any(t.get("status") in ("Succès", "Acceptée") for t in self.queue_tasks_data)
+        has_failures = any(t.get("status") in ("Erreur", "Interrompu", "Échec") for t in self.queue_tasks_data)
+        self.btn_resume_batch.setVisible(has_incomplete and (has_finished or has_failures))
 
     @Slot()
     def _on_stop_batch(self) -> None:
@@ -1680,6 +1712,7 @@ class BatchView(QWidget):
 
         self._log_formatted_line("SUCCESS", f"Batch terminé : {success_count} job(s) réussi(s), {error_count} erreur(s) ({total_cards} cartes créées).")
         show_toast(self, f"Batch terminé : {success_count} réussis, {error_count} erreurs ({total_cards} cartes créées)")
+        self._update_resume_button_visibility()
 
     @Slot()
     def _on_batch_cancelled(self) -> None:
@@ -1690,6 +1723,7 @@ class BatchView(QWidget):
         show_toast(self, "Batch interrompu par l'utilisateur.", is_error=False)
 
         self._update_queue_table()
+        self._update_resume_button_visibility()
 
     @Slot(str)
     def _on_batch_error(self, error_msg: str) -> None:

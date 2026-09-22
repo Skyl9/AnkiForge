@@ -16,15 +16,24 @@ Définit un rôle IA enrichi de capacités et d'outils :
 
 ### B. PipelineStepModel
 Chaque étape du pipeline possède un `step_type` déterministe et une configuration dynamique `config_data` :
-1. **`LLM_PROMPT`** : Appel standard à une Persona avec injection de variables Jinja2.
+1. **`LLM_PROMPT`** : Appel standard à une Persona avec injection de variables Jinja2 et suivi de consommation de jetons.
 2. **`RAG_RETRIEVAL`** : Recherche sémantique pure interrogeant l'index vectoriel FAISS/ChromaDB et injectant les fragments pertinents dans le *State*.
 3. **`MAP_REDUCE`** : Exécute une sous-étape sur chaque élément d'une collection en parallèle (`QThreadPool`), puis fusionne les résultats.
 4. **`HUMAN_VALIDATION`** : Met le pipeline en pause. Le *State* actuel est transmis à la modale interactive `HumanValidationDialog` pour validation humaine avant reprise (`resume()`).
 5. **`PYTHON_TOOL`** : Exécution d'un outil Python déterministe (`ToolService`) avec entrées/sorties typées.
+6. **`AUDIO_TTS`** : Synthèse vocale audio text-to-speech pour cartes avec prononciation ou révisions audio.
 
-### C. State Management (Contexte & Mémoire partagée)
-Les étapes s'échangent un objet **`PipelineRunState`** (dictionnaire JSON en mémoire) qui s'enrichit au fil de l'exécution :
-* *Exemple :* L'étape 1 écrit dans `state["pdf_chunks"]`. L'étape 2 (MapReduce) lit `state["pdf_chunks"]` et écrit dans `state["draft_cards"]`.
+#### Branchements conditionnels et Garde-fous
+* **Branchements DAG :** Chaque étape peut définir `on_success_step` et `on_failure_step`. Le comportement en cas d'erreur est piloté par `failure_behavior` (`stop`, `continue`, `goto_failure_step`).
+* **Détection de cycles & Budgets d'étape :** Pour prévenir les boucles infinies ou l'explosion des coûts en cas de réessais cycliques, `PipelineOrchestrator` impose :
+  - `max_step_executions` (par défaut 10 exécutions par étape) : lève une erreur si dépassé.
+  - `max_tokens_budget` : plafond de jetons par étape configuré dans `config_data`.
+  - `max_total_tokens` : budget global de jetons alloué au run complet.
+
+### C. State Management & Persistance SQLite (`PipelineRunModel`)
+Les étapes s'échangent un objet **`PipelineRunState`** (dictionnaire JSON sérialisable) qui s'enrichit au fil de l'exécution :
+* **Persistance en base :** La table `pipeline_runs` (`PipelineRunModel`) consigne l'identifiant du pipeline, l'étape courante (`current_step_order`), le statut (`running`, `completed`, `failed`, `paused`, `cancelled`), les compteurs d'exécution par étape et le JSON complet de l'état.
+* **Reprise d'exécution (`resume_run`) :** En cas d'interruption (crash, arrêt utilisateur, fermeture de l'application), le pipeline peut être repris via `PipelineOrchestrator.resume_run(run_id)`. Au démarrage, AnkiForge détecte automatiquement les runs inachevés et propose leur reprise immédiate sans ré-exécuter les étapes préalablement validées. De même, la vue Batch (`BatchView`) permet de reprendre uniquement les tâches restées en échec ou non terminées.
 
 ```mermaid
 classDiagram

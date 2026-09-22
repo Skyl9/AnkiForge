@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel
+from ankiforge.database.models import PersonaModel, PipelineModel, PipelineRunModel, PipelineStepModel
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.orchestrator import (
     CARD_SECTION_DOCUMENTATION_RULE,
@@ -610,3 +610,270 @@ def test_llm_prompt_no_document_id_skips_documentation_rule(qtbot: Any) -> None:
     assert CARD_SECTION_DOCUMENTATION_RULE not in system_prompt
     cards = finished_states[0].get_variable("generated_cards", [])
     assert cards[0].get("_documentation_enabled") is True
+
+
+def test_orchestrator_dag_failure_branching_goto():
+    """Vérifie le saut vers on_failure_step lorsque failure_behavior='goto_failure_step'."""
+    pipeline = PipelineModel.create(name="Pipeline Failure Goto")
+    persona = PersonaModel.create(name="Agent", system_prompt="Prompt", output_format="text")
+
+    step1 = PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="PYTHON_TOOL",
+        failure_behavior="goto_failure_step",
+        config_data=json.dumps({"tool_name": "clean_html_latex"}),
+    )
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=2, step_type="LLM_PROMPT")
+    step3_handler = PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=3, step_type="LLM_PROMPT")
+
+    step1.on_failure_step = step3_handler
+    step1.save()
+
+    def failing_tool(state: PipelineRunState) -> None:
+        raise ValueError("Erreur intentionnelle étape 1")
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        tool_registry={"clean_html_latex": failing_tool},
+        ai_provider=DummyProvider(),
+    )
+
+    started_steps: list[int] = []
+    orchestrator.signals.step_started.connect(lambda order, desc: started_steps.append(order))
+
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+
+    orchestrator.run()
+
+    # L'étape 2 a été sautée, l'étape 3 de récupération a été exécutée
+    assert started_steps == [1, 3]
+    assert len(finished_states) == 1
+    assert len(finished_states[0].errors) >= 1
+
+
+def test_orchestrator_dag_failure_branching_continue():
+    """Vérifie que l'exécution continue séquentiellement si failure_behavior='continue'."""
+    pipeline = PipelineModel.create(name="Pipeline Failure Continue")
+    persona = PersonaModel.create(name="Agent", system_prompt="Prompt", output_format="text")
+
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="PYTHON_TOOL",
+        failure_behavior="continue",
+        config_data=json.dumps({"tool_name": "clean_html_latex"}),
+    )
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=2, step_type="LLM_PROMPT")
+
+    def failing_tool(state: PipelineRunState) -> None:
+        raise ValueError("Erreur continue étape 1")
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        tool_registry={"clean_html_latex": failing_tool},
+        ai_provider=DummyProvider(),
+    )
+
+    started_steps: list[int] = []
+    orchestrator.signals.step_started.connect(lambda order, desc: started_steps.append(order))
+
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+
+    orchestrator.run()
+
+    assert started_steps == [1, 2]
+    assert len(finished_states) == 1
+    assert len(finished_states[0].errors) >= 1
+
+
+def test_orchestrator_dag_failure_branching_stop():
+    """Vérifie l'arrêt immédiat du pipeline si failure_behavior='stop'."""
+    pipeline = PipelineModel.create(name="Pipeline Failure Stop")
+    persona = PersonaModel.create(name="Agent", system_prompt="Prompt", output_format="text")
+
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="PYTHON_TOOL",
+        failure_behavior="stop",
+        config_data=json.dumps({"tool_name": "clean_html_latex"}),
+    )
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=2, step_type="LLM_PROMPT")
+
+    def failing_tool(state: PipelineRunState) -> None:
+        raise ValueError("Erreur fatale étape 1")
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        tool_registry={"clean_html_latex": failing_tool},
+        ai_provider=DummyProvider(),
+    )
+
+    started_steps: list[int] = []
+    errors: list[str] = []
+    orchestrator.signals.step_started.connect(lambda order, desc: started_steps.append(order))
+    orchestrator.signals.error_occurred.connect(lambda msg: errors.append(msg))
+
+    orchestrator.run()
+
+    assert started_steps == [1]
+    assert len(errors) == 1
+    assert "Erreur fatale étape 1" in errors[0]
+
+
+def test_orchestrator_cycle_detection_and_per_step_limit():
+    """Vérifie la détection de cycle et l'arrêt via max_step_executions."""
+    pipeline = PipelineModel.create(name="Pipeline Cycle Test")
+    persona = PersonaModel.create(name="Agent Cycle", system_prompt="Prompt", output_format="text")
+
+    step1 = PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+    step2 = PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=2, step_type="LLM_PROMPT")
+
+    # Boucle infinie : step1 -> step2 -> step1
+    step1.on_success_step = step2
+    step1.save()
+    step2.on_success_step = step1
+    step2.save()
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        ai_provider=DummyProvider(),
+        max_executions_per_step=3,
+    )
+
+    errors: list[str] = []
+    orchestrator.signals.error_occurred.connect(lambda msg: errors.append(msg))
+
+    orchestrator.run()
+
+    assert len(errors) == 1
+    assert "Limite d'exécutions par étape dépassée" in errors[0]
+    assert orchestrator.state.get_step_execution_count(1) == 4  # Déclenche l'erreur au 4ème tour (> 3)
+
+
+def test_orchestrator_step_token_budget_exceeded():
+    """Vérifie l'échec explicite en cas de dépassement de budget de tokens par étape."""
+    pipeline = PipelineModel.create(name="Pipeline Budget Step")
+    persona = PersonaModel.create(name="Agent Verbeux", system_prompt="Court", output_format="text")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"max_tokens_budget": 5}),
+    )
+
+    # Réponse longue qui va générer plus de 5 tokens
+    provider = DummyProvider({"Court": "Une très longue réponse de test générant plus de 5 tokens sans aucun doute."})
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        ai_provider=provider,
+    )
+
+    errors: list[str] = []
+    orchestrator.signals.error_occurred.connect(lambda msg: errors.append(msg))
+
+    orchestrator.run()
+
+    assert len(errors) == 1
+    assert "Budget de tokens dépassé pour l'étape 1" in errors[0]
+
+
+def test_orchestrator_global_token_budget_exceeded():
+    """Vérifie l'arrêt immédiat lorsque le budget global de tokens est dépassé."""
+    pipeline = PipelineModel.create(name="Pipeline Budget Global")
+    persona = PersonaModel.create(name="Agent", system_prompt="Prompt", output_format="text")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=2, step_type="LLM_PROMPT")
+
+    provider = DummyProvider()
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        ai_provider=provider,
+        max_total_tokens=5,  # Budget très restreint
+    )
+
+    errors: list[str] = []
+    orchestrator.signals.error_occurred.connect(lambda msg: errors.append(msg))
+
+    orchestrator.run()
+
+    assert len(errors) == 1
+    assert "Budget global de tokens dépassé" in errors[0]
+
+
+def test_orchestrator_state_persistence_to_db():
+    """Vérifie la création et mise à jour de PipelineRunModel en base de données."""
+    pipeline = PipelineModel.create(name="Pipeline Persistance DB")
+    persona = PersonaModel.create(name="Agent JSON", system_prompt="Prompt", output_format="json")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+
+    provider = DummyProvider()
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        ai_provider=provider,
+        persist_state=True,
+    )
+
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    assert orchestrator.run_id is not None
+
+    run_db = PipelineRunModel.get_by_id(orchestrator.run_id)
+    assert run_db.status == "completed"
+    assert run_db.pipeline.id == pipeline.id
+    saved_state = json.loads(run_db.state_data)
+    assert "generated_cards" in saved_state["variables"]
+    assert "step_execution_counts" in saved_state
+
+
+def test_orchestrator_resume_from_persisted_run():
+    """Vérifie la reprise d'un run interrompu via PipelineOrchestrator.resume_run."""
+    pipeline = PipelineModel.create(name="Pipeline Reprise Run")
+    persona = PersonaModel.create(name="Agent Reprise", system_prompt="Prompt", output_format="text")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=1, step_type="LLM_PROMPT")
+    PipelineStepModel.create(pipeline=pipeline, persona=persona, step_order=2, step_type="LLM_PROMPT")
+
+    # Création d'un run en pause ou interrompu à l'étape 2
+    initial_st = PipelineRunState(initial_prompt="Prompt initial")
+    initial_st.set_variable("restored_key", "restored_value")
+
+    run_db = PipelineRunModel.create(
+        pipeline=pipeline,
+        status="paused",
+        current_step_order=2,
+        state_data=json.dumps(initial_st.to_dict()),
+    )
+
+    provider = DummyProvider()
+    orchestrator = PipelineOrchestrator.resume_run(
+        run_id=run_db.id,
+        ai_provider=provider,
+    )
+
+    started_steps: list[int] = []
+    orchestrator.signals.step_started.connect(lambda order, desc: started_steps.append(order))
+
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+
+    orchestrator.run()
+
+    # Reprise directement à l'étape 2
+    assert started_steps == [2]
+    assert len(finished_states) == 1
+    assert finished_states[0].get_variable("restored_key") == "restored_value"
+
+    run_refreshed = PipelineRunModel.get_by_id(run_db.id)
+    assert run_refreshed.status == "completed"

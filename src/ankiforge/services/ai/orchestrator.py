@@ -9,7 +9,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
-from ankiforge.database.models import LLMConfigModel, PipelineStepModel
+from ankiforge.database.models import LLMConfigModel, PipelineRunModel, PipelineStepModel
 from ankiforge.services.ai.base import LLMProvider, MockProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.rag_service import RAGService
@@ -91,6 +91,11 @@ class PipelineOrchestrator(QRunnable):
         max_steps: int = 50,
         max_map_workers: int = 4,
         ab_run_id: str | None = None,
+        run_id: int | None = None,
+        persist_state: bool = True,
+        max_executions_per_step: int = 5,
+        max_total_tokens: int | None = None,
+        start_step_order: int | None = None,
     ) -> None:
         super().__init__()
         self.pipeline_id = pipeline_id
@@ -101,11 +106,46 @@ class PipelineOrchestrator(QRunnable):
         self.max_steps = max_steps
         self.max_map_workers = max_map_workers
         self.ab_run_id = ab_run_id
+        self.run_id = run_id
+        self.persist_state = persist_state
+        self.max_executions_per_step = max_executions_per_step
+        self.max_total_tokens = max_total_tokens
+        self.start_step_order = start_step_order
 
         self.signals = PipelineWorkerSignals()
         self._pause_event = threading.Event()
         self._pause_event.set()  # Initialisé à l'état actif (non en pause)
         self._is_cancelled = False
+
+    @classmethod
+    def resume_run(
+        cls,
+        run_id: int,
+        ai_provider: LLMProvider | None = None,
+        tool_registry: dict[str, Callable[[PipelineRunState], Any]] | None = None,
+        **kwargs: Any,
+    ) -> "PipelineOrchestrator":
+        """Instancie un orchestrateur configuré pour reprendre l'exécution à partir d'un run persisté."""
+        run = PipelineRunModel.get_by_id(run_id)
+        state_dict: dict[str, Any] = {}
+        if run.state_data:
+            try:
+                state_dict = json.loads(run.state_data)
+            except Exception as err:
+                logger.warning("Erreur de désérialisation de l'état du run %d : %s", run_id, err)
+
+        restored_state = PipelineRunState.from_dict(state_dict)
+        start_order = run.current_step_order
+        pipeline_id = run.pipeline_id if hasattr(run, "pipeline_id") else (run.pipeline.id if hasattr(run.pipeline, "id") else None)
+        return cls(
+            pipeline_id=pipeline_id,
+            initial_state=restored_state,
+            ai_provider=ai_provider,
+            tool_registry=tool_registry,
+            run_id=run.id,
+            start_step_order=start_order,
+            **kwargs,
+        )
 
     @property
     def ai_provider(self) -> LLMProvider:
@@ -196,8 +236,8 @@ class PipelineOrchestrator(QRunnable):
             self._execute_dag()
 
     def _execute_dag(self) -> None:
-        """Exécute effectivement le graphe d'étapes du DAG."""
-        logger.info("[Orchestrateur DAG] Démarrage du pipeline (id=%s)", self.pipeline_id)
+        """Exécute effectivement le graphe d'étapes du DAG avec persistance et contrôle des budgets."""
+        logger.info("[Orchestrateur DAG] Démarrage du pipeline (id=%s, run_id=%s)", self.pipeline_id, self.run_id)
         steps = self._load_steps()
         if not steps:
             msg = f"Le pipeline {self.pipeline_id} ne contient aucune étape à exécuter."
@@ -210,65 +250,127 @@ class PipelineOrchestrator(QRunnable):
         steps_by_order: dict[int, PipelineStepModel] = {int(getattr(s, "step_order", 0)): s for s in steps}
         steps_by_id: dict[int, PipelineStepModel] = {int(getattr(s, "id", 0)): s for s in steps if getattr(s, "id", None) is not None}
 
-        # Déterminer la première étape (step_order le plus bas)
-        first_step = min(steps, key=lambda s: int(getattr(s, "step_order", 0)))
-        current_step: PipelineStepModel | None = first_step
+        # Déterminer la première étape (supporte le point de départ personnalisé ou la reprise)
+        if self.start_step_order is not None and self.start_step_order in steps_by_order:
+            current_step: PipelineStepModel | None = steps_by_order[self.start_step_order]
+        else:
+            first_step = min(steps, key=lambda s: int(getattr(s, "step_order", 0)))
+            current_step = first_step
+
+        # Initialisation de la persistance en BDD
+        run_record: PipelineRunModel | None = None
+        if self.persist_state and self.pipeline_id is not None:
+            try:
+                if self.run_id:
+                    run_record = PipelineRunModel.get_or_none(PipelineRunModel.id == self.run_id)
+                    if run_record:
+                        run_record.status = "running"
+                        run_record.current_step_order = int(getattr(current_step, "step_order", 0))
+                        run_record.state_data = json.dumps(self.state.to_dict())
+                        run_record.error_message = None
+                        run_record.save()
+                if run_record is None:
+                    run_record = PipelineRunModel.create(
+                        pipeline=self.pipeline_id,
+                        status="running",
+                        current_step_order=int(getattr(current_step, "step_order", 0)),
+                        state_data=json.dumps(self.state.to_dict()),
+                    )
+                    self.run_id = run_record.id
+            except Exception as db_err:
+                logger.debug("Persistance initiale du run ignorée : %s", db_err)
 
         executed_count = 0
         event_bus.emit("pipeline_started", self.pipeline_id, self.state)
 
         try:
             while current_step is not None and not self._is_cancelled:
+                # 1. Garde globale du nombre d'étapes
                 if executed_count >= self.max_steps:
                     raise RuntimeError(f"Limite de sécurité atteinte ({self.max_steps} étapes exécutées). Boucle infinie détectée dans le DAG.")
 
-                executed_count += 1
+                # 2. Garde globale de tokens
+                if self.max_total_tokens is not None and self.state.total_tokens > self.max_total_tokens:
+                    raise RuntimeError(f"Budget global de tokens dépassé : {self.state.total_tokens} > {self.max_total_tokens}.")
+
                 step_order = int(getattr(current_step, "step_order", 0))
                 step_type = str(current_step.step_type or "LLM_PROMPT").upper()
+
+                # 3. Garde anti-cycle / boucle locale par étape
+                cfg: dict[str, Any] = {}
+                if current_step.config_data:
+                    try:
+                        cfg = json.loads(str(current_step.config_data))
+                    except Exception:
+                        cfg = {}
+
+                step_max_executions = int(cfg.get("max_executions") or cfg.get("max_step_executions") or self.max_executions_per_step)
+                exec_count_for_step = self.state.record_step_execution(step_order)
+                if exec_count_for_step > step_max_executions:
+                    raise RuntimeError(f"Limite d'exécutions par étape dépassée pour l'étape {step_order} ({exec_count_for_step} > {step_max_executions}). Boucle ou cycle infini détecté.")
+
+                # 4. Garde de budget tokens par étape (avant exécution)
+                step_token_budget = cfg.get("max_tokens_budget") or cfg.get("token_budget")
+                if step_token_budget is not None and self.state.get_step_tokens(step_order) >= int(step_token_budget):
+                    raise RuntimeError(f"Budget de tokens dépassé pour l'étape {step_order} : {self.state.get_step_tokens(step_order)} tokens consommés (budget : {step_token_budget}).")
+
+                executed_count += 1
                 persona_name = current_step.persona.name if current_step.persona else "Action Système"
                 desc = f"Étape {step_order} [{step_type}] : {persona_name}"
 
-                logger.info("[Orchestrateur DAG] Exécution de %s", desc)
+                logger.info("[Orchestrateur DAG] Exécution de %s (itération étape: %d)", desc, exec_count_for_step)
                 self.signals.step_started.emit(step_order, desc)
 
                 self.state.current_step_id = current_step.id
                 self.state.current_step_order = step_order
 
-                t_start = time.perf_counter()
+                # Mise à jour de persistance
+                if run_record is not None:
+                    try:
+                        run_record.current_step_order = step_order
+                        run_record.status = "running"
+                        run_record.state_data = json.dumps(self.state.to_dict())
+                        run_record.save()
+                    except Exception as db_err:
+                        logger.debug("Mise à jour état run BDD ignorée : %s", db_err)
 
+                t_start = time.perf_counter()
+                tokens_before = self.state.total_tokens
                 step_succeeded = True
                 step_error_msg = ""
 
                 try:
-                    # ==========================================
-                    # ROUTEUR D'EXÉCUTION DES ÉTAPES DU DAG
-                    # ==========================================
-                    custom_steps = PipelineHooksAPI.get_registered_steps()
-                    if step_type in custom_steps:
-                        custom_executor = custom_steps[step_type]
-                        custom_executor(self, current_step, self.state)
+                    step_persona_id = current_step.persona.id if current_step.persona else None
+                    with telemetry_context(pipeline_id=self.pipeline_id, persona_id=step_persona_id, ab_run_id=self.ab_run_id):
+                        # ==========================================
+                        # ROUTEUR D'EXÉCUTION DES ÉTAPES DU DAG
+                        # ==========================================
+                        custom_steps = PipelineHooksAPI.get_registered_steps()
+                        if step_type in custom_steps:
+                            custom_executor = custom_steps[step_type]
+                            custom_executor(self, current_step, self.state)
 
-                    elif step_type == "LLM_PROMPT":
-                        self._execute_llm_prompt(current_step)
+                        elif step_type == "LLM_PROMPT":
+                            self._execute_llm_prompt(current_step)
 
-                    elif step_type == "RAG_RETRIEVAL":
-                        self._execute_rag_retrieval(current_step)
+                        elif step_type == "RAG_RETRIEVAL":
+                            self._execute_rag_retrieval(current_step)
 
-                    elif step_type == "MAP_REDUCE":
-                        self._execute_map_reduce(current_step)
+                        elif step_type == "MAP_REDUCE":
+                            self._execute_map_reduce(current_step)
 
-                    elif step_type == "HUMAN_VALIDATION":
-                        self._execute_human_validation(current_step)
+                        elif step_type == "HUMAN_VALIDATION":
+                            self._execute_human_validation(current_step)
 
-                    elif step_type == "PYTHON_TOOL":
-                        self._execute_python_tool(current_step)
+                        elif step_type == "PYTHON_TOOL":
+                            self._execute_python_tool(current_step)
 
-                    elif step_type == "AUDIO_TTS":
-                        self._execute_audio_tts(current_step)
+                        elif step_type == "AUDIO_TTS":
+                            self._execute_audio_tts(current_step)
 
-                    else:
-                        logger.warning("Type d'étape inconnu '%s', exécution standard LLM.", step_type)
-                        self._execute_llm_prompt(current_step)
+                        else:
+                            logger.warning("Type d'étape inconnu '%s', exécution standard LLM.", step_type)
+                            self._execute_llm_prompt(current_step)
 
                 except Exception as ex:
                     step_succeeded = False
@@ -277,9 +379,21 @@ class PipelineOrchestrator(QRunnable):
                     self.state.add_error(f"Étape {step_order} ({step_type}): {step_error_msg}")
 
                 duration = time.perf_counter() - t_start
+                step_tokens_used = self.state.total_tokens - tokens_before
+
+                # 5. Garde de budget tokens par étape (après exécution)
+                if step_succeeded and step_token_budget is not None and self.state.get_step_tokens(step_order) > int(step_token_budget):
+                    raise RuntimeError(f"Budget de tokens dépassé pour l'étape {step_order} : {self.state.get_step_tokens(step_order)} tokens consommés (budget : {step_token_budget}).")
 
                 if self._is_cancelled:
                     logger.info("[Orchestrateur DAG] Pipeline annulé par l'utilisateur.")
+                    if run_record is not None:
+                        try:
+                            run_record.status = "cancelled"
+                            run_record.state_data = json.dumps(self.state.to_dict())
+                            run_record.save()
+                        except Exception as db_err:
+                            logger.debug("Mise à jour annulation BDD ignorée : %s", db_err)
                     self.signals.cancelled.emit()
                     return
 
@@ -291,7 +405,17 @@ class PipelineOrchestrator(QRunnable):
                     status=status_str,
                     duration_sec=duration,
                     details=step_error_msg if not step_succeeded else None,
+                    tokens_used=step_tokens_used,
                 )
+
+                # Persistance de l'état après exécution de l'étape
+                if run_record is not None:
+                    try:
+                        run_record.status = "paused" if self.state.is_paused_for_human else "running"
+                        run_record.state_data = json.dumps(self.state.to_dict())
+                        run_record.save()
+                    except Exception as db_err:
+                        logger.debug("Mise à jour état run BDD ignorée : %s", db_err)
 
                 self.signals.step_completed.emit(step_order, self.state)
 
@@ -302,7 +426,10 @@ class PipelineOrchestrator(QRunnable):
                     if current_step.on_success_step:
                         # Si l'objet est déjà chargé ou présent dans notre index
                         target_id = getattr(current_step.on_success_step, "id", current_step.on_success_step)
-                        current_step = steps_by_id.get(int(target_id)) if target_id is not None else None
+                        if target_id is not None and int(target_id) in steps_by_id:
+                            current_step = steps_by_id[int(target_id)]
+                        else:
+                            raise ValueError(f"Étape cible on_success_step introuvable (id={target_id}) pour l'étape {step_order}.")
                     else:
                         # Avancement séquentiel vers la prochaine étape par step_order croissant
                         next_orders = [o for o in steps_by_order if o > step_order]
@@ -311,25 +438,53 @@ class PipelineOrchestrator(QRunnable):
                 else:
                     # Gestion des échecs selon failure_behavior
                     behavior = str(current_step.failure_behavior or "stop").lower()
-                    if behavior == "goto_failure_step" and current_step.on_failure_step:
+                    if behavior == "goto_failure_step":
+                        if not current_step.on_failure_step:
+                            raise ValueError(f"Étape {step_order} configurée avec failure_behavior='goto_failure_step' mais 'on_failure_step' n'est pas défini.")
                         target_id = getattr(current_step.on_failure_step, "id", current_step.on_failure_step)
-                        current_step = steps_by_id.get(int(target_id)) if target_id is not None else None
+                        if target_id is not None and int(target_id) in steps_by_id:
+                            current_step = steps_by_id[int(target_id)]
+                        else:
+                            raise ValueError(f"Étape cible on_failure_step introuvable (id={target_id}) pour l'étape {step_order}.")
                     elif behavior == "continue":
                         next_orders = [o for o in steps_by_order if o > step_order]
                         current_step = steps_by_order[min(next_orders)] if next_orders else None
 
                     else:
                         # "stop" par défaut
+                        if run_record is not None:
+                            try:
+                                run_record.status = "failed"
+                                run_record.error_message = step_error_msg
+                                run_record.state_data = json.dumps(self.state.to_dict())
+                                run_record.save()
+                            except Exception as db_err:
+                                logger.debug("Mise à jour échec BDD ignorée : %s", db_err)
                         self.signals.error_occurred.emit(step_error_msg)
                         return
 
             if not self._is_cancelled:
                 logger.info("[Orchestrateur DAG] Pipeline terminé avec succès.")
+                if run_record is not None:
+                    try:
+                        run_record.status = "completed"
+                        run_record.state_data = json.dumps(self.state.to_dict())
+                        run_record.save()
+                    except Exception as db_err:
+                        logger.debug("Mise à jour succès final BDD ignorée : %s", db_err)
                 event_bus.emit("pipeline_finished", self.state)
                 self.signals.pipeline_finished.emit(self.state)
 
         except Exception as e:
             logger.exception("[Orchestrateur DAG Fatal Error] %s", e)
+            if run_record is not None:
+                try:
+                    run_record.status = "failed"
+                    run_record.error_message = str(e)
+                    run_record.state_data = json.dumps(self.state.to_dict())
+                    run_record.save()
+                except Exception as db_err:
+                    logger.debug("Mise à jour fatal error BDD ignorée : %s", db_err)
             self.state.add_error(str(e))
             self.signals.error_occurred.emit(str(e))
 
@@ -450,6 +605,12 @@ class PipelineOrchestrator(QRunnable):
                 max_tokens=step_max_tokens,
                 temperature=step_temperature,
             )
+
+        # Calcul et enregistrement des tokens consommés
+        input_len = len(str(multimodal_input)) if use_vision else len(str(clean_input))
+        p_tokens = max(1, (len(rendered_sys) + input_len) // 4)
+        c_tokens = max(1, len(str(response_text)) // 4)
+        self.state.record_tokens(step.step_order, p_tokens, c_tokens)
 
         parsed_output: Any = response_text
         if output_format == "json":
@@ -598,6 +759,11 @@ class PipelineOrchestrator(QRunnable):
                 max_tokens=step_max_tokens,
                 temperature=step_temperature,
             )
+
+            # Calcul et enregistrement des tokens consommés
+            p_tok = max(1, (len(rendered_sys) + len(item_str)) // 4)
+            c_tok = max(1, len(str(response)) // 4)
+            self.state.record_tokens(step.step_order, p_tok, c_tok)
 
             parsed = response
             if output_format == "json":

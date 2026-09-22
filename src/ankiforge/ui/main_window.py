@@ -148,6 +148,8 @@ class MainWindow(QMainWindow):
 
         # Restauration instantanée du badge depuis le cache QSettings (sans HTTP, dès que la topbar est rendue)
         QTimer.singleShot(300, self._restore_cached_update_badge)
+        # Vérification des runs de pipelines interrompus pour reprise
+        QTimer.singleShot(1500, self._check_uncompleted_pipeline_runs)
         # Vérification HTTP forcée à chaque lancement pour actualiser le cache et les assets
         QTimer.singleShot(2000, self._check_for_updates)
 
@@ -234,6 +236,53 @@ class MainWindow(QMainWindow):
         """Trace l'échec de vérification au démarrage."""
         self._update_worker = None
         logger.warning("Échec de la vérification de mise à jour au démarrage : %s", error_msg)
+
+    def _check_uncompleted_pipeline_runs(self) -> None:
+        """Détecte les runs de pipelines inachevés ou interrompus lors d'une session précédente et propose la reprise."""
+        try:
+            from ankiforge.database.models import PipelineRunModel
+
+            uncompleted = list(PipelineRunModel.select().where(PipelineRunModel.status.in_(["running", "paused"])).order_by(PipelineRunModel.updated_at.desc()).limit(1))
+            if not uncompleted:
+                return
+
+            run = uncompleted[0]
+            pipe_name = run.pipeline.name if run.pipeline and hasattr(run.pipeline, "name") else f"Pipeline #{run.pipeline_id}"
+            step_order = run.current_step_order or 1
+
+            reply = QMessageBox.question(
+                self,
+                "Reprise de Pipeline DAG",
+                f"Un pipeline DAG « {pipe_name} » n'a pas été terminé lors de la session précédente (interrompu à l'étape {step_order}).\n\nSouhaitez-vous reprendre l'exécution de ce pipeline ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                self._resume_pipeline_run(run.id)
+            else:
+                run.status = "cancelled"
+                run.save()
+        except Exception as e:
+            logger.debug("Vérification des runs inachevés ignorée : %s", e)
+
+    def _resume_pipeline_run(self, run_id: int) -> None:
+        """Exécute la reprise d'un run persisté."""
+        try:
+            from PySide6.QtCore import QThreadPool
+
+            from ankiforge.database.models import PipelineRunModel
+            from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+            from ankiforge.ui.widgets.toast import show_toast
+
+            run = PipelineRunModel.get_by_id(run_id)
+            provider = self.ai_manager.active_provider if self.ai_manager and hasattr(self.ai_manager, "active_provider") else None
+            orchestrator = PipelineOrchestrator.resume_run(run_id, ai_provider=provider)
+            QThreadPool.globalInstance().start(orchestrator)
+            pipe_name = run.pipeline.name if run.pipeline and hasattr(run.pipeline, "name") else f"#{run.pipeline_id}"
+            show_toast(self, f"Reprise du pipeline « {pipe_name} » lancée en arrière-plan.")
+        except Exception as err:
+            logger.warning("Échec de la reprise du run %d : %s", run_id, err)
 
     def _on_update_available(self, info: Any) -> None:
         """Transmet l'information de mise à jour à la TopBar si présente.

@@ -22,18 +22,22 @@ graph TD
     D --> F["Enregistrement SQLite Peewee"]:::step
 ```
 
-### Les 5 Types d'Étapes Prises en Charge
+### Les 6 Types d'Étapes Prises en Charge
 
-1. **`LLM_PROMPT`** : Invoque un modèle d'IA avec un prompt Jinja2 contextualisé et des variables dynamiques.
+1. **`LLM_PROMPT`** : Invoque un modèle d'IA avec un prompt Jinja2 contextualisé et des variables dynamiques, avec suivi des jetons consommés.
 2. **`RAG_RETRIEVAL`** : Interroge la base vectorielle locale pour injecter les fragments de texte les plus pertinents.
 3. **`MAP_REDUCE`** : Découpe une liste de fragments volumineuse pour les traiter en parallèle (`map`), puis agrège et déduplique les cartes produites (`reduce`).
 4. **`HUMAN_VALIDATION`** : Suspend proprement l'exécution du DAG et ouvre une boîte de dialogue interactive (`HumanValidationDialog`) où l'utilisateur peut approuver, corriger ou rejeter les cartes avant de poursuivre.
 5. **`PYTHON_TOOL`** : Exécute une routine Python personnalisée (nettoyage de balises HTML, calculs statistiques, regex).
+6. **`AUDIO_TTS`** : Synthétise les prononciations ou résumés audios à attacher aux cartes mémoire.
 
-### Sauts Conditionnels et Résilience
-Chaque nœud du DAG peut définir une règle de branchement dynamique :
+### Branchements Conditionnels, Budgets et Persistance d'État
+Chaque nœud du DAG peut définir une règle de branchement dynamique et des garde-fous stricts :
 - `on_success_step` : Nœud cible en cas d'exécution réussie.
-- `on_failure_step` : Nœud cible en cas d'erreur ou d'invalidation (permettant des boucles d'auto-critique et de self-healing).
+- `on_failure_step` : Nœud cible en cas d'erreur ou d'invalidation (boucles d'auto-critique et self-healing).
+- `failure_behavior` : Comportement en cas d'échec (`stop`, `continue`, `goto_failure_step`).
+- **Garde-fous anti-boucles & Budgets de tokens** : Plafond d'exécutions par étape (`max_step_executions`, défaut 10), plafond de jetons par étape (`max_tokens_budget`) et budget global du run (`max_total_tokens`) pour éliminer tout risque de boucle infinie ou de surcoût imprévu.
+- **Persistance & Reprise (`PipelineRunModel`)** : L'état d'exécution et les compteurs d'étapes sont enregistrés en SQLite. Un run interrompu (fermeture de l'appli, panne ou arrêt) peut être repris via `PipelineOrchestrator.resume_run()` sans refaire les étapes déjà terminées. Le système propose la reprise automatiquement au lancement de l'application et depuis la vue de traitement par lots.
 
 ```mermaid
 stateDiagram-v2

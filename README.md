@@ -60,8 +60,10 @@ Chaque outil répond à un besoin spécifique dans l'apprentissage. Voici une co
 
 ## Fonctionnalités Principales
 
-### 1. Moteur d'Orchestration et Supervision Humaine
-* **Workflows par étapes :** Découpage de la tâche en étapes claires (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`).
+### 1. Moteur d'Orchestration, Branches et Reprise
+* **Workflows par étapes (DAG) :** Découpage de la tâche en 6 types d'étapes claires (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`).
+* **Branchements conditionnels & Garde-fous :** Sauts dynamiques en cas de succès ou d'échec (`on_success_step`, `on_failure_step`), plafonds de tokens et limitation d'exécutions par étape pour prévenir les boucles infinies.
+* **Persistance & Reprise d'exécution :** Sauvegarde automatique de l'état d'exécution en base de données, permettant de reprendre un traitement interrompu sans recalculer les étapes déjà achevées.
 * **Pause interactive :** L'IA ne génère pas de cartes à l'aveugle. Une fenêtre interactive permet d'ajuster le squelette du cours avant d'engager la création finale.
 * **Scripts Python déterministes :** Intégration d'outils de nettoyage (formatage mathématique LaTeX, réparation JSON, calcul de métriques) exécutables de façon fiable.
 

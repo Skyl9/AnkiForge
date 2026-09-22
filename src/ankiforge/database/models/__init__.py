@@ -37,6 +37,7 @@ from ankiforge.database.models.cards import (
 )
 from ankiforge.database.models.pipelines import (
     PipelineModel,
+    PipelineRunModel,
     PipelineStepModel,
     PythonToolModel,
 )
@@ -76,6 +77,7 @@ ALL_MODELS = [
     ConsultantSessionModel,
     ConsultantMessageModel,
     PipelineModel,
+    PipelineRunModel,
     PipelineStepModel,
     PythonToolModel,
     FolderModel,
@@ -120,6 +122,7 @@ __all__ = [
     "ConsultantMessageModel",
     # Pipelines DAG
     "PipelineModel",
+    "PipelineRunModel",
     "PipelineStepModel",
     "PythonToolModel",
     # Documents & RAG

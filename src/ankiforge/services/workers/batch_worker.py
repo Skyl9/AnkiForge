@@ -76,10 +76,16 @@ class BatchWorker(QThread):
     error = Signal(str)
     batch_data_ready = Signal(list, int, int, int)  # notes, deck_id, model_id, doc_id
 
-    def __init__(self, ai_provider: Any = None, tasks: list[BatchTaskPayload | BatchTaskSnapshot] | None = None) -> None:
+    def __init__(
+        self,
+        ai_provider: Any = None,
+        tasks: list[BatchTaskPayload | BatchTaskSnapshot] | None = None,
+        resume_incomplete: bool = False,
+    ) -> None:
         super().__init__()
         self.ai_provider = ai_provider
         self.tasks: list[BatchTaskPayload | BatchTaskSnapshot] = tasks or []
+        self.resume_incomplete = resume_incomplete
         self._is_cancelled = False
         self._active_orchestrator: PipelineOrchestrator | None = None
 
@@ -120,6 +126,13 @@ class BatchWorker(QThread):
                 self.log.emit("WARN", "⏹ Traitement par lots interrompu par l'utilisateur.")
                 self.cancelled.emit()
                 return
+
+            if self.resume_incomplete and task.extra_metadata.get("status") in ("Succès", "success", "Terminé"):
+                success_count += 1
+                task_cards = int(task.extra_metadata.get("cards_count", 0))
+                total_cards_generated += task_cards
+                self.log.emit("INFO", f"  [{task.doc_title}] ⏩ Tâche déjà validée précédemment ({task_cards} cartes), sautée.")
+                continue
 
             self.task_started.emit(task.task_index, task.doc_title)
             self.progress_text.emit(f"Traitement : {task.doc_title} ({current_idx + 1}/{total_tasks})...")
@@ -299,10 +312,17 @@ class BatchWorker(QThread):
 
         for index, task in enumerate(tasks):
             if self._is_cancelled:
-                task.status = BatchTaskStatus.CANCELLED
-                self.task_state_changed.emit(task.task_id, task.status.value)
+                for rem in tasks[index:]:
+                    if rem.status not in (BatchTaskStatus.ACCEPTED, BatchTaskStatus.REVIEW):
+                        rem.status = BatchTaskStatus.CANCELLED
+                        self.task_state_changed.emit(rem.task_id, rem.status.value)
                 self.cancelled.emit()
                 break
+
+            if self.resume_incomplete and task.status in (BatchTaskStatus.ACCEPTED, BatchTaskStatus.REVIEW):
+                success_count += 1
+                total_cards += len(task.cards)
+                continue
 
             task.status = BatchTaskStatus.RUNNING
             task.attempt += 1
