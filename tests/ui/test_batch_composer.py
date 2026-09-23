@@ -268,6 +268,61 @@ def test_auto_slice_widget_headings_and_tokens(qtbot: Any) -> None:
     assert emitted
 
 
+def test_auto_slice_widget_granularity_tiers_and_custom_sync(qtbot: Any) -> None:
+    """Vérifie les 4 paliers de granularité, les presets et le basculement automatique en Personnalisé."""
+    from ankiforge.services.batch.slicing_service import GranularityLevel
+
+    content = f"# Chapitre 1\n\n{LONG_PART1}\n\n## Section 1.1\n\n{LONG_PART2}\n\n### Sous-section 1.1.1\n\n{LONG_PART1}\n"
+    widget = AutoSliceWidget()
+    qtbot.addWidget(widget)
+    widget.set_content(content)
+
+    # 1. Par défaut : Équilibré (Standard)
+    assert widget.get_granularity_level() == GranularityLevel.BALANCED
+    assert widget.rb_gran_balanced.isChecked()
+    assert widget.combo_depth.currentIndex() == 1  # H1 + H2
+    assert widget.spin_min_words.value() == 50
+    assert widget.slider_tokens.value() == 2000
+    assert widget.spin_pages.value() == 5
+
+    # 2. Bascule vers Large (Macro)
+    widget.rb_gran_coarse.setChecked(True)
+    assert widget.get_granularity_level() == GranularityLevel.COARSE
+    assert widget.combo_depth.currentIndex() == 0  # H1 uniquement
+    assert widget.spin_min_words.value() == 100
+    assert widget.slider_tokens.value() == 3500
+    assert widget.spin_pages.value() == 10
+
+    # 3. Bascule vers Fin (Atomique)
+    widget.rb_gran_fine.setChecked(True)
+    assert widget.get_granularity_level() == GranularityLevel.FINE
+    assert widget.combo_depth.currentIndex() == 2  # H1 + H2 + H3
+    assert widget.spin_min_words.value() == 30
+    assert widget.slider_tokens.value() == 1000
+    assert widget.spin_pages.value() == 1
+
+    # 4. Modification manuelle d'un contrôle -> bascule automatique en CUSTOM
+    widget.spin_min_words.setValue(75)
+    assert widget.get_granularity_level() == GranularityLevel.CUSTOM
+    assert widget.rb_gran_custom.isChecked()
+
+    # 5. Modification de profondeur -> reste en CUSTOM
+    widget.combo_depth.setCurrentIndex(0)
+    assert widget.get_granularity_level() == GranularityLevel.CUSTOM
+
+    # 6. Vérification du dictionnaire get_result()
+    res = widget.get_result()
+    assert res["granularity"] == GranularityLevel.CUSTOM.value
+    assert res["max_depth"] == 1
+    assert res["min_words"] == 75
+    assert len(res["slices"]) >= 1
+
+    # 7. Carte de prévisualisation : jamais rognée
+    assert widget.preview_card.minimumHeight() >= 44
+    assert widget.lbl_preview_result.text()
+    assert "tâche(s)" in widget.lbl_preview_result.text()
+
+
 # ── Mode Direct : 1 partie cochée = 1 tâche (branches agrégées) ─────────────────────────────
 
 

@@ -202,10 +202,11 @@ class DocumentPickerButton(QFrame):
             return
 
         doc = self._current_doc
-        title = doc.title or "Document sans titre"
-        if len(title) > 36:
-            title = title[:33] + "..."
-        self.title_label.setText(title)
+        full_title = doc.title or "Document sans titre"
+        # Troncature souple avec infobulle complète
+        display_title = full_title[:62] + "..." if len(full_title) > 65 else full_title
+        self.title_label.setText(display_title)
+        self.title_label.setToolTip(full_title)
         self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none;")
 
         ft = (getattr(doc, "file_type", "") or "md").lower()
@@ -217,41 +218,41 @@ class DocumentPickerButton(QFrame):
             icon_name = "ph.file-pdf"
             icon_color = DesignTokens.COLOR_RED
             pages_count = getattr(doc, "total_pages", 0) or content.count("<!-- PAGE:")
-            meta_str = f"PDF • {pages_count} page(s) • ~{tokens:,} tokens"
+            meta_str = f"PDF • {pages_count} page(s) • ~{tokens:,} tokens".replace(",", " ")
         elif ft in ("md", "markdown"):
             icon_name = "ph.file-code"
             icon_color = DesignTokens.COLOR_YELLOW
             words = len(content.split())
-            meta_str = f"Markdown • {words:,} mots • ~{tokens:,} tokens"
+            meta_str = f"Markdown • {words:,} mots • ~{tokens:,} tokens".replace(",", " ")
         elif ft == "album":
             icon_name = "ph.images"
             icon_color = DesignTokens.COLOR_PURPLE
             pages_count = getattr(doc, "total_pages", 0) or 0
-            meta_str = f"Album • {pages_count} planche(s) • ~{tokens:,} tokens"
+            meta_str = f"Album • {pages_count} planche(s) • ~{tokens:,} tokens".replace(",", " ")
         elif ft == "epub":
             icon_name = "ph.book-open"
             icon_color = DesignTokens.COLOR_PURPLE
-            meta_str = f"ePub • ~{tokens:,} tokens"
+            meta_str = f"ePub • ~{tokens:,} tokens".replace(",", " ")
         elif ft == "pptx":
             icon_name = "ph.presentation"
             icon_color = DesignTokens.COLOR_YELLOW
-            meta_str = f"Présentation • ~{tokens:,} tokens"
+            meta_str = f"Présentation • ~{tokens:,} tokens".replace(",", " ")
         elif ft in ("audio", "mp3", "m4a", "wav"):
             icon_name = "ph.headphones"
             icon_color = DesignTokens.COLOR_PURPLE
-            meta_str = f"Audio • ~{tokens:,} tokens"
+            meta_str = f"Audio • ~{tokens:,} tokens".replace(",", " ")
         elif ft in ("youtube", "video"):
             icon_name = "ph.youtube-logo"
             icon_color = DesignTokens.COLOR_RED
-            meta_str = f"Vidéo • ~{tokens:,} tokens"
+            meta_str = f"Vidéo • ~{tokens:,} tokens".replace(",", " ")
         elif ft == "web":
             icon_name = "ph.globe"
             icon_color = DesignTokens.ACCENT_PRIMARY
-            meta_str = f"Web • ~{tokens:,} tokens"
+            meta_str = f"Web • ~{tokens:,} tokens".replace(",", " ")
         else:
             icon_name = "ph.file-text"
             icon_color = DesignTokens.COLOR_BLUE
-            meta_str = f"Texte • ~{tokens:,} tokens"
+            meta_str = f"Texte • ~{tokens:,} tokens".replace(",", " ")
 
         self.icon_label.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(18, 18))
         self.icon_badge.setStyleSheet(f"""

@@ -139,3 +139,69 @@ Contenu deuxième section également bien fournie pour tester les différents mo
 
     p_slices = SlicingService.slice_document(content, mode=SlicingMode.PAGES)
     assert len(p_slices) >= 1
+
+
+def test_slice_by_headings_hierarchical_max_depth() -> None:
+    doc = """# Chapitre 1 : Les Fondations
+Introduction du premier chapitre détaillant l'ensemble des concepts fondamentaux nécessaires à la compréhension de l'ouvrage.
+
+## Section 1.1 : Premier Pilier
+Développement approfondi du premier pilier contenant de nombreux détails techniques essentiels pour la pratique.
+
+### Sous-section 1.1.1 : Détail Atomique
+Précisions complémentaires sur les cas limites et les applications réelles du pilier étudié dans cette partie.
+
+## Section 1.2 : Deuxième Pilier
+Analyse complète du deuxième pilier avec des exemples concrets et des cas cliniques représentatifs.
+
+# Chapitre 2 : Les Applications Pratiques
+Deuxième grand chapitre traitant de la mise en oeuvre opérationnelle de tous les concepts étudiés précédemment.
+
+## Section 2.1 : Mise en Pratique
+Exemples pratiques commentés étape par étape pour guider l'étudiant dans sa démarche d'apprentissage.
+"""
+    # 1. max_depth=1 (COARSE / Large) : Seulement les 2 H1, englobant tous leurs sous-titres H2 et H3
+    coarse_slices = SlicingService.slice_by_headings(doc, max_depth=1, min_words=10)
+    assert len(coarse_slices) == 2
+    assert coarse_slices[0].title == "Chapitre 1 : Les Fondations"
+    assert "Section 1.1 : Premier Pilier" in coarse_slices[0].content
+    assert "Sous-section 1.1.1 : Détail Atomique" in coarse_slices[0].content
+    assert "Section 1.2 : Deuxième Pilier" in coarse_slices[0].content
+    assert coarse_slices[1].title == "Chapitre 2 : Les Applications Pratiques"
+    assert "Section 2.1 : Mise en Pratique" in coarse_slices[1].content
+
+    # 2. max_depth=2 (BALANCED / Équilibré) : H1 et H2 découpés, H3 englobé dans Section 1.1
+    balanced_slices = SlicingService.slice_by_headings(doc, max_depth=2, min_words=10)
+    # Chapitre 1 (intro), Section 1.1 (incluant Sous-section 1.1.1), Section 1.2, Chapitre 2, Section 2.1
+    assert len(balanced_slices) == 5
+    sec_1_1 = next(s for s in balanced_slices if "Section 1.1" in s.title)
+    assert "Sous-section 1.1.1 : Détail Atomique" in sec_1_1.content
+
+    # 3. max_depth=3 (FINE / Fin) : Sous-section 1.1.1 devient sa propre tranche
+    fine_slices = SlicingService.slice_by_headings(doc, max_depth=3, min_words=10)
+    assert len(fine_slices) == 6
+    sub_1_1_1 = next(s for s in fine_slices if "Sous-section 1.1.1" in s.title)
+    assert "Précisions complémentaires sur les cas limites" in sub_1_1_1.content
+
+
+def test_granularity_presets() -> None:
+    from ankiforge.services.batch.slicing_service import GranularityLevel
+
+    # Headings presets
+    depth, min_w = SlicingService.get_headings_preset(GranularityLevel.COARSE)
+    assert depth == 1 and min_w == 100
+    depth, min_w = SlicingService.get_headings_preset(GranularityLevel.BALANCED)
+    assert depth == 2 and min_w == 50
+    depth, min_w = SlicingService.get_headings_preset(GranularityLevel.FINE)
+    assert depth == 3 and min_w == 30
+
+    # Tokens presets
+    t_tokens, overlap = SlicingService.get_tokens_preset(GranularityLevel.COARSE)
+    assert t_tokens == 3500 and overlap == 200
+    t_tokens, overlap = SlicingService.get_tokens_preset(GranularityLevel.FINE)
+    assert t_tokens == 1000 and overlap == 100
+
+    # Pages presets
+    assert SlicingService.get_pages_preset(GranularityLevel.COARSE) == 10
+    assert SlicingService.get_pages_preset(GranularityLevel.BALANCED) == 5
+    assert SlicingService.get_pages_preset(GranularityLevel.FINE) == 1

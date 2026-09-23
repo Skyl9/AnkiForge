@@ -21,6 +21,15 @@ class SlicingMode(StrEnum):
     PAGES = "pages"
 
 
+class GranularityLevel(StrEnum):
+    """Niveaux de granularité pour le découpage automatique."""
+
+    COARSE = "coarse"  # Large / Macro (Grands chapitres H1, ~3 500 tks, 10 pages)
+    BALANCED = "balanced"  # Équilibré / Standard (Recommandé : H1-H2, ~2 000 tks, 5 pages)
+    FINE = "fine"  # Fin / Atomique (Sous-sections H1-H3, ~1 000 tks, 1 page)
+    CUSTOM = "custom"  # Personnalisé (Réglages libres de profondeur/tokens/pages)
+
+
 @dataclass(frozen=True, slots=True)
 class SliceUnit:
     """Représente une unité textuelle découpée, prête pour la file d'attente Batch."""
@@ -61,6 +70,36 @@ class SlicingService:
     _SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9À-ÖØ-ß])")
 
     @classmethod
+    def get_headings_preset(cls, level: GranularityLevel | str) -> tuple[int, int]:
+        """Retourne (max_depth, min_words) pour un palier de granularité."""
+        lvl = str(level).lower()
+        if lvl == GranularityLevel.COARSE.value:
+            return 1, 100
+        if lvl == GranularityLevel.FINE.value:
+            return 3, 30
+        return 2, 50
+
+    @classmethod
+    def get_tokens_preset(cls, level: GranularityLevel | str) -> tuple[int, int]:
+        """Retourne (target_tokens, overlap_tokens) pour un palier de granularité."""
+        lvl = str(level).lower()
+        if lvl == GranularityLevel.COARSE.value:
+            return 3500, 200
+        if lvl == GranularityLevel.FINE.value:
+            return 1000, 100
+        return 2000, 150
+
+    @classmethod
+    def get_pages_preset(cls, level: GranularityLevel | str) -> int:
+        """Retourne pages_per_slice pour un palier de granularité."""
+        lvl = str(level).lower()
+        if lvl == GranularityLevel.COARSE.value:
+            return 10
+        if lvl == GranularityLevel.FINE.value:
+            return 1
+        return 5
+
+    @classmethod
     def estimate_tokens(cls, text: str) -> int:
         """Estime le nombre de tokens pour un texte (ratio moyen de 1.3 par mot)."""
         words = len(text.split())
@@ -80,6 +119,19 @@ class SlicingService:
     ) -> list[SliceUnit]:
         """Point d'entrée universel pour découper un document selon le mode spécifié."""
         mode_str = str(mode).lower()
+        granularity = kwargs.get("granularity")
+        if granularity and isinstance(granularity, GranularityLevel | str) and str(granularity).lower() != GranularityLevel.CUSTOM.value:
+            if mode_str == SlicingMode.HEADINGS.value:
+                default_depth, default_min_words = cls.get_headings_preset(granularity)
+                kwargs.setdefault("max_depth", default_depth)
+                kwargs.setdefault("min_words", default_min_words)
+            elif mode_str == SlicingMode.TOKENS.value:
+                default_target, default_overlap = cls.get_tokens_preset(granularity)
+                kwargs.setdefault("target_tokens", default_target)
+                kwargs.setdefault("overlap_tokens", default_overlap)
+            elif mode_str == SlicingMode.PAGES.value:
+                kwargs.setdefault("pages_per_slice", cls.get_pages_preset(granularity))
+
         if mode_str == SlicingMode.HEADINGS.value:
             max_depth = int(kwargs.get("max_depth", 2))
             min_words = int(kwargs.get("min_words", 50))
@@ -103,17 +155,18 @@ class SlicingService:
     ) -> list[SliceUnit]:
         """Découpe un document en sections hiérarchiques basées sur les titres (H1→H{max_depth}).
 
-        Fusionne les micro-sections inférieures à min_words pour éviter les requêtes
-        LLM stériles sans densité pédagogique.
+        - Agrégation hiérarchique réelle : les sous-sections plus profondes que max_depth
+          sont intégralement incorporées dans le contenu de la section parente.
+        - Fusion des micro-sections : les blocs inférieurs à min_words sont fusionnés
+          pour préserver la densité pédagogique.
         """
         if not content or not content.strip():
             return []
 
         line_to_page = cls._build_line_to_page_map(content)
-        sections = MarkdownStructurer.extract_sections(content)
+        outline = MarkdownStructurer.get_outline(content)
 
-        if not sections:
-            # Fallback si aucun titre Markdown trouvé
+        if not outline:
             words = cls.estimate_words(content)
             tokens = cls.estimate_tokens(content)
             return [
@@ -130,41 +183,69 @@ class SlicingService:
                 )
             ]
 
-        # Regroupement et filtrage par profondeur et taille minimale
+        lines = content.split("\n")
+        total_lines = len(lines)
+
+        # Calcul du niveau maximal effectif relatif au niveau minimal existant
+        min_level = min(item.level for item in outline)
+        effective_max_level = min_level + max(0, max_depth - 1)
+
+        # Repérage des titres de coupure (ceux dont le niveau <= effective_max_level)
+        cutting_indices = [i for i, it in enumerate(outline) if it.level <= effective_max_level]
+        if not cutting_indices:
+            cutting_indices = [i for i, it in enumerate(outline) if it.level == min_level]
+
         raw_units: list[dict[str, Any]] = []
-        for sec in sections:
-            clean_path = " > ".join(MarkdownStructurer.clean_heading_title(p) for p in sec.heading_path.split(" > ") if p.strip())
-            leaf_title = clean_path.split(" > ")[-1] if clean_path else "Section"
-            sec_words = cls.estimate_words(sec.content)
-            start_line = getattr(sec, "start_line", 1) or 1
+        for pos, k in enumerate(cutting_indices):
+            item = outline[k]
+            start_line = item.line_number
+            # Si premier titre de coupure, englober le préambule initial si existant
+            slice_start_line = 1 if pos == 0 else start_line
+
+            if pos + 1 < len(cutting_indices):
+                next_k = cutting_indices[pos + 1]
+                slice_end_line = max(slice_start_line, outline[next_k].line_number - 1)
+            else:
+                slice_end_line = total_lines
+
+            slice_text = "\n".join(lines[slice_start_line - 1 : slice_end_line]).strip()
+            clean_path = " > ".join(MarkdownStructurer.clean_heading_title(p) for p in item.breadcrumb.split(" > ") if p.strip())
+            leaf_title = clean_path.split(" > ")[-1] if clean_path else MarkdownStructurer.clean_heading_title(item.title)
+            sec_words = cls.estimate_words(slice_text)
             page_num = cls._resolve_page_for_line(start_line, line_to_page)
 
             raw_units.append(
                 {
                     "title": leaf_title,
                     "heading_path": clean_path,
-                    "content": sec.content,
+                    "content": slice_text,
                     "page_number": page_num,
                     "words": sec_words,
                 }
             )
 
-        # Fusion des sections trop courtes (< min_words) avec la précédente si possible
+        # Fusion des sections trop courtes (< min_words)
         merged_units: list[dict[str, Any]] = []
-        for unit in raw_units:
-            if not merged_units:
-                merged_units.append(unit)
-                continue
+        if min_words > 0:
+            for unit in raw_units:
+                if not merged_units:
+                    merged_units.append(unit)
+                    continue
 
-            prev = merged_units[-1]
-            if unit["words"] < min_words:
-                # On concatène le contenu court dans l'unité précédente
-                prev["content"] = f"{prev['content']}\n\n{unit['content']}".strip()
-                prev["words"] = cls.estimate_words(prev["content"])
-            else:
-                merged_units.append(unit)
+                prev = merged_units[-1]
+                if unit["words"] < min_words:
+                    prev["content"] = f"{prev['content']}\n\n{unit['content']}".strip()
+                    prev["words"] = cls.estimate_words(prev["content"])
+                else:
+                    merged_units.append(unit)
 
-        # Construction des SliceUnit finaux
+            if len(merged_units) > 1 and merged_units[0]["words"] < min_words:
+                first = merged_units.pop(0)
+                merged_units[0]["content"] = f"{first['content']}\n\n{merged_units[0]['content']}".strip()
+                merged_units[0]["words"] = cls.estimate_words(merged_units[0]["content"])
+        else:
+            merged_units = raw_units
+
         result: list[SliceUnit] = []
         for idx, u in enumerate(merged_units):
             cnt = u["content"].strip()

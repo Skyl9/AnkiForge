@@ -228,7 +228,7 @@ class BatchSliceComposerDialog(QDialog):
       Auto → liste à cocher des tranches générées.
     """
 
-    STEP_LABELS = ("1. Document & découpage", "2. Choix des parties", "3. Récapitulatif")
+    STEP_LABELS = ("1. Document && découpage", "2. Choix des parties", "3. Récapitulatif")
 
     def __init__(
         self,
@@ -240,6 +240,7 @@ class BatchSliceComposerDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self._has_custom_resolver = resolve_chunks is not None
         self._resolve_chunks = resolve_chunks or (lambda d: [])
         self._scope_memory = scope_memory or (lambda d: None)
         self._task_from_chunk = task_from_chunk or (lambda d, c: None)
@@ -346,7 +347,6 @@ class BatchSliceComposerDialog(QDialog):
         p_layout.addLayout(cards_row)
 
         self.decoupage_stack = QStackedWidget()
-        self.decoupage_stack.setMaximumHeight(240)
 
         direct_page = QWidget()
         d_layout = QVBoxLayout(direct_page)
@@ -470,6 +470,8 @@ class BatchSliceComposerDialog(QDialog):
 
     def _load_document(self, doc: DocumentModel | None) -> None:
         self.doc = doc
+        if hasattr(self, "doc_picker") and self.doc_picker.get_document() != doc:
+            self.doc_picker.set_document(doc, emit_signal=False)
         self.scope_result = {}
         self._tasks = []
         self._slice_items = []
@@ -572,8 +574,15 @@ class BatchSliceComposerDialog(QDialog):
     def _document_text(self) -> str:
         if self.doc is None:
             return ""
+        if self._has_custom_resolver:
+            chunks = self._resolve_chunks(self.doc) or []
+            return "\n\n".join(str(c.get("content", "")).strip() for c in chunks if str(c.get("content", "")).strip())
         chunks = self._resolve_chunks(self.doc) or []
-        return "\n\n".join(str(c.get("content", "")).strip() for c in chunks if str(c.get("content", "")).strip())
+        if chunks:
+            text = "\n\n".join(str(c.get("content", "")).strip() for c in chunks if str(c.get("content", "")).strip())
+            if text:
+                return text
+        return getattr(self.doc, "content", "") or ""
 
     def _ensure_auto_content(self) -> None:
         self.auto_widget.set_content(self._document_text())
@@ -584,7 +593,8 @@ class BatchSliceComposerDialog(QDialog):
         self._building_slices = True
         try:
             for sl in self._slice_items:
-                item = QListWidgetItem(f"{sl.title}  •  ~{sl.tokens_estimate or 0} tokens")
+                path_str = f" ({sl.heading_path})" if sl.heading_path and sl.heading_path != sl.title else ""
+                item = QListWidgetItem(f"{sl.title}{path_str}  •  ~{sl.tokens_estimate or 0} tokens  •  ~{sl.words_estimate or 0} mots")
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(Qt.CheckState.Checked)
                 self.lst_slices.addItem(item)
