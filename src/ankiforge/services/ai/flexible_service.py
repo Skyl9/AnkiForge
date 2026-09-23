@@ -200,12 +200,61 @@ class OpenAICompatibleProvider(LLMProvider):
 
                 log_token_usage(self.provider_name, self.model_name, p_tokens, c_tokens)
 
-            content = response.choices[0].message.content or ""
-            return content
+            choices = getattr(response, "choices", None)
+            if not choices:
+                # Vérification d'un éventuel payload d'erreur retourné sous HTTP 200 (ex: passerelle OpenRouter / NVIDIA)
+                err_obj = None
+                if hasattr(response, "model_extra") and isinstance(response.model_extra, dict):
+                    err_obj = response.model_extra.get("error")
+                if not err_obj:
+                    raw_err = getattr(response, "error", None)
+                    if isinstance(raw_err, dict | str):
+                        err_obj = raw_err
+
+                if err_obj:
+                    if isinstance(err_obj, dict):
+                        err_msg = str(err_obj.get("message") or err_obj)
+                        err_code = err_obj.get("code")
+                    else:
+                        err_msg = str(err_obj)
+                        err_code = None
+                    code_str = f" [code {err_code}]" if err_code else ""
+                    human_msg = get_human_readable_api_error(Exception(f"{err_msg}{code_str}"))
+                    logger.error("Erreur renvoyée par le fournisseur IA (%s)%s : %s", self.model_name, code_str, err_msg)
+                    raise RuntimeError(f"Erreur du fournisseur IA ({self.model_name}){code_str} : {err_msg} — {human_msg}")
+
+                logger.warning("Le fournisseur IA (%s) a renvoyé une réponse sans choix de complétion (choices=%s).", self.model_name, choices)
+                human_msg = get_human_readable_api_error(Exception("sans choix généré"))
+                raise RuntimeError(f"Le fournisseur IA ({self.model_name}) a renvoyé une réponse sans choix généré (choices vide ou nul) — {human_msg}")
+
+            choice = choices[0]
+            message = getattr(choice, "message", None)
+            if not message:
+                logger.warning("Le choix de complétion du fournisseur IA (%s) ne contient aucun message.", self.model_name)
+                raise RuntimeError(f"Le fournisseur IA ({self.model_name}) a renvoyé un choix de complétion sans message.")
+
+            refusal = getattr(message, "refusal", None)
+            if isinstance(refusal, str) and refusal.strip():
+                logger.warning("Le modèle IA (%s) a refusé la requête : %s", self.model_name, refusal)
+                raise RuntimeError(f"Le modèle IA ({self.model_name}) a refusé de générer une réponse : {refusal}")
+
+            content = getattr(message, "content", None) or ""
+            if not str(content).strip():
+                finish_reason = getattr(choice, "finish_reason", None)
+                if isinstance(finish_reason, str) and finish_reason in ("length", "content_filter"):
+                    reason_msg = "dépassement du quota de tokens (length)" if finish_reason == "length" else "filtrage de sécurité (content_filter)"
+                    raise RuntimeError(f"Le modèle IA ({self.model_name}) s'est arrêté prématurément ({reason_msg}) sans contenu textuel généré.")
+
+            return str(content)
         except (openai.APIError, openai.APIConnectionError) as e:
             logger.exception("Erreur API (%s) : %s", self.model_name, e)
             human_msg = get_human_readable_api_error(e)
             raise RuntimeError(f"Erreur API ({self.model_name}) : {human_msg}") from e
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.exception("Erreur inattendue lors de la génération IA (%s) : %s", self.model_name, e)
+            raise RuntimeError(f"Erreur inattendue lors de la génération IA ({self.model_name}) : {e}") from e
 
 
 class OllamaProvider(OpenAICompatibleProvider):

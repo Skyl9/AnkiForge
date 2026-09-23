@@ -250,6 +250,49 @@ def test_force_global_repolish_and_live_signal(qtbot):
     assert DesignTokens.ACTIVE_THEME_ID == "dracula_light"
 
 
+def test_button_shadow_and_blur_animation_without_target_issue(qtbot):
+    """Vérifie que ré-appliquer apply_shadow met à jour l'effet existant in-place et ne casse pas l'animation."""
+    from PySide6.QtCore import QEvent, QPointF
+    from PySide6.QtGui import QEnterEvent
+    from PySide6.QtWidgets import QGraphicsDropShadowEffect
+
+    from ankiforge.ui.components.buttons import DangerButton, IconButton, PrimaryButton, SecondaryButton
+    from ankiforge.ui.components.inputs import GlowLineEdit
+    from ankiforge.ui.theme import apply_shadow
+
+    btn = PrimaryButton("Lancer Batch")
+    qtbot.addWidget(btn)
+    btn.show()
+
+    initial_effect = btn.graphicsEffect()
+    assert isinstance(initial_effect, QGraphicsDropShadowEffect)
+    assert btn.anim.targetObject() is initial_effect
+
+    # Simuler le changement d'état pendant le batch (bouton rouge Arrêter)
+    apply_shadow(btn, blur=16, offset_y=0, color="rgba(239, 68, 68, 0.45)")
+    updated_effect = btn.graphicsEffect()
+    # L'effet a été mis à jour in-place, pas remplacé par un nouvel objet détruisant la cible
+    assert updated_effect is initial_effect
+    assert btn.anim.targetObject() is initial_effect
+    assert updated_effect.blurRadius() == 16
+
+    # Simuler survol souris
+    enter_ev = QEnterEvent(QPointF(5, 5), QPointF(5, 5), QPointF(5, 5))
+    btn.enterEvent(enter_ev)
+    assert btn.anim.state() == btn.anim.State.Running
+
+    leave_ev = QEvent(QEvent.Type.Leave)
+    btn.leaveEvent(leave_ev)
+
+    # Vérifier également SecondaryButton, DangerButton, IconButton et GlowLineEdit
+    for widget in (SecondaryButton("Sec"), DangerButton("Danger"), IconButton("ph.play"), GlowLineEdit()):
+        qtbot.addWidget(widget)
+        apply_shadow(widget, blur=14, offset_y=2, color="rgba(0,0,0,0.3)")
+        assert widget.anim.targetObject() is widget.graphicsEffect()
+        widget.enterEvent(enter_ev)
+        widget.leaveEvent(leave_ev)
+
+
 @pytest.mark.slow
 def test_all_builtin_themes_compilation_and_application(qtbot):
     """Vérifie que la compilation QSS et l'application s'exécutent avec succès sur TOUS les thèmes intégrés."""

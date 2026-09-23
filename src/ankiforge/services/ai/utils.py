@@ -481,8 +481,12 @@ def get_human_readable_api_error(error: Exception) -> str:
         return "La clé API fournie est invalide, expirée ou manquante. Veuillez vérifier vos paramètres d'authentification IA."
 
     # 3. Timeout et Connexion Perdue
-    if any(k in error_str for k in ["timeout", "timed out", "read timeout"]):
-        return "La connexion au service IA a expiré (Timeout). Le modèle est peut-être surchargé ou votre connexion internet est instable."
+    if any(k in error_str for k in ["timeout", "timed out", "read timeout", "504", "gateway timeout", "upstream"]):
+        return (
+            "La connexion au service IA a expiré (Timeout / Erreur 504). Le modèle ou la passerelle amont "
+            "(ex: OpenRouter/NVIDIA) est temporairement surchargé ou n'a pas répondu à temps. "
+            "Essayez de réduire max_tokens ou sélectionnez un autre modèle."
+        )
 
     # 4. Connexion refusée (Typique de Ollama éteint)
     if any(k in error_str for k in ["connection refused", "failed to establish", "connrefused", "target machine actively refused"]):
@@ -495,6 +499,13 @@ def get_human_readable_api_error(error: Exception) -> str:
     # 6. Erreur serveur générique (500)
     if any(k in error_str for k in ["500", "502", "503", "internal server error", "bad gateway"]):
         return "Le serveur du fournisseur IA a rencontré une erreur interne. Veuillez réessayer plus tard."
+
+    # 7. Réponse vide ou modèle saturé
+    if any(k in error_str for k in ["sans choix", "choices vide", "aucun choix"]):
+        return (
+            "Le fournisseur d'IA a renvoyé une réponse sans contenu généré. Le modèle gratuit est peut-être saturé "
+            "ou les paramètres demandés (format JSON, max_tokens) sont incompatibles avec ce fournisseur."
+        )
 
     # Fallback : on renvoie l'erreur brute mais encapsulée proprement
     return f"Une erreur technique est survenue : {str(error)}"

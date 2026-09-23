@@ -461,3 +461,37 @@ def test_composer_recap_builds_one_card_per_task_with_checked_content(qtbot: Any
     assert LONG_PART1 in cards[0].browser_source.toPlainText()
     assert LONG_PART2 in cards[1].browser_source.toPlainText()
     assert all(LONG_PART2 in card.browser_formatted.toHtml() or LONG_PART1 in card.browser_formatted.toHtml() for card in cards)
+
+
+def test_composer_step_chips_navigation_with_and_without_doc(qtbot: Any) -> None:
+    """Les puces d'étapes en haut permettent la navigation directe ; l'accès est bloqué sans document."""
+    # 1. Sans document : cliquer sur l'étape 1 ou 2 reste à l'étape 0
+    dlg = _composer(doc=None)
+    qtbot.addWidget(dlg)
+    dlg.show()
+
+    assert dlg._current_step == 0
+    dlg._chips[1].click()
+    assert dlg._current_step == 0
+    dlg._chips[2].click()
+    assert dlg._current_step == 0
+
+    # 2. Avec document : navigation directe vers n'importe quelle étape
+    doc = _markdown_doc()
+    dlg.doc_picker.set_document(doc)
+    assert dlg.doc is not None
+
+    # Clic sur étape 1 (Choix des parties)
+    dlg._chips[1].click()
+    assert dlg._current_step == 1
+    assert dlg.body_stack.currentIndex() == 1
+
+    # Clic sur étape 2 (Récapitulatif)
+    dlg._chips[2].click()
+    assert dlg._current_step == 2
+    assert dlg.body_stack.currentIndex() == 2
+
+    # Clic retour sur étape 0 (Document & découpage)
+    dlg._chips[0].click()
+    assert dlg._current_step == 0
+    assert dlg.body_stack.currentIndex() == 0

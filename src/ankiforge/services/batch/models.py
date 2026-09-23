@@ -123,15 +123,16 @@ class BatchTaskSnapshot:
     task_id: str
     scope: BatchScopeSnapshot
     config: BatchGenerationConfig
+    task_index: int | None = None
     status: BatchTaskStatus = BatchTaskStatus.QUEUED
     attempt: int = 0
     cards: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
 
     @classmethod
-    def create(cls, scope: BatchScopeSnapshot, config: BatchGenerationConfig) -> BatchTaskSnapshot:
+    def create(cls, scope: BatchScopeSnapshot, config: BatchGenerationConfig, task_index: int | None = None) -> BatchTaskSnapshot:
         identity = stable_hash({"scope": scope.scope_hash, "config": config.identity_payload()})
-        return cls(task_id=identity, scope=scope, config=config)
+        return cls(task_id=identity, scope=scope, config=config, task_index=task_index)
 
     @property
     def pending_cards(self) -> list[dict[str, Any]]:

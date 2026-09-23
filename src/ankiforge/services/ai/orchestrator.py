@@ -1,5 +1,6 @@
 import concurrent.futures
 import contextvars
+import inspect
 import json
 import logging
 import threading
@@ -510,15 +511,30 @@ class PipelineOrchestrator(QRunnable):
             kwargs["max_tokens"] = max_tokens
         if temperature is not None:
             kwargs["temperature"] = temperature
+        # Filtrage préventif des arguments selon la signature du fournisseur
+        # pour éviter d'intercepter à tort un TypeError survenu à l'intérieur du corps de generate()
+        try:
+            sig = inspect.signature(provider.generate)
+            params = sig.parameters
+            has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+            if not has_var_kw:
+                kwargs = {k: v for k, v in kwargs.items() if k in params}
+        except (ValueError, TypeError):
+            pass
+
         try:
             return provider.generate(**kwargs)
-        except TypeError:
-            kwargs.pop("temperature", None)
-            try:
-                return provider.generate(**kwargs)
-            except TypeError:
-                kwargs.pop("max_tokens", None)
-                return provider.generate(**kwargs)
+        except TypeError as e:
+            # Ne replier que si l'erreur provient rigoureusement d'un argument inattendu dans la signature
+            msg = str(e)
+            if "unexpected keyword argument" in msg:
+                if "temperature" in kwargs and "temperature" in msg:
+                    kwargs.pop("temperature", None)
+                    return provider.generate(**kwargs)
+                if "max_tokens" in kwargs and "max_tokens" in msg:
+                    kwargs.pop("max_tokens", None)
+                    return provider.generate(**kwargs)
+            raise
 
     def _execute_llm_prompt(self, step: PipelineStepModel) -> None:
         """Exécute un prompt LLM standard en interpolant les templates Jinja2."""

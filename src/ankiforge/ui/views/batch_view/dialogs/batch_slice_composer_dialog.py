@@ -291,9 +291,10 @@ class BatchSliceComposerDialog(QDialog):
         nav = QHBoxLayout()
         nav.setSpacing(8)
         self._chips: list[QPushButton] = []
-        for label in self.STEP_LABELS:
+        for i, label in enumerate(self.STEP_LABELS):
             btn = QPushButton(label)
-            btn.setEnabled(False)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda _checked=False, idx=i: self._on_step_chip_clicked(idx))
             self._chips.append(btn)
             nav.addWidget(btn, 1)
         layout.addLayout(nav)
@@ -653,12 +654,24 @@ class BatchSliceComposerDialog(QDialog):
 
     # ── Navigation par étapes ────────────────────────────────────────────────────────────────
 
+    def _on_step_chip_clicked(self, step_idx: int) -> None:
+        """Permet de naviguer directement vers une étape en cliquant sur sa puce en haut."""
+        if step_idx == self._current_step:
+            return
+        if step_idx > 0 and self.doc is None:
+            show_toast(self, "Veuillez sélectionner un document avant de continuer.", is_error=True)
+            return
+        self._current_step = step_idx
+        if self._current_step == 1 and self._mode == "auto":
+            self._refresh_auto_checklist()
+        self._update_step_view()
+
     def _update_step_view(self) -> None:
         self.body_stack.setCurrentIndex(self._current_step)
         for i, chip in enumerate(self._chips):
             active = i == self._current_step
             bg = DesignTokens.ACCENT_PRIMARY if active else DesignTokens.BG_INPUT
-            color = DesignTokens.TEXT_ON_ACCENT if active else DesignTokens.TEXT_MUTED
+            color = DesignTokens.TEXT_ON_ACCENT if active else DesignTokens.TEXT_SECONDARY
             chip.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {bg};
@@ -668,6 +681,10 @@ class BatchSliceComposerDialog(QDialog):
                     padding: 6px 12px;
                     border-radius: {DesignTokens.RADIUS_SM}px;
                     border: 1px solid {DesignTokens.BORDER_COLOR};
+                }}
+                QPushButton:hover {{
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                    color: {DesignTokens.TEXT_PRIMARY if not active else DesignTokens.TEXT_ON_ACCENT};
                 }}
             """)
         self.btn_back.setEnabled(self._current_step > 0)

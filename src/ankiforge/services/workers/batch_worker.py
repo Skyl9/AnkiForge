@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -345,34 +346,56 @@ class BatchWorker(QThread):
 
     def _run_scope_snapshots(self, tasks: list[BatchTaskSnapshot]) -> tuple[int, int, int]:
         """Execute the scope-based protocol and synchronise the task status with the UI."""
+        total_tasks = len(tasks)
+        if total_tasks == 0:
+            return 0, 0, 0
+
         success_count = 0
         error_count = 0
         total_cards = 0
         provider_cache: dict[tuple[str, str, int], Any] = {}
 
+        self.log.emit("INFO", f"🚀 Démarrage du traitement par lots ({total_tasks} tâche(s) de portée)...")
+
         for index, task in enumerate(tasks):
-            queue_index = self._snapshot_index_by_id.get(task.task_id, index)
+            queue_index: int = task.task_index if task.task_index is not None else self._snapshot_index_by_id.get(task.task_id, index)
             if self._is_cancelled:
-                for rem in tasks[index:]:
+                self.log.emit("WARN", "⏹ Traitement par lots interrompu par l'utilisateur.")
+                for rem_idx, rem in enumerate(tasks[index:]):
                     if rem.status not in (BatchTaskStatus.ACCEPTED, BatchTaskStatus.REVIEW):
                         rem.status = BatchTaskStatus.CANCELLED
-                        self.task_state_changed.emit(self._snapshot_index_by_id.get(rem.task_id, index), rem.status.value)
+                        rem_q_idx: int = rem.task_index if rem.task_index is not None else self._snapshot_index_by_id.get(rem.task_id, index + rem_idx)
+                        self.task_state_changed.emit(rem_q_idx, rem.status.value)
                 self.cancelled.emit()
                 break
 
             if self.resume_incomplete and task.status in (BatchTaskStatus.ACCEPTED, BatchTaskStatus.REVIEW):
                 success_count += 1
-                total_cards += len(task.cards)
+                task_cards = len(task.cards)
+                total_cards += task_cards
+                self.log.emit("INFO", f"  [{task.scope.scope_title}] ⏩ Tâche déjà validée précédemment ({task_cards} cartes), sautée.")
                 continue
 
             task.status = BatchTaskStatus.RUNNING
             task.attempt += 1
             self.task_state_changed.emit(queue_index, task.status.value)
             self.task_started.emit(queue_index, task.scope.scope_title)
+            task_start_time = time.time()
             try:
                 config = task.config
                 llm_cfg = config.llm_config
                 provider_key = (str(llm_cfg.get("provider", "openai")), str(llm_cfg.get("model_id", "default")), config.max_tokens)
+                chars_count = len(task.scope.content)
+                tokens_est = chars_count // 4
+
+                self.log.emit(
+                    "INFO",
+                    f"\n{'═' * 50}\n▶ JOB {index + 1}/{total_tasks} : '{task.scope.scope_title}'\n"
+                    f"  Paquet : {config.deck_name} | Modèle : {config.model_name} | Pipeline ID : {config.pipeline_id}\n"
+                    f"  LLM : {provider_key[0]}/{provider_key[1]} | ~{tokens_est:,} tokens (~{chars_count:,} car.)\n"
+                    f"{'═' * 50}".replace(",", " "),
+                )
+
                 provider = self.ai_provider or provider_cache.get(provider_key)
                 if provider is None:
                     provider = AIManager.create_provider(
@@ -419,9 +442,12 @@ class BatchWorker(QThread):
                 )
                 self._active_orchestrator = orchestrator
                 total_steps = len(steps)
-                orchestrator.signals.step_started.connect(
-                    lambda order, desc, i=queue_index, tot=total_steps: self.task_progress.emit(i, int(((order - 1) / max(1, tot)) * 100), f"Étape {order}/{tot}...")
-                )
+
+                def _on_scope_step_start(order: int, desc: str, q_idx: int = queue_index, tot: int = total_steps, title: str = task.scope.scope_title) -> None:
+                    self.task_progress.emit(q_idx, int(((order - 1) / max(1, tot)) * 100), f"Étape {order}/{tot}...")
+                    self.log.emit("INFO", f"  [{title}] ▶ Étape {order}/{tot} : {desc}")
+
+                orchestrator.signals.step_started.connect(_on_scope_step_start)
                 orchestrator.signals.step_progress.connect(lambda cur, tot, detail, i=queue_index: self.task_progress.emit(i, int((cur / max(1, tot)) * 100), detail))
                 orchestrator.signals.human_validation_required.connect(lambda st, orch=orchestrator, t=task: self._on_snapshot_human_validation_required(t, orch, st))
                 orchestrator.run()
@@ -436,28 +462,34 @@ class BatchWorker(QThread):
                     card.setdefault("_source_page_number", scope_page)
                     card.setdefault("_source_chunk_id", None)
                     card.setdefault("_documentation_enabled", True)
+
+                duration = time.time() - task_start_time
+                card_count = len(task.cards)
                 if config.auto_validation and not state.get_variable("_batch_human_validation_bypassed", False):
                     # Mode validation automatique : persistance immédiate, sans staging.
                     task.status = BatchTaskStatus.ACCEPTED
                     success_count += 1
-                    total_cards += len(task.cards)
-                    self.task_accepted.emit(queue_index, len(task.cards))
-                    self.task_completed.emit(queue_index, task.cards, len(task.cards))
+                    total_cards += card_count
+                    self.task_accepted.emit(queue_index, card_count)
+                    self.task_completed.emit(queue_index, task.cards, card_count)
                     self.task_state_changed.emit(queue_index, task.status.value)
+                    self.log.emit("SUCCESS", f"✅ JOB {index + 1}/{total_tasks} Validé : {card_count} carte(s) enregistrée(s) dans '{config.deck_name}' ({duration:.1f}s).")
                 else:
                     # Mode staging : cartes prêtes pour la revue utilisateur.
                     task.status = BatchTaskStatus.REVIEW
                     success_count += 1
-                    total_cards += len(task.cards)
+                    total_cards += card_count
                     self.task_review_ready.emit(queue_index, task.cards)
-                    self.task_completed.emit(queue_index, task.cards, len(task.cards))
+                    self.task_completed.emit(queue_index, task.cards, card_count)
                     self.task_state_changed.emit(queue_index, task.status.value)
+                    self.log.emit("SUCCESS", f"📋 JOB {index + 1}/{total_tasks} Prêt pour revue : {card_count} carte(s) dans le volet de staging ({duration:.1f}s).")
             except Exception as exc:
                 task.status = BatchTaskStatus.FAILED
                 task.error = str(exc)
                 error_count += 1
                 self.task_failed.emit(queue_index, task.error)
                 self.task_state_changed.emit(queue_index, task.status.value)
+                self.log.emit("ERROR", f"❌ JOB {index + 1}/{total_tasks} Échec : {task.error}")
                 logger.exception("Échec de la portée Batch %s", task.task_id)
             finally:
                 self._active_orchestrator = None

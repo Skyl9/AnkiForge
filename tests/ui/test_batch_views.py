@@ -1229,3 +1229,105 @@ def test_batch_staging_keyboard_shortcuts(qtbot: Any) -> None:
     consumed_r = panel.eventFilter(panel.cards_table, event_r)
     assert consumed_r is True
     assert panel._prepared_notes[1]["_staging_status"] == "rejected"
+
+
+def test_batch_start_pipeline_skips_already_successful_tasks(qtbot: Any, monkeypatch: Any) -> None:
+    """Cliquer sur 'Démarrer Pipeline' ignore les tâches déjà en Succès et ne traite que les nouvelles."""
+    deck = DeckModel.create(name="Deck Start Skip Test")
+    nt = NoteTypeModel.create(
+        name="Basic Start Skip Test",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+    doc = DocumentModel.create(title="Doc Start Skip.md", content_markdown="Source data", file_type="md")
+
+    executed_contents: list[str] = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        content = str(self_orch.state.get_variable("text_source") or "")
+        executed_contents.append(content)
+        self_orch.state.variables["generated_cards"] = [{"Front": f"Q {content}", "Back": f"A {content}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    # 1. Tâche 0 déjà terminée avec succès (3 cartes)
+    t0 = {
+        "doc": doc,
+        "doc_id": doc.id,
+        "doc_title": doc.title,
+        "doc_content": "Chunk 0",
+        "chunk_id": 201,
+        "chunk_label": "Section 1",
+        "heading_path": "S1",
+        "page_number": 1,
+        "deck": deck,
+        "deck_id": deck.id,
+        "deck_name": deck.name,
+        "note_type": nt,
+        "model_id": nt.id,
+        "model_name": nt.name,
+        "note_type_fields": ["Front", "Back"],
+        "note_type_templates": [],
+        "pipeline_id": 1,
+        "pipeline_name": "Standard",
+        "llm_id": 1,
+        "llm_config": {"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        "status": "Succès",
+        "cards_count": 3,
+    }
+    # 2. Nouvelle tâche 1 ajoutée par l'utilisateur ("En attente")
+    t1 = {
+        "doc": doc,
+        "doc_id": doc.id,
+        "doc_title": doc.title,
+        "doc_content": "Chunk 1",
+        "chunk_id": 202,
+        "chunk_label": "Section 2",
+        "heading_path": "S2",
+        "page_number": 2,
+        "deck": deck,
+        "deck_id": deck.id,
+        "deck_name": deck.name,
+        "note_type": nt,
+        "model_id": nt.id,
+        "model_name": nt.name,
+        "note_type_fields": ["Front", "Back"],
+        "note_type_templates": [],
+        "pipeline_id": 1,
+        "pipeline_name": "Standard",
+        "llm_id": 1,
+        "llm_config": {"provider": "mock", "model_id": "mock-model", "api_key": ""},
+        "status": "En attente",
+        "cards_count": 0,
+    }
+
+    view.queue_tasks_data = [t0, t1]
+    view._update_queue_table()
+
+    # Démarrage normal (via clic sur btn_start_pipeline qui passe resume_incomplete=False)
+    view._on_start_batch(resume_incomplete=False)
+    assert view.worker is not None
+
+    qtbot.waitUntil(
+        lambda: view.queue_tasks_data[1]["status"] == "Succès" and view.worker is not None and not view.worker.isRunning(),
+        timeout=15000,
+    )
+
+    # Tâche 0 est restée intouchée en Succès avec ses 3 cartes initiales
+    assert view.queue_tasks_data[0]["status"] == "Succès"
+    assert view.queue_tasks_data[0]["cards_count"] == 3
+
+    # Seul le chunk 1 a été exécuté (tâche 0 sautée car déjà en Succès)
+    assert executed_contents == ["Chunk 1"]
+
+    # Total accumulé = 3 (t0) + 1 (t1 généré par mock)
+    assert view._total_cards_accumulated == 4
+
+    # Si on ré-exécute alors que tout est à Succès : aucun worker n'est relancé
+    prev_worker = view.worker
+    view._on_start_batch(resume_incomplete=False)
+    assert view.worker is prev_worker

@@ -917,3 +917,60 @@ def test_orchestrator_resume_from_persisted_run():
 
     run_refreshed = PipelineRunModel.get_by_id(run_db.id)
     assert run_refreshed.status == "completed"
+
+
+def test_call_provider_generate_filters_signature_and_does_not_retry_internal_typeerror(mock_db):
+    """Vérifie que _call_provider_generate filtre les kwargs selon la signature et ne masque pas les TypeError internes."""
+
+    class CustomProviderWithoutTemperature(LLMProvider):
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        def generate(self, system_prompt: str, user_prompt: str | list[dict[str, Any]], response_format: str = "json") -> str:
+            self.call_count += 1
+            return '{"ok": true}'
+
+    pipeline = PipelineModel.create(name="SigTest", description="desc")
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=DummyProvider())
+
+    # 1. Fournisseur sans paramètre temperature ni max_tokens dans la signature
+    custom_prov = CustomProviderWithoutTemperature()
+    res = orch._call_provider_generate(
+        custom_prov,
+        system_prompt="sys",
+        user_prompt="usr",
+        temperature=0.7,
+        max_tokens=2048,
+    )
+    assert res == '{"ok": true}'
+    assert custom_prov.call_count == 1
+
+    # 2. Fournisseur qui lève un TypeError interne (ex: NoneType subscriptable)
+    class BuggyInternalProvider(LLMProvider):
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        def generate(
+            self,
+            system_prompt: str,
+            user_prompt: str | list[dict[str, Any]],
+            response_format: str = "json",
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> str:
+            self.call_count += 1
+            # Erreur interne dans le corps de generate()
+            raise TypeError("'NoneType' object is not subscriptable")
+
+    buggy_prov = BuggyInternalProvider()
+    with pytest.raises(TypeError, match="'NoneType' object is not subscriptable"):
+        orch._call_provider_generate(
+            buggy_prov,
+            system_prompt="sys",
+            user_prompt="usr",
+            temperature=0.7,
+            max_tokens=2048,
+        )
+
+    # Doit avoir été appelé EXACTEMENT une fois, SANS retry aveugle !
+    assert buggy_prov.call_count == 1

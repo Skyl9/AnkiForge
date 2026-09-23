@@ -246,3 +246,99 @@ def test_openrouter_provider_custom_base_url(mock_openai_class):
         OpenRouterProvider(api_key="sk-or-test")
         _, init_kwargs = mock_openai_class.call_args
         assert init_kwargs["base_url"] == "https://my-openrouter-proxy.internal/v1"
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_openrouter_gateway_error(mock_openai_class):
+    """Vérifie l'extraction du message d'erreur d'une passerelle (ex. OpenRouter 200 OK avec choices=None)."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    # Simule le cas précis de log.txt où choices est None et error est dans model_extra
+    mock_response = MagicMock(spec=["choices", "model_extra", "usage"])
+    mock_response.choices = None
+    mock_response.model_extra = {"error": {"message": "Upstream provider timed out", "code": 504}}
+    mock_response.usage = None
+    mock_client.chat.completions.create.return_value = mock_response
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "nvidia/nemotron-test")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    err_msg = str(exc_info.value)
+    assert "Erreur du fournisseur IA (nvidia/nemotron-test)" in err_msg
+    assert "code 504" in err_msg
+    assert "Upstream provider timed out" in err_msg
+    assert "Timeout / Erreur 504" in err_msg
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_empty_choices(mock_openai_class):
+    """Vérifie la détection d'une réponse vide sans choices."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_response = MagicMock()
+    mock_response.choices = []
+    mock_response.model_extra = {}
+    mock_response.usage = None
+    mock_client.chat.completions.create.return_value = mock_response
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "sans choix généré" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_model_refusal(mock_openai_class):
+    """Vérifie la remontée explicite en cas de refus du modèle (refusal)."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = "Demande incompatible avec la politique de sécurité."
+    mock_choice.message.content = ""
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "a refusé de générer une réponse" in str(exc_info.value)
+    assert "Demande incompatible" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_finish_reason_length(mock_openai_class):
+    """Vérifie l'alerte explicite si le modèle s'est arrêté par manque de tokens sans contenu."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = ""
+    mock_choice.finish_reason = "length"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "dépassement du quota de tokens" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_wraps_internal_typeerror(mock_openai_class):
+    """Vérifie qu'un TypeError inattendu interne ne fuit JAMAIS sous forme de TypeError brut."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_client.chat.completions.create.side_effect = TypeError("Internal unexpected type error")
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "Erreur inattendue" in str(exc_info.value)
+    assert not isinstance(exc_info.value, TypeError)

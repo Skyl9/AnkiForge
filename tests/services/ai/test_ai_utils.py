@@ -249,3 +249,35 @@ def test_normalize_card_fields():
     assert normalized[1] == {"Question": "Q1", "Reponse": "B1"}
     assert normalized[2]["Question"] == "a<br>b"
     assert normalized[2]["Reponse"] == ""
+
+
+def test_get_human_readable_api_error_504_and_timeout():
+    """Vérifie la détection et l'explication compréhensible des timeouts 504 et amont."""
+    from ankiforge.services.ai.utils import get_human_readable_api_error
+
+    err_504 = Exception("HTTP 504 Gateway Timeout from upstream proxy")
+    msg_504 = get_human_readable_api_error(err_504)
+    assert "Timeout / Erreur 504" in msg_504
+    assert "surchargé" in msg_504
+
+    err_upstream = Exception("upstream connect error or disconnect/reset before headers")
+    msg_upstream = get_human_readable_api_error(err_upstream)
+    assert "Timeout / Erreur 504" in msg_upstream
+
+
+def test_get_human_readable_api_error_empty_choices():
+    """Vérifie l'explication lors d'une réponse vide ou sans choix."""
+    from ankiforge.services.ai.utils import get_human_readable_api_error
+
+    err_empty = Exception("choices vide ou nul")
+    msg_empty = get_human_readable_api_error(err_empty)
+    assert "sans contenu généré" in msg_empty
+
+
+def test_get_human_readable_api_error_standard_codes():
+    """Vérifie le mapping des codes usuels (429, 401, 500)."""
+    from ankiforge.services.ai.utils import get_human_readable_api_error
+
+    assert "quota" in get_human_readable_api_error(Exception("429 Too Many Requests"))
+    assert "clé API" in get_human_readable_api_error(Exception("401 Unauthorized"))
+    assert "serveur" in get_human_readable_api_error(Exception("500 Internal Server Error"))

@@ -42,16 +42,23 @@ class PrimaryButton(QPushButton):
     def setText(self, text: str) -> None:
         super().setText(_escape_ampersand(text))
 
-    def enterEvent(self, event: Any) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.hover_blur)
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
             self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
         super().enterEvent(event)
 
     def leaveEvent(self, event: Any) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.default_blur)
-            self.anim.start()
+        self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
@@ -86,16 +93,23 @@ class SecondaryButton(QPushButton):
     def setText(self, text: str) -> None:
         super().setText(_escape_ampersand(text))
 
-    def enterEvent(self, event: Any) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.hover_blur)
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
             self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
         super().enterEvent(event)
 
     def leaveEvent(self, event: Any) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.default_blur)
-            self.anim.start()
+        self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
@@ -143,9 +157,6 @@ class DangerButton(QPushButton):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setProperty("role", "danger")
 
-    def setText(self, text: str) -> None:
-        super().setText(_escape_ampersand(text))
-
         apply_shadow(self, blur=2, offset_y=1, color="rgba(239,68,68,0.25)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
@@ -155,16 +166,26 @@ class DangerButton(QPushButton):
             self.default_blur = 2
             self.hover_blur = 12
 
-    def enterEvent(self, event) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.hover_blur)
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
+
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
             self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.default_blur)
-            self.anim.start()
+    def leaveEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
@@ -196,16 +217,23 @@ class IconButton(QPushButton):
             self.default_blur = 2
             self.hover_blur = 8
 
-    def enterEvent(self, event) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.hover_blur)
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
             self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:
-        if hasattr(self, "anim"):
-            self.anim.setEndValue(self.default_blur)
-            self.anim.start()
+    def leaveEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:

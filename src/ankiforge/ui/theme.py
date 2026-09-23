@@ -308,11 +308,6 @@ def is_dark_mode() -> bool:
 
 def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str | QColor = "rgba(0,0,0,0.5)") -> None:
     """Applique QGraphicsDropShadowEffect — JAMAIS de CSS box-shadow."""
-    shadow = QGraphicsDropShadowEffect(widget)
-    shadow.setBlurRadius(blur)
-    shadow.setXOffset(0)
-    shadow.setYOffset(offset_y)
-
     if isinstance(color, QColor):
         c = color
     elif isinstance(color, str):
@@ -328,6 +323,23 @@ def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str 
     else:
         c = QColor(0, 0, 0, 127)
 
+    existing = widget.graphicsEffect()
+    if isinstance(existing, QGraphicsDropShadowEffect):
+        existing.setBlurRadius(blur)
+        existing.setXOffset(0)
+        existing.setYOffset(offset_y)
+        existing.setColor(c)
+        if hasattr(widget, "default_blur"):
+            widget.default_blur = blur
+        anim = getattr(widget, "anim", None)
+        if anim is not None and getattr(anim, "targetObject", lambda: None)() is not existing:
+            anim.setTargetObject(existing)
+        return
+
+    shadow = QGraphicsDropShadowEffect(widget)
+    shadow.setBlurRadius(blur)
+    shadow.setXOffset(0)
+    shadow.setYOffset(offset_y)
     shadow.setColor(c)
     widget.setGraphicsEffect(shadow)
 

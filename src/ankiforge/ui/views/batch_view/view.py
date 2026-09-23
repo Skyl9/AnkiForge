@@ -886,9 +886,11 @@ class BatchView(QWidget):
 
         tasks_payloads: list[BatchTaskPayload | BatchTaskSnapshot] = []
 
+        skipped_successful_count = 0
         for idx, task in enumerate(self.queue_tasks_data):
             prev_status = str(task.get("status", "En attente"))
-            if resume_incomplete and prev_status in ("Succès", "Acceptée"):
+            if prev_status in ("Succès", "Acceptée"):
+                skipped_successful_count += 1
                 continue
 
             task["status"] = "En attente"
@@ -950,6 +952,7 @@ class BatchView(QWidget):
                         max_tokens=int(task.get("max_tokens", 16384)),
                         strict_source_grounding=bool(task.get("strict_source_grounding", True)),
                     ),
+                    task_index=idx,
                 )
                 task["_batch_task_id"] = snapshot.task_id
                 tasks_payloads.append(snapshot)
@@ -986,13 +989,14 @@ class BatchView(QWidget):
 
         self._update_queue_table()
         self.start_timestamp = time.time()
-        if not resume_incomplete:
-            self._total_cards_accumulated = 0
+        self._total_cards_accumulated = sum(int(t.get("cards_count", 0)) for t in self.queue_tasks_data if t.get("status") in ("Succès", "Acceptée"))
+        self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
 
         self._set_running_ui_state(True)
         self.btn_resume_batch.setVisible(False)
-        action_desc = "Reprise" if resume_incomplete else "Initialisation"
-        self._log_formatted_line("INFO", f"{action_desc} du pipeline de traitement par lots ({len(tasks_payloads)} tâche(s))...")
+        action_desc = "Reprise" if resume_incomplete else "Lancement"
+        skip_msg = f" ({skipped_successful_count} tâche(s) déjà réussie(s) conservée(s))" if skipped_successful_count else ""
+        self._log_formatted_line("INFO", f"🚀 {action_desc} du pipeline de traitement par lots : {len(tasks_payloads)} tâche(s) à exécuter{skip_msg}...")
 
         self.worker = BatchWorker(tasks=tasks_payloads, resume_incomplete=resume_incomplete)
         self.worker.task_started.connect(self._on_task_started)
@@ -1222,6 +1226,7 @@ class BatchView(QWidget):
             self._update_queue_table()
             self._update_estimates_summary()
             show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
+            self._log_formatted_line("INFO", f"➕ {added_count} nouvelle(s) tâche(s) ajoutée(s) à la file d'attente.")
 
     def _chunk_to_queue_task(self, doc: DocumentModel, chunk: dict[str, Any]) -> dict[str, Any] | None:
         """Construit une tâche de file depuis une partie sélectionnée du document (mode Direct)."""

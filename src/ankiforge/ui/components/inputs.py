@@ -4,7 +4,7 @@ from typing import Any
 
 from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
+from PySide6.QtWidgets import QComboBox, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
 
@@ -58,8 +58,6 @@ class GlowLineEdit(QLineEdit):
         if placeholder:
             self.setPlaceholderText(placeholder)
         self.setClearButtonEnabled(True)
-
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
         from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -116,40 +114,43 @@ class GlowLineEdit(QLineEdit):
     def refresh_theme(self, profile: Any = None) -> None:
         self._apply_base_style(profile)
 
-    def enterEvent(self, event) -> None:
-        if hasattr(self, "anim") and not (self.hasFocus() or self._is_focused):
+    def _start_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
             self.anim.stop()
-            self.anim.setEndValue(self.hover_blur)
+            self.anim.setEndValue(end_val)
             self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        if not (self.hasFocus() or self._is_focused):
+            self._start_anim(self.hover_blur)
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:
-        if hasattr(self, "anim") and not (self.hasFocus() or self._is_focused):
-            self.anim.stop()
-            self.anim.setEndValue(self.default_blur)
-            self.anim.start()
+    def leaveEvent(self, event: Any) -> None:
+        if not (self.hasFocus() or self._is_focused):
+            self._start_anim(self.default_blur)
         super().leaveEvent(event)
 
-    def focusInEvent(self, event) -> None:
+    def focusInEvent(self, event: Any) -> None:
         self._is_focused = True
-        if hasattr(self, "anim"):
-            self.anim.stop()
-            self.anim.setEndValue(self.focus_blur)
-            self.anim.start()
-            if hasattr(self, "_shadow_effect") and self._shadow_effect:
-                accent_qcolor = QColor(DesignTokens.ACCENT_PRIMARY)
-                accent_qcolor.setAlpha(120)
-                self._shadow_effect.setColor(accent_qcolor)
+        self._start_anim(self.focus_blur)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            accent_qcolor = QColor(DesignTokens.ACCENT_PRIMARY)
+            accent_qcolor.setAlpha(120)
+            effect.setColor(accent_qcolor)
         super().focusInEvent(event)
 
-    def focusOutEvent(self, event) -> None:
+    def focusOutEvent(self, event: Any) -> None:
         self._is_focused = False
-        if hasattr(self, "anim"):
-            self.anim.stop()
-            self.anim.setEndValue(self.default_blur)
-            self.anim.start()
-            if hasattr(self, "_shadow_effect") and self._shadow_effect:
-                self._shadow_effect.setColor(QColor(0, 0, 0, 56))
+        self._start_anim(self.default_blur)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            effect.setColor(QColor(0, 0, 0, 56))
         super().focusOutEvent(event)
 
 
