@@ -248,6 +248,71 @@ def test_composer_auto_mode_without_resolver_has_no_tasks(qtbot: Any) -> None:
     assert dlg._tasks == []
 
 
+def test_composer_document_info_card_shows_stats(qtbot: Any) -> None:
+    """La fiche document de l'étape 1 expose type, structure et volume (choix en connaissance de cause)."""
+    dlg = _composer(doc=None)
+    qtbot.addWidget(dlg)
+    dlg.show()
+    assert not dlg.doc_info_card.isVisible()
+
+    dlg.doc_picker.set_document(_markdown_doc())
+    assert dlg.doc_info_card.isVisible()
+    assert dlg.doc_info_type.text() == "Markdown"
+    chip_texts = [c.text() for c in dlg._doc_info_chips if c.isVisible()]
+    assert any("2 section(s)" in t for t in chip_texts)
+    assert any("mots" in t for t in chip_texts)
+    assert any("tokens" in t for t in chip_texts)
+    assert not dlg.doc_info_delim.isVisible()
+
+    # Document paginé : pages + plage de délimitation active affichées
+    dlg.doc_picker.set_document(_paginated_doc())
+    assert dlg.doc_info_type.text() == "PDF"
+    chip_texts = [c.text() for c in dlg._doc_info_chips if c.isVisible()]
+    assert any("5 page(s)" in t for t in chip_texts)
+    assert any("5 section(s)" in t for t in chip_texts)
+    assert dlg.doc_info_delim.isVisible()
+    assert "plage de pages active" in dlg.doc_info_delim.text()
+
+    # Désélection : la fiche disparaît
+    dlg.doc_picker.clear_document()
+    assert not dlg.doc_info_card.isVisible()
+
+
+def test_composer_auto_options_live_in_parties_step_collapsible(qtbot: Any) -> None:
+    """Les options de découpage automatique sont désormais dans l'étape 2, dans un panneau pliable."""
+    doc = _markdown_doc()
+    dlg = _composer(doc)
+    qtbot.addWidget(dlg)
+    dlg.show()
+
+    # Étape 1 : la règle n'est plus embarquée dans decoupage_stack, elle vit dans le panneau de l'étape 2
+    dlg.card_auto.clicked.emit()
+    assert dlg.decoupage_stack.currentIndex() == 1
+    assert dlg.auto_widget.doc_content.strip()
+    assert dlg.auto_widget.parent() is dlg.auto_panel.body
+
+    # Étape 2 : le panneau « Règle de découpage » est déplié et surplombe la liste
+    dlg._on_next()
+    assert dlg.parties_stack.currentIndex() == 1
+    assert not dlg.auto_panel.is_collapsed()
+    assert dlg.auto_panel.body.isVisibleTo(dlg)
+    assert dlg.lst_slices.count() == 2
+
+    # Plier le panneau : la liste reste accessible et le compteur inchangé
+    dlg.auto_panel.toggle()
+    assert dlg.auto_panel.is_collapsed()
+    assert not dlg.auto_panel.body.isVisibleTo(dlg)
+    assert dlg.lst_slices.count() == 2
+    assert len(dlg._tasks) == 2
+
+    # Revenir puis re-entrer à l'étape 2 : le panneau se redéplie automatiquement
+    dlg._on_back()
+    assert dlg._current_step == 0
+    dlg._on_next()
+    assert not dlg.auto_panel.is_collapsed()
+    assert dlg.lst_slices.count() == 2
+
+
 def test_auto_slice_widget_headings_and_tokens(qtbot: Any) -> None:
     """AutoSliceWidget découpe par titres et par tokens et émet slices_changed."""
     content = f"# Chapitre A\n\n{LONG_PART1}\n\n# Chapitre B\n\n{LONG_PART2}\n"

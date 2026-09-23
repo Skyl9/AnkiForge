@@ -19,8 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DocumentModel
-from ankiforge.services.ai.context_compactor import ContextCompactor
-from ankiforge.ui.components.document_select_window import DocumentSelectWindow
+from ankiforge.ui.components.document_select_window import DocumentSelectWindow, document_meta_line
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
@@ -210,49 +209,26 @@ class DocumentPickerButton(QFrame):
         self.title_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {DesignTokens.TEXT_PRIMARY}; background: transparent; border: none;")
 
         ft = (getattr(doc, "file_type", "") or "md").lower()
-        content = getattr(doc, "content", "") or ""
-        tokens = ContextCompactor.estimate_tokens(content)
+        meta_str = document_meta_line(doc)
 
-        # Icône et libellé de métadonnées selon le type
         if ft == "pdf":
-            icon_name = "ph.file-pdf"
-            icon_color = DesignTokens.COLOR_RED
-            pages_count = getattr(doc, "total_pages", 0) or content.count("<!-- PAGE:")
-            meta_str = f"PDF • {pages_count} page(s) • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.file-pdf", DesignTokens.COLOR_RED
         elif ft in ("md", "markdown"):
-            icon_name = "ph.file-code"
-            icon_color = DesignTokens.COLOR_YELLOW
-            words = len(content.split())
-            meta_str = f"Markdown • {words:,} mots • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.file-code", DesignTokens.COLOR_YELLOW
         elif ft == "album":
-            icon_name = "ph.images"
-            icon_color = DesignTokens.COLOR_PURPLE
-            pages_count = getattr(doc, "total_pages", 0) or 0
-            meta_str = f"Album • {pages_count} planche(s) • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.images", DesignTokens.COLOR_PURPLE
         elif ft == "epub":
-            icon_name = "ph.book-open"
-            icon_color = DesignTokens.COLOR_PURPLE
-            meta_str = f"ePub • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.book-open", DesignTokens.COLOR_PURPLE
         elif ft == "pptx":
-            icon_name = "ph.presentation"
-            icon_color = DesignTokens.COLOR_YELLOW
-            meta_str = f"Présentation • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.presentation", DesignTokens.COLOR_YELLOW
         elif ft in ("audio", "mp3", "m4a", "wav"):
-            icon_name = "ph.headphones"
-            icon_color = DesignTokens.COLOR_PURPLE
-            meta_str = f"Audio • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.headphones", DesignTokens.COLOR_PURPLE
         elif ft in ("youtube", "video"):
-            icon_name = "ph.youtube-logo"
-            icon_color = DesignTokens.COLOR_RED
-            meta_str = f"Vidéo • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.youtube-logo", DesignTokens.COLOR_RED
         elif ft == "web":
-            icon_name = "ph.globe"
-            icon_color = DesignTokens.ACCENT_PRIMARY
-            meta_str = f"Web • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.globe", DesignTokens.ACCENT_PRIMARY
         else:
-            icon_name = "ph.file-text"
-            icon_color = DesignTokens.COLOR_BLUE
-            meta_str = f"Texte • ~{tokens:,} tokens".replace(",", " ")
+            icon_name, icon_color = "ph.file-text", DesignTokens.COLOR_BLUE
 
         self.icon_label.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(18, 18))
         self.icon_badge.setStyleSheet(f"""

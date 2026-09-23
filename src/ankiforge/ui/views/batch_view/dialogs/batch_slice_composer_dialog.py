@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DocumentModel
+from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.services.batch.slicing_service import SliceUnit
 from ankiforge.ui.components import PrimaryButton, SecondaryButton
 from ankiforge.ui.components.document_picker_button import DocumentPickerButton
@@ -115,6 +116,79 @@ class _ModeCard(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mouseReleaseEvent(event)
+
+
+class _CollapsiblePanel(QFrame):
+    """Panneau pliable : en-tête cliquable (chevron + titre) et corps masquable.
+
+    Permet de décaler les options de découpage automatique dans l'étape « Choix des
+    parties » sans noyer la liste des tranches dans une configuration pléthorique.
+    """
+
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("collapsiblePanel")
+        self.setStyleSheet(f"""
+            QFrame#collapsiblePanel {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(6)
+
+        self.btn_toggle = QPushButton()
+        self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-weight: bold;
+                font-size: 11px;
+                text-align: left;
+                padding: 2px 0;
+            }}
+            QPushButton:hover {{
+                color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.btn_toggle.clicked.connect(self.toggle)
+        layout.addWidget(self.btn_toggle)
+
+        self.body = QWidget()
+        self.body_layout = QVBoxLayout(self.body)
+        self.body_layout.setContentsMargins(0, 2, 0, 0)
+        self.body_layout.setSpacing(6)
+        layout.addWidget(self.body)
+
+        self._title = title
+        self._collapsed = False
+        self._apply_state()
+
+    def add_widget(self, widget: QWidget) -> None:
+        self.body_layout.addWidget(widget)
+
+    def _apply_state(self) -> None:
+        arrow = "▸" if self._collapsed else "▾"
+        self.btn_toggle.setText(f"{arrow}  {self._title}")
+        self.btn_toggle.setChecked(not self._collapsed)
+        self.body.setVisible(not self._collapsed)
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        if collapsed == self._collapsed:
+            return
+        self._collapsed = collapsed
+        self._apply_state()
+
+    def is_collapsed(self) -> bool:
+        return self._collapsed
+
+    def toggle(self) -> None:
+        self._collapsed = not self._collapsed
+        self._apply_state()
 
 
 def _markdown_to_html(text: str) -> str:
@@ -222,10 +296,11 @@ class BatchSliceComposerDialog(QDialog):
 
     - Le document est déjà découpé/délimité dans l'onglet document : il ne reste qu'à choisir
       le mode (Direct ou Auto), puis les parties à insérer.
-    - Étape 1 « Document & découpage » : picker + deux cartes descriptives côte à côte
-      (Direct / Auto) ; en Auto, la règle de découpage (AutoSliceWidget) s'affiche ici.
+    - Étape 1 « Document & découpage » : picker, fiche document (volume, structure,
+      délimitation) puis deux cartes descriptives (Direct / Auto).
     - Étape 2 « Choix des parties » : Direct → DocumentScopeWidget (1 partie cochée = 1 tâche),
-      Auto → liste à cocher des tranches générées.
+      Auto → panneau pliable « Règle de découpage » (AutoSliceWidget) suivi de la liste à
+      cocher des tranches générées.
     """
 
     STEP_LABELS = ("1. Document && découpage", "2. Choix des parties", "3. Récapitulatif")
@@ -322,6 +397,8 @@ class BatchSliceComposerDialog(QDialog):
         self.lbl_doc_hint.hide()
         p_layout.addWidget(self.lbl_doc_hint)
 
+        self._build_document_info_card(p_layout)
+
         mode_title = QLabel("MODE DE DÉCOUPAGE")
         mode_title.setStyleSheet(f"font-size: 10px; font-weight: bold; color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px;")
         p_layout.addWidget(mode_title)
@@ -361,13 +438,148 @@ class BatchSliceComposerDialog(QDialog):
         auto_page = QWidget()
         a_layout = QVBoxLayout(auto_page)
         a_layout.setContentsMargins(0, 8, 0, 0)
-        self.auto_widget = AutoSliceWidget()
-        self.auto_widget.slices_changed.connect(lambda _: self._refresh_auto_checklist())
-        a_layout.addWidget(self.auto_widget)
+        a_hint = QLabel("La règle de découpage se règle à l'étape suivante « Choix des parties », puis les tranches générées se cochent librement.")
+        a_hint.setWordWrap(True)
+        a_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
+        a_layout.addWidget(a_hint)
         self.decoupage_stack.addWidget(auto_page)
 
         p_layout.addWidget(self.decoupage_stack, 1)
         return page
+
+    def _build_document_info_card(self, parent_layout: QVBoxLayout) -> None:
+        """Fiche document de l'étape 1 : volume, structure et délimitation pour choisir en connaissance de cause."""
+        self.doc_info_card = QFrame()
+        self.doc_info_card.setObjectName("docInfoCard")
+        self.doc_info_card.setStyleSheet(f"""
+            QFrame#docInfoCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        card_layout = QVBoxLayout(self.doc_info_card)
+        card_layout.setContentsMargins(12, 8, 12, 8)
+        card_layout.setSpacing(6)
+
+        header = QHBoxLayout()
+        header.setSpacing(8)
+        self.doc_info_title = QLabel("")
+        self.doc_info_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px; background: transparent; border: none;")
+        header.addWidget(self.doc_info_title)
+        header.addStretch()
+        self.doc_info_type = QLabel("")
+        self.doc_info_type.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignTokens.ACCENT_BG};
+                color: {DesignTokens.ACCENT_PRIMARY};
+                font-size: 10px;
+                font-weight: bold;
+                border: 1px solid {DesignTokens.ACCENT_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 1px 7px;
+            }}
+        """)
+        header.addWidget(self.doc_info_type)
+        card_layout.addLayout(header)
+
+        chips_row = QHBoxLayout()
+        chips_row.setSpacing(6)
+        self._doc_info_chips: list[QLabel] = []
+        for _ in range(5):
+            chip = QLabel("")
+            chip.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    color: {DesignTokens.TEXT_SECONDARY};
+                    font-size: 10px;
+                    font-family: {DesignTokens.FONT_CODE};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_SM}px;
+                    padding: 2px 8px;
+                }}
+            """)
+            chip.hide()
+            chips_row.addWidget(chip)
+            self._doc_info_chips.append(chip)
+        chips_row.addStretch()
+        card_layout.addLayout(chips_row)
+
+        self.doc_info_delim = QLabel("")
+        self.doc_info_delim.setWordWrap(True)
+        self.doc_info_delim.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-style: italic; background: transparent; border: none;")
+        self.doc_info_delim.hide()
+        card_layout.addWidget(self.doc_info_delim)
+
+        self.doc_info_card.hide()
+        parent_layout.addWidget(self.doc_info_card)
+
+    def _refresh_document_info_card(self) -> None:
+        """Recalcule et affiche la fiche du document courant (ou la masque si aucun document)."""
+        if self.doc is None:
+            self.doc_info_card.hide()
+            return
+        doc = self.doc
+        title = getattr(doc, "title", "") or "Document sans titre"
+        self.doc_info_title.setText(title)
+        self.doc_info_title.setToolTip(title)
+
+        ft = (getattr(doc, "file_type", "") or "md").lower()
+        type_labels = {
+            "pdf": "PDF",
+            "md": "Markdown",
+            "markdown": "Markdown",
+            "album": "Album",
+            "epub": "ePub",
+            "pptx": "Présentation",
+            "audio": "Audio",
+            "mp3": "Audio",
+            "m4a": "Audio",
+            "wav": "Audio",
+            "youtube": "Vidéo",
+            "video": "Vidéo",
+            "web": "Web",
+        }
+        self.doc_info_type.setText(type_labels.get(ft, ft.upper() or "Texte"))
+
+        text = self._document_text()
+        words = len(text.split())
+        tokens = ContextCompactor.estimate_tokens(text)
+        chunks = self._resolve_chunks(doc) or []
+        sections = len(chunks)
+        paginated = ft in ("pdf", "album", "pptx")
+        pages = int(getattr(doc, "total_pages", 0) or 0)
+
+        chip_values: list[str] = []
+        if paginated and pages:
+            chip_values.append(f"{pages} page(s)")
+        chip_values.append(f"{sections} section(s)")
+        chip_values.append(f"~{words:,} mots".replace(",", " "))
+        chip_values.append(f"~{tokens:,} tokens".replace(",", " "))
+        if sections:
+            avg = f"~{tokens // sections} tokens/tâche max"
+            chip_values.append(avg)
+        for chip, value in zip(self._doc_info_chips, chip_values, strict=False):
+            chip.setText(value)
+            chip.show()
+        for chip in self._doc_info_chips[len(chip_values) :]:
+            chip.hide()
+
+        start_page = getattr(doc, "start_page", None)
+        end_page = getattr(doc, "end_page", None)
+        excluded = (getattr(doc, "excluded_headings", "") or "").strip()
+        delim_parts: list[str] = []
+        if start_page or end_page:
+            delim_parts.append(f"plage de pages active : {start_page or 1} → {end_page or pages or '?'}")
+        if excluded:
+            delim_parts.append(f"{len([h for h in excluded.splitlines() if h.strip()])} section(s) exclue(s)")
+        if delim_parts:
+            self.doc_info_delim.setText("Délimitation : " + " • ".join(delim_parts))
+            self.doc_info_delim.show()
+        else:
+            self.doc_info_delim.hide()
+
+        self.doc_info_card.show()
 
     def _build_step_parties(self) -> QWidget:
         page = QWidget()
@@ -396,6 +608,13 @@ class BatchSliceComposerDialog(QDialog):
         a_layout = QVBoxLayout(auto_page)
         a_layout.setContentsMargins(0, 0, 0, 0)
         a_layout.setSpacing(8)
+
+        self.auto_panel = _CollapsiblePanel("Règle de découpage automatique")
+        self.auto_widget = AutoSliceWidget()
+        self.auto_widget.slices_changed.connect(lambda _: self._refresh_auto_checklist())
+        self.auto_panel.add_widget(self.auto_widget)
+        a_layout.addWidget(self.auto_panel)
+
         a_hint = QLabel("Les tranches générées par la règle sont toutes cochées. Décochez celles à exclure du lot.")
         a_hint.setWordWrap(True)
         a_hint.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px;")
@@ -477,6 +696,7 @@ class BatchSliceComposerDialog(QDialog):
         self._tasks = []
         self._slice_items = []
         self._update_doc_hint()
+        self._refresh_document_info_card()
         if self.hasattr_scope_widget():
             old = getattr(self, "scope_widget", None)
             if old is not None:
@@ -664,6 +884,7 @@ class BatchSliceComposerDialog(QDialog):
         self._current_step = step_idx
         if self._current_step == 1 and self._mode == "auto":
             self._refresh_auto_checklist()
+            self.auto_panel.set_collapsed(False)
         self._update_step_view()
 
     def _update_step_view(self) -> None:
@@ -702,6 +923,7 @@ class BatchSliceComposerDialog(QDialog):
             self._current_step -= 1
             if self._current_step == 1 and self._mode == "auto":
                 self._refresh_auto_checklist()
+                self.auto_panel.set_collapsed(False)
             self._update_step_view()
 
     def _on_next(self) -> None:
@@ -712,6 +934,7 @@ class BatchSliceComposerDialog(QDialog):
             self._current_step += 1
             if self._current_step == 1 and self._mode == "auto":
                 self._refresh_auto_checklist()
+                self.auto_panel.set_collapsed(False)
             self._update_step_view()
         else:
             self.accept()

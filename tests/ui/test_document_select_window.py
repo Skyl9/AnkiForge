@@ -23,6 +23,18 @@ def test_document_select_window_load_and_filter(qtbot):
     assert doc1.id in window._doc_items_by_id
     assert doc2.id in window._doc_items_by_id
 
+    # Colonne métadonnées : type, volume et estimation de tokens pour choisir en connaissance de cause
+    item1 = window._doc_items_by_id[doc1.id]
+    item2 = window._doc_items_by_id[doc2.id]
+    assert "PDF" in item1.text(1)
+    assert "page(s)" in item1.text(1)
+    assert "Markdown" in item2.text(1)
+    assert "mots" in item2.text(1)
+    assert "tokens" in item1.text(1)
+    assert "Volume" in item1.toolTip(0)
+    assert "Fichier" not in item1.text(1)
+    assert "Volume" in item2.toolTip(0)
+
     # Test du filtre de recherche
     window.search_input.setText("Cardio")
     item1 = window._doc_items_by_id[doc1.id]

@@ -21,11 +21,47 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DocumentModel, FolderModel
+from ankiforge.services.ai.context_compactor import ContextCompactor
 from ankiforge.ui.components.buttons import PrimaryButton, SecondaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_phosphor_icon
 
 logger = logging.getLogger(__name__)
+
+
+def document_meta_line(doc: DocumentModel) -> str:
+    """Métadonnées compactes d'un document : type • volume • estimation de tokens.
+
+    Partagé entre la modale de sélection et le DocumentPickerButton pour garantir
+    la même lecture des documents aux deux étages du parcours.
+    """
+    ft = (getattr(doc, "file_type", "") or "md").lower()
+    content = getattr(doc, "content", "") or ""
+    tokens = ContextCompactor.estimate_tokens(content)
+
+    if ft == "pdf":
+        pages_count = getattr(doc, "total_pages", 0) or content.count("<!-- PAGE:")
+        meta_str = f"PDF • {pages_count} page(s) • ~{tokens:,} tokens"
+    elif ft in ("md", "markdown"):
+        words = len(content.split())
+        meta_str = f"Markdown • {words:,} mots • ~{tokens:,} tokens"
+    elif ft == "album":
+        pages_count = getattr(doc, "total_pages", 0) or 0
+        meta_str = f"Album • {pages_count} planche(s) • ~{tokens:,} tokens"
+    elif ft == "epub":
+        meta_str = f"ePub • ~{tokens:,} tokens"
+    elif ft == "pptx":
+        meta_str = f"Présentation • ~{tokens:,} tokens"
+    elif ft in ("audio", "mp3", "m4a", "wav"):
+        meta_str = f"Audio • ~{tokens:,} tokens"
+    elif ft in ("youtube", "video"):
+        meta_str = f"Vidéo • ~{tokens:,} tokens"
+    elif ft == "web":
+        meta_str = f"Web • ~{tokens:,} tokens"
+    else:
+        words = len(content.split())
+        meta_str = f"Texte • {words:,} mots • ~{tokens:,} tokens"
+    return meta_str.replace(",", " ")
 
 
 class DocumentSelectWindow(QWidget):
@@ -45,7 +81,7 @@ class DocumentSelectWindow(QWidget):
 
         self.setWindowTitle(title)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setFixedSize(480, 520)
+        self.setFixedSize(620, 540)
         self._selected_doc_id = selected_doc_id
 
         self.setStyleSheet(f"""
@@ -89,12 +125,15 @@ class DocumentSelectWindow(QWidget):
         self.search_input.textChanged.connect(self._on_search_changed)
         content_layout.addWidget(self.search_input)
 
-        # Arborescence de documents et dossiers
+        # Arborescence de documents et dossiers (colonne 0 : titre, colonne 1 : métadonnées)
         self.tree = QTreeWidget()
+        self.tree.setColumnCount(2)
         self.tree.setHeaderHidden(True)
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tree.setExpandsOnDoubleClick(True)
         self.tree.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tree.setColumnWidth(0, 340)
+        self.tree.header().setStretchLastSection(True)
 
         palette = self.tree.palette()
         palette.setColor(QPalette.ColorRole.Highlight, QColor(0, 0, 0, 0))
@@ -186,11 +225,24 @@ class DocumentSelectWindow(QWidget):
                     logger.debug("Récupération du nom de média original ignorée : %s", err)
             title_to_display = title_to_display or "Document sans titre"
 
-            item = QTreeWidgetItem(parent_item, [title_to_display])
+            item = QTreeWidgetItem(parent_item, [title_to_display, document_meta_line(doc)])
             item.setData(0, Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "title": title_to_display})
+            item.setForeground(1, QColor(DesignTokens.TEXT_MUTED))
+            ft = (getattr(doc, "file_type", "md") or "md").lower()
+            content = getattr(doc, "content", "") or ""
+            folder_item = folder_items.get(folder_id) if folder_id else None
+            folder_name = folder_item.text(0) if folder_item is not None else "Aucun dossier"
+            pages = int(getattr(doc, "total_pages", 0) or 0)
+            words = len(content.split())
+            tokens = ContextCompactor.estimate_tokens(content)
+            item.setToolTip(
+                0,
+                f"{title_to_display}\nType : {ft.upper() or 'MD'}\nPages : {pages or '—'}\nVolume : ~{words:,} mots • ~{tokens:,} tokens\n".replace(",", " ")
+                + f"Dossier : {folder_name}"
+                + (f"\nSource : {doc.source_url}" if getattr(doc, "source_url", None) else ""),
+            )
 
             # Icône selon le type de fichier
-            ft = (getattr(doc, "file_type", "md") or "md").lower()
             if ft == "pdf":
                 item.setIcon(0, load_phosphor_icon("ph.file-pdf", color=DesignTokens.COLOR_RED))
             elif ft in ("md", "markdown"):
