@@ -7,16 +7,12 @@ import uuid
 from typing import Any
 
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -41,7 +37,13 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.repositories.deck_repository import DeckRepository
-from ankiforge.services.batch.models import BatchTaskSnapshot
+from ankiforge.services.batch.models import (
+    BatchGenerationConfig,
+    BatchScopeSnapshot,
+    BatchSourceBlock,
+    BatchTaskSnapshot,
+    BatchTaskStatus,
+)
 from ankiforge.services.batch.slicing_service import SliceUnit
 from ankiforge.services.parsing.chunking_service import ChunkingService
 from ankiforge.services.settings_service import SettingsService
@@ -55,18 +57,15 @@ from ankiforge.ui.components import (
     StyledComboBox,
 )
 from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.components.document_picker_button import DocumentPickerButton
 from ankiforge.ui.dialogs.selection_dialog import SelectionDialog
 from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.views.batch_view.dialogs import AutoSliceConfigDialog, BatchSlicingWizardDialog
+from ankiforge.ui.views.batch_view.dialogs import BatchSliceComposerDialog
 from ankiforge.ui.views.batch_view.widgets import (
     BatchActivityLog,
     BatchMetricsBar,
     BatchQueueTable,
-    BatchSlicePanel,
     BatchStagingPanel,
 )
-from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
@@ -74,6 +73,18 @@ from ankiforge.utils.logger import log_and_notify_error
 from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
+
+# Label français affiché par file pour chaque statut de tâche de portée (BatchTaskStatus).
+_EN_STATUS_LABELS: dict[str, str] = {
+    BatchTaskStatus.QUEUED.value: "En attente",
+    BatchTaskStatus.RUNNING.value: "En cours",
+    BatchTaskStatus.REVIEW.value: "À réviser",
+    BatchTaskStatus.ACCEPTED.value: "Acceptée",
+    BatchTaskStatus.PARTIAL.value: "Partielle",
+    BatchTaskStatus.FAILED.value: "Erreur",
+    BatchTaskStatus.CANCELLED.value: "Annulé",
+    BatchTaskStatus.REJECTED.value: "Rejetée",
+}
 
 
 class BatchView(QWidget):
@@ -94,7 +105,7 @@ class BatchView(QWidget):
         self.decks_cache: list[DeckModel] = []
         self.models_cache: list[NoteTypeModel] = []
         self._deck_modal: DeckSelectWindow | None = None
-        self._segment_inspector_doc: DocumentModel | None = None  # doc actuellement prévisualisé dans l'inspecteur
+        self._last_composer_doc: DocumentModel | None = None  # doc réutilisé à la prochaine ouverture du composer
         # Staging panel: notes brutes par index de tâche (reçues du worker via task_completed)
         self._prepared_notes_by_task: dict[int, list[dict[str, Any]]] = {}
 
@@ -150,92 +161,44 @@ class BatchView(QWidget):
         scroll_area.setMinimumHeight(100)
         build_main_layout.addWidget(scroll_area, stretch=1)
 
-        # Section 1: Source (Document Source - Miroir de CreationView)
-        src_card = QFrame()
-        src_card.setStyleSheet(f"""
+        # Section 1: Composer le lot (fusion document + parties + modes d'insertion)
+        compose_card = QFrame()
+        compose_card.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignTokens.BG_INPUT};
                 border: 1px solid {DesignTokens.BORDER_COLOR};
                 border-radius: {DesignTokens.RADIUS_MD}px;
             }}
         """)
-        src_layout = QVBoxLayout(src_card)
-        src_layout.setContentsMargins(8, 8, 8, 8)
-        src_layout.setSpacing(6)
+        compose_layout = QVBoxLayout(compose_card)
+        compose_layout.setContentsMargins(8, 8, 8, 8)
+        compose_layout.setSpacing(6)
 
-        src_top = QHBoxLayout()
-        src_top.setContentsMargins(0, 0, 0, 0)
-        src_top.setSpacing(6)
-        src_ico = QLabel()
-        src_ico.setPixmap(load_phosphor_icon("ph.files", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
-        src_ico.setStyleSheet("border: none; background: transparent;")
-        self.lbl_src = QLabel("DOCUMENTS SOURCES")
-        self.lbl_src.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
-        src_top.addWidget(src_ico)
-        src_top.addWidget(self.lbl_src)
-        src_top.addStretch()
+        compose_top = QHBoxLayout()
+        compose_top.setContentsMargins(0, 0, 0, 0)
+        compose_top.setSpacing(6)
+        compose_ico = QLabel()
+        compose_ico.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        compose_ico.setStyleSheet("border: none; background: transparent;")
+        self.lbl_compose = QLabel("COMPOSER LE LOT")
+        self.lbl_compose.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        compose_top.addWidget(compose_ico)
+        compose_top.addWidget(self.lbl_compose)
+        compose_top.addStretch()
+        compose_layout.addLayout(compose_top)
 
-        self.lbl_selected_docs_count = QLabel("0 sélectionné(s)")
-        self.lbl_selected_docs_count.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-size: 10px; font-weight: bold; border: none; background: transparent;")
-        src_top.addWidget(self.lbl_selected_docs_count)
-        src_layout.addLayout(src_top)
+        self.btn_compose_batch = PrimaryButton("Composer le lot…", tooltip="Choisir le document, son mode de découpage (direct / auto), puis ses parties")
+        self.btn_compose_batch.setIcon(load_on_accent_icon("ph.plus"))
+        apply_shadow(self.btn_compose_batch, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
+        self.btn_compose_batch.clicked.connect(self._on_open_batch_composer)
+        compose_layout.addWidget(self.btn_compose_batch)
 
-        # Bouton-sélecteur modal interactif de documents (remplace l'ancienne liste)
-        self.doc_picker_btn = DocumentPickerButton(self)
-        self.doc_picker_btn.document_changed.connect(self._on_picker_document_changed)
-        src_layout.addWidget(self.doc_picker_btn)
+        compose_hint = QLabel("Flux unique : ouvrir le document → choisir le mode de découpage (Direct ou Auto) → sélectionner les parties → Ajouter à la Queue.")
+        compose_hint.setWordWrap(True)
+        compose_hint.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        compose_layout.addWidget(compose_hint)
 
-        # Bouton explicite pour ouvrir la modale de délimitation et découpage du document
-        self.btn_delimit_doc = SecondaryButton("Délimiter & Découper le document...")
-        self.btn_delimit_doc.setIcon(load_phosphor_icon("ph.crop", color=DesignTokens.TEXT_PRIMARY))
-        self.btn_delimit_doc.setToolTip("Ouvrir l'outil visuel de délimitation et de découpage en sections du document")
-        self.btn_delimit_doc.clicked.connect(self._on_open_delimitation_for_batch_doc)
-        self.btn_delimit_doc.setVisible(False)
-        src_layout.addWidget(self.btn_delimit_doc)
-
-        # Inspecteur de découpage et de portée
-        self.segment_inspector = SegmentInspectorWidget(parent=self)
-        self.segment_inspector.setVisible(False)  # masqué jusqu'à sélection d'un doc
-        src_layout.addWidget(self.segment_inspector)
-
-        build_layout.addWidget(src_card)
-
-        # Composition de la file : contrôle segmenté des 3 modes (Manuel / Auto / Wizard)
-        slice_card = QFrame()
-        slice_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignTokens.BG_INPUT};
-                border: 1px solid {DesignTokens.BORDER_COLOR};
-                border-radius: {DesignTokens.RADIUS_MD}px;
-            }}
-        """)
-        slice_layout = QVBoxLayout(slice_card)
-        slice_layout.setContentsMargins(8, 8, 8, 8)
-        slice_layout.setSpacing(6)
-        self.slice_panel = BatchSlicePanel(slice_card)
-        self.slice_panel.set_defaults_provider(self._default_queue_targets)
-        slice_layout.addWidget(self.slice_panel)
-        build_layout.addWidget(slice_card)
-
-        # Compatibilité ascendante : widgets conservés pour tests et rétro-compatibilité mais masqués
-        self.doc_search_input = QLineEdit(self)
-        self.doc_search_input.hide()
-        self.doc_search_input.textChanged.connect(self._on_doc_search_changed)
-
-        self.docs_list = QListWidget(self)
-        self.docs_list.hide()
-        self.docs_list.itemChanged.connect(self._on_doc_item_check_changed)
-
-        self.btn_check_all_docs = SecondaryButton("Tout cocher")
-        self.btn_check_all_docs.hide()
-        self.btn_check_all_docs.clicked.connect(lambda: self._set_all_docs_checked(True))
-
-        self.btn_uncheck_all_docs = SecondaryButton("Tout décocher")
-        self.btn_uncheck_all_docs.hide()
-        self.btn_uncheck_all_docs.clicked.connect(lambda: self._set_all_docs_checked(False))
-
-        self.doc_combo = StyledComboBox(self)
-        self.doc_combo.hide()
+        build_layout.addWidget(compose_card)
 
         # Section 2: Cibles Anki
         target_card = QFrame()
@@ -340,7 +303,7 @@ class BatchView(QWidget):
         self.cb_vision = OptionToggleRow("Vision (PDF)", icon_name="ph.eye", checked=bool(saved_vision))
         self.cb_vision.toggled.connect(lambda s: SettingsService.set("batch/use_vision", s, category="batch"))
 
-        saved_autoval = SettingsService.get("batch/auto_validation", True)
+        saved_autoval = SettingsService.get("batch/auto_validation", False)
         self.cb_autoval = OptionToggleRow("Validation auto", icon_name="ph.shield-check", checked=bool(saved_autoval))
         self.cb_autoval.toggled.connect(lambda s: SettingsService.set("batch/auto_validation", s, category="batch"))
 
@@ -434,18 +397,6 @@ class BatchView(QWidget):
 
         build_layout.addWidget(self.advanced_container)
         build_layout.addStretch()
-
-        self.btn_add_to_queue = PrimaryButton("Ajouter à la Queue", tooltip="Ajouter la sélection actuelle à la file d'attente du lot")
-        self.btn_add_to_queue.setIcon(load_on_accent_icon("ph.plus"))
-        apply_shadow(self.btn_add_to_queue, blur=10, offset_y=2, color=DesignTokens.ACCENT_GLOW)
-        self.btn_add_to_queue.clicked.connect(self._on_add_to_queue_clicked)
-
-        btn_container = QWidget()
-        btn_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        btn_layout = QVBoxLayout(btn_container)
-        btn_layout.setContentsMargins(10, 6, 10, 8)
-        btn_layout.addWidget(self.btn_add_to_queue)
-        build_main_layout.addWidget(btn_container, stretch=0)
 
         self.build_panel.setMinimumWidth(380)
         self.build_panel.add_tab("Paramètres du Build", build_content, "ph.sliders-horizontal", closable=False)
@@ -542,6 +493,9 @@ class BatchView(QWidget):
         self.staging_panel.cards_accepted.connect(self._on_staging_accepted)
         self.staging_panel.task_rejected.connect(self._on_staging_rejected)
         self.main_splitter.addWidget(self.staging_panel)
+        self.staging_panel.set_review_tasks_provider(self._staging_task_list)
+        if hasattr(self.metrics_bar, "staging_review_requested"):
+            self.metrics_bar.staging_review_requested.connect(self._on_open_staging_badge)
 
         self.middle_splitter.setCollapsible(0, False)
         self.middle_splitter.setCollapsible(1, False)
@@ -577,211 +531,9 @@ class BatchView(QWidget):
         self.btn_toggle_advanced.clicked.connect(self._toggle_advanced_settings)
         self.btn_no_engine_help.clicked.connect(self._open_settings_modal)
         self.btn_no_pipeline_help.clicked.connect(lambda: show_toast(self, "Créez un pipeline dans l'onglet Pipelines."))
-        self.docs_list.itemClicked.connect(self._on_doc_item_clicked)
-        self.docs_list.itemDoubleClicked.connect(self._on_doc_item_double_clicked)
-        self.segment_inspector.open_delimitation_requested.connect(self._on_open_delimitation_for_batch_doc)
-        self.segment_inspector.open_scope_dialog_requested.connect(self._on_open_scope_dialog_for_batch_doc)
-        self.slice_panel.auto_slice_requested.connect(self._on_open_auto_slice)
-        self.slice_panel.wizard_requested.connect(self._on_open_slicing_wizard)
-        self.slice_panel.slices_ready.connect(self._append_queue_tasks)
-
-    @Slot(object)
-    def _on_picker_document_changed(self, doc: DocumentModel | None) -> None:
-        self._segment_inspector_doc = doc
-        self.slice_panel.set_document(doc)
-        if doc is not None:
-            self.btn_delimit_doc.setVisible(True)
-            self.segment_inspector.setVisible(True)
-            self.segment_inspector.set_document(doc)
-            self.docs_list.blockSignals(True)
-            for i in range(self.docs_list.count()):
-                it = self.docs_list.item(i)
-                d = it.data(Qt.ItemDataRole.UserRole)
-                if d and getattr(d, "id", None) == doc.id:
-                    it.setCheckState(Qt.CheckState.Checked)
-                else:
-                    it.setCheckState(Qt.CheckState.Unchecked)
-            self.docs_list.blockSignals(False)
-        else:
-            self.btn_delimit_doc.setVisible(False)
-            self.segment_inspector.setVisible(False)
-            self.segment_inspector.set_document(None)
-            self._set_all_docs_checked(False)
-        self._update_selected_docs_count()
-
-    @Slot(QListWidgetItem)
-    def _on_doc_item_clicked(self, item: QListWidgetItem) -> None:
-        doc = item.data(Qt.ItemDataRole.UserRole)
-        if isinstance(doc, DocumentModel):
-            self._segment_inspector_doc = doc
-            self.slice_panel.set_document(doc)
-            self.doc_picker_btn.set_document(doc, emit_signal=False)
-            self.btn_delimit_doc.setVisible(True)
-            self.segment_inspector.setVisible(True)
-            self.segment_inspector.set_document(doc)
-            self._update_selected_docs_count()
-
-    @Slot(QListWidgetItem)
-    def _on_doc_item_double_clicked(self, item: QListWidgetItem) -> None:
-        if item.flags() & Qt.ItemFlag.ItemIsUserCheckable:
-            new_state = Qt.CheckState.Unchecked if item.checkState() == Qt.CheckState.Checked else Qt.CheckState.Checked
-            item.setCheckState(new_state)
-        self._on_doc_item_clicked(item)
-
-    @Slot()
-    def _on_open_delimitation_for_batch_doc(self) -> None:
-        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
-        if not doc:
-            show_toast(self, "Veuillez sélectionner un document à délimiter.", is_error=True)
-            return
-        if getattr(doc, "id", None):
-            try:
-                doc = DocumentModel.get_by_id(doc.id)
-            except Exception as err:
-                logger.debug("Rechargement du document batch ignoré : %s", err)
-        from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
-
-        dlg = DocumentDelimitationDialog(doc, context="batch", parent=self)
-        if dlg.exec():
-            reloaded_doc = DocumentModel.get_by_id(doc.id) if getattr(doc, "id", None) else doc
-            self._segment_inspector_doc = reloaded_doc
-            self.doc_picker_btn.set_document(reloaded_doc, emit_signal=False)
-            sp = getattr(reloaded_doc, "start_page", 1) or 1
-            ep = getattr(reloaded_doc, "end_page", None)
-            if ep is not None:
-                self.segment_inspector.input_page_scope.setText(f"{sp}-{ep}")
-            self.segment_inspector.set_document(reloaded_doc)
-            recomputed_chunks = self._resolve_batch_chunks(reloaded_doc)
-            if recomputed_chunks:
-                self.segment_inspector._chunks = recomputed_chunks
-                self.segment_inspector._refresh_list_ui()
-            self._update_selected_docs_count()
-            chunks_count = len(recomputed_chunks)
-            msg = f"Découpage validé : {chunks_count} section(s) prête(s) pour le lot !" if chunks_count > 0 else "Délimitation enregistrée pour le document."
-            show_toast(self, msg)
-
-    @Slot()
-    def _on_open_scope_dialog_for_batch_doc(self) -> None:
-        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
-        if not doc:
-            show_toast(self, "Veuillez sélectionner un document pour définir sa portée.", is_error=True)
-            return
-        if getattr(doc, "id", None):
-            try:
-                doc = DocumentModel.get_by_id(doc.id)
-            except Exception as err:
-                logger.debug("Rechargement du document de portée ignoré : %s", err)
-            self._segment_inspector_doc = doc
-        from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-
-        initial_scope = self.segment_inspector.input_page_scope.text().strip()
-        last_scope_result = self._batch_scope_results.get(int(doc.id)) if getattr(doc, "id", None) else None
-        dlg = DocumentScopeDialog(doc, initial_scope_str=initial_scope, initial_scope_result=last_scope_result, parent=self)
-        if dlg.exec():
-            res = dlg.get_result()
-            self._batch_scope_results[int(doc.id)] = res
-            self.segment_inspector.apply_scope_result(res)
-            self._update_selected_docs_count()
-
-    def _on_doc_search_changed(self, text: str) -> None:
-        query = text.strip().lower()
-        for i in range(self.docs_list.count()):
-            item = self.docs_list.item(i)
-            doc_obj = item.data(Qt.ItemDataRole.UserRole)
-            title = doc_obj.title.lower() if doc_obj else item.text().lower()
-            item.setHidden(bool(query and query not in title))
-
-    def _on_doc_item_check_changed(self, item: QListWidgetItem) -> None:
-        self._update_selected_docs_count()
-
-    def _set_all_docs_checked(self, checked: bool) -> None:
-        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
-        self.docs_list.blockSignals(True)
-        for i in range(self.docs_list.count()):
-            it = self.docs_list.item(i)
-            if not it.isHidden():
-                it.setCheckState(state)
-        self.docs_list.blockSignals(False)
-        self._update_selected_docs_count()
-
-    def _update_selected_docs_count(self) -> None:
-        count = sum(1 for i in range(self.docs_list.count()) if self.docs_list.item(i).checkState() == Qt.CheckState.Checked)
-        if count == 0 and hasattr(self, "doc_picker_btn") and self.doc_picker_btn.get_document():
-            count = 1
-        if hasattr(self, "lbl_selected_docs_count"):
-            self.lbl_selected_docs_count.setText(f"{count} sélectionné(s)")
-        if hasattr(self, "btn_add_to_queue"):
-            self.btn_add_to_queue.setText(f"Ajouter à la Queue ({count})" if count > 0 else "Ajouter à la Queue")
 
     def refresh_data(self) -> None:
         try:
-            self.doc_combo.blockSignals(True)
-            self.doc_combo.clear()
-            self.docs_list.blockSignals(True)
-            self.docs_list.clear()
-            docs = list(DocumentModel.select().order_by(DocumentModel.id.desc()))
-            if docs:
-                for doc in docs:
-                    content = getattr(doc, "content", "") or ""
-                    words = len(content.split())
-                    ftype = (getattr(doc, "file_type", "") or "doc").lower()
-
-                    icon_name = "ph.file-text"
-                    icon_color = DesignTokens.COLOR_BLUE
-                    if ftype == "pdf":
-                        icon_name = "ph.file-pdf"
-                        icon_color = DesignTokens.COLOR_RED
-                    elif ftype in ("md", "markdown"):
-                        icon_name = "ph.file-code"
-                        icon_color = DesignTokens.COLOR_YELLOW
-                    elif ftype == "album":
-                        icon_name = "ph.images"
-                        icon_color = DesignTokens.COLOR_PURPLE
-                    elif ftype == "epub":
-                        icon_name = "ph.book-open"
-                        icon_color = DesignTokens.COLOR_PURPLE
-                    elif ftype == "pptx":
-                        icon_name = "ph.presentation"
-                        icon_color = DesignTokens.COLOR_YELLOW
-                    elif ftype in ("audio", "mp3", "m4a", "wav"):
-                        icon_name = "ph.headphones"
-                        icon_color = DesignTokens.COLOR_GREEN
-                    elif ftype in ("youtube", "video"):
-                        icon_name = "ph.youtube-logo"
-                        icon_color = DesignTokens.COLOR_RED
-                    elif ftype == "web":
-                        icon_name = "ph.globe"
-                        icon_color = DesignTokens.ACCENT_PRIMARY
-
-                    self.doc_combo.addItem(load_phosphor_icon(icon_name, color=icon_color), doc.title, userData=doc)
-                    it = QListWidgetItem(f"{doc.title} ({words} mots • {ftype.upper()})")
-                    it.setIcon(load_phosphor_icon(icon_name, color=icon_color))
-                    it.setFlags(it.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                    it.setCheckState(Qt.CheckState.Unchecked)
-                    it.setData(Qt.ItemDataRole.UserRole, doc)
-                    self.docs_list.addItem(it)
-            else:
-                self.doc_combo.addItem("Aucun document disponible")
-                empty_it = QListWidgetItem("Aucun document disponible dans la bibliothèque")
-                empty_it.setFlags(Qt.ItemFlag.NoItemFlags)
-                empty_it.setForeground(QColor(DesignTokens.TEXT_MUTED))
-                self.docs_list.addItem(empty_it)
-            self.doc_combo.blockSignals(False)
-            self.docs_list.blockSignals(False)
-            self._update_selected_docs_count()
-
-            # Resynchroniser le segment inspector et doc_picker_btn si le doc inspecté est toujours valide
-            if self._segment_inspector_doc:
-                still_exists = any(getattr(d, "id", None) == self._segment_inspector_doc.id for d in docs)
-                if still_exists:
-                    self.doc_picker_btn.set_document(self._segment_inspector_doc, emit_signal=False)
-                    self.segment_inspector.set_document(self._segment_inspector_doc)
-                else:
-                    self._segment_inspector_doc = None
-                    self.doc_picker_btn.set_document(None, emit_signal=False)
-                    self.segment_inspector.setVisible(False)
-            self.slice_panel.set_document(self._segment_inspector_doc)
-
             decks = list(DeckModel.select())
             if not decks:
                 DeckModel.get_or_create(name="Général")
@@ -1001,118 +753,6 @@ class BatchView(QWidget):
             self.refresh_data()
             show_toast(self, f"Document '{title}' chargé !")
 
-    @Slot()
-    def _on_add_to_queue_clicked(self) -> None:
-        checked_docs: list[DocumentModel] = []
-        picker_doc = self.doc_picker_btn.get_document()
-        if picker_doc:
-            checked_docs.append(picker_doc)
-        else:
-            for i in range(self.docs_list.count()):
-                it = self.docs_list.item(i)
-                if it.checkState() == Qt.CheckState.Checked:
-                    doc_obj = it.data(Qt.ItemDataRole.UserRole)
-                    if isinstance(doc_obj, DocumentModel):
-                        checked_docs.append(doc_obj)
-
-            # Si aucun document coché, fallback sur le doc inspecté, l'élément courant ou le combo
-            if not checked_docs and self._segment_inspector_doc:
-                checked_docs.append(self._segment_inspector_doc)
-            elif not checked_docs and self.docs_list.currentItem():
-                cur_doc = self.docs_list.currentItem().data(Qt.ItemDataRole.UserRole)
-                if isinstance(cur_doc, DocumentModel):
-                    checked_docs.append(cur_doc)
-            elif not checked_docs and hasattr(self, "doc_combo") and self.doc_combo.currentData():
-                single_doc = self.doc_combo.currentData()
-                if isinstance(single_doc, DocumentModel):
-                    checked_docs.append(single_doc)
-
-        if not checked_docs:
-            show_toast(self, "Veuillez sélectionner un document source à ajouter.", is_error=True)
-            return
-
-        if self.current_deck is None:
-            show_toast(self, "Veuillez sélectionner un paquet cible.", is_error=True)
-            return
-
-        selected_engine = self.engine_combo.currentData()
-        selected_pipeline = self.pipeline_combo.currentData()
-        deck_name = getattr(self.current_deck, "name", "Général")
-        model_name = getattr(self.current_model, "name", "Basique")
-        pipe_name = getattr(selected_pipeline, "name", "Standard")
-
-        added_count = 0
-        for doc in checked_docs:
-            persisted_chunks = self._resolve_batch_chunks(doc)
-            selected_chunks: list[dict[str, Any]] = []
-
-            scope_res = self._batch_scope_results.get(int(doc.id)) if getattr(doc, "id", None) else None
-            if scope_res and scope_res.get("chunks"):
-                selected_chunks = list(scope_res["chunks"])
-            elif self._segment_inspector_doc and getattr(self._segment_inspector_doc, "id", None) == doc.id and hasattr(self, "segment_inspector"):
-                active_segs = self.segment_inspector.get_active_segments()
-                # Si l'utilisateur a des segments actifs qui ne sont pas le fallback 'Document Complet'
-                if active_segs and any(s.get("title") != "Document Complet" for s in active_segs):
-                    selected_chunks = active_segs
-                elif persisted_chunks:
-                    selected_chunks = persisted_chunks
-            elif persisted_chunks:
-                selected_chunks = persisted_chunks
-
-            base_task_data: dict[str, Any] = {
-                "doc": doc,
-                "deck": self.current_deck,
-                "deck_name": deck_name,
-                "note_type": self.current_model,
-                "model_name": model_name,
-                "engine": selected_engine,
-                "pipeline": selected_pipeline,
-                "pipeline_name": pipe_name,
-                "use_vision": self.cb_vision.isChecked(),
-                "auto_val": self.cb_autoval.isChecked(),
-                "temperature": self.slider_temp.value() / 10.0,
-                "max_tokens": self.slider_tokens.value() * 1024,
-                "status": "En attente",
-                "progress_pct": 0,
-                "cards_count": 0,
-            }
-
-            if selected_chunks and len(selected_chunks) > 0:
-                for chunk_index, chunk in enumerate(selected_chunks):
-                    chunk_content = str(chunk.get("content", "")).strip()
-                    if not chunk_content:
-                        continue
-                    chunk_title = str(chunk.get("title") or chunk.get("heading_path") or f"Section {chunk_index + 1}")
-                    chunk_task = {
-                        **base_task_data,
-                        "doc_title": f"{doc.title} — {chunk_title}",
-                        "doc_content": chunk_content,
-                        "source_chunks": [chunk],
-                        "chunk_label": chunk_title,
-                        "chunk_index": chunk_index,
-                        "tokens_est": int(chunk.get("tokens") or len(chunk_content.split()) * 1.3),
-                    }
-                    self.queue_tasks_data.append(chunk_task)
-                    added_count += 1
-            else:
-                doc_content = getattr(doc, "content", "") or ""
-                words_count = len(doc_content.split())
-                tokens_est = int(words_count * 1.3) if words_count > 0 else 25000
-                self.queue_tasks_data.append(
-                    {
-                        **base_task_data,
-                        "doc_title": doc.title,
-                        "doc_content": doc_content,
-                        "source_chunks": [],
-                        "tokens_est": tokens_est,
-                    }
-                )
-                added_count += 1
-
-        self._update_queue_table()
-        self._update_estimates_summary()
-        show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
-
     @staticmethod
     def _resolve_batch_chunks(doc: DocumentModel) -> list[dict[str, Any]]:
         """Retourne les chunks du périmètre documentaire dans un ordre stable."""
@@ -1274,43 +914,71 @@ class BatchView(QWidget):
             selected_engine = task.get("engine")
             llm_id = selected_engine.id if selected_engine and hasattr(selected_engine, "id") else 1
             eng_display = getattr(selected_engine, "display_name", getattr(selected_engine, "name", "LLM"))
+            raw_llm_config: dict[str, Any] = task.get("llm_config") or {}
             llm_config = {
-                "display_name": eng_display,
-                "model_id": getattr(selected_engine, "model_id", "default"),
-                "context_limit": int(getattr(selected_engine, "context_limit", 128000) or 128000),
-                "max_tokens": int(task.get("max_tokens") or getattr(selected_engine, "max_tokens", 16384) or 16384),
-                "api_key": getattr(selected_engine, "api_key", ""),
-                "provider": getattr(selected_engine, "provider", getattr(selected_engine, "provider_type", "openai")),
+                "display_name": str(raw_llm_config.get("display_name") or eng_display),
+                "model_id": str(raw_llm_config.get("model_id") or getattr(selected_engine, "model_id", "default")),
+                "context_limit": int(raw_llm_config.get("context_limit") or getattr(selected_engine, "context_limit", 128000) or 128000),
+                "max_tokens": int(task.get("max_tokens") or raw_llm_config.get("max_tokens") or getattr(selected_engine, "max_tokens", 16384) or 16384),
+                "api_key": str(raw_llm_config.get("api_key") or getattr(selected_engine, "api_key", "")),
+                "provider": str(raw_llm_config.get("provider") or getattr(selected_engine, "provider", getattr(selected_engine, "provider_type", "openai"))),
             }
 
             fields_schema = json.loads(note_type.fields_schema) if note_type.fields_schema else ["Front", "Back"]
             templates = json.loads(note_type.templates) if note_type.templates else []
 
-            payload = BatchTaskPayload(
-                task_index=idx,
-                doc_id=doc.id,
-                doc_title=str(task.get("doc_title") or doc.title),
-                doc_content=str(task.get("doc_content") or getattr(doc, "content", "") or ""),
-                deck_id=deck.id,
-                deck_name=deck.name,
-                model_id=note_type.id,
-                model_name=note_type.name,
-                note_type_fields=fields_schema,
-                note_type_templates=templates,
-                pipeline_id=pipeline_id,
-                pipeline_name=pipe_name,
-                llm_id=llm_id,
-                llm_config=llm_config,
-                chunk_strategy="auto",
-                use_vision=bool(task.get("use_vision", False)),
-                auto_validation=bool(task.get("auto_val", True)),
-                temperature=float(task.get("temperature", 0.7)),
-                max_tokens=int(task.get("max_tokens", 16384)),
-                process_full_document=False,
-                source_chunks=list(task.get("source_chunks", [])),
-                extra_metadata={"status": prev_status, "cards_count": task.get("cards_count", 0)},
-            )
-            tasks_payloads.append(payload)
+            scope = self._snapshot_scope_for_task(task)
+            if scope is not None:
+                # Protocole scopes : portée figée + config → BatchTaskSnapshot exécuté par le worker.
+                task["_is_snapshot_task"] = True
+                snapshot = BatchTaskSnapshot.create(
+                    scope=scope,
+                    config=BatchGenerationConfig(
+                        pipeline_id=pipeline_id,
+                        pipeline_name=pipe_name,
+                        llm_id=llm_id,
+                        llm_config=llm_config,
+                        deck_id=deck.id,
+                        deck_name=deck.name,
+                        model_id=note_type.id,
+                        model_name=note_type.name,
+                        note_type_fields=tuple(fields_schema),
+                        note_type_templates=tuple(templates),
+                        auto_validation=bool(task.get("auto_val", True)),
+                        use_vision=bool(task.get("use_vision", False)),
+                        temperature=float(task.get("temperature", 0.7)),
+                        max_tokens=int(task.get("max_tokens", 16384)),
+                        strict_source_grounding=bool(task.get("strict_source_grounding", True)),
+                    ),
+                )
+                task["_batch_task_id"] = snapshot.task_id
+                tasks_payloads.append(snapshot)
+            else:
+                payload = BatchTaskPayload(
+                    task_index=idx,
+                    doc_id=doc.id,
+                    doc_title=str(task.get("doc_title") or doc.title),
+                    doc_content=str(task.get("doc_content") or getattr(doc, "content", "") or ""),
+                    deck_id=deck.id,
+                    deck_name=deck.name,
+                    model_id=note_type.id,
+                    model_name=note_type.name,
+                    note_type_fields=fields_schema,
+                    note_type_templates=templates,
+                    pipeline_id=pipeline_id,
+                    pipeline_name=pipe_name,
+                    llm_id=llm_id,
+                    llm_config=llm_config,
+                    chunk_strategy="auto",
+                    use_vision=bool(task.get("use_vision", False)),
+                    auto_validation=bool(task.get("auto_val", True)),
+                    temperature=float(task.get("temperature", 0.7)),
+                    max_tokens=int(task.get("max_tokens", 16384)),
+                    process_full_document=False,
+                    source_chunks=list(task.get("source_chunks", [])),
+                    extra_metadata={"status": prev_status, "cards_count": task.get("cards_count", 0)},
+                )
+                tasks_payloads.append(payload)
 
         if not tasks_payloads:
             show_toast(self, "Toutes les tâches de la file sont déjà terminées avec succès.", is_error=False)
@@ -1338,6 +1006,8 @@ class BatchView(QWidget):
             self.worker.task_review_ready.connect(self._on_task_review_ready)
         if hasattr(self.worker, "task_accepted"):
             self.worker.task_accepted.connect(self._on_task_accepted)
+        if hasattr(self.worker, "task_state_changed"):
+            self.worker.task_state_changed.connect(self._on_task_state_changed)
 
         self.worker.start()
 
@@ -1388,6 +1058,13 @@ class BatchView(QWidget):
             task = self.queue_tasks_data[task_idx]
             task["progress_pct"] = 100
             task["cards_count"] = cards_count
+            task["_staging_notes"] = prepared_notes
+            self._prepared_notes_by_task[task_idx] = prepared_notes
+
+            if task.get("_is_snapshot_task"):
+                # Tâche de portée : le routage Succès/À réviser est piloté par le
+                # signal task_state_changed émis par le worker (source autoritaire).
+                return
 
             auto_val: bool = bool(task.get("auto_val", True))
 
@@ -1411,9 +1088,53 @@ class BatchView(QWidget):
 
                 self.queue_widget.sync_completed(task_idx, "À réviser", cards_count)
 
-                staging_count = sum(1 for t in self.queue_tasks_data if t.get("status") == "À réviser")
-                self.card_cards.val_lbl.setText(f"{staging_count} en staging")
+                self._refresh_review_badge()
                 self._log_formatted_line("INFO", f"Tâche #{task_idx + 1} prête pour revue ({cards_count} cartes).")
+
+    @Slot(int, str)
+    def _on_task_state_changed(self, task_idx: int, status_value: str) -> None:
+        """Statut autoritaire d'une tâche de portée (BatchTaskSnapshot) signalé par le worker."""
+        if not 0 <= task_idx < len(self.queue_tasks_data):
+            return
+        task = self.queue_tasks_data[task_idx]
+
+        if status_value == BatchTaskStatus.RUNNING.value:
+            task["status"] = "En cours"
+            task["_attempt_count"] = int(task.get("_attempt_count", 0)) + 1
+            self.queue_widget.sync_started(task_idx)
+            return
+
+        if status_value == BatchTaskStatus.FAILED.value:
+            task["status"] = "Erreur"
+            task["progress_pct"] = 100
+            self.queue_widget.sync_failed(task_idx)
+            return
+
+        if status_value == BatchTaskStatus.CANCELLED.value:
+            task["status"] = "Annulé"
+            self.queue_widget.sync_completed(task_idx, "Annulé", int(task.get("cards_count", 0)))
+            return
+
+        if status_value == BatchTaskStatus.ACCEPTED.value:
+            task["status"] = "Succès"
+            cards_count = int(task.get("cards_count", 0))
+            self.queue_widget.sync_completed(task_idx, "Succès", cards_count)
+            notes = list(task.get("_staging_notes") or self._prepared_notes_by_task.get(task_idx) or [])
+            if notes:
+                deck_id = task["deck"].id if hasattr(task.get("deck"), "id") else 1
+                model_id = task["note_type"].id if hasattr(task.get("note_type"), "id") else 1
+                doc_id = task["doc"].id if hasattr(task.get("doc"), "id") else 0
+                self._save_extracted_notes_to_db(notes, deck_id, model_id, doc_id)
+            self._total_cards_accumulated += len(notes)
+            self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+            return
+
+        if status_value == BatchTaskStatus.REVIEW.value:
+            task["status"] = "À réviser"
+            cards_count = int(task.get("cards_count", 0))
+            self.queue_widget.sync_completed(task_idx, "À réviser", cards_count)
+            self._refresh_review_badge()
+            return
 
     @Slot(int, str)
     def _on_task_failed(self, task_idx: int, error_message: str) -> None:
@@ -1448,9 +1169,8 @@ class BatchView(QWidget):
             "max_tokens": self.slider_tokens.value() * 1024 if hasattr(self, "slider_tokens") else 16384,
         }
 
-    def _slice_to_queue_task(self, s: SliceUnit) -> dict[str, Any] | None:
-        """Construit un dict de tâche de file depuis un SliceUnit découpé manuellement/auto."""
-        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
+    def _slice_to_queue_task(self, doc: DocumentModel | None, s: SliceUnit) -> dict[str, Any] | None:
+        """Construit un dict de tâche de file depuis un SliceUnit (mode Auto)."""
         if doc is None:
             return None
         defaults = self._default_queue_targets()
@@ -1480,13 +1200,13 @@ class BatchView(QWidget):
         }
 
     def _append_queue_tasks(self, task_dicts: list[dict[str, Any]]) -> None:
-        """Ajoute les tâches composées (manuelles/auto/wizard) à la file d'attente."""
+        """Ajoute les tâches composées (direct/auto) à la file d'attente."""
         added_count = 0
         for task in task_dicts:
             content = str(task.get("doc_content", "")).strip()
             if not content:
                 continue
-            task.setdefault("doc", self._segment_inspector_doc or self.doc_picker_btn.get_document())
+            task.setdefault("doc", None)
             task.setdefault("status", "En attente")
             task.setdefault("progress_pct", 0)
             task.setdefault("cards_count", 0)
@@ -1503,44 +1223,130 @@ class BatchView(QWidget):
             self._update_estimates_summary()
             show_toast(self, f"{added_count} tâche(s) ajoutée(s) à la Queue !")
 
-    @Slot()
-    def _on_open_auto_slice(self) -> None:
-        """Ouvre AutoSliceConfigDialog pour un découpage automatique du document courant."""
-        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
+    def _chunk_to_queue_task(self, doc: DocumentModel, chunk: dict[str, Any]) -> dict[str, Any] | None:
+        """Construit une tâche de file depuis une partie sélectionnée du document (mode Direct)."""
         if doc is None:
-            show_toast(self, "Veuillez sélectionner un document source.", is_error=True)
-            return
-        dlg = AutoSliceConfigDialog(doc, parent=self)
-        if dlg.exec():
-            result = dlg.get_result()
-            slices = result.get("slices", []) if isinstance(result, dict) else []
-            tasks = [t for s in slices if (t := self._slice_to_queue_task(s)) is not None]
-            self._append_queue_tasks(tasks)
+            return None
+        defaults = self._default_queue_targets()
+        chunk_content = str(chunk.get("content", "")).strip()
+        if not chunk_content:
+            return None
+        chunk_title = str(chunk.get("title") or chunk.get("heading_path") or f"Section {chunk.get('index', 1) + 1}")
+        return {
+            "doc": doc,
+            "doc_title": f"{doc.title} — {chunk_title}",
+            "doc_content": chunk_content,
+            "source_chunks": list(chunk["chunks"]) if chunk.get("chunks") else [chunk],
+            "chunk_label": chunk_title,
+            "chunk_index": int(chunk.get("index") or 0),
+            "tokens_est": int(chunk.get("tokens") or len(chunk_content.split()) * 1.3),
+            "deck": defaults["deck"],
+            "deck_name": defaults["deck_name"],
+            "note_type": defaults["model"],
+            "model_name": defaults["model_name"],
+            "engine": defaults["engine"],
+            "pipeline": defaults["pipeline"],
+            "pipeline_name": defaults["pipeline_name"],
+            "use_vision": defaults["use_vision"],
+            "auto_val": defaults["auto_val"],
+            "temperature": defaults["temperature"],
+            "max_tokens": defaults["max_tokens"],
+            "status": "En attente",
+            "progress_pct": 0,
+            "cards_count": 0,
+            "pending_cards": [],
+        }
+
+    def _scope_memory_for(self, doc: DocumentModel) -> dict[str, Any] | None:
+        """Restitue la portée mémorisée d'un document pour préremplir le composer."""
+        if getattr(doc, "id", None):
+            return self._batch_scope_results.get(int(doc.id))
+        return None
+
+    def _snapshot_scope_for_task(self, task: dict[str, Any]) -> BatchScopeSnapshot | None:
+        """Construit la portée figée (BatchScopeSnapshot) d'une tâche de file si le composer Direct l'a fournie."""
+        doc = task.get("doc")
+        if not doc or not getattr(doc, "id", None):
+            return None
+        scope_result = self._batch_scope_results.get(int(doc.id))
+        if not scope_result:
+            return None
+        parts = scope_result.get("parts") or scope_result.get("chunks") or []
+        if not parts:
+            return None
+        part_index = int(task.get("chunk_index", -1))
+        part_label = str(task.get("chunk_label", ""))
+        part = next((p for p in parts if p.get("index") == part_index), None)
+        if part is None and part_label:
+            part = next((p for p in parts if str(p.get("title") or p.get("heading_path") or "") == part_label), None)
+        if part is None:
+            return None
+        content = str(part.get("content", "")).strip()
+        if not content:
+            return None
+        page_number = part.get("page_number")
+        heading_path = part.get("heading_path")
+        scope_title = str(part.get("title") or heading_path or f"Section {part_index + 1}")
+        block = BatchSourceBlock(
+            kind="section",
+            label=scope_title,
+            content=content,
+            ordinal=part_index,
+            page_number=int(page_number) if page_number is not None else None,
+            heading_path=str(heading_path) if heading_path else None,
+            source_id=int(getattr(doc, "id", 0) or 0),
+        )
+        return BatchScopeSnapshot(
+            document_id=int(doc.id),
+            document_title=str(getattr(doc, "title", "")),
+            selection_mode=str(scope_result.get("selection_mode", "sections")),
+            blocks=(block,),
+            scope_title=scope_title,
+            range_str=str(part.get("heading_path") or part.get("title") or ""),
+            content=content,
+        )
 
     @Slot()
-    def _on_open_slicing_wizard(self) -> None:
-        """Ouvre BatchSlicingWizardDialog pour composer des tâches avancées dans la queue."""
-        doc = self._segment_inspector_doc or self.doc_picker_btn.get_document()
-        if doc is None:
-            show_toast(self, "Veuillez sélectionner un document source.", is_error=True)
-            return
-        dlg = BatchSlicingWizardDialog(
-            doc,
-            decks=self.decks_cache,
-            note_types=self.models_cache,
-            engines=list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc())),
-            pipelines=list(PipelineModel.select()),
+    def _on_open_batch_composer(self) -> None:
+        """Ouvre la modale unique de composition du lot (document → parties → mode d'insertion)."""
+        doc = self._last_composer_doc
+        if doc is not None and getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception as err:
+                logger.debug("Rechargement du document du composer ignoré : %s", err)
+                doc = None
+
+        dlg = BatchSliceComposerDialog(
+            doc=doc,
+            resolve_chunks=self._resolve_batch_chunks,
+            scope_memory=self._scope_memory_for,
+            task_from_chunk=self._chunk_to_queue_task,
+            task_from_slice=lambda d, s: self._slice_to_queue_task(d, s),
             parent=self,
         )
         if dlg.exec():
-            payloads = dlg.get_configured_payloads()
-            self._append_queue_tasks(payloads)
+            result = dlg.get_result()
+            tasks = result.get("tasks") or []
+            scope_result = result.get("scope_result")
+            composed_doc = result.get("doc")
+            if composed_doc is not None and getattr(composed_doc, "id", None):
+                self._last_composer_doc = composed_doc
+                if scope_result:
+                    self._batch_scope_results[int(composed_doc.id)] = scope_result
+            if tasks:
+                self._append_queue_tasks(tasks)
 
     @Slot(int)
     def _on_retry_task(self, row_idx: int) -> None:
-        """Relance une tâche en échec : remise en attente puis reprise du batch."""
+        """Relance une tâche en échec : remise en attente puis reprise du batch (max MAX_RETRY_ATTEMPTS tentatives)."""
         if 0 <= row_idx < len(self.queue_tasks_data):
             task = self.queue_tasks_data[row_idx]
+            if task.get("_is_snapshot_task"):
+                prev_attempts = task.get("_attempt_count", 0)
+                if prev_attempts >= 3:
+                    show_toast(self, "Tentative maximale de relance atteinte pour cette tâche.", is_error=True)
+                    return
             task["status"] = "En attente"
             task["progress_pct"] = 0
             task["cards_count"] = 0
@@ -1557,7 +1363,34 @@ class BatchView(QWidget):
         if 0 <= task_idx < len(self.queue_tasks_data):
             task = self.queue_tasks_data[task_idx]
             self._prepared_notes_by_task[task_idx] = prepared_notes
+            task["_staging_notes"] = prepared_notes
             self.staging_panel.load_task(task_idx, task, prepared_notes)
+
+    def _staging_task_list(self) -> list[tuple[int, dict[str, Any], list[dict[str, Any]]]]:
+        """Liste des tâches 'À réviser' avec leurs cartes, pour la revue agrégée du badge/volet."""
+        result: list[tuple[int, dict[str, Any], list[dict[str, Any]]]] = []
+        for task_idx, task in enumerate(self.queue_tasks_data):
+            if task.get("status") != "À réviser":
+                continue
+            notes = self._prepared_notes_by_task.get(task_idx) or list(task.get("_staging_notes", []))
+            if notes:
+                result.append((task_idx, task, notes))
+        return result
+
+    @Slot()
+    def _on_open_staging_badge(self) -> None:
+        """Clic sur le badge 'N à valider' : ouvre la revue de la première tâche en attente."""
+        review_tasks = self._staging_task_list()
+        if not review_tasks:
+            show_toast(self, "Aucune carte en attente de validation.", is_error=False)
+            return
+        task_idx, task, notes = review_tasks[0]
+        self.staging_panel.load_task(task_idx, task, notes, force=True)
+
+    def _refresh_review_badge(self) -> None:
+        staging_count = sum(1 for t in self.queue_tasks_data if t.get("status") == "À réviser")
+        if hasattr(self.metrics_bar, "set_review_count"):
+            self.metrics_bar.set_review_count(staging_count)
 
     @Slot(int)
     def _on_open_staging_for_task(self, task_idx: int) -> None:
@@ -1566,7 +1399,7 @@ class BatchView(QWidget):
             task = self.queue_tasks_data[task_idx]
             notes = self._prepared_notes_by_task.get(task_idx) or list(task.get("_staging_notes", []))
             if notes:
-                self.staging_panel.load_task(task_idx, task, notes)
+                self.staging_panel.load_task(task_idx, task, notes, force=True)
             else:
                 from ankiforge.ui.widgets.toast import show_toast
 
@@ -1604,8 +1437,8 @@ class BatchView(QWidget):
             return False
         task = self.queue_tasks_data[task_idx]
         pending = accepted_cards if accepted_cards is not None else list(task.get("pending_cards", []))
-        original_count = len(task.get("pending_cards", []))
-        if task.get("scope_snapshot") is None or not pending:
+        original_count = len(pending)
+        if not task.get("_is_snapshot_task") or not pending:
             return False
         fields = getattr(task.get("note_type"), "fields_schema", "[]") or "[]"
         try:
@@ -1630,7 +1463,7 @@ class BatchView(QWidget):
         if not 0 <= task_idx < len(self.queue_tasks_data):
             return False
         task = self.queue_tasks_data[task_idx]
-        if task.get("scope_snapshot") is None:
+        if not task.get("_is_snapshot_task"):
             return False
         task["pending_cards"] = []
         task["status"] = "Rejetée"

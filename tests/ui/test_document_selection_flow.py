@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QListWidgetItem, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 
 from ankiforge.database.models import (
     DocumentChunkModel,
@@ -15,7 +15,6 @@ from ankiforge.database.models import (
 )
 from ankiforge.ui.components.document_picker_button import DocumentPickerButton
 from ankiforge.ui.components.document_select_window import DocumentSelectWindow
-from ankiforge.ui.views.batch_view import BatchView
 from ankiforge.ui.views.creation_view import CreationView
 from ankiforge.ui.views.creation_view.widgets.document_editor import (
     DocumentEditorWidget,
@@ -153,73 +152,95 @@ def test_creation_view_tab_switch_syncs_document(qtbot: Any, mock_db: Any) -> No
     assert view.doc_picker_btn.get_document() == doc1
 
 
-def test_batch_view_document_item_click_and_segments(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie que cliquer sur un document dans BatchView active le SegmentInspector et gère les segments."""
+def test_batch_composer_embeds_scope_and_updates_live(qtbot: Any, mock_db: Any) -> None:
+    """La modale fusionnée embarque le DocumentScopeWidget : chaque coche recalcule les tâches en direct (mode Direct)."""
+    from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
+
     uid = uuid.uuid4().hex[:6]
-    doc = DocumentModel.create(title=f"Physiologie {uid}", file_type="md", content="## Section 1\nTexte 1\n## Section 2\nTexte 2")
+    doc = DocumentModel.create(title=f"Physiologie {uid}", file_type="md", content="# Section 1\n\nTexte 1\n\n# Section 2\n\nTexte 2")
+    DocumentChunkModel.create(document=doc, chunk_index=0, heading_path="Section 1", content="Texte 1", content_hash=f"h1_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=1, heading_path="Section 2", content="Texte 2", content_hash=f"h2_{uid}")
 
-    view = BatchView(ai_manager=None)
-    qtbot.addWidget(view)
-    view.refresh_data()
+    def task_from_chunk(d: DocumentModel, chunk: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "doc": d,
+            "doc_title": f"{d.title} — {chunk.get('title')}",
+            "doc_content": chunk.get("content", ""),
+            "chunk_label": chunk.get("title") or str(chunk.get("heading_path")),
+            "tokens_est": 10,
+            "status": "En attente",
+        }
 
-    # Trouver l'item du document dans docs_list
-    doc_item: QListWidgetItem | None = None
-    for i in range(view.docs_list.count()):
-        it = view.docs_list.item(i)
-        if it.data(Qt.ItemDataRole.UserRole) and it.data(Qt.ItemDataRole.UserRole).id == doc.id:
-            doc_item = it
-            break
+    dlg = BatchSliceComposerDialog(
+        doc=doc,
+        resolve_chunks=lambda _d: [],
+        scope_memory=lambda _d: None,
+        task_from_chunk=task_from_chunk,
+        task_from_slice=lambda _d, _s: None,
+    )
+    qtbot.addWidget(dlg)
 
-    assert doc_item is not None
+    # Le widget de portée est embarqué dans la modale (pas de sous-dialogue séparé)
+    assert dlg.hasattr_scope_widget()
+    scope = dlg.scope_widget
+    assert scope.doc == doc
 
-    # Clic sur le document -> doit afficher et configurer le segment inspector
-    view._on_doc_item_clicked(doc_item)
-    assert not view.segment_inspector.isHidden()
-    assert view._segment_inspector_doc == doc
-    assert view.segment_inspector._doc == doc
+    # Direct : sections cochées par défaut => tâches préremplies en direct dès l'ouverture
+    assert len(dlg._tasks) == 2
 
-    # Double clic -> bascule la case à cocher
-    assert doc_item.checkState() == Qt.CheckState.Unchecked
-    view._on_doc_item_double_clicked(doc_item)
-    assert doc_item.checkState() == Qt.CheckState.Checked
+    # Décocher une section recalcule immédiatement les tâches
+    scope.sections_list.itemWidget(scope.sections_list.item(0)).set_checked(False)
+    assert len(dlg._tasks) == 1
+    assert dlg._tasks[0]["chunk_label"] == "Section 2"
+    assert "1 partie(s) sélectionnée(s)" in dlg.lbl_parties_count.text()
 
-    # Ajouter à la queue avec segments configurés
-    view._on_add_to_queue_clicked()
-    assert len(view.queue_tasks_data) >= 1
-    added_task = view.queue_tasks_data[-1]
-    assert added_task["doc"].id == doc.id
+    # Navigation jusqu'à l'étape récap : bouton d'ajout libellé "Ajouter à la Queue (N)"
+    dlg._on_next()
+    dlg._on_next()
+    assert "Ajouter à la Queue" in dlg.btn_next.text()
+    assert dlg.btn_next.isEnabled()
 
 
-def test_batch_view_picker_button_and_queue_flow(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie que la sélection de document par DocumentPickerButton dans BatchView fonctionne en miroir de CreationView."""
+def test_batch_composer_picker_switch_reloads_scope_and_result(qtbot: Any, mock_db: Any) -> None:
+    """Changer de document via le picker embarqué recharge la portée ; get_result renvoie tâches + portée + doc."""
+    from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
+
     uid = uuid.uuid4().hex[:6]
-    doc = DocumentModel.create(title=f"Cours Bio {uid}", file_type="pdf", total_pages=15, content="Page 1\n<!-- PAGE: 2 -->\nPage 2")
+    doc1 = DocumentModel.create(title=f"Doc A {uid}", file_type="md", content="# Intro A\n\nContenu A")
+    DocumentChunkModel.create(document=doc1, chunk_index=0, heading_path="Intro A", content="Contenu A", content_hash=f"a_{uid}")
+    doc2 = DocumentModel.create(title=f"Doc B {uid}", file_type="md", content="# Intro B\n\nContenu B")
+    DocumentChunkModel.create(document=doc2, chunk_index=0, heading_path="Intro B", content="Contenu B", content_hash=f"b_{uid}")
 
-    view = BatchView(ai_manager=None)
-    qtbot.addWidget(view)
-    view.refresh_data()
+    def task_from_chunk(d: DocumentModel, chunk: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "doc": d,
+            "doc_title": f"{d.title} — {chunk.get('title')}",
+            "doc_content": chunk.get("content", ""),
+            "chunk_label": chunk.get("title") or str(chunk.get("heading_path")),
+            "tokens_est": 5,
+        }
 
-    # Initialement masqué
-    assert view.segment_inspector.isHidden()
-    assert view.doc_picker_btn.get_document() is None
+    dlg = BatchSliceComposerDialog(
+        doc=doc1,
+        resolve_chunks=lambda _d: [],
+        scope_memory=lambda _d: None,
+        task_from_chunk=task_from_chunk,
+        task_from_slice=lambda _d, _s: None,
+    )
+    qtbot.addWidget(dlg)
+    assert dlg.scope_widget.doc == doc1
 
-    # Sélection via doc_picker_btn
-    view.doc_picker_btn.set_document(doc)
-    assert not view.segment_inspector.isHidden()
-    assert view._segment_inspector_doc == doc
-    assert view.segment_inspector._doc == doc
-    assert "Cours Bio" in view.doc_picker_btn.title_label.text()
-    assert "1 sélectionné(s)" in view.lbl_selected_docs_count.text()
+    # Changer de document via le DocumentPickerButton embarqué
+    dlg.doc_picker.set_document(doc2)
+    assert dlg.doc == doc2
+    assert dlg.scope_widget.doc == doc2
+    assert len(dlg._tasks) == 1
 
-    # Ajout à la queue
-    view._on_add_to_queue_clicked()
-    assert len(view.queue_tasks_data) >= 1
-    assert view.queue_tasks_data[-1]["doc"].id == doc.id
-
-    # Désélection
-    view.doc_picker_btn.clear_document()
-    assert view.segment_inspector.isHidden()
-    assert view._segment_inspector_doc is None
+    result = dlg.get_result()
+    assert result["doc"] == doc2
+    assert result["tasks"][0]["chunk_label"] == "Intro B"
+    assert result["scope_result"]["selection_mode"] in ("sections", "structure", "all")
+    assert result["scope_result"]["chunks"][0]["heading_path"] == "Intro B"
 
 
 def test_modal_range_selector_contextual_slider_and_range_bar(qtbot: Any, mock_db: Any) -> None:

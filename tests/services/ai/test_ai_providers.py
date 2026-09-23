@@ -17,6 +17,66 @@ def test_mock_provider():
 
 
 @patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_empty_system_gets_fallback(mock_openai_class):
+    """Un prompt système vide ne doit jamais devenir une partie de texte nulle (erreur NIM HTTP 400)."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.content = "ok"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    provider = OpenAICompatibleProvider("http://fake", "fake-model")
+    provider.generate("", "User")
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    messages = kwargs["messages"]
+    system_content = messages[0]["content"]
+    assert isinstance(system_content, str) and system_content.strip()
+    assert messages[1]["content"] == "User"
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_sanitizes_null_text_parts(mock_openai_class):
+    """Les parties de texte null sont retirées : aucune partie {'text': None} ne part sur le réseau."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.content = "ok"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    provider = OpenAICompatibleProvider("http://fake", "fake-model")
+    provider.generate(
+        "System",
+        [
+            {"type": "text", "text": None},
+            {"type": "text", "text": "Contenu valide"},
+            {"type": "image_url", "image_url": {"url": ""}},
+        ],
+    )
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    user_content = kwargs["messages"][1]["content"]
+    assert user_content == [{"type": "text", "text": "Contenu valide"}]
+    assert not any(part.get("text") is None for part in user_content)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_all_invalid_parts_falls_back_to_text(mock_openai_class):
+    """Si toutes les parties sont invalides, on envoie un texte vide (jamais une liste vide)."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.content = "ok"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    provider = OpenAICompatibleProvider("http://fake", "fake-model")
+    provider.generate("System", [{"type": "text", "text": None}])
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert kwargs["messages"][1]["content"] == ""
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_success(mock_openai_class):
     """Vérifie la construction de la requête pour les API type OpenAI."""
     mock_client = MagicMock()

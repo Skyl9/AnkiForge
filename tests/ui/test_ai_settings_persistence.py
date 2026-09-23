@@ -215,6 +215,8 @@ def test_batch_view_ai_persistence(qtbot):
     view.cb_vision.set_checked(False)
     assert SettingsService.get("batch/use_vision") is False
 
+    view.cb_autoval.set_checked(True)
+    assert SettingsService.get("batch/auto_validation") is True
     view.cb_autoval.set_checked(False)
     assert SettingsService.get("batch/auto_validation") is False
 

@@ -1059,3 +1059,43 @@ def test_creation_view_second_generation_with_sections_selection(qtbot: Any, moc
     text_source_gen3 = view.orchestrator.state.get_variable("text_source")
     assert "Le cortex cérébral." in text_source_gen3
     assert "Le cervelet coordonne." in text_source_gen3
+
+
+def test_creation_view_multi_selection_and_mark_all(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la multi-sélection granulaire et l'action 'Tout valider' dans CreationView."""
+    from PySide6.QtCore import QItemSelection, QItemSelectionModel
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    view.generated_cards = [
+        {"Front": "Q1", "Back": "R1", "status": "À valider"},
+        {"Front": "Q2", "Back": "R2", "status": "À valider"},
+        {"Front": "Q3", "Back": "R3", "status": "À valider"},
+        {"Front": "Q4", "Back": "R4", "status": "À valider"},
+    ]
+    view.current_preview_index = 0
+    view._populate_results_table()
+    view._refresh_save_button()
+
+    assert view.btn_save_anki.text() == "Enregistrer dans la Forge (0/4)"
+
+    # Sélectionner les lignes 1 et 2
+    view.results_table.clearSelection()
+    sel = QItemSelection(view.results_table.model().index(1, 0), view.results_table.model().index(2, 3))
+    view.results_table.selectionModel().select(sel, QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
+    view._on_table_selection_changed()
+
+    assert "sélection (2)" in view.btn_valider.text()
+    assert "sélection (2)" in view.btn_rejeter.text()
+
+    # Valider la sélection
+    view._on_validate_card()
+    assert view.generated_cards[1]["status"] == "Validée"
+    assert view.generated_cards[2]["status"] == "Validée"
+    assert view.btn_save_anki.text() == "Enregistrer dans la Forge (2/4)"
+
+    # Tout valider en 1-clic
+    view._on_mark_all_accepted()
+    assert all(c["status"] == "Validée" for c in view.generated_cards)
+    assert view.btn_save_anki.text() == "Enregistrer dans la Forge (4/4)"

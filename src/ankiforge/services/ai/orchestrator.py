@@ -551,11 +551,22 @@ class PipelineOrchestrator(QRunnable):
             )
 
         # Préparation du prompt utilisateur à partir du contexte courant
+        # Repli sur le contexte source pour ne JAMAIS expédier un prompt vide si la
+        # variable d'entrée configurée est absente ou vide (ex. input_variable de
+        # sortie consommé par erreur en entrée).
+        fallback_user_input = self.state.get_variable("last_output") or self.state.get_variable("text_source") or self.state.initial_prompt or "Analyser et générer les flashcards correspondantes."
         input_var = cfg.get("input_variable")
         if input_var:
             user_input = self.state.get_variable(input_var)
+            if not user_input:
+                logger.warning(
+                    "[Orchestrateur DAG] Étape %d : variable d'entrée '%s' absente ou vide, repli sur le contexte source.",
+                    step.step_order,
+                    input_var,
+                )
+                user_input = fallback_user_input
         else:
-            user_input = self.state.get_variable("last_output") or self.state.get_variable("text_source") or self.state.initial_prompt or "Analyser et générer les flashcards correspondantes."
+            user_input = fallback_user_input
 
         if isinstance(user_input, dict | list):
             user_input = json.dumps(user_input, ensure_ascii=False, indent=2)
@@ -730,6 +741,7 @@ class PipelineOrchestrator(QRunnable):
 
         results: list[Any] = []
         completed_count = 0
+        progress_lock = threading.Lock()
 
         def _process_item(index: int, item_content: Any) -> Any:
             nonlocal completed_count
@@ -760,10 +772,11 @@ class PipelineOrchestrator(QRunnable):
                 temperature=step_temperature,
             )
 
-            # Calcul et enregistrement des tokens consommés
+            # Calcul et enregistrement des tokens consommés (verrouillé : threads Map partagés)
             p_tok = max(1, (len(rendered_sys) + len(item_str)) // 4)
             c_tok = max(1, len(str(response)) // 4)
-            self.state.record_tokens(step.step_order, p_tok, c_tok)
+            with progress_lock:
+                self.state.record_tokens(step.step_order, p_tok, c_tok)
 
             parsed = response
             if output_format == "json":
@@ -772,12 +785,13 @@ class PipelineOrchestrator(QRunnable):
                 except Exception:
                     parsed = response
 
-            completed_count += 1
-            self.signals.step_progress.emit(
-                completed_count,
-                total_items,
-                f"Génération Parallèle : {completed_count}/{total_items}",
-            )
+            with progress_lock:
+                completed_count += 1
+                self.signals.step_progress.emit(
+                    completed_count,
+                    total_items,
+                    f"Génération Parallèle : {completed_count}/{total_items}",
+                )
             return parsed
 
         # Exécution parallèle avec ThreadPoolExecutor

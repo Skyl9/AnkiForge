@@ -26,6 +26,7 @@ from ankiforge.database.models.audit import (
     IgnoredDuplicateModel,
     LinterRuleModel,
 )
+from ankiforge.database.models.batch import BatchRunModel, BatchTaskModel
 from ankiforge.database.models.cards import (
     CardModel,
     DeckModel,
@@ -80,6 +81,8 @@ ALL_MODELS = [
     PipelineRunModel,
     PipelineStepModel,
     PythonToolModel,
+    BatchRunModel,
+    BatchTaskModel,
     FolderModel,
     DocumentModel,
     DocumentPageModel,
@@ -120,6 +123,9 @@ __all__ = [
     "PersonaVersionModel",
     "ConsultantSessionModel",
     "ConsultantMessageModel",
+    # Batch Factory
+    "BatchRunModel",
+    "BatchTaskModel",
     # Pipelines DAG
     "PipelineModel",
     "PipelineRunModel",

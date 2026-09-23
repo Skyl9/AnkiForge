@@ -1,4 +1,4 @@
-"""Tests des widgets de l'Atelier de Production (BatchQueueTable, BatchSlicePanel)
+"""Tests des widgets de l'Atelier de Production (BatchQueueTable)
 et des chemins d'auto-validation du BatchWorker (legacy + scope snapshots)."""
 
 import json
@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from ankiforge.database.models import (
-    DocumentModel,
     PipelineModel,
     PipelineStepModel,
 )
@@ -22,7 +21,7 @@ from ankiforge.services.batch.models import (
 )
 from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
 from ankiforge.ui.components import IconButton
-from ankiforge.ui.views.batch_view.widgets import BatchQueueTable, BatchSlicePanel
+from ankiforge.ui.views.batch_view.widgets import BatchQueueTable
 
 pytestmark = pytest.mark.ui
 
@@ -133,84 +132,6 @@ def test_batch_queue_table_refresh_theme(qtbot: Any) -> None:
     widget.set_tasks([_task("En cours")])
     widget.sync_started(0)
     widget.refresh_theme(MagicMock())
-
-
-# ── BatchSlicePanel ─────────────────────────────────────────────────────────
-
-
-def _doc_with_headings() -> DocumentModel:
-    content = """# Chapitre 1 : Introduction
-
-Un long paragraphe d'introduction qui présente les notions de base indispensables à la compréhension du cours de biologie cellulaire.
-
-# Chapitre 2 : La Membrane
-
-Un second paragraphe décrivant la bicouche lipidique et les protéines transmembranaires responsables du transport des ions.
-"""
-    return DocumentModel.create(title="Cours Bio.md", content=content, file_type="md")
-
-
-def test_batch_slice_panel_manual_add(qtbot: Any) -> None:
-    doc = _doc_with_headings()
-    panel = BatchSlicePanel()
-    qtbot.addWidget(panel)
-    panel.set_defaults_provider(lambda: {"deck": None, "model": None, "engine": None, "pipeline": None})
-    panel.set_document(doc)
-
-    assert panel.btn_add_slice.isEnabled()
-    assert panel.slice_combo.count() >= 2
-
-    received: list[list[dict[str, Any]]] = []
-    panel.slices_ready.connect(received.append)
-
-    panel.slice_combo.setCurrentIndex(0)
-    panel.btn_add_slice.click()
-
-    assert len(received) == 1
-    task = received[0][0]
-    assert task["doc_title"] == "Cours Bio.md — Chapitre 1 : Introduction"
-    assert task["chunk_index"] == 0
-    assert "Introduction" in str(task["doc_content"])
-    assert task["source_chunks"][0]["content"] == task["doc_content"]
-    assert task["status"] == "En attente"
-
-
-def test_batch_slice_panel_modes_switch_stack(qtbot: Any) -> None:
-    panel = BatchSlicePanel()
-    qtbot.addWidget(panel)
-    assert panel.rb_manual.isChecked()
-    assert panel.stack.currentIndex() == 0
-
-    panel.rb_auto.setChecked(True)
-    assert panel.stack.currentIndex() == 1
-    panel.rb_wizard.setChecked(True)
-    assert panel.stack.currentIndex() == 2
-    panel.rb_manual.setChecked(True)
-    assert panel.stack.currentIndex() == 0
-
-
-def test_batch_slice_panel_auto_and_wizard_signals(qtbot: Any) -> None:
-    doc = _doc_with_headings()
-    panel = BatchSlicePanel()
-    qtbot.addWidget(panel)
-    panel.set_document(doc)
-
-    autos: list[bool] = []
-    wizards: list[bool] = []
-    panel.auto_slice_requested.connect(lambda: autos.append(True))
-    panel.wizard_requested.connect(lambda: wizards.append(True))
-
-    panel.btn_open_auto.click()
-    panel.btn_open_wizard.click()
-    assert autos
-    assert wizards
-
-
-def test_batch_slice_panel_manual_disabled_without_doc(qtbot: Any) -> None:
-    panel = BatchSlicePanel()
-    qtbot.addWidget(panel)
-    assert not panel.btn_add_slice.isEnabled()
-    assert not panel.btn_open_auto.isEnabled()
 
 
 # ── BatchWorker : chemins d'auto-validation ─────────────────────────────────

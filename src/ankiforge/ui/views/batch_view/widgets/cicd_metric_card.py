@@ -1,5 +1,7 @@
 from typing import Any
 
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ankiforge.ui.theme import DesignTokens, apply_shadow
@@ -9,12 +11,17 @@ from ankiforge.utils.icon_loader import load_phosphor_icon
 class CicdMetricCard(QFrame):
     """Stat Card épurée et compacte conforme à la maquette concept_ide (L1888-L1916)."""
 
-    def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: QWidget | None = None) -> None:
+    clicked = Signal()
+
+    def __init__(self, title: str, value: str, icon_name: str, color: str = "#10b981", parent: QWidget | None = None, clickable: bool = False) -> None:
         super().__init__(parent)
         self.title_text = title
         self.icon_name = icon_name
         self.color = color
+        self._clickable = clickable
         self.setFixedHeight(58)
+        if clickable:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._apply_style()
 
         layout = QHBoxLayout(self)
@@ -40,6 +47,11 @@ class CicdMetricCard(QFrame):
         self.icon_lbl.setStyleSheet("border: none; background: transparent; opacity: 0.85;")
         layout.addWidget(self.icon_lbl)
         apply_shadow(self, blur=8, offset_y=2)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if self._clickable and event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
     def _apply_style(self, profile: Any = None) -> None:
         bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL

@@ -7,6 +7,7 @@ from peewee import fn
 from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QInputDialog,
     QLabel,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -527,6 +529,7 @@ class CreationView(QWidget):
 
         self.results_table = StyledTableWidget(["Modèle", "Front", "Back", "Statut"])
         self.results_table.setSelectionBehavior(StyledTableWidget.SelectionBehavior.SelectRows)
+        self.results_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.results_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.results_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -534,6 +537,8 @@ class CreationView(QWidget):
         self.results_table.horizontalHeader().setMinimumSectionSize(110)
         self.results_table.itemSelectionChanged.connect(self._on_table_selection_changed)
         self.results_table.itemChanged.connect(self._on_cell_edited)
+        self.results_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.results_table.customContextMenuRequested.connect(self._on_table_context_menu)
         self.results_table.installEventFilter(self)
         table_layout.addWidget(self.results_table, 1)
 
@@ -552,6 +557,13 @@ class CreationView(QWidget):
         self.btn_save_anki.setEnabled(False)
         self.btn_save_anki.setToolTip("Enregistrer les cartes validées dans votre collection AnkiForge (Ctrl+S)")
         main_bot_toolbar.addWidget(self.btn_save_anki)
+
+        self.btn_accept_all = SecondaryButton("Tout valider")
+        self.btn_accept_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
+        self.btn_accept_all.setEnabled(False)
+        self.btn_accept_all.setToolTip("Marquer toutes les cartes générées comme 'Validée' (1-clic)")
+        self.btn_accept_all.clicked.connect(self._on_mark_all_accepted)
+        main_bot_toolbar.addWidget(self.btn_accept_all)
 
         main_bot_toolbar.addStretch()
 
@@ -2310,12 +2322,25 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_table_selection_changed(self) -> None:
-        selected_rows = self.results_table.selectedItems()
-        if selected_rows:
-            row = self.results_table.row(selected_rows[0])
-            if 0 <= row < len(self.generated_cards):
-                self.current_preview_index = row
-                self._update_card_preview()
+        selected_rows = {idx.row() for idx in self.results_table.selectedIndexes()}
+        count = len(selected_rows)
+        if count > 1:
+            self.btn_valider.setText(f"Valider la sélection ({count})")
+            self.btn_valider.setToolTip(f"Valider les {count} cartes sélectionnées")
+            self.btn_rejeter.setText(f"Rejeter la sélection ({count})")
+            self.btn_rejeter.setToolTip(f"Rejeter les {count} cartes sélectionnées")
+            self.btn_editer.setEnabled(False)
+        else:
+            self.btn_valider.setText("Valider la carte")
+            self.btn_valider.setToolTip("Valider la carte active et passer à la suivante (Raccourci: Espace ou V)")
+            self.btn_rejeter.setText("Rejeter")
+            self.btn_rejeter.setToolTip("Rejeter la carte active et passer à la suivante (Raccourci: Suppr ou R)")
+            self.btn_editer.setEnabled(True)
+            if count == 1:
+                row = next(iter(selected_rows))
+                if 0 <= row < len(self.generated_cards) and row != self.current_preview_index:
+                    self.current_preview_index = row
+                    self._update_card_preview()
 
     @Slot(QTableWidgetItem)
     def _on_cell_edited(self, item: QTableWidgetItem) -> None:
@@ -2372,18 +2397,38 @@ class CreationView(QWidget):
         if total_count > 0:
             self.btn_save_anki.setText(f"Enregistrer dans la Forge ({validated_count}/{total_count})")
             self.btn_save_anki.setEnabled(True)
+            self.btn_accept_all.setEnabled(True)
         else:
             self.btn_save_anki.setText("Enregistrer dans la Forge (0)")
             self.btn_save_anki.setEnabled(False)
+            self.btn_accept_all.setEnabled(False)
 
     @Slot()
     def _on_validate_card(self) -> None:
-        if not self.generated_cards or not (0 <= self.current_preview_index < len(self.generated_cards)):
+        if not self.generated_cards:
             return
         ToastManager.get_instance().clear()
+        selected_rows = sorted({idx.row() for idx in self.results_table.selectedIndexes()})
+
+        if len(selected_rows) > 1:
+            for r in selected_rows:
+                if 0 <= r < len(self.generated_cards):
+                    self.generated_cards[r]["status"] = "Validée"
+            self._populate_results_table()
+            self._refresh_save_button()
+            next_index = min(selected_rows[-1] + 1, len(self.generated_cards) - 1)
+            self.current_preview_index = next_index
+            self.results_table.selectRow(next_index)
+            self._update_card_preview()
+            return
+
+        if not (0 <= self.current_preview_index < len(self.generated_cards)):
+            return
+
         next_index = self.current_preview_index + 1
         self.generated_cards[self.current_preview_index]["status"] = "Validée"
         self._populate_results_table()
+        self._refresh_save_button()
 
         if next_index < len(self.generated_cards):
             self.current_preview_index = next_index
@@ -2442,21 +2487,115 @@ class CreationView(QWidget):
 
     @Slot()
     def _on_reject_card(self) -> None:
-        if self.generated_cards and 0 <= self.current_preview_index < len(self.generated_cards):
-            ToastManager.get_instance().clear()
-            next_index = self.current_preview_index + 1
-            card = self.generated_cards[self.current_preview_index]
-            card["status"] = "Refusée"
-            self._populate_results_table()
+        if not self.generated_cards:
+            return
+        ToastManager.get_instance().clear()
+        selected_rows = sorted({idx.row() for idx in self.results_table.selectedIndexes()})
 
-            if next_index < len(self.generated_cards):
-                self.current_preview_index = next_index
-                self.results_table.selectRow(self.current_preview_index)
-                self._update_card_preview()
-            else:
-                self.results_table.selectRow(self.current_preview_index)
-                self._update_card_preview()
-                show_toast(self, "Toutes les cartes ont été passées en revue.", is_error=False)
+        if len(selected_rows) > 1:
+            for r in selected_rows:
+                if 0 <= r < len(self.generated_cards):
+                    self.generated_cards[r]["status"] = "Refusée"
+            self._populate_results_table()
+            self._refresh_save_button()
+            next_index = min(selected_rows[-1] + 1, len(self.generated_cards) - 1)
+            self.current_preview_index = next_index
+            self.results_table.selectRow(next_index)
+            self._update_card_preview()
+            return
+
+        if not (0 <= self.current_preview_index < len(self.generated_cards)):
+            return
+
+        next_index = self.current_preview_index + 1
+        card = self.generated_cards[self.current_preview_index]
+        card["status"] = "Refusée"
+        self._populate_results_table()
+        self._refresh_save_button()
+
+        if next_index < len(self.generated_cards):
+            self.current_preview_index = next_index
+            self.results_table.selectRow(self.current_preview_index)
+            self._update_card_preview()
+        else:
+            self.results_table.selectRow(self.current_preview_index)
+            self._update_card_preview()
+            show_toast(self, "Toutes les cartes ont été passées en revue.", is_error=False)
+
+    @Slot()
+    def _on_mark_all_accepted(self) -> None:
+        """Marque toutes les cartes 'À valider' ou 'En attente' comme 'Validée' en 1-clic."""
+        changed = 0
+        for card in self.generated_cards:
+            if card.get("status") in ("À valider", "En attente"):
+                card["status"] = "Validée"
+                changed += 1
+        if changed > 0:
+            self._populate_results_table()
+            self._refresh_save_button()
+            self._update_card_preview()
+            show_toast(self, f"{changed} carte(s) marquée(s) comme 'Validée'.", is_error=False)
+
+    def _on_table_context_menu(self, pos: Any) -> None:
+        """Menu contextuel granulaire pour le tableau des cartes."""
+        row = self.results_table.rowAt(pos.y())
+        selected_rows = {idx.row() for idx in self.results_table.selectedIndexes()}
+        menu = QMenu(self)
+
+        if len(selected_rows) > 1:
+            act_val_sel = menu.addAction(f"Valider la sélection ({len(selected_rows)})")
+            act_val_sel.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
+            act_val_sel.triggered.connect(self._on_validate_card)
+
+            act_rej_sel = menu.addAction(f"Rejeter la sélection ({len(selected_rows)})")
+            act_rej_sel.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+            act_rej_sel.triggered.connect(self._on_reject_card)
+
+            act_reset_sel = menu.addAction(f"Remettre en attente ({len(selected_rows)})")
+            act_reset_sel.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
+            act_reset_sel.triggered.connect(self._on_reset_table_selection)
+            menu.addSeparator()
+        elif row >= 0:
+            act_accept = menu.addAction("Valider la carte (V)")
+            act_accept.setIcon(load_phosphor_icon("ph.check", color=DesignTokens.COLOR_GREEN))
+            act_accept.triggered.connect(lambda _=False, r=row: self._set_card_status(r, "Validée"))
+
+            act_reject = menu.addAction("Rejeter la carte (R)")
+            act_reject.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+            act_reject.triggered.connect(lambda _=False, r=row: self._set_card_status(r, "Refusée"))
+
+            act_reset = menu.addAction("Remettre en attente")
+            act_reset.setIcon(load_phosphor_icon("ph.arrow-counter-clockwise", color=DesignTokens.COLOR_YELLOW))
+            act_reset.triggered.connect(lambda _=False, r=row: self._set_card_status(r, "À valider"))
+
+            act_edit = menu.addAction("Éditer la carte... (E)")
+            act_edit.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+            act_edit.triggered.connect(self._on_edit_card)
+            menu.addSeparator()
+
+        act_all = menu.addAction("Tout valider")
+        act_all.setIcon(load_phosphor_icon("ph.checks", color=DesignTokens.COLOR_GREEN))
+        act_all.triggered.connect(self._on_mark_all_accepted)
+
+        menu.exec(self.results_table.viewport().mapToGlobal(pos))
+
+    def _set_card_status(self, row_idx: int, status: str) -> None:
+        if 0 <= row_idx < len(self.generated_cards):
+            self.generated_cards[row_idx]["status"] = status
+            self._populate_results_table()
+            self._refresh_save_button()
+            self.current_preview_index = row_idx
+            self.results_table.selectRow(row_idx)
+            self._update_card_preview()
+
+    def _on_reset_table_selection(self) -> None:
+        selected_rows = {idx.row() for idx in self.results_table.selectedIndexes()}
+        for r in selected_rows:
+            if 0 <= r < len(self.generated_cards):
+                self.generated_cards[r]["status"] = "À valider"
+        self._populate_results_table()
+        self._refresh_save_button()
+        self._update_card_preview()
 
     @Slot()
     def _on_save_anki(self) -> None:

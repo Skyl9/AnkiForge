@@ -293,6 +293,46 @@ def test_orchestrator_notes_json_format():
     assert "Back" in provider.calls[0]["system"]
 
 
+def test_llm_prompt_empty_input_variable_falls_back_to_source(qtbot: Any) -> None:
+    """input_variable absente/vide ne doit plus produire un prompt utilisateur vide (régressions batchfactory)."""
+    pipeline = PipelineModel.create(name="Pipeline Input Variable Manquante")
+    persona = PersonaModel.create(
+        name="Archiviste Test Manquant",
+        system_prompt="Archiviste: génère des notes JSON.",
+        output_format="json",
+    )
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        persona=persona,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"input_variable": "generated_cards", "output_variable": "sortie"}),
+    )
+
+    provider = DummyProvider({"Archiviste:": '{"notes": [{"Front": "Q1", "Back": "A1"}]}'})
+
+    source_text = "## 2. Principe d'Incertitude d'Heisenberg\nDelta x * Delta p >= hbar / 2."
+    initial_state = PipelineRunState(document_id=1, initial_prompt=source_text)
+    initial_state.set_variable("text_source", source_text)
+
+    orchestrator = PipelineOrchestrator(
+        pipeline_id=pipeline.id,
+        initial_state=initial_state,
+        ai_provider=provider,
+    )
+    finished_states: list[Any] = []
+    orchestrator.signals.pipeline_finished.connect(lambda st: finished_states.append(st))
+    orchestrator.run()
+
+    assert len(finished_states) == 1
+    assert provider.calls, "Le provider aurait dû être appelé."
+    assert provider.calls[0]["user"] == source_text
+    cards = finished_states[0].get_variable("generated_cards", [])
+    assert len(cards) == 1
+    assert cards[0]["Front"] == "Q1"
+    assert cards[0]["Back"] == "A1"
+
+
 def test_orchestrator_multi_model_jinja_and_parsing():
     """Vérifie le rendu de {{ available_card_models }} et l'extraction multi-modèles."""
     from ankiforge.database.models import NoteTypeModel

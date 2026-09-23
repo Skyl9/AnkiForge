@@ -1513,7 +1513,7 @@ class DocumentDelimitationDialog(QDialog):
     Sauvegarde durablement les bornes et exclut le bruit de la couverture et du RAG.
     """
 
-    def __init__(self, doc: DocumentModel, context: str = "global", parent: QWidget | None = None) -> None:
+    def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         if getattr(doc, "id", None):
             try:
@@ -1521,7 +1521,6 @@ class DocumentDelimitationDialog(QDialog):
             except Exception as err:
                 logger.debug("Rechargement du document de délimitation ignoré : %s", err)
         self.doc = doc
-        self.context = context
         self._chunk_cards: dict[int, int] = {}
         self._page_cards: dict[int, int] = {}
         self._hash_cards: dict[str, int] = {}
@@ -1593,7 +1592,7 @@ class DocumentDelimitationDialog(QDialog):
         self._chapter_cards: list[ChapterCardWidget] = []
         self._tree_nodes: list[HeadingTreeNode] = []
 
-        win_title = f"Découpage & Délimitation pour génération par lots — {doc.title}" if self.context == "batch" else f"Délimitation & Assainissement global — {doc.title}"
+        win_title = f"Délimitation & Assainissement global — {doc.title}"
         self.setWindowTitle(win_title)
         self.resize(1280, 780)
         self.setMinimumSize(960, 600)
@@ -2368,7 +2367,7 @@ class DocumentDelimitationDialog(QDialog):
         footer.addWidget(self.btn_reset)
         footer.addWidget(btn_cancel)
 
-        apply_text = "Valider le découpage pour le lot" if self.context == "batch" else "Enregistrer la délimitation globale"
+        apply_text = "Enregistrer la délimitation globale"
         btn_apply = PrimaryButton(apply_text)
         btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
         btn_apply.clicked.connect(self._on_apply)

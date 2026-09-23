@@ -16,6 +16,8 @@ with contextlib.suppress(Exception):
 from ankiforge.database.models import (
     AICacheModel,
     AuditRecordModel,
+    BatchRunModel,
+    BatchTaskModel,
     CardModel,
     ConsultantMessageModel,
     ConsultantSessionModel,
@@ -82,6 +84,8 @@ def mock_db():
         PipelineRunModel,
         PipelineStepModel,
         PythonToolModel,
+        BatchRunModel,
+        BatchTaskModel,
         FolderModel,
         DocumentModel,
         DocumentPageModel,

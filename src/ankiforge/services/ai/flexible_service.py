@@ -18,6 +18,8 @@ _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _DEFAULT_TIMEOUT_SECONDS = 60000.0
 _DEFAULT_MAX_RETRIES = 2
 
+_FALLBACK_SYSTEM_PROMPT = "Vous êtes un assistant IA utile, concis et précis. Répondez en français sauf indication contraire."
+
 
 def _ollama_base_url() -> str:
     """Retourne l'URL locale d'Ollama configurée (validée anti-SSRF, repli sur localhost)."""
@@ -103,6 +105,46 @@ class OpenAICompatibleProvider(LLMProvider):
             return "ollama"
         return "openai"
 
+    @staticmethod
+    def _ensure_system_prompt(system_prompt: str | None) -> str:
+        """Garantit un prompt système non vide.
+
+        Certaines passerelles (OpenRouter/NVIDIA NIM…) convertissent chaque message en
+        « content parts » et rejettent les parties de texte non typées : un contenu système
+        vide devient alors une partie ``{"type": "text", "text": null}`` (HTTP 400).
+        """
+        text = str(system_prompt or "").strip()
+        return text if text else _FALLBACK_SYSTEM_PROMPT
+
+    @staticmethod
+    def _sanitize_user_prompt(user_prompt: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+        """Normalise le contenu utilisateur pour ne jamais expédier de partie de texte nulle.
+
+        - ``str`` : transmis tel quel (format le plus compatible).
+        - ``list`` : chaque partie texte doit porter un ``"text"`` de type ``str`` ; les parties
+          sans texte ou images invalides sont retirées du flux.
+        """
+        if isinstance(user_prompt, str):
+            return user_prompt
+        if not isinstance(user_prompt, list):
+            return str(user_prompt or "")
+        parts: list[dict[str, Any]] = []
+        for item in user_prompt or []:
+            if not isinstance(item, dict):
+                continue
+            part_type = str(item.get("type") or "text")
+            if part_type == "text":
+                text = item.get("text")
+                if text is None:
+                    continue
+                parts.append({"type": "text", "text": str(text)})
+            elif part_type == "image_url":
+                url_val = item.get("image_url")
+                url = str(url_val.get("url") or "") if isinstance(url_val, dict) else ""
+                if url:
+                    parts.append({"type": "image_url", "image_url": {"url": url}})
+        return parts if parts else ""
+
     def generate(
         self,
         system_prompt: str,
@@ -128,8 +170,8 @@ class OpenAICompatibleProvider(LLMProvider):
             RuntimeError: En cas d'échec de la communication avec l'API.
         """
         messages = [
-            ChatCompletionSystemMessageParam(role="system", content=system_prompt),
-            ChatCompletionUserMessageParam(role="user", content=cast(Any, user_prompt)),
+            ChatCompletionSystemMessageParam(role="system", content=self._ensure_system_prompt(system_prompt)),
+            ChatCompletionUserMessageParam(role="user", content=cast(Any, self._sanitize_user_prompt(user_prompt))),
         ]
         try:
             effective_max = max_tokens or self.max_tokens
@@ -363,7 +405,7 @@ class AnthropicProvider(LLMProvider):
         else:
             for item in user_prompt:
                 if item.get("type") == "text":
-                    anthropic_content.append({"type": "text", "text": item.get("text", "")})
+                    anthropic_content.append({"type": "text", "text": str(item.get("text") or "")})
                 elif item.get("type") == "image_url":
                     url = item.get("image_url", {}).get("url", "")
                     if "base64," in url:

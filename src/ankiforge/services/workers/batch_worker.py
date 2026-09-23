@@ -8,12 +8,27 @@ from typing import Any
 from PySide6.QtCore import QThread, Signal
 
 from ankiforge.database.models import PersonaModel, PipelineStepModel
+from ankiforge.services.ai.base import MockProvider
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.ai.orchestrator import PipelineOrchestrator, PipelineRunState
 from ankiforge.services.ai.utils import extract_cards_from_data, normalize_card_fields
 from ankiforge.services.batch.models import BatchTaskSnapshot, BatchTaskStatus
 
 logger = logging.getLogger(__name__)
+
+# Nombre maximal de relances manuelles autorisées pour une tâche en échec.
+MAX_RETRY_ATTEMPTS = 3
+
+
+def require_real_provider(provider: Any, provider_name: str) -> None:
+    """Interdit le repli silencieux sur MockProvider en mode batch (cartes factices).
+
+    Seul un provider explicitement nommé "mock" (développement / tests) est toléré.
+    """
+    if isinstance(provider, MockProvider) and str(provider_name).lower() != "mock":
+        raise RuntimeError(
+            "Fournisseur d'IA non configuré ou échoué (fallback MockProvider désactivé en mode batch). Vérifiez la clé API et le moteur sélectionné dans Paramètres → Moteurs IA.",
+        )
 
 
 @dataclass
@@ -63,7 +78,7 @@ class BatchWorker(QThread):
     task_failed = Signal(int, str)  # task_idx, error_message
     task_review_ready = Signal(int, list)  # task_idx, prepared_notes (mode staging)
     task_accepted = Signal(int, int)  # task_idx, cards_count (mode auto-validation)
-    task_state_changed = Signal(str, str)
+    task_state_changed = Signal(int, str)  # queue_index, BatchTaskStatus.value
 
     # Signaux globaux du batch
     log = Signal(str, str)  # level ("INFO", "SUCCESS", "WARN", "ERROR"), message
@@ -103,16 +118,37 @@ class BatchWorker(QThread):
         return task.status == BatchTaskStatus.FAILED and task.attempt < 3
 
     def run(self) -> None:
-        """Exécute séquentiellement chaque tâche de la file d'attente."""
-        if self.tasks and all(isinstance(task, BatchTaskSnapshot) for task in self.tasks):
-            self._run_scope_snapshots([task for task in self.tasks if isinstance(task, BatchTaskSnapshot)])
-            return
+        """Exécute séquentiellement chaque tâche de la file d'attente (scopes puis legacy)."""
+        self._snapshot_index_by_id = {task.task_id: index for index, task in enumerate(self.tasks) if isinstance(task, BatchTaskSnapshot)}
+        snapshots = [task for task in self.tasks if isinstance(task, BatchTaskSnapshot)]
         legacy_tasks = [task for task in self.tasks if isinstance(task, BatchTaskPayload)]
+
+        total_success = 0
+        total_error = 0
+        total_cards = 0
+
+        if snapshots:
+            s_count, e_count, c_count = self._run_scope_snapshots(snapshots)
+            total_success += s_count
+            total_error += e_count
+            total_cards += c_count
+        if legacy_tasks:
+            s_count, e_count, c_count = self._run_legacy_tasks(legacy_tasks)
+            total_success += s_count
+            total_error += e_count
+            total_cards += c_count
+
+        self.log.emit(
+            "SUCCESS",
+            f"\n{'═' * 50}\n🏁 Traitement par lots terminé !\n  Total réussis : {total_success} | Échecs : {total_error} | Cartes générées : {total_cards}\n{'═' * 50}",
+        )
+        self.batch_finished.emit(total_success, total_error, total_cards)
+        self.finished.emit(total_success, total_error)
+
+    def _run_legacy_tasks(self, legacy_tasks: list[BatchTaskPayload]) -> tuple[int, int, int]:
         total_tasks = len(legacy_tasks)
         if total_tasks == 0:
-            self.batch_finished.emit(0, 0, 0)
-            self.finished.emit(0, 0)
-            return
+            return 0, 0, 0
 
         success_count = 0
         error_count = 0
@@ -126,7 +162,7 @@ class BatchWorker(QThread):
                 logger.info("Traitement par lots interrompu par l'utilisateur.")
                 self.log.emit("WARN", "⏹ Traitement par lots interrompu par l'utilisateur.")
                 self.cancelled.emit()
-                return
+                return success_count, error_count, total_cards_generated
 
             if self.resume_incomplete and task.extra_metadata.get("status") in ("Succès", "success", "Terminé"):
                 success_count += 1
@@ -159,6 +195,7 @@ class BatchWorker(QThread):
                     api_key=api_key,
                     max_tokens=max_tokens,
                 )
+                require_real_provider(active_provider, provider_name)
 
                 # 2. Chargement des étapes du pipeline DAG
                 steps = list(PipelineStepModel.select().where(PipelineStepModel.pipeline == task.pipeline_id).order_by(PipelineStepModel.step_order.asc()))
@@ -276,7 +313,7 @@ class BatchWorker(QThread):
                     total_cards_generated += task_cards_count
                     self.task_completed.emit(task.task_index, prepared_notes, task_cards_count)
                     self.batch_data_ready.emit(prepared_notes, task.deck_id, task.model_id, task.doc_id)
-                    if task.auto_validation:
+                    if task.auto_validation and not orchestrator.state.get_variable("_batch_human_validation_bypassed", False):
                         # Mode validation automatique : les cartes sont prêtes pour la
                         # persistance immédiate, aucune revue staging nécessaire.
                         self.task_accepted.emit(task.task_index, task_cards_count)
@@ -304,26 +341,22 @@ class BatchWorker(QThread):
             progress_pct = int(((current_idx + 1) / total_tasks) * 100)
             self.progress_val.emit(progress_pct)
 
-        self.log.emit(
-            "SUCCESS",
-            f"\n{'═' * 50}\n🏁 Traitement par lots terminé !\n  Total réussis : {success_count} | Échecs : {error_count} | Cartes générées : {total_cards_generated}\n{'═' * 50}",
-        )
-        self.batch_finished.emit(success_count, error_count, total_cards_generated)
-        self.finished.emit(success_count, error_count)
+        return success_count, error_count, total_cards_generated
 
-    def _run_scope_snapshots(self, tasks: list[BatchTaskSnapshot]) -> None:
-        """Execute the new scope-based protocol without persisting review results."""
+    def _run_scope_snapshots(self, tasks: list[BatchTaskSnapshot]) -> tuple[int, int, int]:
+        """Execute the scope-based protocol and synchronise the task status with the UI."""
         success_count = 0
         error_count = 0
         total_cards = 0
         provider_cache: dict[tuple[str, str, int], Any] = {}
 
         for index, task in enumerate(tasks):
+            queue_index = self._snapshot_index_by_id.get(task.task_id, index)
             if self._is_cancelled:
                 for rem in tasks[index:]:
                     if rem.status not in (BatchTaskStatus.ACCEPTED, BatchTaskStatus.REVIEW):
                         rem.status = BatchTaskStatus.CANCELLED
-                        self.task_state_changed.emit(rem.task_id, rem.status.value)
+                        self.task_state_changed.emit(self._snapshot_index_by_id.get(rem.task_id, index), rem.status.value)
                 self.cancelled.emit()
                 break
 
@@ -334,8 +367,8 @@ class BatchWorker(QThread):
 
             task.status = BatchTaskStatus.RUNNING
             task.attempt += 1
-            self.task_state_changed.emit(task.task_id, task.status.value)
-            self.task_started.emit(index, task.scope.scope_title)
+            self.task_state_changed.emit(queue_index, task.status.value)
+            self.task_started.emit(queue_index, task.scope.scope_title)
             try:
                 config = task.config
                 llm_cfg = config.llm_config
@@ -349,6 +382,7 @@ class BatchWorker(QThread):
                         max_tokens=config.max_tokens,
                     )
                     provider_cache[provider_key] = provider
+                require_real_provider(provider, provider_key[0])
 
                 steps = list(PipelineStepModel.select().where(PipelineStepModel.pipeline == config.pipeline_id).order_by(PipelineStepModel.step_order.asc()))
                 if not steps:
@@ -367,6 +401,9 @@ class BatchWorker(QThread):
                         "deck_id": config.deck_id,
                         "model_id": config.model_id,
                         "auto_validation": config.auto_validation,
+                        "use_vision": config.use_vision,
+                        "temperature": config.temperature,
+                        "max_tokens": config.max_tokens,
                         "strict_source_grounding": config.strict_source_grounding,
                     },
                 )
@@ -382,8 +419,11 @@ class BatchWorker(QThread):
                 )
                 self._active_orchestrator = orchestrator
                 total_steps = len(steps)
-                orchestrator.signals.step_started.connect(lambda order, desc, i=index, tot=total_steps: self.task_progress.emit(i, int(((order - 1) / max(1, tot)) * 100), f"Étape {order}/{tot}..."))
-                orchestrator.signals.step_progress.connect(lambda cur, tot, detail, i=index: self.task_progress.emit(i, int((cur / max(1, tot)) * 100), detail))
+                orchestrator.signals.step_started.connect(
+                    lambda order, desc, i=queue_index, tot=total_steps: self.task_progress.emit(i, int(((order - 1) / max(1, tot)) * 100), f"Étape {order}/{tot}...")
+                )
+                orchestrator.signals.step_progress.connect(lambda cur, tot, detail, i=queue_index: self.task_progress.emit(i, int((cur / max(1, tot)) * 100), detail))
+                orchestrator.signals.human_validation_required.connect(lambda st, orch=orchestrator, t=task: self._on_snapshot_human_validation_required(t, orch, st))
                 orchestrator.run()
                 if state.errors:
                     raise RuntimeError("; ".join(state.errors))
@@ -396,35 +436,34 @@ class BatchWorker(QThread):
                     card.setdefault("_source_page_number", scope_page)
                     card.setdefault("_source_chunk_id", None)
                     card.setdefault("_documentation_enabled", True)
-                if config.auto_validation:
+                if config.auto_validation and not state.get_variable("_batch_human_validation_bypassed", False):
                     # Mode validation automatique : persistance immédiate, sans staging.
                     task.status = BatchTaskStatus.ACCEPTED
                     success_count += 1
                     total_cards += len(task.cards)
-                    self.task_accepted.emit(index, len(task.cards))
-                    self.task_completed.emit(index, task.cards, len(task.cards))
-                    self.task_state_changed.emit(task.task_id, task.status.value)
+                    self.task_accepted.emit(queue_index, len(task.cards))
+                    self.task_completed.emit(queue_index, task.cards, len(task.cards))
+                    self.task_state_changed.emit(queue_index, task.status.value)
                 else:
                     # Mode staging : cartes prêtes pour la revue utilisateur.
                     task.status = BatchTaskStatus.REVIEW
                     success_count += 1
                     total_cards += len(task.cards)
-                    self.task_review_ready.emit(index, task.cards)
-                    self.task_completed.emit(index, task.cards, len(task.cards))
-                    self.task_state_changed.emit(task.task_id, task.status.value)
+                    self.task_review_ready.emit(queue_index, task.cards)
+                    self.task_completed.emit(queue_index, task.cards, len(task.cards))
+                    self.task_state_changed.emit(queue_index, task.status.value)
             except Exception as exc:
                 task.status = BatchTaskStatus.FAILED
                 task.error = str(exc)
                 error_count += 1
-                self.task_failed.emit(index, task.error)
-                self.task_state_changed.emit(task.task_id, task.status.value)
+                self.task_failed.emit(queue_index, task.error)
+                self.task_state_changed.emit(queue_index, task.status.value)
                 logger.exception("Échec de la portée Batch %s", task.task_id)
             finally:
                 self._active_orchestrator = None
                 self.progress_val.emit(int(((index + 1) / max(1, len(tasks))) * 100))
 
-        self.batch_finished.emit(success_count, error_count, total_cards)
-        self.finished.emit(success_count, error_count)
+        return success_count, error_count, total_cards
 
     def _on_step_started(self, task: BatchTaskPayload, step_order: int, total_steps: int, desc: str) -> None:
         pct = int(((step_order - 1) / max(1, total_steps)) * 100)
@@ -444,7 +483,27 @@ class BatchWorker(QThread):
         self.log.emit("SUCCESS", f"  [{task.doc_title}] ✅ Étape {step_order} terminée ({dur:.2f}s)")
 
     def _on_human_validation_required(self, task: BatchTaskPayload, orchestrator: PipelineOrchestrator, state: PipelineRunState) -> None:
-        self.log.emit("INFO", f"  [{task.doc_title}] ⏩ Validation humaine auto-validée (mode batch activé).")
+        logger.warning(
+            "HUMAN_VALIDATION contournée en mode batch pour la tâche '%s' : repasse en revue staging. Les étapes de validation intrusive sont incompatibles avec l'exécution par lots.",
+            task.doc_title,
+        )
+        self.log.emit(
+            "WARN",
+            f"  [{task.doc_title}] ⚠️ Validation humaine requise — contournée pour compatibilité batch, les cartes seront dirigées vers la revue.",
+        )
+        state.set_variable("_batch_human_validation_bypassed", True)
+        orchestrator.resume(state)
+
+    def _on_snapshot_human_validation_required(self, task: BatchTaskSnapshot, orchestrator: PipelineOrchestrator, state: PipelineRunState) -> None:
+        logger.warning(
+            "HUMAN_VALIDATION contournée en mode batch (scope '%s') : les cartes seront dirigées vers la revue.",
+            task.scope.scope_title,
+        )
+        self.log.emit(
+            "WARN",
+            f"⚠️ [{task.scope.scope_title}] Validation humaine requise — contournée pour compatibilité batch, les cartes seront dirigées vers la revue.",
+        )
+        state.set_variable("_batch_human_validation_bypassed", True)
         orchestrator.resume(state)
 
     @staticmethod

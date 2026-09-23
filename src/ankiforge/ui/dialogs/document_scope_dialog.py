@@ -12,7 +12,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -75,13 +75,17 @@ def _safe_int(val: Any, default: int = 1) -> int:
         return default
 
 
-class DocumentScopeDialog(QDialog):
+class DocumentScopeWidget(QWidget):
     """
-    Modale de sélection de la portée de génération pour CreationView et BatchView.
+    Widget de sélection de la portée de génération pour CreationView (via DocumentScopeDialog)
+    et BatchView (via BatchSliceComposerDialog).
     - Donne accès uniquement aux parties filtrées/utiles du document.
     - Le slider de portée n'est affiché qu'en mode 'Plage personnalisée' sur documents paginés.
     - Non destructif pour la BDD (ne modifie pas DocumentModel ni DocumentChunkModel).
+    - Signale les changements de sélection en temps réel via scope_changed (mode live).
     """
+
+    scope_changed = Signal(dict)
 
     def __init__(
         self,
@@ -187,6 +191,7 @@ class DocumentScopeDialog(QDialog):
         self._update_kpi()
 
     def _setup_window(self) -> None:
+        self.setObjectName("scopeRoot")
         title_prefix = "Portée de génération (Pages & Segments)" if self.is_paginated else "Portée de génération (Sections)"
         self.setWindowTitle(f"{title_prefix} — {self.doc.title}")
         self.resize(1240, 750)
@@ -195,7 +200,7 @@ class DocumentScopeDialog(QDialog):
         check_icon_path = str(get_resource_path("src", "ressources", "icons", "check_white.svg")).replace("\\", "/")
         dash_icon_path = str(get_resource_path("src", "ressources", "icons", "dash_white.svg")).replace("\\", "/")
         self.setStyleSheet(f"""
-            QDialog {{
+            QWidget#scopeRoot {{
                 background-color: {DesignTokens.BG_MAIN};
                 color: {DesignTokens.TEXT_PRIMARY};
             }}
@@ -1055,15 +1060,6 @@ class DocumentScopeDialog(QDialog):
             self.lbl_context_tokens.hide()
             self.token_progress.hide()
         footer.addStretch()
-
-        btn_cancel = SecondaryButton("Annuler")
-        btn_cancel.clicked.connect(self.reject)
-        footer.addWidget(btn_cancel)
-
-        btn_apply = PrimaryButton("Valider la sélection pour la génération")
-        btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
-        btn_apply.clicked.connect(self._on_apply)
-        footer.addWidget(btn_apply)
 
         layout.addLayout(footer)
 
@@ -2196,7 +2192,204 @@ class DocumentScopeDialog(QDialog):
         )
         self.lbl_context_tokens.setText(f"Contexte : ~{selected_tokens:,} / {self._context_limit:,} tokens".replace(",", " "))
 
-    def _on_apply(self) -> None:
+    # ── Inférence des « parties » agrégées (mode Direct du composer batch) ──────────────────────
+
+    def _row_is_active(self, index: int) -> bool:
+        """Vrai si la ligne contribue à la sélection : cochée, ou partiellement cochée sans exclusion manuelle.
+
+        Même règle que ``_selected_chunks_for_mode`` afin de rester cohérent avec la vue finale.
+        """
+        meta = self._section_meta.get(index)
+        item = self.sections_list.item(index)
+        if meta is None or item is None:
+            return False
+        state = item.checkState(0)
+        if state == Qt.CheckState.Checked:
+            return True
+        return state == Qt.CheckState.PartiallyChecked and index not in self._manually_deselected_indices
+
+    @staticmethod
+    def _heading_key(*paths: Any) -> str:
+        """Clé de chemin de titre normalisée (idempotente) pour regrouper les fragments d'une même section."""
+        for p in paths:
+            txt = str(p or "").strip()
+            if txt:
+                return MarkdownStructurer.clean_heading_title(txt)
+        return ""
+
+    def _own_fragments(self, index: int) -> list[dict[str, Any]]:
+        """Fragments propres d'un nœud : le fragment attaché + ses jumeaux partageant le même chemin.
+
+        ``build_tree_from_chunks`` fusionne les découpes successives d'une même section (même
+        heading_path) dans un nœud unique mais ne conserve que le ``chunk_index`` du premier
+        fragment ; cette méthode récupère l'intégralité des fragments pour reconstituer une partie.
+        """
+        meta = self._section_meta.get(index)
+        if not meta:
+            return []
+        attached = meta.get("chunk")
+        if not isinstance(attached, dict):
+            return []
+        key = self._heading_key(meta.get("heading_path"), meta.get("title"))
+        fragments: list[dict[str, Any]] = []
+        if key:
+            for chunk in self._useful_chunks:
+                if self._heading_key(chunk.get("heading_path"), chunk.get("title")) == key and chunk not in fragments:
+                    fragments.append(chunk)
+        if attached not in fragments:
+            fragments.insert(0, attached)
+        return fragments
+
+    def _subtree_rows(self, item: QTreeWidgetItem) -> list[int]:
+        rows: list[int] = []
+
+        def _walk(it: QTreeWidgetItem) -> None:
+            row = self.sections_list.row(it)
+            if row >= 0:
+                rows.append(row)
+            for c in range(it.childCount()):
+                _walk(it.child(c))
+
+        _walk(item)
+        return rows
+
+    def _subtree_fully_active(self, item: QTreeWidgetItem) -> bool:
+        return all(self._row_is_active(row) for row in self._subtree_rows(item))
+
+    def _aggregate_part(self, rows: list[int]) -> dict[str, Any]:
+        """Assemble une partie agrégée (contenu joint, tokens, fragments sources) depuis des lignes ordonnées."""
+        fragments: list[dict[str, Any]] = []
+        for index in rows:
+            for frag in self._own_fragments(index):
+                if frag not in fragments:
+                    fragments.append(frag)
+        chunks = [f for f in fragments if has_substantive_content(f)]
+        pieces = [str(f.get("content", "")).strip() for f in chunks if str(f.get("content", "")).strip()]
+        first_meta = self._section_meta.get(rows[0], {}) if rows else {}
+        return {
+            "index": rows[0] if rows else 0,
+            "title": str(first_meta.get("title") or first_meta.get("heading_path") or ""),
+            "heading_path": str(first_meta.get("heading_path") or first_meta.get("title") or ""),
+            "page_number": first_meta.get("page_number"),
+            "content": "\n\n".join(pieces),
+            "tokens": sum(int(f.get("tokens") or 0) for f in chunks),
+            "chunks": chunks,
+        }
+
+    def _merge_intro_into_first_child(self, part: dict[str, Any], index: int) -> None:
+        """Fusionne le texte d'introduction propre d'un parent dans sa première partie enfant active."""
+        own = self._own_fragments(index)
+        own_chunks = [f for f in own if has_substantive_content(f)]
+        own_content = "\n\n".join(str(f.get("content", "")).strip() for f in own_chunks if str(f.get("content", "")).strip())
+        if not own_content:
+            return
+        part["content"] = f"{own_content}\n\n{part.get('content', '')}" if part.get("content") else own_content
+        part["tokens"] = int(part.get("tokens") or 0) + sum(int(f.get("tokens") or 0) for f in own_chunks)
+        part["chunks"] = own_chunks + list(part.get("chunks") or [])
+
+    def _parts_from_sections(self) -> list[dict[str, Any]]:
+        """Découpe la sélection en parties agrégées : 1 partie = 1 branche (feuille ou sous-arbre) entièrement active.
+
+        Pour une branche partiellement cochée, l'introduction propre du parent est fusionnée dans la
+        première partie enfant active ; à défaut d'enfant actif, la portion propre devient une partie.
+        """
+        parts: list[dict[str, Any]] = []
+
+        def _build(item: QTreeWidgetItem) -> None:
+            row = self.sections_list.row(item)
+            if item.childCount() == 0:
+                if self._row_is_active(row):
+                    parts.append(self._aggregate_part([row]))
+                return
+            if self._subtree_fully_active(item):
+                parts.append(self._aggregate_part(self._subtree_rows(item)))
+                return
+            child_start = len(parts)
+            child_added = False
+            for c in range(item.childCount()):
+                before = len(parts)
+                _build(item.child(c))
+                if len(parts) > before:
+                    child_added = True
+            if self._row_is_active(row) and has_substantive_content({"content": "\n\n".join(str(f.get("content", "")).strip() for f in self._own_fragments(row))}):
+                if child_added:
+                    self._merge_intro_into_first_child(parts[child_start], row)
+                else:
+                    parts.append(self._aggregate_part([row]))
+
+        for t in range(self.sections_list.topLevelItemCount()):
+            _build(self.sections_list.topLevelItem(t))
+        return parts
+
+    def _parts_from_chapters(self) -> list[dict[str, Any]]:
+        """Une partie par chapitre actif : agrégation de toutes les lignes du chapitre (filtres pages déjà appliqués)."""
+        if getattr(self, "_chapter_cards", []):
+            selected_roots = {card.chapter_index for card in self._chapter_cards if card.is_checked()}
+        else:
+            start = self.combo_c_start.currentIndex() if hasattr(self, "combo_c_start") else -1
+            end = self.combo_c_end.currentIndex() if hasattr(self, "combo_c_end") else -1
+            selected_roots = set(range(start, end + 1)) if start >= 0 and end >= 0 else set()
+        rows_by_root: dict[int, list[int]] = {}
+        for i in range(self.sections_list.count()):
+            meta = self._section_meta.get(i)
+            if not meta:
+                continue
+            root = meta.get("root_index")
+            if root is None or int(root) not in selected_roots:
+                continue
+            rows_by_root.setdefault(int(root), []).append(i)
+        parts: list[dict[str, Any]] = []
+        for root in sorted(rows_by_root):
+            rows = rows_by_root[root]
+            if rows:
+                parts.append(self._aggregate_part(rows))
+        return parts
+
+    def _parts_from_pages(self) -> list[dict[str, Any]]:
+        """Agrège la sélection de pages en UNE partie unique (1 partie = 1 tâche en mode Direct).
+
+        Les fragments des pages choisies sont joints en un point de données unique : le batch
+        produit une tâche pour l'ensemble des pages sélectionnées, pas une tâche par fragment.
+        """
+        chunks = [c for c in self._selected_chunks_for_mode() if has_substantive_content(c)]
+        if not chunks:
+            return []
+        pieces = [str(c.get("content", "")).strip() for c in chunks if str(c.get("content", "")).strip()]
+        pages = sorted({int(c.get("page_number") or 1) for c in chunks})
+        if self.is_paginated and pages:
+            sp, ep = pages[0], pages[-1]
+            full_scope = set(range(self._delimited_start_page, self._delimited_end_page + 1))
+            if set(pages) == full_scope:
+                title = "Tout le document utile"
+            elif sp == ep:
+                title = f"Page {sp}"
+            else:
+                title = f"Pages {format_page_ranges(set(pages))}"
+        else:
+            title = "Document entier"
+            sp = pages[0] if pages else self._delimited_start_page
+        return [
+            {
+                "index": int(chunks[0].get("index") or 0),
+                "title": title,
+                "heading_path": title,
+                "page_number": sp if pages else None,
+                "content": "\n\n".join(pieces),
+                "tokens": sum(int(c.get("tokens") or 0) for c in chunks),
+                "chunks": chunks,
+            }
+        ]
+
+    def _compute_parts(self) -> list[dict[str, Any]]:
+        """Calcule les « parties » sélectionnées (1 partie = 1 tâche en mode Direct du composer batch)."""
+        if self.selection_mode == "pages":
+            return self._parts_from_pages()
+        if self.selection_mode == "chapters":
+            return self._parts_from_chapters()
+        return self._parts_from_sections()
+
+    def _compute_result(self, silent: bool = False) -> dict[str, Any] | None:
+        """Calcule la portée sélectionnée à partir de l'état courant de l'UI."""
         checked_chunks = self._selected_chunks_for_mode()
         selected_chapters: list[int] = [card.chapter_index for card in getattr(self, "_chapter_cards", []) if card.is_checked()]
 
@@ -2204,15 +2397,18 @@ class DocumentScopeDialog(QDialog):
             page_start_val = self.spin_p_start.value()
             page_end_val = self.spin_p_end.value()
             if page_start_val > page_end_val:
-                show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
-                return
+                if not silent:
+                    show_toast(self, "La page de début doit être inférieure ou égale à la page de fin.", is_error=True)
+                return None
             if page_end_val > self._delimited_end_page or any(p > self._delimited_end_page for p in self._selected_pages):
-                show_toast(self, f"La page de fin ne peut pas dépasser la dernière page utile ({self._delimited_end_page}).", is_error=True)
-                return
+                if not silent:
+                    show_toast(self, f"La page de fin ne peut pas dépasser la dernière page utile ({self._delimited_end_page}).", is_error=True)
+                return None
 
         if not checked_chunks:
-            show_toast(self, "Veuillez sélectionner au moins un fragment ou une section.", is_error=True)
-            return
+            if not silent:
+                show_toast(self, "Veuillez sélectionner au moins un fragment ou une section.", is_error=True)
+            return None
 
         if self.selection_mode == "pages":
             if self.is_paginated:
@@ -2276,6 +2472,7 @@ class DocumentScopeDialog(QDialog):
         self._result = {
             "is_all": is_all,
             "chunks": checked_chunks,
+            "parts": self._compute_parts(),
             "scope_title": scope_title,
             "scope_stats": stats_str,
             "range_str": range_str,
@@ -2288,8 +2485,78 @@ class DocumentScopeDialog(QDialog):
             "selected_chapters": selected_chapters,
         }
 
-        self.accept()
+        return self._result
+
+    def _on_apply(self) -> None:
+        """Valide la sélection (avec messages d'erreur) et notifie du résultat."""
+        res = self._compute_result(silent=False)
+        if res is not None:
+            self.scope_changed.emit(res)
+
+    def notify_changed(self) -> None:
+        """Recalcule la portée en silence et notifie (mode live, sans toasts)."""
+        res = self._compute_result(silent=True)
+        if res is not None:
+            self.scope_changed.emit(res)
 
     def get_result(self) -> dict[str, Any]:
         """Retourne la configuration de portée sélectionnée pour la génération."""
         return self._result
+
+
+class DocumentScopeDialog(QDialog):
+    """
+    Modale de sélection de la portée de génération (CreationView).
+    Embarque DocumentScopeWidget et ajoute le pied de validation (Valider / Annuler).
+    Tous les attributs non définis sont délégués au widget embarqué.
+    """
+
+    def __init__(
+        self,
+        doc: DocumentModel,
+        initial_scope_str: str = "",
+        initial_scope_result: dict[str, Any] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.widget = DocumentScopeWidget(
+            doc,
+            initial_scope_str=initial_scope_str,
+            initial_scope_result=initial_scope_result,
+            parent=self,
+        )
+        self.setWindowTitle(self.widget.windowTitle())
+        self.resize(1240, 750)
+        self.setMinimumSize(940, 580)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.widget, 1)
+
+        footer = QHBoxLayout()
+        footer.setContentsMargins(16, 8, 16, 12)
+        footer.setSpacing(10)
+        self.btn_cancel = SecondaryButton("Annuler")
+        self.btn_cancel.clicked.connect(self.reject)
+        self.btn_apply = PrimaryButton("Valider la sélection pour la génération")
+        self.btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
+        self.btn_apply.clicked.connect(self._on_validate_clicked)
+        footer.addStretch()
+        footer.addWidget(self.btn_cancel)
+        footer.addWidget(self.btn_apply)
+        layout.addLayout(footer)
+
+    def _on_validate_clicked(self) -> None:
+        res = self.widget._compute_result(silent=False)
+        if res is not None:
+            self.accept()
+
+    def __getattr__(self, name: str) -> Any:
+        widget = self.__dict__.get("widget")
+        if widget is None:
+            raise AttributeError(name)
+        return getattr(widget, name)
+
+    def get_result(self) -> dict[str, Any]:
+        return self.widget.get_result()
