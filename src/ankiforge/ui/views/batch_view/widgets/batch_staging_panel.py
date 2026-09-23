@@ -10,9 +10,9 @@ Harmonisé sur les principes ergonomiques de CreationView :
       • Droite : Rejeter (R / Suppr), Éditer (E / CardEditDialog), Valider la carte (V / Espace), Rejeter tranche.
   - Raccourcis clavier (V, R, E) et menu contextuel complet.
 
-Signaux émis :
-  - cards_accepted(task_idx: int, accepted_cards: list[dict])
-  - task_rejected(task_idx: int)
+Signaux émis (identifiés par la clé de rangée « _queue_uid », jamais par l'index) :
+  - cards_accepted(task_uid: str, accepted_cards: list[dict])
+  - task_rejected(task_uid: str)
 
 Qt equivalent: QWidget (QSplitter horizontal + barre d'actions)
 """
@@ -65,15 +65,19 @@ class BatchStagingPanel(QWidget):
       • Enregistrer les cartes validées dans AnkiForge avec dialogue de validation globale
     """
 
-    # Signaux vers BatchView
-    cards_accepted = Signal(int, list)  # (task_idx, accepted_cards)
-    task_rejected = Signal(int)  # (task_idx,)
+    # Signaux vers BatchView (portent la clé de rangée, stable même après suppression en amont)
+    cards_accepted = Signal(str, list)  # (task_uid, accepted_cards)
+    task_rejected = Signal(str)  # (task_uid,)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("batchStagingPanel")
 
         self._current_task_idx: int = -1
+        self._current_task_uid: str = ""
+        # Une revue est « actives » dès qu'une tâche est chargée ; la garde anti-écrasement
+        # du flux auto (task_review_ready) repose sur cet état, plus sur la visibilité.
+        self._review_active: bool = False
         self._current_task_data: dict[str, Any] = {}
         self._prepared_notes: list[dict[str, Any]] = []
         self._current_card_idx: int = 0
@@ -81,8 +85,7 @@ class BatchStagingPanel(QWidget):
         self._review_tasks_provider: Callable[[], list[tuple[int, dict[str, Any], list[dict[str, Any]]]]] | None = None
 
         self._setup_ui()
-        self.setMinimumHeight(280)
-        self.setVisible(False)  # masqué jusqu'à la sélection d'une tâche REVIEW
+        self.show_empty_state()
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -121,9 +124,9 @@ class BatchStagingPanel(QWidget):
         header_row.addWidget(self.btn_prev_task)
         header_row.addWidget(self.btn_next_task)
 
-        # Bouton fermer
-        btn_close = IconButton("ph.x", tooltip="Fermer le panneau de revue", size=20)
-        btn_close.clicked.connect(lambda: self.setVisible(False))
+        # Bouton fermer (ferme la revue, pas l'onglet : la tâche reste consultable dans la file)
+        btn_close = IconButton("ph.x", tooltip="Fermer la revue (la tâche reste dans la file)", size=20)
+        btn_close.clicked.connect(lambda: self.show_empty_state("Revue fermée — la tâche reste 'À réviser' dans la file."))
         header_row.addWidget(btn_close)
 
         main_layout.addWidget(header)
@@ -344,15 +347,18 @@ class BatchStagingPanel(QWidget):
 
         Args:
             task_idx: Indice de la tâche dans queue_tasks_data.
-            task_data: Entrée brute de queue_tasks_data[task_idx].
+            task_data: Entrée brute de queue_tasks_data[task_idx] (doit porter `_queue_uid`).
             prepared_notes: Cartes générées (list of field dicts).
             force: Si False (appels automatiques), ne pas écraser une revue en cours.
         """
-        if not force and self.isVisible() and self._current_task_idx != task_idx:
-            logger.info("Revue en cours ignorée : le panneau affiche déjà une autre tâche (statut REVIEW accessible via 'Examiner').")
+        task_uid = str(task_data.get("_queue_uid") or "")
+        if not force and self._review_active and self._current_task_uid and self._current_task_uid != task_uid:
+            logger.info("Revue en cours ignorée : le volet affiche déjà une autre tâche (clé %s).", self._current_task_uid)
             return
 
         self._current_task_idx = task_idx
+        self._current_task_uid = task_uid
+        self._review_active = True
         self._current_task_data = task_data
         self._prepared_notes = [dict(note) for note in prepared_notes]
         self._current_card_idx = 0
@@ -367,8 +373,6 @@ class BatchStagingPanel(QWidget):
 
         self._rebuild_table()
         self._refresh_save_button()
-        self.setVisible(True)
-        self._ensure_splitter_space()
 
         if self._prepared_notes:
             self._select_card(0)
@@ -376,27 +380,24 @@ class BatchStagingPanel(QWidget):
             self.card_preview.set_empty_state("Cliquez sur une carte pour la prévisualiser.")
             self._update_card_preview()
 
-    def _ensure_splitter_space(self) -> None:
-        """Force le QSplitter parent à allouer une vraie hauteur au panneau (sinon taille 0)."""
-        parent = self.parent()
-        if not isinstance(parent, QSplitter):
-            return
-        index = parent.indexOf(self)
-        if index < 0:
-            return
-        sizes = list(parent.sizes())
-        if len(sizes) > index and sizes[index] >= self.minimumHeight():
-            return
-        total = parent.height()
-        wanted = max(self.minimumHeight(), int(total * 0.45))
-        sizes[index] = wanted
-        over = sum(sizes) - total
-        if over > 0:
-            for i in range(len(sizes)):
-                if i != index and sizes[i] >= over:
-                    sizes[i] -= over
-                    break
-        parent.setSizes(sizes)
+    def show_empty_state(self, message: str = "Revue — sélectionnez une tâche 'À réviser' dans la file d'attente.") -> None:
+        """Réinitialise le volet de revue : aucune tâche chargée, table et aperçu vides.
+
+        L'onglet reste affiché (non fermable) ; seule la *revue en cours* est fermée.
+        """
+        self._review_active = False
+        self._current_task_idx = -1
+        self._current_task_uid = ""
+        self._current_task_data = {}
+        self._prepared_notes = []
+        self._current_card_idx = 0
+        self.lbl_title.setText(message)
+        self.lbl_count.setText("")
+        self.cards_table.blockSignals(True)
+        self.cards_table.setRowCount(0)
+        self.cards_table.blockSignals(False)
+        self._refresh_save_button()
+        self._update_card_preview()
 
     def _rebuild_table(self) -> None:
         self.cards_table.blockSignals(True)
@@ -415,8 +416,9 @@ class BatchStagingPanel(QWidget):
 
             # Col 1 : premier champ non-privé (Recto)
             front_text = _get_front_text(note)
-            content_item = QTableWidgetItem(front_text[:120])
-            content_item.setToolTip(front_text)
+            edited = bool(note.get("_user_edited"))
+            content_item = QTableWidgetItem(("✎ " + front_text[:120]) if edited else front_text[:120])
+            content_item.setToolTip((front_text + "\n[Carte modifiée manuellement]") if edited else front_text)
             self.cards_table.setItem(row_idx, 1, content_item)
 
             # Col 2 : nombre de champs
@@ -612,7 +614,7 @@ class BatchStagingPanel(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             updated_fields = dlg.get_fields()
             note.update(updated_fields)
-            note["user_edited"] = True
+            note["_user_edited"] = True  # pastille « modifiée » ; clé interne exclue de la sauvegarde
 
             # Nettoyer les clés fantômes
             if field_names:
@@ -811,8 +813,7 @@ class BatchStagingPanel(QWidget):
         if accepted:
             self._save_and_emit(accepted)
         else:
-            self.task_rejected.emit(self._current_task_idx)
-            self.setVisible(False)
+            self.task_rejected.emit(self._current_task_uid)
 
     @Slot()
     def _on_accept_selection(self) -> None:
@@ -829,12 +830,11 @@ class BatchStagingPanel(QWidget):
 
     @Slot()
     def _on_reject_task(self) -> None:
-        """Rejette l'ensemble des cartes de la tranche et clôture la revue."""
+        """Rejette l'ensemble des cartes de la tranche."""
         for note in self._prepared_notes:
             note["_staging_status"] = "rejected"
         self._rebuild_table()
-        self.task_rejected.emit(self._current_task_idx)
-        self.setVisible(False)
+        self.task_rejected.emit(self._current_task_uid)
 
     def _save_and_emit(self, notes_to_save: list[dict[str, Any]]) -> None:
         """Délègue l'enregistrement en BDD et émet cards_accepted."""
@@ -857,8 +857,7 @@ class BatchStagingPanel(QWidget):
             logger.warning("BatchStagingPanel: aucun callback de sauvegarde configuré.")
 
         self._rebuild_table()
-        self.cards_accepted.emit(self._current_task_idx, clean_notes)
-        self.setVisible(False)
+        self.cards_accepted.emit(self._current_task_uid, clean_notes)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────

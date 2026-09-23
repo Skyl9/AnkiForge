@@ -13,9 +13,10 @@ Qt equivalent: QWidget (QVBoxLayout avec toolbar de filtres + table)
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -70,7 +71,8 @@ class BatchQueueTable(QWidget):
     Tableau de bord de la file d'attente : rendu, filtres par état et actions unitaires.
 
     Signaux émis (re-steering vers BatchView) :
-      - review_requested(row_idx)  → ouvrir la zone de staging
+      - review_requested(row_idx)  → ouvrir la zone de staging (clic simple sur « À réviser »,
+                                    double-clic sur une tranche traitée avec notes pour relire)
       - retry_requested(row_idx)   → relancer une tâche en échec
       - remove_requested(row_idx)  → retirer une tâche de la file
 
@@ -91,6 +93,8 @@ class BatchQueueTable(QWidget):
         self.cell_widgets_map: dict[int, ProgressTableCellWidget] = {}
         self.status_badges_map: dict[int, Badge] = {}
         self.cards_items_map: dict[int, QTableWidgetItem] = {}
+        self._clickable_review_rows: set[int] = set()
+        self._reopen_rows: set[int] = set()
 
         self._build_ui()
 
@@ -174,12 +178,39 @@ class BatchQueueTable(QWidget):
 
         layout.addWidget(self.table, 1)
 
+        self.table.itemClicked.connect(self._on_item_single_clicked)
+        self.table.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.table.viewport().installEventFilter(self)
+
         self.queue_empty = EmptyStateWidget(
             icon_name="ph.tray",
             title="File d'attente vide",
             description="Sélectionnez des documents et configurez la forge à gauche pour ajouter des tâches par lots.",
         )
         layout.addWidget(self.queue_empty, 1)
+
+    # ── File cliquable (T3) ─────────────────────────────────────────────
+
+    def _on_item_single_clicked(self, item: QTableWidgetItem) -> None:
+        """Simple-clic sur une rangée « À réviser » : ouvre la revue."""
+        if item.row() in self._clickable_review_rows and item.row() < len(self._tasks):
+            self.review_requested.emit(item.row())
+
+    def _on_item_double_clicked(self, item: QTableWidgetItem) -> None:
+        """Double-clic sur une rangée traitée avec cartes : relecture."""
+        if item.row() in self._reopen_rows and item.row() < len(self._tasks):
+            self.review_requested.emit(item.row())
+
+    def eventFilter(self, obj: Any, event: Any) -> bool:
+        """Affordance visuelle : curseur « main » sur les rangées ouvrables."""
+        if obj is self.table.viewport() and event.type() == QEvent.Type.MouseMove:
+            pos = cast(QMouseEvent, event).position().toPoint()
+            item = self.table.itemAt(pos)
+            row = item.row() if item is not None else -1
+            cursor = Qt.CursorShape.PointingHandCursor if row in self._clickable_review_rows or row in self._reopen_rows else Qt.CursorShape.ArrowCursor
+            if obj.cursor().shape() != cursor:
+                obj.setCursor(cursor)
+        return super().eventFilter(obj, event)
 
     # ── Rendu ──────────────────────────────────────────────────────────
 
@@ -190,6 +221,8 @@ class BatchQueueTable(QWidget):
         self.cards_items_map.clear()
 
         if not self._tasks:
+            self._clickable_review_rows.clear()
+            self._reopen_rows.clear()
             self.table.setRowCount(0)
             self.table.hide()
             self.queue_empty.show()
@@ -207,6 +240,11 @@ class BatchQueueTable(QWidget):
             status: str = str(task.get("status", "En attente"))
             progress_pct: int = int(task.get("progress_pct", 0))
             cards_count: int = int(task.get("cards_count", 0))
+            has_notes = bool(task.get("_staging_notes"))
+            if status == "À réviser" and has_notes:
+                self._clickable_review_rows.add(i)
+            elif status in ("Succès", "Acceptée", "Partielle", "Rejetée") and has_notes:
+                self._reopen_rows.add(i)
 
             # Col 0: Checkbox
             cb_item = QTableWidgetItem()
@@ -229,6 +267,10 @@ class BatchQueueTable(QWidget):
                 f"Type: {getattr(doc, 'file_type', 'doc') if doc is not None else 'doc'} | "
                 f"Mots: {len(str(task.get('doc_content') or (getattr(doc, 'content', '') if doc is not None else '') or '').split())}"
             )
+            if status == "À réviser" and has_notes:
+                doc_item.setToolTip(doc_item.toolTip() + "\nCliquer pour examiner et valider les cartes.")
+            elif i in self._reopen_rows:
+                doc_item.setToolTip(doc_item.toolTip() + "\nDouble-cliquer pour relire les cartes.")
             self.table.setItem(i, 2, doc_item)
 
             # Cols 3-5: cibles

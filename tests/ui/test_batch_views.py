@@ -1024,23 +1024,29 @@ def test_batch_staging_panel_navigation_and_no_clobber(qtbot: Any) -> None:
     view = BatchTab(ai_manager=None)
     qtbot.addWidget(view)
 
+    # La revue vit dans un onglet permanent du terminal (plus un 3e enfant du splitter)
+    assert view.main_splitter.indexOf(view.staging_panel) == -1, "Le volet de revue n'est plus un enfant du splitter"
+    assert view.terminal_panel.isAncestorOf(view.staging_panel), "Le volet de revue est hébergé par le terminal"
+    assert view.terminal_panel._registered_tabs["Revue"]["closable"] is False, "L'onglet Revue n'est pas fermable"
+    assert view.main_splitter.sizes()[1] > 0, "Le terminal (onglet Revue inclus) doit recevoir une vraie hauteur"
+
     tasks = [
         {"doc": doc, "doc_title": "Doc — Section 1", "status": "À réviser", "_staging_notes": [{"Front": "Q1", "Back": "A1"}]},
         {"doc": doc, "doc_title": "Doc — Section 2", "status": "À réviser", "_staging_notes": [{"Front": "Q2", "Back": "A2"}]},
         {"doc": doc, "doc_title": "Doc — Section 3", "status": "Erreur", "_staging_notes": [{"Front": "Q3", "Back": "A3"}]},
     ]
     view.queue_tasks_data = tasks
+    view._update_queue_table()  # attribue les clés de rangée `_queue_uid` + rend la file
     panel = view.staging_panel
     panel.set_review_tasks_provider(view._staging_task_list)
-
-    # Panel rendu visible pour réellement simuler une revue 'en cours'
-    view.show()
-    qtbot.wait(20)
+    tidx = view._review_tab_idx
+    assert 0 <= tidx < len(view.terminal_panel.tabs_bar.tabs)
+    assert view.main_splitter.sizes()[1] > 0, "Le terminal (onglet Revue inclus) doit recevoir une vraie hauteur"
 
     # Charge une revue puis navigue : la revue en cours N'EST PAS écrasée par un chargement automatique
     panel.load_task(0, tasks[0], tasks[0]["_staging_notes"], force=True)
-    view.main_splitter.sizes()
-    assert len(view.main_splitter.sizes()) == 3 and view.main_splitter.sizes()[2] > 0, "Le panneau de revue doit recevoir une vraie hauteur dans le splitter (régression taille 0)."
+    assert panel._current_task_uid == tasks[0]["_queue_uid"]
+    assert panel._review_active is True
     panel.load_task(1, tasks[1], tasks[1]["_staging_notes"], force=False)
     assert panel._current_task_idx == 0, "Un chargement auto ne doit pas écraser la revue en cours"
     panel.load_task(2, tasks[2], tasks[2]["_staging_notes"], force=True)
@@ -1059,6 +1065,198 @@ def test_batch_staging_panel_navigation_and_no_clobber(qtbot: Any) -> None:
     assert panel._prepared_notes[0]["_staging_status"] == "rejected"
     panel._toggle_card_status(0, "rejected")
     assert panel._prepared_notes[0]["_staging_status"] == "pending"
+
+
+def test_batch_review_onglet_permanent_et_logs_par_defaut(qtbot: Any) -> None:
+    """L'onglet « Revue » est permanent dans le terminal ; les logs restent l'onglet actif par défaut."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    assert view._review_tab_idx >= 0
+    assert "Revue" in view.terminal_panel._registered_tabs
+    assert view.terminal_panel._registered_tabs["Revue"]["closable"] is False
+    # Onglet actif par défaut = logs (pas la revue)
+    assert view.terminal_panel.content_stack.currentIndex() == view._logs_tab_idx
+    # Bascule vers la revue puis retour aux logs : fonctionne sans clobber
+    view._focus_review_tab()
+    assert view.terminal_panel.content_stack.currentIndex() == view._review_tab_idx
+    view.terminal_panel.set_active_tab(view._logs_tab_idx)
+    assert view.terminal_panel.content_stack.currentIndex() == view._logs_tab_idx
+
+
+def test_batch_review_terminal_toggle_expands_and_collapses(qtbot: Any) -> None:
+    """Le toggle du terminal replie (36px) et déplie (hauteur stockée) autour de l'onglet Revue."""
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    idx = view._terminal_splitter_index()
+    assert idx >= 0, "Le terminal doit être enfant du splitter"
+    initial = view.main_splitter.sizes()[idx]
+
+    view._toggle_terminal()
+    collapsed = view.main_splitter.sizes()[idx]
+    assert collapsed < initial, "Le terminal doit se replier vers une hauteur minimale"
+    assert collapsed <= 60, "Le repli ne conserve pas l'ancienne hauteur (rail compact)"
+
+    view._toggle_terminal()
+    expanded = view.main_splitter.sizes()[idx]
+    assert expanded > collapsed, "Le dépli doit élever le terminal"
+    if initial > 50:
+        assert expanded >= initial - 30, "Le dépli restaure (quasi) la hauteur affectée avant repliage"
+    else:
+        assert expanded >= 60, "Le dépli garantit une hauteur lisible"
+
+
+def test_batch_review_task_ready_focus_only_when_inactive(qtbot: Any) -> None:
+    """task_review_ready autofocus l'onglet Revue seulement si aucune revue n'est en cours."""
+    doc = DocumentModel.create(title="Doc Focus.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    task_a = {"doc": doc, "doc_title": "Doc — A", "status": "À réviser", "_queue_uid": "uid-a", "_staging_notes": [{"Front": "Q1", "Back": "A1"}]}
+    task_b = {"doc": doc, "doc_title": "Doc — B", "status": "À réviser", "_queue_uid": "uid-b", "_staging_notes": [{"Front": "Q2", "Back": "A2"}]}
+    view.queue_tasks_data = [task_a, task_b]
+    view._update_queue_table()
+
+    assert view.terminal_panel.content_stack.currentIndex() == view._logs_tab_idx
+    view._on_task_review_ready(0, task_a["_staging_notes"])
+    assert view.terminal_panel.content_stack.currentIndex() == view._review_tab_idx, "Autofocus quand aucune revue en cours"
+    assert view.staging_panel._current_task_uid == "uid-a"
+
+    # Une nouvelle ready pendant qu'une revue est active (autre clé) : pas de clobber, pas de razzia du focus
+    view.terminal_panel.set_active_tab(view._logs_tab_idx)
+    view._on_task_review_ready(1, task_b["_staging_notes"])
+    assert view.staging_panel._current_task_uid == "uid-a", "La revue en cours n'est pas écrasée par uid-b"
+    assert view.terminal_panel.content_stack.currentIndex() == view._logs_tab_idx, "Pas de bascule forcée d'onglet"
+
+
+def test_batch_review_decision_marque_la_bonne_rangee_apres_decalage(qtbot: Any) -> None:
+    """Les décisions de revue suivent la clé de rangée, même si l'ordre change (régression décalage d'indices)."""
+    doc = DocumentModel.create(title="Doc Decalage.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    tasks = [
+        {"doc": doc, "doc_title": "Doc — A", "status": "À réviser", "_queue_uid": "uid-a"},
+        {"doc": doc, "doc_title": "Doc — B", "status": "À réviser", "_queue_uid": "uid-b"},
+    ]
+    view.queue_tasks_data = tasks
+    view._update_queue_table()
+
+    # L'utilisateur révise la tranche B (index 1) pendant qu'une suppression amont déplace les indices
+    view.staging_panel.load_task(1, tasks[1], [{"Front": "B1", "Back": "B1"}], force=True)
+    removed = view.queue_tasks_data.pop(0)  # suppression amont de la rangée A
+    view._update_queue_table()
+
+    assert view.queue_tasks_data[0]["_queue_uid"] == "uid-b", "B occupe désormais l'index 0"
+    view._on_staging_accepted("uid-b", [{"Front": "B1", "Back": "B1"}])
+
+    assert view.queue_tasks_data[0]["status"] == "Acceptée", "La décision suit la clé de rangée uid-b"
+    assert removed["status"] == "À réviser", "La rangée supprimée n'est pas (re)modifiée"
+
+
+def test_batch_queue_click_review_routing_and_tooltips(qtbot: Any) -> None:
+    """Simple-clic = « À réviser » ; double-clic = rangée traitée ; sinon aucun signal review_requested."""
+    doc = DocumentModel.create(title="Doc Clics.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    tasks = [
+        {"doc": doc, "doc_title": "Doc — 1", "status": "À réviser", "progress_pct": 100, "cards_count": 2, "_staging_notes": [{"Front": "Q1", "Back": "A1"}]},
+        {"doc": doc, "doc_title": "Doc — 2", "status": "Succès", "progress_pct": 100, "cards_count": 1, "_staging_notes": [{"Front": "Q2", "Back": "A2"}]},
+        {"doc": doc, "doc_title": "Doc — 3", "status": "À réviser", "progress_pct": 100, "cards_count": 0, "_staging_notes": []},
+        {"doc": doc, "doc_title": "Doc — 4", "status": "Succès", "progress_pct": 100, "cards_count": 1, "_staging_notes": []},
+    ]
+    view.queue_tasks_data = tasks
+    view._update_queue_table()
+    queue = view.queue_widget
+    assert 0 in queue._clickable_review_rows, "Rangée 'À réviser' avec cartes : simple-clic"
+    assert 1 in queue._reopen_rows, "Rangée traitée avec cartes : double-clic relecture"
+
+    requested: list[int] = []
+    queue.review_requested.connect(lambda r: requested.append(r))
+
+    queue._on_item_single_clicked(queue.table.item(0, 2))
+    assert requested == [0]
+    queue._on_item_double_clicked(queue.table.item(1, 2))
+    assert requested == [0, 1]
+
+    # Ni simple-clic ni double-clic sur des rangées sans cartes / non révisables
+    queue._on_item_single_clicked(queue.table.item(2, 2))
+    queue._on_item_double_clicked(queue.table.item(3, 2))
+    assert requested == [0, 1]
+
+    # Affordance tooltip
+    assert "Cliquer pour examiner" in queue.table.item(0, 2).toolTip()
+    assert "Double-cliquer pour relire" in queue.table.item(1, 2).toolTip()
+
+
+def test_batch_review_avance_apres_decision_et_etat_vide(qtbot: Any) -> None:
+    """Après une décision, la revue avance vers la tranche restante puis affiche l'état vide."""
+    doc = DocumentModel.create(title="Doc Avance.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    tasks = [
+        {"doc": doc, "doc_title": "Doc — A", "status": "À réviser", "progress_pct": 100, "cards_count": 1, "_queue_uid": "uid-a", "_staging_notes": [{"Front": "A", "Back": "A"}]},
+        {"doc": doc, "doc_title": "Doc — B", "status": "À réviser", "progress_pct": 100, "cards_count": 1, "_queue_uid": "uid-b", "_staging_notes": [{"Front": "B", "Back": "B"}]},
+    ]
+    view.queue_tasks_data = tasks
+    view._update_queue_table()
+
+    view._on_task_review_ready(0, tasks[0]["_staging_notes"])
+    view.staging_panel._on_accept_all()  # décide uid-a
+    assert tasks[0]["status"] == "Acceptée"
+    assert view.staging_panel._current_task_uid == "uid-b", "Auto-avance vers la tranche restante"
+    assert view.staging_panel._review_active
+
+    view.staging_panel._on_reject_task()  # décide uid-b
+    assert tasks[1]["status"] == "Rejetée"
+    assert view.staging_panel._review_active is False, "Plus de tranche : la revue passe en état vide"
+    assert "terminée" in view.staging_panel.lbl_title.text()
+
+
+def test_batch_review_badge_tab_title_et_pastille_edition(qtbot: Any, monkeypatch: Any) -> None:
+    """Le titre de l'onglet porte le compteur 'Revue (n)' et l'édition manuelle affiche la pastille ✎."""
+    doc = DocumentModel.create(title="Doc Badge.md", content="Contenu", file_type="md")
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+
+    def tab_title() -> str:
+        return view.terminal_panel.tabs_bar.tabs[view._review_tab_idx].text().strip()
+
+    task = {"doc": doc, "doc_title": "Doc — A", "status": "À réviser", "progress_pct": 100, "cards_count": 1, "_queue_uid": "uid-a", "_staging_notes": [{"Front": "Q", "Back": "A"}]}
+    view.queue_tasks_data = [task]
+    view._update_queue_table()
+    assert tab_title() == "Revue (1)"
+
+    # Une décision vide le badge (plus aucune tâche 'À réviser')
+    view._on_staging_accepted("uid-a", [{"Front": "Q", "Back": "A"}])
+    assert tab_title() == "Revue"
+
+    # Édition manuelle → pastille ✎ + marqueur _user_edited (exclu de la persistance)
+    task2 = {"doc": doc, "doc_title": "Doc — B", "status": "À réviser", "progress_pct": 100, "cards_count": 1, "_queue_uid": "uid-b", "_staging_notes": [{"Front": "Q2", "Back": "A2"}]}
+    view.queue_tasks_data = [task2]
+    view._update_queue_table()
+    panel = view.staging_panel
+    panel.load_task(0, task2, task2["_staging_notes"], force=True)
+
+    from PySide6.QtWidgets import QDialog
+
+    from ankiforge.ui.views.creation_view.dialogs.card_edit_dialog import CardEditDialog
+
+    monkeypatch.setattr(CardEditDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(CardEditDialog, "get_fields", lambda self: {"Front": "Q2 éditée", "Back": "A2"})
+    panel._on_edit_card()
+
+    assert panel._prepared_notes[0]["_user_edited"] is True
+    assert panel.cards_table.item(0, 1).text().startswith("✎ ")
+
+    saved: list[list[dict[str, Any]]] = []
+    panel.set_save_callback(lambda notes, deck_id, model_id, doc_id: saved.append(notes))
+    panel._on_accept_all()
+    assert "_user_edited" not in saved[0][0], "La clé interne de pastille est exclue de la persistance"
+    assert saved[0][0]["Front"] == "Q2 éditée"
 
 
 def test_batch_staging_accept_all_skips_rejected_cards(qtbot: Any) -> None:
@@ -1180,16 +1378,16 @@ def test_batch_staging_multi_selection_and_mark_all(qtbot: Any) -> None:
     assert "sélection (2)" in panel.btn_valider.text()
     assert "sélection (2)" in panel.btn_rejeter.text()
 
-    # Valider la sélection de 2 cartes : elles passent en 'accepted' sans fermer le staging
+    # Valider la sélection de 2 cartes : elles passent en 'accepted' sans fermer la revue
     panel._on_validate_card()
-    assert not panel.isHidden()
+    assert panel._review_active, "La revue reste ouverte avant l'enregistrement"
     assert panel._prepared_notes[1]["_staging_status"] == "accepted"
     assert panel._prepared_notes[2]["_staging_status"] == "accepted"
     assert panel.btn_save_anki.text() == "Enregistrer dans la Forge (2/4)"
 
     # Action 1-clic "Tout valider" : bascule toutes les cartes non-rejetées
     panel._on_mark_all_accepted()
-    assert not panel.isHidden()
+    assert panel._review_active, "La revue reste ouverte avant l'enregistrement final"
     assert all(c["_staging_status"] == "accepted" for c in panel._prepared_notes)
     assert panel.btn_save_anki.text() == "Enregistrer dans la Forge (4/4)"
 

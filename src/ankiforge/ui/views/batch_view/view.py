@@ -74,18 +74,6 @@ from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
 
-# Label français affiché par file pour chaque statut de tâche de portée (BatchTaskStatus).
-_EN_STATUS_LABELS: dict[str, str] = {
-    BatchTaskStatus.QUEUED.value: "En attente",
-    BatchTaskStatus.RUNNING.value: "En cours",
-    BatchTaskStatus.REVIEW.value: "À réviser",
-    BatchTaskStatus.ACCEPTED.value: "Acceptée",
-    BatchTaskStatus.PARTIAL.value: "Partielle",
-    BatchTaskStatus.FAILED.value: "Erreur",
-    BatchTaskStatus.CANCELLED.value: "Annulé",
-    BatchTaskStatus.REJECTED.value: "Rejetée",
-}
-
 
 class BatchView(QWidget):
     """
@@ -107,8 +95,10 @@ class BatchView(QWidget):
         self.models_cache: list[NoteTypeModel] = []
         self._deck_modal: DeckSelectWindow | None = None
         self._last_composer_doc: DocumentModel | None = None  # doc réutilisé à la prochaine ouverture du composer
-        # Staging panel: notes brutes par index de tâche (reçues du worker via task_completed)
-        self._prepared_notes_by_task: dict[int, list[dict[str, Any]]] = {}
+        # Staging panel: notes brutes par clé de rangée (reçues via task_completed / task_review_ready)
+        self._prepared_notes_by_uid: dict[str, list[dict[str, Any]]] = {}
+        self._logs_tab_idx: int = -1
+        self._review_tab_idx: int = -1
 
         self._setup_ui()
         self._connect_signals()
@@ -460,7 +450,8 @@ class BatchView(QWidget):
         # BOTTOM ROW
         self.terminal_panel = IdePanel(detachable=True)
         self._terminal_expanded = True
-        self._terminal_last_height = 240
+        self._terminal_last_height: int = 240
+        self._terminal_min_height: int = self.terminal_panel.minimumHeight()
 
         self.btn_toggle_terminal = IconButton("ph.caret-down", tooltip="Réduire / Déplier le terminal", size=20)
         self.btn_toggle_terminal.clicked.connect(self._toggle_terminal)
@@ -485,15 +476,17 @@ class BatchView(QWidget):
         self.console_output: BatchActivityLog = self.activity_log
         terminal_layout.addWidget(self.activity_log, 1)
 
-        self.terminal_panel.add_tab("root@ankiforge:~/pipeline_logs", self.terminal_content, "ph.terminal-window", closable=False)
+        self._logs_tab_idx = self.terminal_panel.add_tab("root@ankiforge:~/pipeline_logs", self.terminal_content, "ph.terminal-window", closable=False)
         self.main_splitter.addWidget(self.terminal_panel)
 
-        # STAGING PANEL (hidden by default, shown when a task enters REVIEW state)
-        self.staging_panel = BatchStagingPanel(parent=self)
+        # STAGING PANEL (Revue & Staging) : onglet permanent non fermable du terminal,
+        # accolé aux logs. L'utilisateur ne "perd" plus la revue au gré des phases du batch.
+        self.staging_panel = BatchStagingPanel(parent=self.terminal_panel)
         self.staging_panel.set_save_callback(self._save_extracted_notes_to_db)
         self.staging_panel.cards_accepted.connect(self._on_staging_accepted)
         self.staging_panel.task_rejected.connect(self._on_staging_rejected)
-        self.main_splitter.addWidget(self.staging_panel)
+        self._review_tab_idx = self.terminal_panel.add_tab("Revue", self.staging_panel, "ph.magnifying-glass", closable=False)
+        self.terminal_panel.set_active_tab(self._logs_tab_idx)
         self.staging_panel.set_review_tasks_provider(self._staging_task_list)
         if hasattr(self.metrics_bar, "staging_review_requested"):
             self.metrics_bar.staging_review_requested.connect(self._on_open_staging_badge)
@@ -512,19 +505,40 @@ class BatchView(QWidget):
         self._log_formatted_line("INFO", "Pipeline worker initialized.")
         self._update_queue_table()
 
+    def _terminal_splitter_index(self) -> int:
+        """Index du panneau terminal dans main_splitter (robuste quel que soit le nombre d'enfants)."""
+        for i in range(self.main_splitter.count()):
+            if self.main_splitter.widget(i) is self.terminal_panel:
+                return i
+        return -1
+
+    def _apply_terminal_space(self, height: int) -> None:
+        """Alloue une hauteur au seul panneau terminal (D6 : ne pas réécrire les autres enfants)."""
+        idx = self._terminal_splitter_index()
+        if idx < 0:
+            return
+        sizes = list(self.main_splitter.sizes())
+        if len(sizes) <= idx:
+            return
+        sizes[idx] = height
+        self.main_splitter.setSizes(sizes)
+
     def _toggle_terminal(self) -> None:
         self._terminal_expanded = not self._terminal_expanded
         if self._terminal_expanded:
+            self.terminal_panel.setMinimumHeight(self._terminal_min_height)
             self.terminal_content.setVisible(True)
             self.btn_toggle_terminal.setIcon(load_phosphor_icon("ph.caret-down", color=DesignTokens.TEXT_SECONDARY))
-            self.main_splitter.setSizes([500, self._terminal_last_height])
+            self._apply_terminal_space(max(self._terminal_last_height, 60))
         else:
+            idx = self._terminal_splitter_index()
             sizes = self.main_splitter.sizes()
-            if len(sizes) > 1 and sizes[1] > 50:
-                self._terminal_last_height = sizes[1]
+            if 0 <= idx < len(sizes) and sizes[idx] > 50:
+                self._terminal_last_height = sizes[idx]
+            self.terminal_panel.setMinimumHeight(36)
             self.terminal_content.setVisible(False)
             self.btn_toggle_terminal.setIcon(load_phosphor_icon("ph.caret-up", color=DesignTokens.TEXT_SECONDARY))
-            self.main_splitter.setSizes([800, 36])
+            self._apply_terminal_space(36)
 
     def _connect_signals(self) -> None:
         self.btn_select_deck.clicked.connect(self._on_click_select_deck)
@@ -810,9 +824,21 @@ class BatchView(QWidget):
             )
         return chunks
 
+    def _ensure_queue_uids(self) -> None:
+        """Garantit une clé de rangée `_queue_uid` stable à chaque rangée (résilience legacy/tests)."""
+        for task in self.queue_tasks_data:
+            task.setdefault("_queue_uid", str(uuid.uuid4()))
+
+    @staticmethod
+    def _task_uid(task: dict[str, Any]) -> str:
+        """Clé de rangée « _queue_uid » d'une tâche (chaîne vide si absente)."""
+        return str(task.get("_queue_uid") or "")
+
     def _update_queue_table(self) -> None:
         """Délègue le rendu complet de la file d'attente au widget BatchQueueTable."""
+        self._ensure_queue_uids()
         self.queue_widget.set_tasks(self.queue_tasks_data)
+        self._refresh_review_badge()
 
     def _remove_from_queue(self, row_idx: int) -> None:
         if 0 <= row_idx < len(self.queue_tasks_data):
@@ -1091,7 +1117,7 @@ class BatchView(QWidget):
             task["progress_pct"] = 100
             task["cards_count"] = cards_count
             task["_staging_notes"] = prepared_notes
-            self._prepared_notes_by_task[task_idx] = prepared_notes
+            self._prepared_notes_by_uid[self._task_uid(task)] = prepared_notes
 
             if task.get("_is_snapshot_task"):
                 # Tâche de portée : le routage Succès/À réviser est piloté par le
@@ -1116,7 +1142,7 @@ class BatchView(QWidget):
                 # Mode staging : mettre la tâche en revue, ne pas sauvegarder
                 task["status"] = "À réviser"
                 task["_staging_notes"] = prepared_notes
-                self._prepared_notes_by_task[task_idx] = prepared_notes
+                self._prepared_notes_by_uid[self._task_uid(task)] = prepared_notes
 
                 self.queue_widget.sync_completed(task_idx, "À réviser", cards_count)
 
@@ -1151,7 +1177,7 @@ class BatchView(QWidget):
             task["status"] = "Succès"
             cards_count = int(task.get("cards_count", 0))
             self.queue_widget.sync_completed(task_idx, "Succès", cards_count)
-            notes = list(task.get("_staging_notes") or self._prepared_notes_by_task.get(task_idx) or [])
+            notes = list(task.get("_staging_notes") or self._prepared_notes_by_uid.get(self._task_uid(task)) or [])
             if notes:
                 deck_id = task["deck"].id if hasattr(task.get("deck"), "id") else 1
                 model_id = task["note_type"].id if hasattr(task.get("note_type"), "id") else 1
@@ -1247,6 +1273,7 @@ class BatchView(QWidget):
             task.setdefault("note_type", self.current_model)
             task.setdefault("engine", self.engine_combo.currentData() if self.engine_combo.count() else None)
             task.setdefault("pipeline", self.pipeline_combo.currentData() if self.pipeline_combo.count() else None)
+            task.setdefault("_queue_uid", str(uuid.uuid4()))
             task.setdefault("auto_val", True)
             self.queue_tasks_data.append(task)
             added_count += 1
@@ -1390,14 +1417,32 @@ class BatchView(QWidget):
 
     # ── Staging Panel Slots ──────────────────────────────────────────────
 
+    def _task_index_by_uid(self, task_uid: str) -> int:
+        """Résout une clé de rangée vers l'index courant de la file (-1 si inconnue)."""
+        if not task_uid:
+            return -1
+        for idx, task in enumerate(self.queue_tasks_data):
+            if self._task_uid(task) == task_uid:
+                return idx
+        return -1
+
+    def _focus_review_tab(self) -> None:
+        """Rend l'onglet « Revue » actif dans le terminal."""
+        if 0 <= self._review_tab_idx < len(self.terminal_panel.tabs_bar.tabs):
+            self.terminal_panel.set_active_tab(self._review_tab_idx)
+
     @Slot(int, list)
     def _on_task_review_ready(self, task_idx: int, prepared_notes: list[dict[str, Any]]) -> None:
-        """Slot déclenché par BatchWorker.task_review_ready : ouvre directement le staging panel."""
+        """Chargé par BatchWorker.task_review_ready : charge la revue sans écraser une revue active, et autofocus l'onglet si aucune revue n'est en cours."""
         if 0 <= task_idx < len(self.queue_tasks_data):
             task = self.queue_tasks_data[task_idx]
-            self._prepared_notes_by_task[task_idx] = prepared_notes
+            uid = self._task_uid(task)
+            self._prepared_notes_by_uid[uid] = prepared_notes
             task["_staging_notes"] = prepared_notes
+            was_active = self.staging_panel._review_active
             self.staging_panel.load_task(task_idx, task, prepared_notes)
+            if not was_active:
+                self._focus_review_tab()
 
     def _staging_task_list(self) -> list[tuple[int, dict[str, Any], list[dict[str, Any]]]]:
         """Liste des tâches 'À réviser' avec leurs cartes, pour la revue agrégée du badge/volet."""
@@ -1405,10 +1450,19 @@ class BatchView(QWidget):
         for task_idx, task in enumerate(self.queue_tasks_data):
             if task.get("status") != "À réviser":
                 continue
-            notes = self._prepared_notes_by_task.get(task_idx) or list(task.get("_staging_notes", []))
+            notes = self._prepared_notes_by_uid.get(self._task_uid(task)) or list(task.get("_staging_notes", []))
             if notes:
                 result.append((task_idx, task, notes))
         return result
+
+    def _advance_review(self) -> None:
+        """Après une décision (accept/reject), avance vers la prochaine tâche 'À réviser' ou l'état vide."""
+        remaining = self._staging_task_list()
+        if not remaining:
+            self.staging_panel.show_empty_state("Plus de tâche à réviser — la revue du lot est terminée.")
+            return
+        task_idx, task, notes = remaining[0]
+        self.staging_panel.load_task(task_idx, task, notes, force=True)
 
     @Slot()
     def _on_open_staging_badge(self) -> None:
@@ -1419,50 +1473,62 @@ class BatchView(QWidget):
             return
         task_idx, task, notes = review_tasks[0]
         self.staging_panel.load_task(task_idx, task, notes, force=True)
+        self._focus_review_tab()
 
     def _refresh_review_badge(self) -> None:
         staging_count = sum(1 for t in self.queue_tasks_data if t.get("status") == "À réviser")
         if hasattr(self.metrics_bar, "set_review_count"):
             self.metrics_bar.set_review_count(staging_count)
+        if 0 <= self._review_tab_idx < len(self.terminal_panel.tabs_bar.tabs):
+            self.terminal_panel.set_tab_title(self._review_tab_idx, f"Revue ({staging_count})" if staging_count else "Revue")
 
     @Slot(int)
     def _on_open_staging_for_task(self, task_idx: int) -> None:
-        """Ouvre le staging panel pour une tâche en statut 'À réviser'."""
+        """Ouvre la revue d'une tâche (via 'Examiner', clic simple ou relecture) et focus l'onglet."""
         if 0 <= task_idx < len(self.queue_tasks_data):
             task = self.queue_tasks_data[task_idx]
-            notes = self._prepared_notes_by_task.get(task_idx) or list(task.get("_staging_notes", []))
+            notes = self._prepared_notes_by_uid.get(self._task_uid(task)) or list(task.get("_staging_notes", []))
             if notes:
                 self.staging_panel.load_task(task_idx, task, notes, force=True)
+                self._focus_review_tab()
             else:
-                from ankiforge.ui.widgets.toast import show_toast
-
                 show_toast(self, "Aucune carte en attente de revue pour cette tâche.", is_error=True)
 
-    @Slot(int, list)
-    def _on_staging_accepted(self, task_idx: int, accepted_cards: list[dict[str, Any]]) -> None:
-        """Appelé quand le staging panel valide des cartes : mettre à jour le statut de la tâche."""
-        if 0 <= task_idx < len(self.queue_tasks_data):
-            task = self.queue_tasks_data[task_idx]
-            task["status"] = "Acceptée"
-            task["cards_count"] = len(accepted_cards)
-            self._total_cards_accumulated += len(accepted_cards)
-            self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
+    @Slot(str, list)
+    def _on_staging_accepted(self, task_uid: str, accepted_cards: list[dict[str, Any]]) -> None:
+        """Appelé quand le staging panel valide des cartes : résout la clé de rangée puis met à jour le statut."""
+        task_idx = self._task_index_by_uid(task_uid)
+        if task_idx < 0:
+            logger.warning("Clé de rangée inconnue à l'acceptation (%s) ; signal ignoré.", task_uid)
+            return
+        task = self.queue_tasks_data[task_idx]
+        task["status"] = "Acceptée"
+        task["cards_count"] = len(accepted_cards)
+        self._total_cards_accumulated += len(accepted_cards)
+        self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
 
-            self.queue_widget.sync_completed(task_idx, "Acceptée", len(accepted_cards))
+        self.queue_widget.sync_completed(task_idx, "Acceptée", len(accepted_cards))
 
-            self._log_formatted_line("SUCCESS", f"Tâche #{task_idx + 1} validée : {len(accepted_cards)} carte(s) enregistrée(s).")
+        self._log_formatted_line("SUCCESS", f"Tâche #{task_idx + 1} validée : {len(accepted_cards)} carte(s) enregistrée(s).")
+        self._advance_review()
+        self._refresh_review_badge()
 
-    @Slot(int)
-    def _on_staging_rejected(self, task_idx: int) -> None:
-        """Appelé quand le staging panel rejette une tranche."""
-        if 0 <= task_idx < len(self.queue_tasks_data):
-            task = self.queue_tasks_data[task_idx]
-            task["status"] = "Rejetée"
-            task["cards_count"] = 0
+    @Slot(str)
+    def _on_staging_rejected(self, task_uid: str) -> None:
+        """Appelé quand le staging panel rejette une tranche : résout la clé de rangée puis met à jour le statut."""
+        task_idx = self._task_index_by_uid(task_uid)
+        if task_idx < 0:
+            logger.warning("Clé de rangée inconnue au rejet (%s) ; signal ignoré.", task_uid)
+            return
+        task = self.queue_tasks_data[task_idx]
+        task["status"] = "Rejetée"
+        task["cards_count"] = 0
 
-            self.queue_widget.sync_completed(task_idx, "Rejetée", 0)
+        self.queue_widget.sync_completed(task_idx, "Rejetée", 0)
 
-            self._log_formatted_line("WARN", f"Tâche #{task_idx + 1} rejetée par l'utilisateur.")
+        self._log_formatted_line("WARN", f"Tâche #{task_idx + 1} rejetée par l'utilisateur.")
+        self._advance_review()
+        self._refresh_review_badge()
 
     def accept_batch_task(self, task_idx: int, accepted_cards: list[dict[str, Any]] | None = None) -> bool:
         """Persist the reviewed cards for one new scope-based queue row."""
