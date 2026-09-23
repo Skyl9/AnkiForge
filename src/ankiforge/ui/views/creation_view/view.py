@@ -1,10 +1,11 @@
 import datetime
 import json
 import logging
+import time
 from typing import Any, cast
 
 from peewee import fn
-from PySide6.QtCore import QEvent, Qt, QThreadPool, Signal, Slot
+from PySide6.QtCore import QEvent, Qt, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QColor, QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -91,6 +92,14 @@ from ankiforge.utils.tags import build_document_tags
 logger = logging.getLogger(__name__)
 
 
+def _fmt_duration(seconds: float) -> str:
+    """Formate une durée en `mm:ss` (ou `h:mm:ss` au-delà d'une heure)."""
+    total = max(0, int(seconds))
+    h, rem = divmod(total, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
+
 class CreationView(QWidget):
     """
     Studio de Création AnkiForge.
@@ -123,6 +132,7 @@ class CreationView(QWidget):
         self.generated_cards: list[dict[str, Any]] = []
         self.current_preview_index = 0
         self.orchestrator: PipelineOrchestrator | None = None
+        self._running_timer: QTimer | None = None
         self.current_deck: DeckModel | None = None
         self.current_model: NoteTypeModel | None = None
         self.selected_models: list[NoteTypeModel] = []
@@ -1869,6 +1879,16 @@ class CreationView(QWidget):
 
         self._set_all_generation_states(True)
         self.generation_logs_console.clear()
+        self._running_step_desc = "Démarrage du pipeline…"
+        self._running_step_started = time.monotonic()
+        self._running_progress: tuple[int, int] | None = None
+        if hasattr(self, "_running_timer") and self._running_timer:
+            self._running_timer.stop()
+        self._running_timer = QTimer(self)
+        self._running_timer.setInterval(750)
+        self._running_timer.timeout.connect(self._tick_running_indicator)
+        self._running_timer.start()
+        self._update_running_indicator()
         pipe_name = selected_pipeline.name if selected_pipeline else "Standard"
         engine_name = selected_engine.display_name if selected_engine else "Défaut"
         self._append_generation_log(
@@ -1949,6 +1969,10 @@ class CreationView(QWidget):
     def _on_orchestrator_step_started(self, step_order: int, desc: str) -> None:
         logger.info("[Orchestrateur] Démarrage étape %d : %s", step_order, desc)
         self._append_generation_log(f"Étape {step_order} : {desc}", level="STEP")
+        self._running_step_desc = f"Étape {step_order} · {desc}"
+        self._running_step_started = time.monotonic()
+        self._running_progress = None
+        self._update_running_indicator()
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
             active_editor.raw_editor.setPlaceholderText(f"Étape {step_order}: {desc}...")
@@ -1957,9 +1981,39 @@ class CreationView(QWidget):
     def _on_orchestrator_step_progress(self, current: int, total: int, detail: str) -> None:
         logger.info("[Orchestrateur] Progression (%d/%d) : %s", current, total, detail)
         self._append_generation_log(f"Progression ({current}/{total}) : {detail}", level="PROGRESS")
+        self._running_progress = (current, total)
+        self._update_running_indicator()
         active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
         if active_editor:
             active_editor.raw_editor.setPlaceholderText(f"{detail} ({current}/{total})...")
+
+    def _running_indicator_text(self) -> str:
+        step_desc = getattr(self, "_running_step_desc", None) or "Génération…"
+        started = getattr(self, "_running_step_started", None) or time.monotonic()
+        elapsed_s = time.monotonic() - started
+        base = f"{step_desc} · {_fmt_duration(elapsed_s)}"
+        progress = getattr(self, "_running_progress", None)
+        if progress and progress[0] > 0:
+            eta_s = elapsed_s * (progress[1] - progress[0]) / progress[0]
+            base += f" · ETA ~{_fmt_duration(eta_s)}"
+        else:
+            base += " · en attente du modèle…"
+        return base
+
+    def _update_running_indicator(self) -> None:
+        active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
+        if active_editor:
+            active_editor.set_running_text(self._running_indicator_text())
+
+    def _tick_running_indicator(self) -> None:
+        self._update_running_indicator()
+
+    def _clear_running_indicator(self) -> None:
+        if hasattr(self, "_running_timer") and self._running_timer:
+            self._running_timer.stop()
+        active_editor = self.open_editors.get(getattr(self, "current_source_title", ""))
+        if active_editor:
+            active_editor.running_lbl.hide()
 
     @Slot(int, object)
     def _on_orchestrator_step_completed(self, step_order: int, state: PipelineRunState) -> None:
@@ -1992,6 +2046,7 @@ class CreationView(QWidget):
     @Slot(object)
     def _on_orchestrator_finished(self, state: PipelineRunState) -> None:
         self._set_all_generation_states(False)
+        self._clear_running_indicator()
 
         cards_raw = state.get_variable("generated_cards") or state.get_variable("map_reduce_results") or state.get_variable("last_output") or []
         cards = extract_cards_from_data(cards_raw)
@@ -2053,8 +2108,8 @@ class CreationView(QWidget):
             self._append_generation_log(f"Pipeline terminé avec succès : {len(cleaned_notes)} carte(s) obtenue(s).", level="FINISH")
             self._on_generation_finished(cleaned_notes)
         else:
-            self._append_generation_log("Pipeline terminé (aucune carte générée).", level="WARNING")
-            show_toast(self, "Pipeline terminé (aucune carte générée).", is_error=False)
+            self._append_generation_log("Pipeline terminé (aucune carte générée). Vérifiez la sortie du modèle ou augmentez max_tokens.", level="ERROR")
+            show_toast(self, "Pipeline terminé : aucune carte générée. Vérifiez la sortie du modèle ou augmentez le budget de tokens.", is_error=True)
         logger.info("[Orchestrateur] Fin du Pipeline. %d cartes obtenues.", len(cleaned_notes))
 
     @Slot(list)
@@ -2073,6 +2128,7 @@ class CreationView(QWidget):
     @Slot(str)
     def _on_generation_error(self, err_msg: str) -> None:
         self._set_all_generation_states(False)
+        self._clear_running_indicator()
         self.results_panel.show()
         self._append_generation_log(f"Erreur de génération : {err_msg}", level="ERROR")
         self.err_lbl.setText(f"Erreur de génération : {err_msg}")
@@ -2084,6 +2140,7 @@ class CreationView(QWidget):
     @Slot()
     def _on_generation_cancelled(self) -> None:
         self._set_all_generation_states(False)
+        self._clear_running_indicator()
         self._append_generation_log("Génération annulée.", level="CANCEL")
         show_toast(self, "Génération annulée.", is_error=False)
 

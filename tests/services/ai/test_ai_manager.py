@@ -49,10 +49,10 @@ def test_ai_manager_passes_max_tokens_from_config(mock_db):
 
 def test_ai_manager_applies_generation_timeout_from_settings(mock_db):
     """Le délai de génération configurable est appliqué aux clients réseau des providers."""
-    from ankiforge.services.ai.flexible_service import _resolve_generation_timeout_seconds
+    from ankiforge.services.ai.flexible_service import _DEFAULT_TIMEOUT_SECONDS, _resolve_generation_timeout_seconds
     from ankiforge.services.settings_service import SettingsService
 
-    assert _resolve_generation_timeout_seconds() == 60000.0
+    assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
 
     SettingsService.set("ai/generation_timeout_seconds", 42, category="ai")
     assert _resolve_generation_timeout_seconds() == 42.0
@@ -68,14 +68,14 @@ def test_ai_manager_applies_generation_timeout_from_settings(mock_db):
 
 def test_ai_manager_replaces_invalid_generation_timeout_with_default(mock_db):
     """Un réglage invalide ou non positif retombe sur le délai par défaut."""
-    from ankiforge.services.ai.flexible_service import _resolve_generation_timeout_seconds
+    from ankiforge.services.ai.flexible_service import _DEFAULT_TIMEOUT_SECONDS, _resolve_generation_timeout_seconds
     from ankiforge.services.settings_service import SettingsService
 
     SettingsService.set("ai/generation_timeout_seconds", -5, category="ai")
-    assert _resolve_generation_timeout_seconds() == 60000.0
+    assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
 
     SettingsService.set("ai/generation_timeout_seconds", "pas-un-nombre", category="ai")
-    assert _resolve_generation_timeout_seconds() == 60000.0
+    assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
 
 
 def test_ai_manager_reload_provider_selects_top_model_by_sort_order(mock_db):

@@ -179,6 +179,38 @@ def test_parse_partial_broken_json_recovery():
     assert len(parsed["notes"]) == 2
 
 
+def test_parse_truncated_json_value_recovery():
+    """Une réponse coupée au milieu d'une valeur (finish_reason='length') est refermée et récupérée.
+
+    Reproduit le scénario réel du log OpenRouter : le JSON est tronqué par max_tokens en pleine
+    chaîne, sans aucune accolade fermante exploitable — la réparation doit quand même conclure.
+    """
+    raw = '{"notes": [{"Front": "Q1", "Back": "A'
+    parsed = AIReponseParser.parse(raw)
+    assert isinstance(parsed, dict)
+    assert "notes" in parsed
+    assert parsed["notes"] == [{"Front": "Q1", "Back": "A"}]
+
+
+def test_parse_truncated_json_drops_incomplete_trailing_card():
+    """Une carte tronquée au milieu d'une clé est abandonnée : les cartes complètes précédentes restent."""
+    raw = '{"notes": [{"Front": "Q1", "Back": "A1"}, {"Front": "Q2", "Back": "A2"}, {"Front": "Q3", "Back'
+    parsed = AIReponseParser.parse(raw)
+    assert isinstance(parsed, dict)
+    assert parsed["notes"] == [
+        {"Front": "Q1", "Back": "A1"},
+        {"Front": "Q2", "Back": "A2"},
+    ]
+
+
+def test_repair_truncated_json_noop_on_complete():
+    """Une réponse JSON valide n'est jamais modifiée par la réparation (aucun candidat inutile)."""
+    from ankiforge.services.ai.utils import AIReponseParser as P
+
+    assert P._repair_truncated_json('{"notes": [{"Front": "Q", "Back": "A"}]}') == []
+    assert P._repair_truncated_json("texte sans JSON") == []
+
+
 def test_extract_cards_multi_model():
     """Vérifie la prise en charge des sorties multi-modèles structurées."""
     from ankiforge.services.ai.utils import extract_cards_from_data
@@ -281,3 +313,24 @@ def test_get_human_readable_api_error_standard_codes():
     assert "quota" in get_human_readable_api_error(Exception("429 Too Many Requests"))
     assert "clé API" in get_human_readable_api_error(Exception("401 Unauthorized"))
     assert "serveur" in get_human_readable_api_error(Exception("500 Internal Server Error"))
+
+
+def test_get_human_readable_api_error_openrouter_specific():
+    """Vérifie les messages dédiés aux erreurs typiques d'OpenRouter (crédits, paramètres, plafonds)."""
+    from ankiforge.services.ai.utils import get_human_readable_api_error
+
+    # 402 : crédits insuffisants
+    msg_402 = get_human_readable_api_error(Exception("402 Insufficient credits"))
+    assert "crédits" in msg_402
+
+    # max_tokens au-dessus de la limite réelle de la route :free
+    msg_max = get_human_readable_api_error(Exception("invalid params, model does not support max tokens > 4096"))
+    assert "max_tokens" in msg_max
+
+    # response_format non supporté
+    msg_fmt = get_human_readable_api_error(Exception("response_format is not supported by this model"))
+    assert "JSON" in msg_fmt
+
+    # Passerelle amont encapsulée
+    msg_up = get_human_readable_api_error(Exception('{"message": "Provider returned error", "metadata": {...}}'))
+    assert "fournisseur amont" in msg_up

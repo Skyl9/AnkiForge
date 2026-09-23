@@ -115,3 +115,17 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
 - `.agents/skills/` - directory of 15 agent skills with progressive disclosure
 - `docs/Dossier_architecture/` - 9 architecture docs (data model, UI inventory, DAG engine, quality/deploy)
 - `DESIGN.md` - design system, semantic tokens, 12 themes, 4 layouts; all new widgets must be documented here
+
+## Agent skills
+
+### Issue tracker
+
+Les issues/tickets vivent dans le vault Obsidian `ankiforge_obsidian/` (une note par ticket dans `Tickets/`, une ligne référencée sur le kanban `Avancement du projet.md`). Voir `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Cinq rôles de triage : needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix, portés par l'en-tête `Statut` du ticket Obsidian. Voir `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Mono-contexte : `CONTEXT.md` à la racine + `docs/adr/`. Voir `docs/agents/domain.md`.

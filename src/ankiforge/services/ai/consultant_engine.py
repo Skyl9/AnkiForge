@@ -36,7 +36,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories.document_repository import DocumentRepository
 from ankiforge.services.ai.base import LLMProvider
 from ankiforge.services.ai.context_compactor import ContextCompactor
-from ankiforge.services.ai.flexible_service import AIManager, OpenAICompatibleProvider
+from ankiforge.services.ai.flexible_service import AIManager, OpenAICompatibleProvider, _extract_reasoning_from_message
 from ankiforge.services.ai.linter import WozniakLinterEngine
 from ankiforge.services.ai.pricing_service import estimate_run_cost
 from ankiforge.services.ai.state import PipelineRunState
@@ -2403,6 +2403,10 @@ class ConsultantEngine:
                     }
                     if active_tools:
                         create_kwargs["tools"] = active_tools
+                    # Harmonisation des paramètres de génération : plafond de sortie adapté au modèle
+                    # (max_tokens vs max_completion_tokens) et borné au maximum réel (routes :free OpenRouter).
+                    eff_max = self.ai_provider.clamp_max_tokens(int(getattr(self.ai_provider, "max_tokens", 16384) or 16384))
+                    create_kwargs.update(self.ai_provider.max_tokens_kwargs(eff_max))
 
                     response = self.ai_provider.client.chat.completions.create(**create_kwargs)
 
@@ -2427,8 +2431,9 @@ class ConsultantEngine:
                     resp_msg = response.choices[0].message
                     content_text = resp_msg.content or ""
 
-                    # Extraction d'une véritable pensée si le modèle en émet (ex: DeepSeek-R1 / thinking models)
-                    reasoning = getattr(resp_msg, "reasoning_content", None)
+                    # Extraction d'une véritable pensée si le modèle en émet
+                    # (OpenAI ``reasoning``, DeepSeek ``reasoning_content``, etc.)
+                    reasoning = _extract_reasoning_from_message(resp_msg)
                     if reasoning:
                         yield {"type": "thought", "step": step, "content": str(reasoning), "is_running": False}
 

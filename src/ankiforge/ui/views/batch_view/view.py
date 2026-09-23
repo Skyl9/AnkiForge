@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -100,6 +100,7 @@ class BatchView(QWidget):
         self._batch_scope_results: dict[int, dict[str, Any]] = {}
         self._total_cards_accumulated = 0
         self.start_timestamp = 0.0
+        self._run_clock_timer: QTimer | None = None
         self.current_deck: DeckModel | None = None
         self.current_model: NoteTypeModel | None = None
         self.decks_cache: list[DeckModel] = []
@@ -874,6 +875,32 @@ class BatchView(QWidget):
                 }}
             """)
 
+    def _start_run_clock(self) -> None:
+        """Horloge temps écoulé du run, battante même sans événements de progression.
+
+        Régression : le chrono « Temps » ne bougeait que sur les signaux de progression ;
+        un appel LLM unique sans sous-étapes (ex. Gemini afflué) gelait l'affichage → impression
+        d'UI bloquée. Un ticker 500 ms maintient l'horloge visible et prouve que la génération tourne.
+        """
+        if self._run_clock_timer is not None:
+            self._run_clock_timer.stop()
+        self._run_clock_timer = QTimer(self)
+        self._run_clock_timer.setInterval(500)
+        self._run_clock_timer.timeout.connect(self._tick_run_clock)
+        self._run_clock_timer.start()
+        self._tick_run_clock()
+
+    def _tick_run_clock(self) -> None:
+        if self.start_timestamp <= 0:
+            return
+        elapsed = int(time.time() - self.start_timestamp)
+        mins, secs = divmod(elapsed, 60)
+        self.card_time.val_lbl.setText(f"{mins:02d}:{secs:02d}")
+
+    def _stop_run_clock(self) -> None:
+        if self._run_clock_timer is not None:
+            self._run_clock_timer.stop()
+
     @Slot()
     def _on_start_batch(self, resume_incomplete: bool = False) -> None:
         if self.worker is not None and self.worker.isRunning():
@@ -993,6 +1020,7 @@ class BatchView(QWidget):
         self.card_cards.val_lbl.setText(f"{self._total_cards_accumulated} cartes")
 
         self._set_running_ui_state(True)
+        self._start_run_clock()
         self.btn_resume_batch.setVisible(False)
         action_desc = "Reprise" if resume_incomplete else "Lancement"
         skip_msg = f" ({skipped_successful_count} tâche(s) déjà réussie(s) conservée(s))" if skipped_successful_count else ""
@@ -1567,6 +1595,7 @@ class BatchView(QWidget):
 
     @Slot(int, int, int)
     def _on_batch_finished(self, success_count: int, error_count: int, total_cards: int) -> None:
+        self._stop_run_clock()
         self._set_running_ui_state(False)
         self.card_status.val_lbl.setText("Terminé" if error_count == 0 else "Partiel")
         col = DesignTokens.COLOR_GREEN if error_count == 0 else DesignTokens.COLOR_YELLOW
@@ -1584,6 +1613,7 @@ class BatchView(QWidget):
 
     @Slot()
     def _on_batch_cancelled(self) -> None:
+        self._stop_run_clock()
         self._set_running_ui_state(False)
         self.card_status.val_lbl.setText("Interrompu")
         self.card_status.val_lbl.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 15px; font-weight: bold; border: none; font-family: '{DesignTokens.FONT_CODE}';")

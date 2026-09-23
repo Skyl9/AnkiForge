@@ -1,5 +1,9 @@
 import logging
 import os
+import re
+import threading
+import time
+from dataclasses import dataclass
 from typing import Any, cast
 
 import openai
@@ -15,8 +19,183 @@ from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_
 logger = logging.getLogger(__name__)
 
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
-_DEFAULT_TIMEOUT_SECONDS = 60000.0
+# Délai (en secondes) au-delà duquel une génération IA stagnante est abandonnée en échec d'étape.
+# Détail : 60000 s (16,6 h) gelait la génération quasi indéfiniment quand un fournisseur restait muet
+# (modèles gratuits lents/afflués) — symptôme « UI bloquée, j'ai quitté ». Toujours borné par
+# _MIN/_MAX_GENERATION_TIMEOUT_SECONDS, jamais désactivable.
+_DEFAULT_TIMEOUT_SECONDS = 600.0
+_MIN_GENERATION_TIMEOUT_SECONDS = 30.0
+_MAX_GENERATION_TIMEOUT_SECONDS = 3600.0
 _DEFAULT_MAX_RETRIES = 2
+
+# En-têtes recommandés par OpenRouter pour le tracking du trafic (référence à l'application).
+_OPENROUTER_DEFAULT_HEADERS: dict[str, str] = {
+    "HTTP-Referer": "https://github.com/Skyl9/AnkiForge",
+    "X-Title": "AnkiForge",
+}
+
+
+class TruncatedOutputError(RuntimeError):
+    """Réponse du modèle coupée au plafond de tokens (``finish_reason='length'``) avec contenu non vide.
+
+    Contrairement à la réponse vide, la sortie est partiellement exploitable mais inachevée :
+    le JSON est généralement tronqué en pleine chaîne, rendant la sortie inutilisable telle quelle.
+    """
+
+
+class ContentFilteredError(RuntimeError):
+    """Réponse tronquée par le filtre de sécurité du fournisseur (``finish_reason='content_filter'``)."""
+
+
+# Garde-fou : on ne laisse JAMAIS une tentative de rattrapage de troncature exploser le budget de sortie.
+_MAX_TRUNCATION_RETRY_TOKENS = 1_048_576
+
+
+@dataclass(frozen=True)
+class _OpenRouterModelInfo:
+    """Capacités réelles d'un modèle OpenRouter issues de l'endpoint /models."""
+
+    supports_response_format: bool
+    supports_structured_outputs: bool
+    max_output_tokens: int | None
+    context_length: int | None
+
+
+_OPENROUTER_META_TTL_SECONDS = 6 * 3600
+_openrouter_meta_cache: dict[str, tuple[_OpenRouterModelInfo, float]] = {}
+_openrouter_meta_lock = threading.Lock()
+
+_REASONING_MAX_COMPLETION_FAMILIES: tuple[str, ...] = (
+    "o1",
+    "o1-mini",
+    "o1-preview",
+    "o3",
+    "o3-mini",
+    "o4",
+    "o4-mini",
+    "gpt-5",
+    "gpt-5-mini",
+)
+
+
+def _uses_reasoning_params(model_name: str) -> bool:
+    """Détecte les familles OpenAI (o1/o3/o4/gpt-5) qui exigent ``max_completion_tokens``.
+
+    Contrairement à un simple ``in``, la frontière alphanumérique évite les faux positifs
+    sur des IDs OpenRouter dont le slug contient ``o1``/``o3`` sans être un modèle de raisonnement.
+    """
+    low = model_name.lower()
+    return any(re.search(rf"(^|[^a-z0-9]){re.escape(family)}([^a-z0-9]|$)", low) for family in _REASONING_MAX_COMPLETION_FAMILIES)
+
+
+def _openrouter_model_meta(base_url: str, model_name: str) -> _OpenRouterModelInfo | None:
+    """Capacités réelles d'un modèle OpenRouter (GET /models), cache 6 h, best-effort.
+
+    Le paramètre ``response_format`` est supporté par *certains* modèles/endpoints seulement :
+    l'envoyer à un modèle qui ne le gère pas provoque des erreurs 400/404 ou un JSON non garanti.
+    Le plafond réel de sortie est aussi bien plus bas que le ``max_tokens`` configuré pour les
+    routes ``:free``.
+
+    Returns:
+        Infos de capacité, ou None si indisponible (réseau, JSON inattendu, environnement de test).
+    """
+    # Jamais de requête réseau pendant les tests (ANKIFORGE_ENV=testing, défini par conftest).
+    if os.environ.get("ANKIFORGE_ENV") == "testing":
+        return None
+    key = f"{base_url.rstrip('/')}|{model_name.lower()}"
+    now = time.monotonic()
+    with _openrouter_meta_lock:
+        cached = _openrouter_meta_cache.get(key)
+        if cached and now - cached[1] < _OPENROUTER_META_TTL_SECONDS:
+            return cached[0]
+    try:
+        resp = requests.get(f"{base_url.rstrip('/')}/models", timeout=2.0, headers=_OPENROUTER_DEFAULT_HEADERS)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (requests.RequestException, ValueError):
+        return None
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, list):
+        return None
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("id") or "").lower() != model_name.lower():
+            continue
+        supported = entry.get("supported_parameters")
+        s_params = {str(s).lower() for s in supported} if isinstance(supported, list) else set()
+        max_out = entry.get("max_completion_tokens") or entry.get("max_tokens")
+        if max_out is None:
+            top = entry.get("top_provider")
+            if isinstance(top, dict):
+                max_out = top.get("max_completion_tokens") or top.get("max_tokens")
+        info = _OpenRouterModelInfo(
+            supports_response_format="response_format" in s_params,
+            supports_structured_outputs="structured_outputs" in s_params,
+            max_output_tokens=int(max_out) if isinstance(max_out, int) else None,
+            context_length=int(entry["context_length"]) if isinstance(entry.get("context_length"), int) else None,
+        )
+        with _openrouter_meta_lock:
+            _openrouter_meta_cache[key] = (info, now)
+        return info
+    return None
+
+
+def _supports_response_format(provider_name: str, model_name: str, base_url: str) -> bool:
+    """Décide si le mode ``json_object`` doit être envoyé (paramètre non universel).
+
+    - Providers OpenAI-compatibles classiques : oui par défaut.
+    - OpenRouter : via l'endpoint /models quand disponible, sinon repli sur le catalogue.
+    """
+    if provider_name != "openrouter":
+        return True
+    meta = _openrouter_model_meta(base_url, model_name)
+    if meta is not None:
+        return meta.supports_response_format or meta.supports_structured_outputs
+    try:
+        from ankiforge.services.ai.model_catalog import ModelCatalog
+
+        return bool(ModelCatalog.get_model_spec("openrouter", model_name).supports_json)
+    except Exception:
+        return True
+
+
+def _openrouter_max_output_tokens(base_url: str, model_name: str) -> int | None:
+    """Plafond de sortie réel d'un modèle OpenRouter (None si inconnu)."""
+    meta = _openrouter_model_meta(base_url, model_name)
+    return meta.max_output_tokens if meta is not None else None
+
+
+def _extract_reasoning_from_message(message: Any) -> str:
+    """Extrait le contenu de raisonnement d'un message (OpenAI ``reasoning``, DeepSeek ``reasoning_content``…)."""
+    for attr in ("reasoning", "reasoning_content", "thinking"):
+        val = getattr(message, attr, None)
+        if val:
+            return str(val)
+    extra = getattr(message, "model_extra", None)
+    if isinstance(extra, dict):
+        for key in ("reasoning", "reasoning_content", "thinking"):
+            val = extra.get(key)
+            if val:
+                return str(val)
+    return ""
+
+
+def _extract_reasoning_tokens(response: Any) -> tuple[int | None, int | None]:
+    """Retourne (reasoning_tokens, completion_tokens) si le fournisseur les fournit."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None, None
+    raw_completion = getattr(usage, "completion_tokens", 0)
+    completion_tokens = int(raw_completion) if isinstance(raw_completion, int) else 0
+    details = getattr(usage, "completion_tokens_details", None)
+    reasoning_tokens = None
+    if details is not None:
+        raw = getattr(details, "reasoning_tokens", None)
+        if isinstance(raw, int):
+            reasoning_tokens = raw
+    return (reasoning_tokens or None), (completion_tokens or None)
+
 
 _FALLBACK_SYSTEM_PROMPT = "Vous êtes un assistant IA utile, concis et précis. Répondez en français sauf indication contraire."
 
@@ -53,7 +232,9 @@ def _resolve_generation_timeout_seconds() -> float:
         timeout = float(raw)
     except (TypeError, ValueError):
         timeout = _DEFAULT_TIMEOUT_SECONDS
-    return timeout if timeout > 0 else _DEFAULT_TIMEOUT_SECONDS
+    if timeout <= 0:
+        timeout = _DEFAULT_TIMEOUT_SECONDS
+    return min(max(timeout, _MIN_GENERATION_TIMEOUT_SECONDS), _MAX_GENERATION_TIMEOUT_SECONDS)
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -72,6 +253,9 @@ class OpenAICompatibleProvider(LLMProvider):
         max_tokens: int = 16384,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
         max_retries: int = _DEFAULT_MAX_RETRIES,
+        *,
+        provider_name_override: str | None = None,
+        default_headers: dict[str, str] | None = None,
     ):
         """
         Initialise le client OpenAI avec l'URL de base et le modèle cible.
@@ -83,16 +267,28 @@ class OpenAICompatibleProvider(LLMProvider):
             max_tokens (int): Nombre maximal de tokens de réponse.
             timeout (float): Délai maximal (secondes) par requête réseau.
             max_retries (int): Nombre de tentatives automatiques du SDK OpenAI.
+            provider_name_override (str | None): Nom du fournisseur explicite (indépendant de l'URL).
+            default_headers (dict[str, str] | None): En-têtes HTTP globaux du client (ex: HTTP-Referer OpenRouter).
         """
-        self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=max_retries)
+        self.base_url = base_url
+        self.provider_name_override = provider_name_override
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            max_retries=max_retries,
+            default_headers=default_headers,
+        )
         self.model_name = model_name
         self.max_tokens = max_tokens
         self.is_ollama = "localhost" in base_url or "127.0.0.1" in base_url
 
     @property
     def provider_name(self) -> str:
-        """Déduit le nom du fournisseur à partir de l'URL de base du client."""
-        base = str(getattr(self.client, "base_url", "") or "")
+        """Nom du fournisseur : explicite si fourni, sinon déduit de l'URL de base."""
+        if self.provider_name_override:
+            return self.provider_name_override
+        base = self.base_url or str(getattr(self.client, "base_url", "") or "")
         if "groq" in base:
             return "groq"
         if "openrouter" in base:
@@ -104,6 +300,47 @@ class OpenAICompatibleProvider(LLMProvider):
         if "localhost" in base or "127.0.0.1" in base:
             return "ollama"
         return "openai"
+
+    def max_tokens_kwargs(self, effective_max: int) -> dict[str, int]:
+        """Paramètre de plafond adapté au modèle (``max_completion_tokens`` vs ``max_tokens``).
+
+        Les familles OpenAI o1/o3/o4/gpt-5 rejettent ``max_tokens`` au profit de
+        ``max_completion_tokens`` ; les autres modèles attendent ``max_tokens``.
+        """
+        if _uses_reasoning_params(self.model_name):
+            return {"max_completion_tokens": effective_max}
+        return {"max_tokens": effective_max}
+
+    def clamp_max_tokens(self, effective_max: int) -> int:
+        """Borne le plafond de sortie au maximum réel du modèle (ex. routes OpenRouter ``:free``).
+
+        Un ``max_tokens`` supérieur au plafond de sortie de la route renvoie un HTTP 400
+        amont (ex: « does not support max tokens > N ») sans jamais produire de contenu.
+        """
+        if self.provider_name != "openrouter":
+            return effective_max
+        cap = _openrouter_max_output_tokens(self.base_url, self.model_name)
+        if cap and cap > 0:
+            return min(effective_max, cap)
+        return effective_max
+
+    def _truncation_retry_budget(self, effective_max: int) -> int | None:
+        """Budget de sortie à tenter lors d'une troncature, ou ``None`` si aucun sur-dimensionnement possible.
+
+        - OpenRouter : on monte au plafond réel de la route lorsque le plafond est connu ; si le
+          budget actuel en est déjà à la limite (cas des modèles ``:free``), on ne réessaie pas car
+          un second appel serait tronqué de façon identique.
+        - Autres fournisseurs : on double le budget (borne de sécurité anti-DoS), pour une seule tentative.
+        """
+        if self.provider_name == "openrouter":
+            cap = _openrouter_max_output_tokens(self.base_url, self.model_name)
+            target = int(cap) if (cap and cap > 0) else effective_max * 2
+        else:
+            target = effective_max * 2
+        target = min(int(target), _MAX_TRUNCATION_RETRY_TOKENS)
+        if target <= effective_max:
+            return None
+        return target
 
     @staticmethod
     def _ensure_system_prompt(system_prompt: str | None) -> str:
@@ -174,78 +411,148 @@ class OpenAICompatibleProvider(LLMProvider):
             ChatCompletionUserMessageParam(role="user", content=cast(Any, self._sanitize_user_prompt(user_prompt))),
         ]
         try:
-            effective_max = max_tokens or self.max_tokens
+            effective_max = self.clamp_max_tokens(max_tokens or self.max_tokens)
             kwargs: dict[str, Any] = {
                 "model": self.model_name,
                 "messages": messages,
                 "temperature": temperature if temperature is not None else 0.2,
             }
 
-            if any(k in self.model_name.lower() for k in ("o1", "o3", "gpt-5")):
-                kwargs["max_completion_tokens"] = effective_max
-            else:
-                kwargs["max_tokens"] = effective_max
+            kwargs.update(self.max_tokens_kwargs(effective_max))
 
             # 👇 C'est ici que l'on connecte votre interface au backend !
-            if response_format == "json" and not self.is_ollama:
+            # Le mode json_object n'est pas supporté par tous les modèles/passeries :
+            # ne l'envoyer que lorsque la passerelle le garantit.
+            if response_format == "json" and not self.is_ollama and _supports_response_format(self.provider_name, self.model_name, self.base_url):
                 kwargs["response_format"] = {"type": "json_object"}
 
-            response = cast(
-                ChatCompletion,
-                self.client.chat.completions.create(**kwargs),
-            )
-            if hasattr(response, "usage") and response.usage:
-                p_tokens = response.usage.prompt_tokens or 0
-                c_tokens = response.usage.completion_tokens or 0
+            def _run_once() -> str:
+                """Exécute un appel de complétion et en retourne le contenu final (ou lève)."""
+                response = cast(
+                    ChatCompletion,
+                    self.client.chat.completions.create(**kwargs),
+                )
+                if hasattr(response, "usage") and response.usage:
+                    p_tokens = response.usage.prompt_tokens or 0
+                    c_tokens = response.usage.completion_tokens or 0
 
-                log_token_usage(self.provider_name, self.model_name, p_tokens, c_tokens)
+                    log_token_usage(self.provider_name, self.model_name, p_tokens, c_tokens)
 
-            choices = getattr(response, "choices", None)
-            if not choices:
-                # Vérification d'un éventuel payload d'erreur retourné sous HTTP 200 (ex: passerelle OpenRouter / NVIDIA)
-                err_obj = None
-                if hasattr(response, "model_extra") and isinstance(response.model_extra, dict):
-                    err_obj = response.model_extra.get("error")
-                if not err_obj:
-                    raw_err = getattr(response, "error", None)
-                    if isinstance(raw_err, dict | str):
-                        err_obj = raw_err
+                choices = getattr(response, "choices", None)
+                if not choices:
+                    # Vérification d'un éventuel payload d'erreur retourné sous HTTP 200 (ex: passerelle OpenRouter / NVIDIA)
+                    err_obj = None
+                    if hasattr(response, "model_extra") and isinstance(response.model_extra, dict):
+                        err_obj = response.model_extra.get("error")
+                    if not err_obj:
+                        raw_err = getattr(response, "error", None)
+                        if isinstance(raw_err, dict | str):
+                            err_obj = raw_err
 
-                if err_obj:
-                    if isinstance(err_obj, dict):
-                        err_msg = str(err_obj.get("message") or err_obj)
-                        err_code = err_obj.get("code")
-                    else:
-                        err_msg = str(err_obj)
-                        err_code = None
-                    code_str = f" [code {err_code}]" if err_code else ""
-                    human_msg = get_human_readable_api_error(Exception(f"{err_msg}{code_str}"))
-                    logger.error("Erreur renvoyée par le fournisseur IA (%s)%s : %s", self.model_name, code_str, err_msg)
-                    raise RuntimeError(f"Erreur du fournisseur IA ({self.model_name}){code_str} : {err_msg} — {human_msg}")
+                    if err_obj:
+                        if isinstance(err_obj, dict):
+                            err_msg = str(err_obj.get("message") or err_obj)
+                            err_code = err_obj.get("code")
+                        else:
+                            err_msg = str(err_obj)
+                            err_code = None
+                        code_str = f" [code {err_code}]" if err_code else ""
+                        human_msg = get_human_readable_api_error(Exception(f"{err_msg}{code_str}"))
+                        logger.error("Erreur renvoyée par le fournisseur IA (%s)%s : %s", self.model_name, code_str, err_msg)
+                        raise RuntimeError(f"Erreur du fournisseur IA ({self.model_name}){code_str} : {err_msg} — {human_msg}")
 
-                logger.warning("Le fournisseur IA (%s) a renvoyé une réponse sans choix de complétion (choices=%s).", self.model_name, choices)
-                human_msg = get_human_readable_api_error(Exception("sans choix généré"))
-                raise RuntimeError(f"Le fournisseur IA ({self.model_name}) a renvoyé une réponse sans choix généré (choices vide ou nul) — {human_msg}")
+                    logger.warning("Le fournisseur IA (%s) a renvoyé une réponse sans choix de complétion (choices=%s).", self.model_name, choices)
+                    human_msg = get_human_readable_api_error(Exception("sans choix généré"))
+                    raise RuntimeError(f"Le fournisseur IA ({self.model_name}) a renvoyé une réponse sans choix généré (choices vide ou nul) — {human_msg}")
 
-            choice = choices[0]
-            message = getattr(choice, "message", None)
-            if not message:
-                logger.warning("Le choix de complétion du fournisseur IA (%s) ne contient aucun message.", self.model_name)
-                raise RuntimeError(f"Le fournisseur IA ({self.model_name}) a renvoyé un choix de complétion sans message.")
+                choice = choices[0]
+                message = getattr(choice, "message", None)
+                if not message:
+                    logger.warning("Le choix de complétion du fournisseur IA (%s) ne contient aucun message.", self.model_name)
+                    raise RuntimeError(f"Le fournisseur IA ({self.model_name}) a renvoyé un choix de complétion sans message.")
 
-            refusal = getattr(message, "refusal", None)
-            if isinstance(refusal, str) and refusal.strip():
-                logger.warning("Le modèle IA (%s) a refusé la requête : %s", self.model_name, refusal)
-                raise RuntimeError(f"Le modèle IA ({self.model_name}) a refusé de générer une réponse : {refusal}")
+                refusal = getattr(message, "refusal", None)
+                if isinstance(refusal, str) and refusal.strip():
+                    logger.warning("Le modèle IA (%s) a refusé la requête : %s", self.model_name, refusal)
+                    raise RuntimeError(f"Le modèle IA ({self.model_name}) a refusé de générer une réponse : {refusal}")
 
-            content = getattr(message, "content", None) or ""
-            if not str(content).strip():
+                content = getattr(message, "content", None) or ""
                 finish_reason = getattr(choice, "finish_reason", None)
-                if isinstance(finish_reason, str) and finish_reason in ("length", "content_filter"):
-                    reason_msg = "dépassement du quota de tokens (length)" if finish_reason == "length" else "filtrage de sécurité (content_filter)"
-                    raise RuntimeError(f"Le modèle IA ({self.model_name}) s'est arrêté prématurément ({reason_msg}) sans contenu textuel généré.")
+                reason_str = str(finish_reason or "").strip()
 
-            return str(content)
+                if not str(content).strip():
+                    reasoning_tokens, completion_tokens = _extract_reasoning_tokens(response)
+                    # Cas documenté OpenRouter : un modèle reasoning a consommé tout son budget de
+                    # sortie en raisonnement (200 OK, content vide). Un retry n'aide pas.
+                    if reasoning_tokens and completion_tokens and reasoning_tokens >= completion_tokens * 0.9:
+                        logger.warning(
+                            "Le modèle IA (%s) a consommé son budget de sortie en raisonnement (reasoning=%s, completion=%s).",
+                            self.model_name,
+                            reasoning_tokens,
+                            completion_tokens,
+                        )
+                        raise RuntimeError(
+                            f"Le modèle IA ({self.model_name}) a consommé tout son budget de tokens en raisonnement "
+                            f"(finish_reason='{reason_str}', reasoning_tokens={reasoning_tokens}, completion_tokens={completion_tokens}). "
+                            "Augmentez max_tokens, désactivez le mode 'thinking' du modèle ou choisissez un modèle adapté à la génération de contenu."
+                        )
+                    if isinstance(finish_reason, str) and finish_reason in ("length", "content_filter"):
+                        reason_msg = "dépassement du quota de tokens (length)" if finish_reason == "length" else "filtrage de sécurité (content_filter)"
+                        raise RuntimeError(f"Le modèle IA ({self.model_name}) s'est arrêté prématurément ({reason_msg}) sans contenu textuel généré.")
+
+                    human_msg = get_human_readable_api_error(Exception("réponse vide"))
+                    logger.warning(
+                        "Le modèle IA (%s) a renvoyé une réponse vide (finish_reason='%s').",
+                        self.model_name,
+                        reason_str,
+                    )
+                    raise RuntimeError(
+                        f"Le modèle IA ({self.model_name}) a renvoyé une réponse vide (finish_reason='{reason_str}'). Réessayez, augmentez max_tokens ou choisissez un autre modèle — {human_msg}"
+                    )
+
+                # NOUVEAU : troncature avec contenu non vide. Le modèle a épuisé son budget de sortie
+                # alors qu'il restait des tokens à produire : la réponse est généralement coupée en
+                # pleine chaîne JSON et inexploitable sans un nouveau passage avec un budget élargi.
+                if reason_str == "length" or reason_str == "content_filter":
+                    logger.warning(
+                        "Le modèle IA (%s) a été tronqué (finish_reason='%s') avec contenu non vide : la sortie est partielle.",
+                        self.model_name,
+                        reason_str,
+                    )
+                    if reason_str == "content_filter":
+                        raise ContentFilteredError(
+                            f"Le modèle IA ({self.model_name}) a été interrompu par le filtre de sécurité (finish_reason='content_filter'). "
+                            "La réponse contient du contenu filtré : reformulez la requête ou assouplissez les filtres du modèle."
+                        )
+                    raise TruncatedOutputError(
+                        f"Le modèle IA ({self.model_name}) a épuisé son budget de tokens de sortie (finish_reason='length') : "
+                        "la réponse a été tronquée avant sa fin. Réduisez le contenu source, augmentez max_tokens "
+                        "ou choisissez un modèle avec une sortie plus large."
+                    )
+
+                return str(content)
+
+            # Une seule tentative de rattrapage : on élargit le budget de sortie puis on renvoie.
+            # Si le plafond réel de la route est déjà atteint (ex. modèles OpenRouter ``:free``),
+            # _truncation_retry_budget renvoie None et l'erreur remonte immédiatement.
+            attempts = 0
+            while True:
+                attempts += 1
+                try:
+                    return _run_once()
+                except TruncatedOutputError:
+                    if attempts >= 2:
+                        raise
+                    retry_max = self._truncation_retry_budget(effective_max)
+                    if retry_max is None or retry_max <= effective_max:
+                        raise
+                    effective_max = retry_max
+                    kwargs.update(self.max_tokens_kwargs(effective_max))
+                    logger.warning(
+                        "Réponse tronquée du modèle IA (%s), nouvelle tentative avec un budget de sortie élargi (%d tokens).",
+                        self.model_name,
+                        effective_max,
+                    )
         except (openai.APIError, openai.APIConnectionError) as e:
             logger.exception("Erreur API (%s) : %s", self.model_name, e)
             human_msg = get_human_readable_api_error(e)
@@ -271,7 +578,14 @@ class OllamaProvider(OpenAICompatibleProvider):
             max_tokens (int): Nombre maximal de tokens de réponse.
             timeout (float): Délai maximal (secondes) par requête réseau.
         """
-        super().__init__(base_url=f"{_ollama_base_url()}/v1", model_name=model_name, api_key="ollama", max_tokens=max_tokens, timeout=timeout)
+        super().__init__(
+            base_url=f"{_ollama_base_url()}/v1",
+            model_name=model_name,
+            api_key="ollama",
+            max_tokens=max_tokens,
+            timeout=timeout,
+            provider_name_override="ollama",
+        )
 
     @property
     def provider_name(self) -> str:
@@ -317,7 +631,14 @@ class GroqProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("GROQ_API_KEY")
         if not key:
             raise ValueError("Clé API GROQ_API_KEY manquante.")
-        super().__init__(base_url="https://api.groq.com/openai/v1", model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
+        super().__init__(
+            base_url="https://api.groq.com/openai/v1",
+            model_name=model_name,
+            api_key=key,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            provider_name_override="groq",
+        )
 
     @property
     def provider_name(self) -> str:
@@ -362,7 +683,15 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("OPENROUTER_API_KEY")
         if not key:
             raise ValueError("Clé API OPENROUTER_API_KEY manquante.")
-        super().__init__(base_url=resolved_url, model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
+        super().__init__(
+            base_url=resolved_url,
+            model_name=model_name,
+            api_key=key,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            provider_name_override="openrouter",
+            default_headers=_OPENROUTER_DEFAULT_HEADERS,
+        )
 
     @property
     def provider_name(self) -> str:
@@ -407,7 +736,14 @@ class OpenCodeProvider(OpenAICompatibleProvider):
         key = api_key or os.environ.get("OPENCODE_API_KEY")
         if not key:
             raise ValueError("Clé API OPENCODE_API_KEY manquante.")
-        super().__init__(base_url=resolved_url, model_name=model_name, api_key=key, max_tokens=max_tokens, timeout=timeout)
+        super().__init__(
+            base_url=resolved_url,
+            model_name=model_name,
+            api_key=key,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            provider_name_override="opencode",
+        )
 
     @property
     def provider_name(self) -> str:
@@ -623,6 +959,7 @@ class AIManager:
                     api_key=key,
                     max_tokens=max_tokens,
                     timeout=timeout,
+                    provider_name_override="openai",
                 )
             elif p_name == "openrouter":
                 if not key and not os.environ.get("OPENROUTER_API_KEY"):

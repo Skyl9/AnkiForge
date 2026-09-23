@@ -644,8 +644,11 @@ class PipelineOrchestrator(QRunnable):
             try:
                 parsed_output = AIReponseParser.parse(response_text)
             except Exception as e:
-                logger.warning("Parsing JSON impossible pour l'étape %d, conservation du brut: %s", step.step_order, e)
-                parsed_output = response_text
+                logger.error("Parsing JSON impossible pour l'étape %d : %s", step.step_order, e)
+                raise RuntimeError(
+                    f"L'IA a généré un JSON invalide pour l'étape {step.step_order} : impossible d'exploiter la sortie. "
+                    f"Détail : {e}. Réessayez, augmentez max_tokens ou choisissez un modèle plus fiable en JSON."
+                ) from e
 
         # Mise à jour des variables de l'état partagé
         out_var = cfg.get("output_variable")

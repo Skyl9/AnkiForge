@@ -208,6 +208,83 @@ class AIReponseParser:
         cleaned_text = re.sub(r"\\(.)", escape_latex, cleaned_text)
         return cleaned_text
 
+    @staticmethod
+    def _json_scan_state(body: str) -> tuple[list[str], bool, int | None]:
+        """Analyse l'état d'un extrait JSON : pile de structures ouvertes, chaîne ouverte, dernière virgule.
+
+        Returns:
+            (structures ouvertes dans l'ordre, chaîne encore ouverte en fin, index de la dernière virgule hors-chaîne).
+        """
+        stack: list[str] = []
+        in_string = False
+        escaped = False
+        last_comma: int | None = None
+        for i, ch in enumerate(body):
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch in "{[":
+                stack.append(ch)
+            elif ch in "}]":
+                if stack:
+                    stack.pop()
+            elif ch == ",":
+                last_comma = i
+        return stack, in_string, last_comma
+
+    @staticmethod
+    def _repair_truncated_json(text: str) -> list[str]:
+        """Génère des candidats JSON « refermés » pour une réponse tronquée par le plafond max_tokens.
+
+        Ne réécrit jamais le contenu déjà produit : se contente de refermer une chaîne ou une
+        structure laissée ouverte, ou d'abandonner la dernière entrée incomplète (repli sur les
+        cartes précédentes complètes). Best-effort, chaque candidat doit ensuite passer json.loads.
+        """
+        text = text.strip()
+        if not text:
+            return []
+        starts = [i for i, ch in enumerate(text) if ch in "{["]
+        if not starts:
+            return []
+        body = text[starts[0] :]
+        stack, in_string, last_comma = AIReponseParser._json_scan_state(body)
+
+        # JSON déjà complet (structures fermées, aucune chaîne ouverte) : rien à réparer.
+        if not in_string and not stack:
+            return []
+
+        candidates: list[str] = []
+        # Candidat 1 : refermer la chaîne ouverte puis les structures (cas « valeur coupée en deux »).
+        c1 = body
+        if in_string:
+            c1 += '"'
+        for opener in reversed(stack):
+            c1 += "}" if opener == "{" else "]"
+        candidates.append(c1)
+
+        # Candidat 2 : abandonner la dernière entrée incomplète (dernière virgule) puis refermer.
+        if last_comma is not None:
+            c2 = body[:last_comma].rstrip(" ,")
+            s2, _, _ = AIReponseParser._json_scan_state(c2)
+            for opener in reversed(s2):
+                c2 += "}" if opener == "{" else "]"
+            candidates.append(c2)
+
+        cleaned: list[str] = []
+        for cand in candidates:
+            cand = re.sub(r",\s*([\]\}])", r"\1", cand).strip()
+            cand = re.sub(r",\s*$", "", cand).strip()
+            if cand and cand not in cleaned:
+                cleaned.append(cand)
+        return cleaned
+
     @classmethod
     def parse(cls, response_text: str, target_model: type[T] | None = None) -> T | Any:
         """
@@ -244,6 +321,16 @@ class AIReponseParser:
 
             if individual_objects:
                 data = {"notes": individual_objects}
+
+        if data is None:
+            # Fallback 3 : réparation d'un JSON tronqué par max_tokens (finish_reason='length').
+            # On referme chaînes/structures orphelines pour récupérer les entrées déjà complètes.
+            for repaired in cls._repair_truncated_json(cleaned_text):
+                try:
+                    data = json.loads(repaired)
+                    break
+                except json.JSONDecodeError:
+                    continue
 
         if data is None:
             try:
@@ -480,28 +567,78 @@ def get_human_readable_api_error(error: Exception) -> str:
     if any(k in error_str for k in ["401", "403", "unauthorized", "api_key_invalid", "api key", "authentication"]):
         return "La clé API fournie est invalide, expirée ou manquante. Veuillez vérifier vos paramètres d'authentification IA."
 
-    # 3. Timeout et Connexion Perdue
-    if any(k in error_str for k in ["timeout", "timed out", "read timeout", "504", "gateway timeout", "upstream"]):
+    # 3. Crédits épuisés (OpenRouter HTTP 402 fréquent)
+    if any(k in error_str for k in ["402", "insufficient credits", "insufficient_quota", "add more credits", "out of credits", "no quota", "billing"]):
+        return "Votre compte ou votre passerelle IA est à court de crédits ou de quota. Ajoutez des crédits puis réessayez."
+
+    # 4. Timeout et Connexion Perdue
+    if any(k in error_str for k in ["timeout", "timed out", "read timeout", "request timed out", "504", "408", "gateway timeout", "upstream"]):
         return (
             "La connexion au service IA a expiré (Timeout / Erreur 504). Le modèle ou la passerelle amont "
             "(ex: OpenRouter/NVIDIA) est temporairement surchargé ou n'a pas répondu à temps. "
             "Essayez de réduire max_tokens ou sélectionnez un autre modèle."
         )
 
-    # 4. Connexion refusée (Typique de Ollama éteint)
+    # 5. Connexion refusée (Typique de Ollama éteint)
     if any(k in error_str for k in ["connection refused", "failed to establish", "connrefused", "target machine actively refused"]):
         return "Impossible de se connecter au service. Si vous utilisez Ollama en local, vérifiez que le logiciel est bien lancé en arrière-plan."
 
-    # 5. Dépassement de contexte
-    if any(k in error_str for k in ["context length", "maximum context", "token limit"]):
+    # 6. Plafond de sortie du modèle dépassé (OpenRouter : max_tokens au-dessus de la limite réelle de la route)
+    if any(k in error_str for k in ["max tokens >", "does not support max tokens", "output token limit", "maximum output tokens", "max_output_tokens", "max_tokens", "max_completion_tokens"]):
+        return (
+            "Le plafond de tokens demandé dépasse la limite de sortie réelle du modèle (fréquent sur les routes "
+            "OpenRouter :free). Réduisez max_tokens ou choisissez un modèle avec une sortie plus large."
+        )
+
+    # 7. Paramètre non supporté par le modèle / le fournisseur (response_format, json_object…)
+    if any(
+        k in error_str
+        for k in [
+            "response_format",
+            "json mode",
+            "json_object",
+            "structured output",
+            "structured_output",
+            "no endpoints found that can handle",
+            "unsupported parameter",
+            "unsupported_parameter",
+        ]
+    ):
+        return (
+            "Le modèle ou l'endpoint sélectionné ne supporte pas un paramètre demandé (format JSON structuré, "
+            "réponse formatée). Sélectionnez un modèle compatible avec l'export JSON ou désactivez le format strict."
+        )
+
+    # 8. Dépassement de contexte
+    if any(
+        k in error_str
+        for k in [
+            "context length",
+            "maximum context",
+            "context window",
+            "context_length",
+            "token limit",
+            "prompt is too long",
+            "exceeds the model's maximum",
+            "too long to process",
+        ]
+    ):
         return "Le document fourni est trop long pour la capacité de mémoire de ce modèle. Essayez de réduire la taille du découpage (Chunking) ou utilisez un modèle avec un plus grand contexte."
 
-    # 6. Erreur serveur générique (500)
+    # 9. Modèle inconnu / route inexistante (404)
+    if any(k in error_str for k in ["404", "model not found", "unknown model", "no such model", "doesn't exist", "not_found when calling", "invalid model"]):
+        return "Le modèle ou la route demandée est introuvable chez le fournisseur. Vérifiez l'identifiant du modèle (ex: 'qwen/qwen3.8-27b:free') et l'URL de la passerelle."
+
+    # 10. Erreur fournie par le provider amont (passerelle OpenRouter/NVIDIA qui encapsule l'erreur)
+    if "provider returned error" in error_str or ("backend error" in error_str and "details" in error_str):
+        return "Le fournisseur amont a renvoyé une erreur (paramètre non supporté, quota ou limite du modèle). Vérifiez max_tokens et le format de réponse, ou changez de modèle."
+
+    # 11. Erreur serveur générique (500)
     if any(k in error_str for k in ["500", "502", "503", "internal server error", "bad gateway"]):
         return "Le serveur du fournisseur IA a rencontré une erreur interne. Veuillez réessayer plus tard."
 
-    # 7. Réponse vide ou modèle saturé
-    if any(k in error_str for k in ["sans choix", "choices vide", "aucun choix"]):
+    # 12. Réponse vide ou modèle saturé
+    if any(k in error_str for k in ["sans choix", "choices vide", "aucun choix", "réponse vide"]):
         return (
             "Le fournisseur d'IA a renvoyé une réponse sans contenu généré. Le modèle gratuit est peut-être saturé "
             "ou les paramètres demandés (format JSON, max_tokens) sont incompatibles avec ce fournisseur."

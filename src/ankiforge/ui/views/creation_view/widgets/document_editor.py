@@ -442,6 +442,11 @@ class DocumentEditorWidget(QWidget):
         bot_layout.addWidget(self.tokens_lbl)
         bot_layout.addStretch()
 
+        self.running_lbl = QLabel("")
+        self.running_lbl.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; font-family: '{DesignTokens.FONT_CODE}'; font-size: 11px; font-weight: 600;")
+        self.running_lbl.hide()
+        bot_layout.addWidget(self.running_lbl)
+
         self.btn_paste = SecondaryButton("Coller", tooltip="Coller le contenu du presse-papier (Ctrl+V)")
         self.btn_paste.setIcon(load_phosphor_icon("ph.clipboard", color=DesignTokens.TEXT_PRIMARY))
         self.btn_paste.clicked.connect(self.raw_editor.paste)
@@ -913,3 +918,8 @@ class DocumentEditorWidget(QWidget):
         else:
             self.btn_generate.show()
             self.btn_cancel.hide()
+            self.running_lbl.hide()
+
+    def set_running_text(self, text: str) -> None:
+        self.running_lbl.setText(text)
+        self.running_lbl.show()

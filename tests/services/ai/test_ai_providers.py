@@ -330,6 +330,151 @@ def test_openai_compatible_provider_finish_reason_length(mock_openai_class):
 
 
 @patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_truncation_nonempty_retries_with_more_tokens(mock_openai_class):
+    """Une réponse non vide tronquée (finish_reason='length') déclenche UN retry avec un budget élargi.
+
+    Corrige le cas réel d'AnkiForge : le modèle OpenAI-compatible remplissait exactement son
+    max_tokens, finish_reason='length' avec du contenu partiel (JSON coupé en pleine chaîne).
+    """
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    def side_effect(**kwargs):
+        choice = MagicMock()
+        choice.message.refusal = None
+        if kwargs["max_tokens"] == 16384:
+            choice.message.content = '{"notes": [{"Front": "Q1", "Back": "A'
+            choice.finish_reason = "length"
+        else:
+            choice.message.content = '{"notes": [{"Front": "Q1", "Back": "A1"}]}'
+            choice.finish_reason = "stop"
+        return MagicMock(choices=[choice], usage=None)
+
+    mock_client.chat.completions.create.side_effect = side_effect
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    res = provider.generate("System", "User")
+
+    assert '"Back": "A1"' in res
+    assert mock_client.chat.completions.create.call_count == 2
+    max_tokens_used = [c.kwargs["max_tokens"] for c in mock_client.chat.completions.create.call_args_list]
+    assert max_tokens_used == [16384, 32768]
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_truncation_retries_once_then_raises(mock_openai_class):
+    """Si le retry avec budget élargi est lui aussi tronqué, on ne boucle pas : TruncatedOutputError."""
+    from ankiforge.services.ai.flexible_service import TruncatedOutputError
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '{"notes": [{"Front": "Q1", "Back": "A'
+    mock_choice.finish_reason = "length"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(TruncatedOutputError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "épuisé son budget" in str(exc_info.value)
+    assert mock_client.chat.completions.create.call_count == 2
+
+
+@patch("ankiforge.services.ai.flexible_service._openrouter_max_output_tokens", return_value=8192)
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_truncation_at_cap_raises_no_retry(mock_openai_class, mock_cap):
+    """Route OpenRouter ``:free`` déjà au plafond réel : pas de retry, erreur immédiate (évite un 2e appel ~4 min)."""
+    from ankiforge.services.ai.flexible_service import TruncatedOutputError
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '{"notes": [{"Front": "Q1", "Back": "A'
+    mock_choice.finish_reason = "length"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "qwen/qwen3.8-27b:free", max_tokens=8192)
+    with pytest.raises(TruncatedOutputError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "épuisé son budget" in str(exc_info.value)
+    assert mock_client.chat.completions.create.call_count == 1
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_content_filter_nonempty_raises(mock_openai_class):
+    """Un finish_reason='content_filter' avec contenu non vide est remonté explicitement."""
+    from ankiforge.services.ai.flexible_service import ContentFilteredError
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = "Contenu partiellement filtré"
+    mock_choice.finish_reason = "content_filter"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(ContentFilteredError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "filtre de sécurité" in str(exc_info.value)
+    assert mock_client.chat.completions.create.call_count == 1
+
+
+@patch("ankiforge.services.settings_service.SettingsService.get")
+def test_resolve_generation_timeout_bounded_default(mock_settings_get):
+    """Le timeout de génération par défaut doit être borné (pas un gel de ~16 h quand l'IA stagne).
+
+    Régression : _DEFAULT_TIMEOUT_SECONDS valait 60000 s (16,6 h) — un fournisseur lent/afflué
+    (qwen:free, Gemini afflué, NVIDIA 503) figeait la génération quasi indéfiniment, obligeant à
+    quitter l'application (symptôme « UI bloquée, j'ai quitté »).
+    """
+    from ankiforge.services.ai.flexible_service import (
+        _DEFAULT_TIMEOUT_SECONDS,
+        _MAX_GENERATION_TIMEOUT_SECONDS,
+        _MIN_GENERATION_TIMEOUT_SECONDS,
+        _resolve_generation_timeout_seconds,
+    )
+
+    mock_settings_get.return_value = None
+    resolved = _resolve_generation_timeout_seconds()
+
+    assert _MIN_GENERATION_TIMEOUT_SECONDS <= resolved <= _MAX_GENERATION_TIMEOUT_SECONDS
+    assert resolved == _DEFAULT_TIMEOUT_SECONDS
+    assert resolved < 60 * 20  # plafonné bien en dessous d'une veille de 20 min
+
+
+@patch("ankiforge.services.settings_service.SettingsService.get")
+def test_resolve_generation_timeout_clamps_absurd_values(mock_settings_get):
+    """Des valeurs aberrantes du réglage (0, négatif, des millions) sont bornées, jamais désactivables."""
+    from ankiforge.services.ai.flexible_service import (
+        _DEFAULT_TIMEOUT_SECONDS,
+        _MAX_GENERATION_TIMEOUT_SECONDS,
+        _MIN_GENERATION_TIMEOUT_SECONDS,
+        _resolve_generation_timeout_seconds,
+    )
+
+    mock_settings_get.return_value = 10**9
+    assert _resolve_generation_timeout_seconds() == _MAX_GENERATION_TIMEOUT_SECONDS
+
+    mock_settings_get.return_value = 0.001
+    assert _resolve_generation_timeout_seconds() == _MIN_GENERATION_TIMEOUT_SECONDS
+
+    mock_settings_get.return_value = -5.0
+    assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
+
+    mock_settings_get.return_value = "pas un nombre"
+    assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_wraps_internal_typeerror(mock_openai_class):
     """Vérifie qu'un TypeError inattendu interne ne fuit JAMAIS sous forme de TypeError brut."""
     mock_client = MagicMock()
@@ -342,3 +487,136 @@ def test_openai_compatible_provider_wraps_internal_typeerror(mock_openai_class):
 
     assert "Erreur inattendue" in str(exc_info.value)
     assert not isinstance(exc_info.value, TypeError)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_empty_content_stop_raises(mock_openai_class):
+    """Une réponse vide avec finish_reason='stop' ne doit plus être renvoyée silencieusement."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = ""
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "réponse vide" in str(exc_info.value)
+    assert "stop" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_empty_content_null(mock_openai_class):
+    """Une réponse avec message.content = None ne doit pas être renvoyée comme chaîne vide."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = None
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "réponse vide" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service._extract_reasoning_tokens", return_value=(512, 512))
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_reasoning_budget_consumed(mock_openai_class, mock_reasoning):
+    """Cas OpenRouter documenté : le modèle reasoning a consommé tout le budget en raisonnement."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = ""
+    mock_choice.finish_reason = "length"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "qwen/qwen3.8-27b:free")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "raisonnement" in str(exc_info.value)
+    assert "max_tokens" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_reasoning_budget_untouched_keeps_finish_reason_error(mock_openai_class):
+    """Sans tokens de raisonnement, un finish_reason 'length' conserve son message dédié."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = ""
+    mock_choice.finish_reason = "length"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://fake", "test-model")
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate("System", "User")
+
+    assert "dépassement du quota de tokens" in str(exc_info.value)
+
+
+@patch("ankiforge.services.ai.flexible_service._openrouter_max_output_tokens", return_value=4096)
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_openrouter_clamps_max_tokens(mock_openai_class, mock_cap):
+    """Le max_tokens demandé est borné au plafond réel de sortie du modèle OpenRouter."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '{"reponse": "ok"}'
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "qwen/qwen3.8-27b:free")
+    provider.generate("System", "User")
+
+    mock_cap.assert_called_once()
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert kwargs["max_tokens"] == 4096
+
+
+@patch("ankiforge.services.ai.flexible_service._supports_response_format", return_value=False)
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_json_mode_skipped_when_unsupported(mock_openai_class, mock_support):
+    """Le mode json_object n'est pas expédié quand la passerelle ne le garantit pas."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '{"reponse": "ok"}'
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "some/model")
+    provider.generate("System", "User")
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert "response_format" not in kwargs
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_o1_via_openrouter_uses_max_completion_tokens(mock_openai_class):
+    """Une famille o1 via OpenRouter doit utiliser max_completion_tokens, même avec un slug complet."""
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '{"reponse": "ok"}'
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("https://openrouter.ai/api/v1", "openai/o1", max_tokens=32000)
+    provider.generate("System", "User")
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert kwargs["max_completion_tokens"] == 32000
+    assert "max_tokens" not in kwargs

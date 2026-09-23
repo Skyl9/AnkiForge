@@ -34,7 +34,7 @@ class GeminiService(LLMProvider):
     de Google. Supporte les fonctionnalités multimodales (vision).
     """
 
-    def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash-lite", max_tokens: int = 65536, timeout: float = 60000.0):
+    def __init__(self, api_key: str, model_name: str = "gemini-3.5-flash-lite", max_tokens: int = 65536, timeout: float = 600.0):
         """
         Initialise le client Gemini.
 
