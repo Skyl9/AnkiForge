@@ -27,6 +27,14 @@ class MarkdownStructurer:
 
     _parser: MarkdownIt | None = None
 
+    # Balises de page générées par les parseurs (Marker notamment) : <span class="page">N</span>,
+    # <span id="page-X-Y">…</span>, ou équivalents <div>. Retirées INTÉGRALEMENT des titres
+    # (contenu inclus) pour ne pas faire fuiter un numéro de page dans le nom d'un chapitre.
+    _PAGE_ELEMENT_RE = re.compile(
+        r"<\s*(?:span|div)\b[^>]*\bpage\b[^>]*>.*?</\s*(?:span|div)\s*>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
     @classmethod
     def get_parser(cls) -> MarkdownIt:
         """Fournit une instance partagée du parseur CommonMark avec support des tables."""
@@ -39,8 +47,10 @@ class MarkdownStructurer:
         """Nettoie un titre de ses balises HTML, ancres, formatages Markdown et KaTeX."""
         if not text:
             return ""
+        # 0. Supprime intégralement les éléments de page HTML (span/div page) ET leur contenu
+        cleaned = cls._PAGE_ELEMENT_RE.sub("", text)
         # 1. Supprime les balises HTML (<span id="...">...</span>, <span ...>, <br>, etc.)
-        cleaned = re.sub(r"<[^>]+>", "", text)
+        cleaned = re.sub(r"<[^>]+>", "", cleaned)
         # 2. Supprime les liens Markdown [texte](url) -> texte
         cleaned = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", cleaned)
         # 3. Supprime les délimiteurs Markdown inline (gras, italique, code: *, _, `)

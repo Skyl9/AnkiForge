@@ -1,8 +1,11 @@
 """Tests unitaires pour MarkdownStructurer."""
 
+from typing import Any
+
 import pytest
 
 from ankiforge.services.markdown.structurer import MarkdownStructurer
+from ankiforge.services.parsing.chunking_service import ChunkingService
 
 pytestmark = pytest.mark.unit
 
@@ -114,6 +117,60 @@ def test_clean_heading_title() -> None:
     # Commentaire HTML (marqueur de page) et balises imbriquées
     assert MarkdownStructurer.clean_heading_title("<!-- PAGE: 3 --> Titre") == "Titre"
     assert MarkdownStructurer.clean_heading_title("<span>Chapitre <b>2</b></span>") == "Chapitre 2"
+    # Balises de page Marker : le numéro de page ne doit pas fuiter dans le titre
+    assert MarkdownStructurer.clean_heading_title('<span class="page">12</span> L\u2019évolution du droit') == "L\u2019évolution du droit"
+    assert MarkdownStructurer.clean_heading_title('Titre avec <span class="page">7</span> insérée') == "Titre avec insérée"
+    assert MarkdownStructurer.clean_heading_title('<span class="page">3</span>') == ""
+
+
+def test_clean_heading_title_strips_page_markers_from_chunk_titles() -> None:
+    """P1 — Les balises de page HTML ne doivent jamais apparaître dans les titres de chunks
+    ni de parties (affichage document + sélection), sans toucher au contenu brut du chunk."""
+    md_marker = "\n".join(
+        [
+            "{0}------------------------------------------------",
+            "# 1 - Variables aléatoires",
+            "",
+            "Le contenu de la première page.",
+            "",
+            '## <span class="page">12</span> L\u2019évolution du droit',
+            "",
+            '### <span id="page-3-4"></span> Sous-section A',
+            "",
+            "Contenu de la sous-section.",
+            "",
+            '## <span class="page">2</span> Distribution',
+            "",
+            "Contenu de la seconde page.",
+        ]
+    )
+
+    outline = MarkdownStructurer.get_outline(md_marker)
+    titles = [o.title for o in outline]
+    assert titles == ["1 - Variables aléatoires", "L\u2019évolution du droit", "Sous-section A", "Distribution"]
+    for t in titles:
+        assert "<" not in t and ">" not in t
+
+    chunks = ChunkingService.extract_chunks(md_marker, file_type="pdf")
+    for c in chunks:
+        h_path = c.get("heading_path") or ""
+        assert "<" not in h_path
+        assert 'class="page"' not in h_path
+        assert "page-" not in h_path
+
+    tree = ChunkingService.extract_heading_tree_with_pages(md_marker, total_pages=12)
+    flat: list[Any] = []
+
+    def flatten(nodes: list[Any]) -> None:
+        for node in nodes:
+            flat.append(node)
+            flatten(list(getattr(node, "children", []) or []))
+
+    flatten(tree)
+    assert flat, "l'arbre de titres ne doit pas être vide"
+    for item in flat:
+        assert "<" not in item.title and ">" not in item.title
+        assert item.title not in ("12", "2", "7")
 
 
 def test_get_outline_cleans_html_page_spans_in_titles() -> None:
