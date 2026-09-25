@@ -19,6 +19,20 @@ from pathlib import Path, PurePosixPath
 logger = logging.getLogger(__name__)
 
 
+class ArchiveSizeLimitError(ValueError):
+    """Archive rejetée car la taille totale décompressée dépasse le plafond configuré.
+
+    Porte les valeurs factuelles (``total_size`` et ``limit``) pour permettre aux
+    appelants de produire un message d'erreur riche (provenance du plafond, lien
+    vers l'onglet de réglage, etc.).
+    """
+
+    def __init__(self, total_size: int, limit: int) -> None:
+        super().__init__(f"Archive rejetée pour sécurité : taille décompressée totale ({total_size} octets) dépasse le plafond de {limit} octets.")
+        self.total_size = total_size
+        self.limit = limit
+
+
 def safe_extract_zip(
     zip_path: str | Path,
     target_dir: str | Path,
@@ -38,6 +52,7 @@ def safe_extract_zip(
     Raises:
         ValueError: si un membre s'échappe du répertoire cible (Zip-Slip) ou
             dépasse le plafond de taille annoncé.
+        ArchiveSizeLimitError: si la taille décompressée totale dépasse ``max_total_size``.
         zipfile.BadZipFile: si l'archive est invalide.
     """
     target = Path(target_dir).expanduser().resolve()
@@ -64,7 +79,7 @@ def safe_extract_zip(
             # 3. Plafond de taille totale décompressée (anti zip-bomb)
             total_size += info.file_size
             if max_total_size is not None and total_size > max_total_size:
-                raise ValueError(f"Archive rejetée pour sécurité : taille décompressée totale ({total_size} octets) dépasse le plafond de {max_total_size} octets.")
+                raise ArchiveSizeLimitError(total_size, max_total_size)
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             # 4. Écriture en fichier régulier : jamais de création de symlink
@@ -104,7 +119,7 @@ def safe_extract_tar(
         if max_total_size is not None:
             total_size = sum(m.size for m in archive.getmembers() if m.isfile())
             if total_size > max_total_size:
-                raise ValueError(f"Archive rejetée pour sécurité : taille décompressée totale ({total_size} octets) dépasse le plafond de {max_total_size} octets.")
+                raise ArchiveSizeLimitError(total_size, max_total_size)
         # Le filtre natif "data" de tarfile (B202 satisfait) refuse les chemins
         # absolus, '..', les devices et ne crée que fichiers/répertoires sûrs.
         archive.extractall(path=target, filter="data")

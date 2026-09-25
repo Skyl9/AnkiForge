@@ -38,7 +38,7 @@ from ankiforge.database.models import (
     db,
 )
 from ankiforge.services.settings_service import SettingsService
-from ankiforge.utils.archive_utils import safe_extract_zip
+from ankiforge.utils.archive_utils import ArchiveSizeLimitError, safe_extract_zip
 from ankiforge.utils.c_bridge import get_similarity
 from ankiforge.utils.hierarchy import from_anki_unit_separator, join_hierarchy, split_hierarchy
 from ankiforge.utils.paths import get_media_dir
@@ -46,6 +46,39 @@ from ankiforge.utils.paths import get_media_dir
 logger = logging.getLogger(__name__)
 
 MAX_APKG_DECOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 Gio — plafond anti zip-bomb de sécurité par défaut pour l'import APKG
+
+
+def _size_limit_provenance() -> str:
+    """Indique si le plafond d'import provient d'un réglage utilisateur ou du défaut."""
+    return "user" if SettingsService.get("anki/max_import_bytes", None) is not None else "default"
+
+
+def _human_gib(value: int) -> str:
+    """Formate un nombre d'octets en Gio lisibles (2 décimales)."""
+    return f"{value / (1024**3):.2f} Gio"
+
+
+class ApkgSizeLimitError(ArchiveSizeLimitError):
+    """Rejet d'une archive .apkg/.colpkg à cause du plafond de taille décompressée.
+
+    Ajoute la ``provenance`` du plafond (défaut 1 Gio ou réglage utilisateur) et
+    un message orienté action orientant vers l'onglet de réglage concerné.
+    """
+
+    SETTINGS_HINT = "Pour l'augmenter : Paramètres → « Anki && Formats » → « Taille max. décompressée à l'import » (réglage anki/max_import_bytes)."
+
+    def __init__(self, total_size: int, limit: int, provenance: str) -> None:
+        self.provenance = provenance
+        origin = "réglage utilisateur (Paramètres → « Anki && Formats »)" if provenance == "user" else "plafond par défaut (1 Gio)"
+        super().__init__(total_size, limit)
+        self.user_message = (
+            f"Archive rejetée : la taille décompressée totale ({total_size} octets ≈ {_human_gib(total_size)}) "
+            f"dépasse le plafond appliqué de {limit} octets ({_human_gib(limit)}). "
+            f"Provenance du plafond : {origin}. {self.SETTINGS_HINT}"
+        )
+
+    def __str__(self) -> str:
+        return self.user_message
 
 
 def _resolve_apkg_size_limit() -> int | None:
@@ -511,6 +544,9 @@ class ImportManager:
             # Extraction sécurisée anti Zip-Slip (chemins absolus/remontées refusés),
             # plafond de taille décompressée configurable (anti zip-bomb).
             safe_extract_zip(apkg_path, temp_path, max_total_size=_resolve_apkg_size_limit())
+        except ArchiveSizeLimitError as e:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise ApkgSizeLimitError(e.total_size, e.limit, provenance=_size_limit_provenance()) from e
         except zipfile.BadZipFile as e:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise ValueError(f"Le fichier {apkg_path.name} n'est pas une archive ZIP/APKG valide.") from e

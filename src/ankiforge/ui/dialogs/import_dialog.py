@@ -302,6 +302,7 @@ class ImportDialog(QDialog):
         self.worker.progress.connect(self.lbl_status.setText)
         self.worker.analysis_ready.connect(self._on_analysis_ready)
         self.worker.error_signal.connect(self._on_import_error)
+        self.worker.size_limit_error.connect(self._on_size_limit_error)
         self.worker.start()
 
     def _on_analysis_ready(self, analysis: ImportAnalysisResult) -> None:
@@ -348,6 +349,7 @@ class ImportDialog(QDialog):
         self.worker.progress.connect(self.lbl_status.setText)
         self.worker.commit_finished.connect(self._on_commit_finished)
         self.worker.error_signal.connect(self._on_import_error)
+        self.worker.size_limit_error.connect(self._on_size_limit_error)
         self.worker.start()
 
     def _on_commit_finished(self, summary: dict[str, int]) -> None:
@@ -369,3 +371,26 @@ class ImportDialog(QDialog):
         self.btn_import.setEnabled(True)
         self.lbl_status.setText("Erreur d'importation.")
         QMessageBox.critical(self, "Erreur d'Importation", f"Impossible d'importer l'archive :\n{err_msg}")
+
+    def _on_size_limit_error(self, err_msg: str) -> None:
+        self.progress_bar.hide()
+        self.btn_import.setEnabled(True)
+        self.lbl_status.setText("Erreur d'importation : plafond de taille atteint.")
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Critical)
+        box.setWindowTitle("Erreur d'Importation")
+        box.setText(f"Impossible d'importer l'archive :\n{err_msg}")
+        btn_settings = box.addButton("Ouvrir les réglages Anki", QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Ok)
+        box.exec()
+        if box.clickedButton() is btn_settings:
+            self._open_anki_settings()
+
+    def _open_anki_settings(self) -> None:
+        """Ouvre la modale Paramètres sur l'onglet « Anki && Formats » (index 2)."""
+        from ankiforge.ui.widgets.settings_modal import SettingsModal
+
+        modal = SettingsModal(parent=self)
+        modal.setModal(False)
+        modal.stacked_widget.setCurrentIndex(2)
+        modal.show()

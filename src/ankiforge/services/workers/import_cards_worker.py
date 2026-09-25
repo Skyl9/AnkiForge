@@ -11,7 +11,7 @@ from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 
-from ankiforge.services.cards.import_manager import ImportAnalysisResult, ImportManager
+from ankiforge.services.cards.import_manager import ApkgSizeLimitError, ImportAnalysisResult, ImportManager
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class ImportCardsWorker(QThread):
     commit_finished = Signal(dict)  # dict[str, int]
     finished_signal = Signal()
     error_signal = Signal(str)
+    size_limit_error = Signal(str)
 
     def __init__(
         self,
@@ -82,6 +83,9 @@ class ImportCardsWorker(QThread):
                 self.commit_finished.emit(result)
                 self.finished_signal.emit()
 
+        except ApkgSizeLimitError as e:
+            logger.exception("Plafond de taille d'import dépassé (mode='%s') : %s", self.mode, e)
+            self.size_limit_error.emit(str(e))
         except Exception as e:
             logger.exception("Erreur lors de l'opération d'importation (mode='%s') : %s", self.mode, e)
             self.error_signal.emit(str(e))

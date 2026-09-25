@@ -1529,3 +1529,75 @@ def test_batch_start_pipeline_skips_already_successful_tasks(qtbot: Any, monkeyp
     prev_worker = view.worker
     view._on_start_batch(resume_incomplete=False)
     assert view.worker is prev_worker
+
+
+def test_batch_add_doc_after_success_only_runs_new_task(qtbot: Any, monkeypatch: Any) -> None:
+    """P1 — Ajouter un document après une fournée en succès ne relance que les tâches nouvelles."""
+    deck = DeckModel.create(name="Deck Add After Success")
+    nt = NoteTypeModel.create(
+        name="Basic Add After Success",
+        fields_schema='["Front", "Back"]',
+        templates=json.dumps([{"name": "Card 1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]),
+        css_style="",
+    )
+    doc = DocumentModel.create(title="Doc Add.md", content_markdown="Source data", file_type="md")
+
+    executed_contents: list[str] = []
+
+    def fake_orchestrator_run(self_orch: Any) -> None:
+        content = str(self_orch.state.get_variable("text_source") or "")
+        executed_contents.append(content)
+        self_orch.state.variables["generated_cards"] = [{"Front": f"Q {content}", "Back": f"A {content}"}]
+
+    monkeypatch.setattr(PipelineOrchestrator, "run", fake_orchestrator_run)
+
+    view = BatchTab(ai_manager=None)
+    qtbot.addWidget(view)
+    view.queue_tasks_data.clear()
+
+    def make_task(content: str, suffix: str) -> dict[str, Any]:
+        return {
+            "doc": doc,
+            "doc_id": doc.id,
+            "doc_title": f"{doc.title} — {suffix}",
+            "doc_content": content,
+            "source_chunks": [],
+            "chunk_label": suffix,
+            "chunk_index": 0,
+            "deck": deck,
+            "deck_name": deck.name,
+            "note_type": nt,
+            "model_name": nt.name,
+            "pipeline": view.pipeline_combo.currentData() if view.pipeline_combo.count() else None,
+            "pipeline_name": "Standard",
+            "engine": view.engine_combo.currentData() if view.engine_combo.count() else None,
+            "llm_config": {"provider": "mock", "model_id": "mock-model", "api_key": ""},
+            "max_tokens": 16384,
+            "auto_val": True,
+        }
+
+    # 1ᵉʳ lancement : premier document ajouté et généré avec succès
+    view._append_queue_tasks([make_task("Chunk premier", "S1")])
+    assert len(view.queue_tasks_data) == 1
+    view._on_start_batch(resume_incomplete=False)
+    assert view.worker is not None
+    qtbot.waitUntil(
+        lambda: view.queue_tasks_data[0]["status"] == "Succès" and not view.worker.isRunning(),
+        timeout=15000,
+    )
+
+    # 2ᵉ document ajouté à la file (chemin réel d'ajout), puis relance
+    view._append_queue_tasks([make_task("Chunk second", "S2")])
+    assert len(view.queue_tasks_data) == 2
+    view._on_start_batch(resume_incomplete=False)
+    assert view.worker is not None
+    qtbot.waitUntil(
+        lambda: view.queue_tasks_data[1]["status"] == "Succès" and not view.worker.isRunning(),
+        timeout=15000,
+    )
+
+    # Le premier document n'a jamais été ré-exécuté : chacun exécuté une seule fois
+    assert executed_contents == ["Chunk premier", "Chunk second"]
+    assert view.queue_tasks_data[0]["status"] == "Succès"
+    assert view.queue_tasks_data[0]["cards_count"] == 1
+    assert view.queue_tasks_data[1]["cards_count"] == 1

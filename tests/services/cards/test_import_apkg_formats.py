@@ -336,3 +336,63 @@ def test_import_configurable_decompressed_size_limit(tmp_path: Path, monkeypatch
     else:
         analysis = ImportManager().analyze_archive(apkg_path)
         assert len(analysis.new_notes) == 1
+
+
+def test_apkg_size_limit_default_and_disabled_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le défaut 1 Gio s'applique sans réglage enregistré ; une valeur <= 0 désactive le plafond."""
+    from ankiforge.services.cards import import_manager as import_manager_mod
+
+    monkeypatch.setattr(
+        import_manager_mod.SettingsService,
+        "get",
+        lambda key, default=None, category=None: import_manager_mod.MAX_APKG_DECOMPRESSED_BYTES if key == "anki/max_import_bytes" else default,
+    )
+    assert import_manager_mod._resolve_apkg_size_limit() == import_manager_mod.MAX_APKG_DECOMPRESSED_BYTES
+
+    monkeypatch.setattr(
+        import_manager_mod.SettingsService,
+        "get",
+        lambda key, default=None, category=None: 0 if key == "anki/max_import_bytes" else default,
+    )
+    assert import_manager_mod._resolve_apkg_size_limit() is None
+
+
+@pytest.mark.parametrize(("provenance", "expected_origin"), [("default", "plafond par défaut"), ("user", "réglage utilisateur")])
+def test_apkg_size_limit_error_message_rich(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, provenance: str, expected_origin: str) -> None:
+    """Le message d'erreur de plafond expose la taille, le plafond appliqué, la provenance et le raccourci vers les réglages."""
+    from ankiforge.services.cards import import_manager as import_manager_mod
+    from ankiforge.services.cards.import_manager import ApkgSizeLimitError
+
+    db_file = tmp_path / "limit_msg.db"
+    conn = sqlite3.connect(str(db_file))
+    conn.execute("CREATE TABLE col (id integer, models text, decks text)")
+    models_json = '{"1": {"name": "Basic", "flds": [{"name": "Front"}, {"name": "Back"}], '
+    models_json += '"tmpls": [{"name": "Q->A", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr>{{Back}}"}]}}'
+    decks_json = '{"1": {"id": 1, "name": "Default"}}'
+    conn.execute("INSERT INTO col VALUES (1, ?, ?)", (models_json, decks_json))
+    conn.execute("CREATE TABLE notes (id integer, guid text, mid integer, tags text, flds text)")
+    conn.execute("INSERT INTO notes VALUES (1, 'limit_msg_guid', 1, '', 'Q\x1fA')")
+    conn.commit()
+    conn.close()
+
+    apkg_path = tmp_path / "big_msg.apkg"
+    with zipfile.ZipFile(apkg_path, "w") as zf:
+        zf.write(db_file, "collection.anki2")
+        zf.writestr("media", "{}")
+        zf.writestr("asset_padding.bin", b"\x00" * 2048)
+
+    monkeypatch.setattr(import_manager_mod, "_resolve_apkg_size_limit", lambda: 1000)
+    monkeypatch.setattr(import_manager_mod, "_size_limit_provenance", lambda: provenance)
+
+    with pytest.raises(ApkgSizeLimitError) as exc_info:
+        ImportManager().analyze_archive(apkg_path)
+
+    message = str(exc_info.value)
+    assert message.startswith("Archive rejetée")
+    assert "dépasse le plafond appliqué de 1000 octets" in message
+    assert "Provenance du plafond :" in message and expected_origin in message
+    assert "Paramètres" in message
+    assert "Gio" in message
+    assert exc_info.value.total_size > 1000
+    assert exc_info.value.limit == 1000
+    assert exc_info.value.provenance == provenance
