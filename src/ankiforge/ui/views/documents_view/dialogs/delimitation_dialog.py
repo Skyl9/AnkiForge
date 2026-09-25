@@ -236,6 +236,32 @@ class SectionRowWidget(QWidget):
         self._item = item
         self._tree_widget = tree_widget or list_widget
         self.setFixedHeight(36)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setAccessibleName(f"Sélectionner la section {title}")
+        self.setStyleSheet(
+            f"""
+            SectionRowWidget {{
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-radius: 5px;
+            }}
+            SectionRowWidget:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            SectionRowWidget:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            SectionRowWidget[selectionState="checked"] {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            SectionRowWidget[selectionState="partial"] {{
+                background-color: {DesignTokens.ACCENT_BG};
+                border-color: {DesignTokens.ACCENT_BORDER};
+            }}
+            """
+        )
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 2, 8, 2)
@@ -244,6 +270,8 @@ class SectionRowWidget(QWidget):
         # Checkbox explicite et interactive avec support tristate
         self.checkbox = TristateTreeCheckBox()
         self.checkbox.setTristate(True)
+        self.checkbox.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.checkbox.setAccessibleName(f"Sélectionner la section {title}")
         self.checkbox.setChecked(is_checked)
         self.checkbox.checkStateChanged.connect(self._on_check_state_changed)
         layout.addWidget(self.checkbox)
@@ -330,9 +358,12 @@ class SectionRowWidget(QWidget):
             )
             layout.addWidget(diag_badge)
 
+        self.set_check_state(Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
+
     def _on_check_state_changed(self, state: Qt.CheckState) -> None:
         self._tree_widget.setCurrentItem(self._item)
         self._item.setCheckState(0, state)
+        self._apply_selection_state(state)
         self.state_changed.emit(state)
         self.checked_changed.emit(state == Qt.CheckState.Checked)
 
@@ -347,14 +378,46 @@ class SectionRowWidget(QWidget):
         self.checkbox.setCheckState(state)
         QTreeWidgetItem.setCheckState(self._item, 0, state)
         self.checkbox.blockSignals(False)
+        self._apply_selection_state(state)
 
     def set_checked(self, checked: bool) -> None:
         self.set_check_state(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
 
+    def _apply_selection_state(self, state: Qt.CheckState) -> None:
+        state_name = {
+            Qt.CheckState.Checked: "checked",
+            Qt.CheckState.PartiallyChecked: "partial",
+            Qt.CheckState.Unchecked: "unchecked",
+        }[state]
+        self.setProperty("selectionState", state_name)
+        state_label = {
+            "checked": "sélectionné",
+            "partial": "partiellement sélectionné",
+            "unchecked": "non sélectionné",
+        }[state_name]
+        self.setAccessibleDescription(f"État : {state_label}")
+        self.checkbox.setAccessibleDescription(f"État : {state_label}")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
     def mousePressEvent(self, event: Any) -> None:
         self._tree_widget.setCurrentItem(self._item)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus()
+            next_state = Qt.CheckState.Unchecked if self.check_state() == Qt.CheckState.Checked else Qt.CheckState.Checked
+            self.checkbox.setCheckState(next_state)
+            event.accept()
+            return
         super().mousePressEvent(event)
-        self._tree_widget.itemClicked.emit(self._item)
+
+    def keyPressEvent(self, event: Any) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            next_state = Qt.CheckState.Unchecked if self.check_state() == Qt.CheckState.Checked else Qt.CheckState.Checked
+            self.checkbox.setCheckState(next_state)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 class ChapterCardWidget(QFrame):

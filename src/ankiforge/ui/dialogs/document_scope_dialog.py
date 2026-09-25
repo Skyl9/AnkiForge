@@ -172,6 +172,9 @@ class DocumentScopeWidget(QWidget):
         self._context_limit = self._read_context_limit()
         self._chapter_cards: list[ChapterCardWidget] = []
         self._tree_nodes: list[HeadingTreeNode] = []
+        self.has_headings: bool = False
+        self.fallback_applied: bool = False
+        self.fallback_reason: str | None = None
 
         # 4. Résultat sélectionné en sortie
         self._result: dict[str, Any] = {
@@ -183,12 +186,15 @@ class DocumentScopeWidget(QWidget):
             "end_page": max(self._selected_pages) if self.is_paginated else self._delimited_end_page,
             "selection_mode": self.selection_mode,
             "selected_pages": sorted(list(self._selected_pages)) if self.is_paginated else [],
+            "fallback_applied": self.fallback_applied,
+            "fallback_reason": self.fallback_reason,
         }
 
         self._setup_window()
         self._build_ui()
         self._apply_initial_scope()
         self._update_kpi()
+        self._compute_result(silent=True)
 
     def _setup_window(self) -> None:
         self.setObjectName("scopeRoot")
@@ -250,11 +256,24 @@ class DocumentScopeWidget(QWidget):
             }}
         """)
 
-    def _load_filtered_chunks(self) -> list[dict[str, Any]]:
-        """Charge uniquement les fragments faisant partie du périmètre utile délimité."""
-        useful: list[dict[str, Any]] = []
+    def _is_item_excluded(self, p_num: int | None, heading_path: str | None) -> bool:
+        """Détermine si une page ou un chemin de titre est exclu par la configuration persistée."""
+        if not self._excluded_headings:
+            return False
+        if p_num is not None:
+            p_str = str(p_num)
+            if any(ex in (f"page:{p_str}", f"page {p_str}", p_str) for ex in self._excluded_headings):
+                return True
+        if heading_path:
+            clean_heading = MarkdownStructurer.clean_heading_title(heading_path)
+            h_path = (clean_heading or heading_path).lower().strip()
+            if any(ex in h_path or h_path == ex for ex in self._excluded_headings):
+                return True
+        return False
 
-        # Tenter de charger les chunks persistés en base de données (déjà filtrés par délimitation)
+    def _load_filtered_chunks(self) -> list[dict[str, Any]]:
+        """Charge et filtre les fragments du document en respectant strictement les bornes et exclusions."""
+        useful: list[dict[str, Any]] = []
         db_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
 
         has_start = getattr(self.doc, "start_page", None) is not None
@@ -270,12 +289,11 @@ class DocumentScopeWidget(QWidget):
                     if has_end and p_num > self._delimited_end_page:
                         continue
 
-                # Filtrage des titres exclus (sur la version nettoyée des balises HTML)
-                clean_heading = MarkdownStructurer.clean_heading_title(c.heading_path or "")
-                h_path = (clean_heading or (c.heading_path or "")).lower().strip()
-                if self._excluded_headings and any(ex in h_path or h_path == ex for ex in self._excluded_headings):
+                # Filtrage unifié des exclusions
+                if self._is_item_excluded(p_num, c.heading_path):
                     continue
 
+                clean_heading = MarkdownStructurer.clean_heading_title(c.heading_path or "")
                 content = str(c.content or "")
                 tokens = ContextCompactor.estimate_tokens(content)
                 useful_idx = len(useful)
@@ -297,6 +315,8 @@ class DocumentScopeWidget(QWidget):
                     p_num = int(p.page_number)
                     if p_num < self._delimited_start_page or p_num > self._delimited_end_page:
                         continue
+                    if self._is_item_excluded(p_num, None):
+                        continue
                     text = p.ocr_text or f"Planche {p_num}"
                     useful_idx = len(useful)
                     useful.append(
@@ -315,10 +335,9 @@ class DocumentScopeWidget(QWidget):
                     p_num = c.get("page_number")
                     if self.is_paginated and p_num is not None and (p_num < self._delimited_start_page or p_num > self._delimited_end_page):
                         continue
-                    clean_heading = MarkdownStructurer.clean_heading_title(str(c.get("heading_path") or ""))
-                    h_path = (clean_heading or str(c.get("heading_path") or "")).lower()
-                    if any(ex in h_path for ex in self._excluded_headings):
+                    if self._is_item_excluded(p_num, str(c.get("heading_path") or "")):
                         continue
+                    clean_heading = MarkdownStructurer.clean_heading_title(str(c.get("heading_path") or ""))
                     content = str(c.get("content") or "")
                     useful_idx = len(useful)
                     useful.append(
@@ -383,6 +402,22 @@ class DocumentScopeWidget(QWidget):
         desc_lbl.setWordWrap(True)
         h_layout.addWidget(desc_lbl)
         left_layout.addWidget(header_card)
+
+        # Bannière d'information de repli gracieux (ex. PDF sans hiérarchie de titres fiable)
+        self.lbl_fallback_notice = QLabel()
+        self.lbl_fallback_notice.setWordWrap(True)
+        self.lbl_fallback_notice.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignTokens.COLOR_YELLOW_BG};
+                color: {DesignTokens.COLOR_YELLOW_TEXT};
+                border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 6px 10px;
+                font-size: 11px;
+            }}
+        """)
+        self.lbl_fallback_notice.hide()
+        left_layout.addWidget(self.lbl_fallback_notice)
 
         self.left_layout = left_layout
 
@@ -1121,7 +1156,8 @@ class DocumentScopeWidget(QWidget):
 
         # 1. Extraction arborescente depuis les fragments utiles
         tree_nodes = ChunkingService.build_tree_from_chunks(self._useful_chunks)
-        has_headings = has_structured_heading_nodes(tree_nodes)
+        self.has_headings = has_structured_heading_nodes(tree_nodes)
+        has_headings = self.has_headings
 
         # Remplissage des menus déroulants de chapitres
         if hasattr(self, "combo_c_start") and hasattr(self, "combo_c_end"):
@@ -1149,8 +1185,26 @@ class DocumentScopeWidget(QWidget):
             self.combo_c_start.blockSignals(False)
             self.combo_c_end.blockSignals(False)
 
-        self.btn_mode_sections.setVisible(has_headings)
-        self.btn_mode_sections.setEnabled(has_headings)
+        if self.is_paginated and not has_headings:
+            self.fallback_applied = True
+            self.fallback_reason = "no_reliable_headings"
+            if hasattr(self, "lbl_fallback_notice"):
+                self.lbl_fallback_notice.setText(
+                    "ℹ️ <b>Repli automatique :</b> Aucune hiérarchie de sections fiable n'a été détectée dans ce document PDF. La sélection s'effectue par page ou plage de pages."
+                )
+                self.lbl_fallback_notice.show()
+            self.btn_mode_sections.setEnabled(False)
+            self.btn_mode_sections.setVisible(True)
+            self.btn_mode_sections.setToolTip("Sections non disponibles : aucune structure de titres détectée dans ce PDF (repli par page actif).")
+        else:
+            self.fallback_applied = False
+            self.fallback_reason = None
+            if hasattr(self, "lbl_fallback_notice"):
+                self.lbl_fallback_notice.hide()
+            self.btn_mode_sections.setEnabled(has_headings)
+            self.btn_mode_sections.setVisible(has_headings)
+            self.btn_mode_sections.setToolTip("Sélectionner par sections ou blocs de contenu" if has_headings else "")
+
         self.btn_mode_all.setEnabled(self.is_paginated)
         self.btn_mode_range.setEnabled(self.is_paginated)
 
@@ -1578,6 +1632,7 @@ class DocumentScopeWidget(QWidget):
 
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _apply_page_range(self, start_p: int, end_p: int, trigger_jump: bool = True) -> None:
         """Applique une plage continue et met à jour l'ensemble des pages sélectionnées."""
@@ -1606,6 +1661,7 @@ class DocumentScopeWidget(QWidget):
             self.combo_c_end.blockSignals(False)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _on_uncheck_all_chapters(self) -> None:
         """Désélectionne tous les chapitres."""
@@ -1613,6 +1669,7 @@ class DocumentScopeWidget(QWidget):
             card.set_checked(False)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _on_chapter_card_toggled(self, chapter_index: int, is_checked: bool) -> None:
         """Gestionnaire de bascule d'une carte chapitre individuelle."""
@@ -1628,19 +1685,51 @@ class DocumentScopeWidget(QWidget):
             self.combo_c_end.blockSignals(False)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _apply_initial_scope(self) -> None:
         """Initialise la portée à partir de initial_scope_result ou de la chaîne passée (ex: '3-8, 11')."""
         if self.initial_scope_result:
             mode = self.initial_scope_result.get("selection_mode")
             if mode == "sections":
-                self.btn_mode_sections.setChecked(True)
-                self._on_mode_sections_clicked()
+                if self.has_headings:
+                    self.btn_mode_sections.setChecked(True)
+                    self._on_mode_sections_clicked()
+                    return
+                # Repli gracieux : le document n'a pas de hiérarchie de sections fiable
+                self.fallback_applied = True
+                self.fallback_reason = "no_reliable_headings"
+                if self.is_paginated:
+                    selected_pages = self.initial_scope_result.get("selected_pages")
+                    if not selected_pages:
+                        init_chunks = self.initial_scope_result.get("chunks") or []
+                        selected_pages = sorted(list({int(c["page_number"]) for c in init_chunks if c.get("page_number") is not None}))
+                    if not selected_pages:
+                        target_indices = {int(idx) for idx in (self.initial_scope_result.get("selected_chunk_indices") or [])}
+                        if target_indices:
+                            selected_pages = sorted(list({int(c["page_number"]) for c in self._useful_chunks if c.get("index") in target_indices and c.get("page_number") is not None}))
+                    if selected_pages:
+                        full_scope = set(range(self._delimited_start_page, self._delimited_end_page + 1))
+                        if set(selected_pages) == full_scope:
+                            self.btn_mode_all.setChecked(True)
+                            self._on_mode_all_clicked()
+                        else:
+                            self.btn_mode_range.setChecked(True)
+                            self._on_mode_range_clicked()
+                            self._apply_page_selection(set(selected_pages), trigger_jump=True, update_text=True)
+                    else:
+                        self.btn_mode_all.setChecked(True)
+                        self._on_mode_all_clicked()
+                else:
+                    self.selection_mode = "sections"
+                    self._set_section_controls_visible(True)
                 return
+
             elif mode == "chapters":
                 self.btn_mode_structure.setChecked(True)
                 self._on_mode_structure_clicked()
                 return
+
             elif mode == "pages" and self.is_paginated:
                 selected_pages = self.initial_scope_result.get("selected_pages")
                 if selected_pages:
@@ -1725,6 +1814,7 @@ class DocumentScopeWidget(QWidget):
             self.preview_widget.set_scope_range(self._delimited_start_page, self._delimited_end_page, included_pages=self._selected_pages)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _on_mode_range_clicked(self) -> None:
         self.selection_mode = "pages"
@@ -1753,6 +1843,7 @@ class DocumentScopeWidget(QWidget):
             self.preview_widget.set_scope_range(min(self._selected_pages), max(self._selected_pages), included_pages=self._selected_pages)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _on_mode_structure_clicked(self) -> None:
         self.selection_mode = "chapters"
@@ -1784,6 +1875,7 @@ class DocumentScopeWidget(QWidget):
         self._set_section_controls_visible(True)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _on_chapter_range_changed(self) -> None:
         if not hasattr(self, "combo_c_start") or not hasattr(self, "combo_c_end"):
@@ -1817,6 +1909,7 @@ class DocumentScopeWidget(QWidget):
                     self.preview_widget.jump_to_page(min_p)
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _on_slider_start_changed(self, val: int) -> None:
         end_val = self.spin_p_end.value()
@@ -1928,10 +2021,12 @@ class DocumentScopeWidget(QWidget):
         if self.selection_mode == "pages" or self._syncing_selection:
             self._update_kpi()
             self._refresh_final_preview()
+            self.notify_changed()
             return
 
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _cascade_down(self, item: QTreeWidgetItem, state: Qt.CheckState) -> None:
         for i in range(item.childCount()):
@@ -2108,6 +2203,7 @@ class DocumentScopeWidget(QWidget):
 
         self._update_kpi()
         self._refresh_final_preview()
+        self.notify_changed()
 
     def _update_kpi(self) -> None:
         total = self.sections_list.count()
@@ -2405,9 +2501,8 @@ class DocumentScopeWidget(QWidget):
                     show_toast(self, f"La page de fin ne peut pas dépasser la dernière page utile ({self._delimited_end_page}).", is_error=True)
                 return None
 
-        if not checked_chunks:
-            if not silent:
-                show_toast(self, "Veuillez sélectionner au moins un fragment ou une section.", is_error=True)
+        if not checked_chunks and not silent:
+            show_toast(self, "Veuillez sélectionner au moins un fragment ou une section.", is_error=True)
             return None
 
         if self.selection_mode == "pages":
@@ -2483,6 +2578,8 @@ class DocumentScopeWidget(QWidget):
             "selected_headings": selected_headings,
             "selected_chunk_indices": selected_chunk_indices,
             "selected_chapters": selected_chapters,
+            "fallback_applied": getattr(self, "fallback_applied", False),
+            "fallback_reason": getattr(self, "fallback_reason", None),
         }
 
         return self._result
@@ -2501,6 +2598,10 @@ class DocumentScopeWidget(QWidget):
 
     def get_result(self) -> dict[str, Any]:
         """Retourne la configuration de portée sélectionnée pour la génération."""
+        if not self._result.get("chunks"):
+            computed = self._compute_result(silent=True)
+            if computed is not None:
+                return computed
         return self._result
 
 
