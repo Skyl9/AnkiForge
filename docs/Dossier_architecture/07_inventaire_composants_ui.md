@@ -57,6 +57,7 @@ Ce document maintient la liste détaillée des widgets, composants et dialogues 
 * **Délimitation & Portée Documentaire :**
   * `document_delimitation_dialog.py` : Délimitation interactive des bornes de pagination et filtrage des sections.
   * `document_scope_dialog.py` : Sélection modale de portée documentaire avec persistance fine (`sections`, `selected_headings`, `selected_chunk_indices`) entre runs successifs.
+  * `folder_dialog.py` : Boîte de dialogue de création directe de dossiers et sous-dossiers (`FolderCreateDialog`) avec choix du parent et syntaxe hiérarchique Anki `::`.
 * **Éditeur d'Outils Python (`tool_editor_dialog.py`) :** IDE intégré pour écrire, sauvegarder et tester des scripts Python déterministes.
 * **Simulateurs & Tests IA :**
   * `agent_test_dialog.py` : Simulateur interactif de personas avec injection de variables dynamiques.
