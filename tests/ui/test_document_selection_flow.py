@@ -15,6 +15,7 @@ from ankiforge.database.models import (
 )
 from ankiforge.ui.components.document_picker_button import DocumentPickerButton
 from ankiforge.ui.components.document_select_window import DocumentSelectWindow
+from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
 from ankiforge.ui.views.creation_view import CreationView
 from ankiforge.ui.views.creation_view.widgets.document_editor import (
     DocumentEditorWidget,
@@ -199,6 +200,76 @@ def test_batch_composer_embeds_scope_and_updates_live(qtbot: Any, mock_db: Any) 
     dlg._on_next()
     assert "Ajouter à la Queue" in dlg.btn_next.text()
     assert dlg.btn_next.isEnabled()
+
+
+def test_scope_row_activation_toggles_selection_and_exposes_visual_state(qtbot: Any, mock_db: Any) -> None:
+    """Une ligne de section active le même état métier que sa case."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(title=f"Physiologie {uid}", file_type="md", content="# Section 1\n\nTexte 1")
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Section 1",
+        content="Texte 1",
+        content_hash=f"h1_{uid}",
+    )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    row = scope.sections_list.itemWidget(scope.sections_list.item(0))
+    assert row is not None
+    assert row.checkbox.accessibleName()
+    assert row.property("selectionState") == "checked"
+
+    emitted: list[dict[str, Any]] = []
+    scope.scope_changed.connect(emitted.append)
+
+    qtbot.mouseClick(row, Qt.MouseButton.LeftButton)
+
+    assert row.check_state() == Qt.CheckState.Unchecked
+    assert row.property("selectionState") == "unchecked"
+    assert emitted
+    assert emitted[-1]["chunks"] == []
+
+
+def test_scope_parent_row_exposes_partial_state_after_child_toggle(qtbot: Any, mock_db: Any) -> None:
+    """Un parent reflète visuellement une sélection partielle de ses enfants."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Anatomie {uid}",
+        file_type="md",
+        content="# Chapitre\n\n## Section 1\n\nTexte 1\n\n## Section 2\n\nTexte 2",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        heading_path="Chapitre > Section 1",
+        content="Texte 1",
+        content_hash=f"h1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        heading_path="Chapitre > Section 2",
+        content="Texte 2",
+        content_hash=f"h2_{uid}",
+    )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    parent_item = next(item for item in scope.sections_list.all_items() if item.childCount() > 0)
+    child_item = parent_item.child(0)
+    child_row = scope.sections_list.itemWidget(child_item)
+    parent_row = scope.sections_list.itemWidget(parent_item)
+    assert child_row is not None
+    assert parent_row is not None
+
+    qtbot.mouseClick(child_row, Qt.MouseButton.LeftButton)
+
+    assert parent_item.checkState(0) == Qt.CheckState.PartiallyChecked
+    assert parent_row.check_state() == Qt.CheckState.PartiallyChecked
+    assert parent_row.property("selectionState") == "partial"
+    assert parent_row.checkbox.accessibleDescription() == "État : partiellement sélectionné"
 
 
 def test_batch_composer_picker_switch_reloads_scope_and_result(qtbot: Any, mock_db: Any) -> None:
@@ -1358,8 +1429,8 @@ Détail H4 B.
     assert "Chapitre 1 > Section 1.1 > Sous-section 1.1.1 > Sous-section 1.1.1.b" not in paths_after
 
 
-def test_h3_tristate_checkbox_toggle_and_row_click_isolation(qtbot: Any, mock_db: Any) -> None:
-    """Vérifie le cycle binaire de la checkbox et l'isolation du clic sur la ligne."""
+def test_h3_tristate_checkbox_toggle_and_row_activation(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le cycle binaire partagé par la checkbox et la ligne."""
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QMouseEvent
 
@@ -1399,8 +1470,7 @@ Texte 4
     w_h3 = dlg.sections_list.itemWidget(h3_item, 0)
     assert isinstance(w_h3, SectionRowWidget)
 
-    # 1. Clic sur la ligne (hors checkbox) : ne doit PAS modifier la case à cocher
-    initial_state = w_h3.check_state()
+    # 1. Clic sur la ligne (hors checkbox) : bascule la case à cocher
     mouse_event = QMouseEvent(
         QMouseEvent.Type.MouseButtonPress,
         QPointF(200, 15),
@@ -1410,20 +1480,20 @@ Texte 4
         Qt.KeyboardModifier.NoModifier,
     )
     w_h3.mousePressEvent(mouse_event)
-    assert w_h3.check_state() == initial_state
-    assert h3_item.checkState(0) == initial_state
-
-    # 2. Clic sur la checkbox : bascule franche Checked -> Unchecked
-    w_h3.checkbox.click()
     assert w_h3.check_state() == Qt.CheckState.Unchecked
     assert h3_item.checkState(0) == Qt.CheckState.Unchecked
-    assert h3_item.child(0).checkState(0) == Qt.CheckState.Unchecked
 
-    # 3. Clic sur la checkbox : bascule Unchecked -> Checked
+    # 2. Clic sur la checkbox : bascule franche Unchecked -> Checked
     w_h3.checkbox.click()
     assert w_h3.check_state() == Qt.CheckState.Checked
     assert h3_item.checkState(0) == Qt.CheckState.Checked
     assert h3_item.child(0).checkState(0) == Qt.CheckState.Checked
+
+    # 3. Clic sur la checkbox : bascule Checked -> Unchecked
+    w_h3.checkbox.click()
+    assert w_h3.check_state() == Qt.CheckState.Unchecked
+    assert h3_item.checkState(0) == Qt.CheckState.Unchecked
+    assert h3_item.child(0).checkState(0) == Qt.CheckState.Unchecked
 
 
 def test_h3_h4_scope_dialog_restore_faithfully(qtbot: Any, mock_db: Any) -> None:
@@ -2158,3 +2228,333 @@ def test_creation_view_segment_selected_highlights_in_editor(qtbot: Any, mock_db
     cursor = editor.raw_editor.textCursor()
     selected_text = cursor.selectedText()
     assert "Séquence ADN cible spécifique" in selected_text
+
+
+def test_pdf_scope_bounds_and_exclusions_filtering(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que les bornes (start_page, end_page) et exclusions (page:X, titres) sont respectées sur un PDF."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Manuel Neurologie {uid}.pdf",
+        file_type="pdf",
+        total_pages=6,
+        start_page=2,
+        end_page=5,
+        excluded_headings='["page:3", "Annexe"]',
+    )
+    # Page 1 (hors bornes début)
+    DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Intro", content="Texte P1", content_hash=f"h0_{uid}")
+    # Page 2 (dans bornes)
+    DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Chapitre 1 > Neurones", content="Texte P2", content_hash=f"h1_{uid}")
+    # Page 3 (exclue via page:3)
+    DocumentChunkModel.create(document=doc, chunk_index=2, page_number=3, heading_path="Chapitre 1 > Synapses", content="Texte P3", content_hash=f"h2_{uid}")
+    # Page 4 (dans bornes mais titre exclu Annexe)
+    DocumentChunkModel.create(document=doc, chunk_index=3, page_number=4, heading_path="Annexe", content="Texte P4 Annexe", content_hash=f"h3_{uid}")
+    # Page 5 (dans bornes)
+    DocumentChunkModel.create(document=doc, chunk_index=4, page_number=5, heading_path="Chapitre 2 > Cortex", content="Texte P5", content_hash=f"h4_{uid}")
+    # Page 6 (hors bornes fin)
+    DocumentChunkModel.create(document=doc, chunk_index=5, page_number=6, heading_path="Glossaire", content="Texte P6", content_hash=f"h5_{uid}")
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+
+    # Chunks utiles ne doivent contenir que Page 2 et Page 5
+    useful_pages = [c["page_number"] for c in scope._useful_chunks]
+    assert 1 not in useful_pages
+    assert 3 not in useful_pages
+    assert 4 not in useful_pages
+    assert 6 not in useful_pages
+    assert useful_pages == [2, 5]
+
+    # Pages sélectionnées
+    assert 3 not in scope._selected_pages
+    assert 2 in scope._selected_pages
+    assert 5 in scope._selected_pages
+
+    # Résultat
+    res = scope.get_result()
+    assert res is not None
+    assert res["start_page"] == 2
+    assert res["end_page"] == 5
+    for c in res["chunks"]:
+        assert c["page_number"] in (2, 5)
+        assert c["heading_path"] != "Annexe"
+
+
+def test_pdf_with_reliable_headings_offers_full_granularity(qtbot: Any, mock_db: Any) -> None:
+    """Un PDF avec structure de titres fiable offre la granularité document, page, chapitre et section."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Traité Histologie {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Tissus > Épithélium",
+        content="Les cellules épithéliales forment des barrières.",
+        content_hash=f"h0_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Tissus > Conjonctif",
+        content="Le tissu conjonctif assure le soutien mécanique.",
+        content_hash=f"h1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=2,
+        page_number=3,
+        heading_path="Organes > Foie",
+        content="Le foie filtre et métabolise les nutriments.",
+        content_hash=f"h2_{uid}",
+    )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    assert scope.has_headings is True
+    assert scope.btn_mode_all.isEnabled()
+    assert scope.btn_mode_range.isEnabled()
+    assert scope.btn_mode_sections.isEnabled()
+    assert not scope.btn_mode_sections.isHidden()
+
+    # Passage en mode sections
+    scope.btn_mode_sections.click()
+    assert scope.selection_mode == "sections"
+    assert not scope.sections_card.isHidden()
+
+    # Résultat avec traçabilité complète
+    res = scope.get_result()
+    assert res is not None
+    assert len(res["chunks"]) == 3
+    assert len(res["parts"]) >= 1
+    assert "Tissus > Épithélium" in res["selected_headings"]
+    assert res.get("fallback_applied") is not True
+
+
+def test_pdf_without_reliable_headings_falls_back_to_pages_and_signals_limitation(qtbot: Any, mock_db: Any) -> None:
+    """Un PDF sans structure de titres signale la limitation, désactive les sections et replie sur la sélection par page."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Scanner Non Structuré {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Page 1",
+        content="Texte brut scanné page 1 sans aucun titre markdown.",
+        content_hash=f"h0_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Page 2",
+        content="Texte brut scanné page 2 sans aucun titre markdown.",
+        content_hash=f"h1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=2,
+        page_number=3,
+        heading_path="Page 3",
+        content="Texte brut scanné page 3 sans aucun titre markdown.",
+        content_hash=f"h2_{uid}",
+    )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    # Hiérarchie non fiable
+    assert scope.has_headings is False
+    assert scope.selection_mode == "pages"
+    assert not scope.btn_mode_sections.isEnabled()
+    assert "sections" in scope.btn_mode_sections.toolTip().lower() or "repli" in scope.btn_mode_sections.toolTip().lower()
+
+    # Limitation signalée
+    assert hasattr(scope, "lbl_fallback_notice")
+    assert not scope.lbl_fallback_notice.isHidden()
+    assert "repli" in scope.lbl_fallback_notice.text().lower() or "page" in scope.lbl_fallback_notice.text().lower()
+
+    # Le flux n'est pas bloqué : résultat valide
+    res = scope.get_result()
+    assert res is not None
+    assert len(res["chunks"]) == 3
+    assert len(res["parts"]) == 1
+    assert res.get("fallback_applied") is True
+    assert res.get("fallback_reason") == "no_reliable_headings"
+
+    # La sélection par plage de pages reste pleinement opérationnelle
+    scope.btn_mode_range.click()
+    assert scope.selection_mode == "pages"
+    scope._apply_page_selection({1, 2}, trigger_jump=False, update_text=True)
+    res_range = scope.get_result()
+    assert res_range is not None
+    assert len(res_range["chunks"]) == 2
+    assert res_range["selected_pages"] == [1, 2]
+
+
+def test_pdf_scope_restore_sections_when_reliable(qtbot: Any, mock_db: Any) -> None:
+    """La réouverture d'une portée avec sections restaure exactement les cases cochées sur un PDF structuré."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Pathologie {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Inflammation > Aiguë",
+        content="Réponse vasculaire et cellulaire immédiate.",
+        content_hash=f"h0_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Inflammation > Chronique",
+        content="Infiltration mononucléée et fibrose tissulaire.",
+        content_hash=f"h1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=2,
+        page_number=3,
+        heading_path="Réparation > Cicatrisation",
+        content="Régénération épithéliale et remodelage matriciel.",
+        content_hash=f"h2_{uid}",
+    )
+
+    initial_scope = {
+        "selection_mode": "sections",
+        "selected_headings": ["Inflammation > Chronique"],
+        "selected_chunk_indices": [1],
+        "start_page": 1,
+        "end_page": 3,
+    }
+
+    scope = DocumentScopeWidget(doc, initial_scope_result=initial_scope)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    assert scope.has_headings is True
+    assert scope.selection_mode == "sections"
+    assert scope.fallback_applied is False
+
+    res = scope.get_result()
+    assert res is not None
+    assert len(res["chunks"]) == 1
+    assert res["chunks"][0]["heading_path"] == "Inflammation > Chronique"
+    assert res["chunks"][0]["page_number"] == 2
+    assert "Inflammation > Chronique" in res["selected_headings"]
+    assert len(res["parts"]) >= 1
+
+
+def test_pdf_scope_restore_graceful_fallback_when_unreliable(qtbot: Any, mock_db: Any) -> None:
+    """La réouverture d'un profil 'sections' sur un PDF sans titres structurés replie sans erreur vers les pages."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Imagerie Brut {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Page 1",
+        content="Radiographie thoracique face.",
+        content_hash=f"h0_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Page 2",
+        content="Scanner spiralé haute résolution coupe axiale.",
+        content_hash=f"h1_{uid}",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=2,
+        page_number=3,
+        heading_path="Page 3",
+        content="Reconstruction coronale et sagittale.",
+        content_hash=f"h2_{uid}",
+    )
+
+    # Portée précédente enregistrée en mode "sections" avec un fragment ciblé page 2
+    initial_scope = {
+        "selection_mode": "sections",
+        "selected_headings": ["Page 2"],
+        "selected_chunk_indices": [1],
+        "chunks": [{"page_number": 2, "content": "Scanner spiralé haute résolution coupe axiale."}],
+        "selected_pages": [2],
+        "start_page": 1,
+        "end_page": 3,
+    }
+
+    scope = DocumentScopeWidget(doc, initial_scope_result=initial_scope)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    # Repli gracieux vers les pages
+    assert scope.has_headings is False
+    assert scope.selection_mode == "pages"
+    assert scope.fallback_applied is True
+    assert scope.fallback_reason == "no_reliable_headings"
+    assert not scope.lbl_fallback_notice.isHidden()
+
+    # La page 2 a été conservée en repli
+    assert scope._selected_pages == {2}
+    res = scope.get_result()
+    assert res is not None
+    assert len(res["chunks"]) == 1
+    assert res["chunks"][0]["page_number"] == 2
+    assert res["selected_pages"] == [2]
+    assert res["fallback_applied"] is True
+    assert len(res["parts"]) == 1
+
+
+def test_pdf_scope_restore_fallback_from_selected_chunk_indices(qtbot: Any, mock_db: Any) -> None:
+    """La réouverture avec uniquement selected_chunk_indices sur un PDF non structuré résout correctement les pages."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Scanner Indices {uid}.pdf",
+        file_type="pdf",
+        total_pages=4,
+    )
+    DocumentChunkModel.create(document=doc, chunk_index=0, page_number=1, heading_path="Page 1", content="Page 1", content_hash=f"h0_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=1, page_number=2, heading_path="Page 2", content="Page 2", content_hash=f"h1_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=2, page_number=3, heading_path="Page 3", content="Page 3", content_hash=f"h2_{uid}")
+    DocumentChunkModel.create(document=doc, chunk_index=3, page_number=4, heading_path="Page 4", content="Page 4", content_hash=f"h3_{uid}")
+
+    initial_scope = {
+        "selection_mode": "sections",
+        "selected_chunk_indices": [1, 2],
+    }
+
+    scope = DocumentScopeWidget(doc, initial_scope_result=initial_scope)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    assert scope.has_headings is False
+    assert scope.selection_mode == "pages"
+    assert scope.fallback_applied is True
+    # Pages 2 et 3 résolues à partir des useful_chunks
+    assert scope._selected_pages == {2, 3}
+    res = scope.get_result()
+    assert res is not None
+    assert len(res["chunks"]) == 2
+    assert res["selected_pages"] == [2, 3]
