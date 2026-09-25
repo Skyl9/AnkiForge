@@ -33,7 +33,7 @@ class PrimaryButton(QPushButton):
         apply_shadow(self, blur=10, offset_y=0, color="rgba(99,102,241,0.4)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
-            self.anim = QPropertyAnimation(effect, b"blurRadius")
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
             self.anim.setDuration(150)
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 10
@@ -49,6 +49,8 @@ class PrimaryButton(QPushButton):
         if isinstance(effect, QGraphicsDropShadowEffect):
             if self.anim.targetObject() is not effect:
                 self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
             self.anim.stop()
             self.anim.setEndValue(end_val)
             self.anim.start()
@@ -60,6 +62,11 @@ class PrimaryButton(QPushButton):
     def leaveEvent(self, event: Any) -> None:
         self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
         pass
@@ -84,7 +91,7 @@ class SecondaryButton(QPushButton):
         apply_shadow(self, blur=2, offset_y=1, color="rgba(0,0,0,0.18)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
-            self.anim = QPropertyAnimation(effect, b"blurRadius")
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
             self.anim.setDuration(150)
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
@@ -100,6 +107,8 @@ class SecondaryButton(QPushButton):
         if isinstance(effect, QGraphicsDropShadowEffect):
             if self.anim.targetObject() is not effect:
                 self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
             self.anim.stop()
             self.anim.setEndValue(end_val)
             self.anim.start()
@@ -111,6 +120,11 @@ class SecondaryButton(QPushButton):
     def leaveEvent(self, event: Any) -> None:
         self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
         pass
@@ -160,7 +174,7 @@ class DangerButton(QPushButton):
         apply_shadow(self, blur=2, offset_y=1, color="rgba(239,68,68,0.25)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
-            self.anim = QPropertyAnimation(effect, b"blurRadius")
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
             self.anim.setDuration(150)
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
@@ -176,6 +190,8 @@ class DangerButton(QPushButton):
         if isinstance(effect, QGraphicsDropShadowEffect):
             if self.anim.targetObject() is not effect:
                 self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
             self.anim.stop()
             self.anim.setEndValue(end_val)
             self.anim.start()
@@ -187,6 +203,11 @@ class DangerButton(QPushButton):
     def leaveEvent(self, event: Any) -> None:
         self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
         pass
@@ -211,7 +232,7 @@ class IconButton(QPushButton):
         apply_shadow(self, blur=2, offset_y=1, color="rgba(0,0,0,0.15)")
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
-            self.anim = QPropertyAnimation(effect, b"blurRadius")
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
             self.anim.setDuration(150)
             self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             self.default_blur = 2
@@ -224,6 +245,8 @@ class IconButton(QPushButton):
         if isinstance(effect, QGraphicsDropShadowEffect):
             if self.anim.targetObject() is not effect:
                 self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
             self.anim.stop()
             self.anim.setEndValue(end_val)
             self.anim.start()
@@ -235,6 +258,11 @@ class IconButton(QPushButton):
     def leaveEvent(self, event: Any) -> None:
         self._start_blur_anim(self.default_blur)
         super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
 
     def refresh_theme(self, profile: Any = None) -> None:
         if self.icon_name:

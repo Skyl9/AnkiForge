@@ -342,6 +342,9 @@ def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str 
     shadow.setYOffset(offset_y)
     shadow.setColor(c)
     widget.setGraphicsEffect(shadow)
+    anim = getattr(widget, "anim", None)
+    if anim is not None and getattr(anim, "targetObject", lambda: None)() is not shadow:
+        anim.setTargetObject(shadow)
 
 
 class StyledMenu(QMenu):

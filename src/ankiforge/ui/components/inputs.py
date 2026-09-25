@@ -70,7 +70,7 @@ class GlowLineEdit(QLineEdit):
         effect = self.graphicsEffect()
         if isinstance(effect, QGraphicsDropShadowEffect):
             self._shadow_effect = effect
-            self.anim = QPropertyAnimation(effect, b"blurRadius")
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
             self.anim.setDuration(160)
             self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
             self.default_blur = 4
@@ -121,6 +121,8 @@ class GlowLineEdit(QLineEdit):
         if isinstance(effect, QGraphicsDropShadowEffect):
             if self.anim.targetObject() is not effect:
                 self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
             self.anim.stop()
             self.anim.setEndValue(end_val)
             self.anim.start()
@@ -134,6 +136,11 @@ class GlowLineEdit(QLineEdit):
         if not (self.hasFocus() or self._is_focused):
             self._start_anim(self.default_blur)
         super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
 
     def focusInEvent(self, event: Any) -> None:
         self._is_focused = True
