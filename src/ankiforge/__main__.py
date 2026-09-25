@@ -41,6 +41,8 @@ from ankiforge.utils.paths import get_resource_path
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
 os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
 # ruff : noqa: E402
+import argparse
+
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
@@ -48,8 +50,30 @@ from ankiforge.services.profile_manager import ProfileManager
 from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
 
 
-def main() -> None:
-    if "--help" in sys.argv or "-h" in sys.argv:
+def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
+    """
+    Analyse les drapeaux en ligne de commande passés à AnkiForge.
+    Supporte les options standard, de test, et d'exécution du serveur MCP headless.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("-h", "--help", action="store_true")
+    parser.add_argument("-v", "--version", action="store_true")
+    parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--dev", action="store_true")
+    parser.add_argument("--prod", action="store_true")
+    parser.add_argument("--clone-prod-to-dev", action="store_true")
+    parser.add_argument("--mcp-server", action="store_true")
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--profile", type=str, default=None)
+
+    raw_args = argv if argv is not None else sys.argv[1:]
+    return parser.parse_known_args(raw_args)
+
+
+def main(argv: list[str] | None = None) -> None:
+    known_args, _ = parse_cli_args(argv)
+
+    if known_args.help:
         from ankiforge import __version__
 
         sys.stdout.write(
@@ -61,16 +85,19 @@ def main() -> None:
             "  --prod                   Force l'environnement de PRODUCTION (~/.ankiforge).\n"
             "  --smoke-test             Exécute une vérification rapide d'intégrité binaire et quitte.\n"
             "  --clone-prod-to-dev      Clone les profils et médias de production vers le dossier dev.\n"
+            "  --mcp-server             Lance le serveur MCP en mode console headless (sans interface graphique).\n"
+            "  --port <port>            Port TCP d'écoute du serveur MCP (défaut : 8765).\n"
+            "  --profile <nom>          Profil utilisateur et base SQLite cibles (défaut : profil actif ou 'default').\n"
         )
         sys.exit(0)
 
-    if "--version" in sys.argv or "-v" in sys.argv:
+    if known_args.version:
         from ankiforge import __version__
 
         sys.stdout.write(f"AnkiForge v{__version__}\n")
         sys.exit(0)
 
-    if "--smoke-test" in sys.argv:
+    if known_args.smoke_test:
         from ankiforge import __version__
 
         sys.stdout.write(f"AnkiForge v{__version__} - Smoke Test Passed\n")
@@ -89,12 +116,12 @@ def main() -> None:
     from ankiforge.utils.paths import get_app_data_dir, get_project_root
 
     # Gestion précoce des drapeaux d'environnement CLI
-    if "--dev" in sys.argv:
+    if known_args.dev:
         set_environment(AppEnvironment.DEVELOPMENT)
-    elif "--prod" in sys.argv:
+    elif known_args.prod:
         set_environment(AppEnvironment.PRODUCTION)
 
-    if "--clone-prod-to-dev" in sys.argv:
+    if known_args.clone_prod_to_dev:
         sys.stdout.write("Clonage des données de production (~/.ankiforge) vers le développement (~/.ankiforge-dev)...\n")
         cloned, media = clone_production_data_to_development(copy_media=True)
         sys.stdout.write(f"Succès : {cloned} profil(s) et {media} média(s) copiés dans ~/.ankiforge-dev/profiles/.\n")
@@ -123,6 +150,23 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
     logger.info("Démarrage d'AnkiForge en environnement : [%s] (Données : %s)", env_name, get_app_data_dir())
+
+    # Mode Headless : Serveur MCP autonome sans UI
+    if known_args.mcp_server:
+        if known_args.port < 1 or known_args.port > 65535:
+            sys.stderr.write(f"Erreur : Le port {known_args.port} doit être compris entre 1 et 65535.\n")
+            sys.stderr.flush()
+            shutdown_logging()
+            sys.exit(2)
+
+        from ankiforge.services.ai.mcp_cli import run_mcp_server_cli
+
+        exit_code = run_mcp_server_cli(
+            port=known_args.port,
+            profile_name=known_args.profile,
+        )
+        shutdown_logging()
+        sys.exit(exit_code)
 
     QCoreApplication.setOrganizationName(get_settings_org_name())
     QCoreApplication.setApplicationName(get_settings_app_name())
@@ -153,7 +197,9 @@ def main() -> None:
     default_profile = str(settings.value("profiles/default_startup_profile", "default"))
 
     selected_profile = "default"
-    if not profiles:
+    if known_args.profile:
+        selected_profile = known_args.profile
+    elif not profiles:
         pm.create_profile("default")
         selected_profile = "default"
     elif len(profiles) == 1:
