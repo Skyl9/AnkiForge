@@ -1099,3 +1099,61 @@ def test_creation_view_multi_selection_and_mark_all(qtbot: Any, mock_db: Any) ->
     view._on_mark_all_accepted()
     assert all(c["status"] == "Validée" for c in view.generated_cards)
     assert view.btn_save_anki.text() == "Enregistrer dans la Forge (4/4)"
+
+
+def test_creation_view_logs_and_stores_thought(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que CreationView journalise [REASONING] et active la consultation des réflexions avec sanitisation."""
+    from ankiforge.services.ai.state import PipelineRunState
+
+    view = CreationView(ai_manager=None)
+    qtbot.addWidget(view)
+
+    state = PipelineRunState(initial_prompt="Test")
+    state.log_step_execution(
+        step_order=1,
+        step_type="LLM_PROMPT",
+        status="SUCCESS",
+        duration_sec=0.5,
+        details="OK",
+        tokens_used=100,
+        thought="Réflexion détaillée du modèle sk-123456789012345678901234 sur la segmentation du document.",
+    )
+
+    view._on_orchestrator_step_completed(1, state)
+
+    logs_text = view.generation_logs_console.toPlainText()
+    assert "[REASONING]" in logs_text
+    assert "Réflexion détaillée du modèle" in logs_text
+    # Vérifier que les clés d'API sont masquées à l'écran
+    assert "sk-123456789012345678901234" not in logs_text
+    assert "[REDACTED_OPENAI_KEY]" in logs_text
+    assert view.btn_view_thoughts.isEnabled()
+
+
+def test_reasoning_viewer_dialog(qtbot: Any) -> None:
+    """Vérifie l'affichage et l'interaction avec ReasoningViewerDialog."""
+    from ankiforge.ui.views.creation_view.dialogs import ReasoningViewerDialog
+
+    thoughts = {
+        1: "Penser aux questions clés avec sk-ant-abcdefghijklmnop1234.",
+        2: "Formater en cartes simples et claires.",
+    }
+    dlg = ReasoningViewerDialog(thoughts)
+    qtbot.addWidget(dlg)
+
+    assert dlg.tab_widget.count() == 2
+    assert "Étape 1" in dlg.tab_widget.tabText(0)
+    assert "Étape 2" in dlg.tab_widget.tabText(1)
+
+    dlg._on_copy_current()
+    from PySide6.QtWidgets import QApplication
+
+    cb = QApplication.clipboard()
+    if cb:
+        assert "[REDACTED_ANTHROPIC_KEY]" in cb.text()
+        assert "sk-ant-abcdefghijklmnop1234" not in cb.text()
+
+    dlg._on_copy_all()
+    if cb:
+        assert "=== ÉTAPE 1 ===" in cb.text()
+        assert "=== ÉTAPE 2 ===" in cb.text()

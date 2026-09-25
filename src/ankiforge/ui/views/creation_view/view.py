@@ -86,7 +86,7 @@ from ankiforge.utils.event_bus import (
 )
 from ankiforge.utils.hierarchy import SEPARATOR
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
-from ankiforge.utils.logger import log_and_notify_error
+from ankiforge.utils.logger import log_and_notify_error, redact_secrets
 from ankiforge.utils.tags import build_document_tags
 
 logger = logging.getLogger(__name__)
@@ -142,7 +142,9 @@ class CreationView(QWidget):
         self.models_cache: list[NoteTypeModel] = []
         self.open_editors: dict[str, DocumentEditorWidget] = {}
         self.thread_pool = QThreadPool(self)
+        self._last_generation_thoughts: dict[int, str] = {}
         self._current_selected_doc: Any | None = None
+
         self._current_doc_total_pages: int = 10
         self._current_doc_unit: str = "pages"
         self.current_source_chunk_id: int | None = None
@@ -623,6 +625,11 @@ class CreationView(QWidget):
         self.btn_clear_logs = IconButton("ph.trash", "Effacer le journal d'exécution", 16)
         self.btn_clear_logs.clicked.connect(self._on_clear_logs)
         logs_toolbar.addWidget(self.btn_clear_logs)
+
+        self.btn_view_thoughts = IconButton("ph.brain", "Consulter les réflexions IA détaillées (CoT)", 16)
+        self.btn_view_thoughts.setEnabled(False)
+        self.btn_view_thoughts.clicked.connect(self._on_view_thoughts)
+        logs_toolbar.addWidget(self.btn_view_thoughts)
 
         logs_layout.addLayout(logs_toolbar)
 
@@ -1879,7 +1886,10 @@ class CreationView(QWidget):
 
         self._set_all_generation_states(True)
         self.generation_logs_console.clear()
+        self._last_generation_thoughts = {}
+        self.btn_view_thoughts.setEnabled(False)
         self._running_step_desc = "Démarrage du pipeline…"
+
         self._running_step_started = time.monotonic()
         self._running_progress: tuple[int, int] | None = None
         if hasattr(self, "_running_timer") and self._running_timer:
@@ -1935,7 +1945,18 @@ class CreationView(QWidget):
 
     def _on_clear_logs(self) -> None:
         self.generation_logs_console.clear()
+        self._last_generation_thoughts = {}
+        self.btn_view_thoughts.setEnabled(False)
         show_toast(self, "Journal d'exécution effacé.")
+
+    def _on_view_thoughts(self) -> None:
+        if not self._last_generation_thoughts:
+            show_toast(self, "Aucune réflexion IA capturée pour cette génération.")
+            return
+        from ankiforge.ui.views.creation_view.dialogs import ReasoningViewerDialog
+
+        dlg = ReasoningViewerDialog(self._last_generation_thoughts, self)
+        dlg.exec()
 
     def _on_copy_errors(self) -> None:
         clipboard = QApplication.clipboard()
@@ -1956,6 +1977,8 @@ class CreationView(QWidget):
             "ERROR": "[ERROR]",
             "CANCEL": "[CANCEL]",
             "WARNING": "[WARN]",
+            "THOUGHT": "[THOUGHT]",
+            "REASONING": "[REASONING]",
             "INFO": "[INFO]",
         }.get(level.upper(), "[INFO]")
 
@@ -2025,6 +2048,20 @@ class CreationView(QWidget):
                 dur = last_hist.get("duration_sec", 0.0)
                 dur_msg = f" ({dur:.2f}s)"
         self._append_generation_log(f"Étape {step_order} terminée avec succès{dur_msg}.", level="SUCCESS")
+
+        if state and hasattr(state, "get_step_thought"):
+            step_thought = state.get_step_thought(step_order)
+            if step_thought:
+                safe_thought = redact_secrets(step_thought)
+                self._last_generation_thoughts[step_order] = safe_thought
+                self.btn_view_thoughts.setEnabled(True)
+                preview = safe_thought.strip().replace("\n", " ")
+                if len(preview) > 120:
+                    preview = preview[:117] + "..."
+                self._append_generation_log(
+                    f"Étape {step_order} — Réflexion détaillée du modèle ({len(safe_thought)} car.) : {preview}",
+                    level="REASONING",
+                )
 
     @Slot(object)
     def _on_human_validation(self, state: PipelineRunState) -> None:

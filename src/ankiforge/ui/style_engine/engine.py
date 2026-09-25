@@ -917,6 +917,11 @@ class StyleEngine(QObject):
             border-radius: {p.radius_sm}px;
         }}
 
+        /* --- Reasoning Viewer (CoT) Modal --- */
+        ReasoningViewerDialog, QDialog#ReasoningViewerDialog {{
+            background-color: {p.bg_main};
+        }}
+
         /* --- LLM Discovery & Model Selector Modal --- */
         ModelCardWidget, QFrame#ModelCard {{
             background-color: {p.bg_panel};
