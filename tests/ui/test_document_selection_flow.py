@@ -2558,3 +2558,307 @@ def test_pdf_scope_restore_fallback_from_selected_chunk_indices(qtbot: Any, mock
     assert res is not None
     assert len(res["chunks"]) == 2
     assert res["selected_pages"] == [2, 3]
+
+
+def test_pdf_preview_direct_page_spin_and_navigation(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la saisie directe du numéro de page (spinbox), navigation précédente/suivante et bornes."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Nav {uid}.pdf",
+        file_type="pdf",
+        total_pages=5,
+        content="\n\n".join(f"<!-- PAGE: {p} -->\nPage {p}." for p in range(1, 6)),
+    )
+    for p in range(1, 6):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Page {p} content",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    preview = scope.preview_widget
+    assert hasattr(preview, "spin_page")
+    assert preview.spin_page.minimum() == 1
+    assert preview.spin_page.maximum() == 5
+    assert preview.spin_page.value() == 1
+    assert preview.current_page == 1
+    assert not preview.btn_prev_page.isEnabled()
+    assert preview.btn_next_page.isEnabled()
+
+    # 1. Navigation directe via spin_page
+    preview.spin_page.setValue(3)
+    assert preview.current_page == 3
+    assert preview.spin_page.value() == 3
+    assert "5" in preview.lbl_page.text()
+    assert preview.btn_prev_page.isEnabled()
+    assert preview.btn_next_page.isEnabled()
+
+    # 2. Bouton page précédente
+    preview.btn_prev_page.click()
+    assert preview.current_page == 2
+    assert preview.spin_page.value() == 2
+
+    # 3. Bouton page suivante
+    preview.btn_next_page.click()
+    assert preview.current_page == 3
+    assert preview.spin_page.value() == 3
+
+    # 4. Navigation vers la dernière page (désactivation next)
+    preview.spin_page.setValue(5)
+    assert preview.current_page == 5
+    assert not preview.btn_next_page.isEnabled()
+    assert preview.btn_prev_page.isEnabled()
+
+    # 5. Clamping des valeurs hors bornes via jump_to_page
+    preview.jump_to_page(100)
+    assert preview.current_page == 5
+    assert preview.spin_page.value() == 5
+
+    preview.jump_to_page(-10)
+    assert preview.current_page == 1
+    assert preview.spin_page.value() == 1
+
+
+def test_pdf_preview_toggle_page_scope_bidirectional_and_signals(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que le contrôle explicite d'inclusion/exclusion met à jour l'état partagé sans boucle."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Toggle Scope {uid}.pdf",
+        file_type="pdf",
+        total_pages=4,
+        content="\n\n".join(f"<!-- PAGE: {p} -->\nPage {p}." for p in range(1, 5)),
+    )
+    for p in range(1, 5):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Page {p} content",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    emitted_scopes: list[dict[str, Any]] = []
+    scope.scope_changed.connect(lambda res: emitted_scopes.append(res))
+
+    preview = scope.preview_widget
+    # Initialement toutes les pages sont incluses
+    assert scope._selected_pages == {1, 2, 3, 4}
+    assert "Exclure" in preview.btn_toggle_page_scope.text()
+
+    # Naviguer vers la page 2
+    preview.jump_to_page(2)
+    assert preview.current_page == 2
+    assert "Exclure" in preview.btn_toggle_page_scope.text()
+
+    # Exclure la page 2 depuis le preview
+    preview.btn_toggle_page_scope.click()
+    assert scope._selected_pages == {1, 3, 4}
+    assert "Inclure" in preview.btn_toggle_page_scope.text()
+    assert "EXCLUE" in preview.lbl_scope_status.text()
+    assert len(emitted_scopes) > 0
+    assert emitted_scopes[-1]["selected_pages"] == [1, 3, 4]
+
+    # Réinclure la page 2
+    preview.btn_toggle_page_scope.click()
+    assert scope._selected_pages == {1, 2, 3, 4}
+    assert "Exclure" in preview.btn_toggle_page_scope.text()
+    assert "INCLUSE" in preview.lbl_scope_status.text()
+    assert emitted_scopes[-1]["selected_pages"] == [1, 2, 3, 4]
+
+
+def test_pdf_preview_content_click_does_not_mutate_selection(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que cliquer dans le contenu du lecteur ne modifie pas accidentellement la sélection."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QMouseEvent
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Content Click {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+        content="# Chapitre 1\nContenu 1\n\n# Chapitre 2\nContenu 2",
+    )
+    for p in range(1, 4):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Content {p}",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    initial_pages = set(scope._selected_pages)
+    initial_result = scope.get_result()
+
+    preview = scope.preview_widget
+    # Simuler un clic dans le visionneur Markdown
+    click_event = QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress,
+        QPointF(50.0, 50.0),
+        QPointF(50.0, 50.0),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    preview.markdown_viewer.mousePressEvent(click_event)
+
+    # La sélection ne doit pas avoir changé
+    assert scope._selected_pages == initial_pages
+    assert scope.get_result()["selected_pages"] == initial_result["selected_pages"]
+
+
+def test_pdf_preview_fallback_when_qtpdf_unavailable(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie le repli textuel stylisé lorsque QtPdf est indisponible ou en cas d'erreur de chargement."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc No QtPdf {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+        content="<!-- PAGE: 1 -->\n# Page Un\nTexte 1\n\n<!-- PAGE: 2 -->\n# Page Deux\nTexte 2\n\n<!-- PAGE: 3 -->\n# Page Trois\nTexte 3",
+    )
+    for p in range(1, 4):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Texte {p}",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    with patch("ankiforge.ui.views.documents_view.dialogs.delimitation_dialog.HAVE_QTPDF", False):
+        scope = DocumentScopeWidget(doc)
+        qtbot.addWidget(scope)
+        scope.show()
+
+        preview = scope.preview_widget
+        assert preview._current_mode == "markdown"
+        assert preview.btn_toggle_pdf.isHidden()
+        assert preview.view_stack.currentWidget() == preview.markdown_viewer
+
+        # Navigation fonctionne en mode Markdown repli
+        preview.spin_page.setValue(2)
+        assert preview.current_page == 2
+        assert preview.spin_page.value() == 2
+
+        # L'exclusion/inclusion fonctionne en mode Markdown repli
+        preview.btn_toggle_page_scope.click()
+        assert 2 not in scope._selected_pages
+        assert "Inclure" in preview.btn_toggle_page_scope.text()
+
+
+def test_pdf_preview_zoom_and_fit_controls(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que les contrôles de zoom avant, arrière et ajustement sont réactifs."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Zoom {uid}.pdf",
+        file_type="pdf",
+        total_pages=2,
+        content="# Page 1\nContenu 1\n\n# Page 2\nContenu 2",
+    )
+    for p in range(1, 3):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Page {p}",
+            content=f"Texte {p}",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    preview = scope.preview_widget
+    # Tester les boutons de zoom sans exception
+    preview.btn_zoom_in.click()
+    preview.btn_zoom_out.click()
+    preview.btn_zoom_fit.click()
+
+
+def test_pdf_preview_toggle_page_scope_in_sections_mode(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que basculer la portée d'une page depuis la visionneuse en mode sections désélectionne les sections correspondantes."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Sec Mode {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+        content="# Introduction\nIntro\n\n# Chapitre 1\nDetails\n\n# Chapitre 2\nConclusion",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Introduction",
+        content="Intro content here with enough words to be useful.",
+        content_hash=f"h_{uid}_0",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Chapitre 1",
+        content="Details content here on page two with enough words.",
+        content_hash=f"h_{uid}_1",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=2,
+        page_number=3,
+        heading_path="Chapitre 2",
+        content="Conclusion content on page three.",
+        content_hash=f"h_{uid}_2",
+    )
+
+    initial_scope = {
+        "selection_mode": "sections",
+        "selected_headings": ["Introduction", "Chapitre 1", "Chapitre 2"],
+    }
+    scope = DocumentScopeWidget(doc, initial_scope_result=initial_scope)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    assert scope.selection_mode == "sections"
+    preview = scope.preview_widget
+
+    # Aller sur la page 2
+    preview.jump_to_page(2)
+    assert preview.current_page == 2
+
+    # Exclure la page 2
+    preview.btn_toggle_page_scope.click()
+
+    res = scope.get_result()
+    assert res is not None
+    # Chapitre 1 (sur page 2) ne doit plus être sélectionné
+    res_headings = [c.get("heading_path") for c in res["chunks"]]
+    assert "Chapitre 1" not in res_headings
+    assert "Introduction" in res_headings
+    assert "Chapitre 2" in res_headings
+    assert "Inclure" in preview.btn_toggle_page_scope.text()
+
+    # Réinclure la page 2
+    preview.btn_toggle_page_scope.click()
+    res_after = scope.get_result()
+    assert res_after is not None
+    res_after_headings = [c.get("heading_path") for c in res_after["chunks"]]
+    assert "Chapitre 1" in res_after_headings
+    assert "Exclure" in preview.btn_toggle_page_scope.text()
