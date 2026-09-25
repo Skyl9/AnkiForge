@@ -44,6 +44,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 build = [
+    "dmgbuild>=1.6.0",
     "nuitka>=4.0.7",
 ]
 docs = [
