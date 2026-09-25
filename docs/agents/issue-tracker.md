@@ -1,6 +1,11 @@
 # Issue tracker: Obsidian Kanban
 
-Issues et specs de ce repo vivent dans le vault Obsidian `ankiforge_obsidian/` du repository Git (`Skyl9/AnkiForge`). `gh`, `.scratch/` et GitLab**ne sont pas** utilisés.
+Issues et specs de ce repo vivent dans le vault Obsidian `ankiforge_obsidian/` du repository Git (`Skyl9/AnkiForge`). `gh`, `.scratch/` et GitLab **ne sont pas** utilisés.
+
+> **Important (Séparation des Rôles & Anti-Boucle) :**
+> - **Obsidian = Issue Tracker / Todo List uniquement** : Géré via le skill `.agents/skills/obsidian-vault/SKILL.md`.
+> - **La vraie documentation vit dans Zensical** (`docs/`, `zensical.toml`) et est committée dans le dépôt principal. Le vault Obsidian ne doit plus héberger de documentation pérenne.
+> - **Règle d'or One-Shot Action & Stop** : Ne jamais relire le Kanban après écriture, ne jamais toucher au bloc `%% kanban:settings`, et s'arrêter immédiatement après la mise à jour atomique d'un ticket/kanban.
 
 ## Conventions
 
