@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import markdown
 from peewee import fn
@@ -1056,6 +1056,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_toggle_pdf = QPushButton("Vue PDF")
         self.btn_toggle_pdf.setCheckable(True)
         self.btn_toggle_pdf.setFixedHeight(26)
+        self.btn_toggle_pdf.setAccessibleName("Afficher la vue PDF native")
         self.btn_toggle_pdf.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -1075,6 +1076,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_toggle_md = QPushButton("Vue Markdown")
         self.btn_toggle_md.setCheckable(True)
         self.btn_toggle_md.setFixedHeight(26)
+        self.btn_toggle_md.setAccessibleName("Afficher la vue texte Markdown")
         self.btn_toggle_md.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -1111,6 +1113,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_toggle_page_scope = QPushButton("Exclure cette page")
         self.btn_toggle_page_scope.setFixedHeight(24)
         self.btn_toggle_page_scope.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_page_scope.setAccessibleName("Inclure ou exclure la page courante de la sélection")
         self.btn_toggle_page_scope.clicked.connect(self._on_toggle_page_scope_clicked)
         self.btn_toggle_page_scope.hide()
         header_layout.addWidget(self.btn_toggle_page_scope)
@@ -1121,6 +1124,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_prev_page.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
         self.btn_prev_page.setFixedSize(26, 26)
         self.btn_prev_page.setToolTip("Page précédente")
+        self.btn_prev_page.setAccessibleName("Page précédente")
         self.btn_prev_page.clicked.connect(self._on_prev_page)
         self.btn_prev_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
@@ -1156,6 +1160,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_next_page.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
         self.btn_next_page.setFixedSize(26, 26)
         self.btn_next_page.setToolTip("Page suivante")
+        self.btn_next_page.setAccessibleName("Page suivante")
         self.btn_next_page.clicked.connect(self._on_next_page)
         self.btn_next_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
@@ -1171,12 +1176,14 @@ class DocumentPreviewWidget(QWidget):
         self.btn_zoom_out.setIcon(load_phosphor_icon("ph.magnifying-glass-minus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_zoom_out.setFixedSize(26, 26)
         self.btn_zoom_out.setToolTip("Zoom arrière")
+        self.btn_zoom_out.setAccessibleName("Zoom arrière")
         self.btn_zoom_out.clicked.connect(self._zoom_out)
         self.btn_zoom_out.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
         self.btn_zoom_fit = QPushButton("Ajuster")
         self.btn_zoom_fit.setFixedHeight(26)
         self.btn_zoom_fit.setToolTip("Ajuster à la largeur")
+        self.btn_zoom_fit.setAccessibleName("Ajuster le document à la largeur")
         self.btn_zoom_fit.clicked.connect(self._zoom_fit)
         self.btn_zoom_fit.setStyleSheet(
             f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 8px; font-size: 10px; background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY};"
@@ -1186,6 +1193,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_zoom_in.setIcon(load_phosphor_icon("ph.magnifying-glass-plus", color=DesignTokens.TEXT_PRIMARY))
         self.btn_zoom_in.setFixedSize(26, 26)
         self.btn_zoom_in.setToolTip("Zoom avant")
+        self.btn_zoom_in.setAccessibleName("Zoom avant")
         self.btn_zoom_in.clicked.connect(self._zoom_in)
         self.btn_zoom_in.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
@@ -1201,6 +1209,7 @@ class DocumentPreviewWidget(QWidget):
         # 1. Vue PDF
         if HAVE_QTPDF:
             self.pdf_document = QPdfDocument(self)
+            self.pdf_document.statusChanged.connect(self._on_pdf_status_changed)
             self.pdf_viewer = QPdfView()
             self.pdf_viewer.setDocument(self.pdf_document)
             self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
@@ -1287,6 +1296,8 @@ class DocumentPreviewWidget(QWidget):
 
         # Rendu du Markdown stylisé
         raw_md = getattr(self.doc, "content", "") or ""
+        if not raw_md.strip():
+            raw_md = "*Aucun contenu texte disponible pour ce document.*"
         html_content = self._render_stylized_markdown(raw_md)
         self.markdown_viewer.setHtml(html_content)
 
@@ -1429,8 +1440,9 @@ class DocumentPreviewWidget(QWidget):
 
     def jump_to_page(self, page_number: int) -> None:
         """Navigue directement vers la page demandée."""
-        self._current_page = max(1, min(page_number, self._total_pages))
-        self._update_page_label()
+        old_page = self._current_page
+        target_page = max(1, min(page_number, self._total_pages))
+        self._current_page = target_page
 
         try:
             if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
@@ -1439,15 +1451,39 @@ class DocumentPreviewWidget(QWidget):
                 self._load_album_page(self._current_page)
             elif self._current_mode == "markdown":
                 self.markdown_viewer.scrollToAnchor(f"page-{self._current_page}")
+            self._update_page_label()
         except Exception as e:
-            logger.warning("Erreur lors de la navigation vers la page %s : %s", self._current_page, e)
-            if hasattr(self, "lbl_scope_status"):
-                self.lbl_scope_status.setText(f"Page {self._current_page} (erreur de rendu)")
-                self.lbl_scope_status.setStyleSheet(
-                    f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
-                    f" border-radius: {DesignTokens.RADIUS_SM}px; padding: 2px 6px; font-size: {DesignTokens.FONT_SIZE_XS}px; font-weight: bold;"
-                )
-                self.lbl_scope_status.show()
+            logger.warning("Erreur lors de la navigation vers la page %s : %s", target_page, e)
+            self._current_page = old_page
+            self._update_page_label()
+            self._show_status_badge(f"Page {target_page} (erreur de rendu)", badge_type="error")
+
+    def _show_status_badge(self, text: str, badge_type: Literal["error", "loading", "default"] = "default") -> None:
+        """Affiche un badge de statut stylisé selon les tokens de design."""
+        if not hasattr(self, "lbl_scope_status"):
+            return
+        if badge_type == "error":
+            bg_col = DesignTokens.COLOR_RED_BG
+            text_col = DesignTokens.COLOR_RED_TEXT
+            border_col = DesignTokens.COLOR_RED_BORDER
+            weight = "bold"
+        elif badge_type == "loading":
+            bg_col = DesignTokens.BG_INPUT
+            text_col = DesignTokens.TEXT_MUTED
+            border_col = DesignTokens.BORDER_COLOR
+            weight = "normal"
+        else:
+            bg_col = DesignTokens.BG_INPUT
+            text_col = DesignTokens.TEXT_PRIMARY
+            border_col = DesignTokens.BORDER_COLOR
+            weight = "normal"
+
+        self.lbl_scope_status.setText(text)
+        self.lbl_scope_status.setStyleSheet(
+            f"background-color: {bg_col}; color: {text_col}; border: 1px solid {border_col};"
+            f" border-radius: {DesignTokens.RADIUS_SM}px; padding: 2px 6px; font-size: {DesignTokens.FONT_SIZE_XS}px; font-weight: {weight};"
+        )
+        self.lbl_scope_status.show()
 
     def jump_to_heading(self, heading_text: str, page_number: int | None = None) -> None:
         """Navigue vers un titre ou sa page associée."""
@@ -1475,6 +1511,25 @@ class DocumentPreviewWidget(QWidget):
 
     def _clear_heading_highlight(self) -> None:
         self.markdown_viewer.setExtraSelections([])
+
+    def _on_pdf_status_changed(self, status: Any) -> None:
+        """Réagit aux changements de statut du document PDF."""
+        if not HAVE_QTPDF:
+            return
+
+        if status == QPdfDocument.Status.Loading:
+            self._show_status_badge("Chargement du PDF...", badge_type="loading")
+        elif status == QPdfDocument.Status.Ready:
+            if hasattr(self, "pdf_document"):
+                self._total_pages = max(1, self.pdf_document.pageCount())
+            self._update_page_label()
+        elif status == QPdfDocument.Status.Error:
+            logger.warning("Erreur signalée par QPdfDocument lors du rendu du PDF.")
+            self.btn_toggle_pdf.hide()
+            self.btn_toggle_md.hide()
+            self.badge_type.setText("Texte (repli)")
+            self._set_mode("markdown")
+            self._show_status_badge("Erreur de lecture du PDF", badge_type="error")
 
     def _on_pdf_page_changed(self, page_idx: int) -> None:
         self._current_page = page_idx + 1
