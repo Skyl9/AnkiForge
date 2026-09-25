@@ -2862,3 +2862,233 @@ def test_pdf_preview_toggle_page_scope_in_sections_mode(qtbot: Any, mock_db: Any
     res_after_headings = [c.get("heading_path") for c in res_after["chunks"]]
     assert "Chapitre 1" in res_after_headings
     assert "Exclure" in preview.btn_toggle_page_scope.text()
+
+
+def test_pdf_reader_accessibility_names_and_tooltips(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que tous les contrôles interactifs du lecteur ont accessibleName et tooltips."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc A11y {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+        content="# Test A11y\nContenu",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Test A11y",
+        content="Contenu",
+        content_hash=f"h_a11y_{uid}",
+    )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    preview = scope.preview_widget
+    assert preview.btn_prev_page.accessibleName() == "Page précédente"
+    assert preview.btn_next_page.accessibleName() == "Page suivante"
+    assert preview.spin_page.accessibleName() == "Numéro de page"
+    assert preview.btn_zoom_out.accessibleName() == "Zoom arrière"
+    assert preview.btn_zoom_fit.accessibleName() == "Ajuster le document à la largeur"
+    assert preview.btn_zoom_in.accessibleName() == "Zoom avant"
+    assert "sélection" in preview.btn_toggle_page_scope.accessibleName().lower() or "page" in preview.btn_toggle_page_scope.accessibleName().lower()
+
+
+def test_pdf_reader_preserves_selection_on_page_jump_error(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la sélection existante est préservée si le saut d'une page échoue."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Error Preserved {uid}.pdf",
+        file_type="pdf",
+        total_pages=4,
+        content="# P1\nC1\n\n# P2\nC2\n\n# P3\nC3\n\n# P4\nC4",
+    )
+    for p in range(1, 5):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"P{p}",
+            content=f"C{p}",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    # Sélection initiale de pages 1, 2, 4
+    scope._apply_page_selection({1, 2, 4})
+    assert scope._selected_pages == {1, 2, 4}
+
+    preview = scope.preview_widget
+
+    # Provoquer une erreur simulée dans jump_to_page
+    with patch.object(preview.markdown_viewer, "scrollToAnchor", side_effect=RuntimeError("Scroll error")):
+        preview.jump_to_page(3)
+
+    # La sélection existante doit être strictement intacte
+    assert scope._selected_pages == {1, 2, 4}
+    res = scope.get_result()
+    assert res["selected_pages"] == [1, 2, 4]
+    # L'erreur doit être signalée visuellement
+    assert "erreur" in preview.lbl_scope_status.text().lower()
+    # La page courante doit avoir fait un rollback sur la page valide précédente (1)
+    assert preview.current_page == 1
+
+    # Les navigations suivantes restent parfaitement fonctionnelles
+    preview.jump_to_page(4)
+    assert preview.current_page == 4
+    assert preview.spin_page.value() == 4
+
+
+def test_pdf_reader_status_changed_loading_ready_error(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la réactivité aux changements de statut QPdfDocument (chargement, prêt, erreur)."""
+    from PySide6.QtPdf import QPdfDocument
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Status {uid}.pdf",
+        file_type="pdf",
+        total_pages=2,
+        content="<!-- PAGE: 1 -->\nPage 1",
+    )
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    preview = scope.preview_widget
+    assert hasattr(preview, "_on_pdf_status_changed")
+
+    # Simulation statut Loading
+    preview._on_pdf_status_changed(QPdfDocument.Status.Loading)
+    assert "chargement" in preview.lbl_scope_status.text().lower()
+
+    # Simulation statut Ready : le badge de chargement est levé et les pages mises à jour
+    preview._on_pdf_status_changed(QPdfDocument.Status.Ready)
+    assert preview._total_pages >= 1
+    assert "chargement" not in preview.lbl_scope_status.text().lower()
+
+    # Simulation statut Error : repli markdown
+    preview._on_pdf_status_changed(QPdfDocument.Status.Error)
+    assert preview._current_mode == "markdown"
+    assert "erreur" in preview.lbl_scope_status.text().lower()
+
+
+def test_pdf_reader_empty_document_fallback(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie qu'un document vide avec ou sans PDF charge sans crash avec placeholder explicite."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Empty {uid}.pdf",
+        file_type="pdf",
+        total_pages=1,
+        content="",
+    )
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    preview = scope.preview_widget
+    # Le viewer markdown doit contenir un message de contenu non disponible
+    assert "aucun contenu" in preview.markdown_viewer.toPlainText().lower()
+    assert preview.current_page == 1
+
+
+def test_pdf_reader_preserves_sections_tree_sync_on_error(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie que la synchronisation de l'arbre des sections et scope_result reste intacte en cas d'erreur de rendu PDF."""
+    from PySide6.QtPdf import QPdfDocument
+
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Tree Sync {uid}.pdf",
+        file_type="pdf",
+        total_pages=3,
+        content="""# Chapitre 1
+Texte 1
+
+# Chapitre 2
+Texte 2
+
+# Chapitre 3
+Texte 3""",
+    )
+    for p in range(1, 4):
+        DocumentChunkModel.create(
+            document=doc,
+            chunk_index=p - 1,
+            page_number=p,
+            heading_path=f"Chapitre {p}",
+            content=f"Texte {p}",
+            content_hash=f"h_{uid}_{p}",
+        )
+
+    initial_scope = {
+        "selection_mode": "sections",
+        "selected_headings": ["Chapitre 1", "Chapitre 3"],
+    }
+    scope = DocumentScopeWidget(doc, initial_scope_result=initial_scope)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    res_before = scope.get_result()
+    assert set(res_before["selected_headings"]) == {"Chapitre 1", "Chapitre 3"}
+
+    preview = scope.preview_widget
+
+    # Provoquer une erreur PDF
+    preview._on_pdf_status_changed(QPdfDocument.Status.Error)
+    assert preview._current_mode == "markdown"
+    assert "erreur" in preview.lbl_scope_status.text().lower()
+
+    # Vérifier que les sections cochées dans l'arbre et scope_result restent intactes
+    res_after = scope.get_result()
+    assert res_after["selection_mode"] == "sections"
+    assert set(res_after["selected_headings"]) == {"Chapitre 1", "Chapitre 3"}
+
+
+def test_pdf_reader_fallback_unstructured_pdf_without_headings(qtbot: Any, mock_db: Any) -> None:
+    """Vérifie la résilience du lecteur face à un PDF sans titres structurés (mode pages, navigation, fallback)."""
+    uid = uuid.uuid4().hex[:6]
+    doc = DocumentModel.create(
+        title=f"Doc Unstructured {uid}.pdf",
+        file_type="pdf",
+        total_pages=2,
+        content="Page 1 sans markdown structuré.\nPage 2 sans markdown structuré.",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=0,
+        page_number=1,
+        heading_path="Page 1",
+        content="Page 1 sans markdown structuré.",
+        content_hash=f"h_unstruct_{uid}_1",
+    )
+    DocumentChunkModel.create(
+        document=doc,
+        chunk_index=1,
+        page_number=2,
+        heading_path="Page 2",
+        content="Page 2 sans markdown structuré.",
+        content_hash=f"h_unstruct_{uid}_2",
+    )
+
+    scope = DocumentScopeWidget(doc)
+    qtbot.addWidget(scope)
+    scope.show()
+
+    preview = scope.preview_widget
+    assert preview._total_pages == 2
+    assert preview.current_page == 1
+
+    # Navigation vers la page 2
+    preview.jump_to_page(2)
+    assert preview.current_page == 2
+    assert preview.spin_page.value() == 2
+
+    # Exclusion de la page 2 via le lecteur
+    preview.btn_toggle_page_scope.click()
+    res = scope.get_result()
+    assert 2 not in res["selected_pages"]
+    assert 1 in res["selected_pages"]
