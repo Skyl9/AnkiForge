@@ -24,6 +24,8 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 📚 **Documentation Zensical (Qualité, Build & Proactivité)** : `.agents/skills/documentation-zensical/SKILL.md`
 - 🎬 **Ingestion Multimédia (Parseeing PDF/DOCX/PPTX/EPUB/audio/YouTube/Web → Markdown + chunks RAG)** : `.agents/skills/ingestion-multimedia/SKILL.md`
 - 🔁 **Export & Synchronisation Anki (.apkg/.colpkg, médias, merge, IDs stables)** : `.agents/skills/export-synchro-anki/SKILL.md`
+- 📋 **Gestionnaire Vault & Kanban Obsidian** : `.agents/skills/obsidian-vault/SKILL.md`
+- 📦 **Propositions de Commits Atomiques (Conventional Commits)** : `.agents/skills/proposer-commits/SKILL.md`
 
 *Audits spécialisés (utiliser directement sans passer par `audit-ankiforge` pour un périmètre ciblé) :*
 - 📦 **Audit Dépendances & Supply Chain** : `.agents/skills/audit-dependances/SKILL.md`
@@ -35,6 +37,20 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 - 🔒 **Audit Sécurité** : `.agents/skills/audit-securite/SKILL.md`
 - 🧪 **Audit Tests & CI/CD** : `.agents/skills/audit-tests-ci/SKILL.md`
 - 📸 **Inspection Visuelle UI (screenshot offscreen)** : `.agents/skills/ui-screenshot/SKILL.md`
+
+*Flux d'ingénierie agentique & résolution de tâches (Framework Matt Pocock) :*
+- 🧭 **Aiguillage des Flux & Routeur** : `.agents/skills/ask-matt/SKILL.md`
+- 🎯 **Affûtage & Interview Cadrage** : `.agents/skills/grill-with-docs/SKILL.md`, `.agents/skills/grill-me/SKILL.md`, `.agents/skills/grilling/SKILL.md`
+- 📐 **Spécification & Découpage Tickets** : `.agents/skills/to-spec/SKILL.md`, `.agents/skills/to-tickets/SKILL.md`
+- 🔨 **Implémentation & Tests (TDD)** : `.agents/skills/implement/SKILL.md`, `.agents/skills/tdd/SKILL.md`
+- 🔎 **Revue de Code 2 Axes (Standards + Spec)** : `.agents/skills/code-review/SKILL.md`
+- 🐞 **Diagnostic & Triage** : `.agents/skills/diagnosing-bugs/SKILL.md`, `.agents/skills/triage/SKILL.md`
+- 🗺️ **Exploration Longue Portée & Architecture** : `.agents/skills/wayfinder/SKILL.md`, `.agents/skills/improve-codebase-architecture/SKILL.md`
+- 📚 **Modélisation Domaine & Modules Profonds** : `.agents/skills/domain-modeling/SKILL.md`, `.agents/skills/codebase-design/SKILL.md`
+- 📦 **Compaction, Spikes & Recherche** : `.agents/skills/handoff/SKILL.md`, `.agents/skills/prototype/SKILL.md`, `.agents/skills/research/SKILL.md`
+- 🛡️ **Revue Contradictoire & Sources Officielles** : `.agents/skills/doubt-driven-development/SKILL.md`, `.agents/skills/source-driven-development/SKILL.md`
+- 🔀 **Résolution Conflits & Simplification** : `.agents/skills/resolving-merge-conflicts/SKILL.md`, `.agents/skills/code-simplification/SKILL.md`
+- 🧙 **Utilitaires Spéciaux** : `.agents/skills/wizard/SKILL.md`, `.agents/skills/wait-what/SKILL.md`, `.agents/skills/writing-for-agents/SKILL.md`, `.agents/skills/to-questionnaire/SKILL.md`, `.agents/skills/setup-matt-pocock-skills/SKILL.md`
 
 ## 🗺️ Règles Métier & Architecture Technique Actuelle (AnkiForge)
 
@@ -81,6 +97,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
         - Jeu de règles activé : `E`, `F`, `B` (Bugbear), `I` (isort), `UP` (pyupgrade Python 3.12), `T20` (interdiction stricte de `print()`), `PT` (bonnes pratiques pytest), `SIM` (simplification du code).
     - *Pre-commit & Workflow Local Ultra-Rapide (< 5-10s) :*
         - Les hooks pre-commit doivent s'exécuter en moins de 5-10 secondes. Ils exécutent `ruff check --fix`, `ruff format`, les vérificateurs de fichiers (`trailing-whitespace`, `check-yaml`, `check-added-large-files`).
+        - *Discipline Git & Interdiction de Commit Autonome :* L'agent ne doit JAMAIS exécuter de `git commit` ou `git push` de manière autonome sans l'accord explicite ou l'ordre direct de l'utilisateur. À la fin de chaque tâche modifiant l'arbre de travail, invoquer le skill `proposer-commits` pour formuler des propositions de commits atomiques selon la spécification Conventional Commits v1.0.0 en français.
         - *Règle obligatoire pour les développeurs et agents :* Toujours exécuter la suite de tests locale (`uv run pytest`) et valider le typage (`uv run mypy src/ankiforge`) avant tout `git push` ou fusion de branche majeure.
     - *CI/CD GitHub Actions & Parallélisation :*
         - Pipeline complet multi-OS (`ubuntu-latest`, `macos-latest`, `windows-latest`) avec compilation automatique de l'extension C native Levenshtein (`.so` / `.dll`).

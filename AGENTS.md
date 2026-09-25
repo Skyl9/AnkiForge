@@ -92,6 +92,8 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
   - `mise-a-jour-metadonnees`: Meta-skill: syncs the 15 metadata/doc files and audits/improves the skills catalog (maturity grid, triggers, progressive disclosure)
   - `documentation-zensical`: Proactive Zensical documentation auditor, enhancer, and build validator
   - `audit-ankiforge`: Global architecture and compliance auditor against `GEMINI.md` rules
+  - `obsidian-vault`: Gestionnaire du vault Obsidian (`ankiforge_obsidian/`), Kanban (`Avancement du projet.md`) et tickets en mode atomique one-shot anti-boucle (Obsidian = todo list pure, documentation canonique dans Zensical `docs/`)
+  - `proposer-commits`: Formulation de propositions de commits atomiques conformes à Conventional Commits v1.0.0 (garde-fou interdisant tout commit autonome sans accord utilisateur)
 - **Architecture & Foundation**:
   - `peewee-expert`: Database schema design, migrations, atomic transactions, and N+1 query elimination
   - `ui-screenshot`: Offscreen/headless Qt view capture and visual inspection
@@ -107,12 +109,26 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
   - `audit-qualite-code`: Strict typing (`mypy`), linting (`ruff`), dead code, no `print()`
   - `audit-securite`: Bandit scans, secret redaction, SSRF, sandbox safety
   - `audit-tests-ci`: Test mocking discipline, headless constraints, CI workflows
+- **Agentic Engineering Flows (Matt Pocock Framework)**:
+  - `ask-matt`: Interactive router and navigator for agentic engineering workflows
+  - `grill-with-docs` / `grill-me` / `grilling`: Relentless interview and design tree frontier exploration
+  - `to-spec` / `to-tickets`: Transformation of conversational decisions into specs and tracer-bullet tickets
+  - `implement` / `tdd`: Test-driven implementation loop (red-green-refactor)
+  - `code-review`: Two-axis diff review (Standards + Spec) in parallel subagents
+  - `diagnosing-bugs` / `triage`: Bug isolation with tight feedback loops and Obsidian triage state machine
+  - `wayfinder`: Multi-session roadmap and decision mapping for large-scale efforts
+  - `domain-modeling` / `codebase-design`: Shared domain terminology (`CONTEXT.md`, ADRs) and deep module architecture
+  - `improve-codebase-architecture`: Automated code scan to uncover deepening opportunities
+  - `handoff` / `prototype` / `research`: Portable context compaction, throwaway code spikes, and primary source research
+  - `doubt-driven-development` / `source-driven-development`: Adversarial fresh-context review and documentation-grounded decisions
+  - `resolving-merge-conflicts` / `code-simplification`: Intent-based merge conflict resolution and clarity refactoring
+  - `wizard` / `wait-what` / `writing-for-agents` / `to-questionnaire` / `setup-matt-pocock-skills`: Human interaction bash wizards, communication repair, agent doc standards, and questionnaire generation
 
 ## Documentation References
 - `GEMINI.md` - agentic system prompt, core engineering rules
 - `AGENTS.md` - quick reference guide and developer cheat-sheet
 - `.github/copilot-instructions.md` - GitHub Copilot rules and reference contracts
-- `.agents/skills/` - directory of 15 agent skills with progressive disclosure
+- `.agents/skills/` - directory of 44 agent skills with progressive disclosure
 - `docs/Dossier_architecture/` - 9 architecture docs (data model, UI inventory, DAG engine, quality/deploy)
 - `DESIGN.md` - design system, semantic tokens, 12 themes, 4 layouts; all new widgets must be documented here
 
@@ -120,7 +136,7 @@ Autonomous specialized skills conforming to Antigravity Progressive Disclosure:
 
 ### Issue tracker
 
-Les issues/tickets vivent dans le vault Obsidian `ankiforge_obsidian/` (une note par ticket dans `Tickets/`, une ligne référencée sur le kanban `Avancement du projet.md`). Voir `docs/agents/issue-tracker.md`.
+Les issues/tickets vivent dans le vault Obsidian `ankiforge_obsidian/` (une note par ticket dans `Tickets/`, une ligne référencée sur le kanban `Avancement du projet.md`). Géré via le skill `obsidian-vault` en mode atomique one-shot anti-boucle (Obsidian = todo-list pure, documentation canonique dans Zensical `docs/`). Voir `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
