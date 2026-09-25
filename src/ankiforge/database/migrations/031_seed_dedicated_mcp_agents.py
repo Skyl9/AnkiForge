@@ -94,8 +94,10 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
             if row:
                 # Mise à jour du persona existant avec son typage MCP et ses outils autorisés
                 database.execute_sql(
-                    "UPDATE personas SET persona_type = ?, allowed_tools = ?, description = ? WHERE id = ?",
-                    (agent["persona_type"], agent["allowed_tools"], agent["description"], row[0]),
+                    "UPDATE personas SET persona_type = ?, allowed_tools = ?, description = ?, "
+                    "system_prompt = CASE WHEN system_prompt IS NULL OR TRIM(system_prompt) = '' "
+                    "THEN ? ELSE system_prompt END WHERE id = ?",
+                    (agent["persona_type"], agent["allowed_tools"], agent["description"], agent["system_prompt"], row[0]),
                 )
             else:
                 # Insertion d'un nouvel agent dédié

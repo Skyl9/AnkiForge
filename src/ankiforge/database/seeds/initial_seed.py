@@ -11,6 +11,13 @@ from ankiforge.database.seeds.linter_rules_seed import seed_default_linter_rules
 logger = logging.getLogger(__name__)
 
 
+def _repair_empty_prompt(persona: PersonaModel, prompt: str) -> None:
+    """Restaure un prompt d'usine manquant sans écraser une personnalisation."""
+    if not persona.system_prompt.strip() and prompt:
+        persona.system_prompt = prompt
+        persona.save(only=[PersonaModel.system_prompt])
+
+
 def seed_initial_data() -> None:
     """
     Peuple la base avec les données métier initiales (Modèles, Prompts, Personas, Pipelines).
@@ -36,13 +43,14 @@ def _seed_initial_data_inner() -> None:
         '  "reason": "La carte reprend exactement la définition du cours sans rien ajouter."\n'
         "}"
     )
-    PersonaModel.get_or_create(
+    juge, _ = PersonaModel.get_or_create(
         name="Juge Fact-Checker",
         defaults={
             "description": "Vérifie qu'une carte ne dit pas le contraire de son cours source (Anti-Hallucination).",
             "system_prompt": juge_prompt,
         },
     )
+    _repair_empty_prompt(juge, juge_prompt)
 
     # Chemin vers les ressources de prompts (dossier src/ressources/prompts ou src/ankiforge/ressources/prompts)
     prompts_dir = Path(__file__).parent.parent.parent / "ressources" / "prompts"
@@ -196,6 +204,7 @@ def _seed_initial_data_inner() -> None:
             "system_prompt": extracteur_prompt,
         },
     )
+    _repair_empty_prompt(extracteur, extracteur_prompt)
 
     # ==========================================
     # PERSONA 2 : LE CONTRÔLEUR QUALITÉ (Linter)
@@ -207,6 +216,7 @@ def _seed_initial_data_inner() -> None:
             "system_prompt": controleur_prompt,
         },
     )
+    _repair_empty_prompt(controleur, controleur_prompt)
 
     cloze_agent, _ = PersonaModel.get_or_create(
         name="Générateur Auto-Cloze",
@@ -215,6 +225,7 @@ def _seed_initial_data_inner() -> None:
             "system_prompt": cloze_prompt,
         },
     )
+    _repair_empty_prompt(cloze_agent, cloze_prompt)
 
     # ==========================================
     # PERSONA 4 : L'ASSISTANT GÉNÉRALISTE
@@ -227,7 +238,7 @@ def _seed_initial_data_inner() -> None:
         "Si tu as besoin d'informations (comme la liste des paquets ou des agents), n'hésite pas à utiliser tes outils SQL pour inspecter la base de données.\n"
         "Sois toujours clair, proactif, et pédagogue dans tes réponses."
     )
-    PersonaModel.get_or_create(
+    consultant, _ = PersonaModel.get_or_create(
         name="Consultant Généraliste",
         defaults={
             "description": "Assistant polyvalent pour gérer l'application, suggérer des tags et optimiser la structure de la collection.",
@@ -236,13 +247,14 @@ def _seed_initial_data_inner() -> None:
             "allowed_tools": json.dumps(["*"]),
         },
     )
+    _repair_empty_prompt(consultant, generaliste_prompt)
 
     # ==========================================
     # PERSONAS DÉDIÉS AU SERVEUR MCP
     # ==========================================
     from ankiforge.services.ai.tools_catalog import AGENT_PRESETS
 
-    PersonaModel.get_or_create(
+    wozniak, _ = PersonaModel.get_or_create(
         name="Auditeur Wozniak",
         defaults={
             "description": "Auditeur expert basé sur les 20 règles de formulation de Piotr Wozniak (atomicité, clarté).",
@@ -255,8 +267,16 @@ def _seed_initial_data_inner() -> None:
             "allowed_tools": json.dumps(AGENT_PRESETS["wozniak_auditor"]["tools"]),
         },
     )
+    _repair_empty_prompt(
+        wozniak,
+        (
+            "Tu es l'Auditeur Qualité Wozniak d'AnkiForge. Ton rôle exclusif est d'analyser la clarté et la rétention des cartes "
+            "au regard des 20 règles fondamentales de Piotr Wozniak. Tu traques le manque d'atomicité, les listes complexes "
+            "et les interférences. Tu proposes des reformulations précises sous forme de Staged Diffs."
+        ),
+    )
 
-    PersonaModel.get_or_create(
+    css_architect, _ = PersonaModel.get_or_create(
         name="Architecte Modèles & CSS",
         defaults={
             "description": "Spécialiste de la structure des types de cartes, gabarits HTML/KaTeX et personnalisation visuelle CSS.",
@@ -268,8 +288,15 @@ def _seed_initial_data_inner() -> None:
             "allowed_tools": json.dumps(AGENT_PRESETS["css_architect"]["tools"]),
         },
     )
+    _repair_empty_prompt(
+        css_architect,
+        (
+            "Tu es l'Architecte Modèles & CSS d'AnkiForge. Ton rôle est de concevoir, auditer et améliorer les types de notes, "
+            "les schémas de champs, les templates Jinja2/KaTeX et les styles CSS. Tu t'assures de l'ergonomie visuelle sur mobile et desktop."
+        ),
+    )
 
-    PersonaModel.get_or_create(
+    srs_analyst, _ = PersonaModel.get_or_create(
         name="Analyste SRS & Sangsues",
         defaults={
             "description": "Spécialiste de la dynamique d'apprentissage, analyse des taux d'oubli, cartes sangsues et prédictions FSRS.",
@@ -281,8 +308,15 @@ def _seed_initial_data_inner() -> None:
             "allowed_tools": json.dumps(AGENT_PRESETS["srs_analyst"]["tools"]),
         },
     )
+    _repair_empty_prompt(
+        srs_analyst,
+        (
+            "Tu es l'Analyste SRS d'AnkiForge. Ton rôle est d'examiner en profondeur les métriques d'apprentissage de la collection : "
+            "distribution des intervalles, cartes provoquant des échecs répétés (sangsues), et charge de révision future."
+        ),
+    )
 
-    PersonaModel.get_or_create(
+    rag_researcher, _ = PersonaModel.get_or_create(
         name="Chercheur RAG & Documents",
         defaults={
             "description": "Spécialiste de l'interrogation des sources documentaires importées, index sémantiques et analyse de couverture.",
@@ -294,8 +328,15 @@ def _seed_initial_data_inner() -> None:
             "allowed_tools": json.dumps(AGENT_PRESETS["rag_researcher"]["tools"]),
         },
     )
+    _repair_empty_prompt(
+        rag_researcher,
+        (
+            "Tu es le Chercheur RAG d'AnkiForge. Ton rôle est d'explorer les documents sources importés (PDF, web, transcriptions) "
+            "et la documentation officielle pour vérifier que toutes les notions clés ont été convenablement transformées en flashcards."
+        ),
+    )
 
-    PersonaModel.get_or_create(
+    database_admin, _ = PersonaModel.get_or_create(
         name="Administrateur BDD Peewee",
         defaults={
             "description": "Expert technique habilité à effectuer des diagnostics SQL directs et à exécuter des scripts Python.",
@@ -306,6 +347,13 @@ def _seed_initial_data_inner() -> None:
             "persona_type": "mcp",
             "allowed_tools": json.dumps(AGENT_PRESETS["database_admin"]["tools"]),
         },
+    )
+    _repair_empty_prompt(
+        database_admin,
+        (
+            "Tu es l'Administrateur BDD Peewee d'AnkiForge. Tu disposes des autorisations pour exécuter des requêtes SQL SELECT "
+            "en lecture seule et lancer des outils d'ingénierie Python afin d'extraire des rapports statistiques avancés."
+        ),
     )
     # ==========================================
     # CRÉATION DES PIPELINES

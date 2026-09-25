@@ -1,10 +1,11 @@
+import importlib
 import os
 
 import pytest
 from peewee_migrate import Router
 
 from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import db
+from ankiforge.database.models import PersonaModel, db
 
 pytestmark = pytest.mark.integration
 
@@ -88,3 +89,37 @@ def test_run_migrations_idempotency(mock_db):
     assert "031_seed_dedicated_mcp_agents" in router.done
     assert "033_chunk_strategy_version" in router.done
     assert "036_embedding_cache_and_missing_indexes" in router.done
+
+
+def test_dedicated_agent_migration_repairs_empty_existing_prompts(mock_db):
+    """La migration 031 doit réparer les agents créés avec un prompt vide."""
+    migration_031 = importlib.import_module("ankiforge.database.migrations.031_seed_dedicated_mcp_agents")
+
+    PersonaModel.create(name="Auditeur Wozniak", system_prompt="")
+    PersonaModel.create(name="Architecte Modèles & CSS", system_prompt="Prompt personnalisé conservé")
+
+    migration_031.migrate(None, db)
+
+    repaired = PersonaModel.get(PersonaModel.name == "Auditeur Wozniak")
+    assert repaired.system_prompt
+    assert len(repaired.system_prompt) > 50
+    assert "Wozniak" in repaired.system_prompt
+    preserved = PersonaModel.get(PersonaModel.name == "Architecte Modèles & CSS")
+    assert preserved.system_prompt == "Prompt personnalisé conservé"
+
+
+def test_seed_initial_data_repairs_empty_existing_persona_prompts(mock_db):
+    """Le seed doit réparer les personas préexistants dont le prompt est vide."""
+    from ankiforge.database.seeds.initial_seed import seed_initial_data
+
+    PersonaModel.create(name="Consultant Généraliste", system_prompt="")
+    PersonaModel.create(name="Archiviste Pédagogue", system_prompt="")
+    PersonaModel.create(name="Juge Fact-Checker", system_prompt="Prompt personnalisé conservé")
+
+    seed_initial_data()
+
+    for name in ("Consultant Généraliste", "Archiviste Pédagogue"):
+        persona = PersonaModel.get(PersonaModel.name == name)
+        assert persona.system_prompt
+        assert len(persona.system_prompt) > 50
+    assert PersonaModel.get(PersonaModel.name == "Juge Fact-Checker").system_prompt == "Prompt personnalisé conservé"
