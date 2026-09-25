@@ -8,6 +8,8 @@ from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
+__all__ = ["mcp", "run_server"]
+
 logger = logging.getLogger(__name__)
 
 # Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
