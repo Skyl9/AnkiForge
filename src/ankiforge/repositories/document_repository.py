@@ -78,7 +78,8 @@ class DocumentRepository(BaseRepository):
                 level_path = join_hierarchy(parts[:i])
                 leaf_folder, _ = FolderModel.get_or_create(name=level_path)
 
-            assert leaf_folder is not None
+            if leaf_folder is None:
+                raise RuntimeError(f"Échec de création du dossier hiérarchique pour le chemin : {full_path}")
             return leaf_folder
 
     def heal_folder_hierarchies(self) -> int:
