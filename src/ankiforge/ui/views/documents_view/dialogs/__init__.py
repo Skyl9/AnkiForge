@@ -7,11 +7,15 @@ from ankiforge.ui.views.documents_view.dialogs.album_import_dialog import (
 from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
     DocumentDelimitationDialog,
 )
+from ankiforge.ui.views.documents_view.dialogs.folder_dialog import (
+    FolderCreateDialog,
+)
 from ankiforge.ui.views.documents_view.dialogs.rag_test_dialog import RAGTestDialog
 
 __all__ = [
     "AIDocumentStructureDialog",
     "AlbumImportDialog",
     "DocumentDelimitationDialog",
+    "FolderCreateDialog",
     "RAGTestDialog",
 ]

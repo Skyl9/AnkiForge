@@ -753,3 +753,112 @@ def test_documents_view_worker_finished_handles_missing_doc_id_gracefully(qtbot)
     saved_doc = DocumentModel.get_or_none(DocumentModel.title == doc_title)
     assert saved_doc is not None
     assert saved_doc.content == sample_content
+
+
+def test_documents_view_heal_hierarchies_ensures_all_user_roles(qtbot):
+    """Vérifie que refresh_data auto-guérit les parents virtuels et assigne UserRole à chaque nœud."""
+    from ankiforge.database.models import FolderModel
+
+    uid = uuid.uuid4().hex[:6]
+    FolderModel.create(name=f"Racine_{uid}::SousNiveau::Feuille")
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    # Parcourir tous les items de l'arborescence et vérifier qu'aucun dossier n'a data == None
+    def assert_items(parent):
+        count = parent.topLevelItemCount() if hasattr(parent, "topLevelItemCount") else parent.childCount()
+        for i in range(count):
+            item = parent.topLevelItem(i) if hasattr(parent, "topLevelItem") else parent.child(i)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            assert data is not None, f"Item {item.text(0)} a un UserRole None !"
+            assert data.get("type") in ("folder", "doc")
+            assert data.get("id") is not None
+            assert_items(item)
+
+    assert_items(view.tree_explorer)
+
+
+def test_documents_view_context_menu_actions(qtbot, monkeypatch):
+    """Vérifie que le menu contextuel clic-droit propose les actions attendues selon l'élément ciblé."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QMenu
+
+    from ankiforge.database.models import FolderModel
+    from ankiforge.ui.theme import StyledMenu
+
+    uid = uuid.uuid4().hex[:6]
+    folder = FolderModel.create(name=f"Dossier_{uid}")
+    doc = DocumentModel.create(title=f"Doc_{uid}", folder=folder, content="Texte", file_type="md")
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    executed_menus = []
+
+    def mock_exec(self, pos=None):
+        actions = [a.text() for a in self.actions() if not a.isSeparator()]
+        executed_menus.append(actions)
+        return None
+
+    monkeypatch.setattr(StyledMenu, "exec", mock_exec)
+    monkeypatch.setattr(QMenu, "exec", mock_exec)
+
+    # 1. Clic droit dans le vide (aucun item à cet endroit)
+    view._on_tree_context_menu(QPoint(500, 500))
+    assert len(executed_menus) == 1
+    assert any("Nouveau dossier racine" in a for a in executed_menus[0])
+
+    # 2. Clic droit sur le dossier
+    view._select_folder_id_in_tree(folder.id)
+    folder_item = view.tree_explorer.currentItem()
+    rect = view.tree_explorer.visualItemRect(folder_item)
+    view._on_tree_context_menu(rect.center())
+    assert len(executed_menus) == 2
+    assert any("Nouveau sous-dossier" in a for a in executed_menus[1])
+    assert any("Renommer" in a for a in executed_menus[1])
+    assert any("Supprimer le dossier" in a for a in executed_menus[1])
+
+    # 3. Clic droit sur le document
+    view._select_doc_id_in_tree(doc.id)
+    doc_item = view.tree_explorer.currentItem()
+    rect_doc = view.tree_explorer.visualItemRect(doc_item)
+    view._on_tree_context_menu(rect_doc.center())
+    assert len(executed_menus) == 3
+    assert any("Ouvrir" in a for a in executed_menus[2])
+    assert any("Supprimer" in a for a in executed_menus[2])
+
+
+def test_documents_view_rename_folder_cascades(qtbot, monkeypatch):
+    """Vérifie le renommage de dossier via _on_rename_folder avec cascade sur les sous-dossiers."""
+    from PySide6.QtWidgets import QInputDialog
+
+    from ankiforge.database.models import FolderModel
+
+    uid = uuid.uuid4().hex[:6]
+    parent_folder = FolderModel.create(name=f"Parent_{uid}")
+    child_folder = FolderModel.create(name=f"Parent_{uid}::Enfant")
+    doc = DocumentModel.create(title=f"Doc_{uid}", folder=child_folder, content="Texte", file_type="md")
+
+    view = DocumentsView(ai_manager=None)
+    qtbot.addWidget(view)
+    view.refresh_data()
+
+    # Simuler la saisie du nouveau nom "NouveauParent"
+    monkeypatch.setattr(QInputDialog, "getText", lambda *args, **kwargs: (f"NouveauParent_{uid}", True))
+
+    view._on_rename_folder(parent_folder.id)
+
+    # Vérifier que le parent a été renommé
+    updated_parent = FolderModel.get_by_id(parent_folder.id)
+    assert updated_parent.name == f"NouveauParent_{uid}"
+
+    # Vérifier que l'enfant a été mis à jour en cascade
+    updated_child = FolderModel.get_by_id(child_folder.id)
+    assert updated_child.name == f"NouveauParent_{uid}::Enfant"
+
+    # Vérifier que le document est toujours attaché au même enfant
+    doc_reloaded = DocumentModel.get_by_id(doc.id)
+    assert doc_reloaded.folder_id == child_folder.id

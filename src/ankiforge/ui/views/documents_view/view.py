@@ -3,7 +3,7 @@ import pathlib
 from typing import Any
 
 from peewee import fn
-from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -55,11 +55,12 @@ from ankiforge.ui.components import (
 )
 from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
 from ankiforge.ui.dispatch import run_on_owner_thread
-from ankiforge.ui.theme import DesignTokens
+from ankiforge.ui.theme import DesignTokens, StyledMenu
 from ankiforge.ui.views.documents_view.dialogs import (
     AIDocumentStructureDialog,
     AlbumImportDialog,
     DocumentDelimitationDialog,
+    FolderCreateDialog,
     RAGTestDialog,
 )
 from ankiforge.ui.views.documents_view.utils import apply_pill_style
@@ -198,6 +199,7 @@ class DocumentsView(QWidget):
         # Tree Widget
         self.tree_explorer = DocumentTreeWidget()
         self.tree_explorer.setHeaderHidden(True)
+        self.tree_explorer.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_explorer.setStyleSheet(f"""
             QTreeWidget {{
                 background-color: {DesignTokens.BG_PANEL};
@@ -660,6 +662,7 @@ class DocumentsView(QWidget):
     def _connect_signals(self) -> None:
         self.tree_explorer.itemSelectionChanged.connect(self._on_document_selected)
         self.tree_explorer.itemMoved.connect(self._on_item_moved)
+        self.tree_explorer.customContextMenuRequested.connect(self._on_tree_context_menu)
         self.editor_stack.currentChanged.connect(self._on_editor_page_changed)
         self.text_editor.content_changed.connect(self._on_document_text_changed)
         self.outline_widget.heading_selected.connect(self._on_outline_heading_selected)
@@ -766,6 +769,8 @@ class DocumentsView(QWidget):
             self.tree_explorer.blockSignals(True)
             self.tree_explorer.clear()
 
+            DocumentRepository().heal_folder_hierarchies()
+
             folder_items: dict[int, QTreeWidgetItem] = {}
             path_items: dict[str, QTreeWidgetItem] = {}
             folders = list(FolderModel.select())
@@ -781,6 +786,10 @@ class DocumentsView(QWidget):
                     else:
                         new_item = QTreeWidgetItem(parent_item or self.tree_explorer, [parts[i - 1]])
                         new_item.setIcon(0, load_phosphor_icon("ph.folder", weight="fill", color=DesignTokens.COLOR_BLUE))
+                        p_model = FolderModel.get_or_none(FolderModel.name == parent_path)
+                        if p_model:
+                            new_item.setData(0, Qt.ItemDataRole.UserRole, {"type": "folder", "id": p_model.id})
+                            folder_items[p_model.id] = new_item
                         path_items[parent_path] = new_item
                         parent_item = new_item
 
@@ -1426,27 +1435,116 @@ class DocumentsView(QWidget):
 
     @Slot()
     def _on_new_folder(self) -> None:
-        folder_name, ok = QInputDialog.getText(self, "Nouveau dossier", "Nom du dossier :")
-        if ok and folder_name.strip():
-            target_name = folder_name.strip()
-            items = self.tree_explorer.selectedItems()
-            if items:
-                data = items[0].data(0, Qt.ItemDataRole.UserRole)
-                if data:
-                    item_type = data.get("type")
-                    item_id = data.get("id")
-                    target_folder_id = item_id if item_type == "folder" else (DocumentModel.get_by_id(item_id).folder.id if DocumentModel.get_by_id(item_id).folder else None)
-                    if target_folder_id:
-                        folder = FolderModel.get_or_none(FolderModel.id == target_folder_id)
-                        if folder:
-                            target_name = join_hierarchy((folder.name, target_name))
+        items = self.tree_explorer.selectedItems()
+        target_folder_id: int | None = None
+        if items:
+            data = items[0].data(0, Qt.ItemDataRole.UserRole)
+            if data:
+                item_type = data.get("type")
+                item_id = data.get("id")
+                if item_type == "folder":
+                    target_folder_id = item_id
+                elif item_type == "doc":
+                    doc = DocumentModel.get_or_none(DocumentModel.id == item_id)
+                    if doc and doc.folder:
+                        target_folder_id = doc.folder.id
+        self._on_new_subfolder(parent_folder_id=target_folder_id)
 
-            try:
-                FolderModel.create(name=target_name)
-                self.refresh_data()
-                show_toast(self, f"Dossier '{target_name}' créé.")
-            except Exception as e:
-                log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur")
+    def _on_new_subfolder(self, parent_folder_id: int | None = None) -> None:
+        dlg = FolderCreateDialog(parent_folder_id=parent_folder_id, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            created = dlg.get_created_folder()
+            self.refresh_data()
+            if created:
+                self._select_folder_id_in_tree(created.id)
+            show_toast(self, f"Dossier '{dlg.get_full_path()}' créé.")
+
+    def _select_folder_id_in_tree(self, folder_id: int) -> None:
+        def find_item(parent: QTreeWidgetItem | DocumentTreeWidget) -> QTreeWidgetItem | None:
+            count = parent.childCount() if isinstance(parent, QTreeWidgetItem) else parent.topLevelItemCount()
+            for i in range(count):
+                child = parent.child(i) if isinstance(parent, QTreeWidgetItem) else parent.topLevelItem(i)
+                if not child:
+                    continue
+                d = child.data(0, Qt.ItemDataRole.UserRole)
+                if d and d.get("type") == "folder" and d.get("id") == folder_id:
+                    return child
+                found = find_item(child)
+                if found:
+                    return found
+            return None
+
+        it = find_item(self.tree_explorer)
+        if it:
+            self.tree_explorer.setCurrentItem(it)
+            it.setSelected(True)
+
+    def _on_rename_folder(self, folder_id: int) -> None:
+        folder = FolderModel.get_or_none(FolderModel.id == folder_id)
+        if not folder:
+            return
+        parts = split_hierarchy(folder.name)
+        leaf = parts[-1]
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Renommer le dossier",
+            f"Nouveau nom pour '{leaf}' :",
+            text=leaf,
+        )
+        if not ok or not new_name.strip():
+            return
+
+        new_name = new_name.strip()
+        if new_name == leaf:
+            return
+
+        try:
+            repo = DocumentRepository()
+            renamed = repo.rename_folder(folder_id, new_name)
+            self.refresh_data()
+            self._select_folder_id_in_tree(renamed.id)
+            show_toast(self, f"Dossier renommé en '{new_name}'.")
+        except Exception as e:
+            logger.error("Erreur renommage dossier : %s", e)
+            from ankiforge.ui.widgets.toast import log_and_notify_error
+
+            log_and_notify_error(e, context="Renommage de dossier", parent=self, title="Erreur")
+
+    @Slot(QPoint)
+    def _on_tree_context_menu(self, pos: QPoint) -> None:
+        item = self.tree_explorer.itemAt(pos)
+        menu = StyledMenu(self)
+
+        if item is None:
+            act_new_root = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "📁 Nouveau dossier racine...")
+            act_new_root.triggered.connect(lambda: self._on_new_subfolder(parent_folder_id=None))
+        else:
+            self.tree_explorer.setCurrentItem(item)
+            item.setSelected(True)
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if not data or data.get("type") == "folder":
+                folder_id = data.get("id") if data else None
+                act_new_sub = menu.addAction(load_phosphor_icon("ph.folder-plus", color=DesignTokens.COLOR_BLUE), "📁 Nouveau sous-dossier...")
+                act_new_sub.triggered.connect(lambda: self._on_new_subfolder(parent_folder_id=folder_id))
+
+                if folder_id is not None:
+                    act_rename = menu.addAction(load_phosphor_icon("ph.pencil", color=DesignTokens.COLOR_YELLOW), "✏️ Renommer...")
+                    act_rename.triggered.connect(lambda: self._on_rename_folder(folder_id=folder_id))
+
+                    menu.addSeparator()
+
+                    act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "🗑️ Supprimer le dossier")
+                    act_del.triggered.connect(self._on_delete_item)
+            elif data.get("type") == "doc":
+                act_open = menu.addAction(load_phosphor_icon("ph.folder-open", color=DesignTokens.COLOR_BLUE), "📂 Ouvrir")
+                act_open.triggered.connect(self._on_document_selected)
+
+                menu.addSeparator()
+
+                act_del = menu.addAction(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED), "🗑️ Supprimer")
+                act_del.triggered.connect(self._on_delete_item)
+
+        menu.exec(self.tree_explorer.viewport().mapToGlobal(pos))
 
     @Slot()
     def _on_delete_item(self) -> None:

@@ -64,6 +64,91 @@ class DocumentRepository(BaseRepository):
             folder.delete_instance(recursive=True)
             return True
 
+    def ensure_folder_hierarchy(self, full_path: str) -> FolderModel:
+        """Garantit l'existence de chaque niveau de l'arborescence et retourne le dossier feuille."""
+        from ankiforge.utils.hierarchy import join_hierarchy, split_hierarchy
+
+        parts = split_hierarchy(full_path)
+        if not parts:
+            raise ValueError("Le chemin hiérarchique du dossier ne peut être vide.")
+
+        with self.atomic():
+            leaf_folder: FolderModel | None = None
+            for i in range(1, len(parts) + 1):
+                level_path = join_hierarchy(parts[:i])
+                leaf_folder, _ = FolderModel.get_or_create(name=level_path)
+
+            assert leaf_folder is not None
+            return leaf_folder
+
+    def heal_folder_hierarchies(self) -> int:
+        """Détecte et instancie tous les dossiers parents intermédiaires manquants de manière idempotente."""
+        from ankiforge.utils.hierarchy import join_hierarchy, split_hierarchy
+
+        created_count = 0
+        all_folders = self.get_all_folders()
+        existing_names = {f.name for f in all_folders}
+
+        needed_parents: set[str] = set()
+        for folder in all_folders:
+            parts = split_hierarchy(folder.name)
+            for i in range(1, len(parts)):
+                parent_name = join_hierarchy(parts[:i])
+                if parent_name not in existing_names:
+                    needed_parents.add(parent_name)
+
+        if needed_parents:
+            with self.atomic():
+                for p_name in sorted(needed_parents):
+                    if p_name not in existing_names:
+                        FolderModel.get_or_create(name=p_name)
+                        existing_names.add(p_name)
+                        created_count += 1
+
+        return created_count
+
+    def rename_folder(self, folder_id: int, new_leaf_or_full_name: str) -> FolderModel:
+        """Renomme un dossier et répercute en cascade la modification sur tous ses sous-dossiers."""
+        from ankiforge.utils.hierarchy import (
+            descendants_prefix,
+            join_hierarchy,
+            parent_path,
+            split_hierarchy,
+        )
+
+        folder = self.get_folder_by_id(folder_id)
+        if not folder:
+            raise ValueError(f"Dossier introuvable (id={folder_id})")
+
+        old_name = folder.name
+        if "::" in new_leaf_or_full_name:
+            target_name = join_hierarchy(split_hierarchy(new_leaf_or_full_name))
+        else:
+            parent = parent_path(old_name)
+            target_name = join_hierarchy((parent, new_leaf_or_full_name.strip())) if parent else new_leaf_or_full_name.strip()
+
+        if target_name == old_name:
+            return folder
+
+        existing = self.get_folder_by_name(target_name)
+        if existing and existing.id != folder.id:
+            raise ValueError(f"Un dossier nommé '{target_name}' existe déjà.")
+
+        with self.atomic():
+            old_prefix = descendants_prefix(old_name)
+            new_prefix = descendants_prefix(target_name)
+            descendants = list(FolderModel.select().where(FolderModel.name.startswith(old_prefix)))
+
+            folder.name = target_name
+            folder.save()
+
+            for desc in descendants:
+                suffix = desc.name[len(old_prefix) :]
+                desc.name = f"{new_prefix}{suffix}"
+                desc.save()
+
+        return folder
+
     def get_all_documents(self, folder_id: int | None = None) -> list[DocumentModel]:
         """Retrieve all documents, optionally filtered by folder."""
         query = DocumentModel.select().order_by(DocumentModel.created_at.desc())

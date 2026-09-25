@@ -57,3 +57,59 @@ def test_document_repository_crud() -> None:
     assert deleted is True
     assert repo.get_document_by_id(doc.id) is None
     assert len(repo.get_chunks_for_document(doc.id)) == 0
+
+
+def test_ensure_folder_hierarchy_creates_parents_and_leaf() -> None:
+    repo = DocumentRepository()
+    leaf = repo.ensure_folder_hierarchy("Faculté::Semestre 1::Biologie")
+
+    assert leaf is not None
+    assert leaf.name == "Faculté::Semestre 1::Biologie"
+
+    # Vérifie que les niveaux parents ont bien été créés en base
+    assert repo.get_folder_by_name("Faculté") is not None
+    assert repo.get_folder_by_name("Faculté::Semestre 1") is not None
+    assert repo.get_folder_by_name("Faculté::Semestre 1::Biologie") is not None
+
+    # Idempotence : un second appel retourne le même dossier sans doublon
+    leaf2 = repo.ensure_folder_hierarchy("Faculté::Semestre 1::Biologie")
+    assert leaf2.id == leaf.id
+
+
+def test_heal_folder_hierarchies_creates_missing_parents() -> None:
+    from ankiforge.database.models import FolderModel
+
+    repo = DocumentRepository()
+    # Création directe d'un dossier sans ses parents
+    FolderModel.create(name="Sciences::Physique::Thermodynamique")
+
+    assert repo.get_folder_by_name("Sciences") is None
+    assert repo.get_folder_by_name("Sciences::Physique") is None
+
+    healed_count = repo.heal_folder_hierarchies()
+    assert healed_count == 2
+    assert repo.get_folder_by_name("Sciences") is not None
+    assert repo.get_folder_by_name("Sciences::Physique") is not None
+
+    # Deuxième passage idempotent
+    assert repo.heal_folder_hierarchies() == 0
+
+
+def test_rename_folder_cascades_to_children() -> None:
+    repo = DocumentRepository()
+    repo.ensure_folder_hierarchy("Fac::L1::Maths")
+    repo.ensure_folder_hierarchy("Fac::L1::Physique")
+    root_fac = repo.get_folder_by_name("Fac")
+    assert root_fac is not None
+
+    renamed_root = repo.rename_folder(root_fac.id, "Université")
+    assert renamed_root.name == "Université"
+
+    assert repo.get_folder_by_name("Fac") is None
+    assert repo.get_folder_by_name("Fac::L1") is None
+    assert repo.get_folder_by_name("Fac::L1::Maths") is None
+
+    assert repo.get_folder_by_name("Université") is not None
+    assert repo.get_folder_by_name("Université::L1") is not None
+    assert repo.get_folder_by_name("Université::L1::Maths") is not None
+    assert repo.get_folder_by_name("Université::L1::Physique") is not None
