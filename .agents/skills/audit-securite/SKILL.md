@@ -31,8 +31,10 @@ grep -rInE "(api[_-]?key|secret|token|password|bearer)\s*[=:]\s*[\"'][^\"']{8,}[
 
 ## 3. Points de Contrôle
 
-Examine chaque point et note toute violation (fichier:ligne, règle, extrait, correction) :
-
+0. **Modèle de Menace à 3 Niveaux (Three-Tier Boundary System)** :
+   - *Tier 1 (Entrées non fiables)* : JSON LLM, documents externes (PDF/web/apkg), requêtes MCP distantes. Validation et désérialisation strictement confinées.
+   - *Tier 2 (Logique métier & orchestration)* : Jinja sandbox, DAG runner, formatteurs. Zéro accès direct système sans passer par les interfaces d'isolation.
+   - *Tier 3 (Noyau persistant & OS)* : SQLite, fichiers médias, trousseau de clés API. Confinement strict, zéro exécution arbitraire hors `tool_sandbox.py`.
 1. **Exécution de code arbitraire / sandbox** — `src/ankiforge/services/tools/tool_sandbox.py` :
    - `exec` uniquement présent ici, avec `# nosec B102` justifié.
    - `_SAFE_BUILTINS` : vérifier que `__import__`, `open`, `eval`, `exec`, `compile`, `globals`, `locals`, `input`, `exit`, `quit`, `breakpoint` sont bien exclus.

@@ -28,6 +28,7 @@ grep -rInE "shutil\.(copy|move|rmtree)|os\.remove" src/ankiforge/ui/ || true
 
 ## 3. Points de Contrôle
 
+0. **Règle d'or « Mesurer avant d'optimiser » (Benchmark First)** : Interdiction d'optimiser au jugé ou de complexifier l'architecture sans preuve chiffrée (mesure de temps avant/après, budget < 16ms pour 60 FPS Qt, < 100ms pour requêtes BDD).
 1. **Blocage du thread principal (UI)** : tout I/O réseau ou fichier synchrones dans `ui/` (messages, slots) doit être reporté. Vérifier l'usage correct des workers (`services/batch`, `QThreadPool`, `batch_worker`) pour les opérations longues (import .apkg, OCR Marker, scraping, parsing PDF).
 2. **Lazy loading des dépendances lourdes** : Marker/PyTorch/FAISS/Chromadb doivent être importés à la volée (pas en tête de module au chargement de l'app) ; `grep -rInE "^import (torch|marker|faiss|chromadb)" src/ankiforge/` — toute importation de module lourd au niveau d'un `__init__` importé au démarrage est une violation.
 3. **N+1 Peewee** : boucles `for x in query: x.related_model.attr` sans préfetch → signaler et recommander `select(Model, related).join(...)` ou prefetch (`docs/Dossier_architecture/03_modele_donnees_synchro.md`).
