@@ -1124,8 +1124,33 @@ class DocumentPreviewWidget(QWidget):
         self.btn_prev_page.clicked.connect(self._on_prev_page)
         self.btn_prev_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
-        self.lbl_page = QLabel(f"Page {self._current_page} / {self._total_pages}")
-        self.lbl_page.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+        self.spin_page = QSpinBox()
+        self.spin_page.setRange(1, max(1, self._total_pages))
+        self.spin_page.setValue(self._current_page)
+        self.spin_page.setToolTip("Aller directement à la page")
+        self.spin_page.setAccessibleName("Numéro de page")
+        self.spin_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spin_page.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.spin_page.setFixedHeight(26)
+        self.spin_page.setMinimumWidth(44)
+        self.spin_page.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 4px;
+                font-size: {DesignTokens.FONT_SIZE_SM}px;
+                font-weight: 600;
+            }}
+            QSpinBox:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.spin_page.valueChanged.connect(self._on_spin_page_changed)
+
+        self.lbl_page = QLabel(f"/ {self._total_pages}")
+        self.lbl_page.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: {DesignTokens.FONT_SIZE_SM}px; font-weight: 500; border: none; background: transparent;")
 
         self.btn_next_page = QPushButton()
         self.btn_next_page.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
@@ -1135,6 +1160,7 @@ class DocumentPreviewWidget(QWidget):
         self.btn_next_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
 
         header_layout.addWidget(self.btn_prev_page)
+        header_layout.addWidget(self.spin_page)
         header_layout.addWidget(self.lbl_page)
         header_layout.addWidget(self.btn_next_page)
 
@@ -1248,10 +1274,16 @@ class DocumentPreviewWidget(QWidget):
         if file_type == "pdf" and pdf_path and HAVE_QTPDF and self.pdf_viewer:
             try:
                 self.pdf_document.load(str(pdf_path))
-                self._total_pages = max(1, self.pdf_document.pageCount())
-                has_pdf = True
+                status = getattr(self.pdf_document, "status", None)
+                if status is not None and hasattr(QPdfDocument, "Status") and status() == QPdfDocument.Status.Error:
+                    logger.warning("Erreur lors du chargement du fichier PDF : %s", pdf_path)
+                    has_pdf = False
+                else:
+                    self._total_pages = max(1, self.pdf_document.pageCount())
+                    has_pdf = True
             except Exception as e:
-                logger.debug("Failed to load PDF file: %s", e)
+                logger.warning("Failed to load PDF file: %s", e)
+                has_pdf = False
 
         # Rendu du Markdown stylisé
         raw_md = getattr(self.doc, "content", "") or ""
@@ -1386,9 +1418,9 @@ class DocumentPreviewWidget(QWidget):
             self._load_album_page(self._current_page)
         else:
             self.view_stack.setCurrentIndex(1)
-            self.btn_zoom_out.hide()
-            self.btn_zoom_fit.hide()
-            self.btn_zoom_in.hide()
+            self.btn_zoom_out.show()
+            self.btn_zoom_fit.show()
+            self.btn_zoom_in.show()
         self._update_page_label()
 
     @property
@@ -1400,12 +1432,22 @@ class DocumentPreviewWidget(QWidget):
         self._current_page = max(1, min(page_number, self._total_pages))
         self._update_page_label()
 
-        if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
-            self.pdf_viewer.pageNavigator().jump(self._current_page - 1, QPointF(0, 0), self.pdf_viewer.zoomFactor())
-        elif self._current_mode == "album":
-            self._load_album_page(self._current_page)
-        elif self._current_mode == "markdown":
-            self.markdown_viewer.scrollToAnchor(f"page-{self._current_page}")
+        try:
+            if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
+                self.pdf_viewer.pageNavigator().jump(self._current_page - 1, QPointF(0, 0), self.pdf_viewer.zoomFactor())
+            elif self._current_mode == "album":
+                self._load_album_page(self._current_page)
+            elif self._current_mode == "markdown":
+                self.markdown_viewer.scrollToAnchor(f"page-{self._current_page}")
+        except Exception as e:
+            logger.warning("Erreur lors de la navigation vers la page %s : %s", self._current_page, e)
+            if hasattr(self, "lbl_scope_status"):
+                self.lbl_scope_status.setText(f"Page {self._current_page} (erreur de rendu)")
+                self.lbl_scope_status.setStyleSheet(
+                    f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+                    f" border-radius: {DesignTokens.RADIUS_SM}px; padding: 2px 6px; font-size: {DesignTokens.FONT_SIZE_XS}px; font-weight: bold;"
+                )
+                self.lbl_scope_status.show()
 
     def jump_to_heading(self, heading_text: str, page_number: int | None = None) -> None:
         """Navigue vers un titre ou sa page associée."""
@@ -1415,7 +1457,7 @@ class DocumentPreviewWidget(QWidget):
         if self._current_mode == "markdown":
             if self._is_paginated and page_number is not None:
                 self.markdown_viewer.scrollToAnchor(f"page-{page_number}")
-            else:
+            if heading_text:
                 self._highlight_heading(heading_text)
 
     def _highlight_heading(self, heading_text: str) -> None:
@@ -1438,6 +1480,10 @@ class DocumentPreviewWidget(QWidget):
         self._current_page = page_idx + 1
         self._update_page_label()
 
+    def _on_spin_page_changed(self, value: int) -> None:
+        if value != self._current_page:
+            self.jump_to_page(value)
+
     def _on_prev_page(self) -> None:
         if self._current_page > 1:
             self.jump_to_page(self._current_page - 1)
@@ -1449,14 +1495,22 @@ class DocumentPreviewWidget(QWidget):
     def _zoom_in(self) -> None:
         if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
             self.pdf_viewer.setZoomFactor(self.pdf_viewer.zoomFactor() * 1.2)
+        elif self._current_mode == "markdown":
+            self.markdown_viewer.zoomIn(1)
 
     def _zoom_out(self) -> None:
         if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
             self.pdf_viewer.setZoomFactor(max(0.2, self.pdf_viewer.zoomFactor() / 1.2))
+        elif self._current_mode == "markdown":
+            self.markdown_viewer.zoomOut(1)
 
     def _zoom_fit(self) -> None:
         if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
             self.pdf_viewer.setZoomMode(QPdfView.ZoomMode.FitToWidth)
+        elif self._current_mode == "markdown":
+            font = self.markdown_viewer.font()
+            font.setPointSize(DesignTokens.FONT_SIZE_BASE)
+            self.markdown_viewer.setFont(font)
 
     def set_scope_range(self, start_page: int, end_page: int, included_pages: set[int] | None = None) -> None:
         """Définit les bornes de la portée demandée et les pages incluses pour mettre à jour l'indicateur visuel."""
@@ -1537,14 +1591,22 @@ class DocumentPreviewWidget(QWidget):
     def _update_page_label(self) -> None:
         if self._is_paginated:
             self.lbl_page.show()
+            if hasattr(self, "spin_page"):
+                self.spin_page.show()
+                self.spin_page.blockSignals(True)
+                self.spin_page.setRange(1, max(1, self._total_pages))
+                self.spin_page.setValue(self._current_page)
+                self.spin_page.blockSignals(False)
             self.btn_prev_page.show()
             self.btn_next_page.show()
-            self.lbl_page.setText(f"Page {self._current_page} / {self._total_pages}")
+            self.lbl_page.setText(f"/ {self._total_pages}")
             self.btn_prev_page.setEnabled(self._current_page > 1)
             self.btn_next_page.setEnabled(self._current_page < self._total_pages)
             self._update_scope_badge()
         else:
             self.lbl_page.hide()
+            if hasattr(self, "spin_page"):
+                self.spin_page.hide()
             self.btn_prev_page.hide()
             self.btn_next_page.hide()
             if hasattr(self, "lbl_scope_status"):

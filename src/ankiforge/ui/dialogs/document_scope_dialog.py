@@ -1518,6 +1518,56 @@ class DocumentScopeWidget(QWidget):
     def _on_page_scope_toggled_from_preview(self, page_num: int, should_include: bool) -> None:
         if not self.is_paginated:
             return
+        if self.selection_mode == "sections":
+            # En mode sections, l'exclusion/inclusion depuis la visionneuse met à jour les feuilles de cette page
+            self.sections_list.blockSignals(True)
+            self._syncing_selection = True
+            try:
+                for i in range(self.sections_list.count()):
+                    item = self.sections_list.item(i)
+                    if item and item.childCount() == 0:
+                        meta = self._section_meta.get(i, {})
+                        p_num = meta.get("page_number")
+                        if p_num == page_num:
+                            target_state = Qt.CheckState.Checked if should_include else Qt.CheckState.Unchecked
+                            item.setCheckState(0, target_state)
+                            w = self.sections_list.itemWidget(item, 0)
+                            if isinstance(w, SectionRowWidget):
+                                w.set_check_state(target_state)
+                            if not should_include:
+                                self._manually_deselected_indices.add(i)
+                            else:
+                                self._manually_deselected_indices.discard(i)
+                for it in reversed(self.sections_list.all_items()):
+                    if it.childCount() > 0:
+                        self._update_parent_from_children(it)
+            finally:
+                self._syncing_selection = False
+                self.sections_list.blockSignals(False)
+
+            # Recalculer les pages actives à partir des feuilles cochées
+            active_pages = {
+                self._section_meta[i]["page_number"]
+                for i in range(self.sections_list.count())
+                if self.sections_list.item(i)
+                and self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked
+                and self.sections_list.item(i).childCount() == 0
+                and self._section_meta.get(i, {}).get("page_number") is not None
+            }
+            if active_pages:
+                self._selected_pages = set(active_pages)
+            elif not should_include:
+                self._selected_pages.discard(page_num)
+
+            if hasattr(self, "preview_widget"):
+                valid_pages = self._selected_pages or {page_num}
+                self.preview_widget.set_scope_range(min(valid_pages), max(valid_pages), included_pages=self._selected_pages)
+
+            self._update_kpi()
+            self._refresh_final_preview()
+            self.notify_changed()
+            return
+
         new_pages = set(self._selected_pages)
         if should_include:
             new_pages.add(page_num)
@@ -2017,6 +2067,20 @@ class DocumentScopeWidget(QWidget):
                     self._manually_deselected_indices.discard(row)
             finally:
                 self._syncing_selection = False
+
+        if self.selection_mode == "sections":
+            active_pages = {
+                self._section_meta[i]["page_number"]
+                for i in range(self.sections_list.count())
+                if self.sections_list.item(i)
+                and self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked
+                and self.sections_list.item(i).childCount() == 0
+                and self._section_meta.get(i, {}).get("page_number") is not None
+            }
+            if active_pages:
+                self._selected_pages = set(active_pages)
+                if hasattr(self, "preview_widget"):
+                    self.preview_widget.set_scope_range(min(active_pages), max(active_pages), included_pages=active_pages)
 
         if self.selection_mode == "pages" or self._syncing_selection:
             self._update_kpi()
