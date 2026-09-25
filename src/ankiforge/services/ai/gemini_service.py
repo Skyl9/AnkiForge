@@ -5,7 +5,8 @@ from typing import Any
 from google import genai
 from google.genai import types
 
-from ankiforge.services.ai.base import LLMProvider
+from ankiforge.services.ai.base import LLMProvider, LLMResult
+from ankiforge.services.ai.flexible_service import extract_thought_tags
 from ankiforge.services.ai.retry import RETRYABLE_STATUS_CODES, with_retry
 from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
 from ankiforge.utils.ssl_certificates import setup_ssl_certificates
@@ -64,29 +65,16 @@ class GeminiService(LLMProvider):
             http_options["timeout"] = int(timeout * 1000)
         self.client = genai.Client(api_key=self.api_key, http_options=http_options)
 
-    def generate(
+    def generate_response(
         self,
         system_prompt: str,
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> LLMResult:
         """
-        Génère une réponse textuelle ou JSON structurée via Gemini.
-
-        Args:
-            system_prompt (str): Instructions système (system_instruction).
-            user_prompt (str | list[dict[str, Any]]): Prompt utilisateur ou contenu multimodal.
-            response_format (str): Format de réponse ("json" ou "text").
-            max_tokens (int | None): Plafond optionnel de tokens à générer.
-            temperature (float | None): Température de créativité (défaut 0.2).
-
-        Returns:
-            str: Le contenu textuel de la réponse générée.
-
-        Raises:
-            RuntimeError: En cas d'erreur lors de l'appel à l'API Gemini.
+        Génère une réponse structurée avec LLMResult incluant la chaîne de pensée de Gemini.
         """
         effective_max = max_tokens or self.max_tokens
         config = types.GenerateContentConfig(
@@ -135,8 +123,48 @@ class GeminiService(LLMProvider):
                 c_tokens = response.usage_metadata.candidates_token_count or 0
                 log_token_usage("gemini", self.model_name, p_tokens, c_tokens)
 
-            return response.text or ""
+            # Extraction des parties textuelles et des éventuelles parties thought
+            raw_thought_parts: list[str] = []
+            text_parts: list[str] = []
+
+            candidates = getattr(response, "candidates", None) or []
+            if candidates:
+                first_candidate = candidates[0]
+                content_obj = getattr(first_candidate, "content", None)
+                parts = getattr(content_obj, "parts", None) or []
+                for part in parts:
+                    is_thought = getattr(part, "thought", False)
+                    p_text = getattr(part, "text", "") or ""
+                    if is_thought:
+                        if p_text:
+                            raw_thought_parts.append(p_text)
+                    else:
+                        if p_text:
+                            text_parts.append(p_text)
+
+            raw_thought = "\n\n".join(raw_thought_parts) if raw_thought_parts else None
+            raw_content = "".join(text_parts) if text_parts else (response.text or "")
+
+            cleaned_content, thought = extract_thought_tags(raw_content, initial_thought=raw_thought)
+            return LLMResult(content=cleaned_content, thought=thought, raw_response=response)
         except genai.errors.APIError as e:
             logger.exception("Erreur API Gemini brute (%s) : %s", self.model_name, e)
             human_msg = get_human_readable_api_error(e)
             raise RuntimeError(f"Erreur API Gemini ({self.model_name}) : {human_msg}") from e
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Génère une réponse textuelle ou JSON structurée via Gemini (délégation à generate_response)."""
+        return self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ).content

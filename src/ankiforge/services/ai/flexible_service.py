@@ -12,7 +12,7 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletion, ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 
 from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.base import LLMProvider, MockProvider
+from ankiforge.services.ai.base import LLMProvider, LLMResult, MockProvider
 from ankiforge.services.ai.retry import is_retryable_status, with_retry
 from ankiforge.services.ai.utils import get_human_readable_api_error, log_token_usage
 
@@ -170,14 +170,22 @@ def _extract_reasoning_from_message(message: Any) -> str:
     """Extrait le contenu de raisonnement d'un message (OpenAI ``reasoning``, DeepSeek ``reasoning_content``…)."""
     for attr in ("reasoning", "reasoning_content", "thinking"):
         val = getattr(message, attr, None)
-        if val:
-            return str(val)
+        if isinstance(val, str) and val.strip():
+            return val
+        if val and not hasattr(val, "_mock_return_value") and not str(type(val)).endswith("MagicMock'>"):
+            text_val = str(val).strip()
+            if text_val:
+                return text_val
     extra = getattr(message, "model_extra", None)
     if isinstance(extra, dict):
         for key in ("reasoning", "reasoning_content", "thinking"):
             val = extra.get(key)
-            if val:
-                return str(val)
+            if isinstance(val, str) and val.strip():
+                return val
+            if val and not hasattr(val, "_mock_return_value") and not str(type(val)).endswith("MagicMock'>"):
+                text_val = str(val).strip()
+                if text_val:
+                    return text_val
     return ""
 
 
@@ -195,6 +203,34 @@ def _extract_reasoning_tokens(response: Any) -> tuple[int | None, int | None]:
         if isinstance(raw, int):
             reasoning_tokens = raw
     return (reasoning_tokens or None), (completion_tokens or None)
+
+
+_THINK_TAG_REGEX = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
+
+
+def extract_thought_tags(content: str, initial_thought: str | None = None) -> tuple[str, str | None]:
+    """Extrait le texte contenu dans les balises <think>...</think> et nettoie le contenu textuel.
+
+    Si un initial_thought est fourni (issu des champs d'API 'reasoning', 'reasoning_content' ou 'thinking'),
+    il est combiné avec les pensées détectées dans les balises. Le texte rendu est débarrassé de toute
+    balise <think> pour préserver le parsing JSON.
+    """
+    if not content:
+        return content, initial_thought
+
+    matches = _THINK_TAG_REGEX.findall(content)
+    if not matches:
+        return content, initial_thought
+
+    extracted_thoughts: list[str] = [m.strip() for m in matches if m.strip()]
+    cleaned_content = _THINK_TAG_REGEX.sub("", content).strip()
+
+    combined_thought: str | None = initial_thought
+    if extracted_thoughts:
+        text_thought = "\n\n".join(extracted_thoughts)
+        combined_thought = f"{combined_thought}\n\n{text_thought}" if combined_thought else text_thought
+
+    return cleaned_content, combined_thought
 
 
 _FALLBACK_SYSTEM_PROMPT = "Vous êtes un assistant IA utile, concis et précis. Répondez en français sauf indication contraire."
@@ -382,16 +418,16 @@ class OpenAICompatibleProvider(LLMProvider):
                     parts.append({"type": "image_url", "image_url": {"url": url}})
         return parts if parts else ""
 
-    def generate(
+    def generate_response(
         self,
         system_prompt: str,
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> LLMResult:
         """
-        Envoie une requête de génération à l'API.
+        Envoie une requête de génération à l'API et retourne un LLMResult structuré.
 
         Args:
             system_prompt (str): Instructions système définissant le comportement de l'IA.
@@ -401,7 +437,7 @@ class OpenAICompatibleProvider(LLMProvider):
             temperature (float | None): Température de créativité (défaut 0.2).
 
         Returns:
-            str: Le texte généré par l'IA.
+            LLMResult: Résultat structuré incluant contenu textuel purifié et raisonnement extrait.
 
         Raises:
             RuntimeError: En cas d'échec de la communication avec l'API.
@@ -426,7 +462,7 @@ class OpenAICompatibleProvider(LLMProvider):
             if response_format == "json" and not self.is_ollama and _supports_response_format(self.provider_name, self.model_name, self.base_url):
                 kwargs["response_format"] = {"type": "json_object"}
 
-            def _run_once() -> str:
+            def _run_once() -> LLMResult:
                 """Exécute un appel de complétion et en retourne le contenu final (ou lève)."""
                 response = cast(
                     ChatCompletion,
@@ -530,7 +566,9 @@ class OpenAICompatibleProvider(LLMProvider):
                         "ou choisissez un modèle avec une sortie plus large."
                     )
 
-                return str(content)
+                raw_reasoning = _extract_reasoning_from_message(message) or None
+                cleaned_content, thought = extract_thought_tags(str(content), initial_thought=raw_reasoning)
+                return LLMResult(content=cleaned_content, thought=thought, raw_response=response)
 
             # Une seule tentative de rattrapage : on élargit le budget de sortie puis on renvoie.
             # Si le plafond réel de la route est déjà atteint (ex. modèles OpenRouter ``:free``),
@@ -562,6 +600,23 @@ class OpenAICompatibleProvider(LLMProvider):
         except Exception as e:
             logger.exception("Erreur inattendue lors de la génération IA (%s) : %s", self.model_name, e)
             raise RuntimeError(f"Erreur inattendue lors de la génération IA ({self.model_name}) : {e}") from e
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Envoie une requête de génération et retourne la chaîne textuelle brute épurée."""
+        return self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ).content
 
 
 class OllamaProvider(OpenAICompatibleProvider):
@@ -769,14 +824,14 @@ class AnthropicProvider(LLMProvider):
         self.max_tokens = max_tokens
         self.timeout = timeout
 
-    def generate(
+    def generate_response(
         self,
         system_prompt: str,
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> LLMResult:
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
@@ -855,19 +910,44 @@ class AnthropicProvider(LLMProvider):
                 usage = data["usage"]
                 log_token_usage("anthropic", self.model_name, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 
-            # Extraction du bloc de réponse textuelle (en ignorant les blocs de réflexion "thinking")
+            # Extraction des blocs textuels et des blocs de réflexion "thinking"
             content_blocks = data.get("content", [])
+            raw_thought_parts: list[str] = []
+            text_parts: list[str] = []
             for block in content_blocks:
-                if block.get("type") == "text":
-                    return str(block.get("text", ""))
+                b_type = block.get("type")
+                if b_type == "thinking":
+                    th = block.get("thinking")
+                    if th:
+                        raw_thought_parts.append(str(th))
+                elif b_type == "text":
+                    text_parts.append(str(block.get("text", "")))
 
-            if content_blocks and "text" in content_blocks[0]:
-                return str(content_blocks[0]["text"])
+            raw_thought = "\n\n".join(raw_thought_parts) if raw_thought_parts else None
+            raw_content = "\n".join(text_parts) if text_parts else (str(content_blocks[0].get("text", "")) if (content_blocks and "text" in content_blocks[0]) else "")
 
-            return ""
+            cleaned_content, thought = extract_thought_tags(raw_content, initial_thought=raw_thought)
+            return LLMResult(content=cleaned_content, thought=thought, raw_response=data)
         except requests.RequestException as e:
             logger.exception("Erreur API Anthropic (%s) : %s", self.model_name, e)
             raise RuntimeError(f"Erreur API Anthropic ({self.model_name}) : {e}") from e
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Génère une réponse textuelle en déléguant à generate_response."""
+        return self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ).content
 
 
 class AIManager:

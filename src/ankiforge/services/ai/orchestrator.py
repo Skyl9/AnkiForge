@@ -11,8 +11,8 @@ from typing import Any
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
 from ankiforge.database.models import LLMConfigModel, PipelineRunModel, PipelineStepModel
-from ankiforge.services.ai.base import LLMProvider, MockProvider
-from ankiforge.services.ai.flexible_service import AIManager
+from ankiforge.services.ai.base import LLMProvider, LLMResult, MockProvider
+from ankiforge.services.ai.flexible_service import AIManager, extract_thought_tags
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.services.ai.state import PipelineRunState
 from ankiforge.services.ai.utils import (
@@ -400,6 +400,7 @@ class PipelineOrchestrator(QRunnable):
 
                 # Log de l'étape dans l'historique de l'état
                 status_str = "SUCCESS" if step_succeeded else "FAILED"
+                step_thought = self.state.get_variable(f"thought_step_{step_order}")
                 self.state.log_step_execution(
                     step_order=step_order,
                     step_type=step_type,
@@ -407,6 +408,7 @@ class PipelineOrchestrator(QRunnable):
                     duration_sec=duration,
                     details=step_error_msg if not step_succeeded else None,
                     tokens_used=step_tokens_used,
+                    thought=str(step_thought) if step_thought else None,
                 )
 
                 # Persistance de l'état après exécution de l'étape
@@ -494,14 +496,14 @@ class PipelineOrchestrator(QRunnable):
     # ==========================================
 
     @staticmethod
-    def _call_provider_generate(
+    def _call_provider_generate_response(
         provider: LLMProvider,
         system_prompt: str,
         user_prompt: str | list[dict[str, Any]],
         response_format: str = "json",
         max_tokens: int | None = None,
         temperature: float | None = None,
-    ) -> str:
+    ) -> LLMResult:
         kwargs: dict[str, Any] = {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
@@ -511,10 +513,11 @@ class PipelineOrchestrator(QRunnable):
             kwargs["max_tokens"] = max_tokens
         if temperature is not None:
             kwargs["temperature"] = temperature
-        # Filtrage préventif des arguments selon la signature du fournisseur
-        # pour éviter d'intercepter à tort un TypeError survenu à l'intérieur du corps de generate()
+
+        target_fn = provider.generate_response
         try:
-            sig = inspect.signature(provider.generate)
+            sig = inspect.signature(target_fn)
+
             params = sig.parameters
             has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
             if not has_var_kw:
@@ -523,18 +526,44 @@ class PipelineOrchestrator(QRunnable):
             pass
 
         try:
-            return provider.generate(**kwargs)
+            raw_res = target_fn(**kwargs)
         except TypeError as e:
-            # Ne replier que si l'erreur provient rigoureusement d'un argument inattendu dans la signature
             msg = str(e)
             if "unexpected keyword argument" in msg:
                 if "temperature" in kwargs and "temperature" in msg:
                     kwargs.pop("temperature", None)
-                    return provider.generate(**kwargs)
-                if "max_tokens" in kwargs and "max_tokens" in msg:
+                    raw_res = target_fn(**kwargs)
+                elif "max_tokens" in kwargs and "max_tokens" in msg:
                     kwargs.pop("max_tokens", None)
-                    return provider.generate(**kwargs)
-            raise
+                    raw_res = target_fn(**kwargs)
+                else:
+                    raise
+            else:
+                raise
+
+        if isinstance(raw_res, LLMResult):
+            return raw_res
+
+        clean_text, thought = extract_thought_tags(str(raw_res))
+        return LLMResult(content=clean_text, thought=thought, raw_response=raw_res)
+
+    @staticmethod
+    def _call_provider_generate(
+        provider: LLMProvider,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        return PipelineOrchestrator._call_provider_generate_response(
+            provider=provider,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ).content
 
     def _execute_llm_prompt(self, step: PipelineStepModel) -> None:
         """Exécute un prompt LLM standard en interpolant les templates Jinja2."""
@@ -612,7 +641,7 @@ class PipelineOrchestrator(QRunnable):
 
             media_dir = get_media_dir()
             multimodal_input = prepare_multimodal_payload(user_input, media_dir)
-            response_text = self._call_provider_generate(
+            llm_result = self._call_provider_generate_response(
                 provider=provider,
                 system_prompt=rendered_sys,
                 user_prompt=multimodal_input,
@@ -624,7 +653,7 @@ class PipelineOrchestrator(QRunnable):
             from ankiforge.utils.vision_utils import strip_image_tags
 
             clean_input = strip_image_tags(user_input) if isinstance(user_input, str) else user_input
-            response_text = self._call_provider_generate(
+            llm_result = self._call_provider_generate_response(
                 provider=provider,
                 system_prompt=rendered_sys,
                 user_prompt=clean_input,
@@ -632,6 +661,17 @@ class PipelineOrchestrator(QRunnable):
                 max_tokens=step_max_tokens,
                 temperature=step_temperature,
             )
+
+        response_text = llm_result.content
+        step_thought = llm_result.thought
+
+        if step_thought:
+            self.state.set_variable(f"thought_step_{step.step_order}", step_thought)
+            self.state.set_variable("last_thought", step_thought)
+            preview = step_thought.strip().replace("\n", " ")
+            if len(preview) > 160:
+                preview = preview[:157] + "..."
+            logger.info("[REASONING] Étape %d (%d caractères) : %s", step.step_order, len(step_thought), preview)
 
         # Calcul et enregistrement des tokens consommés
         input_len = len(str(multimodal_input)) if use_vision else len(str(clean_input))
@@ -735,8 +775,22 @@ class PipelineOrchestrator(QRunnable):
         Découpe une liste d'éléments (chunks de documents, liste de cartes)
         et applique la Persona sur chaque élément en parallèle (Map) puis fusionne (Reduce).
         """
+        step_cfg: dict[str, Any] = {}
+        if step.config_data:
+            try:
+                step_cfg = json.loads(str(step.config_data))
+            except Exception:
+                step_cfg = {}
+
         # Trouver la liste d'éléments à mapper
-        items = self.state.get_variable("map_items") or self.state.get_variable("chunks") or self.state.get_variable("cards") or self.state.retrieved_chunks
+        items_var = step_cfg.get("items_variable")
+        items = (
+            (self.state.get_variable(str(items_var)) if items_var else None)
+            or self.state.get_variable("map_items")
+            or self.state.get_variable("chunks")
+            or self.state.get_variable("cards")
+            or self.state.retrieved_chunks
+        )
 
         if isinstance(items, str):
             items = [p.strip() for p in items.split("\n\n") if p.strip()]
@@ -749,16 +803,11 @@ class PipelineOrchestrator(QRunnable):
         raw_system_prompt = step.persona.system_prompt if step.persona else "Analyser et traiter le contenu."
         output_format = getattr(step.persona, "output_format", "json") if step.persona else "json"
 
-        step_cfg: dict[str, Any] = {}
-        if step.config_data:
-            try:
-                step_cfg = json.loads(str(step.config_data))
-            except Exception:
-                step_cfg = {}
         documentation_enabled = bool(step_cfg.get("declasser_sections_dans_tags", True))
         source_ctx = _source_context_metadata(self.state)
 
         results: list[Any] = []
+        item_thoughts: dict[int, str] = {}
         completed_count = 0
         progress_lock = threading.Lock()
 
@@ -782,7 +831,7 @@ class PipelineOrchestrator(QRunnable):
             temperature_val = self.state.get_variable("temperature")
             step_temperature = float(temperature_val) if temperature_val else None
 
-            response = self._call_provider_generate(
+            llm_res = self._call_provider_generate_response(
                 provider=self.ai_provider,
                 system_prompt=rendered_sys,
                 user_prompt=item_str,
@@ -790,6 +839,10 @@ class PipelineOrchestrator(QRunnable):
                 max_tokens=step_max_tokens,
                 temperature=step_temperature,
             )
+            response = llm_res.content
+            if llm_res.thought:
+                with progress_lock:
+                    item_thoughts[index] = llm_res.thought
 
             # Calcul et enregistrement des tokens consommés (verrouillé : threads Map partagés)
             p_tok = max(1, (len(rendered_sys) + len(item_str)) // 4)
@@ -837,6 +890,21 @@ class PipelineOrchestrator(QRunnable):
         for i in range(total_items):
             if i in ordered_results:
                 results.append(ordered_results[i])
+
+        if item_thoughts:
+            combined_map_thought = "\n\n---\n\n".join(f"[Élément {idx + 1}/{total_items}] {item_thoughts[idx]}" for idx in sorted(item_thoughts.keys()))
+            self.state.set_variable(f"thought_step_{step.step_order}", combined_map_thought)
+            self.state.set_variable("last_thought", combined_map_thought)
+            preview = combined_map_thought.strip().replace("\n", " ")
+            if len(preview) > 160:
+                preview = preview[:157] + "..."
+            logger.info(
+                "[REASONING] Étape %d (Map-Reduce, %d réflexions capturées, %d car.) : %s",
+                step.step_order,
+                len(item_thoughts),
+                len(combined_map_thought),
+                preview,
+            )
 
         # Phase de Réduction : fusionner les listes ou dictionnaires
         aggregated_cards: list[dict] = []

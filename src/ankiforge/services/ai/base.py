@@ -1,17 +1,60 @@
-# src/services/ai/base.py
-from abc import ABC, abstractmethod
+import inspect
+from dataclasses import dataclass
 from typing import Any
 
 
-class LLMProvider(ABC):
-    """
-    Interface abstraite définissant le contrat pour tous les fournisseurs d'IA.
+@dataclass
+class LLMResult:
+    """Résultat structuré d'un appel LLM incluant le contenu cible et le raisonnement (CoT)."""
 
-    Cette classe doit être héritée par chaque service d'IA (OpenAI, Gemini, Ollama, etc.)
-    pour garantir une interface cohérente à travers l'application ankiforge_obsidian.
+    content: str
+    thought: str | None = None
+    raw_response: Any = None
+
+
+class LLMProvider:
+    """
+    Classe de base définissant le contrat pour tous les fournisseurs d'IA.
+
+    Permet à chaque implémentation de fournir soit ``generate_response`` (avec support
+    de la chaîne de pensée / CoT), soit ``generate`` (texte brut rétrocompatible).
     """
 
-    @abstractmethod
+    def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> LLMResult:
+        """
+        Génère une réponse complète incluant la chaîne de pensée (thought/CoT) si disponible.
+        """
+        if type(self).generate is LLMProvider.generate:
+            raise NotImplementedError(f"{type(self).__name__} doit implémenter soit generate_response soit generate")
+
+        kwargs: dict[str, Any] = {
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "response_format": response_format,
+        }
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        try:
+            sig = inspect.signature(self.generate)
+            params = sig.parameters
+            has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+            if not has_var_kw:
+                kwargs = {k: v for k, v in kwargs.items() if k in params}
+        except (ValueError, TypeError):
+            pass
+
+        content = self.generate(**kwargs)
+        return LLMResult(content=content)
+
     def generate(
         self,
         system_prompt: str,
@@ -21,7 +64,7 @@ class LLMProvider(ABC):
         temperature: float | None = None,
     ) -> str:
         """
-        Génère une réponse à partir d'un prompt système et d'un prompt utilisateur.
+        Génère une réponse textuelle brute (délègue par défaut vers generate_response).
 
         Args:
             system_prompt (str): Instructions de base pour l'IA (le "rôle").
@@ -36,7 +79,13 @@ class LLMProvider(ABC):
         Raises:
             RuntimeError: Si l'appel à l'API échoue.
         """
-        pass
+        return self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ).content
 
 
 class MockProvider(LLMProvider):

@@ -974,3 +974,163 @@ def test_call_provider_generate_filters_signature_and_does_not_retry_internal_ty
 
     # Doit avoir été appelé EXACTEMENT une fois, SANS retry aveugle !
     assert buggy_prov.call_count == 1
+
+
+def test_pipeline_run_state_logs_thought_and_retrieval():
+    """PipelineRunState enregistre le champ thought dans execution_history et le sérialise."""
+    state = PipelineRunState(document_id=10, initial_prompt="Générer")
+    thought_text = "Étape 1 : Analyse des faits scientifiques majeurs."
+    state.log_step_execution(
+        step_order=1,
+        step_type="LLM_PROMPT",
+        status="SUCCESS",
+        duration_sec=1.25,
+        details="OK",
+        tokens_used=150,
+        thought=thought_text,
+    )
+
+    assert len(state.execution_history) == 1
+    hist = state.execution_history[0]
+    assert hist["thought"] == thought_text
+    assert state.get_step_thought(1) == thought_text
+    assert state.get_step_thought(999) is None
+
+    # Test sérialisation & désérialisation
+    serialized = state.to_dict()
+    assert serialized["execution_history"][0]["thought"] == thought_text
+
+    restored = PipelineRunState.from_dict(serialized)
+    assert restored.get_step_thought(1) == thought_text
+
+
+def test_orchestrator_captures_thought_in_state_and_history():
+    """L'orchestrateur extrait le thought de LLMResult, le stocke dans state et execution_history."""
+    from ankiforge.services.ai.base import LLMResult
+
+    class ThinkingProvider(LLMProvider):
+        def generate_response(
+            self,
+            system_prompt: str,
+            user_prompt: str | list[dict[str, Any]],
+            response_format: str = "json",
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            return LLMResult(
+                content='{"cards": [{"Front": "Quelle est la capitale ?", "Back": "Paris"}]}',
+                thought="Raisonnement sur la capitale de la France.",
+            )
+
+        def generate(self, *args: Any, **kwargs: Any) -> str:
+            return self.generate_response(*args, **kwargs).content
+
+    pipeline = PipelineModel.create(name="ThoughtPipeline", description="Test thought trace")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"output_format": "json"}),
+    )
+
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=ThinkingProvider())
+    orch.run()
+
+    # Vérifications dans l'état final
+    assert orch.state.get_step_thought(1) == "Raisonnement sur la capitale de la France."
+    assert orch.state.get_variable("thought_step_1") == "Raisonnement sur la capitale de la France."
+    assert orch.state.get_variable("last_thought") == "Raisonnement sur la capitale de la France."
+
+    # Les cartes doivent être correctement extraites
+    cards = orch.state.get_variable("generated_cards")
+    assert cards is not None
+    assert len(cards) == 1
+    assert cards[0]["Front"] == "Quelle est la capitale ?"
+
+
+def test_orchestrator_handles_think_tags_in_raw_content():
+    """L'orchestrateur sépare les balises <think> et ne corrompt pas le parsing JSON des cartes."""
+    from ankiforge.services.ai.base import LLMResult
+
+    class ThinkTagProvider(LLMProvider):
+        def generate_response(
+            self,
+            system_prompt: str,
+            user_prompt: str | list[dict[str, Any]],
+            response_format: str = "json",
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            # Même si le fournisseur renvoie le format avec balises dans content
+            raw = '<think>Pensees en direct du modele local</think>{"cards": [{"Front": "QTag", "Back": "ATag"}]}'
+            from ankiforge.services.ai.flexible_service import extract_thought_tags
+
+            c, th = extract_thought_tags(raw)
+            return LLMResult(content=c, thought=th)
+
+        def generate(self, *args: Any, **kwargs: Any) -> str:
+            return self.generate_response(*args, **kwargs).content
+
+    pipeline = PipelineModel.create(name="ThinkTagPipeline", description="Test think tag handling")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="LLM_PROMPT",
+        config_data=json.dumps({"output_format": "json"}),
+    )
+
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=ThinkTagProvider())
+    orch.run()
+
+    assert orch.state.get_step_thought(1) == "Pensees en direct du modele local"
+    cards = orch.state.get_variable("generated_cards")
+    assert cards is not None
+    assert len(cards) == 1
+    assert cards[0]["Front"] == "QTag"
+
+
+def test_orchestrator_map_reduce_captures_thoughts():
+    """L'orchestrateur agrège les chaînes de pensée de chaque élément en MAP_REDUCE."""
+    from ankiforge.services.ai.base import LLMResult
+
+    class MapReduceThinkingProvider(LLMProvider):
+        def generate_response(
+            self,
+            system_prompt: str,
+            user_prompt: str | list[dict[str, Any]],
+            response_format: str = "json",
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            prompt_str = str(user_prompt)
+            thought = f"Réflexion sur l'élément : {prompt_str[:15]}"
+            cards = [{"Front": f"Front for {prompt_str[:10]}", "Back": "Back"}]
+            return LLMResult(content=json.dumps({"cards": cards}), thought=thought)
+
+    pipeline = PipelineModel.create(name="MRThoughtPipeline", description="Test MR thought trace")
+    PipelineStepModel.create(
+        pipeline=pipeline,
+        step_order=1,
+        step_type="MAP_REDUCE",
+        config_data=json.dumps(
+            {
+                "items_variable": "input_items",
+                "output_format": "json",
+            }
+        ),
+    )
+
+    orch = PipelineOrchestrator(pipeline_id=pipeline.id, ai_provider=MapReduceThinkingProvider())
+    orch.state.set_variable("input_items", ["chunk 1 text", "chunk 2 text"])
+    orch.run()
+
+    step1_thought = orch.state.get_step_thought(1)
+    assert step1_thought is not None
+    assert "[Élément 1/2]" in step1_thought
+    assert "[Élément 2/2]" in step1_thought
+    assert "Réflexion sur l'élément" in step1_thought
+    assert orch.state.get_variable("last_thought") == step1_thought
+
+    generated_cards = orch.state.get_variable("generated_cards")
+    assert generated_cards is not None
+    assert len(generated_cards) == 2

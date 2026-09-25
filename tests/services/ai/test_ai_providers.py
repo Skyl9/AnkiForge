@@ -620,3 +620,140 @@ def test_openai_compatible_provider_o1_via_openrouter_uses_max_completion_tokens
     _, kwargs = mock_client.chat.completions.create.call_args
     assert kwargs["max_completion_tokens"] == 32000
     assert "max_tokens" not in kwargs
+
+
+def test_mock_provider_generate_response():
+    """MockProvider.generate_response doit retourner un LLMResult structuré."""
+    from ankiforge.services.ai.base import LLMResult, MockProvider
+
+    provider = MockProvider()
+    result = provider.generate_response("system", "user")
+    assert isinstance(result, LLMResult)
+    assert '"notes":' in result.content
+    assert result.thought is None
+    # generate() standard continue de retourner str
+    assert provider.generate("system", "user") == result.content
+
+
+def test_extract_thought_tags_cleans_content_and_extracts_reasoning():
+    """extract_thought_tags retire les balises <think> et isole le texte de réflexion."""
+    from ankiforge.services.ai.flexible_service import extract_thought_tags
+
+    raw = '<think>\nAnalyser les faits du document\nFormuler une carte cloze\n</think>\n{"notes": [{"front": "Q", "back": "A"}]}'
+    clean, thought = extract_thought_tags(raw)
+    assert clean == '{"notes": [{"front": "Q", "back": "A"}]}'
+    assert thought == "Analyser les faits du document\nFormuler une carte cloze"
+
+    # Cas sans balise think
+    clean2, thought2 = extract_thought_tags('{"notes": []}')
+    assert clean2 == '{"notes": []}'
+    assert thought2 is None
+
+    # Cas avec thought initial fourni et pas de balise dans le texte
+    clean3, thought3 = extract_thought_tags('{"notes": []}', initial_thought="Pensees API")
+    assert clean3 == '{"notes": []}'
+    assert thought3 == "Pensees API"
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_extracts_reasoning_content(mock_openai_class):
+    """OpenAICompatibleProvider extrait le raisonnement natif (reasoning/reasoning_content)."""
+    from ankiforge.services.ai.base import LLMResult
+    from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '{"notes": []}'
+    mock_choice.message.reasoning_content = "Réflexion DeepSeek détaillée"
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("http://fake", "deepseek-r1")
+    result = provider.generate_response("System", "User")
+
+    assert isinstance(result, LLMResult)
+    assert result.content == '{"notes": []}'
+    assert result.thought == "Réflexion DeepSeek détaillée"
+
+
+@patch("ankiforge.services.ai.flexible_service.OpenAI")
+def test_openai_compatible_provider_extracts_and_strips_think_tags(mock_openai_class):
+    """OpenAICompatibleProvider extrait et nettoie <think>...</think> du flux de contenu."""
+    from ankiforge.services.ai.base import LLMResult
+    from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_choice = MagicMock()
+    mock_choice.message.refusal = None
+    mock_choice.message.content = '<think>Raisonnement Ollama</think>{"notes": [{"f": 1}]}'
+    mock_choice.message.reasoning = None
+    mock_choice.message.reasoning_content = None
+    mock_choice.message.model_extra = {}
+    mock_choice.finish_reason = "stop"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice], usage=None)
+
+    provider = OpenAICompatibleProvider("http://localhost:11434/v1", "deepseek-r1:8b")
+    result = provider.generate_response("System", "User")
+
+    assert isinstance(result, LLMResult)
+    assert result.content == '{"notes": [{"f": 1}]}'
+    assert result.thought == "Raisonnement Ollama"
+    # generate() doit aussi retourner le contenu nettoyé
+    assert provider.generate("System", "User") == '{"notes": [{"f": 1}]}'
+
+
+@patch("ankiforge.services.ai.flexible_service.requests.post")
+def test_anthropic_provider_extracts_thinking_blocks(mock_post):
+    """AnthropicProvider extrait les blocs 'thinking' et conserve le texte pur."""
+    from ankiforge.services.ai.base import LLMResult
+    from ankiforge.services.ai.flexible_service import AnthropicProvider
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "content": [
+            {"type": "thinking", "thinking": "Claude thinking step by step"},
+            {"type": "text", "text": '{"result": "ok"}'},
+        ],
+        "usage": {"input_tokens": 100, "output_tokens": 200},
+    }
+    mock_post.return_value = mock_response
+
+    provider = AnthropicProvider(api_key="fake_key", model_name="claude-3-7-sonnet-20250219", thinking_budget=2048)
+    result = provider.generate_response("System", "User")
+
+    assert isinstance(result, LLMResult)
+    assert result.content == '{"result": "ok"}'
+    assert result.thought == "Claude thinking step by step"
+    assert provider.generate("System", "User") == '{"result": "ok"}'
+
+
+def test_gemini_service_extracts_thought_parts():
+    """GeminiService extrait les parts de pensée (thought=True) et le contenu final."""
+    from ankiforge.services.ai.base import LLMResult
+    from ankiforge.services.ai.gemini_service import GeminiService
+
+    provider = GeminiService(api_key="fake_gemini_key", model_name="gemini-2.0-flash-thinking-exp")
+    mock_candidate = MagicMock()
+    thought_part = MagicMock()
+    thought_part.thought = True
+    thought_part.text = "Pensée Gemini 2.0 Thinking"
+    text_part = MagicMock()
+    text_part.thought = False
+    text_part.text = '{"cards": []}'
+    mock_candidate.content.parts = [thought_part, text_part]
+
+    mock_resp = MagicMock()
+    mock_resp.candidates = [mock_candidate]
+    mock_resp.text = '{"cards": []}'
+    mock_resp.usage_metadata = MagicMock(prompt_token_count=50, candidates_token_count=150)
+
+    with patch.object(provider.client.models, "generate_content", return_value=mock_resp):
+        result = provider.generate_response("System", "User")
+        assert isinstance(result, LLMResult)
+        assert result.content == '{"cards": []}'
+        assert result.thought == "Pensée Gemini 2.0 Thinking"
+        assert provider.generate("System", "User") == '{"cards": []}'

@@ -81,6 +81,7 @@ class PipelineRunState:
         duration_sec: float = 0.0,
         details: str | None = None,
         tokens_used: int | None = None,
+        thought: str | None = None,
     ) -> None:
         """Enregistre l'exécution d'une étape dans l'historique."""
         self.execution_history.append(
@@ -91,8 +92,17 @@ class PipelineRunState:
                 "duration_sec": round(duration_sec, 3),
                 "details": details,
                 "tokens_used": tokens_used if tokens_used is not None else self.get_step_tokens(step_order),
+                "thought": thought,
             }
         )
+
+    def get_step_thought(self, step_order: int) -> str | None:
+        """Retourne la chaîne de réflexion (thought/CoT) enregistrée pour une étape donnée."""
+        for entry in reversed(self.execution_history):
+            if entry.get("step_order") == step_order:
+                val = entry.get("thought")
+                return str(val) if val else None
+        return None
 
     def to_dict(self) -> dict[str, Any]:
         """Sérialise l'état pour la persistance ou l'envoi vers l'UI."""
