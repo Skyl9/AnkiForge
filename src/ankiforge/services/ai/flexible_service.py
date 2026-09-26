@@ -1075,7 +1075,8 @@ class AnthropicProvider(LLMProvider):
                     break
                 try:
                     data = json.loads(data_str)
-                except Exception:
+                except (json.JSONDecodeError, ValueError) as err:
+                    logger.debug("Tronçon SSE Anthropic ignoré (non-JSON) : %s (erreur : %s)", data_str, err)
                     continue
 
                 ev_type = data.get("type")

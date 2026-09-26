@@ -731,6 +731,30 @@ def test_anthropic_provider_extracts_thinking_blocks(mock_post):
     assert provider.generate("System", "User") == '{"result": "ok"}'
 
 
+@patch("ankiforge.services.ai.flexible_service.requests.post")
+def test_anthropic_provider_stream_ignores_malformed_sse_chunks(mock_post):
+    """Vérifie que le flux Anthropic ignore gracieusement les lignes SSE non-JSON sans planter."""
+    from ankiforge.services.ai.flexible_service import AnthropicProvider
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.iter_lines.return_value = [
+        b"",
+        b": keep-alive ping",
+        b"data: {corrupted non-json string",
+        b'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "Bonjour !"}}',
+        b"data: [DONE]",
+    ]
+    mock_post.return_value = mock_response
+
+    provider = AnthropicProvider(api_key="fake_key", model_name="claude-3-7-sonnet-20250219")
+    events = list(provider.stream_response("System", "User"))
+
+    assert len(events) == 2
+    assert events[0] == {"type": "text_delta", "delta": "Bonjour !"}
+    assert events[1] == {"type": "finish", "content": "Bonjour !", "thought": None}
+
+
 def test_gemini_service_extracts_thought_parts():
     """GeminiService extrait les parts de pensée (thought=True) et le contenu final."""
     from ankiforge.services.ai.base import LLMResult
