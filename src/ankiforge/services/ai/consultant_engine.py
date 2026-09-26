@@ -24,6 +24,7 @@ from peewee import fn
 
 from ankiforge.database.base import db
 from ankiforge.database.models import (
+    AuditRecordModel,
     CardModel,
     DeckModel,
     DocumentModel,
@@ -1206,6 +1207,332 @@ class ConsultantToolRegistry:
             return f"Erreur lors du scan approfondi : {e}"
 
     @staticmethod
+    def diagnose_deck_weaknesses(deck_name: str) -> str:
+        """
+        Effectue un audit chirurgical approfondi d'un paquet de cartes pour détecter les faiblesses :
+        - Cartes sangsues (lapses >= 4) et instabilité SRS
+        - Surcharge textuelle (> 200 car. ou > 30 mots)
+        - Densité excessive d'occlusions (> 5 clozes)
+        - Violations des règles de formulation de Piotr Wozniak
+        """
+        try:
+            deck = DeckModel.get_or_none(DeckModel.name == deck_name.strip())
+            if not deck:
+                return f"Erreur : Le paquet '{deck_name}' n'a pas été trouvé."
+
+            cards = list(CardModel.select().where(CardModel.deck == deck))
+            total_cards = len(cards)
+            if total_cards == 0:
+                return f"Le paquet '{deck.name}' ne contient aucune carte."
+
+            # Extraction des notes associées
+            note_ids = list({c.note_id for c in cards if c.note_id})
+            notes = list(NoteModel.select().where(NoteModel.id.in_(note_ids)))
+            note_map: dict[int, NoteModel] = {n.id: n for n in notes}
+
+            # 1. Analyse SRS et Sangsues
+            learning = sum(1 for c in cards if (getattr(c, "ivl", 0) or 0) <= 1)
+            young = sum(1 for c in cards if 1 < (getattr(c, "ivl", 0) or 0) < 21)
+            mature = sum(1 for c in cards if (getattr(c, "ivl", 0) or 0) >= 21)
+            suspended = sum(1 for c in cards if getattr(c, "is_suspended", False))
+
+            critical_leeches = [c for c in cards if (c.lapses or 0) >= 4]
+            critical_leeches_sorted = sorted(critical_leeches, key=lambda c: c.lapses or 0, reverse=True)
+
+            # 2. Analyse du contenu des notes (verbosité, occlusions, heuristiques Wozniak)
+            verbose_anomalies: list[dict[str, Any]] = []
+            cloze_anomalies: list[dict[str, Any]] = []
+            wozniak_anomalies: list[dict[str, Any]] = []
+
+            for n_id, note in note_map.items():
+                active_v = note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                if not active_v or not active_v.content:
+                    continue
+
+                raw_content = active_v.content
+                try:
+                    content_dict = robust_json_loads(raw_content)
+                except Exception:
+                    content_dict = {"Front": raw_content}
+
+                if not isinstance(content_dict, dict):
+                    content_dict = {"Front": str(content_dict)}
+
+                # Détection verbosité
+                for f_name, f_val in content_dict.items():
+                    val_str = str(f_val).strip()
+                    word_cnt = len(val_str.split())
+                    char_cnt = len(val_str)
+                    if char_cnt > 200 or word_cnt > 30:
+                        verbose_anomalies.append(
+                            {
+                                "note_id": n_id,
+                                "field": f_name,
+                                "chars": char_cnt,
+                                "words": word_cnt,
+                                "snippet": (val_str[:75] + "...") if char_cnt > 75 else val_str,
+                            }
+                        )
+                        break
+
+                # Détection occlusions excessives
+                content_text = json.dumps(content_dict, ensure_ascii=False)
+                cloze_matches = re.findall(r"\{\{c\d+::", content_text)
+                if len(cloze_matches) > 5:
+                    cloze_anomalies.append(
+                        {
+                            "note_id": n_id,
+                            "cloze_count": len(cloze_matches),
+                            "snippet": (content_text[:80] + "...") if len(content_text) > 80 else content_text,
+                        }
+                    )
+
+                # Heuristiques Wozniak directes
+                front = str(content_dict.get("Front") or content_dict.get("Recto") or content_dict.get("question") or "")
+                back = str(content_dict.get("Back") or content_dict.get("Verso") or content_dict.get("reponse") or "")
+                if front and back and front.strip().lower() == back.strip().lower():
+                    wozniak_anomalies.append(
+                        {
+                            "note_id": n_id,
+                            "rule": "Question et Réponse identiques",
+                            "severity": "Haute",
+                            "recommendation": "Différencier l'interrogation de la solution",
+                        }
+                    )
+                elif "\n-" in back or "\n*" in back or "<ul" in back or "<ol" in back:
+                    wozniak_anomalies.append(
+                        {
+                            "note_id": n_id,
+                            "rule": "Principe de l'information minimale (liste dans la réponse)",
+                            "severity": "Moyenne",
+                            "recommendation": "Scinder en cartes atomiques via propose_card_split",
+                        }
+                    )
+
+            # Vérification des rapports d'audit persistés en BDD
+            if note_ids:
+                existing_audits = list(
+                    AuditRecordModel.select().where(
+                        AuditRecordModel.note.in_(note_ids),
+                        AuditRecordModel.is_compliant == False,  # noqa: E712
+                    )
+                )
+                for ar in existing_audits:
+                    ar_note_id = int(ar.note.id) if ar.note else 0
+                    if not any(wa["note_id"] == ar_note_id for wa in wozniak_anomalies):
+                        wozniak_anomalies.append(
+                            {
+                                "note_id": ar_note_id,
+                                "rule": ar.rule_broken or "Règle Wozniak enfreinte",
+                                "severity": "Moyenne",
+                                "recommendation": ar.reason or "Réviser la formulation de la carte",
+                            }
+                        )
+
+            # 3. Calcul du Score de Santé (0 - 100)
+            score = 100
+            score -= min(30, len(critical_leeches) * 6)
+            score -= min(25, len(verbose_anomalies) * 4)
+            score -= min(20, len(cloze_anomalies) * 5)
+            score -= min(25, len(wozniak_anomalies) * 4)
+            health_score = max(0, score)
+
+            status_label = "🟢 Excellent" if health_score >= 85 else ("🟡 Bon" if health_score >= 70 else ("🟠 À réviser" if health_score >= 50 else "🔴 Critique"))
+
+            # 4. Actions chirurgicales recommandées (ordonnées par priorité)
+            actions: list[str] = []
+            for cl in critical_leeches_sorted[:4]:
+                actions.append(f"  • [URGENT - Sangsue] Note #{cl.note_id} ({cl.lapses} oublis) : simplifier la question ou ajouter un indice mnémotechnique via propose_card_refactor.")
+            for va in verbose_anomalies[:4]:
+                if not any(f"Note #{va['note_id']}" in act for act in actions):
+                    actions.append(f"  • [VERBOSITÉ] Note #{va['note_id']} (Champ '{va['field']}' : {va['words']} mots, {va['chars']} car.) : élaguer ou scinder via propose_card_split.")
+            for ca in cloze_anomalies[:3]:
+                if not any(f"Note #{ca['note_id']}" in act for act in actions):
+                    actions.append(f"  • [DENSITÉ CLOZE] Note #{ca['note_id']} ({ca['cloze_count']} occlusions) : décomposer en plusieurs notes à 1-2 trous.")
+            for wa in wozniak_anomalies[:3]:
+                if not any(f"Note #{wa['note_id']}" in act for act in actions):
+                    actions.append(f"  • [RÈGLE WOZNIAK] Note #{wa['note_id']} ({wa['rule']}) : {wa['recommendation']}.")
+
+            return (
+                f"🩺 Diagnostic Chirurgical du Paquet '{deck.name}' :\n"
+                f"- Score de Santé Global : {health_score}/100 ({status_label})\n"
+                f"- Cartes & Notes : {total_cards} cartes physiques pour {len(note_map)} notes distinctes\n"
+                f"- Distribution SRS : Apprentissage: {learning}, Jeunes: {young}, Matures: {mature}, Suspendues: {suspended}\n"
+                f"- Faiblesses détectées :\n"
+                f"  • Sangsues critiques (lapses ≥ 4) : {len(critical_leeches)}\n"
+                f"  • Surcharge textuelle / Verbosité (>200 car. ou >30 mots) : {len(verbose_anomalies)}\n"
+                f"  • Densité excessive d'occlusions (>5 clozes) : {len(cloze_anomalies)}\n"
+                f"  • Non-conformités ergonomiques Wozniak : {len(wozniak_anomalies)}\n"
+                f"- Actions chirurgicales recommandées :\n" + ("\n".join(actions) if actions else "  ✅ Aucune faiblesse majeure détectée. Le paquet est en excellente santé !")
+            )
+        except Exception as e:
+            logger.error("Erreur diagnose_deck_weaknesses : %s", e)
+            return f"Erreur lors du diagnostic chirurgical du paquet : {e}"
+
+    @staticmethod
+    def list_card_models_manifest() -> str:
+        """
+        Dresse la cartographie complète des modèles de notes (NoteTypeModel) de la collection :
+        champs requis (fields_schema), templates Jinja2/HTML Recto/Verso, CSS effectif et volumétrie.
+        """
+        try:
+            models = list(NoteTypeModel.select().order_by(NoteTypeModel.id.asc()))
+            if not models:
+                return "Aucun modèle de carte trouvé dans la collection."
+
+            manifest = []
+            summary_lines = []
+
+            for m in models:
+                fields: list[str] = []
+                if m.fields_schema:
+                    try:
+                        parsed_f = robust_json_loads(m.fields_schema)
+                        fields = parsed_f if isinstance(parsed_f, list) else [str(parsed_f)]
+                    except Exception:
+                        fields = [m.fields_schema]
+
+                templates: list[dict[str, Any]] = []
+                if m.templates:
+                    try:
+                        parsed_t = robust_json_loads(m.templates)
+                        templates = parsed_t if isinstance(parsed_t, list) else []
+                    except Exception:
+                        templates = []
+
+                notes_count = NoteModel.select().where(NoteModel.note_type == m).count()
+                cards_count = CardModel.select().join(NoteModel).where(NoteModel.note_type == m).count()
+
+                model_info = {
+                    "id": m.id,
+                    "name": m.name,
+                    "description": m.description or "",
+                    "fields": fields,
+                    "templates": templates,
+                    "css_style": m.css_style or "",
+                    "total_notes": notes_count,
+                    "total_cards": cards_count,
+                }
+                manifest.append(model_info)
+                summary_lines.append(f"  • Modèle #{m.id} '{m.name}' : {len(fields)} champs {fields}, {len(templates)} template(s), {notes_count} note(s), {cards_count} carte(s) générée(s)")
+
+            return (
+                f"📑 Manifeste des Modèles de Cartes ({len(models)} modèles déclarés) :\n"
+                + "\n".join(summary_lines)
+                + "\n\n### SPÉCIFICATION DÉTAILLÉE (JSON) :\n"
+                + json.dumps(manifest, ensure_ascii=False, indent=2)
+            )
+        except Exception as e:
+            logger.error("Erreur list_card_models_manifest : %s", e)
+            return f"Erreur lors de l'établissement du manifeste des modèles : {e}"
+
+    @staticmethod
+    def refactor_cards_by_criteria(query: str, instruction: str = "") -> str:
+        """
+        Extrait un échantillon condensé de cartes (max 15) selon une requête ciblée
+        (recherche plein-texte, 'deck:Nom', 'tag:Nom', 'sangsues' / 'leeches', 'verbeux' / 'verbose')
+        et guide le Consultant IA vers la formulation de StagedPatches via propose_card_refactor ou propose_card_split.
+        """
+        try:
+            q_clean = query.strip()
+            matched_notes: list[NoteModel] = []
+
+            # 1. Filtre par paquet
+            if q_clean.lower().startswith("deck:"):
+                d_name = q_clean[5:].strip()
+                deck = DeckModel.get_or_none(DeckModel.name == d_name)
+                if deck:
+                    matched_notes = list(NoteModel.select().join(CardModel).where(CardModel.deck == deck).distinct().limit(15))
+                else:
+                    return f"Erreur : Le paquet '{d_name}' n'existe pas."
+
+            # 2. Filtre par tag
+            elif q_clean.lower().startswith("tag:"):
+                t_val = q_clean[4:].strip()
+                matched_notes = list(NoteModel.select().where(NoteModel.tags.contains(t_val)).limit(15))
+
+            # 3. Sangsues
+            elif q_clean.lower() in ("leeches", "sangsues", "sangsue"):
+                matched_notes = list(NoteModel.select().join(CardModel).where(CardModel.lapses >= 4).distinct().order_by(CardModel.lapses.desc()).limit(15))
+
+            # 4. Verbeux
+            elif q_clean.lower() in ("verbose", "verbeux", "surcharge"):
+                candidates = list(NoteModel.select().limit(100))
+                for n in candidates:
+                    v = n.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                    if v and v.content and (len(v.content) > 200 or len(v.content.split()) > 30):
+                        matched_notes.append(n)
+                        if len(matched_notes) >= 15:
+                            break
+
+            # 5. Recherche FTS5 ou recherche plein-texte de repli
+            else:
+                try:
+                    from ankiforge.services.search.fts_service import FTSService
+
+                    fts_res = FTSService.search(q_clean, limit=15)
+                    if fts_res:
+                        n_ids = [r.note_id for r in fts_res]
+                        matched_notes = list(NoteModel.select().where(NoteModel.id.in_(n_ids)))
+                except Exception as e:
+                    logger.debug("FTSService indisponible : %s", e)
+
+                if not matched_notes:
+                    candidates = list(NoteModel.select().limit(200))
+                    for n in candidates:
+                        v = n.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                        if v and v.content and q_clean.lower() in v.content.lower():
+                            matched_notes.append(n)
+                            if len(matched_notes) >= 15:
+                                break
+
+            if not matched_notes:
+                return f"Aucune note trouvée pour le critère '{query}'."
+
+            condensed_sample = []
+            for n in matched_notes[:15]:
+                active_v = n.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+                fields_dict = {}
+                if active_v and active_v.content:
+                    try:
+                        fields_dict = robust_json_loads(active_v.content)
+                    except Exception:
+                        fields_dict = {"Front": active_v.content}
+
+                cards = list(n.cards)
+                max_lapses = max([c.lapses or 0 for c in cards], default=0)
+                max_ivl = max([getattr(c, "ivl", 0) or 0 for c in cards], default=0)
+                max_reps = max([c.reps or 0 for c in cards], default=0)
+                deck_name = cards[0].deck.name if cards and cards[0].deck else "Sans paquet"
+
+                condensed_sample.append(
+                    {
+                        "note_id": n.id,
+                        "guid": n.guid,
+                        "active_version_id": active_v.id if active_v else None,
+                        "model_name": n.note_type.name if n.note_type else "Inconnu",
+                        "deck": deck_name,
+                        "tags": n.tags or "",
+                        "fields": fields_dict,
+                        "srs": {"lapses": max_lapses, "ivl": max_ivl, "reps": max_reps},
+                    }
+                )
+
+            instruction_header = f"- Consigne de refactorisation : « {instruction} »\n" if instruction else ""
+
+            return (
+                f"✂️ Échantillon de Cartes pour Refactorisation ({len(condensed_sample)} notes sélectionnées) :\n"
+                f"- Critère : '{query}'\n" + instruction_header + "- Mode d'action : Analyse chaque carte et formule une proposition chirurgicale :\n"
+                "  1. Pour modifier in-place : appelle `propose_card_refactor(note_id=<id>, new_fields_json='...', explanation='...')`\n"
+                "  2. Pour scinder une carte dense : appelle `propose_card_split(note_id=<id>, new_cards_json='[...]', explanation='...')`\n"
+                "  (Ces appels créent un StagedPatch sécurisé soumis à validation humaine)\n\n"
+                "### ÉCHANTILLON CONDENSÉ (JSON) :\n" + json.dumps(condensed_sample, ensure_ascii=False, indent=2)
+            )
+        except Exception as e:
+            logger.error("Erreur refactor_cards_by_criteria : %s", e)
+            return f"Erreur lors de l'extraction des cartes à refactoriser : {e}"
+
+    @staticmethod
     def get_note_full_profile_360(note_id: int) -> str:
         """Génère le profil complet 360° d'une note (cartes physiques, modèle, historique Time Machine, stats SRS, templates)."""
         try:
@@ -2110,6 +2437,52 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "diagnose_deck_weaknesses",
+            "description": (
+                "Effectue un diagnostic chirurgical approfondi d'un paquet de cartes pour détecter les anomalies d'apprentissage : "
+                "cartes sangsues (lapses >= 4), surcharge textuelle, clozes excessives et violations Wozniak."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "deck_name": {"type": "string", "description": "Nom exact du paquet à diagnostiquer"},
+                },
+                "required": ["deck_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_card_models_manifest",
+            "description": ("Dresse la cartographie complète des modèles de notes (NoteTypeModel) de la collection : champs requis, templates HTML Recto/Verso, CSS effectif et volumétrie de cartes."),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "refactor_cards_by_criteria",
+            "description": (
+                "Extrait un échantillon condensé de cartes (max 15) selon un critère ciblé "
+                "('deck:Nom', 'tag:Nom', 'sangsues', 'verbeux') avec consigne de refactorisation pour émettre des StagedPatches."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Terme de recherche ou filtre ('deck:Nom', 'tag:Nom', 'sangsues', 'verbeux')"},
+                    "instruction": {"type": "string", "description": "Consigne spécifique de refactorisation (optionnel)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -2379,6 +2752,15 @@ class ConsultantEngine:
                     add_summary=summary,
                     add_key_takeaways=takeaways,
                 ), False
+            elif tool_name == "diagnose_deck_weaknesses":
+                deck = tool_args.get("deck_name", "")
+                return ConsultantToolRegistry.diagnose_deck_weaknesses(deck), False
+            elif tool_name == "list_card_models_manifest":
+                return ConsultantToolRegistry.list_card_models_manifest(), False
+            elif tool_name == "refactor_cards_by_criteria":
+                q = tool_args.get("query", "")
+                inst = tool_args.get("instruction", "")
+                return ConsultantToolRegistry.refactor_cards_by_criteria(q, inst), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]

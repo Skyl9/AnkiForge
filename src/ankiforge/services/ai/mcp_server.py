@@ -142,6 +142,24 @@ def inspect_deck_deep_scan(deck_name: str) -> str:
 
 
 @mcp.tool()
+def diagnose_deck_weaknesses(deck_name: str) -> str:
+    """Effectue un diagnostic chirurgical approfondi d'un paquet (sangsues, surcharge de texte, clozes excessives, Wozniak)."""
+    return ConsultantToolRegistry.diagnose_deck_weaknesses(deck_name)
+
+
+@mcp.tool()
+def list_card_models_manifest() -> str:
+    """Dresse la cartographie complète des modèles de notes (champs requis, templates HTML Recto/Verso, CSS effectif, volumétrie)."""
+    return ConsultantToolRegistry.list_card_models_manifest()
+
+
+@mcp.tool()
+def refactor_cards_by_criteria(query: str, instruction: str = "") -> str:
+    """Extrait un échantillon condensé de cartes selon un critère ('deck:Nom', 'tag:Nom', 'sangsues', 'verbeux') pour émettre des StagedPatches."""
+    return ConsultantToolRegistry.refactor_cards_by_criteria(query, instruction)
+
+
+@mcp.tool()
 def get_note_full_profile_360(note_id: int) -> str:
     """Génère le profil complet 360° d'une note (cartes, historique Time Machine, stats SRS, tags)."""
     return ConsultantToolRegistry.get_note_full_profile_360(note_id)
