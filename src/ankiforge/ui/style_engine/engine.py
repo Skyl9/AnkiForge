@@ -11,7 +11,13 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.style_engine.appearance import AppearancePreference, ModeSource
+from ankiforge.ui.style_engine.appearance import (
+    AppearancePreference,
+    ModeSource,
+    add_system_mode_listener,
+    notify_system_mode_changed,
+    probe_system_mode_source,
+)
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
 from ankiforge.ui.style_engine.themes import (
     BUILTIN_THEMES,
@@ -33,6 +39,7 @@ class StyleEngine(QObject):
     """
 
     theme_changed = Signal(ThemeProfile)
+    system_mode_changed = Signal(object)
 
     # Clés d'apparence persistées par profil (cf. ADR 0004)
     KEY_THEME_FAMILY = "theme_family"
@@ -47,6 +54,11 @@ class StyleEngine(QObject):
         self._current_theme: ThemeProfile = JETBRAINS_DARK
         self._custom_themes: dict[str, ThemeProfile] = {}
         self._custom_families: dict[str, ThemeFamily] = {}
+        self._active_profile_name: str | None = None
+        self._active_layout_id: str | None = None
+        self._system_listener_connected: bool = False
+        add_system_mode_listener(self._on_system_mode_notified)
+        self._ensure_system_theme_listener()
         self.load_theme_library()
 
     @classmethod
@@ -1288,6 +1300,43 @@ class StyleEngine(QObject):
             return fallback
         return family
 
+    def _ensure_system_theme_listener(self) -> None:
+        """Attache le signal colorSchemeChanged de Qt sans timer de scrutation."""
+        if self._system_listener_connected:
+            return
+        try:
+            from PySide6.QtGui import QGuiApplication
+
+            app = QGuiApplication.instance()
+            if app is None:
+                return
+            hints = QGuiApplication.styleHints()
+            if hasattr(hints, "colorSchemeChanged"):
+                hints.colorSchemeChanged.connect(self._on_qt_color_scheme_changed)
+                self._system_listener_connected = True
+        except (AttributeError, RuntimeError) as err:
+            logger.debug("Impossible d'attacher le signal colorSchemeChanged : %s", err)
+
+    def _on_qt_color_scheme_changed(self, _scheme: object = None) -> None:
+        """Callback réactif au signal Qt colorSchemeChanged — sans timer de scrutation."""
+        notify_system_mode_changed(probe_system_mode_source())
+
+    def _on_system_mode_notified(self, regime: ModeSource | None) -> None:
+        """Reçoit la notification de changement de régime système et répercute si ModeSource.SYSTEM."""
+        self.system_mode_changed.emit(regime)
+        self._handle_system_regime_change(regime)
+
+    def _handle_system_regime_change(self, _regime: ModeSource | None) -> None:
+        from ankiforge.utils.paths import get_active_profile
+
+        profile_name = self._active_profile_name or get_active_profile()
+        preference = self.get_appearance_preference(profile_name)
+        if preference.mode_source is ModeSource.SYSTEM:
+            from ankiforge.ui.layouts.layout_manager import LayoutManager
+
+            layout_id = self._active_layout_id or LayoutManager.get_saved_layout_id(profile_name)
+            self.apply_appearance(preference, layout_id=layout_id)
+
     def resolve_appearance(self, preference: AppearancePreference, layout_id: str | None = None) -> ThemeProfile:
         """Calcule la Variante effective : la Famille choisie (ou celle du layout) croisée avec le régime résolu."""
         family = self.get_family_for_theme(preference.family_id) if preference.family_id else None
@@ -1297,12 +1346,16 @@ class StyleEngine(QObject):
 
     def apply_appearance(self, preference: AppearancePreference, layout_id: str | None = None, app: QApplication | None = None) -> ThemeProfile:
         """Applique la Variante calculée à partir des deux axes d'apparence."""
+        self._ensure_system_theme_listener()
         variant = self.resolve_appearance(preference, layout_id=layout_id)
         self.apply_theme(variant, app=app)
         return variant
 
     def apply_appearance_for_profile(self, profile_name: str, layout_id: str | None = None) -> ThemeProfile:
         """Applique l'apparence persistée du profil ; le layout ne fournit qu'une famille de repli."""
+        self._active_profile_name = profile_name
+        self._active_layout_id = layout_id
+        self._ensure_system_theme_listener()
         return self.apply_appearance(self.get_appearance_preference(profile_name), layout_id=layout_id)
 
 

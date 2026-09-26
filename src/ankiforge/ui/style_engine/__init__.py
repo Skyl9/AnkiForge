@@ -5,9 +5,12 @@ Moteur de Style Centralisé pour AnkiForge.
 from ankiforge.ui.style_engine.appearance import (
     AppearancePreference,
     ModeSource,
+    add_system_mode_listener,
     force_system_mode_source,
+    notify_system_mode_changed,
     probe_system_mode_source,
     release_system_mode_source,
+    remove_system_mode_listener,
 )
 from ankiforge.ui.style_engine.engine import StyleEngine, get_style_engine
 from ankiforge.ui.style_engine.theme_profile import ThemeProfile
@@ -58,6 +61,9 @@ __all__ = [
     "probe_system_mode_source",
     "force_system_mode_source",
     "release_system_mode_source",
+    "add_system_mode_listener",
+    "remove_system_mode_listener",
+    "notify_system_mode_changed",
     "ThemeProfile",
     "ThemeFamily",
     "BUILTIN_THEMES",

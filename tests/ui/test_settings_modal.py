@@ -238,8 +238,47 @@ def test_general_tab_keeps_a_family_unknown_to_the_library(qtbot):
     assert engine.get_appearance_preference("default").family_id == "theme_tiers"
 
 
+def test_general_tab_mode_source_offers_three_options(qtbot):
+    """La Source du Mode propose 3 valeurs : Sombre manuel, Clair manuel et Système."""
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    items = [tab.cb_mode.itemData(i) for i in range(tab.cb_mode.count())]
+    assert items == ["dark", "light", "system"]
+
+
+def test_general_tab_system_source_displays_summary_and_neutral_families(qtbot):
+    """Quand la Source est « Système », les familles sont neutres et le résumé séparé est visible."""
+    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, force_system_mode_source, get_style_engine
+
+    engine = get_style_engine()
+    force_system_mode_source(ModeSource.DARK)
+    engine.save_appearance_preference(
+        "default",
+        AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK),
+    )
+
+    tab = GeneralTab()
+    qtbot.addWidget(tab)
+
+    assert tab.cb_mode.currentData() == "system"
+    assert tab.row_effective_variant.isHidden() is False
+    assert "Nord Polar Arctic" in tab.lbl_effective_variant_badge.text()
+    assert "Système (Sombre)" in tab.lbl_effective_variant_badge.text()
+
+    # Changement dynamique du système pendant que l'onglet est ouvert
+    force_system_mode_source(ModeSource.LIGHT)
+    assert "Nord Snow Storm" in tab.lbl_effective_variant_badge.text()
+    assert "Système (Clair)" in tab.lbl_effective_variant_badge.text()
+
+    # Le système ne déclare rien : repli sur le dernier mode manuel
+    force_system_mode_source(None)
+    assert "Système non déclaré" in tab.lbl_effective_variant_badge.text()
+    assert "Nord Polar Arctic" in tab.lbl_effective_variant_badge.text()
+
+
 def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
-    """« Système » survit à un simple changement de Famille : seul un régime choisi l'écrase."""
+    """« Système » survit à un simple changement de Famille : seul un choix manuel l'écrase."""
     from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
 
     engine = get_style_engine()
@@ -248,8 +287,8 @@ def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
     tab = GeneralTab()
     qtbot.addWidget(tab)
 
-    # Le sélecteur n'expose que les deux régimes manuels : il affiche le régime résolu.
-    assert tab.cb_mode.currentData() == "dark"
+    # Le sélecteur expose explicitement « system »
+    assert tab.cb_mode.currentData() == "system"
     assert tab._mode_field_changed() is False
 
     dracula_index = next(i for i in range(tab.cb_theme.count()) if tab.cb_theme.itemData(i) == "dracula")
@@ -260,8 +299,9 @@ def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
     assert (preference.family_id, preference.mode_source) == ("dracula", ModeSource.SYSTEM)
     assert preference.last_manual_mode is ModeSource.DARK
 
-    # Un choix manuel explicite prend le relais.
-    tab.cb_mode.setCurrentIndex(1)
+    # Un choix manuel explicite prend le relais et masque le résumé
+    tab.cb_mode.setCurrentIndex(1)  # Clair
+    assert tab.row_effective_variant.isHidden() is True
     tab.save_tab()
 
     preference = engine.get_appearance_preference("default")

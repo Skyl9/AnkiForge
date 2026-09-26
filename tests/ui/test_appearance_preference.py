@@ -309,3 +309,114 @@ def test_unknown_legacy_theme_id_keeps_the_silent_fallback_regime() -> None:
     assert preference.family_id is None
     assert preference.mode_source is ModeSource.DARK
     assert engine.resolve_appearance(preference, layout_id="ide").id == "ide"
+
+
+# ─────────────────────────────── Suivi réactif du Thème Système ───────────────────────────────
+
+
+def test_system_mode_precedence_over_manual_regime() -> None:
+    """Activée à « Système », la préférence prend le pas sur le mode manuel selon le régime déclaré."""
+    from ankiforge.ui.style_engine import appearance
+
+    engine = get_style_engine()
+
+    # Plateforme annonce Clair
+    appearance.force_system_mode_source(ModeSource.LIGHT)
+    pref_light = AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK)
+    variant_light = engine.resolve_appearance(pref_light)
+    assert variant_light.id == _expected_variant_id(engine, "nord", ModeSource.LIGHT)
+    assert variant_light.is_dark is False
+
+    # Plateforme annonce Sombre
+    appearance.force_system_mode_source(ModeSource.DARK)
+    pref_dark = AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.LIGHT)
+    variant_dark = engine.resolve_appearance(pref_dark)
+    assert variant_dark.id == _expected_variant_id(engine, "nord", ModeSource.DARK)
+    assert variant_dark.is_dark is True
+
+
+def test_hot_system_regime_change_updates_style_engine_and_indicators() -> None:
+    """Un changement de régime système pendant l'exécution est répercuté à chaud avec ses indicateurs."""
+    from ankiforge.ui.style_engine import appearance
+    from ankiforge.ui.theme import DesignTokens, is_dark_mode
+
+    engine = get_style_engine()
+
+    # Démarrage avec le système en Sombre
+    appearance.force_system_mode_source(ModeSource.DARK)
+    pref = AppearancePreference(family_id="jetbrains", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK)
+    engine.save_appearance_preference("live_system", pref)
+
+    emitted_variants: list[str] = []
+    engine.theme_changed.connect(lambda p: emitted_variants.append(p.id))
+
+    engine.apply_appearance_for_profile("live_system", layout_id="ide")
+    assert engine.current_theme.id == "ide"
+    assert engine.current_theme.is_dark is True
+    assert DesignTokens.is_dark_mode() is True
+    assert is_dark_mode() is True
+
+    # Changement à chaud de la plateforme vers Clair
+    appearance.force_system_mode_source(ModeSource.LIGHT)
+
+    assert engine.current_theme.id == "jetbrains_light"
+    assert engine.current_theme.is_dark is False
+    assert DesignTokens.is_dark_mode() is False
+    assert is_dark_mode() is False
+    assert "jetbrains_light" in emitted_variants
+
+    # Retour à chaud vers Sombre
+    appearance.force_system_mode_source(ModeSource.DARK)
+
+    assert engine.current_theme.id == "ide"
+    assert engine.current_theme.is_dark is True
+    assert DesignTokens.is_dark_mode() is True
+    assert is_dark_mode() is True
+
+
+def test_hot_system_regime_change_ignored_when_manual_mode_is_active() -> None:
+    """Un changement système est ignoré si le mode actif est manuel (Sombre ou Clair)."""
+    from ankiforge.ui.style_engine import appearance
+    from ankiforge.ui.theme import DesignTokens
+
+    engine = get_style_engine()
+    appearance.force_system_mode_source(ModeSource.DARK)
+
+    pref_manual = AppearancePreference(family_id="nord", mode_source=ModeSource.DARK, last_manual_mode=ModeSource.DARK)
+    engine.save_appearance_preference("live_manual", pref_manual)
+    engine.apply_appearance_for_profile("live_manual", layout_id="ide")
+
+    assert engine.current_theme.id == "nord_polar"
+
+    # La plateforme passe en Clair, mais le mode manuel reste figé sur Sombre
+    appearance.force_system_mode_source(ModeSource.LIGHT)
+
+    assert engine.current_theme.id == "nord_polar"
+    assert DesignTokens.is_dark_mode() is True
+
+
+def test_system_mode_listener_registration_and_notification() -> None:
+    """Vérifie l'enregistrement, la notification et le désenregistrement des écouteurs de régime."""
+    from ankiforge.ui.style_engine import add_system_mode_listener, appearance, remove_system_mode_listener
+
+    received: list[ModeSource | None] = []
+
+    def on_change(regime: ModeSource | None) -> None:
+        received.append(regime)
+
+    add_system_mode_listener(on_change)
+    try:
+        appearance.force_system_mode_source(ModeSource.LIGHT)
+        assert received[-1] is ModeSource.LIGHT
+
+        appearance.force_system_mode_source(ModeSource.DARK)
+        assert received[-1] is ModeSource.DARK
+
+        appearance.force_system_mode_source(None)
+        assert received[-1] is None
+    finally:
+        remove_system_mode_listener(on_change)
+
+    # Ne reçoit plus rien après désenregistrement
+    appearance.force_system_mode_source(ModeSource.LIGHT)
+    assert received[-1] is None

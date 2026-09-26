@@ -181,6 +181,7 @@ Lorsqu'un utilisateur change de Mode ou de Famille :
 * `DesignTokens` est réassigné à chaud.
 * La palette Qt (`QPalette`) et la feuille de style QSS globale sont réinjectées sur `QApplication`.
 * Les ombres portées s'adaptent dynamiquement (45% d'opacité en mode sombre, 12% en mode clair).
+* Lorsque la Source est « Système » : `StyleEngine` écoute le signal Qt `QGuiApplication.styleHints().colorSchemeChanged` (zéro timer de scrutation). Tout changement de régime du système d'exploitation à chaud répercute immédiatement la variante correspondante et met à jour l'indicateur interne de régime (`DesignTokens.is_dark_mode()`). L'interface des paramètres affiche les 12 familles de manière neutre sans variante privilégiée, et expose un résumé séparé indiquant le régime détecté et la variante active effective. Si la plateforme ne déclare aucun régime, l'application retombe sur `last_manual_mode`.
 
 Une Famille choisie explicitement **prime** sur la Famille par défaut du layout
 (`LayoutManager.LAYOUT_DEFAULT_FAMILY`), qui ne s'applique que tant qu'aucune Famille n'a été choisie.

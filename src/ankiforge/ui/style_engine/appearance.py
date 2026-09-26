@@ -9,6 +9,7 @@ appliquée n'est plus stockée, elle se calcule.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -39,6 +40,34 @@ class ModeSource(StrEnum):
 
 _forced_system_mode_source: ModeSource | None = None
 _system_regime_is_forced = False
+_system_mode_listeners: list[Callable[[ModeSource | None], None]] = []
+
+
+def add_system_mode_listener(listener: Callable[[ModeSource | None], None]) -> None:
+    """Enregistre un écouteur notifié lors d'un changement de régime système."""
+    if listener not in _system_mode_listeners:
+        _system_mode_listeners.append(listener)
+
+
+def remove_system_mode_listener(listener: Callable[[ModeSource | None], None]) -> None:
+    """Retire un écouteur enregistré."""
+    if listener in _system_mode_listeners:
+        _system_mode_listeners.remove(listener)
+
+
+def clear_system_mode_listeners() -> None:
+    """Supprime tous les écouteurs enregistrés (réservé aux tests / nettoyage)."""
+    _system_mode_listeners.clear()
+
+
+def notify_system_mode_changed(regime: ModeSource | None = None) -> None:
+    """Notifie tous les écouteurs du nouveau régime système (ou None si non déclaré)."""
+    current_regime = regime if (regime is not None or _system_regime_is_forced) else probe_system_mode_source()
+    for listener in list(_system_mode_listeners):
+        try:
+            listener(current_regime)
+        except Exception as err:
+            logger.debug("Erreur notification écouteur thème système : %s", err)
 
 
 def force_system_mode_source(regime: ModeSource | None) -> None:
@@ -50,6 +79,7 @@ def force_system_mode_source(regime: ModeSource | None) -> None:
     global _forced_system_mode_source, _system_regime_is_forced
     _forced_system_mode_source = regime if regime is not None and regime is not ModeSource.SYSTEM else None
     _system_regime_is_forced = True
+    notify_system_mode_changed(_forced_system_mode_source)
 
 
 def release_system_mode_source() -> None:
@@ -57,6 +87,7 @@ def release_system_mode_source() -> None:
     global _forced_system_mode_source, _system_regime_is_forced
     _forced_system_mode_source = None
     _system_regime_is_forced = False
+    notify_system_mode_changed(probe_system_mode_source())
 
 
 def probe_system_mode_source() -> ModeSource | None:

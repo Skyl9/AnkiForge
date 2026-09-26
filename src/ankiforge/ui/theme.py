@@ -266,7 +266,7 @@ def setup_dynamic_theme(app: QApplication) -> None:
 
 def is_dark_mode() -> bool:
     """Returns whether the application is in dark mode."""
-    return True
+    return DesignTokens.is_dark_mode()
 
 
 def apply_shadow(widget: QWidget, blur: int = 12, offset_y: int = 4, color: str | QColor = "rgba(0,0,0,0.5)") -> None:
