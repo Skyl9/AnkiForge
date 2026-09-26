@@ -108,7 +108,37 @@ class Omnibox(QDialog):
         if len(query) < 2:
             return
 
-        # A. Chercher dans les Documents (Titres ou Contenu)
+        # A. Chercher dans les Drapeaux si syntaxe flag:
+        if "flag:" in query:
+            from ankiforge.repositories.note_repository import NoteRepository
+            from ankiforge.services.cards.flag_service import FlagService
+
+            notes = NoteRepository().search_notes(query, limit=10)
+            for note in notes:
+                active_v = NoteVersionModel.get_or_none(note=note, is_active=True)
+                preview = "..."
+                if active_v:
+                    try:
+                        content = json.loads(active_v.content)
+                        preview = " | ".join(str(v) for v in content.values() if isinstance(v, str))
+                        preview = re.sub(r"<[^>]+>", "", preview).replace("\n", " ")[:65] + "..."
+                    except Exception:
+                        pass
+
+                c = CardModel.select(CardModel.flags, CardModel.deck).where(CardModel.note == note).first()
+                c_flag = c.flags if c else 0
+                flag_name = FlagService.get_flag_name(c_flag)
+                color = DesignTokens.FLAG_COLORS.get(c_flag, DesignTokens.COLOR_GREEN)
+                deck_id = getattr(c, "deck_id", None) if c else None
+
+                icon = load_phosphor_icon("flag" if c_flag > 0 else "cards", color=color)
+                badge_text = f"[{flag_name}]" if c_flag > 0 else "[Carte]"
+                item = QListWidgetItem(icon, f" {badge_text} {preview}")
+                item.setData(Qt.ItemDataRole.UserRole, {"type": "note", "id": note.id, "deck_id": deck_id})
+                self.results_list.addItem(item)
+            return
+
+        # B. Chercher dans les Documents (Titres ou Contenu)
         docs = DocumentModel.select().where(DocumentModel.title.contains(query) | DocumentModel.content.contains(query)).limit(5)
 
         for doc in docs:
@@ -117,7 +147,7 @@ class Omnibox(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, {"type": "doc", "id": doc.id, "deck_id": None})
             self.results_list.addItem(item)
 
-        # B. Chercher dans les Flashcards (Plein-texte FTS5 ou repli optimisé)
+        # C. Chercher dans les Flashcards (Plein-texte FTS5 ou repli optimisé)
         if FTSService.is_available():
             fts_results = FTSService.search(query, limit=10, as_prefix=True)
             for res in fts_results:

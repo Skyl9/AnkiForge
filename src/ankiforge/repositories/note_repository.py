@@ -17,8 +17,8 @@ from ankiforge.database.models import (
     NoteVersionModel,
 )
 from ankiforge.repositories.base import BaseRepository
+from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.search.fts_service import FTSService
-from ankiforge.ui.theme import DesignTokens
 
 logger = logging.getLogger(__name__)
 
@@ -269,15 +269,16 @@ class NoteRepository(BaseRepository):
         flag_filter: int | None = None
         invert_flag: bool = False
 
-        # Détection de la syntaxe Anki flag:X ou -flag:X
-        flag_match = re.search(r"(-?)flag:(\w+)", raw_query, flags=re.IGNORECASE)
+        # Détection de la syntaxe Anki flag:X ou -flag:X (supporte les guillemets pour les libellés multi-mots)
+        flag_match = re.search(r'(-?)flag:(?:"([^"]+)"|(\S+))', raw_query, flags=re.IGNORECASE)
         if flag_match:
-            neg, val_str = flag_match.group(1), flag_match.group(2).lower()
+            neg = flag_match.group(1)
+            val_str = (flag_match.group(2) or flag_match.group(3) or "").lower().strip()
             invert_flag = bool(neg)
-            if val_str in DesignTokens.FLAG_SEARCH_MAP:
-                flag_filter = DesignTokens.FLAG_SEARCH_MAP[val_str]
+            flag_search_map = FlagService.get_flag_search_map()
+            flag_filter = flag_search_map.get(val_str, -1)
             # Épuration du token flag de la requête textuelle
-            raw_query = re.sub(r"(-?)flag:\w+", "", raw_query, flags=re.IGNORECASE).strip()
+            raw_query = re.sub(r'(-?)flag:(?:"[^"]+"|\S+)', "", raw_query, count=1, flags=re.IGNORECASE).strip()
 
         # Détection de la syntaxe Anki is:suspended ou -is:suspended
         suspended_filter: bool | None = None
@@ -291,7 +292,10 @@ class NoteRepository(BaseRepository):
 
         # Filtrage par drapeau
         if flag_filter is not None:
-            if flag_filter == 0:
+            if flag_filter == -1:
+                if not invert_flag:
+                    return []
+            elif flag_filter == 0:
                 if invert_flag:
                     # -flag:0 => cartes ayant au moins un drapeau actif (> 0)
                     flagged_nids = [c.note_id for c in CardModel.select(CardModel.note).where(CardModel.flags > 0)]

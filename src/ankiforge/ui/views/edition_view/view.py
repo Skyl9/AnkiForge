@@ -35,6 +35,7 @@ from ankiforge.database.models import (
 from ankiforge.repositories import DeckRepository, NoteRepository
 from ankiforge.services.ai.flexible_service import AIManager
 from ankiforge.services.cards.duplicate_manager import DuplicateManager
+from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.cards.store_manager import StoreManager
 from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
 from ankiforge.services.workers.import_cards_worker import ImportCardsWorker
@@ -65,7 +66,7 @@ from ankiforge.ui.widgets.note_editor_widget import NoteFieldEditorWidget, NoteF
 from ankiforge.ui.widgets.time_machine_dialog import TimeMachineDialog
 from ankiforge.ui.widgets.toast import show_toast
 from ankiforge.utils.anki_renderer import get_max_cloze_index
-from ankiforge.utils.event_bus import event_bus
+from ankiforge.utils.event_bus import FlagLabelsUpdatedEvent, event_bus
 from ankiforge.utils.hierarchy import descendants_prefix
 from ankiforge.utils.icon_loader import load_phosphor_icon
 from ankiforge.utils.logger import log_and_notify_error
@@ -141,6 +142,7 @@ class EditionView(QWidget):
 
         self._setup_ui()
         self._setup_shortcuts()
+        event_bus.subscribe(FlagLabelsUpdatedEvent, self._on_flag_labels_updated)
 
     @property
     def current_folder_id(self) -> int | None:
@@ -1528,7 +1530,7 @@ class EditionView(QWidget):
         flag_menu.addSeparator()
 
         for f_idx in range(1, 8):
-            f_name = DesignTokens.FLAG_NAMES.get(f_idx, f"Drapeau {f_idx}")
+            f_name = FlagService.get_flag_name(f_idx)
             f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
             act = flag_menu.addAction(load_phosphor_icon("flag", color=f_color), f"{f_name}\t(Ctrl+{f_idx})")
             act.triggered.connect(lambda checked=False, flg=f_idx: self._apply_flag_to_selected_notes(flg, fallback_note_id=note.id))
@@ -1568,7 +1570,7 @@ class EditionView(QWidget):
         menu.addSeparator()
 
         for f_idx in range(1, 8):
-            f_name = DesignTokens.FLAG_NAMES.get(f_idx, f"Drapeau {f_idx}")
+            f_name = FlagService.get_flag_name(f_idx)
             f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
             act = menu.addAction(load_phosphor_icon("flag", color=f_color), f_name)
             if current_flag == f_idx:
@@ -1598,7 +1600,7 @@ class EditionView(QWidget):
             for cid in target_card_ids:
                 self.note_table_model.update_card_flag(cid, flag)
 
-            flag_label = DesignTokens.FLAG_NAMES.get(flag, "Aucun")
+            flag_label = FlagService.get_flag_name(flag)
             if flag == 0:
                 show_toast(self, f"Drapeau retiré pour {len(target_card_ids)} carte(s).")
             else:
@@ -1621,7 +1623,7 @@ class EditionView(QWidget):
         for nid in target_ids:
             self.note_table_model.update_note_flag(nid, flag)
 
-        flag_label = DesignTokens.FLAG_NAMES.get(flag, "Aucun")
+        flag_label = FlagService.get_flag_name(flag)
         if flag == 0:
             show_toast(self, f"Drapeau retiré pour {len(target_ids)} note(s).")
         else:
@@ -1641,12 +1643,20 @@ class EditionView(QWidget):
         menu.addSeparator()
 
         for f_idx in range(1, 8):
-            f_name = DesignTokens.FLAG_NAMES.get(f_idx, f"Drapeau {f_idx}")
+            f_name = FlagService.get_flag_name(f_idx)
             f_color = DesignTokens.FLAG_COLORS.get(f_idx, DesignTokens.COLOR_RED)
             act = menu.addAction(load_phosphor_icon("flag", color=f_color), f_name)
             act.triggered.connect(lambda checked=False, flg=f_idx, fn=f_name: self._on_flag_filter_selected(flg, f"Drapeau : {fn} ▾"))
 
         menu.exec(self.btn_filter_flag.mapToGlobal(self.btn_filter_flag.rect().bottomLeft()))
+
+    def _on_flag_labels_updated(self, event: FlagLabelsUpdatedEvent) -> None:
+        """Rafraîchit l'affichage des filtres et de la table lors d'un changement de libellés de drapeaux."""
+        if self._active_flag is not None and self._active_flag > 0:
+            flag_name = FlagService.get_flag_name(self._active_flag)
+            self.btn_filter_flag.setText(f"Drapeau : {flag_name} ▾")
+        if hasattr(self, "card_table") and self.card_table.viewport():
+            self.card_table.viewport().update()
 
     def _on_flag_filter_selected(self, flag_val: int | None, label: str) -> None:
         """Met à jour le filtre actif par drapeau et rafraîchit la table."""

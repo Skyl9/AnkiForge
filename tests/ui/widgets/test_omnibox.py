@@ -89,3 +89,34 @@ def test_omnibox_perform_search_with_mocked_db(omnibox, qtbot):
     data = item.data(Qt.ItemDataRole.UserRole)
     assert data["type"] == "doc"
     assert data["id"] == doc.id
+
+
+def test_omnibox_flag_search(omnibox, qtbot):
+    """Vérifie que la recherche flag: dans l'Omnibox affiche les libellés personnalisés et les cartes correspondantes."""
+    import json
+
+    from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+    from ankiforge.services.cards.flag_service import FlagService
+
+    FlagService.reset_to_defaults()
+    FlagService.set_flag_labels({2: "Urgence Absolue"})
+
+    nt = NoteTypeModel.create(name="NT_Omnibox", fields_schema='["Front", "Back"]')
+    deck = DeckModel.create(name="Deck_Omnibox")
+    note = NoteModel.create(note_type=nt)
+    NoteVersionModel.create(note=note, content=json.dumps({"Front": "Vocabulaire Critique", "Back": "Trad"}), is_active=True)
+    CardModel.create(note=note, deck=deck, template_index=0, flags=2)
+
+    try:
+        omnibox.search_bar.setText("flag:urgence_absolue")
+        omnibox.perform_search()
+
+        assert omnibox.results_list.count() == 1
+        item = omnibox.results_list.item(0)
+        assert "[Urgence Absolue]" in item.text()
+        assert "Vocabulaire Critique" in item.text()
+        data = item.data(Qt.ItemDataRole.UserRole)
+        assert data["type"] == "note"
+        assert data["id"] == note.id
+    finally:
+        FlagService.reset_to_defaults()

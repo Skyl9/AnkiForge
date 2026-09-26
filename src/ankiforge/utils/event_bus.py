@@ -97,6 +97,12 @@ class ThemeChangedEvent(AppEvent):
     layout_name: str = ""
 
 
+# Flag Events
+@dataclass(frozen=True)
+class FlagLabelsUpdatedEvent(AppEvent):
+    labels: dict[int, str] = field(default_factory=dict)
+
+
 # Pipeline Events
 @dataclass(frozen=True)
 class PipelineCreatedEvent(AppEvent):
@@ -268,6 +274,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "persona_updated": PersonaUpdatedEvent,
     "persona_deleted": PersonaDeletedEvent,
     "setting_changed": SettingChangedEvent,
+    "flag_labels_updated": FlagLabelsUpdatedEvent,
     "mcp_data_mutated": MCPDataMutatedEvent,
     "open_consultant_requested": OpenConsultantRequestedEvent,
     "open_feedback_requested": OpenFeedbackRequestedEvent,

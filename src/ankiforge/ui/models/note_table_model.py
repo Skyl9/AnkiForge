@@ -17,6 +17,7 @@ from PySide6.QtCore import QModelIndex, QPersistentModelIndex, Qt
 from PySide6.QtGui import QColor, QFont
 
 from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.ui.models.delegates import (
     BADGE_BG_COLOR_ROLE,
     BADGE_TEXT_COLOR_ROLE,
@@ -253,7 +254,7 @@ class NoteVirtualTableModel(BasePaginatedPeeweeModel[Any]):
             if role == FLAG_ROLE:
                 return row_data.flag
             if role == Qt.ItemDataRole.ToolTipRole:
-                flag_name = DesignTokens.FLAG_NAMES.get(row_data.flag, "Aucun")
+                flag_name = FlagService.get_flag_name(row_data.flag)
                 return f"Drapeau : {flag_name}" if row_data.flag > 0 else "Définir un drapeau"
             if role == Qt.ItemDataRole.DisplayRole:
                 return ""

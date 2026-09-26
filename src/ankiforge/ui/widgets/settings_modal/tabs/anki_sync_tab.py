@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QVBoxLayout,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from ankiforge.database.models import DeckModel
+from ankiforge.services.cards.flag_service import FlagService
 from ankiforge.services.settings_service import SettingsService, values_equal
 from ankiforge.ui.components import (
     SecondaryButton,
@@ -32,6 +34,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.lbl_anki_labels: list[QLabel] = []
+        self.flag_inputs: dict[int, StyledLineEdit] = {}
         self._setup_ui()
         # Référence des valeurs chargées : évite de marquer « modifié » un réglage auto-sélectionné.
         self._initial: tuple[Any, ...] = (
@@ -42,6 +45,7 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
             int(self.cb_max_import_size.currentData() or 0),
             self.le_anki_dir.text().strip(),
         )
+        self._initial_flags: tuple[str, ...] = tuple(self.flag_inputs[i].text().strip() for i in range(1, 8))
 
     def _setup_ui(self) -> None:
         from PySide6.QtWidgets import QFrame, QScrollArea
@@ -240,6 +244,60 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         dir_layout.addLayout(row_hint)
 
         layout.addWidget(self.card_dir)
+
+        # ── SECTION 4 : DRAPEAUX ANKI (LIBELLÉS DU PROFIL) ───────────────────
+        self.lbl_sec_flags = QLabel("DRAPEAUX ANKI (LIBELLÉS DU PROFIL)")
+        self.lbl_sec_flags.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_flags)
+
+        self.card_flags = SettingsCard()
+        flags_layout = QVBoxLayout(self.card_flags)
+        flags_layout.setContentsMargins(14, 12, 14, 12)
+        flags_layout.setSpacing(10)
+
+        self.lbl_flags_desc = QLabel("Personnalisez les libellés des 7 drapeaux colorés pour ce profil (laisser vide pour le nom par défaut) :")
+        self.lbl_flags_desc.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11.5px;")
+        flags_layout.addWidget(self.lbl_flags_desc)
+
+        grid_flags = QGridLayout()
+        grid_flags.setHorizontalSpacing(16)
+        grid_flags.setVerticalSpacing(8)
+
+        current_labels = FlagService.get_flag_labels()
+        for idx in range(1, 8):
+            color_hex = DesignTokens.FLAG_COLORS.get(idx, DesignTokens.TEXT_MUTED)
+            default_name = DesignTokens.FLAG_NAMES.get(idx, f"Drapeau {idx}")
+            saved_name = current_labels.get(idx, "")
+            display_text = saved_name if saved_name != default_name else ""
+
+            row_layout = QHBoxLayout()
+            row_layout.setSpacing(8)
+
+            dot = QLabel()
+            dot.setFixedSize(12, 12)
+            dot.setStyleSheet(f"background-color: {color_hex}; border-radius: 6px;")
+            row_layout.addWidget(dot)
+
+            lbl_idx = QLabel(f"Drapeau {idx} :")
+            lbl_idx.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+            lbl_idx.setFixedWidth(75)
+            row_layout.addWidget(lbl_idx)
+            self.lbl_anki_labels.append(lbl_idx)
+
+            le = StyledLineEdit()
+            le.setFixedHeight(28)
+            le.setPlaceholderText(default_name)
+            le.setText(display_text)
+            row_layout.addWidget(le, 1)
+
+            self.flag_inputs[idx] = le
+
+            row = (idx - 1) // 2
+            col = (idx - 1) % 2
+            grid_flags.addLayout(row_layout, row, col)
+
+        flags_layout.addLayout(grid_flags)
+        layout.addWidget(self.card_flags)
         layout.addStretch()
 
         self.scroll.setWidget(self.content_widget)
@@ -267,6 +325,9 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
         SettingsService.set("anki/default_deck_id", self.cb_default_deck.currentData(), category="anki")
         SettingsService.set("anki/max_import_bytes", int(self.cb_max_import_size.currentData() or 0), category="anki")
         SettingsService.set("anki/collection_dir", self.le_anki_dir.text().strip(), category="anki")
+        flags_dict = {i: self.flag_inputs[i].text().strip() for i in range(1, 8)}
+        FlagService.set_flag_labels(flags_dict)
+        self._initial_flags = tuple(self.flag_inputs[i].text().strip() for i in range(1, 8))
 
     def has_pending_changes(self) -> bool:
         """True si un paramètre de formats/fusion Anki diffère de sa valeur chargée."""
@@ -278,15 +339,24 @@ class AnkiSyncTab(SettingsDirtyMixin, QWidget):
             int(self.cb_max_import_size.currentData() or 0),
             self.le_anki_dir.text().strip(),
         )
-        return any(not values_equal(cur, ini) for cur, ini in zip(current, self._initial, strict=True))
+        base_changed = any(not values_equal(cur, ini) for cur, ini in zip(current, self._initial, strict=True))
+        current_flags = tuple(self.flag_inputs[i].text().strip() for i in range(1, 8))
+        flags_changed = any(not values_equal(cur, ini) for cur, ini in zip(current_flags, self._initial_flags, strict=True))
+        return base_changed or flags_changed
 
     def refresh_theme(self, profile: Any) -> None:
         self.lbl_sec_merge.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
         self.lbl_sec_fmt.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         self.lbl_sec_dir.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        if hasattr(self, "lbl_sec_flags"):
+            self.lbl_sec_flags.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
         self.card_merge.refresh_theme(profile)
         self.card_fmt.refresh_theme(profile)
         self.card_dir.refresh_theme(profile)
+        if hasattr(self, "card_flags"):
+            self.card_flags.refresh_theme(profile)
+        if hasattr(self, "lbl_flags_desc"):
+            self.lbl_flags_desc.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11.5px;")
         for lbl in self.lbl_anki_labels:
             lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
         if hasattr(self, "chk_silent_merge"):

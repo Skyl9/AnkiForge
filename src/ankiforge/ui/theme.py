@@ -11,6 +11,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QMenu, QWidget
 
+from ankiforge.services.cards.flag_service import (
+    DEFAULT_FLAG_COLORS,
+    DEFAULT_FLAG_NAMES,
+    DEFAULT_FLAG_SEARCH_MAP,
+)
+
 if sys.platform == "darwin":
     DEFAULT_FONT_MAIN = ".AppleSystemUIFont"
     DEFAULT_FONT_CODE = "Menlo"
@@ -103,52 +109,9 @@ class DesignTokens:
     BRANCH_A_BORDER = "rgba(139, 92, 246, 0.45)"
     BRANCH_B_BORDER = "rgba(6, 182, 212, 0.45)"
 
-    FLAG_COLORS: dict[int, str] = {
-        1: "#ef4444",
-        2: "#f97316",
-        3: "#10b981",
-        4: "#3b82f6",
-        5: "#ec4899",
-        6: "#06b6d4",
-        7: "#a855f7",
-    }
-
-    FLAG_NAMES: dict[int, str] = {
-        0: "Aucun",
-        1: "Rouge",
-        2: "Orange",
-        3: "Vert",
-        4: "Bleu",
-        5: "Rose",
-        6: "Turquoise",
-        7: "Violet",
-    }
-
-    FLAG_SEARCH_MAP: dict[str, int] = {
-        "0": 0,
-        "none": 0,
-        "aucun": 0,
-        "1": 1,
-        "red": 1,
-        "rouge": 1,
-        "2": 2,
-        "orange": 2,
-        "3": 3,
-        "green": 3,
-        "vert": 3,
-        "4": 4,
-        "blue": 4,
-        "bleu": 4,
-        "5": 5,
-        "pink": 5,
-        "rose": 5,
-        "6": 6,
-        "turquoise": 6,
-        "cyan": 6,
-        "7": 7,
-        "purple": 7,
-        "violet": 7,
-    }
+    FLAG_COLORS: dict[int, str] = DEFAULT_FLAG_COLORS
+    FLAG_NAMES: dict[int, str] = DEFAULT_FLAG_NAMES
+    FLAG_SEARCH_MAP: dict[str, int] = DEFAULT_FLAG_SEARCH_MAP
 
     # Tokens de coloration syntaxique (Syntax Highlighting)
     SYNTAX_TAG = "#38bdf8"
