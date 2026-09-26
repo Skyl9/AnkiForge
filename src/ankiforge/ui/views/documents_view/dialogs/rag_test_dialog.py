@@ -1,4 +1,9 @@
-from PySide6.QtCore import Qt
+import html
+import re
+from pathlib import Path
+
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -6,15 +11,95 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QProgressBar,
+    QPushButton,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
 from ankiforge.database.models import DocumentModel
 from ankiforge.services.ai.rag_service import RAGService
+from ankiforge.services.cards.media_manager import MediaManager
 from ankiforge.ui.components import GlowLineEdit, PrimaryButton
 from ankiforge.ui.theme import DesignTokens
 from ankiforge.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankiforge.utils.paths import resolve_media_path
+
+
+def _highlight_snippet(content: str, query: str, limit: int = 240) -> str:
+    """Return a short HTML-safe excerpt with query terms highlighted."""
+    text = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL).strip()
+    escaped = html.escape(text)
+    terms = sorted({term for term in query.split() if len(term) > 1}, key=len, reverse=True)
+    if len(text) > limit:
+        match = re.search("|".join(re.escape(term) for term in terms), text, re.IGNORECASE) if terms else None
+        start = max(0, (match.start() if match else 0) - limit // 3)
+        text = f"{'...' if start else ''}{text[start : start + limit].strip()}{'...' if start + limit < len(text) else ''}"
+        escaped = html.escape(text)
+    if not terms:
+        return escaped
+    pattern = re.compile("|".join(re.escape(term) for term in terms), re.IGNORECASE)
+    return pattern.sub(lambda match: f"<mark>{html.escape(match.group(0))}</mark>", escaped)
+
+
+class _RAGResultWidget(QWidget):
+    """Rich result presentation shared by text and visual retrieval results."""
+
+    def __init__(self, result: dict, query: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+
+        location = result.get("heading_path") or f"Section #{result.get('chunk_index', 0) + 1}"
+        channel = result.get("channel", "hybrid")
+        score = result.get("rrf_score", result.get("score", 0.0))
+        header = QLabel(f"<b>📍 {html.escape(str(location))}</b> · Pertinence : {result.get('relevance_pct', 0)}% · Score : {float(score):.6f}")
+        header.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY};")
+        layout.addWidget(header)
+
+        confidence = QProgressBar()
+        confidence.setRange(0, 100)
+        confidence.setValue(int(result.get("relevance_pct", 0)))
+        confidence.setFormat("Confiance %p%")
+        confidence.setFixedHeight(16)
+        layout.addWidget(confidence)
+
+        snippet = QTextBrowser()
+        snippet.setOpenExternalLinks(False)
+        snippet.setMaximumHeight(72)
+        snippet.setHtml(_highlight_snippet(str(result.get("content", "")), query))
+        snippet.setStyleSheet(f"QTextBrowser {{ background: transparent; border: 0; color: {DesignTokens.TEXT_PRIMARY}; }}")
+        layout.addWidget(snippet)
+
+        details = QLabel()
+        if channel == "hybrid":
+            details.setText(f"🧬 RRF {float(result.get('rrf_score', 0.0)):.6f} · FAISS #{result.get('dense_rank', '-')} · BM25 #{result.get('sparse_rank', '-')}")
+        elif channel == "dense_only":
+            details.setText(f"🌌 FAISS #{result.get('dense_rank', '-')} · score {float(result.get('dense_score', 0.0)):.4f}")
+        elif channel == "sparse_only":
+            details.setText(f"🔤 BM25 #{result.get('sparse_rank', '-')} · score {float(result.get('sparse_score', 0.0)):.4f}")
+        else:
+            details.setText("📄 BDD Directe")
+        details.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 10px;")
+        layout.addWidget(details)
+
+        media_filename = result.get("media_filename")
+        if media_filename:
+            image_path = Path(MediaManager().media_dir) / str(media_filename)
+            if not image_path.exists():
+                image_path = resolve_media_path(str(media_filename))
+            if image_path.exists():
+                preview = QLabel()
+                pixmap = QPixmap(str(image_path))
+                if not pixmap.isNull():
+                    preview.setPixmap(pixmap.scaled(96, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                    preview.setToolTip("Image d'origine")
+                    layout.addWidget(preview)
+                open_button = QPushButton("Ouvrir l'image d'origine")
+                open_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(image_path))))
+                layout.addWidget(open_button)
 
 
 class RAGTestDialog(QDialog):
@@ -143,30 +228,9 @@ class RAGTestDialog(QDialog):
                 item_txt = f"📍 {loc}{media_badge}  (Pertinence : {rel_pct}%)  [{badge_info}]\n{content_snippet}"
                 item = QListWidgetItem(item_txt)
 
-                if has_media and media_fn:
-                    from pathlib import Path
-
-                    from PySide6.QtGui import QIcon, QPixmap
-
-                    from ankiforge.services.cards.media_manager import MediaManager
-
-                    img_path = Path(MediaManager().media_dir) / media_fn
-                    if img_path.exists():
-                        pix = QPixmap(str(img_path))
-                        if not pix.isNull():
-                            item.setIcon(
-                                QIcon(
-                                    pix.scaled(
-                                        36,
-                                        36,
-                                        Qt.AspectRatioMode.KeepAspectRatio,
-                                        Qt.TransformationMode.SmoothTransformation,
-                                    )
-                                )
-                            )
-
                 item.setData(Qt.ItemDataRole.UserRole, r)
                 self.results_list.addItem(item)
+                self.results_list.setItemWidget(item, _RAGResultWidget(r, query))
 
         except Exception as e:
             self.results_list.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))

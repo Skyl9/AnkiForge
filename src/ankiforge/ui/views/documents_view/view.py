@@ -63,6 +63,7 @@ from ankiforge.ui.views.documents_view.dialogs import (
     FolderCreateDialog,
     RAGTestDialog,
 )
+from ankiforge.ui.views.documents_view.dialogs.rag_test_dialog import _RAGResultWidget
 from ankiforge.ui.views.documents_view.utils import apply_pill_style
 from ankiforge.ui.views.documents_view.widgets import (
     AlbumViewerWidget,
@@ -2213,6 +2214,7 @@ class DocumentsView(QWidget):
                 item = QListWidgetItem(item_txt)
                 item.setData(Qt.ItemDataRole.UserRole, r)
                 self.rag_sandbox_results.addItem(item)
+                self.rag_sandbox_results.setItemWidget(item, _RAGResultWidget(r, query))
 
         except Exception as e:
             self.rag_sandbox_results.addItem(QListWidgetItem(f"Erreur recherche RAG : {e}"))
