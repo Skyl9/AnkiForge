@@ -25,6 +25,13 @@ Glossaire des termes du domaine. Cette page ne contient **aucun** détail d'impl
 - **Dossier de documents** : conteneur logique permettant de classer et organiser les documents de la bibliothèque par matière, niveau ou thématique.
 - **Chemin hiérarchique (Séparateur `::`)** : convention standard d'Anki et d'AnkiForge séparant les niveaux arborescents (ex: `Faculté::Semestre 1::Biologie`). Chaque segment du chemin constitue un nœud d'arborescence ayant sa propre existence logique et son identité dans le modèle de données.
 - **Sous-dossier** : dossier rattaché à un dossier parent, dont le nom canonique est préfixé par le chemin hiérarchique du parent suivi du séparateur `::`.
+- **Surface documentaire** : ensemble cohérent des interactions permettant de sélectionner, importer, structurer, consulter, délimiter, indexer ou auditer un document. Une surface peut traverser plusieurs vues, widgets et dialogues.
+
+## Architecture de l’interface
+
+- **Vue monolithique** : vue qui combine dans une même unité la composition visuelle, la coordination d’état, les opérations métier et la gestion des workers, au point de rendre ses parcours difficiles à isoler.
+- **Widget de section** : composant d’interface qui encapsule un parcours cohérent avec son état local, ses signaux et ses règles de validation, plutôt qu’un simple fragment visuel.
+- **Tranche de refactoring** : étape livrable qui extrait et teste une responsabilité d’une vue sans modifier le comportement observable des autres parcours.
 
 ## Protocole MCP & Agents externes
 
