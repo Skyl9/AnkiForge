@@ -221,6 +221,17 @@ class OpenFeedbackRequestedEvent(AppEvent):
     context_error: str = ""
 
 
+# MCP Server Events
+@dataclass(frozen=True)
+class MCPDataMutatedEvent(AppEvent):
+    """Événement émis lors d'une mutation de données par un agent externe via le protocole MCP."""
+
+    mutation_type: str = ""  # "card", "split", "model", "css"
+    target_id: int = 0
+    target_name: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AppEventBus Singleton & Dispatcher
 # ─────────────────────────────────────────────────────────────────────────────
@@ -257,6 +268,7 @@ _EVENT_NAME_ALIASES: dict[str, type[AppEvent]] = {
     "persona_updated": PersonaUpdatedEvent,
     "persona_deleted": PersonaDeletedEvent,
     "setting_changed": SettingChangedEvent,
+    "mcp_data_mutated": MCPDataMutatedEvent,
     "open_consultant_requested": OpenConsultantRequestedEvent,
     "open_feedback_requested": OpenFeedbackRequestedEvent,
 }

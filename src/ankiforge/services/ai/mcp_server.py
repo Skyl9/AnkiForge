@@ -1,5 +1,7 @@
 import json
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
@@ -8,9 +10,48 @@ from ankiforge.services.ai.consultant_engine import ConsultantToolRegistry
 from ankiforge.services.ai.rag_service import RAGService
 from ankiforge.utils.jinja_sandbox import create_prompt_environment
 
-__all__ = ["mcp", "run_server"]
+__all__ = ["mcp", "register_mutation_listener", "run_server", "unregister_mutation_listener"]
 
 logger = logging.getLogger(__name__)
+
+# Écouteurs de mutations externes appliquées via les outils MCP
+_mutation_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+
+def register_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Enregistre un écouteur de mutation de données via MCP."""
+    if callback not in _mutation_listeners:
+        _mutation_listeners.append(callback)
+
+
+def unregister_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Retire un écouteur de mutation."""
+    if callback in _mutation_listeners:
+        _mutation_listeners.remove(callback)
+
+
+def _notify_mcp_mutation(data: dict[str, Any]) -> None:
+    """Notifie les écouteurs enregistrés et le bus d'événements central."""
+    from ankiforge.utils.event_bus import MCPDataMutatedEvent, event_bus
+
+    try:
+        event_bus.publish(
+            MCPDataMutatedEvent(
+                mutation_type=str(data.get("type", "")),
+                target_id=int(data.get("target_id") or data.get("parent_note_id") or data.get("note_id") or 0),
+                target_name=str(data.get("note_type_name", "")),
+                details=data,
+            )
+        )
+    except Exception as e:
+        logger.debug("Erreur publication event_bus MCPDataMutatedEvent : %s", e)
+
+    for listener in list(_mutation_listeners):
+        try:
+            listener(data)
+        except Exception as e:
+            logger.warning("Erreur dans l'écouteur de mutation MCP : %s", e)
+
 
 # Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
 _PROMPT_ENV = create_prompt_environment()
@@ -59,7 +100,7 @@ def apply_patch(
     explanation: str = "",
 ) -> str:
     """Applique un patch validé sur une note, scission, modèle ou CSS en base SQLite avec rollback versionné."""
-    return ConsultantToolRegistry.apply_patch(
+    result = ConsultantToolRegistry.apply_patch(
         patch_json=patch_json,
         patch_type=patch_type,
         target_id=target_id,
@@ -67,6 +108,13 @@ def apply_patch(
         patch_data_json=patch_data_json,
         explanation=explanation,
     )
+    try:
+        data = json.loads(result)
+        if isinstance(data, dict) and data.get("status") == "applied":
+            _notify_mcp_mutation(data)
+    except Exception as e:
+        logger.debug("Erreur analyse résultat apply_patch : %s", e)
+    return result
 
 
 @mcp.tool()

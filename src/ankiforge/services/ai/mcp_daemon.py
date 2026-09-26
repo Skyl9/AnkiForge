@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from PySide6.QtCore import QObject, Signal
 from starlette.responses import PlainTextResponse
 
 if TYPE_CHECKING:
@@ -180,6 +181,14 @@ class BearerAuthMiddleware:
         await self.app(scope, receive, send)
 
 
+class MCPServerSignals(QObject):
+    """Signaux Qt émis par le daemon MCP pour notifier l'interface graphique."""
+
+    mcp_data_mutated = Signal(dict)
+    server_started = Signal(int)
+    server_stopped = Signal()
+
+
 class MCPServerDaemon:
     """
     Gestionnaire de cycle de vie du serveur MCP AnkiForge en arrière-plan.
@@ -199,6 +208,9 @@ class MCPServerDaemon:
     ) -> None:
         from ankiforge.utils.paths import get_app_data_dir
 
+        self.signals = MCPServerSignals()
+        self.mcp_data_mutated = self.signals.mcp_data_mutated
+
         self._mcp_server = mcp_server
         self._host = host
         self._base_port = base_port
@@ -212,6 +224,13 @@ class MCPServerDaemon:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._is_running: bool = False
         self._lock = threading.Lock()
+
+    def _on_mutation_received(self, data: dict[str, Any]) -> None:
+        """Relaye la notification de mutation vers les écouteurs Qt via Signal."""
+        try:
+            self.signals.mcp_data_mutated.emit(data)
+        except Exception as e:
+            logger.debug("Exception émission mcp_data_mutated : %s", e)
 
     @property
     def is_running(self) -> bool:
@@ -352,6 +371,11 @@ class MCPServerDaemon:
                         pid=os.getpid(),
                     )
 
+                    from ankiforge.services.ai.mcp_server import register_mutation_listener
+
+                    register_mutation_listener(self._on_mutation_received)
+                    self.signals.server_started.emit(port)
+
                     logger.info("Daemon MCP AnkiForge opérationnel sur %s (port %d).", self.sse_url, port)
                     return True
 
@@ -372,6 +396,10 @@ class MCPServerDaemon:
                 return
 
             logger.info("Arrêt du daemon MCP AnkiForge en cours...")
+
+            from ankiforge.services.ai.mcp_server import unregister_mutation_listener
+
+            unregister_mutation_listener(self._on_mutation_received)
 
             # 1. Fermeture des sessions clientes actives (annulation des tâches SSE dans l'event loop)
             if self._loop is not None and self._loop.is_running():
@@ -404,6 +432,7 @@ class MCPServerDaemon:
             self._thread = None
             self._loop = None
 
+            self.signals.server_stopped.emit()
             logger.info("Daemon MCP arrêté avec succès.")
 
     def __enter__(self) -> MCPServerDaemon:
