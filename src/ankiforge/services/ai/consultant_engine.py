@@ -477,8 +477,9 @@ class ConsultantToolRegistry:
                 except Exception:
                     fields_schema = [nt.fields_schema]
 
-            staged_payload = {
-                "status": "staged_diff",
+            from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+            patch_diff = {
                 "type": "card",
                 "note_id": note.id,
                 "model_name": model_name,
@@ -488,6 +489,26 @@ class ConsultantToolRegistry:
                 "modified": new_dict,
                 "explanation": explanation or "Amélioration de la clarté et concision.",
                 "metadata": {"note_id": note.id, "model_name": model_name},
+            }
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="card",
+                target_id=note.id,
+                original_version_id=active_v.id if active_v else None,
+                diff_payload=patch_diff,
+            )
+
+            staged_payload = {
+                "status": "staged_diff",
+                "patch_id": patch.patch_id,
+                "type": "card",
+                "note_id": note.id,
+                "model_name": model_name,
+                "fields_schema": fields_schema,
+                "title": f"Proposition de Refactorisation — Note #{note.id} ({model_name})",
+                "original": orig_dict,
+                "modified": new_dict,
+                "explanation": explanation or "Amélioration de la clarté et concision.",
+                "metadata": {"note_id": note.id, "model_name": model_name, "patch_id": patch.patch_id},
             }
 
             return json.dumps(staged_payload, ensure_ascii=False, indent=2)
@@ -515,8 +536,9 @@ class ConsultantToolRegistry:
 
             new_cards = robust_json_loads(new_cards_json) if isinstance(new_cards_json, str) else new_cards_json
 
-            staged_payload = {
-                "status": "staged_diff",
+            from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+            patch_diff = {
                 "type": "split",
                 "note_id": note.id,
                 "title": f"Proposition de Scission Atomique — Note #{note.id}",
@@ -524,11 +546,40 @@ class ConsultantToolRegistry:
                 "modified": new_cards,
                 "explanation": explanation or f"Scission en {len(new_cards)} cartes atomiques (Règle d'atomicité Wozniak).",
             }
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="split",
+                target_id=note.id,
+                original_version_id=active_v.id if active_v else None,
+                diff_payload=patch_diff,
+            )
+
+            staged_payload = {
+                "status": "staged_diff",
+                "patch_id": patch.patch_id,
+                "type": "split",
+                "note_id": note.id,
+                "title": f"Proposition de Scission Atomique — Note #{note.id}",
+                "original": orig_dict,
+                "modified": new_cards,
+                "explanation": explanation or f"Scission en {len(new_cards)} cartes atomiques (Règle d'atomicité Wozniak).",
+                "metadata": {"note_id": note.id, "patch_id": patch.patch_id},
+            }
 
             return json.dumps(staged_payload, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error("Erreur propose_card_split : %s", e)
             return f"Erreur lors de la préparation de la scission : {e}"
+
+    @staticmethod
+    def preview_and_apply_patch(patch_id: str) -> str:
+        """
+        Valide et applique un patch chirurgical en attente (Two-Phase Commit)
+        après vérification optimiste de l'intégrité de version.
+        """
+        from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        result = StagedPatchRegistry.apply_staged_patch(patch_id.strip())
+        return json.dumps(result, ensure_ascii=False, indent=2)
 
     @staticmethod
     def apply_patch(
@@ -544,12 +595,19 @@ class ConsultantToolRegistry:
         Prend en charge les types : 'card', 'split', 'model', 'css'.
         """
         try:
+            if patch_json and isinstance(patch_json, str) and patch_json.strip().startswith("patch_"):
+                return ConsultantToolRegistry.preview_and_apply_patch(patch_json.strip())
+
             parsed_patch: dict[str, Any] = {}
             if patch_json and patch_json.strip():
                 try:
                     loaded = robust_json_loads(patch_json)
                     if isinstance(loaded, dict):
                         parsed_patch = loaded
+                        if "patch_id" in parsed_patch and len(parsed_patch) <= 2:
+                            p_id = str(parsed_patch.get("patch_id", "")).strip()
+                            if p_id:
+                                return ConsultantToolRegistry.preview_and_apply_patch(p_id)
                 except Exception:
                     pass
 
@@ -1729,6 +1787,20 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "preview_and_apply_patch",
+            "description": "Valide et applique un patch chirurgical en attente via son patch_id (Two-Phase Commit) après vérification optimiste.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "patch_id": {"type": "string", "description": "Identifiant unique du patch (ex: 'patch_4b84720930')"},
+                },
+                "required": ["patch_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_css_tune",
             "description": "Propose un ajustement CSS pour un modèle de carte avec aperçu live avant enregistrement en BDD.",
             "parameters": {
@@ -2177,6 +2249,9 @@ class ConsultantEngine:
                 nc_json = tool_args.get("new_cards_json", "[]")
                 expl = tool_args.get("explanation", "")
                 return ConsultantToolRegistry.propose_card_split(n_id, nc_json, expl), False
+            elif tool_name == "preview_and_apply_patch":
+                p_id = str(tool_args.get("patch_id", "")).strip()
+                return ConsultantToolRegistry.preview_and_apply_patch(p_id), False
             elif tool_name == "apply_patch":
                 p_json = tool_args.get("patch_json", "")
                 p_type = tool_args.get("patch_type", "")

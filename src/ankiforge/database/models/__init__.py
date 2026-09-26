@@ -20,6 +20,7 @@ from ankiforge.database.models.ai import (
     PersonaModel,
     PersonaVersionModel,
     PromptModel,
+    StagedPatchModel,
 )
 from ankiforge.database.models.audit import (
     AuditRecordModel,
@@ -77,6 +78,7 @@ ALL_MODELS = [
     PersonaVersionModel,
     ConsultantSessionModel,
     ConsultantMessageModel,
+    StagedPatchModel,
     PipelineModel,
     PipelineRunModel,
     PipelineStepModel,
@@ -123,6 +125,7 @@ __all__ = [
     "PersonaVersionModel",
     "ConsultantSessionModel",
     "ConsultantMessageModel",
+    "StagedPatchModel",
     # Batch Factory
     "BatchRunModel",
     "BatchTaskModel",

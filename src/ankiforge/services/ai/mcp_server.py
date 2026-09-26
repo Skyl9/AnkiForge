@@ -118,6 +118,12 @@ def apply_patch(
 
 
 @mcp.tool()
+def preview_and_apply_patch(patch_id: str) -> str:
+    """Valide et applique un patch chirurgical en attente (Two-Phase Commit) avec vérification de version optimiste."""
+    return ConsultantToolRegistry.preview_and_apply_patch(patch_id)
+
+
+@mcp.tool()
 def propose_css_tune(note_type_name: str, css_snippet: str, selector: str = "") -> str:
     """Propose un ajustement CSS pour un modèle de carte avec aperçu live avant enregistrement."""
     return ConsultantToolRegistry.propose_css_tune(note_type_name, css_snippet, selector)

@@ -191,3 +191,19 @@ class ConsultantMessageModel(BaseModel):
 
     class Meta:
         table_name = "consultant_messages"
+
+
+class StagedPatchModel(BaseModel):
+    """Patch chirurgical en attente de validation humaine (Two-Phase Commit)."""
+
+    patch_id = CharField(unique=True, index=True)
+    patch_type = CharField()  # "card", "split", "css", "model"
+    target_id = IntegerField(default=0)
+    original_version_id = IntegerField(null=True)
+    diff_payload = TextField()  # JSON sérialisé
+    status = CharField(default="pending", index=True)  # "pending", "applied", "rejected"
+    created_at = DateTimeField(default=datetime.datetime.now)
+    applied_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = "staged_patches"

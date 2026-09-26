@@ -15,6 +15,7 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
+    db,
 )
 from ankiforge.ui.views.consultant_view.widgets.inline_diff_card_widget import InlineDiffCardWidget
 from ankiforge.ui.views.consultant_view.widgets.mention_completer import MentionCompleter
@@ -502,3 +503,84 @@ def test_inline_diff_card_already_applied_db_detection(qtbot):
     # En unification totale sans ratures
     assert "line-through" not in card.field_widgets[0].diff_label.text()
     assert "Version Déjà Unifiée" in card.field_widgets[0].diff_label.text()
+
+
+def test_inline_diff_card_staged_patch_lifecycle(qtbot):
+    """Vérifie l'application et le rejet d'un StagedPatch réel via les boutons de l'IHM."""
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_Staged_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    note = NoteModel.create(guid=f"g_staged_{uid}", note_type=nt)
+    v1 = NoteVersionModel.create(note=note, version_number=1, content=json.dumps({"Front": "Question 1"}), is_active=True)
+
+    patch_obj = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        original_version_id=v1.id,
+        diff_payload={
+            "type": "card",
+            "note_id": note.id,
+            "original": {"Front": "Question 1"},
+            "modified": {"Front": "Question 1 Améliorée"},
+        },
+    )
+
+    patch_data = {
+        "patch_id": patch_obj.patch_id,
+        "type": "card",
+        "note_id": note.id,
+        "original": {"Front": "Question 1"},
+        "modified": {"Front": "Question 1 Améliorée"},
+    }
+
+    card = InlineDiffCardWidget(patch_data)
+    qtbot.addWidget(card)
+
+    assert "En attente" in card.status_badge.text()
+    with qtbot.waitSignal(card.applied, timeout=1000):
+        card.btn_apply.click()
+
+    assert "Appliqué en BDD" in card.status_badge.text()
+    assert card.btn_reject.isEnabled() is False
+
+    # Vérification BDD du statut du patch
+    p_refetched = StagedPatchRegistry.get_patch(patch_obj.patch_id)
+    assert p_refetched.status == "applied"
+
+
+def test_inline_diff_card_staged_patch_conflict(qtbot):
+    """Vérifie qu'un conflit de version désactive l'application et alerte l'utilisateur."""
+    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    uid = uuid.uuid4().hex[:6]
+    nt = NoteTypeModel.create(name=f"NT_StagedConf_{uid}", fields_schema='["Front", "Back"]', templates="[]", css_style="")
+    note = NoteModel.create(guid=f"g_staged_conf_{uid}", note_type=nt)
+    v1 = NoteVersionModel.create(note=note, version_number=1, content=json.dumps({"Front": "Question 1"}), is_active=True)
+
+    patch_obj = StagedPatchRegistry.create_patch(
+        patch_type="card",
+        target_id=note.id,
+        original_version_id=v1.id,
+        diff_payload={"Front": "New text"},
+    )
+
+    # Modification concurrente
+    with db.atomic():
+        v1.is_active = False
+        v1.save()
+        NoteVersionModel.create(note=note, version_number=2, content=json.dumps({"Front": "Interfered"}), is_active=True)
+
+    patch_data = {
+        "patch_id": patch_obj.patch_id,
+        "type": "card",
+        "note_id": note.id,
+        "original": {"Front": "Question 1"},
+        "modified": {"Front": "New text"},
+    }
+
+    card = InlineDiffCardWidget(patch_data)
+    qtbot.addWidget(card)
+
+    card.btn_apply.click()
+    assert "Conflit de version" in card.status_badge.text()

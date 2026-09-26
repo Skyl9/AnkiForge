@@ -822,8 +822,50 @@ class InlineDiffCardWidget(QFrame):
         p_type = self.patch_data.get("type", "card")
         metadata = self.patch_data.get("metadata", {})
         note_id = self.patch_data.get("note_id") or metadata.get("note_id")
+        patch_id = self.patch_data.get("patch_id") or metadata.get("patch_id")
 
         try:
+            if patch_id:
+                from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+                staged_patch = StagedPatchRegistry.get_patch(str(patch_id))
+                if staged_patch and staged_patch.status == "pending":
+                    # Si l'utilisateur a modifié des champs en direct dans l'IHM
+                    if p_type == "card" and self.field_widgets:
+                        staged_modified: dict[str, Any] = {}
+                        for fw in self.field_widgets:
+                            staged_modified[fw.field_name] = fw.get_current_value()
+                        try:
+                            p_data = json.loads(staged_patch.diff_payload) if isinstance(staged_patch.diff_payload, str) else staged_patch.diff_payload
+                        except Exception:
+                            p_data = {}
+                        p_data["modified"] = staged_modified
+                        staged_patch.diff_payload = json.dumps(p_data, ensure_ascii=False)
+                        staged_patch.save()
+
+                    result = StagedPatchRegistry.apply_staged_patch(str(patch_id))
+                    if result.get("status") == "conflict":
+                        show_toast(self, result.get("message", "Conflit de version détecté."), is_error=True)
+                        self.status_badge.setText("⚠️ Conflit de version")
+                        return
+                    elif result.get("status") == "applied":
+                        self.is_applied = True
+                        self.patch_data["is_applied"] = True
+                        self.status_badge.setText("✅ Appliqué en BDD")
+                        self.btn_apply.setText("Annuler (Revert)")
+                        self.btn_apply.setIcon(load_phosphor_icon("ph.arrow-u-up-left", color=DesignTokens.COLOR_YELLOW))
+                        try:
+                            self.btn_apply.clicked.disconnect()
+                        except RuntimeError:
+                            pass
+                        self.btn_apply.clicked.connect(self._on_revert_clicked)
+                        self.btn_reject.setEnabled(False)
+                        for fw in self.field_widgets:
+                            fw.set_applied(True)
+                        self.applied.emit(f"Patch {patch_id} appliqué")
+                        show_toast(self, result.get("message", f"Patch #{patch_id} appliqué !"))
+                        return
+
             if p_type == "css":
                 model_name = metadata.get("note_type_name", "")
                 snippet = metadata.get("snippet", str(self.patch_data.get("modified", "")))
@@ -988,6 +1030,13 @@ class InlineDiffCardWidget(QFrame):
     @Slot()
     def _on_reject_clicked(self) -> None:
         """Rejette la proposition inline."""
+        metadata = self.patch_data.get("metadata", {})
+        patch_id = self.patch_data.get("patch_id") or metadata.get("patch_id")
+        if patch_id:
+            from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+
+            StagedPatchRegistry.reject_staged_patch(str(patch_id), reason="Rejet utilisateur IHM")
+
         self.status_badge.setText("❌ Rejeté")
         self.btn_apply.setEnabled(False)
         self.btn_reject.setEnabled(False)
