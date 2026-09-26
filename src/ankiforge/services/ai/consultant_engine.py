@@ -72,6 +72,12 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "2. Tu peux consulter les modèles via `list_note_types` et `get_note_type_details`.\n"
     "3. Tu peux faire évoluer un modèle (CSS, templates, nouveaux champs) via `propose_note_type_refactor` ou `propose_css_tune`.\n"
     "\n"
+    "### RÈGLES D'OR SUR LE RAG ET LES CITATIONS DÉTERMINISTES :\n"
+    "1. Si l'utilisateur demande des explications ou la création/refactorisation de cartes basées sur des cours,\n"
+    "   utilise `search_knowledge_context` pour extraire les faits authentiques.\n"
+    "2. Inclus toujours la citation normalisée dans tes réponses (ex: `[Source: Titre | p.X | Section]`).\n"
+    "3. Injecte impérativement les tags de provenance déterministes dans toute proposition de carte (ex: `#doc:ID #source:SLUG #page:NUM #section:SLUG`).\n"
+    "\n"
     "### MODE D'APPEL DES OUTILS :\n"
     "1. Utilise les appels d'outils natifs (tool_calling) si ton API le supporte.\n"
     "2. N'invoque STRICTEMENT QUE les outils listés ci-dessus comme disponibles et autorisés.\n"
@@ -1679,6 +1685,133 @@ class ConsultantToolRegistry:
             return f"Erreur lors de la recherche documentaire : {e}"
 
     @staticmethod
+    def search_knowledge_context(query: str, max_chunks: int = 5) -> str:
+        """
+        Interroge la bibliothèque documentaire locale via RAGService (FAISS / BM25 / RRF)
+        et extrait les passages les plus pertinents avec citations normalisées et tags déterministes.
+        """
+        try:
+            from ankiforge.services.ai.rag_service import RAGService
+            from ankiforge.utils.tags import build_provenance_tags, clean_source_slug
+
+            q_clean = query.strip()
+            if not q_clean:
+                return "Veuillez fournir une requête de recherche textuelle non vide."
+
+            docs = list(DocumentModel.select())
+            if not docs:
+                return "Aucun document n'est actuellement indexé dans la bibliothèque locale."
+
+            llm_config = LLMConfigModel.select().first()
+            rag = RAGService(llm_config=llm_config)
+
+            all_candidates: list[dict[str, Any]] = []
+            for d in docs:
+                try:
+                    results = rag.search(doc_id=d.id, query=q_clean, top_k=max_chunks)
+                except Exception as e:
+                    logger.debug("Erreur rag.search sur doc %s : %s", d.id, e)
+                    results = []
+
+                for r in results:
+                    if isinstance(r, dict):
+                        content = str(r.get("content") or r.get("page_content") or "").strip()
+                        p_num = r.get("page_number")
+                        h_path = str(r.get("heading_path") or "").strip()
+                        score = float(r.get("score") or r.get("rrf_score") or r.get("dense_score") or 0.0)
+                        c_id = r.get("chunk_id")
+                    else:
+                        content = str(getattr(r, "page_content", getattr(r, "text", str(r)))).strip()
+                        p_num = getattr(r, "page_number", None)
+                        h_path = str(getattr(r, "heading_path", "")).strip()
+                        score = float(getattr(r, "score", 0.0))
+                        c_id = getattr(r, "chunk_id", None)
+
+                    if not content:
+                        continue
+
+                    sec_slug = None
+                    if h_path:
+                        leaf = h_path.split(">")[-1].strip()
+                        sec_slug = clean_source_slug(leaf)
+
+                    all_candidates.append(
+                        {
+                            "doc_id": d.id,
+                            "doc_title": d.title,
+                            "page_number": p_num,
+                            "heading_path": h_path,
+                            "section_slug": sec_slug,
+                            "chunk_id": c_id,
+                            "score": score,
+                            "content": content,
+                        }
+                    )
+
+            if not all_candidates:
+                return f"Aucun passage pertinent trouvé dans la bibliothèque locale pour la requête '{query}'."
+
+            # Tri par score de pertinence décroissant
+            all_candidates.sort(key=lambda x: x["score"], reverse=True)
+            top_chunks = all_candidates[: max(1, max_chunks)]
+
+            formatted_lines: list[str] = []
+            json_data: list[dict[str, Any]] = []
+
+            for c in top_chunks:
+                parts = [f"Source: {c['doc_title']}"]
+                p_val = c["page_number"]
+                p_int = None
+                if p_val is not None:
+                    try:
+                        p_int = int(p_val)
+                        if p_int > 0:
+                            parts.append(f"p.{p_int}")
+                    except (ValueError, TypeError):
+                        pass
+
+                if c["section_slug"]:
+                    parts.append(str(c["section_slug"]))
+                citation = f"[{' | '.join(parts)}]"
+
+                prov_tags = build_provenance_tags(
+                    doc_id=c["doc_id"],
+                    doc_title=c["doc_title"],
+                    page_number=p_int,
+                    section_name=c["section_slug"],
+                    chunk_id=c["chunk_id"],
+                )
+
+                formatted_lines.append(f"### {citation}\n> {c['content']}\n*(Métadonnées : doc_id={c['doc_id']} | score={c['score']:.3f} | tags_suggérés={' '.join(prov_tags)})*")
+
+                json_data.append(
+                    {
+                        "doc_id": c["doc_id"],
+                        "doc_title": c["doc_title"],
+                        "page_number": c["page_number"],
+                        "section_slug": c["section_slug"],
+                        "similarity_score": round(c["score"], 4),
+                        "citation": citation,
+                        "suggested_tags": prov_tags,
+                        "text": c["content"],
+                    }
+                )
+
+            return (
+                f"📚 Contexte Documentaire RAG ({len(top_chunks)} fragments extraits pour '{query}') :\n\n"
+                + "\n\n".join(formatted_lines)
+                + "\n\n### FRAGMENTS STRUCTURÉS (JSON) :\n"
+                + json.dumps(json_data, ensure_ascii=False, indent=2)
+                + (
+                    "\n\n💡 Consigne Consultant : Cite systématiquement la source correspondante et "
+                    "intègre les tags de traçabilité suggérés (ex: `doc:ID`, `source:SLUG`, `page:NUM`) dans toute proposition de carte."
+                )
+            )
+        except Exception as e:
+            logger.error("Erreur search_knowledge_context : %s", e)
+            return f"Erreur lors de la recherche dans le contexte documentaire : {e}"
+
+    @staticmethod
     def analyze_coverage_gaps(deck_name: str, document_title: str = "") -> str:
         """Analyse de couverture (Smart Coverage) : compare les cartes d'un paquet avec un document source pour lister les lacunes."""
         try:
@@ -2483,6 +2616,23 @@ DEFAULT_CONSULTANT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_knowledge_context",
+            "description": (
+                "Interroge la bibliothèque documentaire locale via RAG (FAISS / BM25) pour extraire les passages de cours pertinents avec citations normalisées et tags de traçabilité obligatoires."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Requête de recherche sémantique ou conceptuelle"},
+                    "max_chunks": {"type": "integer", "description": "Nombre maximum de fragments à retourner (défaut: 5)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -2761,6 +2911,10 @@ class ConsultantEngine:
                 q = tool_args.get("query", "")
                 inst = tool_args.get("instruction", "")
                 return ConsultantToolRegistry.refactor_cards_by_criteria(q, inst), False
+            elif tool_name == "search_knowledge_context":
+                q = tool_args.get("query", "")
+                m_chunks = int(tool_args.get("max_chunks", 5))
+                return ConsultantToolRegistry.search_knowledge_context(q, max_chunks=m_chunks), False
             elif tool_name in MCPHooksAPI.get_registered_tools():
                 plugin_tool = MCPHooksAPI.get_registered_tools()[tool_name]
                 handler = plugin_tool["handler"]

@@ -195,3 +195,7 @@ def build_document_tags(
                 tags.append(t_clean)
 
     return tags
+
+
+# Alias de rétro-compatibilité et clarté sémantique RAG
+build_provenance_tags = build_document_tags

@@ -160,6 +160,12 @@ def refactor_cards_by_criteria(query: str, instruction: str = "") -> str:
 
 
 @mcp.tool()
+def search_knowledge_context(query: str, max_chunks: int = 5) -> str:
+    """Interroge la bibliothèque documentaire locale via RAG pour extraire des passages avec citations et tags de traçabilité."""
+    return ConsultantToolRegistry.search_knowledge_context(query, max_chunks=max_chunks)
+
+
+@mcp.tool()
 def get_note_full_profile_360(note_id: int) -> str:
     """Génère le profil complet 360° d'une note (cartes, historique Time Machine, stats SRS, tags)."""
     return ConsultantToolRegistry.get_note_full_profile_360(note_id)
